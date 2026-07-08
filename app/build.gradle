@@ -1,0 +1,14 @@
+apply plugin: "com.android.application"
+
+android {
+    namespace "com.yeonsik.fitnessapp"
+    compileSdk 36
+
+    defaultConfig {
+        applicationId "com.yeonsik.fitnessapp"
+        minSdk 26
+        targetSdk 36
+        versionCode 1
+        versionName "0.1.0"
+    }
+}
