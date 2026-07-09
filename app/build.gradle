@@ -1,5 +1,13 @@
 apply plugin: "com.android.application"
 
+def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")
+
+tasks.register("copyExerciseMasterAssets", Copy) {
+    from(rootProject.file("Fitness_Index.json"))
+    from(rootProject.file("Fitness_Weight.json"))
+    into(exerciseMasterAssetsDir)
+}
+
 android {
     namespace "com.yeonsik.fitnessapp"
     compileSdk 36
@@ -11,4 +19,14 @@ android {
         versionCode 1
         versionName "0.1.0"
     }
+
+    sourceSets {
+        main {
+            assets.srcDir(exerciseMasterAssetsDir)
+        }
+    }
+}
+
+tasks.named("preBuild").configure {
+    dependsOn("copyExerciseMasterAssets")
 }

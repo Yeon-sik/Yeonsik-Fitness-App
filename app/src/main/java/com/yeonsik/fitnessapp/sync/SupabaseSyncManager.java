@@ -27,11 +27,12 @@ import java.util.List;
 
 public final class SupabaseSyncManager {
     private static final List<String> TABLES = Arrays.asList(
-            "workout_sessions",
+            "devices",
+            "workout_records",
             "workout_exercises",
             "workout_sets",
-            "body_metrics",
-            "meals"
+            "meal_records",
+            "weight_records"
     );
 
     private final FitnessDatabaseHelper dbHelper;
@@ -70,7 +71,7 @@ public final class SupabaseSyncManager {
         }
 
         String endpoint = joinUrl(config.supabaseUrl,
-                "/rest/v1/" + table + "?on_conflict=id");
+                "/rest/v1/" + table + "?on_conflict=" + conflictTarget(table));
         HttpURLConnection connection = openConnection(endpoint, "POST", config);
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setRequestProperty("Prefer", "resolution=merge-duplicates,return=minimal");
@@ -108,6 +109,16 @@ public final class SupabaseSyncManager {
                     int index = cursor.getColumnIndexOrThrow(column);
                     if (cursor.isNull(index)) {
                         object.put(column, JSONObject.NULL);
+                        continue;
+                    }
+
+                    if ("is_completed".equals(column)) {
+                        object.put(column, cursor.getInt(index) == 1);
+                        continue;
+                    }
+
+                    if ("metadata".equals(column) && cursor.getType(index) == Cursor.FIELD_TYPE_STRING) {
+                        object.put(column, new JSONObject(cursor.getString(index)));
                         continue;
                     }
 
@@ -175,6 +186,13 @@ public final class SupabaseSyncManager {
             }
         }
         return columns;
+    }
+
+    private String conflictTarget(String table) {
+        if ("devices".equals(table)) {
+            return "user_id,id";
+        }
+        return "id";
     }
 
     private HttpURLConnection openConnection(String endpoint, String method, SupabaseConfig config) throws IOException {
