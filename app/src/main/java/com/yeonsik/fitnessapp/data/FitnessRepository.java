@@ -119,6 +119,14 @@ public final class FitnessRepository {
     }
 
     public String addSet(String recordId, String exerciseId, int setIndex, double weightKg, int reps, boolean completed) {
+        return addSet(recordId, exerciseId, setIndex, weightKg, reps, null, completed);
+    }
+
+    public String addSet(String recordId, String exerciseId, int setIndex, double weightKg, int reps, Integer rpe, boolean completed) {
+        return addSet(recordId, exerciseId, setIndex, weightKg, reps, rpe, null, completed);
+    }
+
+    public String addSet(String recordId, String exerciseId, int setIndex, double weightKg, int reps, Integer rpe, Integer restSeconds, boolean completed) {
         String id = newId();
         String now = now();
         ContentValues values = baseValues(id, now);
@@ -130,18 +138,149 @@ public final class FitnessRepository {
         values.put("volume_kg", weightKg * reps);
         values.putNull("duration_seconds");
         values.putNull("distance_meters");
-        values.putNull("rest_seconds");
+        if (restSeconds == null) {
+            values.putNull("rest_seconds");
+        } else {
+            values.put("rest_seconds", Math.max(0, restSeconds));
+        }
         values.putNull("assisted_weight_kg");
         values.putNull("added_weight_kg");
         values.put("is_completed", completed ? 1 : 0);
-        values.putNull("rpe");
+        if (rpe == null) {
+            values.putNull("rpe");
+        } else {
+            values.put("rpe", rpe);
+        }
         values.putNull("memo");
         db().insertOrThrow("workout_sets", null, values);
         updateSessionTotalVolume(recordId);
         return id;
     }
 
+    public void updateSet(String recordId, String setId, double weightKg, int reps, Integer rpe, boolean completed) {
+        updateSet(recordId, setId, weightKg, reps, rpe, null, completed);
+    }
+
+    public void updateSet(String recordId, String setId, double weightKg, int reps, Integer rpe, Integer restSeconds, boolean completed) {
+        if (emptyToNull(recordId) == null || emptyToNull(setId) == null) {
+            return;
+        }
+
+        ContentValues values = new ContentValues();
+        values.put("weight_kg", weightKg);
+        values.put("target_reps", reps);
+        values.put("actual_reps", reps);
+        values.put("volume_kg", weightKg * reps);
+        if (rpe == null) {
+            values.putNull("rpe");
+        } else {
+            values.put("rpe", rpe);
+        }
+        if (restSeconds == null) {
+            values.putNull("rest_seconds");
+        } else {
+            values.put("rest_seconds", Math.max(0, restSeconds));
+        }
+        values.put("is_completed", completed ? 1 : 0);
+        values.put("updated_at", now());
+        db().update("workout_sets", values, "id = ? AND deleted_at IS NULL", new String[]{setId});
+        updateSessionTotalVolume(recordId);
+    }
+
+    public void deleteSet(String recordId, String setId) {
+        if (emptyToNull(recordId) == null || emptyToNull(setId) == null) {
+            return;
+        }
+
+        String now = now();
+        ContentValues values = new ContentValues();
+        values.put("deleted_at", now);
+        values.put("updated_at", now);
+        db().update("workout_sets", values, "id = ? AND deleted_at IS NULL", new String[]{setId});
+        updateSessionTotalVolume(recordId);
+    }
+
+    public void deleteExercise(String recordId, String workoutExerciseId) {
+        if (emptyToNull(recordId) == null || emptyToNull(workoutExerciseId) == null) {
+            return;
+        }
+
+        String now = now();
+        ContentValues values = new ContentValues();
+        values.put("deleted_at", now);
+        values.put("updated_at", now);
+        db().update("workout_sets", values, "workout_exercise_id = ? AND deleted_at IS NULL", new String[]{workoutExerciseId});
+        db().update("workout_exercises", values, "id = ? AND deleted_at IS NULL", new String[]{workoutExerciseId});
+        updateSessionTotalVolume(recordId);
+    }
+
+    public List<SessionSetEntry> setsForExercise(String workoutExerciseId) {
+        List<SessionSetEntry> rows = new ArrayList<>();
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, set_index, COALESCE(weight_kg, 0), COALESCE(actual_reps, 0), rpe, rest_seconds, is_completed FROM workout_sets " +
+                        "WHERE workout_exercise_id = ? AND deleted_at IS NULL ORDER BY set_index",
+                new String[]{workoutExerciseId})) {
+            while (cursor.moveToNext()) {
+                rows.add(new SessionSetEntry(
+                        cursor.getString(0),
+                        cursor.getInt(1),
+                        cursor.getDouble(2),
+                        cursor.getInt(3),
+                        cursor.isNull(4) ? null : cursor.getInt(4),
+                        cursor.isNull(5) ? null : cursor.getInt(5),
+                        cursor.getInt(6) == 1
+                ));
+            }
+        }
+        return rows;
+    }
+
+    public SessionSetEntry lastSetForExercise(String workoutExerciseId) {
+        List<SessionSetEntry> sets = setsForExercise(workoutExerciseId);
+        return sets.isEmpty() ? null : sets.get(sets.size() - 1);
+    }
+
+    public SessionInfo sessionInfo(String recordId) {
+        SessionInfo info = new SessionInfo();
+        if (emptyToNull(recordId) == null) {
+            return info;
+        }
+
+        try (Cursor cursor = db().rawQuery(
+                "SELECT exercise_name, date, duration_seconds, metadata FROM workout_records WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+                new String[]{recordId})) {
+            if (cursor.moveToFirst()) {
+                info.title = emptyToDefault(cursor.getString(0), "");
+                info.date = emptyToDefault(cursor.getString(1), "");
+                String metadata = cursor.getString(3);
+                info.startedAt = metadataValue(metadata, "started_at", "");
+                info.status = metadataValue(metadata, "status", "");
+                info.durationSeconds = resolvedDurationSeconds(
+                        cursor.getString(1),
+                        cursor.isNull(2) ? null : cursor.getInt(2),
+                        metadata
+                );
+            }
+        }
+        return info;
+    }
+
+    public static int elapsedSecondsFrom(String startedAt) {
+        OffsetDateTime started = parseOffsetDateTime(startedAt);
+        if (started == null) {
+            return 0;
+        }
+        long seconds = Duration.between(started, OffsetDateTime.now()).getSeconds();
+        return seconds < 0 ? 0 : safeInt(seconds);
+    }
+
     public String addBodyMetric(String date, double weightKg, String memo) {
+        BodyMetricEntry existing = bodyMetricForDate(date);
+        if (existing != null) {
+            updateBodyMetric(existing.id, date, weightKg, memo);
+            return existing.id;
+        }
+
         String id = newId();
         String now = now();
         ContentValues values = baseValues(id, now);
@@ -155,6 +294,67 @@ public final class FitnessRepository {
         values.put("metadata", json("item_type", "body_weight", "memo", emptyToDefault(memo, "")));
         db().insertOrThrow("weight_records", null, values);
         return id;
+    }
+
+    public BodyMetricEntry bodyMetricForDate(String date) {
+        List<BodyMetricEntry> entries = bodyMetricEntriesForDate(date);
+        return entries.isEmpty() ? null : entries.get(0);
+    }
+
+    public BodyMetricEntry bodyMetricEntryById(String id) {
+        if (emptyToNull(id) == null) {
+            return null;
+        }
+        String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
+                + "WHERE id = ? AND deleted_at IS NULL LIMIT 1";
+        try (Cursor cursor = db().rawQuery(sql, new String[]{id})) {
+            if (cursor.moveToFirst()) {
+                return new BodyMetricEntry(cursor.getString(0), cursor.getString(1), cursor.getDouble(2),
+                        metadataValue(cursor.getString(3), "memo", ""));
+            }
+        }
+        return null;
+    }
+
+    public List<BodyMetricEntry> bodyMetricEntriesForDate(String date) {
+        List<BodyMetricEntry> rows = new ArrayList<>();
+        String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
+                + "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both')";
+        String[] args = null;
+        if (date != null) {
+            sql += " AND date = ?";
+            args = new String[]{emptyToToday(date)};
+        }
+        sql += " ORDER BY date DESC, updated_at DESC LIMIT 20";
+        try (Cursor cursor = db().rawQuery(sql, args)) {
+            while (cursor.moveToNext()) {
+                rows.add(new BodyMetricEntry(cursor.getString(0), cursor.getString(1), cursor.getDouble(2),
+                        metadataValue(cursor.getString(3), "memo", "")));
+            }
+        }
+        return rows;
+    }
+
+    public void updateBodyMetric(String id, String date, double weightKg, String memo) {
+        if (emptyToNull(id) == null) {
+            return;
+        }
+        ContentValues values = new ContentValues();
+        values.put("date", emptyToToday(date));
+        values.put("weight_kg", weightKg);
+        values.put("metadata", json("item_type", "body_weight", "memo", emptyToDefault(memo, "")));
+        values.put("updated_at", now());
+        db().update("weight_records", values, "id = ? AND deleted_at IS NULL", new String[]{id});
+    }
+
+    public void deleteBodyMetric(String id) {
+        if (emptyToNull(id) == null) {
+            return;
+        }
+        ContentValues values = new ContentValues();
+        values.put("deleted_at", now());
+        values.put("updated_at", now());
+        db().update("weight_records", values, "id = ? AND deleted_at IS NULL", new String[]{id});
     }
 
     public String addMeal(String date, String mealType, String menuText, Integer calories, Double proteinGrams) {
@@ -219,7 +419,8 @@ public final class FitnessRepository {
         List<SessionRecordEntry> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, date, exercise_name, workout_type, duration_seconds, metadata FROM workout_records " +
-                        "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') AND date = ? ORDER BY updated_at DESC",
+                        "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') " +
+                        "AND metadata LIKE '%\"status\":\"completed\"%' AND date = ? ORDER BY updated_at DESC",
                 new String[]{emptyToToday(date)})) {
             while (cursor.moveToNext()) {
                 SessionMetrics metrics = sessionMetrics(cursor.getString(0));
@@ -362,15 +563,17 @@ public final class FitnessRepository {
     public List<SessionExerciseEntry> sessionExerciseEntries(String recordId) {
         List<SessionExerciseEntry> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
-                "SELECT id, order_index, exercise_name_snapshot, ui_part FROM workout_exercises " +
+                "SELECT id, exercise_id, order_index, exercise_name_snapshot, ui_part, equipment_snapshot FROM workout_exercises " +
                         "WHERE record_id = ? AND deleted_at IS NULL ORDER BY order_index",
                 new String[]{recordId})) {
             while (cursor.moveToNext()) {
                 rows.add(new SessionExerciseEntry(
                         cursor.getString(0),
-                        cursor.getInt(1),
-                        cursor.getString(2),
-                        displayCategory(cursor.getString(3))
+                        cursor.getString(1),
+                        cursor.getInt(2),
+                        cursor.getString(3),
+                        displayCategory(cursor.getString(4)),
+                        cursor.isNull(5) ? "" : cursor.getString(5)
                 ));
             }
         }
@@ -412,6 +615,45 @@ public final class FitnessRepository {
             }
         }
         return metrics;
+    }
+
+    public boolean hasCompletedWorkout(String recordId) {
+        return sessionMetrics(recordId).setCount > 0;
+    }
+
+    public List<VolumePoint> recentSessionVolumes(String currentRecordId, int limit) {
+        List<VolumePoint> rows = new ArrayList<>();
+        String sql = "SELECT id, date, exercise_name FROM workout_records "
+                + "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') AND id != ? "
+                + "ORDER BY date DESC, updated_at DESC LIMIT ?";
+        try (Cursor cursor = db().rawQuery(sql, new String[]{currentRecordId, String.valueOf(limit)})) {
+            while (cursor.moveToNext()) {
+                rows.add(new VolumePoint(cursor.getString(1), cursor.getString(2),
+                        sessionMetrics(cursor.getString(0)).totalVolumeKg));
+            }
+        }
+        java.util.Collections.reverse(rows);
+        return rows;
+    }
+
+    public List<VolumePoint> recentExerciseVolumes(String exerciseId, String currentRecordId, int limit) {
+        List<VolumePoint> rows = new ArrayList<>();
+        String sql = "SELECT we.record_id, wr.date, wr.exercise_name, "
+                + "COALESCE(SUM(CASE WHEN ws.is_completed = 1 THEN COALESCE(ws.volume_kg, ws.weight_kg * ws.actual_reps) ELSE 0 END), 0) "
+                + "FROM workout_exercises we "
+                + "INNER JOIN workout_records wr ON wr.id = we.record_id AND wr.deleted_at IS NULL "
+                + "LEFT JOIN workout_sets ws ON ws.workout_exercise_id = we.id AND ws.deleted_at IS NULL "
+                + "WHERE we.exercise_id = ? AND we.record_id != ? AND we.deleted_at IS NULL "
+                + "GROUP BY we.record_id, wr.date, wr.exercise_name, wr.updated_at "
+                + "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT ?";
+        try (Cursor cursor = db().rawQuery(sql,
+                new String[]{exerciseId, currentRecordId, String.valueOf(limit)})) {
+            while (cursor.moveToNext()) {
+                rows.add(new VolumePoint(cursor.getString(1), cursor.getString(2), cursor.getDouble(3)));
+            }
+        }
+        java.util.Collections.reverse(rows);
+        return rows;
     }
 
     private void updateSessionTotalVolume(String recordId) {
@@ -544,6 +786,9 @@ public final class FitnessRepository {
             case "복근":
             case "abs":
                 return "abs";
+            case "팔":
+            case "arms":
+                return "arms";
             default:
                 return "chest";
         }
@@ -819,6 +1064,7 @@ public final class FitnessRepository {
         if ("triceps".equals(category)) return "삼두";
         if ("shoulders".equals(category)) return "어깨";
         if ("abs".equals(category)) return "복근";
+        if ("arms".equals(category)) return "팔";
         return "기타";
     }
 
@@ -852,6 +1098,18 @@ public final class FitnessRepository {
         public int setCount;
     }
 
+    public static final class VolumePoint {
+        public final String date;
+        public final String label;
+        public final double volumeKg;
+
+        public VolumePoint(String date, String label, double volumeKg) {
+            this.date = date;
+            this.label = label;
+            this.volumeKg = volumeKg;
+        }
+    }
+
     public static final class DayWorkoutMetrics {
         public int sessionCount;
         public int totalSetCount;
@@ -861,19 +1119,69 @@ public final class FitnessRepository {
 
     public static final class SessionExerciseEntry {
         public final String id;
+        public final String exerciseId;
         public final int orderIndex;
         public final String name;
         public final String uiPart;
+        public final String equipment;
 
-        public SessionExerciseEntry(String id, int orderIndex, String name, String uiPart) {
+        public SessionExerciseEntry(String id, String exerciseId, int orderIndex, String name, String uiPart, String equipment) {
             this.id = id;
+            this.exerciseId = exerciseId;
             this.orderIndex = orderIndex;
             this.name = name;
             this.uiPart = uiPart;
+            this.equipment = equipment;
         }
 
         public String label() {
             return orderIndex + ". " + name + "  " + uiPart;
+        }
+    }
+
+    public static final class SessionSetEntry {
+        public final String id;
+        public final int setIndex;
+        public final double weightKg;
+        public final int actualReps;
+        public final Integer rpe;
+        public final Integer restSeconds;
+        public final boolean isCompleted;
+
+        public SessionSetEntry(String id, int setIndex, double weightKg, int actualReps, Integer rpe, Integer restSeconds, boolean isCompleted) {
+            this.id = id;
+            this.setIndex = setIndex;
+            this.weightKg = weightKg;
+            this.actualReps = actualReps;
+            this.rpe = rpe;
+            this.restSeconds = restSeconds;
+            this.isCompleted = isCompleted;
+        }
+    }
+
+    public String createEmptySession(String date) {
+        return createSession(date, "루틴 없이 운동", "strength", "", now(), "");
+    }
+
+    public static final class SessionInfo {
+        public String title = "";
+        public String date = "";
+        public String startedAt = "";
+        public String status = "";
+        public int durationSeconds;
+    }
+
+    public static final class BodyMetricEntry {
+        public final String id;
+        public final String date;
+        public final double weightKg;
+        public final String memo;
+
+        public BodyMetricEntry(String id, String date, double weightKg, String memo) {
+            this.id = id;
+            this.date = date;
+            this.weightKg = weightKg;
+            this.memo = memo;
         }
     }
 }
