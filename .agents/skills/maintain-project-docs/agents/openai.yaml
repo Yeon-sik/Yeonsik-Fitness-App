@@ -1,0 +1,4 @@
+interface:
+  display_name: "Maintain Project Docs"
+  short_description: "Evidence-based project docs and safe Notion publishing"
+  default_prompt: "Use $maintain-project-docs to audit this repository, update its project documentation from evidence, and prepare a reviewed Notion mirror."
