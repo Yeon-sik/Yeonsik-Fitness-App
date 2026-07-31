@@ -141,6 +141,8 @@ public final class RecordsScreen extends BaseScreen {
         cell.setBackground(selected
                 ? ui.vibrantRippleDrawable(daySeed, ui.dp(10))
                 : ui.flatSurfaceRippleDrawable(ui.dp(10)));
+        ui.applyDepth(cell, selected ? 5 : 2);
+        ui.pressFeedback(cell);
         TextView day = ui.num(String.valueOf(date.getDayOfMonth()), 14,
                 selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
         day.setGravity(Gravity.CENTER);
@@ -284,6 +286,7 @@ public final class RecordsScreen extends BaseScreen {
         if (!personalOsRecord) {
             card.setClickable(true);
             card.setFocusable(true);
+            ui.pressFeedback(card);
             card.setOnClickListener(v -> {
                 host.sessionState().setActiveRecordId(session.id);
                 host.sessionState().setActiveExerciseId(null);

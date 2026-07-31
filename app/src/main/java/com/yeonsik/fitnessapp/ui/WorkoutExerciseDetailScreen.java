@@ -266,6 +266,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         button.setLayoutParams(new LinearLayout.LayoutParams(ui.dp(32), ui.dp(32)));
         button.setClickable(true);
         button.setFocusable(true);
+        ui.applyDepth(button, 3);
+        ui.pressFeedback(button);
         return button;
     }
 
@@ -312,6 +314,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         row.setPadding(ui.dp(2), ui.dp(6), ui.dp(2), ui.dp(6));
         if (set.isCompleted) {
             row.setBackground(ui.borderDrawable(ui.subtle(), ui.subtle(), ui.dp(12)));
+            ui.applyDepth(row, 2);
         }
 
         TextView previous = ui.num(
@@ -617,6 +620,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         row.setPadding(ui.dp(4), ui.dp(6), ui.dp(4), ui.dp(6));
         if (set.isCompleted) {
             row.setBackground(ui.borderDrawable(ui.subtle(), ui.subtle(), ui.dp(12)));
+            ui.applyDepth(row, 2);
         }
 
         EditText weightInput = ui.decimalInput("", set.weightKg == 0 ? "" : FitnessUi.trimDouble(set.weightKg));
@@ -694,6 +698,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             stamp.setTextColor(ui.inkTertiary());
             stamp.setBackground(ui.flatSurfaceDrawable(ui.dp(999)));
         }
+        ui.applyDepth(stamp, completed ? 5 : 2);
     }
 
     private void saveSet(String recordId, FitnessRepository.SessionSetEntry set,

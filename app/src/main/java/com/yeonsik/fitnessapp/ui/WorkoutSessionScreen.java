@@ -120,6 +120,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
         card.setPadding(ui.dp(12), ui.dp(7), ui.dp(12), ui.dp(7));
         card.setClickable(true);
         card.setFocusable(true);
+        ui.pressFeedback(card);
         card.setOnClickListener(v -> {
             host.sessionState().setActiveExerciseId(exercise.id);
             host.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL);

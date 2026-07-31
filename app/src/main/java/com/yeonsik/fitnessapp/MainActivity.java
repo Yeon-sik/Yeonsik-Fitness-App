@@ -267,6 +267,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(4));
+        ui.applyDepth(bar, 8);
         bar.setVisibility(View.GONE);
         return bar;
     }
@@ -274,6 +275,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     private LinearLayout buildSessionBottomBar() {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(10));
+        ui.applyDepth(bar, 10);
         bar.setVisibility(View.GONE);
         return bar;
     }
@@ -288,6 +290,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         back.setClickable(true);
         back.setFocusable(true);
         back.setOnClickListener(v -> navigate(FitnessScreen.WORKOUT));
+        ui.applyDepth(back, 4);
+        ui.pressFeedback(back);
         sessionTopBar.addView(back, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
 
         sessionBottomBar.setBackgroundColor(ui.surface());
@@ -321,7 +325,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         inner.setOrientation(LinearLayout.VERTICAL);
         inner.setPadding(ui.dp(18), ui.dp(12), ui.dp(14), ui.dp(14));
         inner.setBackground(ui.vibrantBackground(2, ui.dp(18)));
-        inner.setElevation(ui.dp(8));
+        ui.applyDepth(inner, 10);
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -443,6 +447,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
         wrapper.setBackgroundColor(ui.surface());
+        ui.applyDepth(wrapper, 12);
 
         navDivider = new View(this);
         navDivider.setBackgroundColor(ui.border());
@@ -489,6 +494,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         area.setClickable(true);
         area.setFocusable(true);
         area.setOnClickListener(v -> navigate(rootScreenOf(tab)));
+        ui.pressFeedback(area);
 
         TextView textView = new TextView(this);
         textView.setText(label);
@@ -568,6 +574,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         } else {
             ui.setComponentBackground(area, background);
         }
+        ui.applyDepth(area, hologramActive ? 10 : active ? 7 : 3);
         label.setTextColor(active ? ui.onAccent() : ui.inkMuted());
         label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
     }

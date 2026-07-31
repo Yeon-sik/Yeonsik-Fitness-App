@@ -21,12 +21,14 @@ import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.os.Build;
 import android.text.InputType;
 import android.view.inputmethod.EditorInfo;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewOutlineProvider;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
@@ -526,6 +528,24 @@ public final class FitnessUi {
         return Math.round(value * activity.getResources().getDisplayMetrics().density);
     }
 
+    /** 공통 깊이 토큰. 다크 모드에서는 흰 그림자를 사용해 검은 배경에서도 층위를 유지한다. */
+    public void applyDepth(View view, int elevationDp) {
+        view.setElevation(dp(elevationDp));
+        view.setTranslationZ(0f);
+        view.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
+        view.setClipToOutline(false);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            int ambient = dark()
+                    ? Color.argb(72, 255, 255, 255)
+                    : Color.argb(72, 0, 0, 0);
+            int spot = dark()
+                    ? Color.argb(132, 255, 255, 255)
+                    : Color.argb(138, 0, 0, 0);
+            view.setOutlineAmbientShadowColor(ambient);
+            view.setOutlineSpotShadowColor(spot);
+        }
+    }
+
     // ── 타이포그래피 ──────────────────────────────────────────────────
 
     public TextView text(String value, int sp, int color, boolean bold) {
@@ -630,7 +650,7 @@ public final class FitnessUi {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(18), dp(16), dp(18), dp(16));
         card.setBackground(borderDrawable(surface(), Color.TRANSPARENT, dp(16)));
-        card.setElevation(dark() ? dp(0) : dp(2));
+        applyDepth(card, 5);
         card.setLayoutParams(fullWidthParams(dp(12)));
         return card;
     }
@@ -640,7 +660,7 @@ public final class FitnessUi {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(22), dp(22), dp(22), dp(22));
         card.setBackground(heroBackground());
-        card.setElevation(dp(8));
+        applyDepth(card, 12);
         card.setLayoutParams(fullWidthParams(dp(12)));
         return card;
     }
@@ -736,6 +756,7 @@ public final class FitnessUi {
         button.setBackground(primary
                 ? vibrantRippleDrawable(text, dp(999))
                 : flatSurfaceRippleDrawable(dp(999)));
+        applyDepth(button, primary ? 7 : 4);
         button.setOnClickListener(listener);
         pressFeedback(button);
         return button;
@@ -786,6 +807,7 @@ public final class FitnessUi {
         input.setMinHeight(dp(48));
         input.setPadding(dp(16), dp(10), dp(16), dp(10));
         input.setBackground(flatSurfaceDrawable(dp(12)));
+        applyDepth(input, 3);
         return input;
     }
 
@@ -884,6 +906,7 @@ public final class FitnessUi {
             badge.setBackground(flatSurfaceDrawable(dp(999)));
         }
         badge.setPadding(dp(10), dp(5), dp(12), dp(5));
+        applyDepth(badge, 2);
 
         View dot = new View(activity);
         dot.setBackground(borderDrawable(dotColor, dotColor, dp(999)));
@@ -903,6 +926,7 @@ public final class FitnessUi {
         badge.setBackground(borderDrawable(
                 COLOR_FLOW_GLASS_FILL, COLOR_FLOW_GLASS_BORDER, dp(999)));
         badge.setPadding(dp(10), dp(5), dp(12), dp(5));
+        applyDepth(badge, 3);
 
         View dot = new View(activity);
         dot.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -923,6 +947,7 @@ public final class FitnessUi {
         cell.setPadding(dp(8), dp(10), dp(8), dp(10));
         cell.setBackground(borderDrawable(
                 COLOR_FLOW_GLASS_FILL, COLOR_FLOW_GLASS_BORDER, dp(14)));
+        applyDepth(cell, 4);
 
         TextView labelView = caption(label, COLOR_FLOW_MUTED);
         labelView.setGravity(Gravity.CENTER);
@@ -949,7 +974,9 @@ public final class FitnessUi {
         button.setTextColor(Color.rgb(47, 47, 51));
         button.setBackground(rippleDrawable(
                 Color.WHITE, Color.WHITE, dp(999), Color.argb(36, 47, 47, 51)));
+        applyDepth(button, 7);
         button.setOnClickListener(listener);
+        pressFeedback(button);
         return button;
     }
 
@@ -971,7 +998,7 @@ public final class FitnessUi {
                     ? vibrantBackground(variantFor(label), dp(14))
                     : flatSurfaceDrawable(dp(14)));
         }
-        tile.setElevation(inverseTile ? dp(5) : dp(2));
+        applyDepth(tile, inverseTile ? 7 : 4);
 
         tile.addView(caption(label, inverseTile ? COLOR_INVERSE_MUTED : COLOR_MUTED));
         TextView valueView = num(value, 21, inverseTile ? COLOR_INVERSE_TEXT : COLOR_TEXT, true);
@@ -991,6 +1018,7 @@ public final class FitnessUi {
         circle.setBackground(onAccentSurface
                 ? borderDrawable(chipOnAccent(), chipOnAccent(), dp(999))
                 : flatSurfaceDrawable(dp(999)));
+        applyDepth(circle, 2);
         circle.setLayoutParams(new LinearLayout.LayoutParams(dp(40), dp(40)));
         return circle;
     }
@@ -1001,6 +1029,7 @@ public final class FitnessUi {
         badge.setBackground(onAccentSurface
                 ? borderDrawable(chipOnAccent(), chipOnAccent(), dp(999))
                 : flatSurfaceDrawable(dp(999)));
+        applyDepth(badge, 2);
         badge.setLayoutParams(new LinearLayout.LayoutParams(dp(28), dp(28)));
         return badge;
     }
@@ -1009,6 +1038,7 @@ public final class FitnessUi {
         TextView badge = num(String.valueOf(order), 11, COLOR_TEXT, true);
         badge.setGravity(Gravity.CENTER);
         badge.setBackground(flatSurfaceDrawable(dp(999)));
+        applyDepth(badge, 2);
         badge.setLayoutParams(new LinearLayout.LayoutParams(dp(22), dp(22)));
         return badge;
     }
@@ -1144,12 +1174,19 @@ public final class FitnessUi {
         view.setOnTouchListener((v, event) -> {
             switch (event.getActionMasked()) {
                 case MotionEvent.ACTION_DOWN:
-                    v.animate().scaleX(0.97f).scaleY(0.97f).setDuration(90)
+                    float pressedDepth = Math.min(v.getElevation(), dp(4));
+                    v.animate()
+                            .scaleX(0.97f).scaleY(0.97f)
+                            .translationY(dp(2)).translationZ(-pressedDepth)
+                            .setDuration(90)
                             .setInterpolator(new DecelerateInterpolator()).start();
                     break;
                 case MotionEvent.ACTION_UP:
                 case MotionEvent.ACTION_CANCEL:
-                    v.animate().scaleX(1f).scaleY(1f).setDuration(160)
+                    v.animate()
+                            .scaleX(1f).scaleY(1f)
+                            .translationY(0f).translationZ(0f)
+                            .setDuration(180)
                             .setInterpolator(new DecelerateInterpolator()).start();
                     break;
                 default:
@@ -1229,6 +1266,7 @@ public final class FitnessUi {
         float r = dp(24);
         background.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
         sheet.setBackground(background);
+        applyDepth(sheet, 16);
 
         View handle = new View(activity);
         handle.setBackground(borderDrawable(inkTertiary(), inkTertiary(), dp(999)));
@@ -1365,6 +1403,8 @@ public final class FitnessUi {
         card.setClickable(true);
         card.setFocusable(true);
         card.setOnClickListener(v -> onStart.run());
+        applyDepth(card, 6);
+        pressFeedback(card);
 
         LinearLayout headerRow = new LinearLayout(activity);
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -1395,6 +1435,7 @@ public final class FitnessUi {
         LinearLayout card = card();
         card.setPadding(dp(12), dp(8), dp(12), dp(8));
         card.setBackground(vibrantRippleDrawable("routine-" + routineName, dp(16)));
+        applyDepth(card, 9);
         card.setClickable(true);
         card.setFocusable(true);
         card.setOnClickListener(v -> onStart.run());
