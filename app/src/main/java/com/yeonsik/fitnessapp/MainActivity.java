@@ -1,11 +1,14 @@
 package com.yeonsik.fitnessapp;
 
 import android.app.Activity;
+import android.graphics.Insets;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -196,6 +199,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         rootView = root;
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(ui.pageBg());
+        applySystemBarInsets(root);
 
         sessionTopBar = buildSessionTopBar();
         root.addView(sessionTopBar, new LinearLayout.LayoutParams(
@@ -233,6 +237,29 @@ public final class MainActivity extends Activity implements ScreenHost {
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
         return root;
+    }
+
+    /** Android 15+의 강제 edge-to-edge 환경에서 조작 UI가 시스템 바에 가려지지 않게 한다. */
+    private void applySystemBarInsets(View root) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            return;
+        }
+
+        int initialLeft = root.getPaddingLeft();
+        int initialTop = root.getPaddingTop();
+        int initialRight = root.getPaddingRight();
+        int initialBottom = root.getPaddingBottom();
+        root.setOnApplyWindowInsetsListener((view, windowInsets) -> {
+            Insets safeInsets = windowInsets.getInsets(
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            view.setPadding(
+                    initialLeft + safeInsets.left,
+                    initialTop + safeInsets.top,
+                    initialRight + safeInsets.right,
+                    initialBottom + safeInsets.bottom
+            );
+            return windowInsets;
+        });
     }
 
     private LinearLayout buildSessionTopBar() {
