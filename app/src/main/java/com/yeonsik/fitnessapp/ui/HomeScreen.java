@@ -167,6 +167,7 @@ public final class HomeScreen extends BaseScreen {
         LocalDate weekStart = LocalDate.now().with(DayOfWeek.MONDAY);
         LocalDate previousWeekStart = weekStart.minusWeeks(1);
         double[] values = new double[7];
+        double[] previousValues = new double[7];
         String[] labels = new String[7];
         double weekVolume = 0;
         int workoutDays = 0;
@@ -183,7 +184,10 @@ public final class HomeScreen extends BaseScreen {
             if (metrics.sessionCount > 0) {
                 workoutDays += 1;
             }
-            previousWeekVolume += repository().dayWorkoutMetrics(previousWeekStart.plusDays(i).toString()).totalVolumeKg;
+            FitnessRepository.DayWorkoutMetrics previousMetrics = repository()
+                    .dayWorkoutMetrics(previousWeekStart.plusDays(i).toString());
+            previousValues[i] = previousMetrics.totalVolumeKg;
+            previousWeekVolume += previousMetrics.totalVolumeKg;
         }
 
         LinearLayout card = ui.card();
@@ -212,7 +216,18 @@ public final class HomeScreen extends BaseScreen {
                 12, weekVolume >= previousWeekVolume ? FitnessUi.COLOR_POSITIVE : FitnessUi.COLOR_NEGATIVE, true);
         comparison.setPadding(0, ui.dp(10), 0, 0);
         card.addView(comparison);
-        card.addView(weeklyBarChart(values, labels), ui.fullWidthParams(ui.dp(16)));
+
+        LinearLayout legend = new LinearLayout(host.activity());
+        legend.setOrientation(LinearLayout.HORIZONTAL);
+        legend.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        legend.setPadding(0, ui.dp(10), 0, 0);
+        legend.addView(ui.text("● 이번 주", 10, ui.hologramAccentColor(0), true));
+        TextView previousLegend = ui.text("● 지난주", 10, FitnessUi.COLOR_MUTED, true);
+        previousLegend.setPadding(ui.dp(14), 0, 0, 0);
+        legend.addView(previousLegend);
+        card.addView(legend);
+
+        card.addView(weeklyBarChart(values, previousValues, labels), ui.fullWidthParams(ui.dp(8)));
         add(card);
     }
 
@@ -230,15 +245,13 @@ public final class HomeScreen extends BaseScreen {
         return "지난주 대비 " + amount + " (" + FitnessUi.formatVolume(percent) + "%)";
     }
 
-    private View weeklyBarChart(double[] values, String[] labels) {
+    private View weeklyBarChart(double[] values, double[] previousValues, String[] labels) {
         FitnessUi ui = ui();
         double max = 1;
         boolean hasData = false;
-        for (double value : values) {
-            if (value > max) {
-                max = value;
-            }
-            if (value > 0) {
+        for (int i = 0; i < values.length; i++) {
+            max = Math.max(max, Math.max(values[i], previousValues[i]));
+            if (values[i] > 0 || previousValues[i] > 0) {
                 hasData = true;
             }
         }
@@ -250,26 +263,38 @@ public final class HomeScreen extends BaseScreen {
         LinearLayout barsRow = new LinearLayout(host.activity());
         barsRow.setOrientation(LinearLayout.HORIZONTAL);
         for (int i = 0; i < values.length; i++) {
-            boolean isToday = i == LocalDate.now().getDayOfWeek().getValue() - 1;
-            LinearLayout column = new LinearLayout(host.activity());
-            column.setOrientation(LinearLayout.VERTICAL);
-            column.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+            LinearLayout pair = new LinearLayout(host.activity());
+            pair.setOrientation(LinearLayout.HORIZONTAL);
+            pair.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
 
-            int barHeight = values[i] <= 0
+            int currentBarHeight = values[i] <= 0
                     ? ui.dp(4)
                     : Math.max(ui.dp(10), (int) Math.round(values[i] / max * chartHeight));
-            View bar = new View(host.activity());
-            bar.setBackground(values[i] <= 0
+            View currentBar = new View(host.activity());
+            currentBar.setBackground(values[i] <= 0
                     ? ui.borderDrawable(ui.barEmpty(), ui.barEmpty(), ui.dp(999))
                     : ui.vibrantBackground(i, ui.dp(999)));
-            LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(ui.dp(12), barHeight);
-            barParams.gravity = Gravity.CENTER_HORIZONTAL;
-            column.addView(bar, barParams);
+            LinearLayout.LayoutParams currentBarParams = new LinearLayout.LayoutParams(ui.dp(8), currentBarHeight);
+            currentBarParams.setMargins(0, 0, ui.dp(2), 0);
+            pair.addView(currentBar, currentBarParams);
             if (values[i] > 0) {
-                ui.growBar(bar, i);
+                ui.growBar(currentBar, i);
             }
 
-            barsRow.addView(column, new LinearLayout.LayoutParams(0, chartHeight, 1f));
+            int previousBarHeight = previousValues[i] <= 0
+                    ? ui.dp(4)
+                    : Math.max(ui.dp(10), (int) Math.round(previousValues[i] / max * chartHeight));
+            View previousBar = new View(host.activity());
+            int previousBarColor = previousValues[i] <= 0 ? ui.barEmpty() : ui.barMuted();
+            previousBar.setBackground(ui.borderDrawable(previousBarColor, previousBarColor, ui.dp(999)));
+            LinearLayout.LayoutParams previousBarParams = new LinearLayout.LayoutParams(ui.dp(8), previousBarHeight);
+            previousBarParams.setMargins(ui.dp(2), 0, 0, 0);
+            pair.addView(previousBar, previousBarParams);
+            if (previousValues[i] > 0) {
+                ui.growBar(previousBar, i);
+            }
+
+            barsRow.addView(pair, new LinearLayout.LayoutParams(0, chartHeight, 1f));
         }
         wrapper.addView(barsRow, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, chartHeight));
