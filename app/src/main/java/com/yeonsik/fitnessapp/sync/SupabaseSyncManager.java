@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
+import com.yeonsik.fitnessapp.data.FitnessRepository;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -23,9 +24,12 @@ import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public final class SupabaseSyncManager {
+    private static final String ANDROID_DEVICE_ID = "android-local";
     private static final List<String> TABLES = Arrays.asList(
             "devices",
             "workout_records",
@@ -58,6 +62,11 @@ public final class SupabaseSyncManager {
 
         for (String table : TABLES) {
             pulledRows += pullTable(database, table, config);
+        }
+
+        FitnessRepository repository = new FitnessRepository(dbHelper, config.effectiveUserId());
+        if (repository.reconcileSharedWorkoutSummaries() > 0) {
+            pushedRows += pushTable(database, "workout_records", config);
         }
 
         return new SyncResult(pushedRows, pulledRows, OffsetDateTime.now().toString());
@@ -101,8 +110,11 @@ public final class SupabaseSyncManager {
     private JSONArray tableRowsToJson(SQLiteDatabase database, String table) throws JSONException {
         List<String> columns = tableColumns(database, table);
         JSONArray rows = new JSONArray();
+        String sql = "devices".equals(table)
+                ? "SELECT * FROM devices WHERE id = ?"
+                : "SELECT * FROM " + table + " WHERE device_id = ?";
 
-        try (Cursor cursor = database.rawQuery("SELECT * FROM " + table, null)) {
+        try (Cursor cursor = database.rawQuery(sql, new String[]{ANDROID_DEVICE_ID})) {
             while (cursor.moveToNext()) {
                 JSONObject object = new JSONObject();
                 for (String column : columns) {
@@ -145,6 +157,7 @@ public final class SupabaseSyncManager {
     }
 
     private void applyRows(SQLiteDatabase database, String table, JSONArray rows) throws JSONException {
+        Set<String> localColumns = new HashSet<>(tableColumns(database, table));
         database.beginTransaction();
         try {
             for (int index = 0; index < rows.length(); index++) {
@@ -158,6 +171,9 @@ public final class SupabaseSyncManager {
 
                 for (int nameIndex = 0; nameIndex < names.length(); nameIndex++) {
                     String name = names.getString(nameIndex);
+                    if (!localColumns.contains(name)) {
+                        continue;
+                    }
                     Object value = object.get(name);
                     putJsonValue(values, name, value);
                 }
@@ -201,7 +217,7 @@ public final class SupabaseSyncManager {
         connection.setConnectTimeout(15000);
         connection.setReadTimeout(20000);
         connection.setRequestProperty("apikey", config.supabaseAnonKey);
-        connection.setRequestProperty("Authorization", "Bearer " + config.supabaseAnonKey);
+        connection.setRequestProperty("Authorization", "Bearer " + config.accessToken);
         return connection;
     }
 

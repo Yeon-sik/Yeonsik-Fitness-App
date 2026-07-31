@@ -12,12 +12,42 @@ android {
     namespace "com.yeonsik.fitnessapp"
     compileSdk 36
 
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
     defaultConfig {
         applicationId "com.yeonsik.fitnessapp"
         minSdk 26
         targetSdk 36
         versionCode 1
-        versionName "0.1.0"
+        versionName "1.0.0"
+    }
+
+    signingConfigs {
+        release {
+            def storePath = System.getenv("FITNESS_RELEASE_STORE_FILE")
+            if (storePath) {
+                storeFile file(storePath)
+                storePassword System.getenv("FITNESS_RELEASE_STORE_PASSWORD")
+                keyAlias System.getenv("FITNESS_RELEASE_KEY_ALIAS")
+                keyPassword System.getenv("FITNESS_RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            debuggable true
+        }
+        release {
+            debuggable false
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+            signingConfig signingConfigs.release
+        }
     }
 
     sourceSets {
@@ -25,6 +55,34 @@ android {
             assets.srcDir(exerciseMasterAssetsDir)
         }
     }
+
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+}
+
+tasks.register("verifyReleaseConfiguration") {
+    doLast {
+        [
+                "FITNESS_RELEASE_STORE_FILE",
+                "FITNESS_RELEASE_STORE_PASSWORD",
+                "FITNESS_RELEASE_KEY_ALIAS",
+                "FITNESS_RELEASE_KEY_PASSWORD"
+        ].each { key ->
+            if (!System.getenv(key)) {
+                throw new GradleException("Missing required release environment variable: ${key}")
+            }
+        }
+    }
+
+}
+
+dependencies {
+    testImplementation "junit:junit:4.13.2"
+}
+
+tasks.matching { it.name in ["bundleRelease", "assembleRelease"] }.configureEach {
+    dependsOn("verifyReleaseConfiguration")
 }
 
 tasks.named("preBuild").configure {

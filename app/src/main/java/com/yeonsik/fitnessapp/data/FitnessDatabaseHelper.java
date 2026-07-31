@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 4;
+    public static final int DATABASE_VERSION = 5;
 
     public FitnessDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -45,7 +45,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "device_id TEXT NOT NULL, " +
                 "source_app TEXT NOT NULL, " +
                 "scope TEXT NOT NULL, " +
-                "metadata TEXT NOT NULL)");
+                "metadata TEXT NOT NULL, " +
+                "contract_version INTEGER NOT NULL DEFAULT 1)");
         db.execSQL("CREATE TABLE IF NOT EXISTS meal_records (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -64,7 +65,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "device_id TEXT NOT NULL, " +
                 "source_app TEXT NOT NULL, " +
                 "scope TEXT NOT NULL, " +
-                "metadata TEXT NOT NULL)");
+                "metadata TEXT NOT NULL, " +
+                "contract_version INTEGER NOT NULL DEFAULT 1)");
         db.execSQL("CREATE TABLE IF NOT EXISTS weight_records (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -79,7 +81,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "device_id TEXT NOT NULL, " +
                 "source_app TEXT NOT NULL, " +
                 "scope TEXT NOT NULL, " +
-                "metadata TEXT NOT NULL)");
+                "metadata TEXT NOT NULL, " +
+                "contract_version INTEGER NOT NULL DEFAULT 1)");
         db.execSQL("CREATE TABLE IF NOT EXISTS workout_exercises (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -95,7 +98,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "created_at TEXT NOT NULL, " +
                 "updated_at TEXT NOT NULL, " +
                 "deleted_at TEXT, " +
-                "device_id TEXT NOT NULL)");
+                "device_id TEXT NOT NULL, " +
+                "contract_version INTEGER NOT NULL DEFAULT 1)");
         db.execSQL("CREATE TABLE IF NOT EXISTS workout_sets (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -116,7 +120,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "created_at TEXT NOT NULL, " +
                 "updated_at TEXT NOT NULL, " +
                 "deleted_at TEXT, " +
-                "device_id TEXT NOT NULL)");
+                "device_id TEXT NOT NULL, " +
+                "contract_version INTEGER NOT NULL DEFAULT 1)");
 
         db.execSQL("CREATE INDEX IF NOT EXISTS devices_user_last_seen_at_idx ON devices(user_id, last_seen_at)");
         db.execSQL("CREATE INDEX IF NOT EXISTS workout_records_user_scope_date_idx ON workout_records(user_id, scope, date)");
@@ -168,6 +173,15 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 4) {
             addColumnIfMissing(db, "workout_records", "total_volume_kg", "REAL NOT NULL DEFAULT 0");
             addColumnIfMissing(db, "workout_sets", "volume_kg", "REAL");
+        }
+        if (oldVersion < 5) {
+            addColumnIfMissing(db, "workout_records", "contract_version", "INTEGER NOT NULL DEFAULT 1");
+            addColumnIfMissing(db, "meal_records", "contract_version", "INTEGER NOT NULL DEFAULT 1");
+            addColumnIfMissing(db, "weight_records", "contract_version", "INTEGER NOT NULL DEFAULT 1");
+            addColumnIfMissing(db, "workout_exercises", "contract_version", "INTEGER NOT NULL DEFAULT 1");
+            addColumnIfMissing(db, "workout_sets", "contract_version", "INTEGER NOT NULL DEFAULT 1");
+            db.execSQL("UPDATE workout_exercises SET record_type = 'weight_reps' " +
+                    "WHERE record_type = 'sets_reps_weight'");
         }
     }
 
