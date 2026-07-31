@@ -78,6 +78,12 @@ public interface ScreenHost {
 
     // ── 설정 / 동기화 ─────────────────────────────────────────────────
 
+    void openFleekDataImport();
+
+    boolean isDataImporting();
+
+    String dataImportDetail();
+
     SupabaseConfig supabaseConfig();
 
     void saveSupabaseConfig(String url, String anonKey);

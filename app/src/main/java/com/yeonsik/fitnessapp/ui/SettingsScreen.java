@@ -24,6 +24,7 @@ public final class SettingsScreen extends BaseScreen {
         screenHeader("SETTINGS", "설정");
 
         renderThemeCard();
+        renderDataImportCard();
 
         LinearLayout statusCard = ui.card();
         LinearLayout statusHeader = new LinearLayout(host.activity());
@@ -96,6 +97,36 @@ public final class SettingsScreen extends BaseScreen {
             authCard.addView(signInButton, ui.fullWidthParams(ui.dp(16)));
         }
         add(authCard);
+    }
+
+    private void renderDataImportCard() {
+        FitnessUi ui = ui();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "데이터 가져오기", host.isDataImporting() ? "가져오는 중" : "FLEEK CSV");
+
+        TextView description = ui.text(
+                "FLEEK에서 내보낸 CSV의 날짜·운동·중량·횟수를 로컬 기록으로 가져옵니다. "
+                        + "맨몸·보조 운동은 앱 기록 유형으로 변환하고, 같은 파일을 다시 선택하면 기존 세션은 건너뜁니다.",
+                13,
+                FitnessUi.COLOR_MUTED,
+                false
+        );
+        card.addView(description);
+
+        if (!host.dataImportDetail().isEmpty()) {
+            TextView detail = ui.text(host.dataImportDetail(), 12, FitnessUi.COLOR_TERTIARY, false);
+            detail.setPadding(0, ui.dp(10), 0, 0);
+            card.addView(detail);
+        }
+
+        Button importButton = ui.button(
+                host.isDataImporting() ? "가져오는 중" : "FLEEK CSV 선택",
+                true,
+                v -> host.openFleekDataImport()
+        );
+        importButton.setEnabled(!host.isDataImporting());
+        card.addView(importButton, ui.fullWidthParams(ui.dp(14)));
+        add(card);
     }
 
     /** 화면 모드: 화이트(기본) / 다크 / 시스템 설정. 선택은 반전 칩으로 표현한다. */
