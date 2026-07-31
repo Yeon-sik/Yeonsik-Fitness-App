@@ -127,7 +127,7 @@ public final class HomeScreen extends BaseScreen {
         volumeLabel.setPadding(0, ui.dp(2), 0, 0);
         card.addView(volumeLabel);
 
-        View line = ui.hairline(FitnessUi.COLOR_FLOW_GLASS_BORDER);
+        View line = ui.hairline(FitnessUi.COLOR_BORDER);
         LinearLayout.LayoutParams lineParams = ui.fullWidthParams(ui.dp(16));
         lineParams.height = ui.dp(1);
         card.addView(line, lineParams);
@@ -255,9 +255,7 @@ public final class HomeScreen extends BaseScreen {
             int barHeight = values[i] <= 0
                     ? ui.dp(4)
                     : Math.max(ui.dp(10), (int) Math.round(values[i] / max * chartHeight));
-            int barColor = values[i] <= 0
-                    ? ui.colorfulBorder(i)
-                    : ui.vibrantColor(isToday ? 2 : i);
+            int barColor = values[i] <= 0 ? ui.surface() : ui.accent();
             View bar = new View(host.activity());
             bar.setBackground(ui.borderDrawable(barColor, barColor, ui.dp(999)));
             LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(ui.dp(12), barHeight);
@@ -273,7 +271,7 @@ public final class HomeScreen extends BaseScreen {
                 LinearLayout.LayoutParams.MATCH_PARENT, chartHeight));
 
         // 기준선: 막대가 서 있는 바닥을 hairline으로 명시한다 (무드 차트 최소한의 축).
-        View baseline = ui.hairline(ui.colorfulBorder(1));
+        View baseline = ui.hairline(FitnessUi.COLOR_BORDER);
         wrapper.addView(baseline, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
 
@@ -282,7 +280,7 @@ public final class HomeScreen extends BaseScreen {
         for (int i = 0; i < labels.length; i++) {
             boolean isToday = i == LocalDate.now().getDayOfWeek().getValue() - 1;
             TextView day = ui.text(labels[i], 11,
-                    isToday ? ui.vibrantColor(2) : FitnessUi.COLOR_TERTIARY, isToday);
+                    isToday ? ui.ink() : FitnessUi.COLOR_TERTIARY, isToday);
             day.setGravity(Gravity.CENTER);
             labelsRow.addView(day, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         }

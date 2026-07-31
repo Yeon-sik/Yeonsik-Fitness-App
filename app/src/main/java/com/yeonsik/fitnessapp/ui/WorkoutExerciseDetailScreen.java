@@ -692,7 +692,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             stamp.setBackground(ui.vibrantBackground(0, ui.dp(999)));
         } else {
             stamp.setTextColor(ui.inkTertiary());
-            stamp.setBackground(ui.colorfulSurfaceDrawable("set-stamp", ui.dp(999)));
+            stamp.setBackground(ui.flatSurfaceDrawable(ui.dp(999)));
         }
     }
 

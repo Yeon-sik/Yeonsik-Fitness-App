@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp;
 
 import android.app.Activity;
+import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Typeface;
 import android.os.Build;
@@ -279,7 +280,7 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     /** 세션 바는 테마에 따라 스타일이 달라지므로 render 시점에 다시 채운다. */
     private void populateSessionBars() {
-        sessionTopBar.setBackgroundColor(ui.colorfulSurface(0));
+        sessionTopBar.setBackgroundColor(ui.surface());
         sessionTopBar.removeAllViews();
         TextView back = ui.text("←", 22, FitnessUi.COLOR_TEXT, true);
         back.setGravity(Gravity.CENTER);
@@ -289,7 +290,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         back.setOnClickListener(v -> navigate(FitnessScreen.WORKOUT));
         sessionTopBar.addView(back, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
 
-        sessionBottomBar.setBackgroundColor(ui.colorfulSurface(2));
+        sessionBottomBar.setBackgroundColor(ui.surface());
         sessionBottomBar.removeAllViews();
         sessionBottomBar.addView(ui.buttonRow(
                 ui.button("종목 추가", false, v -> openWorkoutExercisePicker()),
@@ -441,10 +442,10 @@ public final class MainActivity extends Activity implements ScreenHost {
     private View buildBottomNav() {
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
-        wrapper.setBackgroundColor(ui.colorfulSurface(1));
+        wrapper.setBackgroundColor(ui.surface());
 
         navDivider = new View(this);
-        navDivider.setBackgroundColor(ui.colorfulBorder(0));
+        navDivider.setBackgroundColor(Color.TRANSPARENT);
         wrapper.addView(navDivider, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
 
         LinearLayout nav = new LinearLayout(this);
@@ -541,8 +542,8 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     private void refreshNavState() {
         Tab activeTab = tabOf(currentScreen);
-        bottomNav.setBackgroundColor(ui.colorfulSurface(1));
-        navDivider.setBackgroundColor(ui.colorfulBorder(0));
+        bottomNav.setBackgroundColor(ui.surface());
+        navDivider.setBackgroundColor(Color.TRANSPARENT);
         styleNavArea(homeTabArea, homeTabLabel, activeTab == Tab.HOME);
         styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT);
         styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS);
@@ -553,7 +554,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         String seed = "bottom-nav-" + label.getText();
         area.setBackground(active
                 ? ui.vibrantRippleDrawable(seed, ui.dp(999))
-                : ui.colorfulSurfaceRippleDrawable(seed, ui.dp(999)));
+                : ui.flatSurfaceRippleDrawable(ui.dp(999)));
         label.setTextColor(active ? ui.onAccent() : ui.inkMuted());
         label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
     }
@@ -592,7 +593,6 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         BaseScreen screen = screens.get(currentScreen);
         if (screen != null) {
-            ui.resetColorSequence();
             screen.render();
             if (screenChanged) {
                 ui.screenEnter(content);
