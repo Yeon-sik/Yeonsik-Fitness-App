@@ -692,7 +692,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private void styleStamp(TextView stamp, boolean completed) {
         FitnessUi ui = ui();
         if (completed) {
-            stamp.setTextColor(ui.onAccent());
+            stamp.setTextColor(ui.onVibrant());
             stamp.setBackground(ui.vibrantBackground(0, ui.dp(999)));
         } else {
             stamp.setTextColor(ui.inkTertiary());

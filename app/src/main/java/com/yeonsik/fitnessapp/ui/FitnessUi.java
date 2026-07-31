@@ -53,7 +53,7 @@ import java.util.function.BooleanSupplier;
  * 테마 메인 색상과 Flowstate 팔레트를 결합한 공통 UI 팩토리.
  * 색 토큰, 타이포그래피, 표면(카드/타일), 버튼/칩, 입력창, 리스트 행, 포맷터를 담당한다.
  * 화면 상태를 소유하지 않으며, 다크 테마 여부는 생성 시 주입된 supplier로 판단한다.
- * 다크 테마에서도 "반전 = 강조" 문법을 유지하고, 팔레트는 메인 색상과 혼합해 대비를 맞춘다.
+ * 다크 테마에서도 "반전 = 강조" 문법을 유지하되, 홀로그램 팔레트는 라이트 테마 색상을 고정 사용한다.
  */
 public final class FitnessUi {
     // ── 라이트 토큰 (design-system §2.1) ─────────────────────────────
@@ -152,6 +152,23 @@ public final class FitnessUi {
         return dark() ? COLOR_D_ON_ACCENT_MUTED : COLOR_INVERSE_MUTED;
     }
 
+    /** 테마와 무관하게 라이트 홀로그램 표면 위에서 사용하는 고정 전경색. */
+    public int onVibrant() {
+        return COLOR_INVERSE_TEXT;
+    }
+
+    public int onVibrantMuted() {
+        return COLOR_INVERSE_MUTED;
+    }
+
+    public int chipOnVibrant() {
+        return COLOR_INVERSE_CHIP;
+    }
+
+    public int trackOnVibrant() {
+        return COLOR_TRACK_DARK;
+    }
+
     public int ink() {
         return dark() ? COLOR_D_TEXT : COLOR_TEXT;
     }
@@ -197,12 +214,11 @@ public final class FitnessUi {
     }
 
     /**
-     * 히어로 팔레트를 현재 테마의 메인 색상(라이트=검정, 다크=흰색)과 섞은 강조색.
-     * 세 색의 관계는 유지하면서도 각 테마에서 전경 텍스트 대비를 보장한다.
+     * 히어로 팔레트를 라이트 테마와 동일한 검정 베이스에 섞은 강조색.
+     * 테마가 바뀌어도 홀로그램의 cyan/violet/magenta 색상은 변하지 않는다.
      */
     public int vibrantColor(int variant) {
-        float colorWeight = dark() ? 0.32f : 0.50f;
-        return mix(accent(), rawFlowColor(variant), colorWeight);
+        return mix(COLOR_PRIMARY, rawFlowColor(variant), 0.50f);
     }
 
     public Drawable vibrantBackground(int variant, int radius) {
@@ -221,7 +237,7 @@ public final class FitnessUi {
         int variant = variantFor(seed);
         GradientDrawable mask = borderDrawable(Color.WHITE, Color.WHITE, radius);
         return new RippleDrawable(
-                ColorStateList.valueOf(rippleOnAccent()),
+                ColorStateList.valueOf(COLOR_RIPPLE_DARK),
                 vibrantBackground(variant, radius),
                 mask
         );
@@ -230,7 +246,7 @@ public final class FitnessUi {
     public Drawable vibrantRippleDrawable(int variant, int radius) {
         GradientDrawable mask = borderDrawable(Color.WHITE, Color.WHITE, radius);
         return new RippleDrawable(
-                ColorStateList.valueOf(rippleOnAccent()),
+                ColorStateList.valueOf(COLOR_RIPPLE_DARK),
                 vibrantBackground(variant, radius),
                 mask
         );
@@ -852,7 +868,7 @@ public final class FitnessUi {
         button.setMinimumHeight(dp(52));
         button.setPadding(dp(18), 0, dp(18), 0);
         button.setStateListAnimator(null);
-        button.setTextColor(primary ? onAccent() : ink());
+        button.setTextColor(primary ? onVibrant() : ink());
         button.setBackground(primary
                 ? vibrantRippleDrawable(text, dp(999))
                 : flatSurfaceRippleDrawable(dp(999)));
@@ -871,7 +887,7 @@ public final class FitnessUi {
     }
 
     public void styleFilterButton(Button button, boolean active) {
-        button.setTextColor(active ? onAccent() : inkMuted());
+        button.setTextColor(active ? onVibrant() : inkMuted());
         String seed = String.valueOf(button.getText());
         button.setBackground(active
                 ? vibrantRippleDrawable(seed, dp(999))
@@ -1100,12 +1116,22 @@ public final class FitnessUi {
         }
         applyDepth(tile, inverseTile ? 7 : 4);
 
-        tile.addView(caption(label, inverseTile ? COLOR_INVERSE_MUTED : COLOR_MUTED));
+        TextView labelView = caption(label, inverseTile ? COLOR_INVERSE_MUTED : COLOR_MUTED);
+        if (inverseTile) {
+            labelView.setTextColor(onVibrantMuted());
+        }
+        tile.addView(labelView);
         TextView valueView = num(value, 21, inverseTile ? COLOR_INVERSE_TEXT : COLOR_TEXT, true);
+        if (inverseTile) {
+            valueView.setTextColor(onVibrant());
+        }
         valueView.setPadding(0, dp(7), 0, 0);
         tile.addView(valueView);
         if (meta != null) {
             TextView metaView = text(meta, 11, inverseTile ? COLOR_INVERSE_MUTED : COLOR_TERTIARY, false);
+            if (inverseTile) {
+                metaView.setTextColor(onVibrantMuted());
+            }
             metaView.setPadding(0, dp(3), 0, 0);
             tile.addView(metaView);
         }
@@ -1461,7 +1487,7 @@ public final class FitnessUi {
         button.setMinimumHeight(dp(52));
         button.setPadding(dp(18), 0, dp(18), 0);
         button.setStateListAnimator(null);
-        button.setTextColor(onAccent());
+        button.setTextColor(onVibrant());
         button.setBackground(vibrantRippleDrawable("sheet-primary-" + text, dp(999)));
         button.setOnClickListener(v -> action.run());
         pressFeedback(button);
@@ -1545,20 +1571,28 @@ public final class FitnessUi {
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView routineGlyph = text("루", 12, COLOR_INVERSE_TEXT, true);
+        routineGlyph.setTextColor(onVibrant());
         routineGlyph.setGravity(Gravity.CENTER);
-        routineGlyph.setBackground(borderDrawable(chipOnAccent(), chipOnAccent(), dp(999)));
+        routineGlyph.setBackground(borderDrawable(chipOnVibrant(), chipOnVibrant(), dp(999)));
         routineGlyph.setLayoutParams(new LinearLayout.LayoutParams(dp(30), dp(30)));
         headerRow.addView(routineGlyph);
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(dp(9), 0, 0, 0);
-        column.addView(text(routineName, 14, COLOR_INVERSE_TEXT, true));
+        TextView nameView = text(routineName, 14, COLOR_INVERSE_TEXT, true);
+        nameView.setTextColor(onVibrant());
+        column.addView(nameView);
         TextView meta = text(exerciseCount + "개 종목 · 탭하여 시작", 10, COLOR_INVERSE_MUTED, false);
+        meta.setTextColor(onVibrantMuted());
         meta.setPadding(0, dp(2), 0, 0);
         column.addView(meta);
-        column.addView(text(recentWorkoutText(latestWorkoutDate), 10, COLOR_INVERSE_MUTED, false));
+        TextView recentView = text(recentWorkoutText(latestWorkoutDate), 10, COLOR_INVERSE_MUTED, false);
+        recentView.setTextColor(onVibrantMuted());
+        column.addView(recentView);
         headerRow.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        headerRow.addView(text("›", 16, COLOR_INVERSE_MUTED, false));
+        TextView chevron = text("›", 16, COLOR_INVERSE_MUTED, false);
+        chevron.setTextColor(onVibrantMuted());
+        headerRow.addView(chevron);
         card.addView(headerRow);
         return card;
     }

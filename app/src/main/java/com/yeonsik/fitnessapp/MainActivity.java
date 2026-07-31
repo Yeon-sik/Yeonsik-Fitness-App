@@ -334,7 +334,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         TextView label = new TextView(this);
         label.setText("휴식");
         label.setTextSize(11);
-        label.setTextColor(ui.onAccentMuted());
+        label.setTextColor(ui.onVibrantMuted());
         label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         label.setLetterSpacing(0.08f);
         row.addView(label, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -342,14 +342,14 @@ public final class MainActivity extends Activity implements ScreenHost {
         restCountdownView = new TextView(this);
         restCountdownView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         restCountdownView.setTextSize(30);
-        restCountdownView.setTextColor(ui.onAccent());
+        restCountdownView.setTextColor(ui.onVibrant());
         restCountdownView.setFontFeatureSettings("tnum");
         row.addView(restCountdownView);
 
         TextView skip = new TextView(this);
         skip.setText("건너뛰기");
         skip.setTextSize(13);
-        skip.setTextColor(ui.onAccentMuted());
+        skip.setTextColor(ui.onVibrantMuted());
         skip.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         skip.setPadding(ui.dp(16), ui.dp(10), ui.dp(6), ui.dp(10));
         skip.setClickable(true);
@@ -361,7 +361,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         restProgressTrack = new LinearLayout(this);
         restProgressTrack.setOrientation(LinearLayout.HORIZONTAL);
         restProgressTrack.setBackground(ui.borderDrawable(
-                ui.trackOnAccent(), ui.trackOnAccent(), ui.dp(999)));
+                ui.trackOnVibrant(), ui.trackOnVibrant(), ui.dp(999)));
         LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(4));
         trackParams.setMargins(0, ui.dp(10), 0, 0);
@@ -435,7 +435,7 @@ public final class MainActivity extends Activity implements ScreenHost {
                 : Math.max(0f, Math.min(1f, remainingMillis / (restTotalSeconds * 1000f)));
         restProgressTrack.removeAllViews();
         View fill = new View(this);
-        fill.setBackground(ui.borderDrawable(ui.onAccent(), ui.onAccent(), ui.dp(999)));
+        fill.setBackground(ui.borderDrawable(ui.onVibrant(), ui.onVibrant(), ui.dp(999)));
         restProgressTrack.addView(fill, new LinearLayout.LayoutParams(0, ui.dp(4), ratio));
         View rest = new View(this);
         restProgressTrack.addView(rest, new LinearLayout.LayoutParams(0, ui.dp(4), 1f - ratio));
@@ -575,7 +575,7 @@ public final class MainActivity extends Activity implements ScreenHost {
             ui.setComponentBackground(area, background);
         }
         ui.applyDepth(area, hologramActive ? 10 : active ? 7 : 3);
-        label.setTextColor(active ? ui.onAccent() : ui.inkMuted());
+        label.setTextColor(active ? ui.onVibrant() : ui.inkMuted());
         label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
     }
 
