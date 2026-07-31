@@ -1,0 +1,33 @@
+{
+  "$schema": "./.github/project-docs/project-docs.config.schema.json",
+  "version": 1,
+  "canonicalBranch": "main",
+  "publicationMode": "manual",
+  "documents": [
+    {
+      "key": "overview",
+      "label": "Project Overview",
+      "path": "docs/Project_Overview.md",
+      "requiredSections": [
+        "Executive summary",
+        "Problem and outcome",
+        "Capabilities",
+        "Verification",
+        "Known limitations"
+      ]
+    },
+    {
+      "key": "case-study",
+      "label": "Project Case Study",
+      "path": "docs/Project_Case_Study.md",
+      "requiredSections": [
+        "Scope and evidence boundary",
+        "Architecture",
+        "Key decisions",
+        "Testing and verification",
+        "Operations and recovery",
+        "Known limitations and next steps"
+      ]
+    }
+  ]
+}

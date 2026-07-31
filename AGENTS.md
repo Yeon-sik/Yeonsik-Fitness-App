@@ -1,5 +1,13 @@
 # AGENTS.md
 
+## 작업 원칙
+
+- 현재 요청의 최소 동작 단위를 먼저 구현하고 검증한다.
+- Android 기록 흐름은 입력 → repository → SQLite 순서로 추적한다.
+- 로컬 기록을 원격 동기화보다 우선하며, 미검증 Supabase 동작을 완료로 표현하지 않는다.
+- 테스트·빌드·실기기·운영 검증 상태를 각각 구분한다.
+- `main`에서 직접 개발하지 않고 기능 브랜치와 작은 커밋을 사용한다.
+
 ## 프로젝트 경계
 
 - 이 저장소는 Java 17, Android View, SQLiteOpenHelper 기반 Fitness App이다.
