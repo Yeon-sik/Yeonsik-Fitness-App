@@ -8,21 +8,39 @@ public final class SupabaseConfig {
     public final String supabaseUrl;
     public final String supabaseAnonKey;
     public final String userId;
+    public final String email;
+    public final String accessToken;
+    public final String refreshToken;
     public final String sourceLabel;
 
-    public SupabaseConfig(String supabaseUrl, String supabaseAnonKey, String userId, String sourceLabel) {
+    public SupabaseConfig(
+            String supabaseUrl,
+            String supabaseAnonKey,
+            String userId,
+            String email,
+            String accessToken,
+            String refreshToken,
+            String sourceLabel
+    ) {
         this.supabaseUrl = normalize(supabaseUrl);
         this.supabaseAnonKey = normalize(supabaseAnonKey);
         this.userId = normalize(userId);
+        this.email = normalize(email);
+        this.accessToken = normalize(accessToken);
+        this.refreshToken = normalize(refreshToken);
         this.sourceLabel = sourceLabel == null || sourceLabel.trim().isEmpty() ? NOT_SET_SOURCE : sourceLabel.trim();
     }
 
     public static SupabaseConfig empty() {
-        return new SupabaseConfig("", "", "", NOT_SET_SOURCE);
+        return new SupabaseConfig("", "", "", "", "", "", NOT_SET_SOURCE);
+    }
+
+    public boolean isConnectionConfigured() {
+        return supabaseUrl.startsWith("https://") && !supabaseAnonKey.isEmpty();
     }
 
     public boolean isConfigured() {
-        return !supabaseUrl.isEmpty() && !supabaseAnonKey.isEmpty() && !userId.isEmpty();
+        return isConnectionConfigured() && !userId.isEmpty() && !accessToken.isEmpty();
     }
 
     public String effectiveUserId() {

@@ -13,10 +13,5 @@ public enum FitnessScreen {
     WORKOUT_EXERCISE_ADD,
     WORKOUT_SUMMARY,
     RECORDS,
-    SETTINGS;
-
-    /** 모든 화면이 동일한 라이트 크롬을 사용한다. */
-    public boolean inverse() {
-        return false;
-    }
+    SETTINGS
 }

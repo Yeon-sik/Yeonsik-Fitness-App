@@ -6,6 +6,7 @@ import android.database.sqlite.SQLiteDatabase;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
+import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 
 import java.time.OffsetDateTime;
@@ -180,7 +181,7 @@ public final class RoutineRepository {
         values.put("ui_part", exercise.bodyPart == null ? "" : exercise.bodyPart.labelKo());
         values.put("primary_sub_part", emptyToDefault(exercise.primarySubPart, "세부 부위 없음"));
         values.put("equipment", exercise.equipmentType == null ? "기타" : exercise.equipmentType.labelKo());
-        values.put("record_type", emptyToDefault(exercise.recordType, "sets_reps_weight"));
+        values.put("record_type", FitnessRecordContract.normalizeRecordType(exercise.recordType));
         values.put("order_index", nextOrder);
         db().insertOrThrow("routine_exercises", null, values);
 
@@ -191,7 +192,7 @@ public final class RoutineRepository {
                 exercise.bodyPart == null ? "" : exercise.bodyPart.labelKo(),
                 emptyToDefault(exercise.primarySubPart, "세부 부위 없음"),
                 exercise.equipmentType == null ? "기타" : exercise.equipmentType.labelKo(),
-                emptyToDefault(exercise.recordType, "sets_reps_weight"),
+                FitnessRecordContract.normalizeRecordType(exercise.recordType),
                 nextOrder
         );
     }

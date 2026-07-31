@@ -66,11 +66,25 @@ public interface ScreenHost {
 
     void showMealDialog();
 
+    /** 세트 완료 시 휴식 타이머를 시작한다. null 또는 0 이하이면 기본 90초. */
+    void startRestTimer(Integer restSeconds);
+
+    // ── 테마 ─────────────────────────────────────────────────────────
+
+    /** 현재 테마 모드: "light" | "dark" | "system". 기본은 light. */
+    String themeMode();
+
+    void setThemeMode(String mode);
+
     // ── 설정 / 동기화 ─────────────────────────────────────────────────
 
     SupabaseConfig supabaseConfig();
 
-    void saveSupabaseConfig(String url, String anonKey, String userId);
+    void saveSupabaseConfig(String url, String anonKey);
+
+    void signInToSupabase(String email, String password);
+
+    void signOutFromSupabase();
 
     void runManualSync();
 

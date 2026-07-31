@@ -325,10 +325,10 @@ public final class RoutineEditorScreen extends BaseScreen {
             card.setGravity(Gravity.CENTER_VERTICAL);
             card.setPadding(ui.dp(16), ui.dp(14), ui.dp(16), ui.dp(14));
             card.setBackground(ui.rippleDrawable(
-                    selected ? FitnessUi.COLOR_PRIMARY : FitnessUi.COLOR_SURFACE,
-                    selected ? FitnessUi.COLOR_PRIMARY : FitnessUi.COLOR_BORDER,
+                    selected ? ui.accent() : ui.surface(),
+                    selected ? ui.accent() : ui.border(),
                     ui.dp(16),
-                    selected ? FitnessUi.COLOR_RIPPLE_DARK : FitnessUi.COLOR_RIPPLE_LIGHT));
+                    selected ? ui.rippleOnAccent() : ui.rippleOnSurface()));
             card.setElevation(selected ? ui.dp(4) : ui.dp(2));
 
             LinearLayout column = new LinearLayout(host.activity());
@@ -349,8 +349,8 @@ public final class RoutineEditorScreen extends BaseScreen {
             if (selected) {
                 TextView check = ui.text("✓", 16, FitnessUi.COLOR_INVERSE_TEXT, true);
                 check.setGravity(Gravity.CENTER);
-                check.setBackground(ui.borderDrawable(FitnessUi.COLOR_INVERSE_CHIP,
-                        FitnessUi.COLOR_INVERSE_CHIP, ui.dp(999)));
+                check.setBackground(ui.borderDrawable(ui.chipOnAccent(),
+                        ui.chipOnAccent(), ui.dp(999)));
                 card.addView(check, new LinearLayout.LayoutParams(ui.dp(28), ui.dp(28)));
             }
 

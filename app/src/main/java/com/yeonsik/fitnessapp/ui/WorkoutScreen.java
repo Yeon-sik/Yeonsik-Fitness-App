@@ -42,6 +42,7 @@ public final class WorkoutScreen extends BaseScreen {
             for (RoutineRepository.RoutineSummary routine : routines) {
                 List<RoutineExerciseInstance> exercises = host.routineRepository().routineExercises(routine.id);
                 add(ui().routineCard(routine.name, routine.exerciseCount, true,
+                        repository().latestCompletedWorkoutDateForRoutine(routine.id, routine.name),
                         () -> {
                             host.routineRepository().selectRoutine(routine.id);
                             host.startRoutineWorkout(exercises);
@@ -83,8 +84,8 @@ public final class WorkoutScreen extends BaseScreen {
         banner.setOrientation(LinearLayout.HORIZONTAL);
         banner.setGravity(Gravity.CENTER_VERTICAL);
         banner.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(16));
-        banner.setBackground(ui.rippleDrawable(FitnessUi.COLOR_PRIMARY, FitnessUi.COLOR_PRIMARY,
-                ui.dp(18), FitnessUi.COLOR_RIPPLE_DARK));
+        banner.setBackground(ui.rippleDrawable(ui.accent(), ui.accent(),
+                ui.dp(18), ui.rippleOnAccent()));
         banner.setElevation(ui.dp(6));
         banner.setClickable(true);
         banner.setFocusable(true);

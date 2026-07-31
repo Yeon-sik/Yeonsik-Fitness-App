@@ -13,6 +13,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.Set;
 
@@ -23,16 +24,21 @@ import java.util.Set;
 public final class RecordsScreen extends BaseScreen {
     private String selectedDate;
     private LocalDate visibleMonth;
+    private Map<String, FitnessRepository.CalendarDaySummary> monthSummaries;
 
     public RecordsScreen(ScreenHost host) {
         super(host);
         this.selectedDate = host.today();
         this.visibleMonth = LocalDate.parse(host.today()).withDayOfMonth(1);
+        this.monthSummaries = new java.util.HashMap<>();
     }
 
     @Override
     public void render() {
         FitnessUi ui = ui();
+        monthSummaries = repository().calendarSummaries(
+                visibleMonth.toString(),
+                visibleMonth.withDayOfMonth(visibleMonth.lengthOfMonth()).toString());
         screenHeader("RECORDS", "기록");
 
         add(calendar());
@@ -131,9 +137,9 @@ public final class RecordsScreen extends BaseScreen {
 
         DaySummary summary = summarize(date);
         boolean selected = date.toString().equals(selectedDate);
-        cell.setBackground(ui.rippleDrawable(selected ? FitnessUi.COLOR_PRIMARY : FitnessUi.COLOR_SURFACE,
-                selected ? FitnessUi.COLOR_PRIMARY : FitnessUi.COLOR_BORDER,
-                ui.dp(10), selected ? FitnessUi.COLOR_RIPPLE_DARK : FitnessUi.COLOR_RIPPLE_LIGHT));
+        cell.setBackground(ui.rippleDrawable(selected ? ui.accent() : ui.surface(),
+                selected ? ui.accent() : ui.border(),
+                ui.dp(10), selected ? ui.rippleOnAccent() : ui.rippleOnSurface()));
         TextView day = ui.num(String.valueOf(date.getDayOfMonth()), 14,
                 selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
         day.setGravity(Gravity.CENTER);
@@ -142,9 +148,9 @@ public final class RecordsScreen extends BaseScreen {
         LinearLayout markers = new LinearLayout(host.activity());
         markers.setOrientation(LinearLayout.HORIZONTAL);
         markers.setGravity(Gravity.CENTER);
-        addMarker(markers, summary.hasWorkout, selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_PRIMARY);
-        addMarker(markers, summary.hasMeal, selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_WARNING);
-        addMarker(markers, summary.hasWeight, selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_POSITIVE);
+        addMarker(markers, summary.hasWorkout, selected ? ui.onAccent() : ui.accent());
+        addMarker(markers, summary.hasMeal, selected ? ui.onAccent() : FitnessUi.COLOR_WARNING);
+        addMarker(markers, summary.hasWeight, selected ? ui.onAccent() : FitnessUi.COLOR_POSITIVE);
         cell.addView(markers, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(9)));
 
         TextView muscle = ui.text(summary.muscles, 9,
@@ -176,13 +182,13 @@ public final class RecordsScreen extends BaseScreen {
         legend.setOrientation(LinearLayout.HORIZONTAL);
         legend.setGravity(Gravity.CENTER_VERTICAL);
         legend.setPadding(0, ui.dp(12), 0, 0);
-        legend.addView(ui.text("● 운동", 11, FitnessUi.COLOR_PRIMARY, false), ui.fieldCellParams(true));
+        legend.addView(ui.text("● 운동", 11, ui.accent(), false), ui.fieldCellParams(true));
         legend.addView(ui.text("● 식사", 11, FitnessUi.COLOR_WARNING, false), ui.fieldCellParams(false));
         legend.addView(ui.text("● 체중", 11, FitnessUi.COLOR_POSITIVE, false), ui.fieldCellParams(false));
         card.addView(legend);
     }
 
-    private DaySummary summarize(LocalDate date) {
+    private DaySummary summarizeLegacy(LocalDate date) {
         String value = date.toString();
         List<FitnessRepository.SessionRecordEntry> sessions = repository().sessionEntriesForDate(value);
         Set<String> muscles = new LinkedHashSet<>();
@@ -201,6 +207,16 @@ public final class RecordsScreen extends BaseScreen {
         }
         return new DaySummary(!sessions.isEmpty(), !repository().mealsForDate(value).isEmpty(),
                 !repository().bodyMetricEntriesForDate(value).isEmpty(), muscleLabel);
+    }
+
+    private DaySummary summarize(LocalDate date) {
+        FitnessRepository.CalendarDaySummary summary = monthSummaries.get(date.toString());
+        if (summary == null) {
+            return new DaySummary(false, false, false, "");
+        }
+        String muscleLabel = summary.muscles.length() > 8
+                ? summary.muscles.substring(0, 8) : summary.muscles;
+        return new DaySummary(summary.hasWorkout, summary.hasMeal, summary.hasWeight, muscleLabel);
     }
 
     private static final class DaySummary {
@@ -261,15 +277,18 @@ public final class RecordsScreen extends BaseScreen {
         String[] tokens = session.summary.split(" {2,}");
         String routineName = tokens.length > 1 ? tokens[1] : session.summary;
         FitnessRepository.SessionMetrics metrics = repository().sessionMetrics(session.id);
+        boolean personalOsRecord = "os".equals(session.sourceApp);
 
         LinearLayout card = ui.card();
-        card.setClickable(true);
-        card.setFocusable(true);
-        card.setOnClickListener(v -> {
-            host.sessionState().setActiveRecordId(session.id);
-            host.sessionState().setActiveExerciseId(null);
-            host.navigate(FitnessScreen.WORKOUT_SUMMARY);
-        });
+        if (!personalOsRecord) {
+            card.setClickable(true);
+            card.setFocusable(true);
+            card.setOnClickListener(v -> {
+                host.sessionState().setActiveRecordId(session.id);
+                host.sessionState().setActiveExerciseId(null);
+                host.navigate(FitnessScreen.WORKOUT_SUMMARY);
+            });
+        }
 
         LinearLayout row = new LinearLayout(host.activity());
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -281,17 +300,22 @@ public final class RecordsScreen extends BaseScreen {
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(ui.dp(12), 0, 0, 0);
         column.addView(ui.text(routineName, 16, FitnessUi.COLOR_TEXT, true));
-        TextView meta = ui.text("총 볼륨 " + FitnessUi.formatVolume(metrics.totalVolumeKg)
-                + "kg · " + metrics.setCount + "세트", 12, FitnessUi.COLOR_MUTED, false);
+        String metaText = personalOsRecord
+                ? "Personal OS에서 생성된 요약 기록"
+                : "총 볼륨 " + FitnessUi.formatVolume(metrics.totalVolumeKg)
+                + "kg · " + metrics.setCount + "세트";
+        TextView meta = ui.text(metaText, 12, FitnessUi.COLOR_MUTED, false);
         meta.setPadding(0, ui.dp(2), 0, 0);
         column.addView(meta);
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        row.addView(ui.textAction("삭제", FitnessUi.COLOR_TERTIARY,
-                () -> host.confirmDeleteSession(session.id)));
-        TextView chevron = ui.text("›", 20, FitnessUi.COLOR_TERTIARY, false);
-        chevron.setPadding(ui.dp(4), 0, 0, 0);
-        row.addView(chevron);
+        if (!personalOsRecord) {
+            row.addView(ui.textAction("삭제", FitnessUi.COLOR_TERTIARY,
+                    () -> host.confirmDeleteSession(session.id)));
+            TextView chevron = ui.text("›", 20, FitnessUi.COLOR_TERTIARY, false);
+            chevron.setPadding(ui.dp(4), 0, 0, 0);
+            row.addView(chevron);
+        }
 
         card.addView(row);
         return card;

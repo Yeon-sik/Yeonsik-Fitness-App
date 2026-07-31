@@ -42,8 +42,9 @@ public final class WorkoutSessionScreen extends BaseScreen {
         status.addView(ui.caption("경과 시간", FitnessUi.COLOR_MUTED));
         TextView elapsedView = new TextView(host.activity());
         elapsedView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        elapsedView.setTextSize(42);
-        elapsedView.setTextColor(FitnessUi.COLOR_TEXT);
+        elapsedView.setTextSize(46);
+        elapsedView.setTextColor(ui.mappedTextColor(FitnessUi.COLOR_TEXT));
+        elapsedView.setFontFeatureSettings("tnum");
         elapsedView.setGravity(Gravity.CENTER);
         elapsedView.setPadding(0, ui.dp(6), 0, 0);
         elapsedView.setText("00:00:00");
@@ -166,6 +167,10 @@ public final class WorkoutSessionScreen extends BaseScreen {
         String recordId = host.sessionState().activeRecordId();
         if (recordId == null) {
             host.toast("진행 중인 운동을 찾지 못했습니다.");
+            return;
+        }
+        if (!repository().hasCompletedWorkout(recordId)) {
+            host.toast("완료된 세트가 1개 이상 필요합니다.");
             return;
         }
         repository().finishSession(recordId);

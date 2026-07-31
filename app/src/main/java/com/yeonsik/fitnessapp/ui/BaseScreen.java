@@ -61,9 +61,14 @@ public abstract class BaseScreen {
     }
 
     protected View volumeTrendCard(String title, List<FitnessRepository.VolumePoint> history, double currentVolume) {
+        return volumeTrendCard(title, "최근 4회 + 현재", history, currentVolume);
+    }
+
+    protected View volumeTrendCard(String title, String metaLabel,
+                                   List<FitnessRepository.VolumePoint> history, double currentVolume) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
-        ui.cardHeader(card, title, "최근 4회 + 현재");
+        ui.cardHeader(card, title, metaLabel);
         List<Double> values = new ArrayList<>();
         for (FitnessRepository.VolumePoint point : history) {
             values.add(point.volumeKg);

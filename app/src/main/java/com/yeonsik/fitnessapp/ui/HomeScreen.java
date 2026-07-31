@@ -11,6 +11,7 @@ import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.time.LocalDate;
+import java.time.DayOfWeek;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +43,7 @@ public final class HomeScreen extends BaseScreen {
             for (RoutineRepository.RoutineSummary routine : routines) {
                 List<RoutineExerciseInstance> exercises = host.routineRepository().routineExercises(routine.id);
                 add(ui().quickStartRoutineCard(routine.name, routine.exerciseCount,
+                        repository().latestCompletedWorkoutDateForRoutine(routine.id, routine.name),
                         () -> {
                             host.routineRepository().selectRoutine(routine.id);
                             host.startRoutineWorkout(exercises);
@@ -85,13 +87,13 @@ public final class HomeScreen extends BaseScreen {
         LinearLayout headerRow = new LinearLayout(host.activity());
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
-        headerRow.addView(ui.caption("TODAY", FitnessUi.COLOR_INVERSE_MUTED),
+        headerRow.addView(ui.caption("TODAY", FitnessUi.COLOR_FLOW_MUTED),
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        headerRow.addView(ui.statusDotBadge(inProgress
+        headerRow.addView(ui.flowStatusBadge(inProgress
                         ? "진행 중"
                         : (todaySessions.isEmpty() ? "운동 전" : "완료"),
                 inProgress ? FitnessUi.COLOR_WARNING
-                        : (todaySessions.isEmpty() ? FitnessUi.COLOR_TERTIARY : FitnessUi.COLOR_POSITIVE), true));
+                        : (todaySessions.isEmpty() ? FitnessUi.COLOR_TERTIARY : FitnessUi.COLOR_POSITIVE)));
         card.addView(headerRow);
 
         String statusText;
@@ -102,26 +104,30 @@ public final class HomeScreen extends BaseScreen {
         } else {
             statusText = "오늘 " + todaySessions.size() + "회 운동했습니다";
         }
-        TextView status = ui.text(statusText, 21, FitnessUi.COLOR_INVERSE_TEXT, true);
+        TextView status = ui.text(statusText, 21, FitnessUi.COLOR_FLOW_TEXT, true);
+        status.setGravity(Gravity.CENTER);
         status.setPadding(0, ui.dp(10), 0, 0);
         card.addView(status);
 
         LinearLayout volumeRow = new LinearLayout(host.activity());
         volumeRow.setOrientation(LinearLayout.HORIZONTAL);
-        volumeRow.setGravity(Gravity.BOTTOM);
+        volumeRow.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         volumeRow.setPadding(0, ui.dp(14), 0, 0);
-        TextView volume = ui.num(FitnessUi.formatVolume(metrics.totalVolumeKg), 40, FitnessUi.COLOR_INVERSE_TEXT, true);
+        TextView volume = ui.num(FitnessUi.formatVolume(metrics.totalVolumeKg), 40, FitnessUi.COLOR_FLOW_TEXT, true);
         volume.setIncludeFontPadding(false);
-        TextView unit = ui.text("kg", 15, FitnessUi.COLOR_INVERSE_MUTED, true);
+        volume.setLetterSpacing(-0.02f);
+        ui.animateCount(volume, metrics.totalVolumeKg, null);
+        TextView unit = ui.text("kg", 15, FitnessUi.COLOR_FLOW_MUTED, true);
         unit.setPadding(ui.dp(6), 0, 0, ui.dp(5));
         volumeRow.addView(volume);
         volumeRow.addView(unit);
         card.addView(volumeRow);
-        TextView volumeLabel = ui.text("오늘 총 볼륨", 12, FitnessUi.COLOR_INVERSE_MUTED, false);
+        TextView volumeLabel = ui.text("오늘 총 볼륨", 12, FitnessUi.COLOR_FLOW_MUTED, false);
+        volumeLabel.setGravity(Gravity.CENTER);
         volumeLabel.setPadding(0, ui.dp(2), 0, 0);
         card.addView(volumeLabel);
 
-        View line = ui.hairline(FitnessUi.COLOR_INVERSE_LINE);
+        View line = ui.hairline(FitnessUi.COLOR_FLOW_GLASS_BORDER);
         LinearLayout.LayoutParams lineParams = ui.fullWidthParams(ui.dp(16));
         lineParams.height = ui.dp(1);
         card.addView(line, lineParams);
@@ -135,31 +141,37 @@ public final class HomeScreen extends BaseScreen {
                 ? FitnessUi.formatDuration(metrics.totalDurationSeconds) : "—"), ui.metaCellParams(false));
         card.addView(metaRow);
 
+        card.addView(ui.flowHeroButton(
+                        inProgress ? "운동 이어가기" : "피트니스 보기",
+                        v -> {
+                            if (inProgress) {
+                                host.continueWorkoutIfAvailable();
+                            } else {
+                                host.navigate(FitnessScreen.WORKOUT);
+                            }
+                        }),
+                ui.fullWidthParams(ui.dp(18)));
+
         add(card);
     }
 
     private View heroMetaCell(String label, String value) {
-        FitnessUi ui = ui();
-        LinearLayout cell = new LinearLayout(host.activity());
-        cell.setOrientation(LinearLayout.VERTICAL);
-        cell.addView(ui.caption(label, FitnessUi.COLOR_INVERSE_MUTED));
-        TextView valueView = ui.num(value, 15, FitnessUi.COLOR_INVERSE_TEXT, true);
-        valueView.setPadding(0, ui.dp(3), 0, 0);
-        cell.addView(valueView);
-        return cell;
+        return ui().flowMetric(label, value);
     }
 
     private void weeklyVolumeCard() {
         FitnessUi ui = ui();
-        LocalDate now = LocalDate.now();
+        LocalDate weekStart = LocalDate.now().with(DayOfWeek.MONDAY);
+        LocalDate previousWeekStart = weekStart.minusWeeks(1);
         double[] values = new double[7];
         String[] labels = new String[7];
         double weekVolume = 0;
         int workoutDays = 0;
         int weekSets = 0;
+        double previousWeekVolume = 0;
         DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("E", Locale.KOREAN);
         for (int i = 0; i < 7; i++) {
-            LocalDate date = now.minusDays(6 - i);
+            LocalDate date = weekStart.plusDays(i);
             FitnessRepository.DayWorkoutMetrics metrics = repository().dayWorkoutMetrics(date.toString());
             values[i] = metrics.totalVolumeKg;
             labels[i] = date.format(dayFormatter);
@@ -168,6 +180,7 @@ public final class HomeScreen extends BaseScreen {
             if (metrics.sessionCount > 0) {
                 workoutDays += 1;
             }
+            previousWeekVolume += repository().dayWorkoutMetrics(previousWeekStart.plusDays(i).toString()).totalVolumeKg;
         }
 
         LinearLayout card = ui.card();
@@ -192,8 +205,26 @@ public final class HomeScreen extends BaseScreen {
         header.addView(meta);
         card.addView(header);
 
+        TextView comparison = ui.text(weeklyComparison(weekVolume, previousWeekVolume),
+                12, weekVolume >= previousWeekVolume ? FitnessUi.COLOR_POSITIVE : FitnessUi.COLOR_NEGATIVE, true);
+        comparison.setPadding(0, ui.dp(10), 0, 0);
+        card.addView(comparison);
         card.addView(weeklyBarChart(values, labels), ui.fullWidthParams(ui.dp(16)));
         add(card);
+    }
+
+    private String weeklyComparison(double currentVolume, double previousVolume) {
+        double difference = currentVolume - previousVolume;
+        if (Math.abs(difference) < 0.01) {
+            return "지난주와 동일한 볼륨";
+        }
+        String direction = difference > 0 ? "증가" : "감소";
+        String amount = FitnessUi.formatVolume(Math.abs(difference)) + "kg " + direction;
+        if (previousVolume <= 0.01) {
+            return "지난주 대비 " + amount;
+        }
+        double percent = Math.abs(difference) / previousVolume * 100.0;
+        return "지난주 대비 " + amount + " (" + FitnessUi.formatVolume(percent) + "%)";
     }
 
     private View weeklyBarChart(double[] values, String[] labels) {
@@ -209,11 +240,14 @@ public final class HomeScreen extends BaseScreen {
             }
         }
 
-        LinearLayout chart = new LinearLayout(host.activity());
-        chart.setOrientation(LinearLayout.HORIZONTAL);
+        LinearLayout wrapper = new LinearLayout(host.activity());
+        wrapper.setOrientation(LinearLayout.VERTICAL);
         int chartHeight = hasData ? ui.dp(88) : ui.dp(28);
+
+        LinearLayout barsRow = new LinearLayout(host.activity());
+        barsRow.setOrientation(LinearLayout.HORIZONTAL);
         for (int i = 0; i < values.length; i++) {
-            boolean isToday = i == values.length - 1;
+            boolean isToday = i == LocalDate.now().getDayOfWeek().getValue() - 1;
             LinearLayout column = new LinearLayout(host.activity());
             column.setOrientation(LinearLayout.VERTICAL);
             column.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
@@ -222,28 +256,40 @@ public final class HomeScreen extends BaseScreen {
                     ? ui.dp(4)
                     : Math.max(ui.dp(10), (int) Math.round(values[i] / max * chartHeight));
             int barColor = values[i] <= 0
-                    ? FitnessUi.COLOR_BAR_EMPTY
-                    : (isToday ? FitnessUi.COLOR_PRIMARY : FitnessUi.COLOR_BAR_MUTED);
+                    ? ui.barEmpty()
+                    : (isToday ? ui.accent() : ui.barMuted());
             View bar = new View(host.activity());
             bar.setBackground(ui.borderDrawable(barColor, barColor, ui.dp(999)));
             LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(ui.dp(12), barHeight);
             barParams.gravity = Gravity.CENTER_HORIZONTAL;
             column.addView(bar, barParams);
+            if (values[i] > 0) {
+                ui.growBar(bar, i);
+            }
 
+            barsRow.addView(column, new LinearLayout.LayoutParams(0, chartHeight, 1f));
+        }
+        wrapper.addView(barsRow, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, chartHeight));
+
+        // 기준선: 막대가 서 있는 바닥을 hairline으로 명시한다 (무드 차트 최소한의 축).
+        View baseline = ui.hairline(FitnessUi.COLOR_BORDER);
+        wrapper.addView(baseline, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
+
+        LinearLayout labelsRow = new LinearLayout(host.activity());
+        labelsRow.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < labels.length; i++) {
+            boolean isToday = i == LocalDate.now().getDayOfWeek().getValue() - 1;
             TextView day = ui.text(labels[i], 11, isToday ? FitnessUi.COLOR_TEXT : FitnessUi.COLOR_TERTIARY, isToday);
             day.setGravity(Gravity.CENTER);
-            LinearLayout.LayoutParams dayParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-            );
-            dayParams.setMargins(0, ui.dp(8), 0, 0);
-            dayParams.gravity = Gravity.CENTER_HORIZONTAL;
-            column.addView(day, dayParams);
-
-            LinearLayout.LayoutParams columnParams = new LinearLayout.LayoutParams(0, chartHeight + ui.dp(28), 1f);
-            chart.addView(column, columnParams);
+            labelsRow.addView(day, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         }
-        return chart;
+        LinearLayout.LayoutParams labelsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        labelsParams.setMargins(0, ui.dp(8), 0, 0);
+        wrapper.addView(labelsRow, labelsParams);
+        return wrapper;
     }
 
     private String todayEyebrow() {

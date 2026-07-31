@@ -1,12 +1,12 @@
 package com.yeonsik.fitnessapp;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.graphics.Typeface;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -23,6 +23,7 @@ import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.sync.SupabaseSyncManager;
+import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.ui.BaseScreen;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.HomeScreen;
@@ -55,6 +56,12 @@ public final class MainActivity extends Activity implements ScreenHost {
         SETTINGS
     }
 
+    private static final String UI_PREFS = "fitness_ui_prefs";
+    private static final String KEY_THEME_MODE = "theme_mode";
+    public static final String THEME_LIGHT = "light";
+    public static final String THEME_DARK = "dark";
+    public static final String THEME_SYSTEM = "system";
+
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final String today = LocalDate.now().toString();
     private final WorkoutSessionState sessionState = new WorkoutSessionState();
@@ -64,18 +71,28 @@ public final class MainActivity extends Activity implements ScreenHost {
     private RoutineRepository routineRepository;
     private SupabaseConfigStore configStore;
     private SupabaseSyncManager syncManager;
+    private SupabaseAuthManager authManager;
     private SupabaseConfig supabaseConfig;
 
     private FitnessUi ui;
     private Map<FitnessScreen, BaseScreen> screens;
     private FitnessScreen currentScreen = FitnessScreen.HOME;
+    private String themeMode = THEME_LIGHT;
 
     private LinearLayout rootView;
     private ScrollView mainScrollView;
-    private View sessionTopBar;
-    private View sessionBottomBar;
+    private LinearLayout sessionTopBar;
+    private LinearLayout sessionBottomBar;
+    private LinearLayout restTimerBar;
+    private TextView restCountdownView;
+    private LinearLayout restProgressTrack;
+    private long restEndsAtMillis;
+    private int restTotalSeconds;
+    private int lastPulsedSecond = -1;
+    private FitnessScreen lastRenderedScreen;
     private LinearLayout content;
     private LinearLayout bottomNav;
+    private View navDivider;
     private LinearLayout homeTabArea;
     private LinearLayout workoutTabArea;
     private LinearLayout recordsTabArea;
@@ -95,14 +112,18 @@ public final class MainActivity extends Activity implements ScreenHost {
         super.onCreate(savedInstanceState);
         configStore = new SupabaseConfigStore(this);
         supabaseConfig = configStore.load();
+        authManager = new SupabaseAuthManager(configStore);
         FitnessDatabaseHelper databaseHelper = new FitnessDatabaseHelper(this);
         repository = new FitnessRepository(databaseHelper, supabaseConfig.effectiveUserId());
+        repository.reconcileSharedWorkoutSummaries();
         exerciseMasterRepository = new ExerciseMasterRepository(this);
         routineRepository = new RoutineRepository(databaseHelper, supabaseConfig.effectiveUserId());
         syncManager = new SupabaseSyncManager(databaseHelper);
         applySyncStatusFromConfig();
 
-        ui = new FitnessUi(this, () -> currentScreen.inverse());
+        themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
+                .getString(KEY_THEME_MODE, THEME_LIGHT);
+        ui = new FitnessUi(this, this::isDarkTheme);
         screens = buildScreens();
 
         configureWindow();
@@ -132,20 +153,49 @@ public final class MainActivity extends Activity implements ScreenHost {
         return map;
     }
 
+    // ── 테마 ─────────────────────────────────────────────────────────
+
+    /** 현재 유효 테마. system 모드는 OS의 다크 모드 설정을 따른다. */
+    private boolean isDarkTheme() {
+        if (THEME_DARK.equals(themeMode)) {
+            return true;
+        }
+        if (THEME_SYSTEM.equals(themeMode)) {
+            int nightMask = getResources().getConfiguration().uiMode
+                    & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
+            return nightMask == android.content.res.Configuration.UI_MODE_NIGHT_YES;
+        }
+        return false;
+    }
+
+    @Override
+    public String themeMode() {
+        return themeMode;
+    }
+
+    @Override
+    public void setThemeMode(String mode) {
+        themeMode = mode;
+        getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
+                .putString(KEY_THEME_MODE, mode).apply();
+        render();
+    }
+
     // ── 창 / 루트 뷰 ──────────────────────────────────────────────────
 
     private void configureWindow() {
         Window window = getWindow();
-        window.setStatusBarColor(FitnessUi.COLOR_BACKGROUND);
-        window.setNavigationBarColor(FitnessUi.COLOR_BACKGROUND);
-        window.getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        window.setStatusBarColor(ui.pageBg());
+        window.setNavigationBarColor(ui.pageBg());
+        window.getDecorView().setSystemUiVisibility(
+                isDarkTheme() ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
     }
 
     private View buildRootView() {
         LinearLayout root = new LinearLayout(this);
         rootView = root;
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(FitnessUi.COLOR_BACKGROUND);
+        root.setBackgroundColor(ui.pageBg());
 
         sessionTopBar = buildSessionTopBar();
         root.addView(sessionTopBar, new LinearLayout.LayoutParams(
@@ -155,7 +205,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         mainScrollView = scrollView;
         scrollView.setFillViewport(true);
         scrollView.setVerticalScrollBarEnabled(false);
-        scrollView.setBackgroundColor(FitnessUi.COLOR_BACKGROUND);
+        scrollView.setBackgroundColor(ui.pageBg());
         LinearLayout.LayoutParams scrollParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
@@ -171,6 +221,9 @@ public final class MainActivity extends Activity implements ScreenHost {
         ));
 
         root.addView(scrollView, scrollParams);
+        restTimerBar = buildRestTimerBar();
+        root.addView(restTimerBar, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
         sessionBottomBar = buildSessionBottomBar();
         root.addView(sessionBottomBar, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
@@ -182,34 +235,178 @@ public final class MainActivity extends Activity implements ScreenHost {
         return root;
     }
 
-    private View buildSessionTopBar() {
+    private LinearLayout buildSessionTopBar() {
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(4));
-        bar.setBackgroundColor(FitnessUi.COLOR_SURFACE);
         bar.setVisibility(View.GONE);
-
-        TextView back = ui.text("←", 22, FitnessUi.COLOR_TEXT, true);
-        back.setGravity(Gravity.CENTER);
-        back.setBackground(ui.borderDrawable(FitnessUi.COLOR_SURFACE, FitnessUi.COLOR_BORDER, ui.dp(999)));
-        back.setClickable(true);
-        back.setFocusable(true);
-        back.setOnClickListener(v -> navigate(FitnessScreen.WORKOUT));
-        bar.addView(back, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
         return bar;
     }
 
-    private View buildSessionBottomBar() {
+    private LinearLayout buildSessionBottomBar() {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(10));
-        bar.setBackgroundColor(FitnessUi.COLOR_SURFACE);
         bar.setVisibility(View.GONE);
-        bar.addView(ui.buttonRow(
+        return bar;
+    }
+
+    /** 세션 바는 테마에 따라 스타일이 달라지므로 render 시점에 다시 채운다. */
+    private void populateSessionBars() {
+        sessionTopBar.setBackgroundColor(ui.surface());
+        sessionTopBar.removeAllViews();
+        TextView back = ui.text("←", 22, FitnessUi.COLOR_TEXT, true);
+        back.setGravity(Gravity.CENTER);
+        back.setBackground(ui.borderDrawable(ui.surface(), ui.border(), ui.dp(999)));
+        back.setClickable(true);
+        back.setFocusable(true);
+        back.setOnClickListener(v -> navigate(FitnessScreen.WORKOUT));
+        sessionTopBar.addView(back, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
+
+        sessionBottomBar.setBackgroundColor(ui.surface());
+        sessionBottomBar.removeAllViews();
+        sessionBottomBar.addView(ui.buttonRow(
                 ui.button("종목 추가", false, v -> openWorkoutExercisePicker()),
                 ui.button("운동 완료", true, v -> finishActiveWorkout())
         ), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
-        return bar;
+    }
+
+    // ── 휴식 타이머 ────────────────────────────────────────────────────
+
+    /**
+     * 세트 완료 시 자동 시작되는 하단 고정 휴식 타이머.
+     * 현재 테마의 강조 표면(라이트=블랙 필, 다크=화이트 필) 위에 뜬다.
+     */
+    private LinearLayout buildRestTimerBar() {
+        LinearLayout wrapper = new LinearLayout(this);
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        wrapper.setPadding(ui.dp(14), ui.dp(4), ui.dp(14), ui.dp(6));
+        wrapper.setVisibility(View.GONE);
+        return wrapper;
+    }
+
+    /** 테마가 바뀔 수 있으므로 표시 시점마다 내용을 다시 만든다. */
+    private void populateRestTimerBar() {
+        restTimerBar.removeAllViews();
+
+        LinearLayout inner = new LinearLayout(this);
+        inner.setOrientation(LinearLayout.VERTICAL);
+        inner.setPadding(ui.dp(18), ui.dp(12), ui.dp(14), ui.dp(14));
+        inner.setBackground(ui.borderDrawable(ui.accent(), ui.accent(), ui.dp(18)));
+        inner.setElevation(ui.dp(8));
+
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+
+        TextView label = new TextView(this);
+        label.setText("휴식");
+        label.setTextSize(11);
+        label.setTextColor(ui.onAccentMuted());
+        label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        label.setLetterSpacing(0.08f);
+        row.addView(label, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        restCountdownView = new TextView(this);
+        restCountdownView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        restCountdownView.setTextSize(30);
+        restCountdownView.setTextColor(ui.onAccent());
+        restCountdownView.setFontFeatureSettings("tnum");
+        row.addView(restCountdownView);
+
+        TextView skip = new TextView(this);
+        skip.setText("건너뛰기");
+        skip.setTextSize(13);
+        skip.setTextColor(ui.onAccentMuted());
+        skip.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        skip.setPadding(ui.dp(16), ui.dp(10), ui.dp(6), ui.dp(10));
+        skip.setClickable(true);
+        skip.setFocusable(true);
+        skip.setOnClickListener(v -> stopRestTimer());
+        row.addView(skip);
+        inner.addView(row);
+
+        restProgressTrack = new LinearLayout(this);
+        restProgressTrack.setOrientation(LinearLayout.HORIZONTAL);
+        restProgressTrack.setBackground(ui.borderDrawable(
+                ui.trackOnAccent(), ui.trackOnAccent(), ui.dp(999)));
+        LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(4));
+        trackParams.setMargins(0, ui.dp(10), 0, 0);
+        inner.addView(restProgressTrack, trackParams);
+
+        restTimerBar.addView(inner, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
+    }
+
+    @Override
+    public void startRestTimer(Integer restSeconds) {
+        int seconds = restSeconds == null || restSeconds <= 0 ? 90 : restSeconds;
+        restTotalSeconds = seconds;
+        restEndsAtMillis = System.currentTimeMillis() + seconds * 1000L;
+        lastPulsedSecond = -1;
+        populateRestTimerBar();
+        updateRestTimerBar();
+        if (restTimerBar.getVisibility() != View.VISIBLE && restTimerVisibleOnScreen()) {
+            restTimerBar.setVisibility(View.VISIBLE);
+            restTimerBar.setAlpha(0f);
+            restTimerBar.setTranslationY(ui.dp(20));
+            restTimerBar.animate().alpha(1f).translationY(0f).setDuration(220).start();
+        }
+        restTimerBar.removeCallbacks(restTick);
+        restTimerBar.postDelayed(restTick, 250);
+    }
+
+    private void stopRestTimer() {
+        restEndsAtMillis = 0;
+        restTimerBar.removeCallbacks(restTick);
+        restTimerBar.setVisibility(View.GONE);
+    }
+
+    private boolean restTimerVisibleOnScreen() {
+        return currentScreen == FitnessScreen.WORKOUT_SESSION
+                || currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL;
+    }
+
+    private final Runnable restTick = new Runnable() {
+        @Override
+        public void run() {
+            if (restEndsAtMillis <= 0) {
+                return;
+            }
+            long remainingMillis = restEndsAtMillis - System.currentTimeMillis();
+            if (remainingMillis <= 0) {
+                stopRestTimer();
+                toast("휴식 종료. 다음 세트를 시작하세요.");
+                return;
+            }
+            updateRestTimerBar();
+            restTimerBar.postDelayed(this, 250);
+        }
+    };
+
+    private void updateRestTimerBar() {
+        long remainingMillis = Math.max(0, restEndsAtMillis - System.currentTimeMillis());
+        int remainingSeconds = (int) Math.ceil(remainingMillis / 1000.0);
+        restCountdownView.setText(String.format(java.util.Locale.ROOT, "%d:%02d",
+                remainingSeconds / 60, remainingSeconds % 60));
+
+        // 마지막 10초: 초가 바뀔 때마다 크기 펄스로 긴박감을 준다 (색상 대신 크기).
+        if (remainingSeconds <= 10 && remainingSeconds != lastPulsedSecond) {
+            lastPulsedSecond = remainingSeconds;
+            restCountdownView.setScaleX(1.1f);
+            restCountdownView.setScaleY(1.1f);
+            restCountdownView.animate().scaleX(1f).scaleY(1f).setDuration(240).start();
+        }
+
+        float ratio = restTotalSeconds <= 0 ? 0f
+                : Math.max(0f, Math.min(1f, remainingMillis / (restTotalSeconds * 1000f)));
+        restProgressTrack.removeAllViews();
+        View fill = new View(this);
+        fill.setBackground(ui.borderDrawable(ui.onAccent(), ui.onAccent(), ui.dp(999)));
+        restProgressTrack.addView(fill, new LinearLayout.LayoutParams(0, ui.dp(4), ratio));
+        View rest = new View(this);
+        restProgressTrack.addView(rest, new LinearLayout.LayoutParams(0, ui.dp(4), 1f - ratio));
     }
 
     // ── 하단 내비게이션 ────────────────────────────────────────────────
@@ -217,11 +414,11 @@ public final class MainActivity extends Activity implements ScreenHost {
     private View buildBottomNav() {
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
-        wrapper.setBackgroundColor(FitnessUi.COLOR_SURFACE);
+        wrapper.setBackgroundColor(ui.surface());
 
-        View line = new View(this);
-        line.setBackgroundColor(FitnessUi.COLOR_BORDER);
-        wrapper.addView(line, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
+        navDivider = new View(this);
+        navDivider.setBackgroundColor(ui.border());
+        wrapper.addView(navDivider, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
 
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
@@ -317,6 +514,8 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     private void refreshNavState() {
         Tab activeTab = tabOf(currentScreen);
+        bottomNav.setBackgroundColor(ui.surface());
+        navDivider.setBackgroundColor(ui.border());
         styleNavArea(homeTabArea, homeTabLabel, activeTab == Tab.HOME);
         styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT);
         styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS);
@@ -324,9 +523,10 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     private void styleNavArea(LinearLayout area, TextView label, boolean active) {
-        int fill = active ? FitnessUi.COLOR_PRIMARY : FitnessUi.COLOR_SURFACE;
-        area.setBackground(ui.rippleDrawable(fill, fill, ui.dp(999), FitnessUi.COLOR_RIPPLE_LIGHT));
-        label.setTextColor(active ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_MUTED);
+        int fill = active ? ui.accent() : ui.surface();
+        area.setBackground(ui.rippleDrawable(fill, fill, ui.dp(999),
+                active ? ui.rippleOnAccent() : ui.rippleOnSurface()));
+        label.setTextColor(active ? ui.onAccent() : ui.inkMuted());
         label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
     }
 
@@ -336,14 +536,27 @@ public final class MainActivity extends Activity implements ScreenHost {
         sessionState.nextGeneration();
         content.removeAllViews();
         refreshNavState();
+        boolean screenChanged = currentScreen != lastRenderedScreen;
+        lastRenderedScreen = currentScreen;
         boolean sessionScreen = currentScreen == FitnessScreen.WORKOUT_SESSION;
+        if (sessionScreen) {
+            populateSessionBars();
+        }
         sessionTopBar.setVisibility(sessionScreen ? View.VISIBLE : View.GONE);
         sessionBottomBar.setVisibility(sessionScreen ? View.VISIBLE : View.GONE);
+        boolean restActive = restEndsAtMillis > System.currentTimeMillis() && restTimerVisibleOnScreen();
+        restTimerBar.setVisibility(restActive ? View.VISIBLE : View.GONE);
+        if (restActive) {
+            populateRestTimerBar();
+            updateRestTimerBar();
+            restTimerBar.removeCallbacks(restTick);
+            restTimerBar.postDelayed(restTick, 250);
+        }
         boolean fullscreenPicker = currentScreen == FitnessScreen.WORKOUT_EXERCISE_ADD
                 && sessionState.activeRecordId() != null;
-        applyScreenChrome(currentScreen.inverse());
-        bottomNav.setVisibility(currentScreen.inverse()
-                || sessionScreen
+        applyScreenChrome(isDarkTheme());
+        bottomNav.setVisibility(sessionScreen
+                || currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL
                 || currentScreen == FitnessScreen.WORKOUT_SUMMARY
                 || fullscreenPicker
                 ? View.GONE
@@ -352,11 +565,14 @@ public final class MainActivity extends Activity implements ScreenHost {
         BaseScreen screen = screens.get(currentScreen);
         if (screen != null) {
             screen.render();
+            if (screenChanged) {
+                ui.screenEnter(content);
+            }
         }
     }
 
-    private void applyScreenChrome(boolean inverse) {
-        int background = inverse ? FitnessUi.COLOR_PRIMARY : FitnessUi.COLOR_BACKGROUND;
+    private void applyScreenChrome(boolean dark) {
+        int background = ui.pageBg();
         if (rootView != null) {
             rootView.setBackgroundColor(background);
         }
@@ -367,7 +583,15 @@ public final class MainActivity extends Activity implements ScreenHost {
         Window window = getWindow();
         window.setStatusBarColor(background);
         window.setNavigationBarColor(background);
-        window.getDecorView().setSystemUiVisibility(inverse ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        window.getDecorView().setSystemUiVisibility(dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        // 운동 수행 화면에서는 테마와 무관하게 화면이 꺼지지 않는다.
+        boolean workoutActive = currentScreen == FitnessScreen.WORKOUT_SESSION
+                || currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL;
+        if (workoutActive) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        }
     }
 
     // ── ScreenHost 구현 ───────────────────────────────────────────────
@@ -488,7 +712,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         }
 
         String recordId = repository.createSessionFromRoutine(today,
-                routineRepository.activeRoutineName(), routineExercises);
+                routineRepository.activeRoutineName(), routineRepository.activeRoutineId(), routineExercises);
         toast("루틴 운동을 시작했습니다.");
         openWorkoutSession(recordId);
     }
@@ -505,10 +729,10 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     public void confirmDeleteSession(String recordId) {
-        new AlertDialog.Builder(this)
-                .setTitle("운동 기록 삭제")
-                .setMessage("이 운동 기록과 세부 운동/세트 기록을 삭제 표시합니다.")
-                .setPositiveButton("삭제", (dialog, which) -> {
+        ui.confirmSheet("운동 기록 삭제",
+                "이 운동 기록과 세부 운동/세트 기록을 삭제 표시합니다.",
+                "삭제된 기록은 기록 탭에서 더 이상 보이지 않습니다.",
+                "삭제", () -> {
                     repository.deleteSession(recordId);
                     sessionState.clearIfMatches(recordId);
                     toast("운동 기록을 삭제했습니다.");
@@ -517,9 +741,7 @@ public final class MainActivity extends Activity implements ScreenHost {
                     } else {
                         navigate(FitnessScreen.WORKOUT);
                     }
-                })
-                .setNegativeButton("취소", null)
-                .show();
+                });
     }
 
     @Override
@@ -545,10 +767,8 @@ public final class MainActivity extends Activity implements ScreenHost {
             memo.setText(existing.memo);
         }
         ui.addAll(form, dateInput, weight, memo);
-        AlertDialog.Builder builder = new AlertDialog.Builder(this)
-                .setTitle(existing == null ? "체중 기록" : "체중 수정")
-                .setView(form)
-                .setPositiveButton("저장", (dialog, which) -> {
+        ui.sheet(existing == null ? "체중 기록" : "체중 수정", form,
+                "저장", () -> {
                     String selectedDate = FitnessUi.inputText(dateInput);
                     if (existing == null) {
                         repository.addBodyMetric(selectedDate, FitnessUi.parseDouble(weight, 0), FitnessUi.inputText(memo));
@@ -557,15 +777,12 @@ public final class MainActivity extends Activity implements ScreenHost {
                                 FitnessUi.parseDouble(weight, existing.weightKg), FitnessUi.inputText(memo));
                     }
                     render();
-                })
-                .setNegativeButton("취소", null);
-        if (existing != null) {
-            builder.setNeutralButton("삭제", (dialog, which) -> {
-                repository.deleteBodyMetric(existing.id);
-                render();
-            });
-        }
-        builder.show();
+                },
+                existing == null ? null : "이 기록 삭제",
+                existing == null ? null : () -> {
+                    repository.deleteBodyMetric(existing.id);
+                    render();
+                });
     }
 
     @Override
@@ -577,17 +794,13 @@ public final class MainActivity extends Activity implements ScreenHost {
         EditText calories = ui.numberInput("칼로리 kcal (선택)", "");
         EditText protein = ui.decimalInput("단백질 g (선택)", "");
         ui.addAll(form, date, type, menu, calories, protein);
-        new AlertDialog.Builder(this)
-                .setTitle("식단 기록")
-                .setView(form)
-                .setPositiveButton("저장", (dialog, which) -> {
+        ui.sheet("식단 기록", form,
+                "저장", () -> {
                     repository.addMeal(FitnessUi.inputText(date), FitnessUi.inputText(type),
                             FitnessUi.inputText(menu), FitnessUi.optionalInt(calories),
                             FitnessUi.optionalDouble(protein));
                     render();
-                })
-                .setNegativeButton("취소", null)
-                .show();
+                }, null, null);
     }
 
     // ── 설정 / 동기화 ─────────────────────────────────────────────────
@@ -598,19 +811,66 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
-    public void saveSupabaseConfig(String url, String anonKey, String userId) {
-        supabaseConfig = configStore.save(url, anonKey, userId);
-        repository.normalizeLocalUserId(supabaseConfig.effectiveUserId());
-        routineRepository.normalizeLocalUserId(supabaseConfig.effectiveUserId());
+    public void saveSupabaseConfig(String url, String anonKey) {
+        try {
+            supabaseConfig = configStore.saveConnection(url, anonKey);
+            applySyncStatusFromConfig();
+            toast("설정을 저장했습니다.");
+        } catch (IllegalArgumentException error) {
+            toast(error.getMessage());
+        }
+        render();
+    }
+
+    @Override
+    public void signInToSupabase(String email, String password) {
+        if (!supabaseConfig.isConnectionConfigured()) {
+            toast("Supabase URL과 anon key를 먼저 저장하세요.");
+            return;
+        }
+        syncLabel = "authenticating";
+        syncDetail = "Supabase 계정에 로그인하는 중입니다.";
+        render();
+        executor.execute(() -> {
+            try {
+                SupabaseConfig authenticated = authManager.signIn(
+                        supabaseConfig,
+                        email,
+                        password
+                );
+                runOnUiThread(() -> {
+                    supabaseConfig = authenticated;
+                    repository.normalizeLocalUserId(authenticated.effectiveUserId());
+                    routineRepository.normalizeLocalUserId(authenticated.effectiveUserId());
+                    applySyncStatusFromConfig();
+                    toast("로그인했습니다.");
+                    render();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    syncLabel = "authentication failed";
+                    syncDetail = error.getMessage() == null
+                            ? "로그인에 실패했습니다."
+                            : error.getMessage();
+                    toast("로그인에 실패했습니다.");
+                    render();
+                });
+            }
+        });
+    }
+
+    @Override
+    public void signOutFromSupabase() {
+        supabaseConfig = configStore.clearSession();
         applySyncStatusFromConfig();
-        toast("설정을 저장했습니다.");
+        toast("로그아웃했습니다. 로컬 기록은 유지됩니다.");
         render();
     }
 
     @Override
     public void runManualSync() {
         if (!supabaseConfig.isConfigured()) {
-            toast("Supabase URL, anon key, user ID를 먼저 저장하세요.");
+            toast("Supabase 연결 설정을 저장하고 계정에 로그인하세요.");
             return;
         }
 
@@ -621,11 +881,13 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         executor.execute(() -> {
             try {
-                SupabaseSyncManager.SyncResult result = syncManager.manualSync(supabaseConfig);
-                repository.setUserId(supabaseConfig.effectiveUserId());
-                routineRepository.setUserId(supabaseConfig.effectiveUserId());
+                SupabaseConfig refreshedConfig = authManager.refresh(supabaseConfig);
+                SupabaseSyncManager.SyncResult result = syncManager.manualSync(refreshedConfig);
                 lastSyncedAt = result.syncedAt;
                 runOnUiThread(() -> {
+                    supabaseConfig = refreshedConfig;
+                    repository.setUserId(refreshedConfig.effectiveUserId());
+                    routineRepository.setUserId(refreshedConfig.effectiveUserId());
                     isManualSyncing = false;
                     syncLabel = "synced";
                     syncDetail = "push " + result.pushedRows + "건 · pull " + result.pulledRows + "건";
@@ -653,8 +915,10 @@ public final class MainActivity extends Activity implements ScreenHost {
             return;
         }
 
-        syncLabel = "local-only";
-        syncDetail = "Supabase 설정이 없어 로컬 전용 모드입니다.";
+        syncLabel = supabaseConfig.isConnectionConfigured() ? "login required" : "local-only";
+        syncDetail = supabaseConfig.isConnectionConfigured()
+                ? "원격 동기화를 사용하려면 로그인하세요."
+                : "Supabase 설정이 없어 로컬 전용 모드입니다.";
     }
 
     @Override
@@ -674,8 +938,8 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     public String repositoryUserLabel() {
-        if (!supabaseConfig.userId.isEmpty()) {
-            return supabaseConfig.userId;
+        if (!supabaseConfig.email.isEmpty()) {
+            return supabaseConfig.email;
         }
         return SupabaseConfig.DEFAULT_USER_ID;
     }

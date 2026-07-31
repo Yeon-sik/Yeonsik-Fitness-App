@@ -6,9 +6,11 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.util.List;
+import java.util.ArrayList;
 
 /**
  * 운동 요약 화면: 스탯 타일 3개 + 다음 행동 + 종목별 세트 그리드(수행 내역).
@@ -34,7 +36,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
 
         FitnessRepository.SessionInfo info = repository().sessionInfo(recordId);
         LinearLayout tiles = ui.tileRow();
-        tiles.addView(ui.statTile("총 볼륨", FitnessUi.formatVolume(metrics.totalVolumeKg), "kg", true, null),
+        tiles.addView(ui.statTile("외부 중량 볼륨", FitnessUi.formatVolume(metrics.totalVolumeKg), "kg", true, null),
                 ui.tileParams(true));
         tiles.addView(ui.statTile("완료 세트", String.valueOf(metrics.setCount), "개", false, null),
                 ui.tileParams(false));
@@ -66,7 +68,12 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         int cellWidth = cellWidth();
         boolean rendered = false;
         for (FitnessRepository.SessionExerciseEntry exercise : exercises) {
-            List<FitnessRepository.SessionSetEntry> sets = repository().setsForExercise(exercise.id);
+            List<FitnessRepository.SessionSetEntry> sets = new ArrayList<>();
+            for (FitnessRepository.SessionSetEntry set : repository().setsForExercise(exercise.id)) {
+                if (set.isCompleted) {
+                    sets.add(set);
+                }
+            }
             if (sets.isEmpty()) {
                 continue;
             }
@@ -110,14 +117,18 @@ public final class WorkoutSummaryScreen extends BaseScreen {
 
         for (int start = 0; start < sets.size(); start += SETS_PER_ROW) {
             int end = Math.min(start + SETS_PER_ROW, sets.size());
-            card.addView(setBarRow(sets.subList(start, end), cellWidth),
+            card.addView(setBarRow(exercise.recordType, sets.subList(start, end), cellWidth),
                     ui.fullWidthParams(start == 0 ? ui.dp(16) : ui.dp(12)));
         }
         return card;
     }
 
     /** 세트 한 줄(최대 6칸): 막대 내부에 무게, 막대 아래 줄에 횟수. */
-    private View setBarRow(List<FitnessRepository.SessionSetEntry> rowSets, int cellWidth) {
+    private View setBarRow(
+            String recordType,
+            List<FitnessRepository.SessionSetEntry> rowSets,
+            int cellWidth
+    ) {
         FitnessUi ui = ui();
         LinearLayout column = new LinearLayout(host.activity());
         column.setOrientation(LinearLayout.VERTICAL);
@@ -126,18 +137,23 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         LinearLayout bar = new LinearLayout(host.activity());
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setBackground(ui.borderDrawable(FitnessUi.COLOR_SUBTLE, FitnessUi.COLOR_BORDER, ui.dp(12)));
+        bar.setBackground(ui.borderDrawable(ui.subtle(), ui.border(), ui.dp(12)));
         int barHeight = ui.dp(46);
 
         for (int i = 0; i < rowSets.size(); i++) {
             if (i > 0) {
                 View divider = new View(host.activity());
-                divider.setBackgroundColor(FitnessUi.COLOR_BORDER);
+                divider.setBackgroundColor(ui.border());
                 LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(ui.dp(1), ui.dp(22));
                 dividerParams.gravity = Gravity.CENTER_VERTICAL;
                 bar.addView(divider, dividerParams);
             }
-            TextView weight = ui.num(weightLabel(rowSets.get(i).weightKg), 16, FitnessUi.COLOR_TEXT, true);
+            TextView weight = ui.num(
+                    primarySetLabel(recordType, rowSets.get(i)),
+                    14,
+                    FitnessUi.COLOR_TEXT,
+                    true
+            );
             weight.setGravity(Gravity.CENTER);
             bar.addView(weight, new LinearLayout.LayoutParams(cellWidth, barHeight));
         }
@@ -152,7 +168,12 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                 View spacer = new View(host.activity());
                 repsRow.addView(spacer, new LinearLayout.LayoutParams(ui.dp(1), ui.dp(1)));
             }
-            TextView reps = ui.num("×" + rowSets.get(i).actualReps, 12, FitnessUi.COLOR_MUTED, true);
+            TextView reps = ui.num(
+                    secondarySetLabel(recordType, rowSets.get(i)),
+                    12,
+                    FitnessUi.COLOR_MUTED,
+                    true
+            );
             reps.setGravity(Gravity.CENTER);
             repsRow.addView(reps, new LinearLayout.LayoutParams(cellWidth, LinearLayout.LayoutParams.WRAP_CONTENT));
         }
@@ -166,5 +187,41 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             return "맨몸";
         }
         return FitnessUi.trimDouble(weightKg);
+    }
+
+    private String primarySetLabel(
+            String recordType,
+            FitnessRepository.SessionSetEntry set
+    ) {
+        String type = FitnessRecordContract.normalizeRecordType(recordType);
+        if (FitnessRecordContract.REPS_ONLY.equals(type)) {
+            return set.actualReps + "회";
+        }
+        if (FitnessRecordContract.TIME.equals(type)) {
+            return set.durationSeconds + "초";
+        }
+        if (FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)) {
+            return "보조 " + FitnessUi.trimDouble(set.assistedWeightKg);
+        }
+        if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(type)) {
+            return "추가 " + FitnessUi.trimDouble(set.addedWeightKg);
+        }
+        return weightLabel(set.weightKg);
+    }
+
+    private String secondarySetLabel(
+            String recordType,
+            FitnessRepository.SessionSetEntry set
+    ) {
+        String type = FitnessRecordContract.normalizeRecordType(recordType);
+        String rpe = set.rpe == null ? "" : " · RPE " + set.rpe;
+        if (FitnessRecordContract.WEIGHT_TIME.equals(type)) {
+            return set.durationSeconds + "초" + rpe;
+        }
+        if (FitnessRecordContract.REPS_ONLY.equals(type)
+                || FitnessRecordContract.TIME.equals(type)) {
+            return rpe.isEmpty() ? "완료" : rpe.substring(3);
+        }
+        return "×" + set.actualReps + rpe;
     }
 }

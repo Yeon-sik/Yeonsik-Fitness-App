@@ -4,3 +4,7 @@ app/build/
 local.properties
 .idea/
 .claude/settings.local.json
+.code-review-graph/
+.codex/
+.mcp.json
+.understand-anything/

@@ -23,6 +23,8 @@ public final class SettingsScreen extends BaseScreen {
         FitnessUi ui = ui();
         screenHeader("SETTINGS", "설정");
 
+        renderThemeCard();
+
         LinearLayout statusCard = ui.card();
         LinearLayout statusHeader = new LinearLayout(host.activity());
         statusHeader.setOrientation(LinearLayout.HORIZONTAL);
@@ -57,20 +59,77 @@ public final class SettingsScreen extends BaseScreen {
         EditText supabaseUrlInput = ui.input("Supabase URL", host.supabaseConfig().supabaseUrl);
         EditText supabaseAnonInput = ui.input("Anon key", host.supabaseConfig().supabaseAnonKey);
         supabaseAnonInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-        EditText userIdInput = ui.input("User ID", host.supabaseConfig().userId);
         configCard.addView(ui.fieldLabel("Supabase URL"));
         configCard.addView(supabaseUrlInput, ui.fullWidthParams(0));
         configCard.addView(ui.fieldLabel("Anon key"));
         configCard.addView(supabaseAnonInput, ui.fullWidthParams(0));
-        configCard.addView(ui.fieldLabel("User ID"));
-        configCard.addView(userIdInput, ui.fullWidthParams(0));
         Button saveButton = ui.button("Save config", true, v -> host.saveSupabaseConfig(
                 FitnessUi.inputText(supabaseUrlInput),
-                FitnessUi.inputText(supabaseAnonInput),
-                FitnessUi.inputText(userIdInput)
+                FitnessUi.inputText(supabaseAnonInput)
         ));
         configCard.addView(saveButton, ui.fullWidthParams(ui.dp(16)));
         add(configCard);
+
+        LinearLayout authCard = ui.card();
+        ui.cardHeader(
+                authCard,
+                "Supabase Auth",
+                host.supabaseConfig().isConfigured() ? "authenticated" : "login required"
+        );
+        if (host.supabaseConfig().isConfigured()) {
+            authCard.addView(ui.keyValue("Account", host.supabaseConfig().email));
+            Button signOutButton = ui.button("Sign out", false, v -> host.signOutFromSupabase());
+            authCard.addView(signOutButton, ui.fullWidthParams(ui.dp(12)));
+        } else {
+            EditText emailInput = ui.input("Email", host.supabaseConfig().email);
+            emailInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
+            EditText passwordInput = ui.input("Password", "");
+            passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            authCard.addView(ui.fieldLabel("Email"));
+            authCard.addView(emailInput, ui.fullWidthParams(0));
+            authCard.addView(ui.fieldLabel("Password"));
+            authCard.addView(passwordInput, ui.fullWidthParams(0));
+            Button signInButton = ui.button("Sign in", true, v -> host.signInToSupabase(
+                    FitnessUi.inputText(emailInput),
+                    FitnessUi.inputText(passwordInput)
+            ));
+            authCard.addView(signInButton, ui.fullWidthParams(ui.dp(16)));
+        }
+        add(authCard);
+    }
+
+    /** 화면 모드: 화이트(기본) / 다크 / 시스템 설정. 선택은 반전 칩으로 표현한다. */
+    private void renderThemeCard() {
+        FitnessUi ui = ui();
+        LinearLayout themeCard = ui.card();
+        ui.cardHeader(themeCard, "화면 모드", themeModeLabel(host.themeMode()));
+
+        String[] modes = {"light", "dark", "system"};
+        LinearLayout chipRow = new LinearLayout(host.activity());
+        chipRow.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < modes.length; i++) {
+            final String mode = modes[i];
+            Button chip = ui.filterButton(themeModeLabel(mode));
+            ui.styleFilterButton(chip, mode.equals(host.themeMode()));
+            chip.setOnClickListener(v -> host.setThemeMode(mode));
+            chipRow.addView(chip, ui.pickerCellParams(i == 0));
+        }
+        themeCard.addView(chipRow, ui.fullWidthParams(ui.dp(12)));
+
+        TextView hint = ui.text("시스템 설정은 기기의 다크 모드 설정을 따릅니다.", 12, FitnessUi.COLOR_TERTIARY, false);
+        hint.setPadding(0, ui.dp(10), 0, 0);
+        themeCard.addView(hint);
+        add(themeCard);
+    }
+
+    private String themeModeLabel(String mode) {
+        if ("dark".equals(mode)) {
+            return "다크";
+        }
+        if ("system".equals(mode)) {
+            return "시스템 설정";
+        }
+        return "화이트";
     }
 
     private int syncStatusColor() {
