@@ -1,9 +1,9 @@
 package com.yeonsik.fitnessapp;
 
 import android.app.Activity;
-import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -445,7 +445,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         wrapper.setBackgroundColor(ui.surface());
 
         navDivider = new View(this);
-        navDivider.setBackgroundColor(Color.TRANSPARENT);
+        navDivider.setBackgroundColor(ui.border());
         wrapper.addView(navDivider, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
 
         LinearLayout nav = new LinearLayout(this);
@@ -542,19 +542,32 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     private void refreshNavState() {
         Tab activeTab = tabOf(currentScreen);
+        boolean workoutInProgress = repository != null
+                && repository.latestInProgressSessionId() != null;
+        boolean activationVisible = currentScreen != FitnessScreen.WORKOUT_SESSION
+                && currentScreen != FitnessScreen.WORKOUT_EXERCISE_DETAIL
+                && currentScreen != FitnessScreen.WORKOUT_SUMMARY
+                && !(currentScreen == FitnessScreen.WORKOUT_EXERCISE_ADD
+                && sessionState.activeRecordId() != null);
         bottomNav.setBackgroundColor(ui.surface());
-        navDivider.setBackgroundColor(Color.TRANSPARENT);
-        styleNavArea(homeTabArea, homeTabLabel, activeTab == Tab.HOME);
-        styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT);
-        styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS);
-        styleNavArea(settingsTabArea, settingsTabLabel, activeTab == Tab.SETTINGS);
+        navDivider.setBackgroundColor(ui.border());
+        styleNavArea(homeTabArea, homeTabLabel, activeTab == Tab.HOME, false);
+        styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT,
+                workoutInProgress && activationVisible);
+        styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS, false);
+        styleNavArea(settingsTabArea, settingsTabLabel, activeTab == Tab.SETTINGS, false);
     }
 
-    private void styleNavArea(LinearLayout area, TextView label, boolean active) {
+    private void styleNavArea(LinearLayout area, TextView label, boolean active, boolean hologramActive) {
         String seed = "bottom-nav-" + label.getText();
-        area.setBackground(active
+        Drawable background = active
                 ? ui.vibrantRippleDrawable(seed, ui.dp(999))
-                : ui.flatSurfaceRippleDrawable(ui.dp(999)));
+                : ui.flatSurfaceRippleDrawable(ui.dp(999));
+        if (hologramActive) {
+            ui.setHologramBackground(area, background, ui.dp(999));
+        } else {
+            ui.setComponentBackground(area, background);
+        }
         label.setTextColor(active ? ui.onAccent() : ui.inkMuted());
         label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
     }

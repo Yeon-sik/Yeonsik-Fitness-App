@@ -6,8 +6,16 @@ import android.app.Dialog;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Canvas;
+import android.graphics.ColorFilter;
+import android.graphics.Matrix;
+import android.graphics.Outline;
 import android.graphics.Paint;
+import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.SweepGradient;
 import android.graphics.Typeface;
+import android.graphics.drawable.Animatable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -22,6 +30,7 @@ import android.view.ViewGroup;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
+import android.view.animation.LinearInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.Button;
 import android.widget.EditText;
@@ -34,6 +43,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -49,7 +60,7 @@ public final class FitnessUi {
     public static final int COLOR_TEXT = Color.rgb(21, 22, 26);
     public static final int COLOR_MUTED = Color.rgb(106, 110, 118);
     public static final int COLOR_TERTIARY = Color.rgb(162, 166, 174);
-    public static final int COLOR_BORDER = Color.TRANSPARENT;
+    public static final int COLOR_BORDER = Color.BLACK;
     public static final int COLOR_PRIMARY = Color.BLACK;
     public static final int COLOR_SUBTLE = Color.WHITE;
     public static final int COLOR_INVERSE_TEXT = Color.WHITE;
@@ -85,7 +96,7 @@ public final class FitnessUi {
     public static final int COLOR_D_TEXT = Color.rgb(237, 238, 240);
     public static final int COLOR_D_MUTED = Color.rgb(154, 158, 166);
     public static final int COLOR_D_TERTIARY = Color.rgb(110, 114, 128);
-    public static final int COLOR_D_BORDER = Color.TRANSPARENT;
+    public static final int COLOR_D_BORDER = Color.WHITE;
     public static final int COLOR_D_ON_ACCENT_MUTED = Color.argb(230, 21, 22, 26);
     public static final int COLOR_D_CHIP_ON_ACCENT = Color.argb(20, 21, 22, 26);
     public static final int COLOR_D_LINE_ON_ACCENT = Color.argb(30, 21, 22, 26);
@@ -95,6 +106,7 @@ public final class FitnessUi {
 
     private final Activity activity;
     private final BooleanSupplier inverseSupplier;
+    private final Map<View, HologramBinding> hologramBindings = new WeakHashMap<>();
 
     public FitnessUi(Activity activity, BooleanSupplier inverseSupplier) {
         this.activity = activity;
@@ -199,7 +211,8 @@ public final class FitnessUi {
         );
         gradient.setCornerRadius(radius);
 
-        return gradient;
+        GradientDrawable border = borderDrawable(Color.TRANSPARENT, border(), radius);
+        return new LayerDrawable(new Drawable[]{gradient, border});
     }
 
     public Drawable vibrantRippleDrawable(String seed, int radius) {
@@ -232,6 +245,241 @@ public final class FitnessUi {
                 flatSurfaceDrawable(radius),
                 mask
         );
+    }
+
+    /** 일반 배경으로 돌아갈 때 기존 홀로그램 애니메이션과 attach listener를 함께 정리한다. */
+    public void setComponentBackground(View view, Drawable background) {
+        clearHologramBinding(view);
+        view.setBackground(background);
+    }
+
+    /** 기존 배경 위에 회전하는 cyan/violet/magenta 홀로그램 테두리를 겹친다. */
+    public void setHologramBackground(View view, Drawable background, int radius) {
+        clearHologramBinding(view);
+        if (view.getBackground() == background) {
+            view.setBackground(null);
+        }
+        HologramBorderDrawable hologram = new HologramBorderDrawable(
+                background, radius, dp(3));
+        HologramBinding binding = new HologramBinding(hologram);
+        hologramBindings.put(view, binding);
+        view.addOnAttachStateChangeListener(binding);
+        view.setBackground(hologram);
+        if (view.isAttachedToWindow() && view.isShown()) {
+            hologram.start();
+        }
+    }
+
+    private void clearHologramBinding(View view) {
+        HologramBinding binding = hologramBindings.remove(view);
+        if (binding == null) {
+            return;
+        }
+        view.removeOnAttachStateChangeListener(binding);
+        binding.drawable.stop();
+    }
+
+    private static final class HologramBinding implements View.OnAttachStateChangeListener {
+        private final HologramBorderDrawable drawable;
+
+        private HologramBinding(HologramBorderDrawable drawable) {
+            this.drawable = drawable;
+        }
+
+        @Override
+        public void onViewAttachedToWindow(View view) {
+            if (view.isShown()) {
+                drawable.start();
+            }
+        }
+
+        @Override
+        public void onViewDetachedFromWindow(View view) {
+            drawable.stop();
+        }
+    }
+
+    private static final class HologramBorderDrawable extends Drawable
+            implements Animatable, Drawable.Callback {
+        private final Drawable content;
+        private final float radius;
+        private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint edgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final RectF borderRect = new RectF();
+        private final Matrix gradientMatrix = new Matrix();
+        private final ValueAnimator animator;
+        private SweepGradient glowGradient;
+        private SweepGradient edgeGradient;
+        private float rotation;
+
+        private HologramBorderDrawable(Drawable content, float radius, float edgeWidth) {
+            this.content = (content == null ? new ColorDrawable(Color.TRANSPARENT) : content).mutate();
+            this.content.setCallback(this);
+            this.radius = radius;
+
+            glowPaint.setStyle(Paint.Style.STROKE);
+            glowPaint.setStrokeWidth(edgeWidth * 3f);
+            edgePaint.setStyle(Paint.Style.STROKE);
+            edgePaint.setStrokeWidth(edgeWidth);
+
+            animator = ValueAnimator.ofFloat(0f, 360f);
+            animator.setDuration(2200L);
+            animator.setRepeatCount(ValueAnimator.INFINITE);
+            animator.setRepeatMode(ValueAnimator.RESTART);
+            animator.setInterpolator(new LinearInterpolator());
+            animator.addUpdateListener(valueAnimator -> {
+                rotation = (float) valueAnimator.getAnimatedValue();
+                invalidateSelf();
+            });
+        }
+
+        @Override
+        protected void onBoundsChange(Rect bounds) {
+            super.onBoundsChange(bounds);
+            content.setBounds(bounds);
+            float inset = edgePaint.getStrokeWidth() / 2f;
+            borderRect.set(bounds.left + inset, bounds.top + inset,
+                    bounds.right - inset, bounds.bottom - inset);
+            float centerX = bounds.exactCenterX();
+            float centerY = bounds.exactCenterY();
+            float[] stops = new float[]{0f, 0.22f, 0.48f, 0.72f, 1f};
+            glowGradient = new SweepGradient(centerX, centerY, new int[]{
+                    Color.argb(105, 0, 216, 255),
+                    Color.argb(95, 91, 70, 255),
+                    Color.argb(110, 242, 54, 255),
+                    Color.argb(190, 255, 255, 255),
+                    Color.argb(105, 0, 216, 255)
+            }, stops);
+            edgeGradient = new SweepGradient(centerX, centerY, new int[]{
+                    COLOR_FLOW_CYAN,
+                    COLOR_FLOW_VIOLET,
+                    COLOR_FLOW_MAGENTA,
+                    Color.WHITE,
+                    COLOR_FLOW_CYAN
+            }, stops);
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            content.draw(canvas);
+            if (glowGradient == null || edgeGradient == null || borderRect.isEmpty()) {
+                return;
+            }
+            gradientMatrix.setRotate(rotation, borderRect.centerX(), borderRect.centerY());
+            glowGradient.setLocalMatrix(gradientMatrix);
+            edgeGradient.setLocalMatrix(gradientMatrix);
+            glowPaint.setShader(glowGradient);
+            edgePaint.setShader(edgeGradient);
+            float cornerRadius = Math.max(0f, radius - edgePaint.getStrokeWidth() / 2f);
+            canvas.drawRoundRect(borderRect, cornerRadius, cornerRadius, glowPaint);
+            canvas.drawRoundRect(borderRect, cornerRadius, cornerRadius, edgePaint);
+        }
+
+        @Override
+        public void start() {
+            if (!animator.isStarted()) {
+                animator.start();
+            }
+        }
+
+        @Override
+        public void stop() {
+            animator.cancel();
+        }
+
+        @Override
+        public boolean isRunning() {
+            return animator.isRunning();
+        }
+
+        @Override
+        public boolean setVisible(boolean visible, boolean restart) {
+            boolean changed = super.setVisible(visible, restart);
+            content.setVisible(visible, restart);
+            if (!visible) {
+                stop();
+            } else if (getCallback() != null && (restart || changed)) {
+                start();
+            }
+            return changed;
+        }
+
+        @Override
+        protected boolean onStateChange(int[] state) {
+            boolean changed = content.setState(state);
+            if (changed) {
+                invalidateSelf();
+            }
+            return changed;
+        }
+
+        @Override
+        protected boolean onLevelChange(int level) {
+            return content.setLevel(level);
+        }
+
+        @Override
+        public boolean isStateful() {
+            return content.isStateful();
+        }
+
+        @Override
+        public boolean getPadding(Rect padding) {
+            return content.getPadding(padding);
+        }
+
+        @Override
+        public void getOutline(Outline outline) {
+            Rect bounds = getBounds();
+            float outlineRadius = Math.min(radius,
+                    Math.min(bounds.width(), bounds.height()) / 2f);
+            outline.setRoundRect(bounds, outlineRadius);
+            outline.setAlpha(1f);
+        }
+
+        @Override
+        public void setHotspot(float x, float y) {
+            content.setHotspot(x, y);
+        }
+
+        @Override
+        public void setHotspotBounds(int left, int top, int right, int bottom) {
+            content.setHotspotBounds(left, top, right, bottom);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            content.setAlpha(alpha);
+            glowPaint.setAlpha(alpha);
+            edgePaint.setAlpha(alpha);
+        }
+
+        @Override
+        public void setColorFilter(ColorFilter colorFilter) {
+            content.setColorFilter(colorFilter);
+            glowPaint.setColorFilter(colorFilter);
+            edgePaint.setColorFilter(colorFilter);
+        }
+
+        @Override
+        public void invalidateDrawable(Drawable drawable) {
+            invalidateSelf();
+        }
+
+        @Override
+        public void scheduleDrawable(Drawable drawable, Runnable runnable, long when) {
+            scheduleSelf(runnable, when);
+        }
+
+        @Override
+        public void unscheduleDrawable(Drawable drawable, Runnable runnable) {
+            unscheduleSelf(runnable);
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
     }
 
     private int rawFlowColor(int variant) {
@@ -421,7 +669,9 @@ public final class FitnessUi {
                 Color.argb(42, 4, 5, 12)
         });
 
-        return new LayerDrawable(new Drawable[]{base, cyan, violet, magenta, scrim});
+        GradientDrawable border = borderDrawable(
+                Color.TRANSPARENT, border(), dp(24));
+        return new LayerDrawable(new Drawable[]{base, cyan, violet, magenta, scrim, border});
     }
 
     private GradientDrawable flowGlow(int color, float centerX, float centerY, int radiusDp) {
@@ -445,7 +695,8 @@ public final class FitnessUi {
     public GradientDrawable borderDrawable(int fill, int stroke, int radius) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(fill);
-        // 기존 호출부 호환을 위해 stroke 인자는 유지하지만, 컴포넌트 외곽선은 그리지 않는다.
+        // 기존 호출부 호환을 위해 stroke 인자는 유지하고 실제 테두리는 테마 색으로 통일한다.
+        drawable.setStroke(dp(1), border());
         drawable.setCornerRadius(radius);
         return drawable;
     }
@@ -974,6 +1225,7 @@ public final class FitnessUi {
         sheet.setPadding(dp(20), dp(10), dp(20), dp(24));
         GradientDrawable background = new GradientDrawable();
         background.setColor(surface());
+        background.setStroke(dp(1), border());
         float r = dp(24);
         background.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
         sheet.setBackground(background);

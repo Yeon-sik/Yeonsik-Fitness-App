@@ -83,6 +83,9 @@ public final class HomeScreen extends BaseScreen {
     private void heroJudgmentCard(List<String> todaySessions, FitnessRepository.DayWorkoutMetrics metrics, boolean inProgress) {
         FitnessUi ui = ui();
         LinearLayout card = ui.heroCard();
+        if (inProgress) {
+            ui.setHologramBackground(card, card.getBackground(), ui.dp(24));
+        }
 
         LinearLayout headerRow = new LinearLayout(host.activity());
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
