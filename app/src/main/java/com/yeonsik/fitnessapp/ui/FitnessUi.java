@@ -516,8 +516,8 @@ public final class FitnessUi {
         }
     }
 
-    /** 홈 히어로 면 안에서 기존 cyan/violet/magenta 팔레트를 계속 회전시킨다. */
-    private static final class AnimatedHeroBackgroundDrawable extends Drawable implements Animatable {
+    /** 홈 히어로의 cyan/violet/magenta 팔레트를 움직임 없는 정적 면으로 그린다. */
+    private static final class HeroBackgroundDrawable extends Drawable {
         private final float radius;
         private final Paint basePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Paint colorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -525,12 +525,9 @@ public final class FitnessUi {
         private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final RectF surfaceRect = new RectF();
         private final RectF borderRect = new RectF();
-        private final Matrix gradientMatrix = new Matrix();
-        private final ValueAnimator animator;
         private SweepGradient colorGradient;
-        private float rotation;
 
-        private AnimatedHeroBackgroundDrawable(float radius, float borderWidth, int borderColor) {
+        private HeroBackgroundDrawable(float radius, float borderWidth, int borderColor) {
             this.radius = radius;
             basePaint.setColor(COLOR_FLOW_BASE);
             colorPaint.setAlpha(210);
@@ -539,16 +536,6 @@ public final class FitnessUi {
             borderPaint.setStyle(Paint.Style.STROKE);
             borderPaint.setStrokeWidth(borderWidth);
             borderPaint.setColor(borderColor);
-
-            animator = ValueAnimator.ofFloat(0f, 360f);
-            animator.setDuration(6800L);
-            animator.setRepeatCount(ValueAnimator.INFINITE);
-            animator.setRepeatMode(ValueAnimator.RESTART);
-            animator.setInterpolator(new LinearInterpolator());
-            animator.addUpdateListener(valueAnimator -> {
-                rotation = (float) valueAnimator.getAnimatedValue();
-                invalidateSelf();
-            });
         }
 
         @Override
@@ -572,48 +559,18 @@ public final class FitnessUi {
                     },
                     new float[]{0f, 0.17f, 0.34f, 0.5f, 0.67f, 0.84f, 1f}
             );
+            colorPaint.setShader(colorGradient);
         }
 
         @Override
         public void draw(Canvas canvas) {
             canvas.drawRoundRect(surfaceRect, radius, radius, basePaint);
             if (colorGradient != null) {
-                gradientMatrix.setRotate(rotation, surfaceRect.centerX(), surfaceRect.centerY());
-                colorGradient.setLocalMatrix(gradientMatrix);
-                colorPaint.setShader(colorGradient);
                 canvas.drawRoundRect(surfaceRect, radius, radius, colorPaint);
             }
             canvas.drawRoundRect(surfaceRect, radius, radius, scrimPaint);
             float borderRadius = Math.max(0f, radius - borderPaint.getStrokeWidth() / 2f);
             canvas.drawRoundRect(borderRect, borderRadius, borderRadius, borderPaint);
-        }
-
-        @Override
-        public void start() {
-            if (!animator.isStarted()) {
-                animator.start();
-            }
-        }
-
-        @Override
-        public void stop() {
-            animator.cancel();
-        }
-
-        @Override
-        public boolean isRunning() {
-            return animator.isRunning();
-        }
-
-        @Override
-        public boolean setVisible(boolean visible, boolean restart) {
-            boolean changed = super.setVisible(visible, restart);
-            if (!visible) {
-                stop();
-            } else if (getCallback() != null && (restart || changed)) {
-                start();
-            }
-            return changed;
         }
 
         @Override
@@ -822,15 +779,14 @@ public final class FitnessUi {
         LinearLayout card = new LinearLayout(activity);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(22), dp(22), dp(22), dp(22));
-        AnimatedHeroBackgroundDrawable background = heroBackground();
-        bindAnimatedBackground(card, background, background);
+        card.setBackground(heroBackground());
         applyDepth(card, 12);
         card.setLayoutParams(fullWidthParams(dp(12)));
         return card;
     }
 
-    private AnimatedHeroBackgroundDrawable heroBackground() {
-        return new AnimatedHeroBackgroundDrawable(dp(24), dp(1), border());
+    private HeroBackgroundDrawable heroBackground() {
+        return new HeroBackgroundDrawable(dp(24), dp(1), border());
     }
 
     public GradientDrawable borderDrawable(int fill, int stroke, int radius) {
