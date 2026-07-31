@@ -221,6 +221,11 @@ public final class FitnessUi {
         return mix(COLOR_PRIMARY, rawFlowColor(variant), 0.50f);
     }
 
+    /** 어두운 표면에서는 원색을, 밝은 표면에서는 대비를 높인 홀로그램 색을 반환한다. */
+    public int hologramAccentColor(int variant) {
+        return dark() ? rawFlowColor(variant) : vibrantColor(variant);
+    }
+
     public Drawable vibrantBackground(int variant, int radius) {
         int normalized = normalizeVariant(variant);
         GradientDrawable gradient = new GradientDrawable(
@@ -1138,6 +1143,16 @@ public final class FitnessUi {
         return tile;
     }
 
+    /**
+     * 기본 표면과 텍스트 대비는 유지하고, 탭 가능한 상태 카드의 외곽만 홀로그램으로 강조한다.
+     */
+    public View hologramStatTile(String label, String value, String meta, View.OnClickListener listener) {
+        View tile = statTile(label, value, meta, false, listener);
+        setHologramBackground(tile, tile.getBackground(), dp(14));
+        applyDepth(tile, 7);
+        return tile;
+    }
+
     public View glyphCircle(String glyph, boolean onAccentSurface) {
         TextView circle = text(glyph, 14, onAccentSurface ? COLOR_INVERSE_TEXT : COLOR_MUTED, true);
         circle.setGravity(Gravity.CENTER);
@@ -1145,6 +1160,17 @@ public final class FitnessUi {
                 ? borderDrawable(chipOnAccent(), chipOnAccent(), dp(999))
                 : flatSurfaceDrawable(dp(999)));
         applyDepth(circle, 2);
+        circle.setLayoutParams(new LinearLayout.LayoutParams(dp(40), dp(40)));
+        return circle;
+    }
+
+    /** 데이터 기록의 시작점을 작고 선명한 홀로그램 배지로 표시한다. */
+    public View vibrantGlyphCircle(String glyph, String seed) {
+        TextView circle = text(glyph, 14, COLOR_INVERSE_TEXT, true);
+        circle.setTextColor(onVibrant());
+        circle.setGravity(Gravity.CENTER);
+        circle.setBackground(vibrantBackground(variantFor(seed), dp(999)));
+        applyDepth(circle, 4);
         circle.setLayoutParams(new LinearLayout.LayoutParams(dp(40), dp(40)));
         return circle;
     }

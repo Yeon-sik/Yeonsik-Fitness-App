@@ -258,9 +258,10 @@ public final class HomeScreen extends BaseScreen {
             int barHeight = values[i] <= 0
                     ? ui.dp(4)
                     : Math.max(ui.dp(10), (int) Math.round(values[i] / max * chartHeight));
-            int barColor = values[i] <= 0 ? ui.surface() : ui.accent();
             View bar = new View(host.activity());
-            bar.setBackground(ui.borderDrawable(barColor, barColor, ui.dp(999)));
+            bar.setBackground(values[i] <= 0
+                    ? ui.borderDrawable(ui.barEmpty(), ui.barEmpty(), ui.dp(999))
+                    : ui.vibrantBackground(i, ui.dp(999)));
             LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(ui.dp(12), barHeight);
             barParams.gravity = Gravity.CENTER_HORIZONTAL;
             column.addView(bar, barParams);

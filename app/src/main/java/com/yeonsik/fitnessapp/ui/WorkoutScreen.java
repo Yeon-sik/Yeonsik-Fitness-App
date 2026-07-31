@@ -59,9 +59,9 @@ public final class WorkoutScreen extends BaseScreen {
 
         section("오늘 컨디션");
         LinearLayout conditionRow = ui().tileRow();
-        conditionRow.addView(ui().statTile("체중", todayWeightValue(), "탭하여 기록", false,
+        conditionRow.addView(ui().hologramStatTile("체중", todayWeightValue(), "탭하여 기록",
                 v -> host.showBodyMetricDialog()), ui().tileParams(true));
-        conditionRow.addView(ui().statTile("식사", repository().mealsForDate(today).size() + "건", "탭하여 기록", false,
+        conditionRow.addView(ui().hologramStatTile("식사", repository().mealsForDate(today).size() + "건", "탭하여 기록",
                 v -> host.showMealDialog()), ui().tileParams(false));
         add(conditionRow, ui().fullWidthParams(0));
 

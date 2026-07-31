@@ -141,23 +141,32 @@ public final class RecordsScreen extends BaseScreen {
         cell.setBackground(selected
                 ? ui.vibrantRippleDrawable(daySeed, ui.dp(10))
                 : ui.flatSurfaceRippleDrawable(ui.dp(10)));
+        if (selected) {
+            ui.setHologramBackground(cell, cell.getBackground(), ui.dp(10));
+        }
         ui.applyDepth(cell, selected ? 5 : 2);
         ui.pressFeedback(cell);
         TextView day = ui.num(String.valueOf(date.getDayOfMonth()), 14,
                 selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
+        if (selected) {
+            day.setTextColor(ui.onVibrant());
+        }
         day.setGravity(Gravity.CENTER);
         cell.addView(day, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(21)));
 
         LinearLayout markers = new LinearLayout(host.activity());
         markers.setOrientation(LinearLayout.HORIZONTAL);
         markers.setGravity(Gravity.CENTER);
-        addMarker(markers, summary.hasWorkout, selected ? ui.onAccent() : ui.accent());
-        addMarker(markers, summary.hasMeal, selected ? ui.onAccent() : FitnessUi.COLOR_WARNING);
-        addMarker(markers, summary.hasWeight, selected ? ui.onAccent() : FitnessUi.COLOR_POSITIVE);
+        addMarker(markers, summary.hasWorkout, selected ? ui.onVibrant() : ui.hologramAccentColor(0));
+        addMarker(markers, summary.hasMeal, selected ? ui.onVibrant() : ui.hologramAccentColor(2));
+        addMarker(markers, summary.hasWeight, selected ? ui.onVibrant() : ui.hologramAccentColor(1));
         cell.addView(markers, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(9)));
 
         TextView muscle = ui.text(summary.muscles, 9,
                 selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_MUTED, false);
+        if (selected) {
+            muscle.setTextColor(ui.onVibrantMuted());
+        }
         muscle.setGravity(Gravity.CENTER);
         muscle.setMaxLines(1);
         cell.addView(muscle, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(15)));
@@ -185,9 +194,9 @@ public final class RecordsScreen extends BaseScreen {
         legend.setOrientation(LinearLayout.HORIZONTAL);
         legend.setGravity(Gravity.CENTER_VERTICAL);
         legend.setPadding(0, ui.dp(12), 0, 0);
-        legend.addView(ui.text("● 운동", 11, ui.accent(), false), ui.fieldCellParams(true));
-        legend.addView(ui.text("● 식사", 11, FitnessUi.COLOR_WARNING, false), ui.fieldCellParams(false));
-        legend.addView(ui.text("● 체중", 11, FitnessUi.COLOR_POSITIVE, false), ui.fieldCellParams(false));
+        legend.addView(ui.text("● 운동", 11, ui.hologramAccentColor(0), false), ui.fieldCellParams(true));
+        legend.addView(ui.text("● 식사", 11, ui.hologramAccentColor(2), false), ui.fieldCellParams(false));
+        legend.addView(ui.text("● 체중", 11, ui.hologramAccentColor(1), false), ui.fieldCellParams(false));
         card.addView(legend);
     }
 
@@ -298,7 +307,7 @@ public final class RecordsScreen extends BaseScreen {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        row.addView(ui.glyphCircle("운", false));
+        row.addView(ui.vibrantGlyphCircle("운", "session-" + session.id));
 
         LinearLayout column = new LinearLayout(host.activity());
         column.setOrientation(LinearLayout.VERTICAL);
