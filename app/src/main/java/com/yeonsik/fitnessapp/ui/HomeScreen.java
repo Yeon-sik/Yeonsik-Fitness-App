@@ -256,8 +256,8 @@ public final class HomeScreen extends BaseScreen {
                     ? ui.dp(4)
                     : Math.max(ui.dp(10), (int) Math.round(values[i] / max * chartHeight));
             int barColor = values[i] <= 0
-                    ? ui.barEmpty()
-                    : (isToday ? ui.accent() : ui.barMuted());
+                    ? ui.colorfulBorder(i)
+                    : ui.vibrantColor(isToday ? 2 : i);
             View bar = new View(host.activity());
             bar.setBackground(ui.borderDrawable(barColor, barColor, ui.dp(999)));
             LinearLayout.LayoutParams barParams = new LinearLayout.LayoutParams(ui.dp(12), barHeight);
@@ -273,7 +273,7 @@ public final class HomeScreen extends BaseScreen {
                 LinearLayout.LayoutParams.MATCH_PARENT, chartHeight));
 
         // 기준선: 막대가 서 있는 바닥을 hairline으로 명시한다 (무드 차트 최소한의 축).
-        View baseline = ui.hairline(FitnessUi.COLOR_BORDER);
+        View baseline = ui.hairline(ui.colorfulBorder(1));
         wrapper.addView(baseline, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
 
@@ -281,7 +281,8 @@ public final class HomeScreen extends BaseScreen {
         labelsRow.setOrientation(LinearLayout.HORIZONTAL);
         for (int i = 0; i < labels.length; i++) {
             boolean isToday = i == LocalDate.now().getDayOfWeek().getValue() - 1;
-            TextView day = ui.text(labels[i], 11, isToday ? FitnessUi.COLOR_TEXT : FitnessUi.COLOR_TERTIARY, isToday);
+            TextView day = ui.text(labels[i], 11,
+                    isToday ? ui.vibrantColor(2) : FitnessUi.COLOR_TERTIARY, isToday);
             day.setGravity(Gravity.CENTER);
             labelsRow.addView(day, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         }

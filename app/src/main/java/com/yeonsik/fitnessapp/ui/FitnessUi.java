@@ -37,10 +37,10 @@ import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
 /**
- * 모노크롬 디자인 시스템의 공통 UI 팩토리.
+ * 테마 메인 색상과 Flowstate 팔레트를 결합한 공통 UI 팩토리.
  * 색 토큰, 타이포그래피, 표면(카드/타일), 버튼/칩, 입력창, 리스트 행, 포맷터를 담당한다.
  * 화면 상태를 소유하지 않으며, 다크 테마 여부는 생성 시 주입된 supplier로 판단한다.
- * 다크 테마에서도 "반전 = 강조" 문법은 동일하다. 강조 표면이 블랙→화이트로 뒤집힐 뿐이다.
+ * 다크 테마에서도 "반전 = 강조" 문법을 유지하고, 팔레트는 메인 색상과 혼합해 대비를 맞춘다.
  */
 public final class FitnessUi {
     // ── 라이트 토큰 (design-system §2.1) ─────────────────────────────
@@ -54,7 +54,7 @@ public final class FitnessUi {
     public static final int COLOR_PRIMARY_HI = Color.rgb(28, 28, 32);
     public static final int COLOR_SUBTLE = Color.rgb(245, 246, 248);
     public static final int COLOR_INVERSE_TEXT = Color.WHITE;
-    public static final int COLOR_INVERSE_MUTED = Color.argb(163, 255, 255, 255);
+    public static final int COLOR_INVERSE_MUTED = Color.argb(230, 255, 255, 255);
     public static final int COLOR_POSITIVE = Color.rgb(46, 125, 91);
     public static final int COLOR_NEGATIVE = Color.rgb(192, 69, 62);
     public static final int COLOR_WARNING = Color.rgb(168, 118, 31);
@@ -67,9 +67,12 @@ public final class FitnessUi {
     public static final int COLOR_INVERSE_CHIP = Color.argb(30, 255, 255, 255);
     public static final int COLOR_INVERSE_LINE = Color.argb(26, 255, 255, 255);
 
-    // ── 홈 Flowstate 히어로 전용 토큰 ─────────────────────────────────
-    // 전역 테마 토큰과 분리해 다른 화면의 모노크롬 문법을 바꾸지 않는다.
+    // ── 홈 Flowstate에서 출발한 전역 컬러 팔레트 ──────────────────────
+    // 히어로는 원색 glow를, 일반 컴포넌트는 테마 메인 색상과 혼합한 파생색을 사용한다.
     public static final int COLOR_FLOW_BASE = Color.rgb(4, 5, 12);
+    public static final int COLOR_FLOW_CYAN = Color.rgb(0, 216, 255);
+    public static final int COLOR_FLOW_VIOLET = Color.rgb(91, 70, 255);
+    public static final int COLOR_FLOW_MAGENTA = Color.rgb(242, 54, 255);
     public static final int COLOR_FLOW_TEXT = Color.rgb(238, 240, 246);
     public static final int COLOR_FLOW_MUTED = Color.rgb(185, 190, 207);
     public static final int COLOR_FLOW_GLASS_FILL = Color.argb(20, 255, 255, 255);
@@ -84,7 +87,7 @@ public final class FitnessUi {
     public static final int COLOR_D_MUTED = Color.rgb(154, 158, 166);
     public static final int COLOR_D_TERTIARY = Color.rgb(110, 114, 128);
     public static final int COLOR_D_BORDER = Color.argb(26, 255, 255, 255);
-    public static final int COLOR_D_ON_ACCENT_MUTED = Color.argb(163, 21, 22, 26);
+    public static final int COLOR_D_ON_ACCENT_MUTED = Color.argb(230, 21, 22, 26);
     public static final int COLOR_D_CHIP_ON_ACCENT = Color.argb(20, 21, 22, 26);
     public static final int COLOR_D_LINE_ON_ACCENT = Color.argb(30, 21, 22, 26);
     public static final int COLOR_D_TRACK_ON_ACCENT = Color.argb(30, 21, 22, 26);
@@ -93,10 +96,16 @@ public final class FitnessUi {
 
     private final Activity activity;
     private final BooleanSupplier inverseSupplier;
+    private int cardColorSequence;
 
     public FitnessUi(Activity activity, BooleanSupplier inverseSupplier) {
         this.activity = activity;
         this.inverseSupplier = inverseSupplier;
+    }
+
+    /** 같은 화면을 다시 그려도 카드별 팔레트 배치가 달라지지 않도록 렌더 시작 시 초기화한다. */
+    public void resetColorSequence() {
+        cardColorSequence = 0;
     }
 
     /** 다크 테마 활성 여부. 이름은 반전 문법("다크 = 라이트의 반전 매핑")에서 온다. */
@@ -178,6 +187,111 @@ public final class FitnessUi {
 
     public int barEmpty() {
         return dark() ? COLOR_D_BAR_EMPTY : COLOR_BAR_EMPTY;
+    }
+
+    /**
+     * 히어로 팔레트를 현재 테마의 메인 색상(라이트=검정, 다크=흰색)과 섞은 강조색.
+     * 세 색의 관계는 유지하면서도 각 테마에서 전경 텍스트 대비를 보장한다.
+     */
+    public int vibrantColor(int variant) {
+        float colorWeight = dark() ? 0.32f : 0.50f;
+        return mix(accent(), rawFlowColor(variant), colorWeight);
+    }
+
+    /** 그라데이션이 과한 곳에 쓰는 옅은 팔레트 표면. */
+    public int colorfulSurface(int variant) {
+        return mix(surface(), rawFlowColor(variant), dark() ? 0.12f : 0.08f);
+    }
+
+    public int colorfulBorder(int variant) {
+        int color = rawFlowColor(variant);
+        return Color.argb(dark() ? 82 : 54, Color.red(color), Color.green(color), Color.blue(color));
+    }
+
+    public Drawable vibrantBackground(int variant, int radius) {
+        int normalized = normalizeVariant(variant);
+        GradientDrawable gradient = new GradientDrawable(
+                gradientOrientation(normalized),
+                new int[]{vibrantColor(normalized), vibrantColor(normalized + 1)}
+        );
+        gradient.setCornerRadius(radius);
+
+        GradientDrawable border = borderDrawable(
+                Color.TRANSPARENT, colorfulBorder(normalized + 2), radius);
+        return new LayerDrawable(new Drawable[]{gradient, border});
+    }
+
+    public Drawable vibrantRippleDrawable(String seed, int radius) {
+        int variant = variantFor(seed);
+        GradientDrawable mask = borderDrawable(Color.WHITE, Color.WHITE, radius);
+        return new RippleDrawable(
+                ColorStateList.valueOf(rippleOnAccent()),
+                vibrantBackground(variant, radius),
+                mask
+        );
+    }
+
+    public Drawable vibrantRippleDrawable(int variant, int radius) {
+        GradientDrawable mask = borderDrawable(Color.WHITE, Color.WHITE, radius);
+        return new RippleDrawable(
+                ColorStateList.valueOf(rippleOnAccent()),
+                vibrantBackground(variant, radius),
+                mask
+        );
+    }
+
+    public Drawable colorfulSurfaceDrawable(String seed, int radius) {
+        int variant = variantFor(seed);
+        return borderDrawable(colorfulSurface(variant), colorfulBorder(variant + 1), radius);
+    }
+
+    public Drawable colorfulSurfaceRippleDrawable(String seed, int radius) {
+        GradientDrawable mask = borderDrawable(Color.WHITE, Color.WHITE, radius);
+        return new RippleDrawable(
+                ColorStateList.valueOf(rippleOnSurface()),
+                colorfulSurfaceDrawable(seed, radius),
+                mask
+        );
+    }
+
+    private int rawFlowColor(int variant) {
+        switch (normalizeVariant(variant)) {
+            case 1:
+                return COLOR_FLOW_VIOLET;
+            case 2:
+                return COLOR_FLOW_MAGENTA;
+            default:
+                return COLOR_FLOW_CYAN;
+        }
+    }
+
+    private int variantFor(String seed) {
+        return Math.floorMod(seed == null ? 0 : seed.hashCode(), 3);
+    }
+
+    private int normalizeVariant(int variant) {
+        return Math.floorMod(variant, 3);
+    }
+
+    private GradientDrawable.Orientation gradientOrientation(int variant) {
+        switch (normalizeVariant(variant)) {
+            case 1:
+                return GradientDrawable.Orientation.TL_BR;
+            case 2:
+                return GradientDrawable.Orientation.BL_TR;
+            default:
+                return GradientDrawable.Orientation.LEFT_RIGHT;
+        }
+    }
+
+    private int mix(int base, int color, float colorWeight) {
+        float weight = Math.max(0f, Math.min(1f, colorWeight));
+        float baseWeight = 1f - weight;
+        return Color.rgb(
+                Math.round(Color.red(base) * baseWeight + Color.red(color) * weight),
+                Math.round(Color.green(base) * baseWeight + Color.green(color) * weight),
+                Math.round(Color.blue(base) * baseWeight + Color.blue(color) * weight)
+        );
     }
 
     public int dp(int value) {
@@ -287,7 +401,9 @@ public final class FitnessUi {
         LinearLayout card = new LinearLayout(activity);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(18), dp(16), dp(18), dp(16));
-        card.setBackground(borderDrawable(surface(), border(), dp(16)));
+        int variant = cardColorSequence++;
+        card.setBackground(borderDrawable(
+                colorfulSurface(variant), colorfulBorder(variant + 1), dp(16)));
         card.setElevation(dark() ? dp(0) : dp(2));
         card.setLayoutParams(fullWidthParams(dp(12)));
         return card;
@@ -309,11 +425,11 @@ public final class FitnessUi {
         base.setCornerRadius(dp(24));
 
         GradientDrawable cyan = flowGlow(
-                Color.argb(172, 0, 216, 255), 0.08f, 0.18f, 270);
+                withAlpha(COLOR_FLOW_CYAN, 172), 0.08f, 0.18f, 270);
         GradientDrawable violet = flowGlow(
-                Color.argb(168, 91, 70, 255), 0.92f, 0.12f, 290);
+                withAlpha(COLOR_FLOW_VIOLET, 168), 0.92f, 0.12f, 290);
         GradientDrawable magenta = flowGlow(
-                Color.argb(142, 242, 54, 255), 0.68f, 1.02f, 280);
+                withAlpha(COLOR_FLOW_MAGENTA, 142), 0.68f, 1.02f, 280);
 
         // 컬러 위에 중앙 스크림을 얹어 본문 대비를 고정한다.
         GradientDrawable scrim = new GradientDrawable();
@@ -344,6 +460,10 @@ public final class FitnessUi {
                 Color.argb(0, Color.red(color), Color.green(color), Color.blue(color))
         });
         return glow;
+    }
+
+    private int withAlpha(int color, int alpha) {
+        return Color.argb(alpha, Color.red(color), Color.green(color), Color.blue(color));
     }
 
     public GradientDrawable borderDrawable(int fill, int stroke, int radius) {
@@ -385,11 +505,10 @@ public final class FitnessUi {
         button.setMinimumHeight(dp(52));
         button.setPadding(dp(18), 0, dp(18), 0);
         button.setStateListAnimator(null);
-        int fill = primary ? accent() : surface();
-        int stroke = primary ? fill : border();
         button.setTextColor(primary ? onAccent() : ink());
-        button.setBackground(rippleDrawable(fill, stroke, dp(999),
-                primary ? rippleOnAccent() : rippleOnSurface()));
+        button.setBackground(primary
+                ? vibrantRippleDrawable(text, dp(999))
+                : colorfulSurfaceRippleDrawable(text, dp(999)));
         button.setOnClickListener(listener);
         pressFeedback(button);
         return button;
@@ -405,9 +524,10 @@ public final class FitnessUi {
 
     public void styleFilterButton(Button button, boolean active) {
         button.setTextColor(active ? onAccent() : inkMuted());
-        int fill = active ? accent() : subtle();
-        button.setBackground(rippleDrawable(fill, fill, dp(999),
-                active ? rippleOnAccent() : rippleOnSurface()));
+        String seed = String.valueOf(button.getText());
+        button.setBackground(active
+                ? vibrantRippleDrawable(seed, dp(999))
+                : colorfulSurfaceRippleDrawable(seed, dp(999)));
     }
 
     public View buttonRow(View first, View second) {
@@ -438,7 +558,7 @@ public final class FitnessUi {
         input.setHintTextColor(inkTertiary());
         input.setMinHeight(dp(48));
         input.setPadding(dp(16), dp(10), dp(16), dp(10));
-        input.setBackground(borderDrawable(subtle(), subtle(), dp(12)));
+        input.setBackground(colorfulSurfaceDrawable(hint, dp(12)));
         return input;
     }
 
@@ -446,7 +566,7 @@ public final class FitnessUi {
         EditText input = input(hint, "");
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         input.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-        input.setBackground(borderDrawable(subtle(), subtle(), dp(999)));
+        input.setBackground(colorfulSurfaceDrawable(hint, dp(999)));
         return input;
     }
 
@@ -531,8 +651,11 @@ public final class FitnessUi {
         LinearLayout badge = new LinearLayout(activity);
         badge.setOrientation(LinearLayout.HORIZONTAL);
         badge.setGravity(Gravity.CENTER_VERTICAL);
-        int fill = onAccentSurface ? chipOnAccent() : subtle();
-        badge.setBackground(borderDrawable(fill, fill, dp(999)));
+        if (onAccentSurface) {
+            badge.setBackground(borderDrawable(chipOnAccent(), chipOnAccent(), dp(999)));
+        } else {
+            badge.setBackground(colorfulSurfaceDrawable(labelText, dp(999)));
+        }
         badge.setPadding(dp(10), dp(5), dp(12), dp(5));
 
         View dot = new View(activity);
@@ -608,17 +731,18 @@ public final class FitnessUi {
         tile.setOrientation(LinearLayout.VERTICAL);
         tile.setPadding(dp(16), dp(14), dp(16), dp(14));
         tile.setMinimumHeight(dp(92));
-        int fill = inverseTile ? accent() : surface();
-        int stroke = inverseTile ? fill : border();
         if (listener != null) {
-            tile.setBackground(rippleDrawable(fill, stroke, dp(14),
-                    inverseTile ? rippleOnAccent() : rippleOnSurface()));
+            tile.setBackground(inverseTile
+                    ? vibrantRippleDrawable(label, dp(14))
+                    : colorfulSurfaceRippleDrawable(label, dp(14)));
             tile.setClickable(true);
             tile.setFocusable(true);
             tile.setOnClickListener(listener);
             pressFeedback(tile);
         } else {
-            tile.setBackground(borderDrawable(fill, stroke, dp(14)));
+            tile.setBackground(inverseTile
+                    ? vibrantBackground(variantFor(label), dp(14))
+                    : colorfulSurfaceDrawable(label, dp(14)));
         }
         tile.setElevation(inverseTile ? dp(5) : dp(2));
 
@@ -637,8 +761,9 @@ public final class FitnessUi {
     public View glyphCircle(String glyph, boolean onAccentSurface) {
         TextView circle = text(glyph, 14, onAccentSurface ? COLOR_INVERSE_TEXT : COLOR_MUTED, true);
         circle.setGravity(Gravity.CENTER);
-        int fill = onAccentSurface ? chipOnAccent() : subtle();
-        circle.setBackground(borderDrawable(fill, fill, dp(999)));
+        circle.setBackground(onAccentSurface
+                ? borderDrawable(chipOnAccent(), chipOnAccent(), dp(999))
+                : colorfulSurfaceDrawable(glyph, dp(999)));
         circle.setLayoutParams(new LinearLayout.LayoutParams(dp(40), dp(40)));
         return circle;
     }
@@ -646,8 +771,9 @@ public final class FitnessUi {
     public View orderBadge(int order, boolean onAccentSurface) {
         TextView badge = num(String.valueOf(order), 13, onAccentSurface ? COLOR_INVERSE_TEXT : COLOR_TEXT, true);
         badge.setGravity(Gravity.CENTER);
-        int fill = onAccentSurface ? chipOnAccent() : subtle();
-        badge.setBackground(borderDrawable(fill, fill, dp(999)));
+        badge.setBackground(onAccentSurface
+                ? borderDrawable(chipOnAccent(), chipOnAccent(), dp(999))
+                : colorfulSurfaceDrawable("order-" + order, dp(999)));
         badge.setLayoutParams(new LinearLayout.LayoutParams(dp(28), dp(28)));
         return badge;
     }
@@ -655,7 +781,7 @@ public final class FitnessUi {
     public View compactOrderBadge(int order) {
         TextView badge = num(String.valueOf(order), 11, COLOR_TEXT, true);
         badge.setGravity(Gravity.CENTER);
-        badge.setBackground(borderDrawable(subtle(), subtle(), dp(999)));
+        badge.setBackground(colorfulSurfaceDrawable("compact-order-" + order, dp(999)));
         badge.setLayoutParams(new LinearLayout.LayoutParams(dp(22), dp(22)));
         return badge;
     }
@@ -714,7 +840,7 @@ public final class FitnessUi {
         int trackColor = onAccentSurface ? trackOnAccent() : trackOnSurface();
         track.setBackground(borderDrawable(trackColor, trackColor, dp(999)));
 
-        int fillColor = onAccentSurface ? onAccent() : accent();
+        int fillColor = onAccentSurface ? onAccent() : vibrantColor(0);
         View fill = new View(activity);
         fill.setBackground(borderDrawable(fillColor, fillColor, dp(999)));
         track.addView(fill, new LinearLayout.LayoutParams(0, dp(6), clamped));
@@ -727,7 +853,7 @@ public final class FitnessUi {
         final List<Double> points = values == null ? java.util.Collections.emptyList() : new java.util.ArrayList<>(values);
         final int axisColor = border();
         final int mutedColor = inkMuted();
-        final int strokeColor = accent();
+        final int strokeColor = vibrantColor(1);
         return new View(activity) {
             private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
@@ -871,7 +997,8 @@ public final class FitnessUi {
         sheet.setOrientation(LinearLayout.VERTICAL);
         sheet.setPadding(dp(20), dp(10), dp(20), dp(24));
         GradientDrawable background = new GradientDrawable();
-        background.setColor(surface());
+        background.setColor(colorfulSurface(2));
+        background.setStroke(dp(1), colorfulBorder(1));
         float r = dp(24);
         background.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
         sheet.setBackground(background);
@@ -970,7 +1097,7 @@ public final class FitnessUi {
         button.setPadding(dp(18), 0, dp(18), 0);
         button.setStateListAnimator(null);
         button.setTextColor(onAccent());
-        button.setBackground(rippleDrawable(accent(), accent(), dp(999), rippleOnAccent()));
+        button.setBackground(vibrantRippleDrawable("sheet-primary-" + text, dp(999)));
         button.setOnClickListener(v -> action.run());
         pressFeedback(button);
         return button;
@@ -1040,7 +1167,7 @@ public final class FitnessUi {
                                       Runnable onStart, Runnable onDetail) {
         LinearLayout card = card();
         card.setPadding(dp(12), dp(8), dp(12), dp(8));
-        card.setBackground(rippleDrawable(accent(), accent(), dp(16), rippleOnAccent()));
+        card.setBackground(vibrantRippleDrawable("routine-" + routineName, dp(16)));
         card.setClickable(true);
         card.setFocusable(true);
         card.setOnClickListener(v -> onStart.run());

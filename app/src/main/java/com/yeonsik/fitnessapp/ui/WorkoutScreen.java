@@ -84,8 +84,7 @@ public final class WorkoutScreen extends BaseScreen {
         banner.setOrientation(LinearLayout.HORIZONTAL);
         banner.setGravity(Gravity.CENTER_VERTICAL);
         banner.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(16));
-        banner.setBackground(ui.rippleDrawable(ui.accent(), ui.accent(),
-                ui.dp(18), ui.rippleOnAccent()));
+        banner.setBackground(ui.vibrantRippleDrawable("workout-in-progress", ui.dp(18)));
         banner.setElevation(ui.dp(6));
         banner.setClickable(true);
         banner.setFocusable(true);

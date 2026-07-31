@@ -137,9 +137,10 @@ public final class RecordsScreen extends BaseScreen {
 
         DaySummary summary = summarize(date);
         boolean selected = date.toString().equals(selectedDate);
-        cell.setBackground(ui.rippleDrawable(selected ? ui.accent() : ui.surface(),
-                selected ? ui.accent() : ui.border(),
-                ui.dp(10), selected ? ui.rippleOnAccent() : ui.rippleOnSurface()));
+        String daySeed = "calendar-" + date.getDayOfWeek();
+        cell.setBackground(selected
+                ? ui.vibrantRippleDrawable(daySeed, ui.dp(10))
+                : ui.colorfulSurfaceRippleDrawable(daySeed, ui.dp(10)));
         TextView day = ui.num(String.valueOf(date.getDayOfMonth()), 14,
                 selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
         day.setGravity(Gravity.CENTER);
@@ -148,7 +149,7 @@ public final class RecordsScreen extends BaseScreen {
         LinearLayout markers = new LinearLayout(host.activity());
         markers.setOrientation(LinearLayout.HORIZONTAL);
         markers.setGravity(Gravity.CENTER);
-        addMarker(markers, summary.hasWorkout, selected ? ui.onAccent() : ui.accent());
+        addMarker(markers, summary.hasWorkout, selected ? ui.onAccent() : ui.vibrantColor(0));
         addMarker(markers, summary.hasMeal, selected ? ui.onAccent() : FitnessUi.COLOR_WARNING);
         addMarker(markers, summary.hasWeight, selected ? ui.onAccent() : FitnessUi.COLOR_POSITIVE);
         cell.addView(markers, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(9)));
@@ -182,7 +183,7 @@ public final class RecordsScreen extends BaseScreen {
         legend.setOrientation(LinearLayout.HORIZONTAL);
         legend.setGravity(Gravity.CENTER_VERTICAL);
         legend.setPadding(0, ui.dp(12), 0, 0);
-        legend.addView(ui.text("● 운동", 11, ui.accent(), false), ui.fieldCellParams(true));
+        legend.addView(ui.text("● 운동", 11, ui.vibrantColor(0), false), ui.fieldCellParams(true));
         legend.addView(ui.text("● 식사", 11, FitnessUi.COLOR_WARNING, false), ui.fieldCellParams(false));
         legend.addView(ui.text("● 체중", 11, FitnessUi.COLOR_POSITIVE, false), ui.fieldCellParams(false));
         card.addView(legend);

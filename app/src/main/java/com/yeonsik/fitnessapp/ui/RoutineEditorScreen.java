@@ -324,11 +324,10 @@ public final class RoutineEditorScreen extends BaseScreen {
             card.setOrientation(LinearLayout.HORIZONTAL);
             card.setGravity(Gravity.CENTER_VERTICAL);
             card.setPadding(ui.dp(16), ui.dp(14), ui.dp(16), ui.dp(14));
-            card.setBackground(ui.rippleDrawable(
-                    selected ? ui.accent() : ui.surface(),
-                    selected ? ui.accent() : ui.border(),
-                    ui.dp(16),
-                    selected ? ui.rippleOnAccent() : ui.rippleOnSurface()));
+            String cardSeed = "exercise-" + exercise.displayName();
+            card.setBackground(selected
+                    ? ui.vibrantRippleDrawable(cardSeed, ui.dp(16))
+                    : ui.colorfulSurfaceRippleDrawable(cardSeed, ui.dp(16)));
             card.setElevation(selected ? ui.dp(4) : ui.dp(2));
 
             LinearLayout column = new LinearLayout(host.activity());

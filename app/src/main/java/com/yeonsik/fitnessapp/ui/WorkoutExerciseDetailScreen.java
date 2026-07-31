@@ -684,15 +684,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         setCard.addView(row, ui.fullWidthParams(ui.dp(6)));
     }
 
-    /** 완료 = 강조 채움(라이트=블랙 필, 다크=화이트 필), 미완료 = hairline 링. */
+    /** 완료 = 히어로 팔레트 채움, 미완료 = 옅은 팔레트 링. */
     private void styleStamp(TextView stamp, boolean completed) {
         FitnessUi ui = ui();
         if (completed) {
             stamp.setTextColor(ui.onAccent());
-            stamp.setBackground(ui.borderDrawable(ui.accent(), ui.accent(), ui.dp(999)));
+            stamp.setBackground(ui.vibrantBackground(0, ui.dp(999)));
         } else {
             stamp.setTextColor(ui.inkTertiary());
-            stamp.setBackground(ui.borderDrawable(ui.surface(), ui.border(), ui.dp(999)));
+            stamp.setBackground(ui.colorfulSurfaceDrawable("set-stamp", ui.dp(999)));
         }
     }
 
