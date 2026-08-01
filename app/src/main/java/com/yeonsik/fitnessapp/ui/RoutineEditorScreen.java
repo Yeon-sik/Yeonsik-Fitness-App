@@ -324,12 +324,11 @@ public final class RoutineEditorScreen extends BaseScreen {
             card.setOrientation(LinearLayout.HORIZONTAL);
             card.setGravity(Gravity.CENTER_VERTICAL);
             card.setPadding(ui.dp(16), ui.dp(14), ui.dp(16), ui.dp(14));
-            card.setBackground(ui.rippleDrawable(
-                    selected ? ui.accent() : ui.surface(),
-                    selected ? ui.accent() : ui.border(),
-                    ui.dp(16),
-                    selected ? ui.rippleOnAccent() : ui.rippleOnSurface()));
-            card.setElevation(selected ? ui.dp(4) : ui.dp(2));
+            String cardSeed = "exercise-" + exercise.displayName();
+            card.setBackground(selected
+                    ? ui.vibrantRippleDrawable(cardSeed, ui.dp(16))
+                    : ui.flatSurfaceRippleDrawable(ui.dp(16)));
+            ui.applyDepth(card, selected ? 7 : 4);
 
             LinearLayout column = new LinearLayout(host.activity());
             column.setOrientation(LinearLayout.VERTICAL);
@@ -356,6 +355,7 @@ public final class RoutineEditorScreen extends BaseScreen {
 
             card.setClickable(true);
             card.setFocusable(true);
+            ui.pressFeedback(card);
             card.setOnClickListener(v -> {
                 if (selectedExerciseIds.contains(exercise.id)) {
                     removeSelectedExercise(exercise.id, selectedExerciseIds, selectedExercises);

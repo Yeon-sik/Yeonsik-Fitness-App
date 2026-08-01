@@ -85,6 +85,169 @@ public final class FitnessRepository {
         return id;
     }
 
+    /** 파싱과 운동 매핑이 끝난 FLEEK 기록을 하나의 SQLite 트랜잭션으로 저장한다. */
+    public FleekImportResult importFleekData(FleekCsvImporter.ImportPlan plan) {
+        if (plan == null || plan.sessions.isEmpty()) {
+            throw new IllegalArgumentException("가져올 FLEEK 운동 기록이 없습니다.");
+        }
+
+        SQLiteDatabase database = db();
+        FleekImportResult result = new FleekImportResult();
+        result.skippedRows = plan.skippedRows;
+        database.beginTransaction();
+        try {
+            for (FleekCsvImporter.SessionData session : plan.sessions) {
+                if (hasImportedFleekSession(database, session.sourceKey)) {
+                    result.skippedDuplicateSessions += 1;
+                    continue;
+                }
+
+                String recordId = newId();
+                String importedAt = now();
+                double totalVolumeKg = importedSessionVolume(session);
+                ContentValues record = baseValues(recordId, importedAt);
+                record.put("date", session.date);
+                record.put("workout_type", "strength");
+                record.put("category", firstImportedCategory(session));
+                record.put("exercise_name", session.title);
+                record.put("duration_seconds", session.durationSeconds);
+                record.put("total_volume_kg", totalVolumeKg);
+                record.putNull("average_heart_rate");
+                record.put("is_backfilled", 1);
+                record.put("backfilled_at", importedAt);
+                record.put("backfill_reason", "FLEEK CSV import");
+                record.put("source_app", "fitness");
+                record.put("scope", "fitness");
+                record.put("metadata", importedWorkoutMetadata(session, totalVolumeKg));
+                database.insertOrThrow("workout_records", null, record);
+
+                int exerciseOrder = 1;
+                for (FleekCsvImporter.ExerciseData exercise : session.exercises) {
+                    String workoutExerciseId = newId();
+                    ContentValues exerciseValues = baseValues(workoutExerciseId, importedAt);
+                    exerciseValues.put("record_id", recordId);
+                    exerciseValues.put("order_index", exerciseOrder++);
+                    exerciseValues.put("exercise_id", exercise.exerciseId);
+                    exerciseValues.put("exercise_name_snapshot", exercise.name);
+                    exerciseValues.put("ui_part", exercise.uiPart);
+                    exerciseValues.put("primary_sub_part_snapshot", exercise.primarySubPart);
+                    exerciseValues.put("equipment_snapshot", exercise.equipment);
+                    exerciseValues.put("record_type", FitnessRecordContract.normalizeRecordType(exercise.recordType));
+                    exerciseValues.putNull("memo");
+                    database.insertOrThrow("workout_exercises", null, exerciseValues);
+                    result.importedExercises += 1;
+
+                    for (FleekCsvImporter.SetData set : exercise.sets) {
+                        SetInput input = importedSetInput(set);
+                        validateSetInput(exercise.recordType, input);
+                        ContentValues setValues = baseValues(newId(), importedAt);
+                        setValues.put("workout_exercise_id", workoutExerciseId);
+                        setValues.put("set_index", Math.max(1, set.setIndex));
+                        putNullable(setValues, "target_reps", set.reps);
+                        putNullable(setValues, "actual_reps", set.reps);
+                        putNullable(setValues, "weight_kg", set.weightKg);
+                        setValues.put("volume_kg", setVolume(exercise.recordType, input));
+                        putNullable(setValues, "duration_seconds", set.durationSeconds);
+                        putNullable(setValues, "distance_meters", set.distanceMeters);
+                        setValues.putNull("rest_seconds");
+                        putNullable(setValues, "assisted_weight_kg", set.assistedWeightKg);
+                        putNullable(setValues, "added_weight_kg", set.addedWeightKg);
+                        setValues.put("is_completed", 1);
+                        putNullable(setValues, "rpe", set.rpe);
+                        setValues.put("memo", importedSetMemo(set));
+                        database.insertOrThrow("workout_sets", null, setValues);
+                        result.importedSets += 1;
+                        if (exercise.masterMatched) result.masterMatchedSets += 1;
+                    }
+                }
+
+                updateSharedWorkoutSummary(recordId, false);
+                result.importedSessions += 1;
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        return result;
+    }
+
+    private boolean hasImportedFleekSession(SQLiteDatabase database, String sourceKey) {
+        String marker = "%\"fleek_source_key\":\"" + sourceKey + "\"%";
+        try (Cursor cursor = database.rawQuery(
+                "SELECT 1 FROM workout_records WHERE user_id = ? AND deleted_at IS NULL "
+                        + "AND metadata LIKE ? LIMIT 1",
+                new String[]{userId, marker})) {
+            return cursor.moveToFirst();
+        }
+    }
+
+    private static double importedSessionVolume(FleekCsvImporter.SessionData session) {
+        double total = 0;
+        for (FleekCsvImporter.ExerciseData exercise : session.exercises) {
+            for (FleekCsvImporter.SetData set : exercise.sets) {
+                SetInput input = importedSetInput(set);
+                validateSetInput(exercise.recordType, input);
+                total += setVolume(exercise.recordType, input);
+            }
+        }
+        return total;
+    }
+
+    private static SetInput importedSetInput(FleekCsvImporter.SetData set) {
+        return new SetInput(
+                set.weightKg,
+                set.reps,
+                set.durationSeconds,
+                set.assistedWeightKg,
+                set.addedWeightKg,
+                set.rpe,
+                null,
+                true
+        );
+    }
+
+    private static String firstImportedCategory(FleekCsvImporter.SessionData session) {
+        if (session.exercises.isEmpty()) return "arms";
+        String category = session.exercises.get(0).uiPart;
+        return category == null || category.trim().isEmpty() ? "arms" : category;
+    }
+
+    private static String importedWorkoutMetadata(
+            FleekCsvImporter.SessionData session,
+            double totalVolumeKg
+    ) {
+        try {
+            String endedAt = OffsetDateTime.parse(session.sourceTimestamp)
+                    .plusSeconds(Math.max(0, session.durationSeconds))
+                    .toString();
+            JSONObject object = new JSONObject();
+            object.put("contract_version", FitnessRecordContract.VERSION);
+            object.put("status", "completed");
+            object.put("started_at", session.sourceTimestamp);
+            object.put("ended_at", endedAt);
+            object.put("duration_seconds", session.durationSeconds);
+            object.put("total_volume_kg", totalVolumeKg);
+            object.put("memo", "FLEEK CSV에서 가져옴");
+            object.put("import_source", "fleek_csv");
+            object.put("fleek_source_key", session.sourceKey);
+            return object.toString();
+        } catch (Exception error) {
+            throw new IllegalStateException("FLEEK 세션 메타데이터를 만들지 못했습니다.", error);
+        }
+    }
+
+    private static String importedSetMemo(FleekCsvImporter.SetData set) {
+        try {
+            JSONObject object = new JSONObject();
+            object.put("import_source", "fleek_csv");
+            if (!set.setType.isEmpty()) object.put("set_type", set.setType);
+            if (!set.gripType.isEmpty()) object.put("grip_type", set.gripType);
+            return object.toString();
+        } catch (Exception error) {
+            return "FLEEK CSV";
+        }
+    }
+
     public String addExercise(String recordId, String name, String category, int orderIndex, String memo) {
         String id = newId();
         String now = now();
@@ -1833,6 +1996,28 @@ public final class FitnessRepository {
             this.rpe = rpe;
             this.restSeconds = restSeconds;
             this.completed = completed;
+        }
+    }
+
+    public static final class FleekImportResult {
+        public int importedSessions;
+        public int importedExercises;
+        public int importedSets;
+        public int masterMatchedSets;
+        public int skippedDuplicateSessions;
+        public int skippedRows;
+
+        public String summary() {
+            List<String> parts = new ArrayList<>();
+            parts.add("세션 " + importedSessions + "건");
+            parts.add("세트 " + importedSets + "건");
+            if (skippedDuplicateSessions > 0) {
+                parts.add("중복 세션 " + skippedDuplicateSessions + "건 제외");
+            }
+            if (skippedRows > 0) {
+                parts.add("해석 불가 행 " + skippedRows + "건 제외");
+            }
+            return String.join(" · ", parts);
         }
     }
 

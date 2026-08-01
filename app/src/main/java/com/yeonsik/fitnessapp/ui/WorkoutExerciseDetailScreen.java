@@ -266,6 +266,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         button.setLayoutParams(new LinearLayout.LayoutParams(ui.dp(32), ui.dp(32)));
         button.setClickable(true);
         button.setFocusable(true);
+        ui.applyDepth(button, 3);
+        ui.pressFeedback(button);
         return button;
     }
 
@@ -312,6 +314,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         row.setPadding(ui.dp(2), ui.dp(6), ui.dp(2), ui.dp(6));
         if (set.isCompleted) {
             row.setBackground(ui.borderDrawable(ui.subtle(), ui.subtle(), ui.dp(12)));
+            ui.applyDepth(row, 2);
         }
 
         TextView previous = ui.num(
@@ -617,6 +620,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         row.setPadding(ui.dp(4), ui.dp(6), ui.dp(4), ui.dp(6));
         if (set.isCompleted) {
             row.setBackground(ui.borderDrawable(ui.subtle(), ui.subtle(), ui.dp(12)));
+            ui.applyDepth(row, 2);
         }
 
         EditText weightInput = ui.decimalInput("", set.weightKg == 0 ? "" : FitnessUi.trimDouble(set.weightKg));
@@ -684,16 +688,17 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         setCard.addView(row, ui.fullWidthParams(ui.dp(6)));
     }
 
-    /** 완료 = 강조 채움(라이트=블랙 필, 다크=화이트 필), 미완료 = hairline 링. */
+    /** 완료 = 히어로 팔레트 채움, 미완료 = 옅은 팔레트 링. */
     private void styleStamp(TextView stamp, boolean completed) {
         FitnessUi ui = ui();
         if (completed) {
-            stamp.setTextColor(ui.onAccent());
-            stamp.setBackground(ui.borderDrawable(ui.accent(), ui.accent(), ui.dp(999)));
+            stamp.setTextColor(ui.onVibrant());
+            stamp.setBackground(ui.vibrantBackground(0, ui.dp(999)));
         } else {
             stamp.setTextColor(ui.inkTertiary());
-            stamp.setBackground(ui.borderDrawable(ui.surface(), ui.border(), ui.dp(999)));
+            stamp.setBackground(ui.flatSurfaceDrawable(ui.dp(999)));
         }
+        ui.applyDepth(stamp, completed ? 5 : 2);
     }
 
     private void saveSet(String recordId, FitnessRepository.SessionSetEntry set,

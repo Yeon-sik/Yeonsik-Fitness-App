@@ -59,9 +59,9 @@ public final class WorkoutScreen extends BaseScreen {
 
         section("오늘 컨디션");
         LinearLayout conditionRow = ui().tileRow();
-        conditionRow.addView(ui().statTile("체중", todayWeightValue(), "탭하여 기록", false,
+        conditionRow.addView(ui().hologramStatTile("체중", todayWeightValue(), "탭하여 기록",
                 v -> host.showBodyMetricDialog()), ui().tileParams(true));
-        conditionRow.addView(ui().statTile("식사", repository().mealsForDate(today).size() + "건", "탭하여 기록", false,
+        conditionRow.addView(ui().hologramStatTile("식사", repository().mealsForDate(today).size() + "건", "탭하여 기록",
                 v -> host.showMealDialog()), ui().tileParams(false));
         add(conditionRow, ui().fullWidthParams(0));
 
@@ -84,11 +84,11 @@ public final class WorkoutScreen extends BaseScreen {
         banner.setOrientation(LinearLayout.HORIZONTAL);
         banner.setGravity(Gravity.CENTER_VERTICAL);
         banner.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(16));
-        banner.setBackground(ui.rippleDrawable(ui.accent(), ui.accent(),
-                ui.dp(18), ui.rippleOnAccent()));
-        banner.setElevation(ui.dp(6));
+        banner.setBackground(ui.vibrantRippleDrawable("workout-in-progress", ui.dp(18)));
+        ui.applyDepth(banner, 9);
         banner.setClickable(true);
         banner.setFocusable(true);
+        ui.pressFeedback(banner);
         banner.setOnClickListener(v -> host.openWorkoutSession(inProgressSessionId));
 
         LinearLayout column = new LinearLayout(host.activity());

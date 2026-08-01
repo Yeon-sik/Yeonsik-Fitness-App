@@ -1,11 +1,17 @@
 package com.yeonsik.fitnessapp;
 
 import android.app.Activity;
+import android.content.Intent;
+import android.graphics.Insets;
 import android.graphics.Typeface;
+import android.graphics.drawable.Drawable;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
+import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -15,6 +21,7 @@ import android.widget.Toast;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
+import com.yeonsik.fitnessapp.data.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
@@ -36,6 +43,9 @@ import com.yeonsik.fitnessapp.ui.WorkoutScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutSessionScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutSummaryScreen;
 
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.EnumMap;
 import java.util.List;
@@ -58,6 +68,7 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     private static final String UI_PREFS = "fitness_ui_prefs";
     private static final String KEY_THEME_MODE = "theme_mode";
+    private static final int REQUEST_FLEEK_CSV_IMPORT = 4101;
     public static final String THEME_LIGHT = "light";
     public static final String THEME_DARK = "dark";
     public static final String THEME_SYSTEM = "system";
@@ -103,6 +114,8 @@ public final class MainActivity extends Activity implements ScreenHost {
     private TextView settingsTabLabel;
 
     private boolean isManualSyncing = false;
+    private boolean isDataImporting = false;
+    private String dataImportDetail = "";
     private String syncLabel = "local-only";
     private String syncDetail = "로컬 전용 모드";
     private String lastSyncedAt = "";
@@ -129,6 +142,20 @@ public final class MainActivity extends Activity implements ScreenHost {
         configureWindow();
         setContentView(buildRootView());
         render();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_FLEEK_CSV_IMPORT || resultCode != RESULT_OK || data == null) {
+            return;
+        }
+        Uri uri = data.getData();
+        if (uri == null) {
+            toast("선택한 CSV 파일을 열 수 없습니다.");
+            return;
+        }
+        importFleekCsv(uri);
     }
 
     @Override
@@ -196,6 +223,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         rootView = root;
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(ui.pageBg());
+        applySystemBarInsets(root);
 
         sessionTopBar = buildSessionTopBar();
         root.addView(sessionTopBar, new LinearLayout.LayoutParams(
@@ -235,10 +263,34 @@ public final class MainActivity extends Activity implements ScreenHost {
         return root;
     }
 
+    /** Android 15+의 강제 edge-to-edge 환경에서 조작 UI가 시스템 바에 가려지지 않게 한다. */
+    private void applySystemBarInsets(View root) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            return;
+        }
+
+        int initialLeft = root.getPaddingLeft();
+        int initialTop = root.getPaddingTop();
+        int initialRight = root.getPaddingRight();
+        int initialBottom = root.getPaddingBottom();
+        root.setOnApplyWindowInsetsListener((view, windowInsets) -> {
+            Insets safeInsets = windowInsets.getInsets(
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+            view.setPadding(
+                    initialLeft + safeInsets.left,
+                    initialTop + safeInsets.top,
+                    initialRight + safeInsets.right,
+                    initialBottom + safeInsets.bottom
+            );
+            return windowInsets;
+        });
+    }
+
     private LinearLayout buildSessionTopBar() {
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(4));
+        ui.applyDepth(bar, 8);
         bar.setVisibility(View.GONE);
         return bar;
     }
@@ -246,6 +298,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     private LinearLayout buildSessionBottomBar() {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(10));
+        ui.applyDepth(bar, 10);
         bar.setVisibility(View.GONE);
         return bar;
     }
@@ -260,6 +313,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         back.setClickable(true);
         back.setFocusable(true);
         back.setOnClickListener(v -> navigate(FitnessScreen.WORKOUT));
+        ui.applyDepth(back, 4);
+        ui.pressFeedback(back);
         sessionTopBar.addView(back, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
 
         sessionBottomBar.setBackgroundColor(ui.surface());
@@ -292,8 +347,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         LinearLayout inner = new LinearLayout(this);
         inner.setOrientation(LinearLayout.VERTICAL);
         inner.setPadding(ui.dp(18), ui.dp(12), ui.dp(14), ui.dp(14));
-        inner.setBackground(ui.borderDrawable(ui.accent(), ui.accent(), ui.dp(18)));
-        inner.setElevation(ui.dp(8));
+        inner.setBackground(ui.vibrantBackground(2, ui.dp(18)));
+        ui.applyDepth(inner, 10);
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -302,7 +357,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         TextView label = new TextView(this);
         label.setText("휴식");
         label.setTextSize(11);
-        label.setTextColor(ui.onAccentMuted());
+        label.setTextColor(ui.onVibrantMuted());
         label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         label.setLetterSpacing(0.08f);
         row.addView(label, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -310,14 +365,14 @@ public final class MainActivity extends Activity implements ScreenHost {
         restCountdownView = new TextView(this);
         restCountdownView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         restCountdownView.setTextSize(30);
-        restCountdownView.setTextColor(ui.onAccent());
+        restCountdownView.setTextColor(ui.onVibrant());
         restCountdownView.setFontFeatureSettings("tnum");
         row.addView(restCountdownView);
 
         TextView skip = new TextView(this);
         skip.setText("건너뛰기");
         skip.setTextSize(13);
-        skip.setTextColor(ui.onAccentMuted());
+        skip.setTextColor(ui.onVibrantMuted());
         skip.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         skip.setPadding(ui.dp(16), ui.dp(10), ui.dp(6), ui.dp(10));
         skip.setClickable(true);
@@ -329,7 +384,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         restProgressTrack = new LinearLayout(this);
         restProgressTrack.setOrientation(LinearLayout.HORIZONTAL);
         restProgressTrack.setBackground(ui.borderDrawable(
-                ui.trackOnAccent(), ui.trackOnAccent(), ui.dp(999)));
+                ui.trackOnVibrant(), ui.trackOnVibrant(), ui.dp(999)));
         LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(4));
         trackParams.setMargins(0, ui.dp(10), 0, 0);
@@ -403,7 +458,7 @@ public final class MainActivity extends Activity implements ScreenHost {
                 : Math.max(0f, Math.min(1f, remainingMillis / (restTotalSeconds * 1000f)));
         restProgressTrack.removeAllViews();
         View fill = new View(this);
-        fill.setBackground(ui.borderDrawable(ui.onAccent(), ui.onAccent(), ui.dp(999)));
+        fill.setBackground(ui.borderDrawable(ui.onVibrant(), ui.onVibrant(), ui.dp(999)));
         restProgressTrack.addView(fill, new LinearLayout.LayoutParams(0, ui.dp(4), ratio));
         View rest = new View(this);
         restProgressTrack.addView(rest, new LinearLayout.LayoutParams(0, ui.dp(4), 1f - ratio));
@@ -415,6 +470,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
         wrapper.setBackgroundColor(ui.surface());
+        ui.applyDepth(wrapper, 12);
 
         navDivider = new View(this);
         navDivider.setBackgroundColor(ui.border());
@@ -461,6 +517,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         area.setClickable(true);
         area.setFocusable(true);
         area.setOnClickListener(v -> navigate(rootScreenOf(tab)));
+        ui.pressFeedback(area);
 
         TextView textView = new TextView(this);
         textView.setText(label);
@@ -514,19 +571,34 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     private void refreshNavState() {
         Tab activeTab = tabOf(currentScreen);
+        boolean workoutInProgress = repository != null
+                && repository.latestInProgressSessionId() != null;
+        boolean activationVisible = currentScreen != FitnessScreen.WORKOUT_SESSION
+                && currentScreen != FitnessScreen.WORKOUT_EXERCISE_DETAIL
+                && currentScreen != FitnessScreen.WORKOUT_SUMMARY
+                && !(currentScreen == FitnessScreen.WORKOUT_EXERCISE_ADD
+                && sessionState.activeRecordId() != null);
         bottomNav.setBackgroundColor(ui.surface());
         navDivider.setBackgroundColor(ui.border());
-        styleNavArea(homeTabArea, homeTabLabel, activeTab == Tab.HOME);
-        styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT);
-        styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS);
-        styleNavArea(settingsTabArea, settingsTabLabel, activeTab == Tab.SETTINGS);
+        styleNavArea(homeTabArea, homeTabLabel, activeTab == Tab.HOME, false);
+        styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT,
+                workoutInProgress && activationVisible);
+        styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS, false);
+        styleNavArea(settingsTabArea, settingsTabLabel, activeTab == Tab.SETTINGS, false);
     }
 
-    private void styleNavArea(LinearLayout area, TextView label, boolean active) {
-        int fill = active ? ui.accent() : ui.surface();
-        area.setBackground(ui.rippleDrawable(fill, fill, ui.dp(999),
-                active ? ui.rippleOnAccent() : ui.rippleOnSurface()));
-        label.setTextColor(active ? ui.onAccent() : ui.inkMuted());
+    private void styleNavArea(LinearLayout area, TextView label, boolean active, boolean hologramActive) {
+        String seed = "bottom-nav-" + label.getText();
+        Drawable background = active
+                ? ui.vibrantRippleDrawable(seed, ui.dp(999))
+                : ui.flatSurfaceRippleDrawable(ui.dp(999));
+        if (hologramActive) {
+            ui.setHologramBackground(area, background, ui.dp(999));
+        } else {
+            ui.setComponentBackground(area, background);
+        }
+        ui.applyDepth(area, hologramActive ? 10 : active ? 7 : 3);
+        label.setTextColor(active ? ui.onVibrant() : ui.inkMuted());
         label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
     }
 
@@ -804,6 +876,73 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     // ── 설정 / 동기화 ─────────────────────────────────────────────────
+
+    @Override
+    public void openFleekDataImport() {
+        if (isDataImporting) return;
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("text/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                "text/csv",
+                "text/comma-separated-values",
+                "application/csv",
+                "application/vnd.ms-excel",
+                "text/plain"
+        });
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            startActivityForResult(intent, REQUEST_FLEEK_CSV_IMPORT);
+        } catch (Exception error) {
+            toast("CSV 파일 선택기를 열지 못했습니다.");
+        }
+    }
+
+    private void importFleekCsv(Uri uri) {
+        if (isDataImporting) return;
+        isDataImporting = true;
+        dataImportDetail = "CSV를 읽고 운동 기록을 변환하는 중입니다.";
+        render();
+        executor.execute(() -> {
+            try (InputStream input = getContentResolver().openInputStream(uri)) {
+                if (input == null) {
+                    throw new IllegalArgumentException("선택한 CSV 파일을 읽지 못했습니다.");
+                }
+                FleekCsvImporter.ImportPlan plan = FleekCsvImporter.parse(
+                        new InputStreamReader(input, StandardCharsets.UTF_8),
+                        exerciseMasterRepository.getAllWeightExercises()
+                );
+                FitnessRepository.FleekImportResult result = repository.importFleekData(plan);
+                runOnUiThread(() -> {
+                    isDataImporting = false;
+                    dataImportDetail = result.summary();
+                    toast(result.importedSessions > 0
+                            ? "FLEEK 운동 기록을 가져왔습니다."
+                            : "이미 가져온 기록이라 새로 저장된 세션이 없습니다.");
+                    render();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    isDataImporting = false;
+                    dataImportDetail = error.getMessage() == null
+                            ? "FLEEK CSV 가져오기에 실패했습니다."
+                            : error.getMessage();
+                    toast("FLEEK CSV 가져오기에 실패했습니다.");
+                    render();
+                });
+            }
+        });
+    }
+
+    @Override
+    public boolean isDataImporting() {
+        return isDataImporting;
+    }
+
+    @Override
+    public String dataImportDetail() {
+        return dataImportDetail;
+    }
 
     @Override
     public SupabaseConfig supabaseConfig() {
