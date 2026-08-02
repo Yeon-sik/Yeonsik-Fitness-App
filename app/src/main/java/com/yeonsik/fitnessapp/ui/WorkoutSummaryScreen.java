@@ -33,17 +33,42 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                 ? new FitnessRepository.SessionMetrics()
                 : repository().sessionMetrics(recordId);
 
-        screenHeader("SUMMARY", "운동 요약");
-
         FitnessRepository.SessionInfo info = repository().sessionInfo(recordId);
+        boolean cardio = "cardio".equals(info.workoutType);
+        screenHeader("SUMMARY", cardio ? "유산소 요약" : "운동 요약");
+
         LinearLayout tiles = ui.tileRow();
-        tiles.addView(ui.statTile("외부 중량 볼륨", FitnessUi.formatVolume(metrics.totalVolumeKg), "kg", true, null),
-                ui.tileParams(true));
-        tiles.addView(ui.statTile("완료 세트", String.valueOf(metrics.setCount), "개", false, null),
-                ui.tileParams(false));
-        tiles.addView(ui.statTile("운동 시간",
-                info.durationSeconds > 0 ? FitnessUi.formatElapsed(info.durationSeconds) : "—",
-                "총 시간", false, null), ui.tileParams(false));
+        if (cardio) {
+            tiles.addView(ui.statTile(
+                    "이동 거리",
+                    CardioMetrics.formatDistanceKilometers(metrics.totalDistanceMeters),
+                    "km",
+                    true,
+                    null
+            ), ui.tileParams(true));
+            tiles.addView(ui.statTile(
+                    "운동 시간",
+                    info.durationSeconds > 0 ? FitnessUi.formatElapsed(info.durationSeconds) : "—",
+                    "총 시간",
+                    false,
+                    null
+            ), ui.tileParams(false));
+            tiles.addView(ui.statTile(
+                    "평균 심박수",
+                    CardioMetrics.formatAverageHeartRate(info.averageHeartRateBpm),
+                    CardioMetrics.hasAverageHeartRate(info.averageHeartRateBpm) ? "bpm" : "미입력",
+                    false,
+                    null
+            ), ui.tileParams(false));
+        } else {
+            tiles.addView(ui.statTile("외부 중량 볼륨", FitnessUi.formatVolume(metrics.totalVolumeKg), "kg", true, null),
+                    ui.tileParams(true));
+            tiles.addView(ui.statTile("완료 세트", String.valueOf(metrics.setCount), "개", false, null),
+                    ui.tileParams(false));
+            tiles.addView(ui.statTile("운동 시간",
+                    info.durationSeconds > 0 ? FitnessUi.formatElapsed(info.durationSeconds) : "—",
+                    "총 시간", false, null), ui.tileParams(false));
+        }
         add(tiles, ui.fullWidthParams(0));
 
         buttonRow(
@@ -51,11 +76,16 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                 ui.button("피트니스로 돌아가기", false, v -> host.navigate(FitnessScreen.WORKOUT)),
                 ui.dp(6)
         );
-        buttonRow(
-                ui.button("기록 수정", false, v -> host.navigate(FitnessScreen.WORKOUT_SESSION)),
-                ui.button("메인", false, v -> host.navigate(FitnessScreen.HOME)),
-                ui.dp(6)
-        );
+        if (cardio) {
+            add(ui.button("메인", false, v -> host.navigate(FitnessScreen.HOME)),
+                    ui.fullWidthParams(ui.dp(6)));
+        } else {
+            buttonRow(
+                    ui.button("기록 수정", false, v -> host.navigate(FitnessScreen.WORKOUT_SESSION)),
+                    ui.button("메인", false, v -> host.navigate(FitnessScreen.HOME)),
+                    ui.dp(6)
+            );
+        }
 
         section("수행 내역");
         renderPerformance(recordId);

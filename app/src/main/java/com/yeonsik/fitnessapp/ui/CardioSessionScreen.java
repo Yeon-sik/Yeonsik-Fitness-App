@@ -55,6 +55,12 @@ public final class CardioSessionScreen extends BaseScreen {
                 ui().tileParams(false));
         add(secondRow, ui().fullWidthParams(ui().dp(10)));
 
+        section("평균 심박수");
+        emptyState(
+                "운동을 완료할 때 평균 심박수(bpm)를 직접 입력합니다.",
+                "시계·밴드 측정값이 없으면 비워두고 나중에 결과 화면에서 입력할 수 있습니다."
+        );
+
         section("운동 제어");
         boolean paused = CardioRepository.STATUS_PAUSED.equals(snapshot.status);
         buttonRow(

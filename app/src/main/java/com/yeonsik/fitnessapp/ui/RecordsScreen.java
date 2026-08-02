@@ -296,6 +296,12 @@ public final class RecordsScreen extends BaseScreen {
         CardioRepository.SessionSnapshot cardio = cardioRecord
                 ? host.cardioRepository().session(session.id)
                 : null;
+        Double averageHeartRateBpm = cardio == null
+                ? session.averageHeartRateBpm
+                : cardio.averageHeartRateBpm;
+        String heartRateSuffix = CardioMetrics.hasAverageHeartRate(averageHeartRateBpm)
+                ? " · 평균 " + CardioMetrics.formatAverageHeartRate(averageHeartRateBpm) + "bpm"
+                : "";
 
         LinearLayout card = ui.card();
         if (!personalOsRecord) {
@@ -324,7 +330,10 @@ public final class RecordsScreen extends BaseScreen {
         column.setPadding(ui.dp(12), 0, 0, 0);
         column.addView(ui.text(routineName, 16, FitnessUi.COLOR_TEXT, true));
         String metaText;
-        if (personalOsRecord) {
+        if (personalOsRecord && cardioRecord) {
+            metaText = "Personal OS · " + CardioMetrics.formatElapsed(session.durationSeconds)
+                    + heartRateSuffix;
+        } else if (personalOsRecord) {
             metaText = "Personal OS에서 생성된 요약 기록";
         } else if (cardioRecord) {
             double distanceMeters = cardio == null
@@ -335,6 +344,7 @@ public final class RecordsScreen extends BaseScreen {
                     : cardio.elapsedSeconds(System.currentTimeMillis());
             metaText = "거리 " + CardioMetrics.formatDistanceKilometers(distanceMeters)
                     + "km · " + CardioMetrics.formatElapsed(elapsedSeconds)
+                    + heartRateSuffix
                     + (cardio == null ? " · 경로 없음" : "");
         } else {
             metaText = "총 볼륨 " + FitnessUi.formatVolume(metrics.totalVolumeKg)

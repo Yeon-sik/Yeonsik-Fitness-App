@@ -93,9 +93,11 @@ public final class CardioRepository {
             return null;
         }
         try (Cursor cursor = db().rawQuery(
-                "SELECT activity_type, status, started_at_epoch_ms, last_resumed_at_epoch_ms, "
-                        + "active_duration_ms, distance_meters, accepted_point_count, gps_status "
-                        + "FROM cardio_sessions WHERE record_id = ? LIMIT 1",
+                "SELECT cs.activity_type, cs.status, cs.started_at_epoch_ms, "
+                        + "cs.last_resumed_at_epoch_ms, cs.active_duration_ms, cs.distance_meters, "
+                        + "cs.accepted_point_count, cs.gps_status, wr.average_heart_rate "
+                        + "FROM cardio_sessions cs LEFT JOIN workout_records wr ON wr.id = cs.record_id "
+                        + "WHERE cs.record_id = ? LIMIT 1",
                 new String[]{recordId})) {
             if (!cursor.moveToFirst()) {
                 return null;
@@ -109,7 +111,8 @@ public final class CardioRepository {
                     cursor.getLong(4),
                     cursor.getDouble(5),
                     cursor.getInt(6),
-                    cursor.getString(7)
+                    cursor.getString(7),
+                    cursor.isNull(8) ? null : cursor.getDouble(8)
             );
         }
     }
@@ -239,7 +242,7 @@ public final class CardioRepository {
         updateGpsStatus(db(), recordId, gpsStatus);
     }
 
-    public SessionSnapshot finish(String recordId) {
+    public SessionSnapshot finish(String recordId, Integer averageHeartRateBpm) {
         SessionSnapshot snapshot = session(recordId);
         if (snapshot == null) {
             return null;
@@ -257,7 +260,8 @@ public final class CardioRepository {
                     recordId,
                     snapshot.activityType,
                     durationSeconds,
-                    snapshot.distanceMeters
+                    snapshot.distanceMeters,
+                    averageHeartRateBpm
             );
 
             ContentValues values = new ContentValues();
@@ -272,6 +276,15 @@ public final class CardioRepository {
             database.endTransaction();
         }
         return session(recordId);
+    }
+
+    public SessionSnapshot updateAverageHeartRate(
+            String recordId,
+            Integer averageHeartRateBpm
+    ) {
+        return fitnessRepository.updateCardioAverageHeartRate(recordId, averageHeartRateBpm)
+                ? session(recordId)
+                : null;
     }
 
     public void cancel(String recordId) {
@@ -327,6 +340,7 @@ public final class CardioRepository {
         public final double distanceMeters;
         public final int acceptedPointCount;
         public final String gpsStatus;
+        public final Double averageHeartRateBpm;
 
         SessionSnapshot(
                 String recordId,
@@ -337,7 +351,8 @@ public final class CardioRepository {
                 long activeDurationMillis,
                 double distanceMeters,
                 int acceptedPointCount,
-                String gpsStatus
+                String gpsStatus,
+                Double averageHeartRateBpm
         ) {
             this.recordId = recordId;
             this.activityType = activityType;
@@ -348,6 +363,7 @@ public final class CardioRepository {
             this.distanceMeters = distanceMeters;
             this.acceptedPointCount = acceptedPointCount;
             this.gpsStatus = gpsStatus;
+            this.averageHeartRateBpm = averageHeartRateBpm;
         }
 
         public long elapsedDurationMillis(long nowEpochMillis) {

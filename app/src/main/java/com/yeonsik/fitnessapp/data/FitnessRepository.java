@@ -121,7 +121,8 @@ public final class FitnessRepository {
                 activityType,
                 "",
                 0,
-                0d
+                0d,
+                null
         ));
         record.put("updated_at", createdAt);
         db().update("workout_records", record, "id = ?", new String[]{recordId});
@@ -134,7 +135,8 @@ public final class FitnessRepository {
             String recordId,
             CardioActivityType activityType,
             int durationSeconds,
-            double distanceMeters
+            double distanceMeters,
+            Integer averageHeartRateBpm
     ) {
         if (emptyToNull(recordId) == null || activityType == null) {
             throw new IllegalArgumentException("완료할 유산소 세션이 없습니다.");
@@ -144,6 +146,9 @@ public final class FitnessRepository {
         }
         if (!Double.isFinite(distanceMeters) || distanceMeters < 0) {
             throw new IllegalArgumentException("유산소 거리는 0 이상의 유한한 값이어야 합니다.");
+        }
+        if (averageHeartRateBpm != null && averageHeartRateBpm <= 0) {
+            throw new IllegalArgumentException("평균 심박수는 0보다 커야 합니다.");
         }
 
         String exerciseId = cardioExerciseId(recordId);
@@ -173,6 +178,7 @@ public final class FitnessRepository {
         ContentValues record = new ContentValues();
         record.put("duration_seconds", durationSeconds);
         record.put("total_volume_kg", 0d);
+        putNullable(record, "average_heart_rate", averageHeartRateBpm);
         record.put("exercise_name", activityType.labelKo());
         record.put("category", activityType.labelKo());
         record.put("updated_at", endedAt);
@@ -182,11 +188,37 @@ public final class FitnessRepository {
                 activityType,
                 endedAt,
                 durationSeconds,
-                distanceMeters
+                distanceMeters,
+                averageHeartRateBpm
         ));
         db().update("workout_records", record,
                 "id = ? AND deleted_at IS NULL", new String[]{recordId});
         updateSharedWorkoutSummary(recordId, true);
+    }
+
+    public boolean updateCardioAverageHeartRate(String recordId, Integer averageHeartRateBpm) {
+        if (emptyToNull(recordId) == null) {
+            return false;
+        }
+        if (averageHeartRateBpm != null && averageHeartRateBpm <= 0) {
+            throw new IllegalArgumentException("평균 심박수는 0보다 커야 합니다.");
+        }
+
+        ContentValues values = new ContentValues();
+        putNullable(values, "average_heart_rate", averageHeartRateBpm);
+        values.put("metadata", metadataWithAverageHeartRate(
+                sessionInfoMetadata(recordId), averageHeartRateBpm));
+        values.put("updated_at", now());
+        boolean updated = db().update(
+                "workout_records",
+                values,
+                "id = ? AND workout_type = 'cardio' AND deleted_at IS NULL",
+                new String[]{recordId}
+        ) == 1;
+        if (updated) {
+            updateSharedWorkoutSummary(recordId, true);
+        }
+        return updated;
     }
 
     /** 파싱과 운동 매핑이 끝난 FLEEK 기록을 하나의 SQLite 트랜잭션으로 저장한다. */
@@ -538,7 +570,9 @@ public final class FitnessRepository {
         }
 
         try (Cursor cursor = db().rawQuery(
-                "SELECT exercise_name, date, duration_seconds, metadata FROM workout_records WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+                "SELECT exercise_name, date, duration_seconds, metadata, workout_type, "
+                        + "average_heart_rate FROM workout_records "
+                        + "WHERE id = ? AND deleted_at IS NULL LIMIT 1",
                 new String[]{recordId})) {
             if (cursor.moveToFirst()) {
                 info.title = emptyToDefault(cursor.getString(0), "");
@@ -546,6 +580,8 @@ public final class FitnessRepository {
                 String metadata = cursor.getString(3);
                 info.startedAt = metadataValue(metadata, "started_at", "");
                 info.status = metadataValue(metadata, "status", "");
+                info.workoutType = emptyToDefault(cursor.getString(4), "other");
+                info.averageHeartRateBpm = cursor.isNull(5) ? null : cursor.getDouble(5);
                 info.durationSeconds = resolvedDurationSeconds(
                         cursor.getString(1),
                         cursor.isNull(2) ? null : cursor.getInt(2),
@@ -775,7 +811,8 @@ public final class FitnessRepository {
     public List<SessionRecordEntry> sessionEntriesForDate(String date) {
         List<SessionRecordEntry> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
-                "SELECT id, date, exercise_name, workout_type, duration_seconds, metadata, category, source_app FROM workout_records " +
+                "SELECT id, date, exercise_name, workout_type, duration_seconds, metadata, category, "
+                        + "source_app, average_heart_rate FROM workout_records " +
                         "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') " +
                         "AND " + COMPLETED_OR_OS_WORKOUT + " AND date = ? ORDER BY updated_at DESC",
                 new String[]{emptyToToday(date)})) {
@@ -799,7 +836,8 @@ public final class FitnessRepository {
                                 + "  " + formatSessionMetrics(metrics.totalVolumeKg, durationSeconds),
                         cursor.getString(7),
                         cursor.getString(3),
-                        durationSeconds
+                        durationSeconds,
+                        cursor.isNull(8) ? null : cursor.getDouble(8)
                 ));
             }
         }
@@ -1722,7 +1760,8 @@ public final class FitnessRepository {
             CardioActivityType activityType,
             String endedAt,
             int durationSeconds,
-            double distanceMeters
+            double distanceMeters,
+            Integer averageHeartRateBpm
     ) {
         try {
             JSONObject object = metadata == null || metadata.trim().isEmpty()
@@ -1734,6 +1773,8 @@ public final class FitnessRepository {
             object.put("duration_seconds", durationSeconds);
             object.put("active_duration_seconds", durationSeconds);
             object.put("distance_meters", distanceMeters);
+            object.put("average_heart_rate",
+                    averageHeartRateBpm == null ? JSONObject.NULL : averageHeartRateBpm);
             object.put("average_pace_seconds_per_km",
                     distanceMeters <= 0 ? JSONObject.NULL
                             : Math.round(durationSeconds / (distanceMeters / 1000d)));
@@ -1745,8 +1786,26 @@ public final class FitnessRepository {
                     "activity_type", activityType.id(),
                     "ended_at", emptyToDefault(endedAt, ""),
                     "duration_seconds", String.valueOf(durationSeconds),
-                    "distance_meters", String.valueOf(distanceMeters)
+                    "distance_meters", String.valueOf(distanceMeters),
+                    "average_heart_rate", averageHeartRateBpm == null
+                            ? "" : String.valueOf(averageHeartRateBpm)
             );
+        }
+    }
+
+    private static String metadataWithAverageHeartRate(
+            String metadata,
+            Integer averageHeartRateBpm
+    ) {
+        try {
+            JSONObject object = metadata == null || metadata.trim().isEmpty()
+                    ? new JSONObject()
+                    : new JSONObject(metadata);
+            object.put("average_heart_rate",
+                    averageHeartRateBpm == null ? JSONObject.NULL : averageHeartRateBpm);
+            return object.toString();
+        } catch (Exception exception) {
+            return metadata == null ? "{}" : metadata;
         }
     }
 
@@ -1861,19 +1920,22 @@ public final class FitnessRepository {
         public final String sourceApp;
         public final String workoutType;
         public final int durationSeconds;
+        public final Double averageHeartRateBpm;
 
         public SessionRecordEntry(
                 String id,
                 String summary,
                 String sourceApp,
                 String workoutType,
-                int durationSeconds
+                int durationSeconds,
+                Double averageHeartRateBpm
         ) {
             this.id = id;
             this.summary = summary;
             this.sourceApp = sourceApp;
             this.workoutType = workoutType;
             this.durationSeconds = durationSeconds;
+            this.averageHeartRateBpm = averageHeartRateBpm;
         }
     }
 
@@ -2210,7 +2272,9 @@ public final class FitnessRepository {
         public String date = "";
         public String startedAt = "";
         public String status = "";
+        public String workoutType = "other";
         public int durationSeconds;
+        public Double averageHeartRateBpm;
     }
 
     /** 직전 세션의 같은 종목 수행 기록. */

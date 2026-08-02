@@ -48,6 +48,14 @@ public final class CardioSummaryScreen extends BaseScreen {
         LinearLayout secondRow = ui().tileRow();
         boolean cycling = snapshot.activityType == CardioActivityType.CYCLING;
         secondRow.addView(ui().statTile(
+                "평균 심박수",
+                CardioMetrics.formatAverageHeartRate(snapshot.averageHeartRateBpm),
+                CardioMetrics.hasAverageHeartRate(snapshot.averageHeartRateBpm)
+                        ? "bpm · 수동 입력" : "수동 입력 없음",
+                false,
+                null
+        ), ui().tileParams(true));
+        secondRow.addView(ui().statTile(
                 cycling ? "평균 속도" : "평균 페이스",
                 cycling
                         ? CardioMetrics.formatAverageSpeed(elapsedSeconds, snapshot.distanceMeters)
@@ -55,24 +63,27 @@ public final class CardioSummaryScreen extends BaseScreen {
                 cycling ? "km/h" : "분/km",
                 false,
                 null
-        ), ui().tileParams(true));
-        secondRow.addView(ui().statTile(
-                "GPS 포인트",
-                String.valueOf(snapshot.acceptedPointCount),
-                "개 반영",
-                false,
-                null
         ), ui().tileParams(false));
         add(secondRow, ui().fullWidthParams(ui().dp(10)));
 
         section("데이터 범위");
         emptyState(
-                "거리와 시간 요약은 운동 기록으로 저장되었습니다.",
+                "GPS 위치 " + snapshot.acceptedPointCount
+                        + "개를 반영했고 거리·시간"
+                        + (CardioMetrics.hasAverageHeartRate(snapshot.averageHeartRateBpm)
+                        ? "·평균 심박수" : "")
+                        + " 요약을 운동 기록으로 저장했습니다.",
                 "원시 위·경도 경로는 이 기기에만 남고 Supabase 동기화 대상에서 제외됩니다."
         );
 
+        add(ui().button(
+                        CardioMetrics.hasAverageHeartRate(snapshot.averageHeartRateBpm)
+                                ? "평균 심박수 수정" : "평균 심박수 입력",
+                        true,
+                        v -> host.editCardioAverageHeartRate()),
+                ui().fullWidthParams(0));
         buttonRow(
-                ui().button("기록 보기", true, v -> host.navigate(FitnessScreen.RECORDS)),
+                ui().button("기록 보기", false, v -> host.navigate(FitnessScreen.RECORDS)),
                 ui().button("피트니스", false, v -> host.navigate(FitnessScreen.WORKOUT)),
                 ui().dp(8)
         );

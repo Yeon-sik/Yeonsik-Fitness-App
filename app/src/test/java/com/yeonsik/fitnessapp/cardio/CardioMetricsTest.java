@@ -3,6 +3,8 @@ package com.yeonsik.fitnessapp.cardio;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public final class CardioMetricsTest {
     @Test
@@ -17,5 +19,17 @@ public final class CardioMetricsTest {
     public void hidesPerformanceMetricUntilDistanceIsMeaningful() {
         assertEquals("--:--", CardioMetrics.formatAveragePace(60, 10d));
         assertEquals("--", CardioMetrics.formatAverageSpeed(60, 10d));
+    }
+
+    @Test
+    public void validatesAndFormatsManuallyEnteredAverageHeartRate() {
+        assertTrue(CardioMetrics.isValidAverageHeartRate(null));
+        assertTrue(CardioMetrics.isValidAverageHeartRate(140));
+        assertFalse(CardioMetrics.isValidAverageHeartRate(0));
+        assertTrue(CardioMetrics.hasAverageHeartRate(140d));
+        assertFalse(CardioMetrics.hasAverageHeartRate(0d));
+        assertEquals("140", CardioMetrics.formatAverageHeartRate(140d));
+        assertEquals("140.5", CardioMetrics.formatAverageHeartRate(140.5d));
+        assertEquals("—", CardioMetrics.formatAverageHeartRate(null));
     }
 }

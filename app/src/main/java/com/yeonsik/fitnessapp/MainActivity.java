@@ -963,20 +963,27 @@ public final class MainActivity extends Activity implements ScreenHost {
             toast("완료할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        int elapsedSeconds = snapshot.elapsedSeconds(System.currentTimeMillis());
-        ui.confirmSheet(
-                snapshot.activityType.labelKo() + " 완료",
-                CardioMetrics.formatDistanceKilometers(snapshot.distanceMeters)
-                        + "km · " + CardioMetrics.formatElapsed(elapsedSeconds),
-                "완료하면 GPS 수집을 중지하고 거리·시간 요약을 저장합니다.",
-                "완료",
-                () -> {
-                    cardioRepository.finish(recordId);
-                    stopService(new Intent(this, CardioTrackingService.class));
-                    toast("유산소 운동을 완료했습니다.");
-                    openCardioSummary(recordId);
-                }
-        );
+        if (CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
+            openCardioSummary(recordId);
+            return;
+        }
+        if (CardioRepository.STATUS_TRACKING.equals(snapshot.status)
+                && cardioRepository.pause(recordId)) {
+            dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
+            render();
+        }
+        showCardioHeartRateSheet(recordId, true);
+    }
+
+    @Override
+    public void editCardioAverageHeartRate() {
+        String recordId = sessionState.activeRecordId();
+        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+        if (snapshot == null || !CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
+            toast("수정할 유산소 기록을 찾지 못했습니다.");
+            return;
+        }
+        showCardioHeartRateSheet(recordId, false);
     }
 
     @Override
@@ -1019,6 +1026,70 @@ public final class MainActivity extends Activity implements ScreenHost {
             dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
         }
         navigate(FitnessScreen.CARDIO_SESSION);
+    }
+
+    private void showCardioHeartRateSheet(String recordId, boolean finishAfterSave) {
+        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+        if (snapshot == null) {
+            toast("유산소 기록을 찾지 못했습니다.");
+            return;
+        }
+
+        LinearLayout form = ui.form();
+        int elapsedSeconds = snapshot.elapsedSeconds(System.currentTimeMillis());
+        TextView summary = ui.text(
+                CardioMetrics.formatDistanceKilometers(snapshot.distanceMeters)
+                        + "km · " + CardioMetrics.formatElapsed(elapsedSeconds),
+                14,
+                FitnessUi.COLOR_MUTED,
+                false
+        );
+        EditText averageHeartRate = ui.numberInput(
+                "평균 심박수 bpm (선택)",
+                CardioMetrics.hasAverageHeartRate(snapshot.averageHeartRateBpm)
+                        ? CardioMetrics.formatAverageHeartRate(snapshot.averageHeartRateBpm)
+                        : ""
+        );
+        TextView hint = ui.text(
+                "시계·밴드 등에서 확인한 평균값을 직접 입력하세요. 측정값이 없으면 비워둘 수 있습니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        );
+        ui.addAll(form, summary, averageHeartRate, hint);
+
+        ui.validatedSheet(
+                finishAfterSave ? snapshot.activityType.labelKo() + " 완료" : "평균 심박수 수정",
+                form,
+                finishAfterSave ? "운동 완료" : "저장",
+                () -> {
+                    String rawValue = FitnessUi.inputText(averageHeartRate).trim();
+                    Integer averageHeartRateBpm = FitnessUi.optionalInt(averageHeartRate);
+                    if (!rawValue.isEmpty()
+                            && (averageHeartRateBpm == null
+                            || !CardioMetrics.isValidAverageHeartRate(averageHeartRateBpm))) {
+                        averageHeartRate.setError("평균 심박수는 0보다 큰 정수로 입력하세요.");
+                        return false;
+                    }
+
+                    CardioRepository.SessionSnapshot saved = finishAfterSave
+                            ? cardioRepository.finish(recordId, averageHeartRateBpm)
+                            : cardioRepository.updateAverageHeartRate(recordId, averageHeartRateBpm);
+                    if (saved == null) {
+                        toast("평균 심박수를 저장하지 못했습니다.");
+                        return false;
+                    }
+                    if (finishAfterSave) {
+                        stopService(new Intent(this, CardioTrackingService.class));
+                        toast("유산소 운동을 완료했습니다.");
+                        openCardioSummary(recordId);
+                    } else {
+                        toast("평균 심박수를 저장했습니다.");
+                        render();
+                    }
+                    return true;
+                }
+        );
     }
 
     private boolean continueExistingWorkoutIfPresent() {
@@ -1120,12 +1191,18 @@ public final class MainActivity extends Activity implements ScreenHost {
         if (recordId == null || !cardioRepository.isCardioSession(recordId)) {
             return;
         }
+        boolean finishRequested = intent.getBooleanExtra(
+                CardioTrackingService.EXTRA_FINISH_REQUESTED, false);
         intent.removeExtra(CardioTrackingService.EXTRA_RECORD_ID);
+        intent.removeExtra(CardioTrackingService.EXTRA_FINISH_REQUESTED);
         CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
         if (snapshot != null && CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
             openCardioSummary(recordId);
         } else {
             openCardioSession(recordId);
+            if (finishRequested) {
+                finishCardioWorkout();
+            }
         }
     }
 

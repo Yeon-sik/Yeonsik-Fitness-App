@@ -37,6 +37,26 @@ public final class CardioMetrics {
         return String.format(Locale.KOREA, "%.1f", kilometersPerHour);
     }
 
+    public static boolean isValidAverageHeartRate(Integer averageHeartRateBpm) {
+        return averageHeartRateBpm == null || averageHeartRateBpm > 0;
+    }
+
+    public static boolean hasAverageHeartRate(Double averageHeartRateBpm) {
+        return averageHeartRateBpm != null
+                && Double.isFinite(averageHeartRateBpm)
+                && averageHeartRateBpm > 0d;
+    }
+
+    public static String formatAverageHeartRate(Double averageHeartRateBpm) {
+        if (!hasAverageHeartRate(averageHeartRateBpm)) {
+            return "—";
+        }
+        if (averageHeartRateBpm == Math.rint(averageHeartRateBpm)) {
+            return String.valueOf((long) Math.rint(averageHeartRateBpm));
+        }
+        return String.format(Locale.KOREA, "%.1f", averageHeartRateBpm);
+    }
+
     public static String gpsStatusLabel(String gpsStatus) {
         if (CardioRepository.GPS_READY.equals(gpsStatus)) {
             return "GPS 연결됨";

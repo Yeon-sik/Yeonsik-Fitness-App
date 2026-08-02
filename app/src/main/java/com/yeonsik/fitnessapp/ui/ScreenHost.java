@@ -74,6 +74,8 @@ public interface ScreenHost {
 
     void finishCardioWorkout();
 
+    void editCardioAverageHeartRate();
+
     void cancelCardioWorkout();
 
     void showBodyMetricDialog();

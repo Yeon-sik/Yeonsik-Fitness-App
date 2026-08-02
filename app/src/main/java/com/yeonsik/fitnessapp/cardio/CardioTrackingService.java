@@ -35,9 +35,9 @@ public final class CardioTrackingService extends Service {
     public static final String ACTION_START = "com.yeonsik.fitnessapp.cardio.START";
     public static final String ACTION_PAUSE = "com.yeonsik.fitnessapp.cardio.PAUSE";
     public static final String ACTION_RESUME = "com.yeonsik.fitnessapp.cardio.RESUME";
-    public static final String ACTION_STOP = "com.yeonsik.fitnessapp.cardio.STOP";
     public static final String ACTION_CANCEL = "com.yeonsik.fitnessapp.cardio.CANCEL";
     public static final String EXTRA_RECORD_ID = "cardio_record_id";
+    public static final String EXTRA_FINISH_REQUESTED = "cardio_finish_requested";
 
     private static final String TAG = "CardioTracking";
     private static final String CHANNEL_ID = "cardio_tracking";
@@ -132,11 +132,6 @@ public final class CardioTrackingService extends Service {
             return START_NOT_STICKY;
         }
 
-        if (ACTION_STOP.equals(action)) {
-            cardioRepository.finish(currentRecordId);
-            stopTrackingService();
-            return START_NOT_STICKY;
-        }
         if (ACTION_CANCEL.equals(action)) {
             cardioRepository.cancel(currentRecordId);
             stopTrackingService();
@@ -290,9 +285,22 @@ public final class CardioTrackingService extends Service {
                 .addAction(new Notification.Action.Builder(
                         null,
                         "완료",
-                        servicePendingIntent(ACTION_STOP, snapshot.recordId, 2)
+                        completionPendingIntent(snapshot.recordId)
                 ).build());
         return builder.build();
+    }
+
+    private PendingIntent completionPendingIntent(String recordId) {
+        Intent intent = new Intent(this, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(EXTRA_RECORD_ID, recordId)
+                .putExtra(EXTRA_FINISH_REQUESTED, true);
+        return PendingIntent.getActivity(
+                this,
+                2,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
     }
 
     private PendingIntent servicePendingIntent(String action, String recordId, int requestCode) {
