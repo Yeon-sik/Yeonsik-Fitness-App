@@ -5,6 +5,7 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
@@ -220,6 +221,9 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         }
         if (FitnessRecordContract.REPS_ONLY.equals(type)
                 || FitnessRecordContract.TIME.equals(type)) {
+            if (FitnessRecordContract.TIME.equals(type) && set.distanceMeters > 0d) {
+                return CardioMetrics.formatDistanceKilometers(set.distanceMeters) + "km";
+            }
             return rpe.isEmpty() ? "완료" : rpe.substring(3);
         }
         return "×" + set.actualReps + rpe;

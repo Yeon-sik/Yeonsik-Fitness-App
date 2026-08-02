@@ -797,7 +797,9 @@ public final class FitnessRepository {
                                 + "  "
                                 + displaySessionType(cursor.getString(3))
                                 + "  " + formatSessionMetrics(metrics.totalVolumeKg, durationSeconds),
-                        cursor.getString(7)
+                        cursor.getString(7),
+                        cursor.getString(3),
+                        durationSeconds
                 ));
             }
         }
@@ -1061,7 +1063,8 @@ public final class FitnessRepository {
     public SessionMetrics sessionMetrics(String recordId) {
         SessionMetrics metrics = new SessionMetrics();
         try (Cursor cursor = db().rawQuery(
-                "SELECT COALESCE(SUM(COALESCE(volume_kg, COALESCE(weight_kg, 0) * COALESCE(actual_reps, 0))), 0), COUNT(*) " +
+                "SELECT COALESCE(SUM(COALESCE(volume_kg, COALESCE(weight_kg, 0) * COALESCE(actual_reps, 0))), 0), "
+                        + "COUNT(*), COALESCE(SUM(COALESCE(distance_meters, 0)), 0) " +
                         "FROM workout_sets ws " +
                         "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id " +
                         "WHERE we.record_id = ? AND we.deleted_at IS NULL AND ws.deleted_at IS NULL AND ws.is_completed = 1",
@@ -1069,6 +1072,7 @@ public final class FitnessRepository {
             if (cursor.moveToFirst()) {
                 metrics.totalVolumeKg = cursor.getDouble(0);
                 metrics.setCount = cursor.getInt(1);
+                metrics.totalDistanceMeters = cursor.getDouble(2);
             }
         }
         return metrics;
@@ -1855,11 +1859,21 @@ public final class FitnessRepository {
         public final String id;
         public final String summary;
         public final String sourceApp;
+        public final String workoutType;
+        public final int durationSeconds;
 
-        public SessionRecordEntry(String id, String summary, String sourceApp) {
+        public SessionRecordEntry(
+                String id,
+                String summary,
+                String sourceApp,
+                String workoutType,
+                int durationSeconds
+        ) {
             this.id = id;
             this.summary = summary;
             this.sourceApp = sourceApp;
+            this.workoutType = workoutType;
+            this.durationSeconds = durationSeconds;
         }
     }
 
@@ -2016,6 +2030,7 @@ public final class FitnessRepository {
     public static final class SessionMetrics {
         public double totalVolumeKg;
         public int setCount;
+        public double totalDistanceMeters;
     }
 
     public static final class VolumePoint {

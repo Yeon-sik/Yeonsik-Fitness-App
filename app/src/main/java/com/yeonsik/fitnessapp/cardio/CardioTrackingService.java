@@ -30,8 +30,6 @@ import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 
-import java.util.Locale;
-
 /** 화면이 꺼지거나 앱이 백그라운드로 이동해도 GPS 유산소를 계속 추적한다. */
 public final class CardioTrackingService extends Service {
     public static final String ACTION_START = "com.yeonsik.fitnessapp.cardio.START";
@@ -196,6 +194,7 @@ public final class CardioTrackingService extends Service {
         )
                 .setMinUpdateIntervalMillis(MIN_LOCATION_INTERVAL_MS)
                 .setMinUpdateDistanceMeters(2f)
+                .setMaxUpdateAgeMillis(LOCATION_INTERVAL_MS)
                 .setWaitForAccurateLocation(false)
                 .build();
         try {
@@ -256,8 +255,9 @@ public final class CardioTrackingService extends Service {
     private Notification buildNotification(CardioRepository.SessionSnapshot snapshot) {
         boolean paused = CardioRepository.STATUS_PAUSED.equals(snapshot.status);
         String title = snapshot.activityType.labelKo() + (paused ? " · 일시정지" : " 기록 중");
-        String content = formatDistance(snapshot.distanceMeters)
-                + " · " + formatElapsed(snapshot.elapsedSeconds(System.currentTimeMillis()));
+        String content = CardioMetrics.formatDistanceKilometers(snapshot.distanceMeters)
+                + " km · " + CardioMetrics.formatElapsed(
+                snapshot.elapsedSeconds(System.currentTimeMillis()));
 
         Intent openIntent = new Intent(this, MainActivity.class)
                 .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -271,6 +271,9 @@ public final class CardioTrackingService extends Service {
 
         String toggleAction = paused ? ACTION_RESUME : ACTION_PAUSE;
         String toggleLabel = paused ? "재개" : "일시정지";
+        String notificationCategory = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                ? Notification.CATEGORY_WORKOUT
+                : Notification.CATEGORY_SERVICE;
         Notification.Builder builder = new Notification.Builder(this, CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_launcher_monochrome)
                 .setContentTitle(title)
@@ -278,7 +281,7 @@ public final class CardioTrackingService extends Service {
                 .setContentIntent(contentIntent)
                 .setOnlyAlertOnce(true)
                 .setOngoing(true)
-                .setCategory(Notification.CATEGORY_WORKOUT)
+                .setCategory(notificationCategory)
                 .addAction(new Notification.Action.Builder(
                         null,
                         toggleLabel,
@@ -317,14 +320,4 @@ public final class CardioTrackingService extends Service {
         stopSelf();
     }
 
-    private static String formatDistance(double distanceMeters) {
-        return String.format(Locale.KOREA, "%.2f km", distanceMeters / 1000d);
-    }
-
-    private static String formatElapsed(int totalSeconds) {
-        int hours = totalSeconds / 3600;
-        int minutes = (totalSeconds % 3600) / 60;
-        int seconds = totalSeconds % 60;
-        return String.format(Locale.KOREA, "%02d:%02d:%02d", hours, minutes, seconds);
-    }
 }

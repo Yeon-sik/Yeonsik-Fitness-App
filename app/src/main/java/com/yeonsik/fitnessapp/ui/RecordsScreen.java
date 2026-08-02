@@ -5,6 +5,8 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.yeonsik.fitnessapp.cardio.CardioMetrics;
+import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
@@ -290,6 +292,10 @@ public final class RecordsScreen extends BaseScreen {
         String routineName = tokens.length > 1 ? tokens[1] : session.summary;
         FitnessRepository.SessionMetrics metrics = repository().sessionMetrics(session.id);
         boolean personalOsRecord = "os".equals(session.sourceApp);
+        boolean cardioRecord = "cardio".equals(session.workoutType);
+        CardioRepository.SessionSnapshot cardio = cardioRecord
+                ? host.cardioRepository().session(session.id)
+                : null;
 
         LinearLayout card = ui.card();
         if (!personalOsRecord) {
@@ -297,6 +303,10 @@ public final class RecordsScreen extends BaseScreen {
             card.setFocusable(true);
             ui.pressFeedback(card);
             card.setOnClickListener(v -> {
+                if (cardio != null) {
+                    host.openCardioSummary(session.id);
+                    return;
+                }
                 host.sessionState().setActiveRecordId(session.id);
                 host.sessionState().setActiveExerciseId(null);
                 host.navigate(FitnessScreen.WORKOUT_SUMMARY);
@@ -307,16 +317,29 @@ public final class RecordsScreen extends BaseScreen {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
 
-        row.addView(ui.vibrantGlyphCircle("운", "session-" + session.id));
+        row.addView(ui.vibrantGlyphCircle(cardioRecord ? "유" : "운", "session-" + session.id));
 
         LinearLayout column = new LinearLayout(host.activity());
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(ui.dp(12), 0, 0, 0);
         column.addView(ui.text(routineName, 16, FitnessUi.COLOR_TEXT, true));
-        String metaText = personalOsRecord
-                ? "Personal OS에서 생성된 요약 기록"
-                : "총 볼륨 " + FitnessUi.formatVolume(metrics.totalVolumeKg)
-                + "kg · " + metrics.setCount + "세트";
+        String metaText;
+        if (personalOsRecord) {
+            metaText = "Personal OS에서 생성된 요약 기록";
+        } else if (cardioRecord) {
+            double distanceMeters = cardio == null
+                    ? metrics.totalDistanceMeters
+                    : cardio.distanceMeters;
+            int elapsedSeconds = cardio == null
+                    ? session.durationSeconds
+                    : cardio.elapsedSeconds(System.currentTimeMillis());
+            metaText = "거리 " + CardioMetrics.formatDistanceKilometers(distanceMeters)
+                    + "km · " + CardioMetrics.formatElapsed(elapsedSeconds)
+                    + (cardio == null ? " · 경로 없음" : "");
+        } else {
+            metaText = "총 볼륨 " + FitnessUi.formatVolume(metrics.totalVolumeKg)
+                    + "kg · " + metrics.setCount + "세트";
+        }
         TextView meta = ui.text(metaText, 12, FitnessUi.COLOR_MUTED, false);
         meta.setPadding(0, ui.dp(2), 0, 0);
         column.addView(meta);

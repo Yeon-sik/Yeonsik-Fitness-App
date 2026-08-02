@@ -5,6 +5,7 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
@@ -34,7 +35,15 @@ public final class WorkoutScreen extends BaseScreen {
             continueBanner(inProgressSessionId);
         }
 
-        section("운동 시작");
+        section("GPS 유산소");
+        add(ui().button("걷기 시작", false,
+                v -> host.startCardioWorkout(CardioActivityType.WALKING)), ui().fullWidthParams(0));
+        add(ui().button("달리기 시작", true,
+                v -> host.startCardioWorkout(CardioActivityType.RUNNING)), ui().fullWidthParams(ui().dp(8)));
+        add(ui().button("자전거 시작", false,
+                v -> host.startCardioWorkout(CardioActivityType.CYCLING)), ui().fullWidthParams(ui().dp(8)));
+
+        section("근력 운동 시작");
         add(ui().button("루틴 없이 운동 시작", true, v -> host.startEmptyWorkout()), ui().fullWidthParams(0));
         if (routines.isEmpty()) {
             emptyState("만들어진 루틴이 없습니다.", "아래에서 루틴을 추가하세요.");
@@ -89,7 +98,7 @@ public final class WorkoutScreen extends BaseScreen {
         banner.setClickable(true);
         banner.setFocusable(true);
         ui.pressFeedback(banner);
-        banner.setOnClickListener(v -> host.openWorkoutSession(inProgressSessionId));
+        banner.setOnClickListener(v -> host.continueWorkoutIfAvailable());
 
         LinearLayout column = new LinearLayout(host.activity());
         column.setOrientation(LinearLayout.VERTICAL);

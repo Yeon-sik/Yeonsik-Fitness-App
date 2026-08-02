@@ -3,6 +3,8 @@ package com.yeonsik.fitnessapp.ui;
 import android.app.Activity;
 import android.widget.LinearLayout;
 
+import com.yeonsik.fitnessapp.cardio.CardioActivityType;
+import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
@@ -25,6 +27,8 @@ public interface ScreenHost {
     LinearLayout content();
 
     FitnessRepository repository();
+
+    CardioRepository cardioRepository();
 
     RoutineRepository routineRepository();
 
@@ -59,6 +63,18 @@ public interface ScreenHost {
     void confirmDeleteSession(String recordId);
 
     void startEmptyWorkout();
+
+    void startCardioWorkout(CardioActivityType activityType);
+
+    void openCardioSummary(String recordId);
+
+    void pauseCardioWorkout();
+
+    void resumeCardioWorkout();
+
+    void finishCardioWorkout();
+
+    void cancelCardioWorkout();
 
     void showBodyMetricDialog();
 

@@ -159,10 +159,12 @@ public final class CardioRepository {
             CardioActivityType activityType;
             double totalDistance;
             int acceptedPointCount;
+            Long lastResumedAtEpochMillis;
             CardioLocationSample previous = null;
             try (Cursor cursor = database.rawQuery(
                     "SELECT activity_type, status, distance_meters, accepted_point_count, "
-                            + "last_latitude, last_longitude, last_location_time_ms, last_accuracy_meters "
+                            + "last_latitude, last_longitude, last_location_time_ms, last_accuracy_meters, "
+                            + "last_resumed_at_epoch_ms "
                             + "FROM cardio_sessions WHERE record_id = ? LIMIT 1",
                     new String[]{recordId})) {
                 if (!cursor.moveToFirst() || !STATUS_TRACKING.equals(cursor.getString(1))) {
@@ -171,6 +173,7 @@ public final class CardioRepository {
                 activityType = CardioActivityType.fromId(cursor.getString(0));
                 totalDistance = cursor.getDouble(2);
                 acceptedPointCount = cursor.getInt(3);
+                lastResumedAtEpochMillis = cursor.isNull(8) ? null : cursor.getLong(8);
                 if (!cursor.isNull(4) && !cursor.isNull(5)
                         && !cursor.isNull(6) && !cursor.isNull(7)) {
                     previous = new CardioLocationSample(
@@ -181,6 +184,13 @@ public final class CardioRepository {
                             null
                     );
                 }
+            }
+
+            if (candidate != null
+                    && candidate.capturedAtMillis != null
+                    && lastResumedAtEpochMillis != null
+                    && candidate.capturedAtMillis < lastResumedAtEpochMillis) {
+                return CardioDistanceFilter.Result.rejected(CardioDistanceFilter.Reason.STALE);
             }
 
             CardioDistanceFilter.Result result = CardioDistanceFilter.evaluate(
@@ -233,6 +243,9 @@ public final class CardioRepository {
         SessionSnapshot snapshot = session(recordId);
         if (snapshot == null) {
             return null;
+        }
+        if (STATUS_COMPLETED.equals(snapshot.status)) {
+            return snapshot;
         }
         long now = System.currentTimeMillis();
         long durationMillis = snapshot.elapsedDurationMillis(now);
