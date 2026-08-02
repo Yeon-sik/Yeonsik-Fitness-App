@@ -60,12 +60,13 @@ public final class HomeScreen extends BaseScreen {
 
         section("이번 주");
         weeklyVolumeCard();
+        weeklyMealCard();
 
         section("빠른 기록");
         LinearLayout quickTop = ui().tileRow();
         quickTop.addView(ui().statTile("체중", todayWeightValue(), "오늘", false,
                 v -> host.showBodyMetricDialog()), ui().tileParams(true));
-        quickTop.addView(ui().statTile("식사", repository().mealsForDate(today).size() + "건", "오늘", false,
+        quickTop.addView(ui().statTile("식사", repository().mealsForDate(today).size() + "끼", "오늘", false,
                 v -> host.showMealDialog()), ui().tileParams(false));
         add(quickTop, ui().fullWidthParams(0));
         LinearLayout quickBottom = ui().tileRow();
@@ -229,6 +230,83 @@ public final class HomeScreen extends BaseScreen {
 
         card.addView(weeklyBarChart(values, previousValues, labels), ui.fullWidthParams(ui.dp(8)));
         add(card);
+    }
+
+    private void weeklyMealCard() {
+        FitnessUi ui = ui();
+        LocalDate weekStart = LocalDate.now().with(DayOfWeek.MONDAY);
+        LocalDate previousWeekStart = weekStart.minusWeeks(1);
+        double[] values = new double[7];
+        double[] previousValues = new double[7];
+        String[] labels = new String[7];
+        int weekMeals = 0;
+        int mealDays = 0;
+        int previousWeekMeals = 0;
+        DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("E", Locale.KOREAN);
+        for (int i = 0; i < 7; i++) {
+            LocalDate date = weekStart.plusDays(i);
+            int mealCount = repository().mealCountForDate(date.toString());
+            values[i] = mealCount;
+            labels[i] = date.format(dayFormatter);
+            weekMeals += mealCount;
+            if (mealCount > 0) {
+                mealDays++;
+            }
+
+            int previousMealCount = repository().mealCountForDate(
+                    previousWeekStart.plusDays(i).toString());
+            previousValues[i] = previousMealCount;
+            previousWeekMeals += previousMealCount;
+        }
+
+        LinearLayout card = ui.card();
+        LinearLayout header = new LinearLayout(host.activity());
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.BOTTOM);
+        LinearLayout titleColumn = new LinearLayout(host.activity());
+        titleColumn.setOrientation(LinearLayout.VERTICAL);
+        titleColumn.addView(ui.caption("주간 식사", FitnessUi.COLOR_MUTED));
+        LinearLayout valueRow = new LinearLayout(host.activity());
+        valueRow.setOrientation(LinearLayout.HORIZONTAL);
+        valueRow.setGravity(Gravity.BOTTOM);
+        valueRow.setPadding(0, ui.dp(4), 0, 0);
+        valueRow.addView(ui.num(String.valueOf(weekMeals), 24, FitnessUi.COLOR_TEXT, true));
+        TextView unit = ui.text("끼", 13, FitnessUi.COLOR_MUTED, true);
+        unit.setPadding(ui.dp(4), 0, 0, ui.dp(3));
+        valueRow.addView(unit);
+        titleColumn.addView(valueRow);
+        header.addView(titleColumn, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        header.addView(ui.text("기록 " + mealDays + "일", 12, FitnessUi.COLOR_TERTIARY, false));
+        card.addView(header);
+
+        TextView comparison = ui.text(weeklyMealComparison(weekMeals, previousWeekMeals),
+                12, weekMeals >= previousWeekMeals
+                        ? FitnessUi.COLOR_POSITIVE : FitnessUi.COLOR_NEGATIVE, true);
+        comparison.setPadding(0, ui.dp(10), 0, 0);
+        card.addView(comparison);
+
+        LinearLayout legend = new LinearLayout(host.activity());
+        legend.setOrientation(LinearLayout.HORIZONTAL);
+        legend.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        legend.setPadding(0, ui.dp(10), 0, 0);
+        legend.addView(ui.text("이번 주", 10, ui.hologramAccentColor(0), true));
+        TextView previousLegend = ui.text("지난주", 10, FitnessUi.COLOR_MUTED, true);
+        previousLegend.setPadding(ui.dp(14), 0, 0, 0);
+        legend.addView(previousLegend);
+        card.addView(legend);
+
+        card.addView(weeklyBarChart(values, previousValues, labels), ui.fullWidthParams(ui.dp(8)));
+        add(card);
+    }
+
+    private String weeklyMealComparison(int currentMeals, int previousMeals) {
+        int difference = currentMeals - previousMeals;
+        if (difference == 0) {
+            return "지난주와 동일한 식사 기록";
+        }
+        String direction = difference > 0 ? "증가" : "감소";
+        return "지난주 대비 " + Math.abs(difference) + "끼 " + direction;
     }
 
     private String weeklyComparison(double currentVolume, double previousVolume) {

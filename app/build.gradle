@@ -1,5 +1,25 @@
 apply plugin: "com.android.application"
 
+def localProperties = new Properties()
+def localPropertiesFile = rootProject.file("local.properties")
+if (localPropertiesFile.exists()) {
+    localPropertiesFile.withInputStream { stream -> localProperties.load(stream) }
+}
+
+def configValue = { String propertyKey, String environmentKey, String viteEnvironmentKey ->
+    localProperties.getProperty(propertyKey)
+            ?: System.getenv(environmentKey)
+            ?: System.getenv(viteEnvironmentKey)
+            ?: ""
+}
+
+def buildConfigString = { String value ->
+    '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
+}
+
+def supabaseUrl = configValue("SUPABASE_URL", "SUPABASE_URL", "VITE_SUPABASE_URL")
+def supabaseAnonKey = configValue("SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY")
+
 def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")
 
 tasks.register("copyExerciseMasterAssets", Copy) {
@@ -12,6 +32,10 @@ android {
     namespace "com.yeonsik.fitnessapp"
     compileSdk 36
 
+    buildFeatures {
+        buildConfig true
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -23,6 +47,8 @@ android {
         targetSdk 36
         versionCode 1
         versionName "1.0.0"
+        buildConfigField "String", "SUPABASE_URL", buildConfigString(supabaseUrl)
+        buildConfigField "String", "SUPABASE_ANON_KEY", buildConfigString(supabaseAnonKey)
     }
 
     signingConfigs {

@@ -20,6 +20,22 @@ cd C:\Github\personal-os\FitnessApp
 .\gradlew.bat testDebugUnitTest assembleDebug
 ```
 
+## Shared Supabase project
+
+FitnessApp uses the same Supabase Auth project as CashOS and PersonalOS when
+the following values are supplied in `local.properties` (the file is not
+committed):
+
+```properties
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-publishable-or-anon-key
+```
+
+The same values can also be supplied through `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` environment variables. After email sign-in or sign-up,
+the Supabase Auth user UUID is used as `user_id` for remote synchronization.
+An access token is stored only through Android Keystore-backed encryption.
+
 ## Release
 
 Signed release builds require:
