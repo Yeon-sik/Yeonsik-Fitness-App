@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 5;
+    public static final int DATABASE_VERSION = 6;
 
     public FitnessDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -16,6 +16,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public void onCreate(SQLiteDatabase db) {
         createSharedRecordTables(db);
         createRoutineTables(db);
+        createCardioTables(db);
     }
 
     private void createSharedRecordTables(SQLiteDatabase db) {
@@ -160,6 +161,37 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX IF NOT EXISTS routine_exercises_routine_order_idx ON routine_exercises(routine_id, order_index)");
     }
 
+    private void createCardioTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS cardio_sessions (" +
+                "record_id TEXT PRIMARY KEY, " +
+                "activity_type TEXT NOT NULL, " +
+                "status TEXT NOT NULL, " +
+                "started_at_epoch_ms INTEGER NOT NULL, " +
+                "last_resumed_at_epoch_ms INTEGER, " +
+                "active_duration_ms INTEGER NOT NULL DEFAULT 0, " +
+                "distance_meters REAL NOT NULL DEFAULT 0, " +
+                "accepted_point_count INTEGER NOT NULL DEFAULT 0, " +
+                "last_latitude REAL, " +
+                "last_longitude REAL, " +
+                "last_location_time_ms INTEGER, " +
+                "last_accuracy_meters REAL, " +
+                "gps_status TEXT NOT NULL DEFAULT 'searching', " +
+                "updated_at_epoch_ms INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS cardio_route_points (" +
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
+                "record_id TEXT NOT NULL, " +
+                "captured_at_epoch_ms INTEGER NOT NULL, " +
+                "latitude REAL NOT NULL, " +
+                "longitude REAL NOT NULL, " +
+                "accuracy_meters REAL NOT NULL, " +
+                "speed_mps REAL, " +
+                "segment_distance_meters REAL NOT NULL DEFAULT 0)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS cardio_sessions_status_started_idx " +
+                "ON cardio_sessions(status, started_at_epoch_ms)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS cardio_route_points_record_time_idx " +
+                "ON cardio_route_points(record_id, captured_at_epoch_ms)");
+    }
+
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion < 2) {
@@ -182,6 +214,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
             addColumnIfMissing(db, "workout_sets", "contract_version", "INTEGER NOT NULL DEFAULT 1");
             db.execSQL("UPDATE workout_exercises SET record_type = 'weight_reps' " +
                     "WHERE record_type = 'sets_reps_weight'");
+        }
+        if (oldVersion < 6) {
+            createCardioTables(db);
         }
     }
 

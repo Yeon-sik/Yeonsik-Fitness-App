@@ -4,6 +4,7 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
@@ -83,6 +84,109 @@ public final class FitnessRepository {
         ));
         db().insertOrThrow("workout_records", null, values);
         return id;
+    }
+
+    /** GPS 유산소용 부모 기록과 거리/시간 세부 종목을 함께 만든다. */
+    public String createCardioSession(String date, CardioActivityType activityType) {
+        if (activityType == null) {
+            throw new IllegalArgumentException("유산소 유형이 필요합니다.");
+        }
+        String recordId = createSession(
+                date,
+                activityType.labelKo(),
+                "cardio",
+                "",
+                now(),
+                ""
+        );
+
+        String createdAt = now();
+        ContentValues exercise = baseValues(newId(), createdAt);
+        exercise.put("record_id", recordId);
+        exercise.put("order_index", 1);
+        exercise.put("exercise_id", "cardio_" + activityType.id());
+        exercise.put("exercise_name_snapshot", activityType.labelKo());
+        exercise.put("ui_part", "cardio");
+        exercise.put("primary_sub_part_snapshot", activityType.labelKo());
+        exercise.putNull("equipment_snapshot");
+        exercise.put("record_type", FitnessRecordContract.TIME);
+        exercise.putNull("memo");
+        db().insertOrThrow("workout_exercises", null, exercise);
+
+        ContentValues record = new ContentValues();
+        record.put("category", activityType.labelKo());
+        record.put("metadata", mergedCardioMetadata(
+                sessionInfoMetadata(recordId),
+                "in_progress",
+                activityType,
+                "",
+                0,
+                0d
+        ));
+        record.put("updated_at", createdAt);
+        db().update("workout_records", record, "id = ?", new String[]{recordId});
+        updateSharedWorkoutSummary(recordId, false);
+        return recordId;
+    }
+
+    /** 완료된 GPS 유산소를 기존 공유 기록 계약의 시간/거리 세트로 확정한다. */
+    public void completeCardioSession(
+            String recordId,
+            CardioActivityType activityType,
+            int durationSeconds,
+            double distanceMeters
+    ) {
+        if (emptyToNull(recordId) == null || activityType == null) {
+            throw new IllegalArgumentException("완료할 유산소 세션이 없습니다.");
+        }
+        if (durationSeconds <= 0) {
+            throw new IllegalArgumentException("유산소 시간은 1초 이상이어야 합니다.");
+        }
+        if (!Double.isFinite(distanceMeters) || distanceMeters < 0) {
+            throw new IllegalArgumentException("유산소 거리는 0 이상의 유한한 값이어야 합니다.");
+        }
+
+        String exerciseId = cardioExerciseId(recordId);
+        if (exerciseId == null) {
+            throw new IllegalStateException("유산소 세부 종목을 찾지 못했습니다.");
+        }
+        SetInput summaryInput = new SetInput(
+                null,
+                null,
+                durationSeconds,
+                distanceMeters,
+                null,
+                null,
+                null,
+                null,
+                true
+        );
+        List<SessionSetEntry> existingSets = setsForExercise(exerciseId);
+        if (existingSets.isEmpty()) {
+            addTypedSet(recordId, exerciseId, 1, summaryInput);
+        } else {
+            updateTypedSet(recordId, existingSets.get(0).id, summaryInput);
+        }
+
+        String endedAt = now();
+        String metadata = sessionInfoMetadata(recordId);
+        ContentValues record = new ContentValues();
+        record.put("duration_seconds", durationSeconds);
+        record.put("total_volume_kg", 0d);
+        record.put("exercise_name", activityType.labelKo());
+        record.put("category", activityType.labelKo());
+        record.put("updated_at", endedAt);
+        record.put("metadata", mergedCardioMetadata(
+                metadata,
+                "completed",
+                activityType,
+                endedAt,
+                durationSeconds,
+                distanceMeters
+        ));
+        db().update("workout_records", record,
+                "id = ? AND deleted_at IS NULL", new String[]{recordId});
+        updateSharedWorkoutSummary(recordId, true);
     }
 
     /** 파싱과 운동 매핑이 끝난 FLEEK 기록을 하나의 SQLite 트랜잭션으로 저장한다. */
@@ -318,7 +422,7 @@ public final class FitnessRepository {
         putNullable(values, "weight_kg", input.weightKg);
         values.put("volume_kg", setVolume(recordType, input));
         putNullable(values, "duration_seconds", input.durationSeconds);
-        values.putNull("distance_meters");
+        putNullable(values, "distance_meters", input.distanceMeters);
         putNullable(values, "rest_seconds", input.restSeconds);
         putNullable(values, "assisted_weight_kg", input.assistedWeightKg);
         putNullable(values, "added_weight_kg", input.addedWeightKg);
@@ -355,6 +459,7 @@ public final class FitnessRepository {
         putNullable(values, "actual_reps", input.reps);
         values.put("volume_kg", setVolume(recordType, input));
         putNullable(values, "duration_seconds", input.durationSeconds);
+        putNullable(values, "distance_meters", input.distanceMeters);
         putNullable(values, "assisted_weight_kg", input.assistedWeightKg);
         putNullable(values, "added_weight_kg", input.addedWeightKg);
         putNullable(values, "rpe", input.rpe);
@@ -398,7 +503,8 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, set_index, COALESCE(weight_kg, 0), COALESCE(actual_reps, 0), "
                         + "rpe, rest_seconds, is_completed, COALESCE(duration_seconds, 0), "
-                        + "COALESCE(assisted_weight_kg, 0), COALESCE(added_weight_kg, 0) FROM workout_sets " +
+                        + "COALESCE(distance_meters, 0), COALESCE(assisted_weight_kg, 0), "
+                        + "COALESCE(added_weight_kg, 0) FROM workout_sets " +
                         "WHERE workout_exercise_id = ? AND deleted_at IS NULL ORDER BY set_index",
                 new String[]{workoutExerciseId})) {
             while (cursor.moveToNext()) {
@@ -412,7 +518,8 @@ public final class FitnessRepository {
                         cursor.getInt(6) == 1,
                         cursor.getInt(7),
                         cursor.getDouble(8),
-                        cursor.getDouble(9)
+                        cursor.getDouble(9),
+                        cursor.getDouble(10)
                 ));
             }
         }
@@ -633,6 +740,16 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT metadata FROM workout_records WHERE id = ? LIMIT 1", new String[]{recordId})) {
             return cursor.moveToFirst() ? cursor.getString(0) : "";
+        }
+    }
+
+    private String cardioExerciseId(String recordId) {
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id FROM workout_exercises WHERE record_id = ? "
+                        + "AND exercise_id LIKE 'cardio_%' AND deleted_at IS NULL "
+                        + "ORDER BY order_index LIMIT 1",
+                new String[]{recordId})) {
+            return cursor.moveToFirst() ? cursor.getString(0) : null;
         }
     }
 
@@ -1595,6 +1712,40 @@ public final class FitnessRepository {
         }
     }
 
+    private static String mergedCardioMetadata(
+            String metadata,
+            String status,
+            CardioActivityType activityType,
+            String endedAt,
+            int durationSeconds,
+            double distanceMeters
+    ) {
+        try {
+            JSONObject object = metadata == null || metadata.trim().isEmpty()
+                    ? new JSONObject()
+                    : new JSONObject(metadata);
+            object.put("status", status);
+            object.put("activity_type", activityType.id());
+            object.put("ended_at", emptyToDefault(endedAt, ""));
+            object.put("duration_seconds", durationSeconds);
+            object.put("active_duration_seconds", durationSeconds);
+            object.put("distance_meters", distanceMeters);
+            object.put("average_pace_seconds_per_km",
+                    distanceMeters <= 0 ? JSONObject.NULL
+                            : Math.round(durationSeconds / (distanceMeters / 1000d)));
+            object.put("contract_version", FitnessRecordContract.VERSION);
+            return object.toString();
+        } catch (Exception exception) {
+            return json(
+                    "status", status,
+                    "activity_type", activityType.id(),
+                    "ended_at", emptyToDefault(endedAt, ""),
+                    "duration_seconds", String.valueOf(durationSeconds),
+                    "distance_meters", String.valueOf(distanceMeters)
+            );
+        }
+    }
+
     private static int safeInt(long value) {
         if (value <= 0) {
             return 0;
@@ -1762,6 +1913,7 @@ public final class FitnessRepository {
             throw new IllegalArgumentException("세트 입력이 없습니다.");
         }
         validateNonNegative(input.weightKg, "중량");
+        validateNonNegative(input.distanceMeters, "거리");
         validateNonNegative(input.assistedWeightKg, "보조 중량");
         validateNonNegative(input.addedWeightKg, "추가 중량");
         if (input.reps != null && input.reps < 0) {
@@ -1933,6 +2085,7 @@ public final class FitnessRepository {
         public final Integer restSeconds;
         public final boolean isCompleted;
         public final int durationSeconds;
+        public final double distanceMeters;
         public final double assistedWeightKg;
         public final double addedWeightKg;
 
@@ -1945,6 +2098,7 @@ public final class FitnessRepository {
                 Integer restSeconds,
                 boolean isCompleted,
                 int durationSeconds,
+                double distanceMeters,
                 double assistedWeightKg,
                 double addedWeightKg
         ) {
@@ -1956,6 +2110,7 @@ public final class FitnessRepository {
             this.restSeconds = restSeconds;
             this.isCompleted = isCompleted;
             this.durationSeconds = durationSeconds;
+            this.distanceMeters = distanceMeters;
             this.assistedWeightKg = assistedWeightKg;
             this.addedWeightKg = addedWeightKg;
         }
@@ -1965,6 +2120,7 @@ public final class FitnessRepository {
         public final Double weightKg;
         public final Integer reps;
         public final Integer durationSeconds;
+        public final Double distanceMeters;
         public final Double assistedWeightKg;
         public final Double addedWeightKg;
         public final Integer rpe;
@@ -1981,9 +2137,25 @@ public final class FitnessRepository {
                 Integer restSeconds,
                 boolean completed
         ) {
+            this(weightKg, reps, durationSeconds, null, assistedWeightKg, addedWeightKg,
+                    rpe, restSeconds, completed);
+        }
+
+        public SetInput(
+                Double weightKg,
+                Integer reps,
+                Integer durationSeconds,
+                Double distanceMeters,
+                Double assistedWeightKg,
+                Double addedWeightKg,
+                Integer rpe,
+                Integer restSeconds,
+                boolean completed
+        ) {
             this.weightKg = weightKg;
             this.reps = reps;
             this.durationSeconds = durationSeconds;
+            this.distanceMeters = distanceMeters;
             this.assistedWeightKg = assistedWeightKg;
             this.addedWeightKg = addedWeightKg;
             this.rpe = rpe;
