@@ -541,23 +541,23 @@ public final class FitnessRepository {
         db().update("weight_records", values, "id = ? AND deleted_at IS NULL", new String[]{id});
     }
 
-    public String addMeal(String date, String mealType, String menuText, Integer calories, Double proteinGrams) {
+    public String addMeal(String date, String menuText, Integer calories, Double proteinGrams,
+                          Double carbsGrams, Double fatGrams) {
         String id = newId();
         String now = now();
         ContentValues values = baseValues(id, now);
         values.put("date", emptyToToday(date));
-        String normalizedMealType = normalizeMealType(mealType);
         values.put("menu", emptyToDefault(menuText, "Meal"));
         values.put("calories", calories == null ? 0 : calories);
         values.put("protein_grams", proteinGrams == null ? 0 : proteinGrams);
-        values.putNull("carbs_grams");
-        values.putNull("fat_grams");
+        values.put("carbs_grams", carbsGrams == null ? 0 : carbsGrams);
+        values.put("fat_grams", fatGrams == null ? 0 : fatGrams);
         values.put("is_backfilled", 0);
         values.putNull("backfilled_at");
         values.putNull("backfill_reason");
         values.put("source_app", "fitness");
         values.put("scope", "fitness");
-        values.put("metadata", json("item_type", "meal", "meal_type", normalizedMealType, "estimated", "false"));
+        values.put("metadata", json("item_type", "meal", "estimated", "false"));
         db().insertOrThrow("meal_records", null, values);
         return id;
     }
@@ -1321,21 +1321,42 @@ public final class FitnessRepository {
         return mealsForDate(null);
     }
 
+    public int mealCountForDate(String date) {
+        try (Cursor cursor = db().rawQuery(
+                "SELECT COUNT(*) FROM meal_records WHERE deleted_at IS NULL "
+                        + "AND scope IN ('fitness', 'both') AND date = ?",
+                new String[]{emptyToToday(date)})) {
+            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        }
+    }
+
     public List<String> mealsForDate(String date) {
         List<String> rows = new ArrayList<>();
-        String sql = "SELECT date, menu, calories, protein_grams, metadata FROM meal_records WHERE deleted_at IS NULL AND scope IN ('fitness', 'both')";
+        String sql = "SELECT date, menu, calories, protein_grams, carbs_grams, fat_grams FROM meal_records WHERE deleted_at IS NULL AND scope IN ('fitness', 'both')";
         String[] args = null;
         if (date != null) {
             sql += " AND date = ?";
             args = new String[]{emptyToToday(date)};
         }
-        sql += " ORDER BY date DESC, updated_at DESC LIMIT 20";
+        sql += " ORDER BY date DESC, created_at ASC, id ASC LIMIT 20";
 
         try (Cursor cursor = db().rawQuery(sql, args)) {
+            String currentDate = null;
+            int mealNumber = 0;
             while (cursor.moveToNext()) {
+                String mealDate = cursor.getString(0);
+                if (!mealDate.equals(currentDate)) {
+                    currentDate = mealDate;
+                    mealNumber = 0;
+                }
+                mealNumber++;
                 String calories = cursor.getInt(2) + "kcal";
                 String protein = trimDouble(cursor.getDouble(3)) + "g 단백질";
-                rows.add(formatDate(cursor.getString(0)) + "  " + cursor.getString(1) + "  " + calories + "  " + protein);
+                String carbs = trimDouble(cursor.getDouble(4)) + "g 탄수화물";
+                String fat = trimDouble(cursor.getDouble(5)) + "g 지방";
+                rows.add(formatDate(mealDate) + "  " + mealNumber + "끼  "
+                        + cursor.getString(1) + "  " + calories + "  " + protein
+                        + "  " + carbs + "  " + fat);
             }
         }
         return rows;
@@ -1422,26 +1443,6 @@ public final class FitnessRepository {
         if ("cardio".equals(value) || "유산소".equals(value)) return "cardio";
         if ("other".equals(value) || "기타".equals(value)) return "other";
         return "strength";
-    }
-
-    private static String normalizeMealType(String mealType) {
-        String value = emptyToDefault(mealType, "unknown").trim().toLowerCase();
-        switch (value) {
-            case "아침":
-            case "breakfast":
-                return "breakfast";
-            case "점심":
-            case "lunch":
-                return "lunch";
-            case "저녁":
-            case "dinner":
-                return "dinner";
-            case "간식":
-            case "snack":
-                return "snack";
-            default:
-                return "unknown";
-        }
     }
 
     private static String emptyToToday(String value) {
@@ -1690,14 +1691,6 @@ public final class FitnessRepository {
         if ("abs".equals(category)) return "복근";
         if ("arms".equals(category)) return "팔";
         return "기타";
-    }
-
-    private static String displayMealType(String mealType) {
-        if ("breakfast".equals(mealType)) return "아침";
-        if ("lunch".equals(mealType)) return "점심";
-        if ("dinner".equals(mealType)) return "저녁";
-        if ("snack".equals(mealType)) return "간식";
-        return "식단";
     }
 
     private static String trimDouble(double value) {

@@ -3,6 +3,8 @@ package com.yeonsik.fitnessapp.config;
 import android.content.Context;
 import android.content.SharedPreferences;
 
+import com.yeonsik.fitnessapp.BuildConfig;
+
 public final class SupabaseConfigStore {
     private static final String PREFS_NAME = "fitnessapp:supabase-config:v1";
     private static final String KEY_URL = "supabase_url";
@@ -19,8 +21,8 @@ public final class SupabaseConfigStore {
     }
 
     public SupabaseConfig load() {
-        String url = preferences.getString(KEY_URL, "");
-        String anonKey = preferences.getString(KEY_ANON, "");
+        String url = preferences.getString(KEY_URL, BuildConfig.SUPABASE_URL);
+        String anonKey = preferences.getString(KEY_ANON, BuildConfig.SUPABASE_ANON_KEY);
         String userId = preferences.getString(KEY_USER, "");
         String email = preferences.getString(KEY_EMAIL, "");
 

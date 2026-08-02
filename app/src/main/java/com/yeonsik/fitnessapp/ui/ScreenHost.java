@@ -90,6 +90,8 @@ public interface ScreenHost {
 
     void signInToSupabase(String email, String password);
 
+    void signUpToSupabase(String email, String password);
+
     void signOutFromSupabase();
 
     void runManualSync();

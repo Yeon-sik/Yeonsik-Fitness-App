@@ -13,6 +13,7 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -860,17 +861,29 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void showMealDialog() {
         LinearLayout form = ui.form();
-        EditText date = ui.input("날짜 (YYYY-MM-DD)", today);
-        EditText type = ui.input("식사 구분 (breakfast/lunch/dinner/snack)", "lunch");
+        String todayMealDate = today();
+        String yesterdayMealDate = LocalDate.parse(todayMealDate).minusDays(1).toString();
+        String[] selectedMealDate = {todayMealDate};
+        Button mealDay = ui.button("식사일: 오늘 (탭하여 전날로 변경)", false, null);
+        mealDay.setOnClickListener(v -> {
+            boolean isToday = todayMealDate.equals(selectedMealDate[0]);
+            selectedMealDate[0] = isToday ? yesterdayMealDate : todayMealDate;
+            mealDay.setText(isToday
+                    ? "식사일: 전날 (탭하여 오늘로 변경)"
+                    : "식사일: 오늘 (탭하여 전날로 변경)");
+        });
         EditText menu = ui.input("식단 내용", "닭가슴살 샐러드");
         EditText calories = ui.numberInput("칼로리 kcal (선택)", "");
         EditText protein = ui.decimalInput("단백질 g (선택)", "");
-        ui.addAll(form, date, type, menu, calories, protein);
+        EditText carbs = ui.decimalInput("탄수화물 g (선택)", "");
+        EditText fat = ui.decimalInput("지방 g (선택)", "");
+        ui.addAll(form, mealDay, menu, calories, protein, carbs, fat);
         ui.sheet("식단 기록", form,
                 "저장", () -> {
-                    repository.addMeal(FitnessUi.inputText(date), FitnessUi.inputText(type),
-                            FitnessUi.inputText(menu), FitnessUi.optionalInt(calories),
-                            FitnessUi.optionalDouble(protein));
+                    repository.addMeal(selectedMealDate[0], FitnessUi.inputText(menu),
+                            FitnessUi.optionalInt(calories),
+                            FitnessUi.optionalDouble(protein), FitnessUi.optionalDouble(carbs),
+                            FitnessUi.optionalDouble(fat));
                     render();
                 }, null, null);
     }
@@ -992,6 +1005,49 @@ public final class MainActivity extends Activity implements ScreenHost {
                             ? "로그인에 실패했습니다."
                             : error.getMessage();
                     toast("로그인에 실패했습니다.");
+                    render();
+                });
+            }
+        });
+    }
+
+    @Override
+    public void signUpToSupabase(String email, String password) {
+        if (!supabaseConfig.isConnectionConfigured()) {
+            toast("Supabase URL과 anon key를 먼저 저장하세요.");
+            return;
+        }
+        syncLabel = "authenticating";
+        syncDetail = "Supabase 계정을 만드는 중입니다.";
+        render();
+        executor.execute(() -> {
+            try {
+                SupabaseAuthManager.SignUpResult result = authManager.signUp(
+                        supabaseConfig,
+                        email,
+                        password
+                );
+                runOnUiThread(() -> {
+                    if (result.emailConfirmationRequired) {
+                        syncLabel = "confirmation required";
+                        syncDetail = "가입 확인 메일을 확인한 뒤 로그인하세요.";
+                        toast("가입 확인 메일을 보냈습니다.");
+                    } else {
+                        supabaseConfig = result.config;
+                        repository.normalizeLocalUserId(result.config.effectiveUserId());
+                        routineRepository.normalizeLocalUserId(result.config.effectiveUserId());
+                        applySyncStatusFromConfig();
+                        toast("계정이 생성되고 로그인되었습니다.");
+                    }
+                    render();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    syncLabel = "authentication failed";
+                    syncDetail = error.getMessage() == null
+                            ? "계정 생성에 실패했습니다."
+                            : error.getMessage();
+                    toast("계정 생성에 실패했습니다.");
                     render();
                 });
             }

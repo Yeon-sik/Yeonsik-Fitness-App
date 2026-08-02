@@ -45,6 +45,45 @@ public final class SupabaseAuthManager {
         return saveSession(config, response, normalizedEmail);
     }
 
+    public SignUpResult signUp(
+            SupabaseConfig config,
+            String email,
+            String password
+    ) throws Exception {
+        if (!config.isConnectionConfigured()) {
+            throw new IllegalStateException("Supabase URL과 anon key를 먼저 저장하세요.");
+        }
+        String normalizedEmail = normalize(email);
+        if (normalizedEmail.isEmpty() || password == null || password.length() < 8) {
+            throw new IllegalArgumentException("이메일과 8자 이상의 비밀번호를 입력하세요.");
+        }
+
+        JSONObject body = new JSONObject();
+        body.put("email", normalizedEmail);
+        body.put("password", password);
+        JSONObject response = post(config, "/auth/v1/signup", body);
+        String accessToken = response.optString("access_token", "");
+        String refreshToken = response.optString("refresh_token", "");
+        JSONObject user = response.optJSONObject("user");
+        String userId = user == null ? "" : user.optString("id", "");
+        String responseEmail = user == null
+                ? normalizedEmail
+                : user.optString("email", normalizedEmail);
+
+        if (accessToken.isEmpty() || refreshToken.isEmpty() || userId.isEmpty()) {
+            if (userId.isEmpty()) {
+                throw new IOException("Supabase 가입 응답에 사용자 정보가 없습니다.");
+            }
+            return new SignUpResult(config, true, responseEmail);
+        }
+
+        return new SignUpResult(
+                saveSession(config, response, responseEmail),
+                false,
+                responseEmail
+        );
+    }
+
     public SupabaseConfig refresh(SupabaseConfig config) throws Exception {
         if (!config.isConfigured() || config.refreshToken.isEmpty()) {
             throw new IllegalStateException("로그인이 필요합니다.");
@@ -136,5 +175,21 @@ public final class SupabaseAuthManager {
 
     private static String normalize(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    public static final class SignUpResult {
+        public final SupabaseConfig config;
+        public final boolean emailConfirmationRequired;
+        public final String email;
+
+        private SignUpResult(
+                SupabaseConfig config,
+                boolean emailConfirmationRequired,
+                String email
+        ) {
+            this.config = config;
+            this.emailConfirmationRequired = emailConfirmationRequired;
+            this.email = email;
+        }
     }
 }

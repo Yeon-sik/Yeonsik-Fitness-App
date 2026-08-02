@@ -95,6 +95,11 @@ public final class SettingsScreen extends BaseScreen {
                     FitnessUi.inputText(passwordInput)
             ));
             authCard.addView(signInButton, ui.fullWidthParams(ui.dp(16)));
+            Button signUpButton = ui.button("Create account", false, v -> host.signUpToSupabase(
+                    FitnessUi.inputText(emailInput),
+                    FitnessUi.inputText(passwordInput)
+            ));
+            authCard.addView(signUpButton, ui.fullWidthParams(ui.dp(12)));
         }
         add(authCard);
     }
