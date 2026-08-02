@@ -41,6 +41,7 @@ import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.sync.SupabaseSyncManager;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.ui.BaseScreen;
+import com.yeonsik.fitnessapp.ui.CardioScreen;
 import com.yeonsik.fitnessapp.ui.CardioSessionScreen;
 import com.yeonsik.fitnessapp.ui.CardioSummaryScreen;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
@@ -49,6 +50,7 @@ import com.yeonsik.fitnessapp.ui.RecordsScreen;
 import com.yeonsik.fitnessapp.ui.RoutineEditorScreen;
 import com.yeonsik.fitnessapp.ui.ScreenHost;
 import com.yeonsik.fitnessapp.ui.SettingsScreen;
+import com.yeonsik.fitnessapp.ui.StrengthScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutExerciseDetailScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutSessionScreen;
@@ -229,6 +231,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         RoutineEditorScreen routineEditor = new RoutineEditorScreen(this);
         map.put(FitnessScreen.HOME, new HomeScreen(this));
         map.put(FitnessScreen.WORKOUT, new WorkoutScreen(this));
+        map.put(FitnessScreen.STRENGTH, new StrengthScreen(this));
+        map.put(FitnessScreen.CARDIO, new CardioScreen(this));
         map.put(FitnessScreen.RECORDS, new RecordsScreen(this));
         map.put(FitnessScreen.SETTINGS, new SettingsScreen(this));
         map.put(FitnessScreen.WORKOUT_SESSION, new WorkoutSessionScreen(this));
@@ -374,7 +378,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         back.setBackground(ui.borderDrawable(ui.surface(), ui.border(), ui.dp(999)));
         back.setClickable(true);
         back.setFocusable(true);
-        back.setOnClickListener(v -> navigate(FitnessScreen.WORKOUT));
+        back.setOnClickListener(v -> navigate(FitnessScreen.STRENGTH));
         ui.applyDepth(back, 4);
         ui.pressFeedback(back);
         sessionTopBar.addView(back, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
@@ -829,7 +833,7 @@ public final class MainActivity extends Activity implements ScreenHost {
             repository.deleteSession(recordId);
             sessionState.clearIfMatches(recordId);
             toast("수행한 세트가 없어 운동을 저장하지 않았습니다.");
-            navigate(FitnessScreen.WORKOUT);
+            navigate(FitnessScreen.STRENGTH);
             return;
         }
         repository.finishSession(recordId);
@@ -883,7 +887,8 @@ public final class MainActivity extends Activity implements ScreenHost {
                 "이 운동 기록과 세부 운동/세트 기록을 삭제 표시합니다.",
                 "삭제된 기록은 기록 탭에서 더 이상 보이지 않습니다.",
                 "삭제", () -> {
-                    if (cardioRepository.isCardioSession(recordId)) {
+                    boolean cardioSession = cardioRepository.isCardioSession(recordId);
+                    if (cardioSession) {
                         cardioRepository.deleteLocalData(recordId);
                     }
                     repository.deleteSession(recordId);
@@ -892,7 +897,7 @@ public final class MainActivity extends Activity implements ScreenHost {
                     if (currentScreen == FitnessScreen.RECORDS) {
                         render();
                     } else {
-                        navigate(FitnessScreen.WORKOUT);
+                        navigate(cardioSession ? FitnessScreen.CARDIO : FitnessScreen.STRENGTH);
                     }
                 });
     }
@@ -1005,7 +1010,7 @@ public final class MainActivity extends Activity implements ScreenHost {
                     cardioRepository.cancel(recordId);
                     sessionState.clearIfMatches(recordId);
                     toast("유산소 기록을 취소했습니다.");
-                    navigate(FitnessScreen.WORKOUT);
+                    navigate(FitnessScreen.CARDIO);
                 }
         );
     }

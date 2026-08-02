@@ -27,8 +27,8 @@ public final class CardioSessionScreen extends BaseScreen {
         if (snapshot == null) {
             screenHeader("OUTDOOR CARDIO", "유산소 기록");
             emptyState("진행 중인 GPS 유산소 기록을 찾지 못했습니다.", null);
-            add(ui().button("피트니스로 돌아가기", false,
-                    v -> host.navigate(FitnessScreen.WORKOUT)), ui().fullWidthParams(0));
+            add(ui().button("유산소로 돌아가기", false,
+                    v -> host.navigate(FitnessScreen.CARDIO)), ui().fullWidthParams(0));
             return;
         }
 
@@ -77,8 +77,8 @@ public final class CardioSessionScreen extends BaseScreen {
         );
         add(ui().button("기록 취소", false, v -> host.cancelCardioWorkout()),
                 ui().fullWidthParams(ui().dp(8)));
-        add(ui().button("다른 화면 보기 · 추적은 계속", false,
-                        v -> host.navigate(FitnessScreen.WORKOUT)),
+        add(ui().button("유산소 화면 보기 · 추적은 계속", false,
+                        v -> host.navigate(FitnessScreen.CARDIO)),
                 ui().fullWidthParams(ui().dp(8)));
 
         section("측정 기준");

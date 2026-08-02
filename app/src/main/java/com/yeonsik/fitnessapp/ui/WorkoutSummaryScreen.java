@@ -73,7 +73,8 @@ public final class WorkoutSummaryScreen extends BaseScreen {
 
         buttonRow(
                 ui.button("기록 보기", true, v -> host.navigate(FitnessScreen.RECORDS)),
-                ui.button("피트니스로 돌아가기", false, v -> host.navigate(FitnessScreen.WORKOUT)),
+                ui.button(cardio ? "유산소로 돌아가기" : "무산소로 돌아가기", false,
+                        v -> host.navigate(cardio ? FitnessScreen.CARDIO : FitnessScreen.STRENGTH)),
                 ui.dp(6)
         );
         if (cardio) {

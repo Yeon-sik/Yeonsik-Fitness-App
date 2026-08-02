@@ -84,7 +84,7 @@ public final class CardioSummaryScreen extends BaseScreen {
                 ui().fullWidthParams(0));
         buttonRow(
                 ui().button("기록 보기", false, v -> host.navigate(FitnessScreen.RECORDS)),
-                ui().button("피트니스", false, v -> host.navigate(FitnessScreen.WORKOUT)),
+                ui().button("유산소", false, v -> host.navigate(FitnessScreen.CARDIO)),
                 ui().dp(8)
         );
         add(ui().button("메인", false, v -> host.navigate(FitnessScreen.HOME)),

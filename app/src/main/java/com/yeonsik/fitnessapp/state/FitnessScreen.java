@@ -6,6 +6,8 @@ package com.yeonsik.fitnessapp.state;
 public enum FitnessScreen {
     HOME,
     WORKOUT,
+    STRENGTH,
+    CARDIO,
     ROUTINE_ADD,
     ROUTINE_DETAIL,
     WORKOUT_SESSION,
