@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 6;
+    public static final int DATABASE_VERSION = 7;
 
     public FitnessDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -17,6 +17,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createSharedRecordTables(db);
         createRoutineTables(db);
         createCardioTables(db);
+        createMealMenuPresetTable(db);
     }
 
     private void createSharedRecordTables(SQLiteDatabase db) {
@@ -192,6 +193,20 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON cardio_route_points(record_id, captured_at_epoch_ms)");
     }
 
+    private void createMealMenuPresetTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS meal_menu_presets (" +
+                "id TEXT PRIMARY KEY, " +
+                "name TEXT NOT NULL COLLATE NOCASE UNIQUE, " +
+                "calories INTEGER, " +
+                "protein_grams REAL, " +
+                "carbs_grams REAL, " +
+                "fat_grams REAL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_menu_presets_updated_idx " +
+                "ON meal_menu_presets(updated_at DESC)");
+    }
+
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion < 2) {
@@ -217,6 +232,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 6) {
             createCardioTables(db);
+        }
+        if (oldVersion < 7) {
+            createMealMenuPresetTable(db);
         }
     }
 

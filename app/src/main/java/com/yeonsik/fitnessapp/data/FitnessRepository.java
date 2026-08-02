@@ -705,6 +705,76 @@ public final class FitnessRepository {
         return id;
     }
 
+    /** 반복 입력용 메뉴 템플릿을 기기 로컬에 저장한다. 같은 이름은 최신 영양값으로 갱신한다. */
+    public String saveMealMenuPreset(String name, Integer calories, Double proteinGrams,
+                                     Double carbsGrams, Double fatGrams) {
+        String normalizedName = normalizeMealMenuPresetName(name);
+
+        SQLiteDatabase database = db();
+        String existingId = null;
+        try (Cursor cursor = database.rawQuery(
+                "SELECT id FROM meal_menu_presets WHERE name = ? COLLATE NOCASE LIMIT 1",
+                new String[]{normalizedName})) {
+            if (cursor.moveToFirst()) {
+                existingId = cursor.getString(0);
+            }
+        }
+
+        String timestamp = now();
+        ContentValues values = new ContentValues();
+        values.put("name", normalizedName);
+        putNullable(values, "calories", calories);
+        putNullable(values, "protein_grams", proteinGrams);
+        putNullable(values, "carbs_grams", carbsGrams);
+        putNullable(values, "fat_grams", fatGrams);
+        values.put("updated_at", timestamp);
+
+        if (existingId != null) {
+            database.update("meal_menu_presets", values, "id = ?", new String[]{existingId});
+            return existingId;
+        }
+
+        String id = newId();
+        values.put("id", id);
+        values.put("created_at", timestamp);
+        database.insertOrThrow("meal_menu_presets", null, values);
+        return id;
+    }
+
+    static String normalizeMealMenuPresetName(String name) {
+        String normalizedName = emptyToNull(name);
+        if (normalizedName == null) {
+            throw new IllegalArgumentException("메뉴 이름을 입력하세요.");
+        }
+        return normalizedName;
+    }
+
+    public List<MealMenuPreset> mealMenuPresets() {
+        List<MealMenuPreset> presets = new ArrayList<>();
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, name, calories, protein_grams, carbs_grams, fat_grams " +
+                        "FROM meal_menu_presets ORDER BY updated_at DESC, name COLLATE NOCASE ASC",
+                null)) {
+            while (cursor.moveToNext()) {
+                presets.add(new MealMenuPreset(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.isNull(2) ? null : cursor.getInt(2),
+                        cursor.isNull(3) ? null : cursor.getDouble(3),
+                        cursor.isNull(4) ? null : cursor.getDouble(4),
+                        cursor.isNull(5) ? null : cursor.getDouble(5)
+                ));
+            }
+        }
+        return presets;
+    }
+
+    public boolean deleteMealMenuPreset(String id) {
+        String normalizedId = emptyToNull(id);
+        return normalizedId != null
+                && db().delete("meal_menu_presets", "id = ?", new String[]{normalizedId}) > 0;
+    }
+
     public String createSessionFromRoutine(String date, String title, List<RoutineExerciseInstance> routineExercises) {
         return createSessionFromRoutine(date, title, null, routineExercises);
     }
@@ -2294,6 +2364,25 @@ public final class FitnessRepository {
         public double bestSessionVolumeKg;
         public String bestVolumeDate = "";
         public int sessionCount;
+    }
+
+    public static final class MealMenuPreset {
+        public final String id;
+        public final String name;
+        public final Integer calories;
+        public final Double proteinGrams;
+        public final Double carbsGrams;
+        public final Double fatGrams;
+
+        public MealMenuPreset(String id, String name, Integer calories, Double proteinGrams,
+                              Double carbsGrams, Double fatGrams) {
+            this.id = id;
+            this.name = name;
+            this.calories = calories;
+            this.proteinGrams = proteinGrams;
+            this.carbsGrams = carbsGrams;
+            this.fatGrams = fatGrams;
+        }
     }
 
     public static final class BodyMetricEntry {

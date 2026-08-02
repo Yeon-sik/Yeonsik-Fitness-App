@@ -52,4 +52,15 @@ public final class FitnessRecordContractTest {
                 )
         );
     }
+
+    @Test
+    public void normalizesMealMenuPresetName() {
+        assertEquals("닭가슴살 샐러드",
+                FitnessRepository.normalizeMealMenuPresetName("  닭가슴살 샐러드  "));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsEmptyMealMenuPresetName() {
+        FitnessRepository.normalizeMealMenuPresetName("   ");
+    }
 }

@@ -46,6 +46,7 @@ import com.yeonsik.fitnessapp.ui.CardioSessionScreen;
 import com.yeonsik.fitnessapp.ui.CardioSummaryScreen;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.HomeScreen;
+import com.yeonsik.fitnessapp.ui.MealDialogController;
 import com.yeonsik.fitnessapp.ui.RecordsScreen;
 import com.yeonsik.fitnessapp.ui.RoutineEditorScreen;
 import com.yeonsik.fitnessapp.ui.ScreenHost;
@@ -1272,32 +1273,7 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     public void showMealDialog() {
-        LinearLayout form = ui.form();
-        String todayMealDate = today();
-        String yesterdayMealDate = LocalDate.parse(todayMealDate).minusDays(1).toString();
-        String[] selectedMealDate = {todayMealDate};
-        Button mealDay = ui.button("식사일: 오늘 (탭하여 전날로 변경)", false, null);
-        mealDay.setOnClickListener(v -> {
-            boolean isToday = todayMealDate.equals(selectedMealDate[0]);
-            selectedMealDate[0] = isToday ? yesterdayMealDate : todayMealDate;
-            mealDay.setText(isToday
-                    ? "식사일: 전날 (탭하여 오늘로 변경)"
-                    : "식사일: 오늘 (탭하여 전날로 변경)");
-        });
-        EditText menu = ui.input("식단 내용", "닭가슴살 샐러드");
-        EditText calories = ui.numberInput("칼로리 kcal (선택)", "");
-        EditText protein = ui.decimalInput("단백질 g (선택)", "");
-        EditText carbs = ui.decimalInput("탄수화물 g (선택)", "");
-        EditText fat = ui.decimalInput("지방 g (선택)", "");
-        ui.addAll(form, mealDay, menu, calories, protein, carbs, fat);
-        ui.sheet("식단 기록", form,
-                "저장", () -> {
-                    repository.addMeal(selectedMealDate[0], FitnessUi.inputText(menu),
-                            FitnessUi.optionalInt(calories),
-                            FitnessUi.optionalDouble(protein), FitnessUi.optionalDouble(carbs),
-                            FitnessUi.optionalDouble(fat));
-                    render();
-                }, null, null);
+        new MealDialogController(this).show();
     }
 
     // ── 설정 / 동기화 ─────────────────────────────────────────────────

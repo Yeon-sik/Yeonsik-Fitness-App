@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Fitness OS</string>
+    <string name="meal_preset_load_count">저장된 메뉴 불러오기 (%1$d개)</string>
 </resources>
