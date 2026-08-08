@@ -79,7 +79,6 @@ public final class MainActivity extends Activity implements ScreenHost {
     private enum Tab {
         HOME,
         WORKOUT,
-        MEALS,
         RECORDS,
         SETTINGS
     }
@@ -130,12 +129,10 @@ public final class MainActivity extends Activity implements ScreenHost {
     private View navDivider;
     private LinearLayout homeTabArea;
     private LinearLayout workoutTabArea;
-    private LinearLayout mealsTabArea;
     private LinearLayout recordsTabArea;
     private LinearLayout settingsTabArea;
     private TextView homeTabLabel;
     private TextView workoutTabLabel;
-    private TextView mealsTabLabel;
     private TextView recordsTabLabel;
     private TextView settingsTabLabel;
 
@@ -570,15 +567,12 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         homeTabArea = navArea("메인", Tab.HOME);
         workoutTabArea = navArea("피트니스", Tab.WORKOUT);
-        mealsTabArea = navArea("식단", Tab.MEALS);
         recordsTabArea = navArea("기록", Tab.RECORDS);
         settingsTabArea = navArea("설정", Tab.SETTINGS);
 
         nav.addView(homeTabArea, navParams());
         nav.addView(navGap());
         nav.addView(workoutTabArea, navParams());
-        nav.addView(navGap());
-        nav.addView(mealsTabArea, navParams());
         nav.addView(navGap());
         nav.addView(recordsTabArea, navParams());
         nav.addView(navGap());
@@ -625,8 +619,6 @@ public final class MainActivity extends Activity implements ScreenHost {
             homeTabLabel = textView;
         } else if (tab == Tab.WORKOUT) {
             workoutTabLabel = textView;
-        } else if (tab == Tab.MEALS) {
-            mealsTabLabel = textView;
         } else if (tab == Tab.RECORDS) {
             recordsTabLabel = textView;
         } else {
@@ -642,8 +634,6 @@ public final class MainActivity extends Activity implements ScreenHost {
                 return FitnessScreen.HOME;
             case RECORDS:
                 return FitnessScreen.RECORDS;
-            case MEALS:
-                return FitnessScreen.MEALS;
             case SETTINGS:
                 return FitnessScreen.SETTINGS;
             default:
@@ -658,7 +648,7 @@ public final class MainActivity extends Activity implements ScreenHost {
             case RECORDS:
                 return Tab.RECORDS;
             case MEALS:
-                return Tab.MEALS;
+                return Tab.WORKOUT;
             case SETTINGS:
                 return Tab.SETTINGS;
             default:
@@ -682,7 +672,6 @@ public final class MainActivity extends Activity implements ScreenHost {
         styleNavArea(homeTabArea, homeTabLabel, activeTab == Tab.HOME, false);
         styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT,
                 workoutInProgress && activationVisible);
-        styleNavArea(mealsTabArea, mealsTabLabel, activeTab == Tab.MEALS, false);
         styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS, false);
         styleNavArea(settingsTabArea, settingsTabLabel, activeTab == Tab.SETTINGS, false);
     }

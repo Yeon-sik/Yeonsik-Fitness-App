@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 피트니스 허브: 무산소·유산소 진입과 식단·체중 기록을 분리한다.
+ * 피트니스 허브: 무산소·유산소·식단 하위 화면과 신체 기록 진입을 소유한다.
  */
 public final class WorkoutScreen extends BaseScreen {
 
@@ -29,7 +29,7 @@ public final class WorkoutScreen extends BaseScreen {
             continueBanner();
         }
 
-        section("운동");
+        section("피트니스 메뉴");
         LinearLayout workoutTypeRow = ui().tileRow();
         workoutTypeRow.addView(ui().hologramStatTile(
                 "무산소", "근력·루틴", "탭하여 들어가기",
@@ -39,13 +39,20 @@ public final class WorkoutScreen extends BaseScreen {
                 v -> host.navigate(FitnessScreen.CARDIO)), ui().tileParams(false));
         add(workoutTypeRow, ui().fullWidthParams(0));
 
-        section("식단 및 체중");
-        LinearLayout conditionRow = ui().tileRow();
-        conditionRow.addView(ui().hologramStatTile("체중", todayWeightValue(), "탭하여 기록",
-                v -> host.showBodyMetricDialog()), ui().tileParams(true));
-        conditionRow.addView(ui().hologramStatTile("식단", repository().mealsForDate(today).size() + "건", "탭하여 기록",
-                v -> host.openMealManagement()), ui().tileParams(false));
-        add(conditionRow, ui().fullWidthParams(0));
+        add(ui().hologramStatTile(
+                "식단",
+                "오늘 " + repository().mealsForDate(today).size() + "건",
+                "음식·메뉴·영양 관리",
+                v -> host.openMealManagement()
+        ), ui().fullWidthParams(ui().dp(10)));
+
+        section("신체 기록");
+        add(ui().hologramStatTile(
+                "체중",
+                todayWeightValue(),
+                "탭하여 기록",
+                v -> host.showBodyMetricDialog()
+        ), ui().fullWidthParams(0));
 
         List<View> conditionRows = new ArrayList<>();
         for (String metric : repository().bodyMetricsForDate(today)) {

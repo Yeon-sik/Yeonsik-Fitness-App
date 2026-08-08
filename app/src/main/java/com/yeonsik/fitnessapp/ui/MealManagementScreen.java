@@ -16,6 +16,7 @@ import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionTotals;
+import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -24,7 +25,7 @@ import java.util.List;
 import java.util.Locale;
 
 /**
- * 식단의 독립 작업 공간.
+ * 피트니스 하위의 식단 작업 공간.
  * 날짜별 섭취 요약, 식사 기록, 음식 카탈로그 검색, 구성 메뉴 저장을 한 흐름으로 제공한다.
  */
 public final class MealManagementScreen extends BaseScreen {
@@ -59,6 +60,8 @@ public final class MealManagementScreen extends BaseScreen {
     public void render() {
         syncDraftFromViews();
 
+        add(ui().textAction("‹ 피트니스", FitnessUi.COLOR_MUTED,
+                () -> host.navigate(FitnessScreen.WORKOUT)), ui().fullWidthParams(0));
         screenHeader("NUTRITION", "식단 관리");
         add(ui().text(
                 "먹은 음식과 나만의 메뉴를 한 곳에서 기록하고, 영양 흐름을 확인하세요.",
