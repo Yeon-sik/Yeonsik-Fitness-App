@@ -1,5 +1,4 @@
 
--- FitnessApp-owned Nutrition Catalog schema in the shared Personal OS project.
 create table if not exists public.nutrition_foods (
     id text primary key,
     owner_id text,
@@ -231,6 +230,28 @@ create policy nutrition_food_components_delete
     to authenticated
     using (owner_id = auth.uid()::text);
 
--- The catalog intentionally coexists with Personal OS workout, meal, weight,
--- memo, and finance tables. Domain separation is enforced by table ownership,
--- grants, and RLS rather than by a separate Supabase project.
+do $$
+declare
+    leaked text;
+begin
+    select string_agg(table_name, ', ')
+    into leaked
+    from information_schema.tables
+    where table_schema = 'public'
+      and table_name in (
+          'meal_records',
+          'meal_record_items',
+          'meal_record_item_nutrients',
+          'weight_records',
+          'workout_records',
+          'workout_exercises',
+          'workout_sets'
+      );
+
+    if leaked is not null then
+        raise exception
+            'Nutrition Catalog project must hold food data only, but found user record tables: %',
+            leaked;
+    end if;
+end
+$$;

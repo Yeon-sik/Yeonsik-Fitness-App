@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.config;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -41,6 +42,22 @@ public final class SupabaseConnectionPolicyTest {
         assertEquals("https://manual.supabase.co", policy.resolveUrl("https://manual.supabase.co"));
         assertEquals("manual-anon-key", policy.resolveAnonKey("manual-anon-key"));
         assertFalse(policy.requiresManagedRebind("", ""));
+    }
+
+    @Test
+    public void sharedAndNutritionSessionsUseIndependentStorageNamespaces() {
+        assertNotEquals(
+                SupabaseStoreScope.SHARED.configPreferencesName,
+                SupabaseStoreScope.NUTRITION.configPreferencesName
+        );
+        assertNotEquals(
+                SupabaseStoreScope.SHARED.tokenKeyAlias,
+                SupabaseStoreScope.NUTRITION.tokenKeyAlias
+        );
+        assertNotEquals(
+                SupabaseStoreScope.SHARED.tokenPreferencesName,
+                SupabaseStoreScope.NUTRITION.tokenPreferencesName
+        );
     }
 
     @Test

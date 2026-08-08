@@ -1,4 +1,3 @@
--- Active shared-project init-plan optimization.
 alter policy nutrition_foods_select
     on public.nutrition_foods
     using (

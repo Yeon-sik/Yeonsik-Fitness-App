@@ -34,12 +34,12 @@ import java.util.UUID;
  * connection is configured, public catalog rows are pulled and authenticated user rows are
  * pushed/pulled through the REST API.</p>
  *
- * <p>이 저장소는 <b>음식·레시피·영양성분만</b> 다룬다. 원격 테이블은 Personal OS 공통
- * Supabase 프로젝트 안의 별도 도메인 경계이며, meal_records 같은 사용자 섭취 기록은 이
- * 카탈로그에 절대 들어가지 않는다.</p>
+ * <p>이 저장소는 <b>음식·레시피·영양성분만</b> 다룬다. 원격 테이블은 FitnessApp 전용
+ * Nutrition Supabase 프로젝트에 있으며, Personal OS 공통 DB의 meal_records 같은 사용자
+ * 섭취 기록은 이 카탈로그에 절대 들어가지 않는다.</p>
  */
 public final class NutritionCatalogRepository {
-    /** 공통 DB의 카탈로그 테이블. 사용자 기록 테이블은 여기 들어올 수 없다. */
+    /** 영양 전용 DB의 카탈로그 테이블. 공통 사용자 기록 테이블은 여기 들어올 수 없다. */
     static final List<String> CATALOG_TABLES = java.util.Collections.unmodifiableList(
             java.util.Arrays.asList(
                     "nutrition_foods",
@@ -129,44 +129,6 @@ public final class NutritionCatalogRepository {
             }
         }
         userId = normalizedNextUserId;
-    }
-
-    /**
-     * Rebinds local rows created under the retired Nutrition Supabase project.
-     * The caller must first verify that the legacy and shared accounts use the same email.
-     */
-    public int migrateLegacyOwner(String previousUserId, String nextUserId) {
-        String previous = normalizeUserId(previousUserId);
-        String next = normalizeUserId(nextUserId);
-        if (SupabaseConfig.DEFAULT_USER_ID.equals(previous)
-                || SupabaseConfig.DEFAULT_USER_ID.equals(next)) {
-            throw new IllegalArgumentException("Legacy nutrition owners must be authenticated users.");
-        }
-        if (previous.equals(next)) {
-            userId = next;
-            return 0;
-        }
-
-        int updatedRows = 0;
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
-        database.beginTransaction();
-        try {
-            ContentValues values = new ContentValues();
-            values.put("owner_id", next);
-            for (String table : CATALOG_TABLES) {
-                updatedRows += database.update(
-                        table,
-                        values,
-                        "owner_id = ?",
-                        new String[]{previous}
-                );
-            }
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
-        userId = next;
-        return updatedRows;
     }
 
     public void setSupabaseConfig(SupabaseConfig supabaseConfig) {

@@ -20,20 +20,21 @@ cd C:\Github\personal-os\FitnessApp
 .\gradlew.bat testDebugUnitTest assembleDebug
 ```
 
-## Personal OS shared Supabase
+## Two Supabase connections
 
-CashOS, FitnessApp, and PersonalOSApp are separate apps, but they use one
-Supabase project. Each app stores its own local login session, so you sign in
-once per app. Using the same email account in each app resolves to the same
-Supabase Auth `user.id`, and RLS uses that ID to isolate the user's rows.
+FitnessApp deliberately uses two independent Supabase projects:
 
-FitnessApp uses that one connection for both areas:
+- **Personal OS shared DB:** CashOS, FitnessApp, and PersonalOSApp use the same
+  project and the same Auth user for workout, body, and meal records.
+- **FitnessApp Nutrition DB:** only FitnessApp uses this project. It owns
+  `nutrition_foods`, `nutrition_food_nutrients`, and
+  `nutrition_food_components`.
 
-- workout, body, and meal records;
-- `nutrition_foods`, `nutrition_food_nutrients`, and
-  `nutrition_food_components` catalog tables.
-
-There is no separate Nutrition DB URL, account, or login.
+The two URLs, anon keys, encrypted token stores, login sessions, and Auth UUIDs
+are separate. A matching email address does not make the Nutrition account the
+same account; create or reset its password in the Nutrition project separately.
+Public nutrition rows can be read with only the Nutrition connection. Uploading
+private foods or recipes requires a Nutrition DB login.
 
 From the `personal-os` sibling checkout, configure FitnessApp from the existing
 PersonalOSApp environment and verify that CashOS points to the same project:
@@ -44,27 +45,28 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure-shar
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure-shared-supabase.ps1 -CheckOnly
 ```
 
-The script writes the ignored `supabase/.env` file and prints only the project
-reference, never the key. For a standalone checkout, put the same values in
-`local.properties` instead (the file is not committed):
+The script writes shared values to the ignored `supabase/.env` and preserves any
+Nutrition values already present. It prints only project references, never keys.
+For a standalone checkout, put both connections in `local.properties`, process
+environment variables, or `supabase/.env`:
 
 ```properties
-SUPABASE_URL=https://your-project-ref.supabase.co
-SUPABASE_ANON_KEY=your-publishable-or-anon-key
+SUPABASE_URL=https://your-shared-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-shared-publishable-or-anon-key
+NUTRITION_SUPABASE_URL=https://your-nutrition-project-ref.supabase.co
+NUTRITION_SUPABASE_ANON_KEY=your-nutrition-publishable-or-anon-key
 ```
 
-The same values can also be supplied through `SUPABASE_URL` and
-`SUPABASE_ANON_KEY` environment variables. `VITE_SUPABASE_URL` and
-`VITE_SUPABASE_ANON_KEY` are accepted so the same naming used by the sibling
-apps can be reused. When both values are complete, the build-managed connection
-takes priority and cannot be edited in the app. If either value is absent,
-Settings shows an explicit local-only/manual-fallback state.
+`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ORIGINAL_DB_URL`, and
+`ORIGINAL_DB_ANON` remain aliases for the shared connection. `NUTRITION_DB_URL`
+and `NUTRITION_DB_ANON_KEY` are aliases for the Nutrition connection. A complete
+URL/key pair becomes build-managed; an incomplete pair falls back as a whole to
+the corresponding manual Settings form.
 
-After email sign-in or sign-up, the Supabase Auth UUID is used for all Fitness
-record and private nutrition rows. Access and refresh tokens are stored only
-through Android Keystore-backed encryption. The active nutrition migrations
-live under `supabase/shared/supabase/migrations/`; see `supabase/README.md`
-before applying them to a remote project.
+Each login's access and refresh tokens use a different Android Keystore alias
+and preferences namespace. Active Nutrition migrations live under
+`supabase/nutrition/supabase/migrations/`; see `supabase/README.md` before
+applying them to the Fitness-only remote project.
 
 ## Release
 

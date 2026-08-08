@@ -1,1 +1,0 @@
--- Remote history marker. Applied migration source: CashOS/supabase/migrations.

@@ -36,8 +36,8 @@ def buildConfigString = { String value ->
     '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
 }
 
-// Fitness records and the nutrition catalog use the same Personal OS Supabase
-// project and authenticated session as CashOS and PersonalOSApp.
+// Personal records use the shared Personal OS project. Nutrition catalog data
+// uses an independent FitnessApp-only Supabase project and session.
 def supabaseUrl = localProperties.getProperty("SUPABASE_URL")
         ?: System.getenv("SUPABASE_URL")
         ?: System.getenv("VITE_SUPABASE_URL")
@@ -47,6 +47,14 @@ def supabaseAnonKey = localProperties.getProperty("SUPABASE_ANON_KEY")
         ?: System.getenv("SUPABASE_ANON_KEY")
         ?: System.getenv("VITE_SUPABASE_ANON_KEY")
         ?: dotenvValue("SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY", "ORIGINAL_DB_ANON")
+        ?: ""
+def nutritionSupabaseUrl = localProperties.getProperty("NUTRITION_SUPABASE_URL")
+        ?: System.getenv("NUTRITION_SUPABASE_URL")
+        ?: dotenvValue("NUTRITION_SUPABASE_URL", "NUTRITION_DB_URL")
+        ?: ""
+def nutritionSupabaseAnonKey = localProperties.getProperty("NUTRITION_SUPABASE_ANON_KEY")
+        ?: System.getenv("NUTRITION_SUPABASE_ANON_KEY")
+        ?: dotenvValue("NUTRITION_SUPABASE_ANON_KEY", "NUTRITION_DB_ANON_KEY")
         ?: ""
 
 def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")
@@ -78,6 +86,8 @@ android {
         versionName "1.0.0"
         buildConfigField "String", "SUPABASE_URL", buildConfigString(supabaseUrl)
         buildConfigField "String", "SUPABASE_ANON_KEY", buildConfigString(supabaseAnonKey)
+        buildConfigField "String", "NUTRITION_SUPABASE_URL", buildConfigString(nutritionSupabaseUrl)
+        buildConfigField "String", "NUTRITION_SUPABASE_ANON_KEY", buildConfigString(nutritionSupabaseAnonKey)
     }
 
     signingConfigs {

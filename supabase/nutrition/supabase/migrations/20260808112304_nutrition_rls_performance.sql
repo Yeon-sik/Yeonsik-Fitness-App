@@ -1,4 +1,3 @@
--- Active shared-project RLS/index follow-up.
 create index if not exists nutrition_food_components_child_food_idx
     on public.nutrition_food_components (child_food_id);
 

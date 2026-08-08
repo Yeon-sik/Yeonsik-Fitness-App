@@ -6,7 +6,6 @@ import android.content.SharedPreferences;
 import com.yeonsik.fitnessapp.BuildConfig;
 
 public class SupabaseConfigStore {
-    private static final String PREFERENCES_NAME = "fitnessapp:supabase-config:v1";
     private static final String KEY_URL = "supabase_url";
     private static final String KEY_ANON = "supabase_anon_key";
     private static final String KEY_USER = "user_id";
@@ -17,15 +16,35 @@ public class SupabaseConfigStore {
     private final SupabaseConnectionPolicy connectionPolicy;
 
     public SupabaseConfigStore(Context context) {
-        preferences = context.getSharedPreferences(
-                PREFERENCES_NAME,
-                Context.MODE_PRIVATE
-        );
-        tokenStore = new SecureTokenStore(context);
-        connectionPolicy = new SupabaseConnectionPolicy(
+        this(
+                context,
+                SupabaseStoreScope.SHARED,
                 true,
                 BuildConfig.SUPABASE_URL,
                 BuildConfig.SUPABASE_ANON_KEY
+        );
+    }
+
+    protected SupabaseConfigStore(
+            Context context,
+            SupabaseStoreScope scope,
+            boolean allowManagedConnection,
+            String managedUrl,
+            String managedAnonKey
+    ) {
+        preferences = context.getSharedPreferences(
+                scope.configPreferencesName,
+                Context.MODE_PRIVATE
+        );
+        tokenStore = new SecureTokenStore(
+                context,
+                scope.tokenKeyAlias,
+                scope.tokenPreferencesName
+        );
+        connectionPolicy = new SupabaseConnectionPolicy(
+                allowManagedConnection,
+                managedUrl,
+                managedAnonKey
         );
     }
 
@@ -69,7 +88,7 @@ public class SupabaseConfigStore {
 
     public SupabaseConfig saveConnection(String supabaseUrl, String supabaseAnonKey) {
         if (isConnectionManaged()) {
-            throw new IllegalStateException("공통 DB 연결은 앱 빌드 설정으로 관리됩니다.");
+            throw new IllegalStateException("이 DB 연결은 앱 빌드 설정으로 관리됩니다.");
         }
         String normalizedUrl = normalize(supabaseUrl);
         String normalizedAnonKey = normalize(supabaseAnonKey);
