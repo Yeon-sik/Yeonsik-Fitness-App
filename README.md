@@ -39,6 +39,12 @@ connection for local setup. After email sign-in or sign-up, the Supabase Auth
 user UUID is used as `user_id` for remote synchronization. An access token is
 stored only through Android Keystore-backed encryption.
 
+For local development, the same shared DB values may be stored in the ignored
+`supabase/.env` file as `ORIGINAL_DB_URL` and `ORIGINAL_DB_ANON`. The build reads
+those values as a fallback; `NUTRITION_DB_URL` and `NUTRITION_DB_ANON` remain
+Settings-only values so the Nutrition DB connection can be changed without a
+new APK build.
+
 ## Nutrition Supabase project
 
 FitnessApp alone connects to the separate Nutrition DB. Its URL and anon key

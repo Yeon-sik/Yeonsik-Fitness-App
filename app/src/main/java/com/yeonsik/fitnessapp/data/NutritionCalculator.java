@@ -7,33 +7,43 @@ public final class NutritionCalculator {
     private NutritionCalculator() {
     }
 
-    public static NutritionValues forQuantity(NutritionFood food, double quantity) {
+    /**
+     * 기준량 대비 섭취량 비율로 모든 영양소를 환산한다.
+     *
+     * <p>필수·권고 typed 영양소와 미네랄·비타민이 동일하게 비례 환산되며, 모르는 값은
+     * 0으로 채우지 않고 모름으로 남는다.</p>
+     */
+    public static NutritionProfile forQuantity(NutritionFood food, double quantity) {
+        if (food == null) {
+            throw new IllegalArgumentException("Food is required.");
+        }
         if (food.basisAmount <= 0) {
             throw new IllegalArgumentException("Nutrition basis amount must be greater than zero.");
         }
-        double multiplier = quantity / food.basisAmount;
-        return new NutritionValues(
-                food.calories * multiplier,
-                food.proteinGrams * multiplier,
-                food.carbsGrams * multiplier,
-                food.fatGrams * multiplier
-        );
+        if (quantity < 0) {
+            throw new IllegalArgumentException("Quantity cannot be negative.");
+        }
+        return food.profile.scaled(quantity / food.basisAmount);
     }
 
-    public static NutritionValues sum(List<MealCompositionItem> items) {
-        NutritionValues total = new NutritionValues(0, 0, 0, 0);
+    /** 식사 구성 전체의 영양소 합계. 모름 항목 수를 함께 보존한다. */
+    public static NutritionTotals sum(List<MealCompositionItem> items) {
+        NutritionTotals.Builder builder = NutritionTotals.builder();
         if (items == null) {
-            return total;
+            return builder.build();
         }
         for (MealCompositionItem item : items) {
-            total = total.plus(new NutritionValues(
-                    item.calories,
-                    item.proteinGrams,
-                    item.carbsGrams,
-                    item.fatGrams
-            ));
+            builder.add(item == null ? null : item.profile);
         }
-        return total;
+        return builder.build();
+    }
+
+    /** 레시피 1인분의 영양성분. 구성 재료 합계와 동일한 규칙으로 계산한다. */
+    public static NutritionProfile recipeProfile(List<MealCompositionItem> items) {
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("Recipe needs at least one food.");
+        }
+        return sum(items).toCompleteProfile();
     }
 
     public static String trim(double value) {
@@ -43,31 +53,19 @@ public final class NutritionCalculator {
         return String.format(java.util.Locale.US, "%.1f", value);
     }
 
-    public static final class NutritionValues {
-        public final double calories;
-        public final double proteinGrams;
-        public final double carbsGrams;
-        public final double fatGrams;
+    /** 모르는 값은 0이 아니라 물음표로 표시한다. */
+    public static String trimNullable(Double value) {
+        return value == null ? "?" : trim(value);
+    }
 
-        public NutritionValues(
-                double calories,
-                double proteinGrams,
-                double carbsGrams,
-                double fatGrams
-        ) {
-            this.calories = calories;
-            this.proteinGrams = proteinGrams;
-            this.carbsGrams = carbsGrams;
-            this.fatGrams = fatGrams;
+    /** 합계 표시용. 일부 항목이 모름이면 "약" 표기와 미상 건수를 덧붙인다. */
+    public static String describeTotal(NutritionTotals.Total total) {
+        if (total.knownCount() == 0) {
+            return "?";
         }
-
-        public NutritionValues plus(NutritionValues other) {
-            return new NutritionValues(
-                    calories + other.calories,
-                    proteinGrams + other.proteinGrams,
-                    carbsGrams + other.carbsGrams,
-                    fatGrams + other.fatGrams
-            );
+        if (total.isComplete()) {
+            return trim(total.knownSum());
         }
+        return "≥" + trim(total.knownSum()) + " (미상 " + total.missingCount() + "건)";
     }
 }

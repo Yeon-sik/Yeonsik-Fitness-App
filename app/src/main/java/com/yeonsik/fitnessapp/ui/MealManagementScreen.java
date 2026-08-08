@@ -14,6 +14,8 @@ import com.yeonsik.fitnessapp.data.MealCompositionItem;
 import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
+import com.yeonsik.fitnessapp.data.NutritionProfile;
+import com.yeonsik.fitnessapp.data.NutritionTotals;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -212,6 +214,14 @@ public final class MealManagementScreen extends BaseScreen {
                 FitnessUi.COLOR_MUTED,
                 false
         ));
+        if (entry.compositionCount > 0) {
+            column.addView(ui.text(
+                    snapshotSummary(entry.id),
+                    11,
+                    FitnessUi.COLOR_TERTIARY,
+                    false
+            ));
+        }
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
         LinearLayout trailing = new LinearLayout(host.activity());
@@ -222,6 +232,34 @@ public final class MealManagementScreen extends BaseScreen {
                 () -> confirmDeleteMeal(entry)));
         row.addView(trailing);
         return row;
+    }
+
+    /**
+     * 기록된 식사의 구성과 확장 영양소를 보여 준다.
+     *
+     * <p>값은 카탈로그를 다시 조회하지 않고 섭취 당시 스냅샷에서만 읽는다. 그래서 나중에
+     * 음식 DB를 고쳐도 이 줄은 그대로 남는다.</p>
+     */
+    private String snapshotSummary(String mealRecordId) {
+        List<FitnessRepository.MealItemEntry> items = repository().mealItemsForRecord(mealRecordId);
+        if (items.isEmpty()) {
+            return "구성 스냅샷 없음";
+        }
+
+        List<String> names = new ArrayList<>();
+        NutritionTotals.Builder totals = NutritionTotals.builder();
+        for (FitnessRepository.MealItemEntry item : items) {
+            names.add(item.foodName + " " + NutritionCalculator.trim(item.quantity) + item.unit);
+            totals.add(item.profile);
+        }
+        NutritionTotals total = totals.build();
+        return String.join(", ", names)
+                + "\n나트륨 " + NutritionCalculator.describeTotal(
+                        total.total(NutritionProfile.SODIUM_MG)) + "mg  ·  포화지방 "
+                + NutritionCalculator.describeTotal(
+                        total.total(NutritionProfile.SATURATED_FAT_GRAMS)) + "g  ·  당류 "
+                + NutritionCalculator.describeTotal(
+                        total.total(NutritionProfile.SUGARS_GRAMS)) + "g";
     }
 
     private View mealComposer() {
@@ -448,11 +486,14 @@ public final class MealManagementScreen extends BaseScreen {
         details.setOrientation(LinearLayout.VERTICAL);
         details.setPadding(ui.dp(10), 0, ui.dp(8), 0);
         details.addView(ui.text(food.name, 14, FitnessUi.COLOR_TEXT, true));
-        details.addView(ui.text(food.nutritionLabel() + " / " + NutritionCalculator.trim(food.basisAmount)
-                        + food.basisUnit,
+        details.addView(ui.text(food.extendedNutritionLabel() + " / " + food.basisLabel(),
                 11,
                 FitnessUi.COLOR_MUTED,
                 false));
+        String missingNotice = food.missingRequiredNotice();
+        if (missingNotice != null) {
+            details.addView(ui.text(missingNotice, 11, FitnessUi.COLOR_TERTIARY, false));
+        }
         row.addView(details, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         TextView add = ui.text("추가 ›", 12, FitnessUi.COLOR_TERTIARY, true);
         row.addView(add);
@@ -470,14 +511,30 @@ public final class MealManagementScreen extends BaseScreen {
             selectedKind[0] = external ? NutritionFood.KIND_INGREDIENT : NutritionFood.KIND_EXTERNAL_MENU;
             kindButton.setText(external ? "종류: 재료" : "종류: 외부 메뉴");
         });
-        EditText basisAmount = ui.decimalInput("기준 수량", "1");
-        EditText basisUnit = ui.input("기준 단위 (g, ml, serving)", "serving");
-        EditText calories = ui.decimalInput("칼로리 kcal", "0");
-        EditText protein = ui.decimalInput("단백질 g", "0");
-        EditText carbs = ui.decimalInput("탄수화물 g", "0");
-        EditText fat = ui.decimalInput("지방 g", "0");
+        EditText basisAmount = ui.decimalInput("기준 수량", "100");
+        EditText basisUnit = ui.input("기준 단위 (g, ml, serving)", "g");
+        Button prepStateButton = ui.button("", false, null);
+        String[] selectedPrepState = {NutritionFood.PREP_UNSPECIFIED};
+        prepStateButton.setText(prepStateLabel(selectedPrepState[0]));
+        prepStateButton.setOnClickListener(v -> {
+            selectedPrepState[0] = nextPrepState(selectedPrepState[0]);
+            prepStateButton.setText(prepStateLabel(selectedPrepState[0]));
+        });
         EditText source = ui.input("출처·메모 (선택)", "");
-        ui.addAll(form, name, kindButton, basisAmount, basisUnit, calories, protein, carbs, fat, source);
+        EditText sourceVersion = ui.input("출처 버전 (선택, 예: MFDS 2024-03)", "");
+        NutritionInputSection nutrients = new NutritionInputSection(ui, host.activity());
+        ui.addAll(
+                form,
+                name,
+                kindButton,
+                basisAmount,
+                basisUnit,
+                prepStateButton,
+                ui.text("아래 값은 모두 위 기준 수량에 대한 값입니다.", 11, FitnessUi.COLOR_MUTED, false),
+                nutrients.view(),
+                source,
+                sourceVersion
+        );
         form.addView(ui.button("저장 후 이번 식사에 추가", true, v -> {
             try {
                 double basis = positiveNumber(basisAmount, "기준 수량");
@@ -486,12 +543,11 @@ public final class MealManagementScreen extends BaseScreen {
                         selectedKind[0],
                         basis,
                         FitnessUi.inputText(basisUnit),
-                        nonNegativeNumber(calories, "칼로리"),
-                        nonNegativeNumber(protein, "단백질"),
-                        nonNegativeNumber(carbs, "탄수화물"),
-                        nonNegativeNumber(fat, "지방"),
+                        selectedPrepState[0],
+                        nutrients.profile(),
                         "manual",
-                        FitnessUi.inputText(source)
+                        FitnessUi.inputText(source),
+                        FitnessUi.inputText(sourceVersion)
                 );
                 draftItems.add(MealCompositionItem.from(saved, saved.basisAmount));
                 showDirectFoodForm = false;
@@ -521,15 +577,15 @@ public final class MealManagementScreen extends BaseScreen {
         if (name.isEmpty()) {
             name = draftItems.size() == 1 ? draftItems.get(0).food.name : selectedMealType + " 식사";
         }
-        NutritionCalculator.NutritionValues total = NutritionCalculator.sum(draftItems);
+        NutritionTotals total = NutritionCalculator.sum(draftItems);
         repository().addMeal(
                 selectedDate,
                 selectedMealType,
                 name,
-                (int) Math.round(total.calories),
-                total.proteinGrams,
-                total.carbsGrams,
-                total.fatGrams,
+                (int) Math.round(total.calories()),
+                total.proteinGrams(),
+                total.carbsGrams(),
+                total.fatGrams(),
                 draftItems
         );
         draftItems.clear();
@@ -615,13 +671,40 @@ public final class MealManagementScreen extends BaseScreen {
             return;
         }
         syncDraftFromViews();
-        NutritionCalculator.NutritionValues total = NutritionCalculator.sum(draftItems);
+        NutritionTotals total = NutritionCalculator.sum(draftItems);
         compositionTotal.setText(
-                "합계  " + Math.round(total.calories) + " kcal  ·  P " +
-                        NutritionCalculator.trim(total.proteinGrams) + "g  ·  C " +
-                        NutritionCalculator.trim(total.carbsGrams) + "g  ·  F " +
-                        NutritionCalculator.trim(total.fatGrams) + "g"
+                "합계  " + Math.round(total.calories()) + " kcal  ·  P " +
+                        NutritionCalculator.trim(total.proteinGrams()) + "g  ·  C " +
+                        NutritionCalculator.trim(total.carbsGrams()) + "g  ·  F " +
+                        NutritionCalculator.trim(total.fatGrams()) + "g" +
+                        "\n나트륨 " + NutritionCalculator.describeTotal(
+                                total.total(NutritionProfile.SODIUM_MG)) + "mg  ·  포화지방 " +
+                        NutritionCalculator.describeTotal(
+                                total.total(NutritionProfile.SATURATED_FAT_GRAMS)) + "g  ·  당류 " +
+                        NutritionCalculator.describeTotal(
+                                total.total(NutritionProfile.SUGARS_GRAMS)) + "g"
         );
+    }
+
+    private static String nextPrepState(String prepState) {
+        switch (NutritionFood.normalizePrepState(prepState)) {
+            case NutritionFood.PREP_UNSPECIFIED:
+                return NutritionFood.PREP_RAW;
+            case NutritionFood.PREP_RAW:
+                return NutritionFood.PREP_COOKED;
+            case NutritionFood.PREP_COOKED:
+                return NutritionFood.PREP_AS_SERVED;
+            case NutritionFood.PREP_AS_SERVED:
+                return NutritionFood.PREP_DRIED;
+            case NutritionFood.PREP_DRIED:
+                return NutritionFood.PREP_FROZEN;
+            default:
+                return NutritionFood.PREP_UNSPECIFIED;
+        }
+    }
+
+    private static String prepStateLabel(String prepState) {
+        return "조리 상태: " + NutritionFood.prepStateLabel(prepState);
     }
 
     private void confirmDeleteMeal(FitnessRepository.MealEntry entry) {
@@ -675,18 +758,6 @@ public final class MealManagementScreen extends BaseScreen {
         double parsed = Double.parseDouble(value);
         if (parsed <= 0) {
             throw new IllegalArgumentException(label + "은 0보다 커야 합니다.");
-        }
-        return parsed;
-    }
-
-    private double nonNegativeNumber(EditText input, String label) {
-        String value = FitnessUi.inputText(input).trim();
-        if (value.isEmpty()) {
-            return 0;
-        }
-        double parsed = Double.parseDouble(value);
-        if (parsed < 0) {
-            throw new IllegalArgumentException(label + "은 음수가 될 수 없습니다.");
         }
         return parsed;
     }

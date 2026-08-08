@@ -23,6 +23,7 @@ import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -753,35 +754,174 @@ public final class FitnessRepository {
         database.beginTransaction();
         try {
             database.insertOrThrow("meal_records", null, values);
-            int orderIndex = 0;
-            for (MealCompositionItem item : items) {
-                if (item == null || item.food == null) {
-                    throw new IllegalArgumentException("Meal composition contains an empty food.");
-                }
-                ContentValues itemValues = new ContentValues();
-                itemValues.put("id", newId());
-                itemValues.put("user_id", userId);
-                itemValues.put("meal_record_id", id);
-                itemValues.put("food_id", item.food.id);
-                itemValues.put("food_name_snapshot", item.food.name);
-                itemValues.put("quantity", item.quantity);
-                itemValues.put("unit", item.food.basisUnit);
-                itemValues.put("calories", item.calories);
-                itemValues.put("protein_grams", item.proteinGrams);
-                itemValues.put("carbs_grams", item.carbsGrams);
-                itemValues.put("fat_grams", item.fatGrams);
-                itemValues.put("order_index", orderIndex++);
-                itemValues.put("created_at", now);
-                itemValues.put("updated_at", now);
-                itemValues.putNull("deleted_at");
-                itemValues.put("device_id", DEVICE_ID);
-                database.insertOrThrow("meal_record_items", null, itemValues);
+            for (MealItemSnapshot snapshot : MealItemSnapshot.of(items)) {
+                insertMealItemSnapshot(database, id, snapshot, now);
             }
             database.setTransactionSuccessful();
         } finally {
             database.endTransaction();
         }
         return id;
+    }
+
+    /**
+     * 섭취 당시 영양성분을 통째로 복사해 둔다.
+     *
+     * <p>food_id는 추적용 참조일 뿐이고, 표시·집계는 전부 스냅샷 컬럼을 쓴다. 나중에 음식
+     * DB의 값이 수정되거나 그 음식이 지워져도 이미 남긴 식사 기록은 그대로 남는다.
+     * 모르는 영양소는 0이 아니라 NULL로 기록해 "0이었다"는 오해를 만들지 않는다.</p>
+     */
+    private void insertMealItemSnapshot(
+            SQLiteDatabase database,
+            String mealRecordId,
+            MealItemSnapshot snapshot,
+            String now
+    ) {
+        String itemId = newId();
+        ContentValues itemValues = new ContentValues();
+        itemValues.put("id", itemId);
+        itemValues.put("user_id", userId);
+        itemValues.put("meal_record_id", mealRecordId);
+        itemValues.put("food_id", snapshot.foodId);
+        itemValues.put("food_name_snapshot", snapshot.foodNameSnapshot);
+        itemValues.put("food_kind_snapshot", snapshot.foodKindSnapshot);
+        itemValues.put("quantity", snapshot.quantity);
+        itemValues.put("unit", snapshot.unit);
+        itemValues.put("basis_amount_snapshot", snapshot.basisAmountSnapshot);
+        itemValues.put("basis_unit_snapshot", snapshot.basisUnitSnapshot);
+        itemValues.put("prep_state_snapshot", snapshot.prepStateSnapshot);
+        for (Map.Entry<String, Double> column : snapshot.typedNutritionColumns().entrySet()) {
+            String name = mealItemColumnName(column.getKey());
+            if (column.getValue() == null) {
+                itemValues.putNull(name);
+            } else {
+                itemValues.put(name, column.getValue());
+            }
+        }
+        putNullable(itemValues, "source_type_snapshot", snapshot.sourceTypeSnapshot);
+        putNullable(itemValues, "source_reference_snapshot", snapshot.sourceReferenceSnapshot);
+        putNullable(itemValues, "source_version_snapshot", snapshot.sourceVersionSnapshot);
+        itemValues.put("food_data_version_snapshot", snapshot.foodDataVersionSnapshot);
+        itemValues.put("order_index", snapshot.orderIndex);
+        itemValues.put("created_at", now);
+        itemValues.put("updated_at", now);
+        itemValues.putNull("deleted_at");
+        itemValues.put("device_id", DEVICE_ID);
+        database.insertOrThrow("meal_record_items", null, itemValues);
+
+        for (MealItemSnapshot.MicronutrientRow row : snapshot.micronutrientRows()) {
+            ContentValues nutrientValues = new ContentValues();
+            nutrientValues.put("id", newId());
+            nutrientValues.put("user_id", userId);
+            nutrientValues.put("meal_record_id", mealRecordId);
+            nutrientValues.put("meal_record_item_id", itemId);
+            nutrientValues.put("nutrient_code", row.nutrientCode);
+            nutrientValues.put("amount", row.amount);
+            nutrientValues.put("unit", row.unit);
+            nutrientValues.put("created_at", now);
+            nutrientValues.put("updated_at", now);
+            nutrientValues.putNull("deleted_at");
+            nutrientValues.put("device_id", DEVICE_ID);
+            database.insertOrThrow("meal_record_item_nutrients", null, nutrientValues);
+        }
+    }
+
+    /**
+     * 스냅샷 키를 meal_record_items 컬럼명으로 옮긴다.
+     *
+     * <p>4대 영양소만 카탈로그와 컬럼명이 다르다(칼로리는 calories_kcal 대신 calories).
+     * 나머지는 카탈로그와 같은 이름을 쓴다.</p>
+     */
+    private static String mealItemColumnName(String nutrientKey) {
+        return NutritionProfile.CALORIES_KCAL.equals(nutrientKey) ? "calories" : nutrientKey;
+    }
+
+    /** 한 식사의 구성 항목을 스냅샷 값 그대로 읽는다. 카탈로그를 다시 조회하지 않는다. */
+    public List<MealItemEntry> mealItemsForRecord(String mealRecordId) {
+        List<MealItemEntry> entries = new ArrayList<>();
+        String recordId = mealRecordId == null ? "" : mealRecordId.trim();
+        if (recordId.isEmpty()) {
+            return entries;
+        }
+        Map<String, NutritionProfile.Builder> profiles = new LinkedHashMap<>();
+        List<String> itemIds = new ArrayList<>();
+        List<String[]> rows = new ArrayList<>();
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, food_name_snapshot, quantity, unit, prep_state_snapshot, " +
+                        "calories, protein_grams, carbs_grams, fat_grams, sodium_mg, " +
+                        "saturated_fat_grams, sugars_grams, fiber_grams, added_sugars_grams, " +
+                        "trans_fat_grams, cholesterol_mg " +
+                        "FROM meal_record_items WHERE meal_record_id = ? AND deleted_at IS NULL " +
+                        "ORDER BY order_index ASC",
+                new String[]{recordId}
+        )) {
+            while (cursor.moveToNext()) {
+                String itemId = cursor.getString(0);
+                itemIds.add(itemId);
+                rows.add(new String[]{
+                        itemId,
+                        cursor.getString(1),
+                        String.valueOf(cursor.getDouble(2)),
+                        cursor.getString(3),
+                        cursor.getString(4)
+                });
+                NutritionProfile.Builder profile = NutritionProfile.builder();
+                profile.value(NutritionProfile.CALORIES_KCAL, nullableDouble(cursor, 5));
+                profile.value(NutritionProfile.PROTEIN_GRAMS, nullableDouble(cursor, 6));
+                profile.value(NutritionProfile.CARBS_GRAMS, nullableDouble(cursor, 7));
+                profile.value(NutritionProfile.FAT_GRAMS, nullableDouble(cursor, 8));
+                profile.value(NutritionProfile.SODIUM_MG, nullableDouble(cursor, 9));
+                profile.value(NutritionProfile.SATURATED_FAT_GRAMS, nullableDouble(cursor, 10));
+                profile.value(NutritionProfile.SUGARS_GRAMS, nullableDouble(cursor, 11));
+                profile.value(NutritionProfile.FIBER_GRAMS, nullableDouble(cursor, 12));
+                profile.value(NutritionProfile.ADDED_SUGARS_GRAMS, nullableDouble(cursor, 13));
+                profile.value(NutritionProfile.TRANS_FAT_GRAMS, nullableDouble(cursor, 14));
+                profile.value(NutritionProfile.CHOLESTEROL_MG, nullableDouble(cursor, 15));
+                profiles.put(itemId, profile);
+            }
+        }
+        readMealItemMicronutrients(recordId, itemIds, profiles);
+
+        for (String[] row : rows) {
+            entries.add(new MealItemEntry(
+                    row[0],
+                    row[1],
+                    Double.parseDouble(row[2]),
+                    row[3],
+                    row[4],
+                    profiles.get(row[0]).build()
+            ));
+        }
+        return entries;
+    }
+
+    private void readMealItemMicronutrients(
+            String mealRecordId,
+            List<String> itemIds,
+            Map<String, NutritionProfile.Builder> profiles
+    ) {
+        if (itemIds.isEmpty()) {
+            return;
+        }
+        try (Cursor cursor = db().rawQuery(
+                "SELECT meal_record_item_id, nutrient_code, amount " +
+                        "FROM meal_record_item_nutrients " +
+                        "WHERE meal_record_id = ? AND deleted_at IS NULL",
+                new String[]{mealRecordId}
+        )) {
+            while (cursor.moveToNext()) {
+                NutritionProfile.Builder profile = profiles.get(cursor.getString(0));
+                String code = NutrientCode.normalize(cursor.getString(1));
+                if (profile == null || cursor.isNull(2) || !NutrientCode.isKnown(code)) {
+                    continue;
+                }
+                profile.micronutrient(code, cursor.getDouble(2));
+            }
+        }
+    }
+
+    private static Double nullableDouble(Cursor cursor, int index) {
+        return cursor.isNull(index) ? null : cursor.getDouble(index);
     }
 
     public List<MealEntry> mealEntriesForDate(String date) {
@@ -854,6 +994,12 @@ public final class FitnessRepository {
             );
             database.update(
                     "meal_record_items",
+                    values,
+                    "meal_record_id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedId}
+            );
+            database.update(
+                    "meal_record_item_nutrients",
                     values,
                     "meal_record_id = ? AND deleted_at IS NULL",
                     new String[]{normalizedId}
@@ -1776,6 +1922,7 @@ public final class FitnessRepository {
         tables.add("workout_sets");
         tables.add("meal_records");
         tables.add("meal_record_items");
+        tables.add("meal_record_item_nutrients");
         tables.add("weight_records");
         return tables;
     }
@@ -2344,6 +2491,14 @@ public final class FitnessRepository {
         }
     }
 
+    private static void putNullable(ContentValues values, String key, String value) {
+        if (value == null || value.trim().isEmpty()) {
+            values.putNull(key);
+        } else {
+            values.put(key, value.trim());
+        }
+    }
+
     public static final class SessionMetrics {
         public double totalVolumeKg;
         public int setCount;
@@ -2595,6 +2750,31 @@ public final class FitnessRepository {
             this.fatGrams = fatGrams;
             this.compositionCount = compositionCount;
             this.createdAt = createdAt;
+        }
+    }
+
+    /** 식사 기록 한 줄. 값은 전부 섭취 당시 스냅샷이며 카탈로그 수정에 영향받지 않는다. */
+    public static final class MealItemEntry {
+        public final String id;
+        public final String foodName;
+        public final double quantity;
+        public final String unit;
+        public final String prepState;
+        public final NutritionProfile profile;
+
+        public MealItemEntry(String id, String foodName, double quantity, String unit,
+                             String prepState, NutritionProfile profile) {
+            this.id = id;
+            this.foodName = foodName;
+            this.quantity = quantity;
+            this.unit = unit;
+            this.prepState = prepState;
+            this.profile = profile;
+        }
+
+        public String label() {
+            return foodName + " · " + NutritionCalculator.trim(quantity) + unit
+                    + " · " + Math.round(profile.calories()) + "kcal";
         }
     }
 
