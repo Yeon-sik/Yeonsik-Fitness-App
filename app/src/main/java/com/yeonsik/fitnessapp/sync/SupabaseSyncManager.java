@@ -73,7 +73,11 @@ public final class SupabaseSyncManager {
     }
 
     private int pushTable(SQLiteDatabase database, String table, SupabaseConfig config) throws Exception {
-        JSONArray payload = tableRowsToJson(database, table);
+        JSONArray payload = tableRowsToJson(
+                database,
+                table,
+                config.effectiveUserId()
+        );
 
         if (payload.length() == 0) {
             return 0;
@@ -107,14 +111,21 @@ public final class SupabaseSyncManager {
         return rows.length();
     }
 
-    private JSONArray tableRowsToJson(SQLiteDatabase database, String table) throws JSONException {
+    private JSONArray tableRowsToJson(
+            SQLiteDatabase database,
+            String table,
+            String userId
+    ) throws JSONException {
         List<String> columns = tableColumns(database, table);
         JSONArray rows = new JSONArray();
         String sql = "devices".equals(table)
-                ? "SELECT * FROM devices WHERE id = ?"
-                : "SELECT * FROM " + table + " WHERE device_id = ?";
+                ? "SELECT * FROM devices WHERE id = ? AND user_id = ?"
+                : "SELECT * FROM " + table + " WHERE device_id = ? AND user_id = ?";
 
-        try (Cursor cursor = database.rawQuery(sql, new String[]{ANDROID_DEVICE_ID})) {
+        try (Cursor cursor = database.rawQuery(
+                sql,
+                new String[]{ANDROID_DEVICE_ID, userId}
+        )) {
             while (cursor.moveToNext()) {
                 JSONObject object = new JSONObject();
                 for (String column : columns) {
@@ -190,7 +201,12 @@ public final class SupabaseSyncManager {
         ContentValues values = new ContentValues();
         values.put("user_id", userId);
         for (String table : TABLES) {
-            database.update(table, values, null, null);
+            database.update(
+                    table,
+                    values,
+                    "user_id = ?",
+                    new String[]{SupabaseConfig.DEFAULT_USER_ID}
+            );
         }
     }
 

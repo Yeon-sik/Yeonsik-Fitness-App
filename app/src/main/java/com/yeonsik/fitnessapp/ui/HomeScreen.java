@@ -67,7 +67,7 @@ public final class HomeScreen extends BaseScreen {
         quickTop.addView(ui().statTile("체중", todayWeightValue(), "오늘", false,
                 v -> host.showBodyMetricDialog()), ui().tileParams(true));
         quickTop.addView(ui().statTile("식사", repository().mealsForDate(today).size() + "끼", "오늘", false,
-                v -> host.showMealDialog()), ui().tileParams(false));
+                v -> host.openMealManagement()), ui().tileParams(false));
         add(quickTop, ui().fullWidthParams(0));
         LinearLayout quickBottom = ui().tileRow();
         quickBottom.addView(ui().statTile("진행 중 운동", inProgressSessionId != null ? "있음" : "없음",

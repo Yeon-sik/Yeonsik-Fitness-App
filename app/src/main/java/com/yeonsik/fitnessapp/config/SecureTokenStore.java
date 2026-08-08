@@ -15,15 +15,19 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
 final class SecureTokenStore {
-    private static final String KEY_ALIAS = "fitnessapp_supabase_session_v1";
-    private static final String PREFS_NAME = "fitnessapp:secure-session:v1";
     private static final String KEY_ACCESS = "access_token";
     private static final String KEY_REFRESH = "refresh_token";
 
+    private final String keyAlias;
     private final SharedPreferences preferences;
 
     SecureTokenStore(Context context) {
-        preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        this(context, "fitnessapp_supabase_session_v1", "fitnessapp:secure-session:v1");
+    }
+
+    SecureTokenStore(Context context, String keyAlias, String preferencesName) {
+        this.keyAlias = keyAlias;
+        preferences = context.getSharedPreferences(preferencesName, Context.MODE_PRIVATE);
     }
 
     String accessToken() {
@@ -89,8 +93,8 @@ final class SecureTokenStore {
     private SecretKey getOrCreateKey() throws Exception {
         KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
         keyStore.load(null);
-        if (keyStore.containsAlias(KEY_ALIAS)) {
-            return (SecretKey) keyStore.getKey(KEY_ALIAS, null);
+        if (keyStore.containsAlias(keyAlias)) {
+            return (SecretKey) keyStore.getKey(keyAlias, null);
         }
 
         KeyGenerator generator = KeyGenerator.getInstance(
@@ -98,7 +102,7 @@ final class SecureTokenStore {
                 "AndroidKeyStore"
         );
         generator.init(new KeyGenParameterSpec.Builder(
-                KEY_ALIAS,
+                keyAlias,
                 KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT
         )
                 .setBlockModes(KeyProperties.BLOCK_MODE_GCM)

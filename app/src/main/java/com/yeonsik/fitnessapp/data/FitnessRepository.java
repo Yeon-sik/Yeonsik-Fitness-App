@@ -5,6 +5,7 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
+import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
@@ -20,6 +21,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -44,11 +46,18 @@ public final class FitnessRepository {
 
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
-        SQLiteDatabase database = db();
-        ContentValues values = new ContentValues();
-        values.put("user_id", nextUserId);
-        for (String table : tables()) {
-            database.update(table, values, null, null);
+        if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
+            SQLiteDatabase database = db();
+            ContentValues values = new ContentValues();
+            values.put("user_id", nextUserId);
+            for (String table : tables()) {
+                database.update(
+                        table,
+                        values,
+                        "user_id = ?",
+                        new String[]{SupabaseConfig.DEFAULT_USER_ID}
+                );
+            }
         }
         this.userId = nextUserId;
         ensureDevice(nextUserId);
@@ -686,6 +695,38 @@ public final class FitnessRepository {
 
     public String addMeal(String date, String menuText, Integer calories, Double proteinGrams,
                           Double carbsGrams, Double fatGrams) {
+        return addMeal(
+                date,
+                menuText,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                Collections.emptyList()
+        );
+    }
+
+    public String addMeal(String date, String menuText, Integer calories, Double proteinGrams,
+                          Double carbsGrams, Double fatGrams,
+                          List<MealCompositionItem> compositionItems) {
+        return addMeal(
+                date,
+                "식사",
+                menuText,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                compositionItems
+        );
+    }
+
+    public String addMeal(String date, String mealType, String menuText, Integer calories,
+                          Double proteinGrams, Double carbsGrams, Double fatGrams,
+                          List<MealCompositionItem> compositionItems) {
+        List<MealCompositionItem> items = compositionItems == null
+                ? Collections.emptyList()
+                : compositionItems;
         String id = newId();
         String now = now();
         ContentValues values = baseValues(id, now);
@@ -700,9 +741,128 @@ public final class FitnessRepository {
         values.putNull("backfill_reason");
         values.put("source_app", "fitness");
         values.put("scope", "fitness");
-        values.put("metadata", json("item_type", "meal", "estimated", "false"));
-        db().insertOrThrow("meal_records", null, values);
+        values.put("metadata", json(
+                "item_type", "meal",
+                "meal_type", normalizeMealType(mealType),
+                "estimated", "false",
+                "composition_version", "1",
+                "item_count", String.valueOf(items.size())
+        ));
+
+        SQLiteDatabase database = db();
+        database.beginTransaction();
+        try {
+            database.insertOrThrow("meal_records", null, values);
+            int orderIndex = 0;
+            for (MealCompositionItem item : items) {
+                if (item == null || item.food == null) {
+                    throw new IllegalArgumentException("Meal composition contains an empty food.");
+                }
+                ContentValues itemValues = new ContentValues();
+                itemValues.put("id", newId());
+                itemValues.put("user_id", userId);
+                itemValues.put("meal_record_id", id);
+                itemValues.put("food_id", item.food.id);
+                itemValues.put("food_name_snapshot", item.food.name);
+                itemValues.put("quantity", item.quantity);
+                itemValues.put("unit", item.food.basisUnit);
+                itemValues.put("calories", item.calories);
+                itemValues.put("protein_grams", item.proteinGrams);
+                itemValues.put("carbs_grams", item.carbsGrams);
+                itemValues.put("fat_grams", item.fatGrams);
+                itemValues.put("order_index", orderIndex++);
+                itemValues.put("created_at", now);
+                itemValues.put("updated_at", now);
+                itemValues.putNull("deleted_at");
+                itemValues.put("device_id", DEVICE_ID);
+                database.insertOrThrow("meal_record_items", null, itemValues);
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
         return id;
+    }
+
+    public List<MealEntry> mealEntriesForDate(String date) {
+        List<MealEntry> entries = new ArrayList<>();
+        String selectedDate = emptyToToday(date);
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, date, menu, calories, protein_grams, carbs_grams, fat_grams, " +
+                        "metadata, created_at " +
+                        "FROM meal_records WHERE deleted_at IS NULL " +
+                        "AND scope IN ('fitness', 'both') AND date = ? " +
+                        "ORDER BY created_at ASC, id ASC",
+                new String[]{selectedDate}
+        )) {
+            while (cursor.moveToNext()) {
+                entries.add(new MealEntry(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        mealTypeFromMetadata(cursor.getString(7)),
+                        cursor.getString(2),
+                        cursor.getInt(3),
+                        cursor.getDouble(4),
+                        cursor.getDouble(5),
+                        cursor.getDouble(6),
+                        itemCountFromMetadata(cursor.getString(7)),
+                        cursor.getString(8)
+                ));
+            }
+        }
+        return entries;
+    }
+
+    public MealNutritionSummary mealNutritionForDate(String date) {
+        try (Cursor cursor = db().rawQuery(
+                "SELECT COUNT(*), COALESCE(SUM(calories), 0), " +
+                        "COALESCE(SUM(protein_grams), 0), COALESCE(SUM(carbs_grams), 0), " +
+                        "COALESCE(SUM(fat_grams), 0) FROM meal_records " +
+                        "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') AND date = ?",
+                new String[]{emptyToToday(date)}
+        )) {
+            if (cursor.moveToFirst()) {
+                return new MealNutritionSummary(
+                        cursor.getInt(0),
+                        cursor.getDouble(1),
+                        cursor.getDouble(2),
+                        cursor.getDouble(3),
+                        cursor.getDouble(4)
+                );
+            }
+        }
+        return new MealNutritionSummary(0, 0, 0, 0, 0);
+    }
+
+    public boolean deleteMeal(String id) {
+        String normalizedId = id == null ? "" : id.trim();
+        if (normalizedId.isEmpty()) {
+            return false;
+        }
+        String timestamp = now();
+        ContentValues values = new ContentValues();
+        values.put("deleted_at", timestamp);
+        values.put("updated_at", timestamp);
+        SQLiteDatabase database = db();
+        database.beginTransaction();
+        try {
+            int deleted = database.update(
+                    "meal_records",
+                    values,
+                    "id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedId}
+            );
+            database.update(
+                    "meal_record_items",
+                    values,
+                    "meal_record_id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedId}
+            );
+            database.setTransactionSuccessful();
+            return deleted > 0;
+        } finally {
+            database.endTransaction();
+        }
     }
 
     /** 반복 입력용 메뉴 템플릿을 기기 로컬에 저장한다. 같은 이름은 최신 영양값으로 갱신한다. */
@@ -1063,8 +1223,9 @@ public final class FitnessRepository {
         List<String> recordIds = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
                 "SELECT id FROM workout_records WHERE source_app = 'fitness' "
-                        + "AND deleted_at IS NULL AND metadata LIKE '%\"status\":\"completed\"%'",
-                null)) {
+                        + "AND user_id = ? AND deleted_at IS NULL "
+                        + "AND metadata LIKE '%\"status\":\"completed\"%'",
+                new String[]{userId})) {
             while (cursor.moveToNext()) {
                 recordIds.add(cursor.getString(0));
             }
@@ -1614,6 +1775,7 @@ public final class FitnessRepository {
         tables.add("workout_exercises");
         tables.add("workout_sets");
         tables.add("meal_records");
+        tables.add("meal_record_items");
         tables.add("weight_records");
         return tables;
     }
@@ -1928,6 +2090,29 @@ public final class FitnessRepository {
         }
         builder.append("}");
         return builder.toString();
+    }
+
+    private static String normalizeMealType(String value) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.isEmpty() ? "식사" : normalized;
+    }
+
+    private static String mealTypeFromMetadata(String metadata) {
+        try {
+            return normalizeMealType(new JSONObject(metadata == null ? "{}" : metadata)
+                    .optString("meal_type", "식사"));
+        } catch (Exception ignored) {
+            return "식사";
+        }
+    }
+
+    private static int itemCountFromMetadata(String metadata) {
+        try {
+            return Math.max(0, new JSONObject(metadata == null ? "{}" : metadata)
+                    .optInt("item_count", 0));
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 
     private static String escapeJson(String value) {
@@ -2378,6 +2563,51 @@ public final class FitnessRepository {
                               Double carbsGrams, Double fatGrams) {
             this.id = id;
             this.name = name;
+            this.calories = calories;
+            this.proteinGrams = proteinGrams;
+            this.carbsGrams = carbsGrams;
+            this.fatGrams = fatGrams;
+        }
+    }
+
+    public static final class MealEntry {
+        public final String id;
+        public final String date;
+        public final String mealType;
+        public final String menu;
+        public final int calories;
+        public final double proteinGrams;
+        public final double carbsGrams;
+        public final double fatGrams;
+        public final int compositionCount;
+        public final String createdAt;
+
+        public MealEntry(String id, String date, String mealType, String menu, int calories,
+                         double proteinGrams, double carbsGrams, double fatGrams,
+                         int compositionCount, String createdAt) {
+            this.id = id;
+            this.date = date;
+            this.mealType = mealType;
+            this.menu = menu;
+            this.calories = calories;
+            this.proteinGrams = proteinGrams;
+            this.carbsGrams = carbsGrams;
+            this.fatGrams = fatGrams;
+            this.compositionCount = compositionCount;
+            this.createdAt = createdAt;
+        }
+    }
+
+    public static final class MealNutritionSummary {
+        public final int mealCount;
+        public final double calories;
+        public final double proteinGrams;
+        public final double carbsGrams;
+        public final double fatGrams;
+
+        public MealNutritionSummary(int mealCount, double calories, double proteinGrams,
+                                    double carbsGrams, double fatGrams) {
+            this.mealCount = mealCount;
             this.calories = calories;
             this.proteinGrams = proteinGrams;
             this.carbsGrams = carbsGrams;

@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.config;
 
 public final class SupabaseConfig {
+    public static final String APP_MANAGED_SOURCE = "app managed";
     public static final String LOCAL_SETTINGS_SOURCE = "local settings";
     public static final String NOT_SET_SOURCE = "not set";
     public static final String DEFAULT_USER_ID = "local-user";
@@ -45,6 +46,18 @@ public final class SupabaseConfig {
 
     public String effectiveUserId() {
         return userId.isEmpty() ? DEFAULT_USER_ID : userId;
+    }
+
+    public SupabaseConfig withoutSessionIdentity() {
+        return new SupabaseConfig(
+                supabaseUrl,
+                supabaseAnonKey,
+                "",
+                "",
+                "",
+                "",
+                sourceLabel
+        );
     }
 
     private static String normalize(String value) {

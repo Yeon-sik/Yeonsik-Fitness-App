@@ -44,7 +44,7 @@ public final class WorkoutScreen extends BaseScreen {
         conditionRow.addView(ui().hologramStatTile("체중", todayWeightValue(), "탭하여 기록",
                 v -> host.showBodyMetricDialog()), ui().tileParams(true));
         conditionRow.addView(ui().hologramStatTile("식단", repository().mealsForDate(today).size() + "건", "탭하여 기록",
-                v -> host.showMealDialog()), ui().tileParams(false));
+                v -> host.openMealManagement()), ui().tileParams(false));
         add(conditionRow, ui().fullWidthParams(0));
 
         List<View> conditionRows = new ArrayList<>();

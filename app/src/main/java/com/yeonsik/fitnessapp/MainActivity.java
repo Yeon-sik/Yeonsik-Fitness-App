@@ -28,11 +28,14 @@ import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
+import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
+import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.data.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
@@ -46,7 +49,7 @@ import com.yeonsik.fitnessapp.ui.CardioSessionScreen;
 import com.yeonsik.fitnessapp.ui.CardioSummaryScreen;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.HomeScreen;
-import com.yeonsik.fitnessapp.ui.MealDialogController;
+import com.yeonsik.fitnessapp.ui.MealManagementScreen;
 import com.yeonsik.fitnessapp.ui.RecordsScreen;
 import com.yeonsik.fitnessapp.ui.RoutineEditorScreen;
 import com.yeonsik.fitnessapp.ui.ScreenHost;
@@ -76,6 +79,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     private enum Tab {
         HOME,
         WORKOUT,
+        MEALS,
         RECORDS,
         SETTINGS
     }
@@ -94,13 +98,17 @@ public final class MainActivity extends Activity implements ScreenHost {
     private final WorkoutSessionState sessionState = new WorkoutSessionState();
 
     private FitnessRepository repository;
+    private NutritionCatalogRepository nutritionCatalogRepository;
     private CardioRepository cardioRepository;
     private ExerciseMasterRepository exerciseMasterRepository;
     private RoutineRepository routineRepository;
     private SupabaseConfigStore configStore;
+    private NutritionSupabaseConfigStore nutritionConfigStore;
     private SupabaseSyncManager syncManager;
     private SupabaseAuthManager authManager;
+    private SupabaseAuthManager nutritionAuthManager;
     private SupabaseConfig supabaseConfig;
+    private SupabaseConfig nutritionSupabaseConfig;
 
     private FitnessUi ui;
     private Map<FitnessScreen, BaseScreen> screens;
@@ -123,10 +131,12 @@ public final class MainActivity extends Activity implements ScreenHost {
     private View navDivider;
     private LinearLayout homeTabArea;
     private LinearLayout workoutTabArea;
+    private LinearLayout mealsTabArea;
     private LinearLayout recordsTabArea;
     private LinearLayout settingsTabArea;
     private TextView homeTabLabel;
     private TextView workoutTabLabel;
+    private TextView mealsTabLabel;
     private TextView recordsTabLabel;
     private TextView settingsTabLabel;
 
@@ -145,9 +155,17 @@ public final class MainActivity extends Activity implements ScreenHost {
         super.onCreate(savedInstanceState);
         configStore = new SupabaseConfigStore(this);
         supabaseConfig = configStore.load();
+        nutritionConfigStore = new NutritionSupabaseConfigStore(this);
+        nutritionSupabaseConfig = nutritionConfigStore.load();
         authManager = new SupabaseAuthManager(configStore);
+        nutritionAuthManager = new SupabaseAuthManager(nutritionConfigStore);
         FitnessDatabaseHelper databaseHelper = new FitnessDatabaseHelper(this);
         repository = new FitnessRepository(databaseHelper, supabaseConfig.effectiveUserId());
+        nutritionCatalogRepository = new NutritionCatalogRepository(
+                databaseHelper,
+                nutritionSupabaseConfig.effectiveUserId(),
+                nutritionSupabaseConfig
+        );
         cardioRepository = new CardioRepository(databaseHelper, repository);
         repository.reconcileSharedWorkoutSummaries();
         exerciseMasterRepository = new ExerciseMasterRepository(this);
@@ -241,6 +259,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         map.put(FitnessScreen.WORKOUT_SUMMARY, new WorkoutSummaryScreen(this));
         map.put(FitnessScreen.CARDIO_SESSION, new CardioSessionScreen(this));
         map.put(FitnessScreen.CARDIO_SUMMARY, new CardioSummaryScreen(this));
+        map.put(FitnessScreen.MEALS, new MealManagementScreen(this));
         map.put(FitnessScreen.ROUTINE_ADD, routineEditor);
         map.put(FitnessScreen.ROUTINE_DETAIL, routineEditor);
         map.put(FitnessScreen.WORKOUT_EXERCISE_ADD, routineEditor);
@@ -549,12 +568,15 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         homeTabArea = navArea("메인", Tab.HOME);
         workoutTabArea = navArea("피트니스", Tab.WORKOUT);
+        mealsTabArea = navArea("식단", Tab.MEALS);
         recordsTabArea = navArea("기록", Tab.RECORDS);
         settingsTabArea = navArea("설정", Tab.SETTINGS);
 
         nav.addView(homeTabArea, navParams());
         nav.addView(navGap());
         nav.addView(workoutTabArea, navParams());
+        nav.addView(navGap());
+        nav.addView(mealsTabArea, navParams());
         nav.addView(navGap());
         nav.addView(recordsTabArea, navParams());
         nav.addView(navGap());
@@ -601,6 +623,8 @@ public final class MainActivity extends Activity implements ScreenHost {
             homeTabLabel = textView;
         } else if (tab == Tab.WORKOUT) {
             workoutTabLabel = textView;
+        } else if (tab == Tab.MEALS) {
+            mealsTabLabel = textView;
         } else if (tab == Tab.RECORDS) {
             recordsTabLabel = textView;
         } else {
@@ -616,6 +640,8 @@ public final class MainActivity extends Activity implements ScreenHost {
                 return FitnessScreen.HOME;
             case RECORDS:
                 return FitnessScreen.RECORDS;
+            case MEALS:
+                return FitnessScreen.MEALS;
             case SETTINGS:
                 return FitnessScreen.SETTINGS;
             default:
@@ -629,6 +655,8 @@ public final class MainActivity extends Activity implements ScreenHost {
                 return Tab.HOME;
             case RECORDS:
                 return Tab.RECORDS;
+            case MEALS:
+                return Tab.MEALS;
             case SETTINGS:
                 return Tab.SETTINGS;
             default:
@@ -652,6 +680,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         styleNavArea(homeTabArea, homeTabLabel, activeTab == Tab.HOME, false);
         styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT,
                 workoutInProgress && activationVisible);
+        styleNavArea(mealsTabArea, mealsTabLabel, activeTab == Tab.MEALS, false);
         styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS, false);
         styleNavArea(settingsTabArea, settingsTabLabel, activeTab == Tab.SETTINGS, false);
     }
@@ -757,6 +786,11 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public FitnessRepository repository() {
         return repository;
+    }
+
+    @Override
+    public NutritionCatalogRepository nutritionCatalogRepository() {
+        return nutritionCatalogRepository;
     }
 
     @Override
@@ -1272,8 +1306,8 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
-    public void showMealDialog() {
-        new MealDialogController(this).show();
+    public void openMealManagement() {
+        navigate(FitnessScreen.MEALS);
     }
 
     // ── 설정 / 동기화 ─────────────────────────────────────────────────
@@ -1351,12 +1385,35 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    public boolean isSharedSupabaseConnectionManaged() {
+        return configStore.isConnectionManaged();
+    }
+
+    @Override
     public void saveSupabaseConfig(String url, String anonKey) {
         try {
             supabaseConfig = configStore.saveConnection(url, anonKey);
             applySyncStatusFromConfig();
             toast("설정을 저장했습니다.");
-        } catch (IllegalArgumentException error) {
+        } catch (IllegalArgumentException | IllegalStateException error) {
+            toast(error.getMessage());
+        }
+        render();
+    }
+
+    @Override
+    public SupabaseConfig nutritionSupabaseConfig() {
+        return nutritionSupabaseConfig;
+    }
+
+    @Override
+    public void saveNutritionSupabaseConfig(String url, String anonKey) {
+        try {
+            nutritionSupabaseConfig = nutritionConfigStore.saveConnection(url, anonKey);
+            nutritionCatalogRepository.setUserId(nutritionSupabaseConfig.effectiveUserId());
+            nutritionCatalogRepository.setSupabaseConfig(nutritionSupabaseConfig);
+            toast("Nutrition DB 설정을 저장했습니다.");
+        } catch (IllegalArgumentException | IllegalStateException error) {
             toast(error.getMessage());
         }
         render();
@@ -1365,7 +1422,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void signInToSupabase(String email, String password) {
         if (!supabaseConfig.isConnectionConfigured()) {
-            toast("Supabase URL과 anon key를 먼저 저장하세요.");
+            toast("공통 DB 빌드 설정이 없습니다. 수동 대체 연결을 먼저 저장하세요.");
             return;
         }
         syncLabel = "authenticating";
@@ -1402,7 +1459,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void signUpToSupabase(String email, String password) {
         if (!supabaseConfig.isConnectionConfigured()) {
-            toast("Supabase URL과 anon key를 먼저 저장하세요.");
+            toast("공통 DB 빌드 설정이 없습니다. 수동 대체 연결을 먼저 저장하세요.");
             return;
         }
         syncLabel = "authenticating";
@@ -1445,8 +1502,94 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void signOutFromSupabase() {
         supabaseConfig = configStore.clearSession();
+        String loggedOutOwnerId = AccountOwnerPolicy.loggedOutOwnerId();
+        repository.normalizeLocalUserId(loggedOutOwnerId);
+        routineRepository.normalizeLocalUserId(loggedOutOwnerId);
         applySyncStatusFromConfig();
         toast("로그아웃했습니다. 로컬 기록은 유지됩니다.");
+        render();
+    }
+
+    @Override
+    public void signInToNutritionSupabase(String email, String password) {
+        SupabaseConfig config = nutritionSupabaseConfig;
+        if (!config.isConnectionConfigured()) {
+            toast("Nutrition DB URL과 anon key를 먼저 저장하세요.");
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                SupabaseConfig authenticated = nutritionAuthManager.signIn(
+                        config,
+                        email,
+                        password
+                );
+                runOnUiThread(() -> {
+                    nutritionSupabaseConfig = authenticated;
+                    nutritionCatalogRepository.normalizeLocalUserId(
+                            authenticated.effectiveUserId()
+                    );
+                    nutritionCatalogRepository.setSupabaseConfig(authenticated);
+                    toast("Nutrition DB에 로그인했습니다.");
+                    render();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    toast(error.getMessage() == null
+                            ? "Nutrition DB 로그인에 실패했습니다."
+                            : error.getMessage());
+                    render();
+                });
+            }
+        });
+    }
+
+    @Override
+    public void signUpToNutritionSupabase(String email, String password) {
+        SupabaseConfig config = nutritionSupabaseConfig;
+        if (!config.isConnectionConfigured()) {
+            toast("Nutrition DB URL과 anon key를 먼저 저장하세요.");
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                SupabaseAuthManager.SignUpResult result = nutritionAuthManager.signUp(
+                        config,
+                        email,
+                        password
+                );
+                runOnUiThread(() -> {
+                    if (result.emailConfirmationRequired) {
+                        toast("Nutrition DB 가입 확인 메일을 확인하세요.");
+                    } else {
+                        nutritionSupabaseConfig = result.config;
+                        nutritionCatalogRepository.normalizeLocalUserId(
+                                result.config.effectiveUserId()
+                        );
+                        nutritionCatalogRepository.setSupabaseConfig(result.config);
+                        toast("Nutrition DB 계정이 생성되었습니다.");
+                    }
+                    render();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    toast(error.getMessage() == null
+                            ? "Nutrition DB 가입에 실패했습니다."
+                            : error.getMessage());
+                    render();
+                });
+            }
+        });
+    }
+
+    @Override
+    public void signOutFromNutritionSupabase() {
+        nutritionSupabaseConfig = nutritionConfigStore.clearSession();
+        nutritionCatalogRepository.normalizeLocalUserId(
+                AccountOwnerPolicy.loggedOutOwnerId()
+        );
+        nutritionCatalogRepository.setSupabaseConfig(nutritionSupabaseConfig);
+        toast("Nutrition DB에서 로그아웃했습니다.");
         render();
     }
 
@@ -1500,8 +1643,8 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         syncLabel = supabaseConfig.isConnectionConfigured() ? "login required" : "local-only";
         syncDetail = supabaseConfig.isConnectionConfigured()
-                ? "원격 동기화를 사용하려면 로그인하세요."
-                : "Supabase 설정이 없어 로컬 전용 모드입니다.";
+                ? "공통 DB는 연결되었습니다. 최초 1회 로그인하세요."
+                : "공통 DB 빌드 설정이 없어 로컬 전용 모드입니다.";
     }
 
     @Override

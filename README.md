@@ -32,9 +32,20 @@ SUPABASE_ANON_KEY=your-publishable-or-anon-key
 ```
 
 The same values can also be supplied through `SUPABASE_URL` and
-`SUPABASE_ANON_KEY` environment variables. After email sign-in or sign-up,
-the Supabase Auth user UUID is used as `user_id` for remote synchronization.
-An access token is stored only through Android Keystore-backed encryption.
+`SUPABASE_ANON_KEY` environment variables. When both values are complete, the
+build-managed connection takes priority and cannot be edited in the app. If
+either value is absent or incomplete, Settings exposes a manual fallback
+connection for local setup. After email sign-in or sign-up, the Supabase Auth
+user UUID is used as `user_id` for remote synchronization. An access token is
+stored only through Android Keystore-backed encryption.
+
+## Nutrition Supabase project
+
+FitnessApp alone connects to the separate Nutrition DB. Its URL and anon key
+are entered in the FitnessApp Settings screen, followed by a separate
+Nutrition DB login. The Nutrition connection, account identity, and encrypted
+session tokens use storage isolated from the shared Supabase project. Never
+commit either project's real URL/key credentials.
 
 ## Release
 
