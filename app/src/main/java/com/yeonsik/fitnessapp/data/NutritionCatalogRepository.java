@@ -26,8 +26,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * Local-first food catalog and recipe repository.
@@ -36,11 +34,12 @@ import java.util.concurrent.Executors;
  * connection is configured, public catalog rows are pulled and authenticated user rows are
  * pushed/pulled through the REST API.</p>
  *
- * <p>이 저장소는 <b>음식·레시피·영양성분만</b> 다룬다. meal_records 같은 사용자 섭취 기록은
- * 이 카탈로그(원격 Nutrition Catalog 프로젝트 포함)에 절대 들어가지 않는다.</p>
+ * <p>이 저장소는 <b>음식·레시피·영양성분만</b> 다룬다. 원격 테이블은 Personal OS 공통
+ * Supabase 프로젝트 안의 별도 도메인 경계이며, meal_records 같은 사용자 섭취 기록은 이
+ * 카탈로그에 절대 들어가지 않는다.</p>
  */
 public final class NutritionCatalogRepository {
-    /** 카탈로그 원격 DB에 동기화되는 테이블. 사용자 기록 테이블은 여기 들어올 수 없다. */
+    /** 공통 DB의 카탈로그 테이블. 사용자 기록 테이블은 여기 들어올 수 없다. */
     static final List<String> CATALOG_TABLES = java.util.Collections.unmodifiableList(
             java.util.Arrays.asList(
                     "nutrition_foods",
@@ -87,7 +86,6 @@ public final class NutritionCatalogRepository {
     };
 
     private final FitnessDatabaseHelper dbHelper;
-    private final ExecutorService syncExecutor = Executors.newSingleThreadExecutor();
     private volatile String userId;
     private volatile SupabaseConfig supabaseConfig;
 
@@ -131,6 +129,44 @@ public final class NutritionCatalogRepository {
             }
         }
         userId = normalizedNextUserId;
+    }
+
+    /**
+     * Rebinds local rows created under the retired Nutrition Supabase project.
+     * The caller must first verify that the legacy and shared accounts use the same email.
+     */
+    public int migrateLegacyOwner(String previousUserId, String nextUserId) {
+        String previous = normalizeUserId(previousUserId);
+        String next = normalizeUserId(nextUserId);
+        if (SupabaseConfig.DEFAULT_USER_ID.equals(previous)
+                || SupabaseConfig.DEFAULT_USER_ID.equals(next)) {
+            throw new IllegalArgumentException("Legacy nutrition owners must be authenticated users.");
+        }
+        if (previous.equals(next)) {
+            userId = next;
+            return 0;
+        }
+
+        int updatedRows = 0;
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        database.beginTransaction();
+        try {
+            ContentValues values = new ContentValues();
+            values.put("owner_id", next);
+            for (String table : CATALOG_TABLES) {
+                updatedRows += database.update(
+                        table,
+                        values,
+                        "owner_id = ?",
+                        new String[]{previous}
+                );
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        userId = next;
+        return updatedRows;
     }
 
     public void setSupabaseConfig(SupabaseConfig supabaseConfig) {
@@ -274,38 +310,22 @@ public final class NutritionCatalogRepository {
         return recipe;
     }
 
-    public void syncRemoteAsync(SyncCallback callback) {
-        SyncCallback safeCallback = callback == null ? new SyncCallback() {
-            @Override
-            public void onComplete(int pushedRows, int pulledRows) {
-            }
-
-            @Override
-            public void onError(Exception error) {
-            }
-        } : callback;
+    public synchronized CatalogSyncResult syncRemote() throws Exception {
         SupabaseConfig config = supabaseConfig;
-        syncExecutor.execute(() -> {
-            try {
-                if (config == null || !config.isConnectionConfigured()) {
-                    safeCallback.onComplete(0, 0);
-                    return;
-                }
+        if (config == null || !config.isConnectionConfigured()) {
+            return new CatalogSyncResult(0, 0);
+        }
 
-                int pushedRows = 0;
-                if (config.isConfigured()) {
-                    pushedRows += pushTable(config, "nutrition_foods", FOOD_SYNC_COLUMNS);
-                    pushedRows += pushTable(config, "nutrition_food_nutrients", NUTRIENT_SYNC_COLUMNS);
-                    pushedRows += pushTable(config, "nutrition_food_components", COMPONENT_SYNC_COLUMNS);
-                }
-                int pulledRows = pullFoods(config);
-                pulledRows += pullNutrients(config);
-                pulledRows += pullComponents(config);
-                safeCallback.onComplete(pushedRows, pulledRows);
-            } catch (Exception error) {
-                safeCallback.onError(error);
-            }
-        });
+        int pushedRows = 0;
+        if (config.isConfigured()) {
+            pushedRows += pushTable(config, "nutrition_foods", FOOD_SYNC_COLUMNS);
+            pushedRows += pushTable(config, "nutrition_food_nutrients", NUTRIENT_SYNC_COLUMNS);
+            pushedRows += pushTable(config, "nutrition_food_components", COMPONENT_SYNC_COLUMNS);
+        }
+        int pulledRows = pullFoods(config);
+        pulledRows += pullNutrients(config);
+        pulledRows += pullComponents(config);
+        return new CatalogSyncResult(pushedRows, pulledRows);
     }
 
     private int pushTable(SupabaseConfig config, String table, String[] columns) throws Exception {
@@ -853,5 +873,15 @@ public final class NutritionCatalogRepository {
         void onComplete(int pushedRows, int pulledRows);
 
         void onError(Exception error);
+    }
+
+    public static final class CatalogSyncResult {
+        public final int pushedRows;
+        public final int pulledRows;
+
+        public CatalogSyncResult(int pushedRows, int pulledRows) {
+            this.pushedRows = pushedRows;
+            this.pulledRows = pulledRows;
+        }
     }
 }

@@ -22,34 +22,32 @@ if (dotenvFile.exists()) {
     }
 }
 
-def dotenvValue = { String key -> dotenvValues.get(key) ?: "" }
-
-def configValue = { String propertyKey, String environmentKey, String viteEnvironmentKey, String dotenvKey ->
-    localProperties.getProperty(propertyKey)
-            ?: System.getenv(environmentKey)
-            ?: System.getenv(viteEnvironmentKey)
-            ?: dotenvValue(dotenvKey)
-            ?: ""
+def dotenvValue = { String... keys ->
+    for (String key : keys) {
+        String value = dotenvValues.get(key)
+        if (value) {
+            return value
+        }
+    }
+    return ""
 }
 
 def buildConfigString = { String value ->
     '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
 }
 
-// The shared/original DB is build-managed; Nutrition DB remains a separately
-// persisted Settings connection so its URL/key can be changed without rebuilding.
-def supabaseUrl = configValue(
-        "SUPABASE_URL",
-        "SUPABASE_URL",
-        "VITE_SUPABASE_URL",
-        "ORIGINAL_DB_URL"
-)
-def supabaseAnonKey = configValue(
-        "SUPABASE_ANON_KEY",
-        "SUPABASE_ANON_KEY",
-        "VITE_SUPABASE_ANON_KEY",
-        "ORIGINAL_DB_ANON"
-)
+// Fitness records and the nutrition catalog use the same Personal OS Supabase
+// project and authenticated session as CashOS and PersonalOSApp.
+def supabaseUrl = localProperties.getProperty("SUPABASE_URL")
+        ?: System.getenv("SUPABASE_URL")
+        ?: System.getenv("VITE_SUPABASE_URL")
+        ?: dotenvValue("SUPABASE_URL", "VITE_SUPABASE_URL", "ORIGINAL_DB_URL")
+        ?: ""
+def supabaseAnonKey = localProperties.getProperty("SUPABASE_ANON_KEY")
+        ?: System.getenv("SUPABASE_ANON_KEY")
+        ?: System.getenv("VITE_SUPABASE_ANON_KEY")
+        ?: dotenvValue("SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY", "ORIGINAL_DB_ANON")
+        ?: ""
 
 def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")
 

@@ -8,6 +8,8 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.yeonsik.fitnessapp.config.SupabaseConfig;
+
 /**
  * 설정 탭: 연결 상태 카드(시맨틱 도트) + Supabase config 폼.
  * 동기화 실행과 config 저장은 host가 소유한다.
@@ -26,6 +28,11 @@ public final class SettingsScreen extends BaseScreen {
         renderThemeCard();
         renderDataImportCard();
 
+        SupabaseConfig config = host.supabaseConfig();
+        String accountStatus = config.isConfigured()
+                ? "로그인됨"
+                : config.isConnectionConfigured() ? "로그인 필요" : "설정 없음";
+
         LinearLayout statusCard = ui.card();
         LinearLayout statusHeader = new LinearLayout(host.activity());
         statusHeader.setOrientation(LinearLayout.HORIZONTAL);
@@ -40,16 +47,21 @@ public final class SettingsScreen extends BaseScreen {
         lineParams.height = ui.dp(1);
         statusCard.addView(line, lineParams);
 
-        String sharedDbStatus = host.supabaseConfig().isConfigured()
-                ? "로그인됨"
-                : host.supabaseConfig().isConnectionConfigured() ? "로그인 필요" : "연결 없음";
-        String nutritionDbStatus = host.nutritionSupabaseConfig().isConfigured()
-                ? "로그인됨"
-                : host.nutritionSupabaseConfig().isConnectionConfigured()
-                        ? "로그인 필요"
-                        : "연결 없음";
-        statusCard.addView(ui.keyValue("공통 DB", sharedDbStatus));
-        statusCard.addView(ui.keyValue("Nutrition DB", nutritionDbStatus));
+        statusCard.addView(ui.keyValue("Personal OS DB", accountStatus));
+        statusCard.addView(ui.keyValue(
+                "프로젝트",
+                config.projectRef().isEmpty() ? "미설정" : config.projectRef()
+        ));
+        statusCard.addView(ui.keyValue(
+                "운동·식사 기록",
+                config.isConfigured() ? "공통 계정 적용" : "기기 저장"
+        ));
+        statusCard.addView(ui.keyValue(
+                "영양 카탈로그",
+                config.isConfigured()
+                        ? "같은 계정 적용"
+                        : config.isConnectionConfigured() ? "공개 항목만" : "기기 저장"
+        ));
         statusCard.addView(ui.keyValue("동기화", host.syncLabel()));
         statusCard.addView(ui.keyValue("사용자", host.repositoryUserLabel()));
         Button syncButton = ui.button(host.isManualSyncing() ? "수동 동기화 중" : "수동 동기화", false,
@@ -65,37 +77,38 @@ public final class SettingsScreen extends BaseScreen {
 
         LinearLayout configCard = ui.card();
         String sharedConfigStatus = host.isSharedSupabaseConnectionManaged()
-                ? "앱 관리"
-                : host.supabaseConfig().isConnectionConfigured()
+                ? "빌드 설정"
+                : config.isConnectionConfigured()
                         ? "수동 대체 연결"
                         : "설정 필요";
-        ui.cardHeader(configCard, "공통 DB 연결", sharedConfigStatus);
+        ui.cardHeader(configCard, "Personal OS 공통 DB 연결", sharedConfigStatus);
         TextView sharedConfigHint = ui.text(
                 host.isSharedSupabaseConnectionManaged()
-                        ? "CashOS·PersonalOSApp과 공유하는 연결입니다. URL과 anon key는 앱 빌드 설정에서 관리되며 이 화면에서 변경할 수 없습니다."
-                        : "이 빌드에 공통 DB 설정이 없을 때만 사용하는 수동 대체 연결입니다. 배포 빌드는 local.properties 또는 환경변수로 관리하세요.",
+                        ? "CashOS·PersonalOSApp과 같은 Supabase 프로젝트를 사용합니다. 운동 기록과 영양 카탈로그 모두 이 연결을 공유합니다."
+                        : "개발용 수동 대체 연결입니다. 이 값 하나가 운동 기록과 영양 카탈로그에 함께 적용됩니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
         );
         configCard.addView(sharedConfigHint);
         if (host.isSharedSupabaseConnectionManaged()) {
-            configCard.addView(ui.keyValue("연결 설정", "빌드 설정 적용됨"));
+            configCard.addView(ui.keyValue("연결 원본", config.sourceLabel));
+            configCard.addView(ui.keyValue("프로젝트", config.projectRef()));
         } else {
             EditText supabaseUrlInput = ui.input(
-                    "공통 DB URL",
-                    host.supabaseConfig().supabaseUrl
+                    "Personal OS DB URL",
+                    config.supabaseUrl
             );
             EditText supabaseAnonInput = ui.input(
-                    "공통 DB anon key",
-                    host.supabaseConfig().supabaseAnonKey
+                    "Personal OS DB anon key",
+                    config.supabaseAnonKey
             );
             supabaseAnonInput.setInputType(
                     InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
             );
-            configCard.addView(ui.fieldLabel("공통 DB URL"));
+            configCard.addView(ui.fieldLabel("Personal OS DB URL"));
             configCard.addView(supabaseUrlInput, ui.fullWidthParams(0));
-            configCard.addView(ui.fieldLabel("공통 DB anon key"));
+            configCard.addView(ui.fieldLabel("Personal OS DB anon key"));
             configCard.addView(supabaseAnonInput, ui.fullWidthParams(0));
             Button saveButton = ui.button(
                     "수동 대체 연결 저장",
@@ -109,68 +122,28 @@ public final class SettingsScreen extends BaseScreen {
         }
         add(configCard);
 
-        LinearLayout nutritionConfigCard = ui.card();
-        ui.cardHeader(
-                nutritionConfigCard,
-                "Nutrition DB 연결",
-                "FitnessApp 전용 · 수동 관리"
-        );
-        TextView nutritionHint = ui.text(
-                "공통 DB와 별개인 영양 정보 저장소입니다. URL·anon key와 로그인 세션을 독립적으로 관리합니다.",
+        LinearLayout authCard = ui.card();
+        ui.cardHeader(authCard, "Personal OS 공통 계정", accountStatus);
+        TextView authHint = ui.text(
+                "앱별 로그인 상태는 기기에 따로 저장됩니다. CashOS·PersonalOSApp과 같은 이메일로 로그인하면 같은 auth.uid()로 접근합니다. 영양 카탈로그용 추가 로그인은 없습니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
         );
-        nutritionConfigCard.addView(nutritionHint);
-        EditText nutritionUrlInput = ui.input(
-                "Nutrition DB URL",
-                host.nutritionSupabaseConfig().supabaseUrl
-        );
-        EditText nutritionAnonInput = ui.input(
-                "Nutrition DB anon key",
-                host.nutritionSupabaseConfig().supabaseAnonKey
-        );
-        nutritionAnonInput.setInputType(
-                InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
-        );
-        nutritionConfigCard.addView(ui.fieldLabel("Nutrition DB URL"));
-        nutritionConfigCard.addView(nutritionUrlInput, ui.fullWidthParams(0));
-        nutritionConfigCard.addView(ui.fieldLabel("Nutrition DB anon key"));
-        nutritionConfigCard.addView(nutritionAnonInput, ui.fullWidthParams(0));
-        Button nutritionSaveButton = ui.button(
-                "Nutrition DB 연결 저장",
-                true,
-                v -> host.saveNutritionSupabaseConfig(
-                        FitnessUi.inputText(nutritionUrlInput),
-                        FitnessUi.inputText(nutritionAnonInput)
-                )
-        );
-        nutritionConfigCard.addView(nutritionSaveButton, ui.fullWidthParams(ui.dp(16)));
-        add(nutritionConfigCard);
-
-        LinearLayout authCard = ui.card();
-        ui.cardHeader(
-                authCard,
-                "공통 DB 로그인",
-                host.supabaseConfig().isConfigured()
-                        ? "로그인됨"
-                        : host.supabaseConfig().isConnectionConfigured()
-                                ? "최초 로그인 필요"
-                                : "연결 설정 필요"
-        );
-        if (host.supabaseConfig().isConfigured()) {
-            authCard.addView(ui.keyValue("계정", host.supabaseConfig().email));
-            Button signOutButton = ui.button("공통 DB 로그아웃", false, v -> host.signOutFromSupabase());
+        authCard.addView(authHint);
+        if (config.isConfigured()) {
+            authCard.addView(ui.keyValue("계정", config.email));
+            Button signOutButton = ui.button("로그아웃", false, v -> host.signOutFromSupabase());
             authCard.addView(signOutButton, ui.fullWidthParams(ui.dp(12)));
-        } else if (!host.supabaseConfig().isConnectionConfigured()) {
+        } else if (!config.isConnectionConfigured()) {
             authCard.addView(ui.text(
-                    "공통 DB 연결을 먼저 설정해야 로그인할 수 있습니다.",
+                    "공통 DB 설정이 없습니다. 개발 환경에서는 scripts/configure-shared-supabase.ps1을 실행하거나 위 수동 연결을 저장하세요.",
                     12,
                     FitnessUi.COLOR_MUTED,
                     false
             ));
         } else {
-            EditText emailInput = ui.input("이메일", host.supabaseConfig().email);
+            EditText emailInput = ui.input("이메일", config.email);
             emailInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
             EditText passwordInput = ui.input("비밀번호", "");
             passwordInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
@@ -178,12 +151,12 @@ public final class SettingsScreen extends BaseScreen {
             authCard.addView(emailInput, ui.fullWidthParams(0));
             authCard.addView(ui.fieldLabel("비밀번호"));
             authCard.addView(passwordInput, ui.fullWidthParams(0));
-            Button signInButton = ui.button("공통 DB 로그인", true, v -> host.signInToSupabase(
+            Button signInButton = ui.button("로그인", true, v -> host.signInToSupabase(
                     FitnessUi.inputText(emailInput),
                     FitnessUi.inputText(passwordInput)
             ));
             authCard.addView(signInButton, ui.fullWidthParams(ui.dp(16)));
-            Button signUpButton = ui.button("공통 DB 계정 만들기", false, v -> host.signUpToSupabase(
+            Button signUpButton = ui.button("계정 만들기", false, v -> host.signUpToSupabase(
                     FitnessUi.inputText(emailInput),
                     FitnessUi.inputText(passwordInput)
             ));
@@ -191,73 +164,6 @@ public final class SettingsScreen extends BaseScreen {
         }
         add(authCard);
 
-        LinearLayout nutritionAuthCard = ui.card();
-        String nutritionAuthStatus = host.nutritionSupabaseConfig().isConfigured()
-                ? "로그인됨"
-                : host.nutritionSupabaseConfig().isConnectionConfigured()
-                        ? "로그인 필요"
-                        : "연결 설정 필요";
-        ui.cardHeader(nutritionAuthCard, "Nutrition DB 로그인", nutritionAuthStatus);
-        if (host.nutritionSupabaseConfig().isConfigured()) {
-            nutritionAuthCard.addView(ui.keyValue("계정", host.nutritionSupabaseConfig().email));
-            Button nutritionSignOutButton = ui.button(
-                    "Nutrition DB 로그아웃",
-                    false,
-                    v -> host.signOutFromNutritionSupabase()
-            );
-            nutritionAuthCard.addView(
-                    nutritionSignOutButton,
-                    ui.fullWidthParams(ui.dp(12))
-            );
-        } else if (!host.nutritionSupabaseConfig().isConnectionConfigured()) {
-            nutritionAuthCard.addView(ui.text(
-                    "Nutrition DB URL과 anon key를 먼저 저장해야 로그인할 수 있습니다.",
-                    12,
-                    FitnessUi.COLOR_MUTED,
-                    false
-            ));
-        } else {
-            EditText nutritionEmailInput = ui.input(
-                    "Nutrition DB 이메일",
-                    host.nutritionSupabaseConfig().email
-            );
-            nutritionEmailInput.setInputType(
-                    InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-            );
-            EditText nutritionPasswordInput = ui.input("Nutrition DB 비밀번호", "");
-            nutritionPasswordInput.setInputType(
-                    InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD
-            );
-            nutritionAuthCard.addView(ui.fieldLabel("Nutrition DB 이메일"));
-            nutritionAuthCard.addView(nutritionEmailInput, ui.fullWidthParams(0));
-            nutritionAuthCard.addView(ui.fieldLabel("Nutrition DB 비밀번호"));
-            nutritionAuthCard.addView(nutritionPasswordInput, ui.fullWidthParams(0));
-            Button nutritionSignInButton = ui.button(
-                    "Nutrition DB 로그인",
-                    true,
-                    v -> host.signInToNutritionSupabase(
-                            FitnessUi.inputText(nutritionEmailInput),
-                            FitnessUi.inputText(nutritionPasswordInput)
-                    )
-            );
-            nutritionAuthCard.addView(
-                    nutritionSignInButton,
-                    ui.fullWidthParams(ui.dp(16))
-            );
-            Button nutritionSignUpButton = ui.button(
-                    "Nutrition DB 계정 만들기",
-                    false,
-                    v -> host.signUpToNutritionSupabase(
-                            FitnessUi.inputText(nutritionEmailInput),
-                            FitnessUi.inputText(nutritionPasswordInput)
-                    )
-            );
-            nutritionAuthCard.addView(
-                    nutritionSignUpButton,
-                    ui.fullWidthParams(ui.dp(12))
-            );
-        }
-        add(nutritionAuthCard);
     }
 
     private void renderDataImportCard() {

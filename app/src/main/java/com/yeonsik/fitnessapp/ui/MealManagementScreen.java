@@ -620,7 +620,7 @@ public final class MealManagementScreen extends BaseScreen {
         }
         catalogSyncing = true;
         syncMessage = "원격 카탈로그를 확인하는 중입니다.";
-        host.nutritionCatalogRepository().syncRemoteAsync(new NutritionCatalogRepository.SyncCallback() {
+        host.syncNutritionCatalog(new NutritionCatalogRepository.SyncCallback() {
             @Override
             public void onComplete(int pushedRows, int pulledRows) {
                 host.activity().runOnUiThread(() -> {

@@ -2,7 +2,6 @@ package com.yeonsik.fitnessapp.config;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -45,34 +44,18 @@ public final class SupabaseConnectionPolicyTest {
     }
 
     @Test
-    public void nutritionPolicyRemainsManualEvenIfDefaultsAreProvided() {
-        SupabaseConnectionPolicy policy = new SupabaseConnectionPolicy(
-                false,
-                "https://shared.supabase.co",
-                "shared-anon-key"
+    public void projectReferenceMakesTheActiveSharedTenantVisible() {
+        SupabaseConfig config = new SupabaseConfig(
+                "https://personal-os-project.supabase.co",
+                "shared-anon-key",
+                "",
+                "",
+                "",
+                "",
+                SupabaseConfig.APP_MANAGED_SOURCE
         );
 
-        assertFalse(policy.isManaged());
-        assertEquals("https://nutrition.supabase.co", policy.resolveUrl(
-                "https://nutrition.supabase.co"
-        ));
-        assertEquals("nutrition-anon-key", policy.resolveAnonKey("nutrition-anon-key"));
-    }
-
-    @Test
-    public void sharedAndNutritionStorageNamespacesAreFullySeparated() {
-        assertNotEquals(
-                SupabaseStoreScope.SHARED.configPreferencesName,
-                SupabaseStoreScope.NUTRITION.configPreferencesName
-        );
-        assertNotEquals(
-                SupabaseStoreScope.SHARED.tokenKeyAlias,
-                SupabaseStoreScope.NUTRITION.tokenKeyAlias
-        );
-        assertNotEquals(
-                SupabaseStoreScope.SHARED.tokenPreferencesName,
-                SupabaseStoreScope.NUTRITION.tokenPreferencesName
-        );
+        assertEquals("personal-os-project", config.projectRef());
     }
 
     @Test

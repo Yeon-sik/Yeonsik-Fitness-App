@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.config;
 
+import java.net.URI;
+
 public final class SupabaseConfig {
     public static final String APP_MANAGED_SOURCE = "app managed";
     public static final String LOCAL_SETTINGS_SOURCE = "local settings";
@@ -42,6 +44,22 @@ public final class SupabaseConfig {
 
     public boolean isConfigured() {
         return isConnectionConfigured() && !userId.isEmpty() && !accessToken.isEmpty();
+    }
+
+    public String projectRef() {
+        if (!isConnectionConfigured()) {
+            return "";
+        }
+        try {
+            String host = URI.create(supabaseUrl).getHost();
+            String suffix = ".supabase.co";
+            if (host != null && host.endsWith(suffix)) {
+                return host.substring(0, host.length() - suffix.length());
+            }
+        } catch (IllegalArgumentException ignored) {
+            // A custom HTTPS deployment can still be valid even without a Supabase project ref.
+        }
+        return "custom";
     }
 
     public String effectiveUserId() {

@@ -223,7 +223,7 @@ public final class MealDialogController {
 
         picker.show();
         populate.run();
-        catalogRepository.syncRemoteAsync(new NutritionCatalogRepository.SyncCallback() {
+        host.syncNutritionCatalog(new NutritionCatalogRepository.SyncCallback() {
             @Override
             public void onComplete(int pushedRows, int pulledRows) {
                 host.activity().runOnUiThread(() -> {
@@ -556,7 +556,7 @@ public final class MealDialogController {
     }
 
     private void syncCatalogQuietly() {
-        catalogRepository.syncRemoteAsync(new NutritionCatalogRepository.SyncCallback() {
+        host.syncNutritionCatalog(new NutritionCatalogRepository.SyncCallback() {
             @Override
             public void onComplete(int pushedRows, int pulledRows) {
             }

@@ -28,8 +28,8 @@ import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
-import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
-import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
+import com.yeonsik.fitnessapp.config.LegacyNutritionAccountStore;
+import com.yeonsik.fitnessapp.config.LegacyNutritionOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.data.FleekCsvImporter;
@@ -103,12 +103,11 @@ public final class MainActivity extends Activity implements ScreenHost {
     private ExerciseMasterRepository exerciseMasterRepository;
     private RoutineRepository routineRepository;
     private SupabaseConfigStore configStore;
-    private NutritionSupabaseConfigStore nutritionConfigStore;
+    private LegacyNutritionAccountStore legacyNutritionAccountStore;
+    private LegacyNutritionAccountStore.Identity legacyNutritionIdentity;
     private SupabaseSyncManager syncManager;
     private SupabaseAuthManager authManager;
-    private SupabaseAuthManager nutritionAuthManager;
     private SupabaseConfig supabaseConfig;
-    private SupabaseConfig nutritionSupabaseConfig;
 
     private FitnessUi ui;
     private Map<FitnessScreen, BaseScreen> screens;
@@ -155,17 +154,20 @@ public final class MainActivity extends Activity implements ScreenHost {
         super.onCreate(savedInstanceState);
         configStore = new SupabaseConfigStore(this);
         supabaseConfig = configStore.load();
-        nutritionConfigStore = new NutritionSupabaseConfigStore(this);
-        nutritionSupabaseConfig = nutritionConfigStore.load();
+        legacyNutritionAccountStore = new LegacyNutritionAccountStore(this);
+        legacyNutritionIdentity = legacyNutritionAccountStore.loadIdentity();
         authManager = new SupabaseAuthManager(configStore);
-        nutritionAuthManager = new SupabaseAuthManager(nutritionConfigStore);
         FitnessDatabaseHelper databaseHelper = new FitnessDatabaseHelper(this);
         repository = new FitnessRepository(databaseHelper, supabaseConfig.effectiveUserId());
         nutritionCatalogRepository = new NutritionCatalogRepository(
                 databaseHelper,
-                nutritionSupabaseConfig.effectiveUserId(),
-                nutritionSupabaseConfig
+                SupabaseConfig.DEFAULT_USER_ID,
+                supabaseConfig
         );
+        if (supabaseConfig.isConfigured()) {
+            nutritionCatalogRepository.normalizeLocalUserId(supabaseConfig.effectiveUserId());
+            migrateLegacyNutritionOwnerIfSafe(supabaseConfig);
+        }
         cardioRepository = new CardioRepository(databaseHelper, repository);
         repository.reconcileSharedWorkoutSummaries();
         exerciseMasterRepository = new ExerciseMasterRepository(this);
@@ -1392,27 +1394,9 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void saveSupabaseConfig(String url, String anonKey) {
         try {
-            supabaseConfig = configStore.saveConnection(url, anonKey);
+            applySessionConfig(configStore.saveConnection(url, anonKey));
             applySyncStatusFromConfig();
-            toast("설정을 저장했습니다.");
-        } catch (IllegalArgumentException | IllegalStateException error) {
-            toast(error.getMessage());
-        }
-        render();
-    }
-
-    @Override
-    public SupabaseConfig nutritionSupabaseConfig() {
-        return nutritionSupabaseConfig;
-    }
-
-    @Override
-    public void saveNutritionSupabaseConfig(String url, String anonKey) {
-        try {
-            nutritionSupabaseConfig = nutritionConfigStore.saveConnection(url, anonKey);
-            nutritionCatalogRepository.setUserId(nutritionSupabaseConfig.effectiveUserId());
-            nutritionCatalogRepository.setSupabaseConfig(nutritionSupabaseConfig);
-            toast("Nutrition DB 설정을 저장했습니다.");
+            toast("Personal OS 공통 DB 설정을 저장했습니다.");
         } catch (IllegalArgumentException | IllegalStateException error) {
             toast(error.getMessage());
         }
@@ -1422,7 +1406,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void signInToSupabase(String email, String password) {
         if (!supabaseConfig.isConnectionConfigured()) {
-            toast("공통 DB 빌드 설정이 없습니다. 수동 대체 연결을 먼저 저장하세요.");
+            toast("Personal OS 공통 DB 설정이 없습니다. 연결 설정을 먼저 확인하세요.");
             return;
         }
         syncLabel = "authenticating";
@@ -1436,11 +1420,12 @@ public final class MainActivity extends Activity implements ScreenHost {
                         password
                 );
                 runOnUiThread(() -> {
-                    supabaseConfig = authenticated;
-                    repository.normalizeLocalUserId(authenticated.effectiveUserId());
-                    routineRepository.normalizeLocalUserId(authenticated.effectiveUserId());
+                    int migratedNutritionRows = applyAuthenticatedConfig(authenticated);
                     applySyncStatusFromConfig();
-                    toast("로그인했습니다.");
+                    toast(migratedNutritionRows > 0
+                            ? "로그인했습니다. 기존 영양 항목 " + migratedNutritionRows
+                            + "개를 공통 계정으로 옮겼습니다."
+                            : "Personal OS 공통 계정으로 로그인했습니다.");
                     render();
                 });
             } catch (Exception error) {
@@ -1459,7 +1444,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void signUpToSupabase(String email, String password) {
         if (!supabaseConfig.isConnectionConfigured()) {
-            toast("공통 DB 빌드 설정이 없습니다. 수동 대체 연결을 먼저 저장하세요.");
+            toast("Personal OS 공통 DB 설정이 없습니다. 연결 설정을 먼저 확인하세요.");
             return;
         }
         syncLabel = "authenticating";
@@ -1478,11 +1463,12 @@ public final class MainActivity extends Activity implements ScreenHost {
                         syncDetail = "가입 확인 메일을 확인한 뒤 로그인하세요.";
                         toast("가입 확인 메일을 보냈습니다.");
                     } else {
-                        supabaseConfig = result.config;
-                        repository.normalizeLocalUserId(result.config.effectiveUserId());
-                        routineRepository.normalizeLocalUserId(result.config.effectiveUserId());
+                        int migratedNutritionRows = applyAuthenticatedConfig(result.config);
                         applySyncStatusFromConfig();
-                        toast("계정이 생성되고 로그인되었습니다.");
+                        toast(migratedNutritionRows > 0
+                                ? "계정을 만들었습니다. 기존 영양 항목 "
+                                + migratedNutritionRows + "개를 옮겼습니다."
+                                : "Personal OS 공통 계정이 생성되고 로그인되었습니다.");
                     }
                     render();
                 });
@@ -1501,96 +1487,32 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     public void signOutFromSupabase() {
-        supabaseConfig = configStore.clearSession();
-        String loggedOutOwnerId = AccountOwnerPolicy.loggedOutOwnerId();
-        repository.normalizeLocalUserId(loggedOutOwnerId);
-        routineRepository.normalizeLocalUserId(loggedOutOwnerId);
+        applySessionConfig(configStore.clearSession());
         applySyncStatusFromConfig();
         toast("로그아웃했습니다. 로컬 기록은 유지됩니다.");
         render();
     }
 
     @Override
-    public void signInToNutritionSupabase(String email, String password) {
-        SupabaseConfig config = nutritionSupabaseConfig;
-        if (!config.isConnectionConfigured()) {
-            toast("Nutrition DB URL과 anon key를 먼저 저장하세요.");
-            return;
-        }
+    public void syncNutritionCatalog(NutritionCatalogRepository.SyncCallback callback) {
         executor.execute(() -> {
             try {
-                SupabaseConfig authenticated = nutritionAuthManager.signIn(
-                        config,
-                        email,
-                        password
-                );
-                runOnUiThread(() -> {
-                    nutritionSupabaseConfig = authenticated;
-                    nutritionCatalogRepository.normalizeLocalUserId(
-                            authenticated.effectiveUserId()
-                    );
-                    nutritionCatalogRepository.setSupabaseConfig(authenticated);
-                    toast("Nutrition DB에 로그인했습니다.");
-                    render();
-                });
+                SupabaseConfig activeConfig = supabaseConfig;
+                if (activeConfig.isConfigured()) {
+                    activeConfig = authManager.refresh(activeConfig);
+                    applySessionConfig(activeConfig);
+                }
+                NutritionCatalogRepository.CatalogSyncResult result =
+                        nutritionCatalogRepository.syncRemote();
+                if (callback != null) {
+                    callback.onComplete(result.pushedRows, result.pulledRows);
+                }
             } catch (Exception error) {
-                runOnUiThread(() -> {
-                    toast(error.getMessage() == null
-                            ? "Nutrition DB 로그인에 실패했습니다."
-                            : error.getMessage());
-                    render();
-                });
+                if (callback != null) {
+                    callback.onError(error);
+                }
             }
         });
-    }
-
-    @Override
-    public void signUpToNutritionSupabase(String email, String password) {
-        SupabaseConfig config = nutritionSupabaseConfig;
-        if (!config.isConnectionConfigured()) {
-            toast("Nutrition DB URL과 anon key를 먼저 저장하세요.");
-            return;
-        }
-        executor.execute(() -> {
-            try {
-                SupabaseAuthManager.SignUpResult result = nutritionAuthManager.signUp(
-                        config,
-                        email,
-                        password
-                );
-                runOnUiThread(() -> {
-                    if (result.emailConfirmationRequired) {
-                        toast("Nutrition DB 가입 확인 메일을 확인하세요.");
-                    } else {
-                        nutritionSupabaseConfig = result.config;
-                        nutritionCatalogRepository.normalizeLocalUserId(
-                                result.config.effectiveUserId()
-                        );
-                        nutritionCatalogRepository.setSupabaseConfig(result.config);
-                        toast("Nutrition DB 계정이 생성되었습니다.");
-                    }
-                    render();
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> {
-                    toast(error.getMessage() == null
-                            ? "Nutrition DB 가입에 실패했습니다."
-                            : error.getMessage());
-                    render();
-                });
-            }
-        });
-    }
-
-    @Override
-    public void signOutFromNutritionSupabase() {
-        nutritionSupabaseConfig = nutritionConfigStore.clearSession();
-        nutritionCatalogRepository.normalizeLocalUserId(
-                AccountOwnerPolicy.loggedOutOwnerId()
-        );
-        nutritionCatalogRepository.setSupabaseConfig(nutritionSupabaseConfig);
-        toast("Nutrition DB에서 로그아웃했습니다.");
-        render();
     }
 
     @Override
@@ -1608,15 +1530,17 @@ public final class MainActivity extends Activity implements ScreenHost {
         executor.execute(() -> {
             try {
                 SupabaseConfig refreshedConfig = authManager.refresh(supabaseConfig);
+                applySessionConfig(refreshedConfig);
                 SupabaseSyncManager.SyncResult result = syncManager.manualSync(refreshedConfig);
+                NutritionCatalogRepository.CatalogSyncResult catalogResult =
+                        nutritionCatalogRepository.syncRemote();
                 lastSyncedAt = result.syncedAt;
                 runOnUiThread(() -> {
-                    supabaseConfig = refreshedConfig;
-                    repository.setUserId(refreshedConfig.effectiveUserId());
-                    routineRepository.setUserId(refreshedConfig.effectiveUserId());
                     isManualSyncing = false;
                     syncLabel = "synced";
-                    syncDetail = "push " + result.pushedRows + "건 · pull " + result.pulledRows + "건";
+                    syncDetail = "기록 push " + result.pushedRows + "건 · pull "
+                            + result.pulledRows + "건 · 영양 push " + catalogResult.pushedRows
+                            + "건 · pull " + catalogResult.pulledRows + "건";
                     toast("수동 동기화를 완료했습니다.");
                     render();
                 });
@@ -1632,19 +1556,65 @@ public final class MainActivity extends Activity implements ScreenHost {
         });
     }
 
+    private int applyAuthenticatedConfig(SupabaseConfig config) {
+        supabaseConfig = config;
+        String userId = config.effectiveUserId();
+        repository.normalizeLocalUserId(userId);
+        routineRepository.normalizeLocalUserId(userId);
+        nutritionCatalogRepository.normalizeLocalUserId(userId);
+        int migratedNutritionRows = migrateLegacyNutritionOwnerIfSafe(config);
+        nutritionCatalogRepository.setSupabaseConfig(config);
+        return migratedNutritionRows;
+    }
+
+    private void applySessionConfig(SupabaseConfig config) {
+        supabaseConfig = config;
+        String userId = config.effectiveUserId();
+        repository.setUserId(userId);
+        routineRepository.setUserId(userId);
+        nutritionCatalogRepository.setUserId(userId);
+        nutritionCatalogRepository.setSupabaseConfig(config);
+    }
+
+    private int migrateLegacyNutritionOwnerIfSafe(SupabaseConfig sharedConfig) {
+        if (legacyNutritionIdentity == null || !legacyNutritionIdentity.isPresent()) {
+            return 0;
+        }
+
+        if (LegacyNutritionOwnerPolicy.canMigrate(legacyNutritionIdentity, sharedConfig)) {
+            int migratedRows = nutritionCatalogRepository.migrateLegacyOwner(
+                    legacyNutritionIdentity.userId,
+                    sharedConfig.effectiveUserId()
+            );
+            clearLegacyNutritionIdentity();
+            return migratedRows;
+        }
+
+        if (legacyNutritionIdentity.userId.isEmpty()
+                || SupabaseConfig.DEFAULT_USER_ID.equals(legacyNutritionIdentity.userId)) {
+            clearLegacyNutritionIdentity();
+        }
+        return 0;
+    }
+
+    private void clearLegacyNutritionIdentity() {
+        legacyNutritionAccountStore.clear();
+        legacyNutritionIdentity = new LegacyNutritionAccountStore.Identity("", "");
+    }
+
     private void applySyncStatusFromConfig() {
         if (supabaseConfig.isConfigured()) {
             syncLabel = lastSyncedAt.isEmpty() ? "configured" : "synced";
             syncDetail = lastSyncedAt.isEmpty()
-                    ? "Supabase 설정이 저장되었습니다."
+                    ? "Personal OS 공통 계정으로 연결되었습니다."
                     : "마지막 동기화 " + lastSyncedAt;
             return;
         }
 
         syncLabel = supabaseConfig.isConnectionConfigured() ? "login required" : "local-only";
         syncDetail = supabaseConfig.isConnectionConfigured()
-                ? "공통 DB는 연결되었습니다. 최초 1회 로그인하세요."
-                : "공통 DB 빌드 설정이 없어 로컬 전용 모드입니다.";
+                ? "공통 DB는 연결되었습니다. 이 앱에서 최초 1회 로그인하세요."
+                : "Personal OS 공통 DB 설정이 없어 로컬 전용 모드입니다.";
     }
 
     @Override

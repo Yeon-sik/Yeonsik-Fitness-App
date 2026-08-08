@@ -111,21 +111,13 @@ public interface ScreenHost {
 
     void saveSupabaseConfig(String url, String anonKey);
 
-    SupabaseConfig nutritionSupabaseConfig();
-
-    void saveNutritionSupabaseConfig(String url, String anonKey);
-
     void signInToSupabase(String email, String password);
 
     void signUpToSupabase(String email, String password);
 
     void signOutFromSupabase();
 
-    void signInToNutritionSupabase(String email, String password);
-
-    void signUpToNutritionSupabase(String email, String password);
-
-    void signOutFromNutritionSupabase();
+    void syncNutritionCatalog(NutritionCatalogRepository.SyncCallback callback);
 
     void runManualSync();
 
