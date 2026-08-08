@@ -712,7 +712,7 @@ public final class FitnessRepository {
                           List<MealCompositionItem> compositionItems) {
         return addMeal(
                 date,
-                "식사",
+                nextMealLabelForDate(date),
                 menuText,
                 calories,
                 proteinGrams,
@@ -722,7 +722,7 @@ public final class FitnessRepository {
         );
     }
 
-    public String addMeal(String date, String mealType, String menuText, Integer calories,
+    public String addMeal(String date, String mealLabel, String menuText, Integer calories,
                           Double proteinGrams, Double carbsGrams, Double fatGrams,
                           List<MealCompositionItem> compositionItems) {
         List<MealCompositionItem> items = compositionItems == null
@@ -730,21 +730,29 @@ public final class FitnessRepository {
                 : compositionItems;
         String id = newId();
         String now = now();
+        LocalDate today = LocalDate.now();
+        LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, today);
+        boolean isBackfilled = MealEntryPolicy.isBackfilled(recordDate, today);
         ContentValues values = baseValues(id, now);
-        values.put("date", emptyToToday(date));
+        values.put("date", recordDate.toString());
         values.put("menu", emptyToDefault(menuText, "Meal"));
         values.put("calories", calories == null ? 0 : calories);
         values.put("protein_grams", proteinGrams == null ? 0 : proteinGrams);
         values.put("carbs_grams", carbsGrams == null ? 0 : carbsGrams);
         values.put("fat_grams", fatGrams == null ? 0 : fatGrams);
-        values.put("is_backfilled", 0);
-        values.putNull("backfilled_at");
-        values.putNull("backfill_reason");
+        values.put("is_backfilled", isBackfilled ? 1 : 0);
+        if (isBackfilled) {
+            values.put("backfilled_at", now);
+            values.put("backfill_reason", "manual past meal entry");
+        } else {
+            values.putNull("backfilled_at");
+            values.putNull("backfill_reason");
+        }
         values.put("source_app", "fitness");
         values.put("scope", "fitness");
         values.put("metadata", json(
                 "item_type", "meal",
-                "meal_type", normalizeMealType(mealType),
+                "meal_type", normalizeMealLabel(mealLabel),
                 "estimated", "false",
                 "composition_version", "1",
                 "item_count", String.valueOf(items.size())
@@ -927,6 +935,9 @@ public final class FitnessRepository {
     public List<MealEntry> mealEntriesForDate(String date) {
         List<MealEntry> entries = new ArrayList<>();
         String selectedDate = emptyToToday(date);
+        // meal_type remains in synced metadata for compatibility, but visible labels are derived
+        // from the current order so deleting a middle row never leaves a numbering gap.
+        int mealIndex = 0;
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, date, menu, calories, protein_grams, carbs_grams, fat_grams, " +
                         "metadata, created_at " +
@@ -939,7 +950,7 @@ public final class FitnessRepository {
                 entries.add(new MealEntry(
                         cursor.getString(0),
                         cursor.getString(1),
-                        mealTypeFromMetadata(cursor.getString(7)),
+                        MealEntryPolicy.labelForIndex(mealIndex++),
                         cursor.getString(2),
                         cursor.getInt(3),
                         cursor.getDouble(4),
@@ -1866,6 +1877,10 @@ public final class FitnessRepository {
         }
     }
 
+    public String nextMealLabelForDate(String date) {
+        return MealEntryPolicy.labelForIndex(mealCountForDate(date));
+    }
+
     public List<String> mealsForDate(String date) {
         List<String> rows = new ArrayList<>();
         String sql = "SELECT date, menu, calories, protein_grams, carbs_grams, fat_grams FROM meal_records WHERE deleted_at IS NULL AND scope IN ('fitness', 'both')";
@@ -2239,18 +2254,9 @@ public final class FitnessRepository {
         return builder.toString();
     }
 
-    private static String normalizeMealType(String value) {
+    private static String normalizeMealLabel(String value) {
         String normalized = value == null ? "" : value.trim();
-        return normalized.isEmpty() ? "식사" : normalized;
-    }
-
-    private static String mealTypeFromMetadata(String metadata) {
-        try {
-            return normalizeMealType(new JSONObject(metadata == null ? "{}" : metadata)
-                    .optString("meal_type", "식사"));
-        } catch (Exception ignored) {
-            return "식사";
-        }
+        return normalized.isEmpty() ? "1끼" : normalized;
     }
 
     private static int itemCountFromMetadata(String metadata) {
@@ -2728,7 +2734,7 @@ public final class FitnessRepository {
     public static final class MealEntry {
         public final String id;
         public final String date;
-        public final String mealType;
+        public final String mealLabel;
         public final String menu;
         public final int calories;
         public final double proteinGrams;
@@ -2737,12 +2743,12 @@ public final class FitnessRepository {
         public final int compositionCount;
         public final String createdAt;
 
-        public MealEntry(String id, String date, String mealType, String menu, int calories,
+        public MealEntry(String id, String date, String mealLabel, String menu, int calories,
                          double proteinGrams, double carbsGrams, double fatGrams,
                          int compositionCount, String createdAt) {
             this.id = id;
             this.date = date;
-            this.mealType = mealType;
+            this.mealLabel = mealLabel;
             this.menu = menu;
             this.calories = calories;
             this.proteinGrams = proteinGrams;

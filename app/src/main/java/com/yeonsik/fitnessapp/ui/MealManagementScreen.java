@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
+import android.app.DatePickerDialog;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
@@ -29,12 +30,10 @@ import java.util.Locale;
  * 날짜별 섭취 요약, 식사 기록, 음식 카탈로그 검색, 구성 메뉴 저장을 한 흐름으로 제공한다.
  */
 public final class MealManagementScreen extends BaseScreen {
-    private static final String[] MEAL_TYPES = {"아침", "점심", "저녁", "간식"};
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN);
 
     private String selectedDate;
-    private String selectedMealType = MEAL_TYPES[0];
     private String draftName = "";
     private String catalogQuery = "";
     private final List<MealCompositionItem> draftItems = new ArrayList<>();
@@ -73,10 +72,10 @@ public final class MealManagementScreen extends BaseScreen {
         add(dateNavigator());
         add(dailySummary());
 
-        section("기록된 식사");
+        section("기록된 끼니");
         renderMealEntries();
 
-        section("새 식사");
+        section("새 끼니");
         add(mealComposer());
 
         section("음식·메뉴 카탈로그");
@@ -104,11 +103,12 @@ public final class MealManagementScreen extends BaseScreen {
         LinearLayout dateColumn = new LinearLayout(host.activity());
         dateColumn.setOrientation(LinearLayout.VERTICAL);
         dateColumn.setGravity(Gravity.CENTER);
-        TextView date = ui.text(dateLabel(), 17, FitnessUi.COLOR_TEXT, true);
+        TextView date = ui.textAction(dateLabel(), FitnessUi.COLOR_TEXT, this::showDatePicker);
+        date.setTextSize(17);
         date.setGravity(Gravity.CENTER);
         dateColumn.addView(date);
         TextView helper = ui.text(
-                isToday() ? "오늘의 식단" : "선택한 날짜의 식단",
+                isToday() ? "오늘 · 탭하여 지난날 선택" : "지난날 기록 · 탭하여 날짜 변경",
                 11,
                 FitnessUi.COLOR_TERTIARY,
                 false
@@ -124,13 +124,40 @@ public final class MealManagementScreen extends BaseScreen {
             }));
         }
 
+        boolean canMoveForward = !isToday();
         TextView next = ui.textAction("›", FitnessUi.COLOR_MUTED, () -> {
-            selectedDate = LocalDate.parse(selectedDate).plusDays(1).toString();
-            host.rerender();
+            if (canMoveForward) {
+                selectedDate = LocalDate.parse(selectedDate).plusDays(1).toString();
+                host.rerender();
+            }
         });
+        next.setEnabled(canMoveForward);
+        next.setAlpha(canMoveForward ? 1f : 0.35f);
         row.addView(next, new LinearLayout.LayoutParams(ui.dp(42), LinearLayout.LayoutParams.WRAP_CONTENT));
         card.addView(row);
+        card.addView(ui.button(
+                isToday() ? "지난날 끼니 기록하기" : "기록 날짜 다시 선택",
+                false,
+                v -> showDatePicker()
+        ), ui.fullWidthParams(ui.dp(12)));
         return card;
+    }
+
+    private void showDatePicker() {
+        LocalDate current = LocalDate.parse(selectedDate);
+        DatePickerDialog picker = new DatePickerDialog(
+                host.activity(),
+                (view, year, month, dayOfMonth) -> {
+                    selectedDate = LocalDate.of(year, month + 1, dayOfMonth).toString();
+                    host.rerender();
+                },
+                current.getYear(),
+                current.getMonthValue() - 1,
+                current.getDayOfMonth()
+        );
+        picker.getDatePicker().setMaxDate(System.currentTimeMillis());
+        picker.setTitle("끼니를 기록할 날짜");
+        picker.show();
     }
 
     private View dailySummary() {
@@ -144,7 +171,10 @@ public final class MealManagementScreen extends BaseScreen {
         header.addView(ui.caption("DAILY NUTRITION", FitnessUi.COLOR_FLOW_MUTED),
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         header.addView(ui.flowStatusBadge(
-                catalogSyncing ? "동기화 중" : (host.supabaseConfig().isConfigured() ? "원격 연결" : "기기 저장"),
+                catalogSyncing ? "동기화 중"
+                        : (host.nutritionSupabaseConfig().isConnectionConfigured()
+                        ? "영양 DB 연결"
+                        : "기기 저장"),
                 catalogSyncing ? FitnessUi.COLOR_WARNING : FitnessUi.COLOR_POSITIVE
         ));
         card.addView(header);
@@ -181,30 +211,30 @@ public final class MealManagementScreen extends BaseScreen {
     private void renderMealEntries() {
         List<FitnessRepository.MealEntry> entries = repository().mealEntriesForDate(selectedDate);
         if (entries.isEmpty()) {
-            emptyState("아직 기록된 식사가 없습니다.", "아래에서 메뉴를 검색해 첫 식사를 추가하세요.");
+            emptyState("아직 기록된 끼니가 없습니다.", "아래에서 메뉴를 검색해 1끼를 추가하세요.");
             return;
         }
 
         List<View> rows = new ArrayList<>();
-        for (FitnessRepository.MealEntry entry : entries) {
-            rows.add(mealRow(entry));
+        for (int index = 0; index < entries.size(); index++) {
+            rows.add(mealRow(entries.get(index), index));
         }
         add(ui().rowsCard(rows));
     }
 
-    private View mealRow(FitnessRepository.MealEntry entry) {
+    private View mealRow(FitnessRepository.MealEntry entry, int mealIndex) {
         FitnessUi ui = ui();
         LinearLayout row = new LinearLayout(host.activity());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setMinimumHeight(ui.dp(72));
         row.setPadding(0, ui.dp(8), 0, ui.dp(8));
-        row.addView(ui.glyphCircle(mealGlyph(entry.mealType), false));
+        row.addView(ui.glyphCircle(String.valueOf(mealIndex + 1), false));
 
         LinearLayout column = new LinearLayout(host.activity());
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(ui.dp(12), 0, ui.dp(8), 0);
-        column.addView(ui.text(entry.mealType + "  ·  " + entry.menu, 15,
+        column.addView(ui.text(entry.mealLabel + "  ·  " + entry.menu, 15,
                 FitnessUi.COLOR_TEXT, true));
         String composition = entry.compositionCount > 0
                 ? "구성 " + entry.compositionCount + "개"
@@ -268,24 +298,18 @@ public final class MealManagementScreen extends BaseScreen {
     private View mealComposer() {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
-        ui.cardHeader(card, "식사 구성 만들기", selectedDate.equals(host.today()) ? "오늘" : selectedDate);
-
-        LinearLayout typeRow = ui.tileRow();
-        for (int index = 0; index < MEAL_TYPES.length; index++) {
-            String type = MEAL_TYPES[index];
-            Button button = ui.filterButton(type);
-            ui.styleFilterButton(button, type.equals(selectedMealType));
-            button.setOnClickListener(v -> {
-                syncDraftFromViews();
-                selectedMealType = type;
-                host.rerender();
-            });
-            typeRow.addView(button, ui.tileParams(index == 0));
-        }
-        card.addView(typeRow, ui.fullWidthParams(ui.dp(12)));
+        String nextMealLabel = repository().nextMealLabelForDate(selectedDate);
+        ui.cardHeader(card, "새 끼니 구성", nextMealLabel + " · "
+                + (selectedDate.equals(host.today()) ? "오늘" : dateLabel()));
+        card.addView(ui.text(
+                "등록한 순서대로 1끼, 2끼, 3끼… 자동 구분됩니다. 끼니 수 제한은 없습니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
 
         mealNameInput = ui.input("메뉴 이름 (예: 닭갈비, 햄버거)", draftName);
-        card.addView(ui.labeledFieldColumn("이번 식사의 이름", mealNameInput),
+        card.addView(ui.labeledFieldColumn("이번 끼니의 이름", mealNameInput),
                 ui.fullWidthParams(ui.dp(12)));
 
         LinearLayout compositionHeader = new LinearLayout(host.activity());
@@ -309,11 +333,11 @@ public final class MealManagementScreen extends BaseScreen {
         card.addView(compositionTotal);
         updateCompositionTotal();
 
-        Button saveMeal = ui.button("이 식사 기록하기", true, v -> saveMeal());
+        Button saveMeal = ui.button(nextMealLabel + " 기록하기", true, v -> saveMeal());
         Button saveRecipe = ui.button("구성 메뉴로 저장", false, v -> saveRecipe());
         card.addView(ui.buttonRow(saveMeal, saveRecipe), ui.fullWidthParams(ui.dp(16)));
         card.addView(ui.text(
-                "식사 기록은 날짜별 기록에 남고, 구성 메뉴는 다음 검색에서 다시 사용할 수 있습니다.",
+                "끼니 기록은 선택한 날짜에 남고, 구성 메뉴는 다음 검색에서 다시 사용할 수 있습니다.",
                 11,
                 FitnessUi.COLOR_TERTIARY,
                 false
@@ -576,14 +600,15 @@ public final class MealManagementScreen extends BaseScreen {
             host.toast("식사에 추가할 음식이나 메뉴를 먼저 선택하세요.");
             return;
         }
+        String mealLabel = repository().nextMealLabelForDate(selectedDate);
         String name = draftName.trim();
         if (name.isEmpty()) {
-            name = draftItems.size() == 1 ? draftItems.get(0).food.name : selectedMealType + " 식사";
+            name = draftItems.size() == 1 ? draftItems.get(0).food.name : mealLabel + " 식사";
         }
         NutritionTotals total = NutritionCalculator.sum(draftItems);
         repository().addMeal(
                 selectedDate,
-                selectedMealType,
+                mealLabel,
                 name,
                 (int) Math.round(total.calories()),
                 total.proteinGrams(),
@@ -593,7 +618,7 @@ public final class MealManagementScreen extends BaseScreen {
         );
         draftItems.clear();
         draftName = "";
-        host.toast(selectedMealType + " 식사를 기록했습니다.");
+        host.toast(mealLabel + "를 " + dateLabel() + "에 기록했습니다.");
         host.rerender();
     }
 
@@ -712,8 +737,8 @@ public final class MealManagementScreen extends BaseScreen {
 
     private void confirmDeleteMeal(FitnessRepository.MealEntry entry) {
         ui().confirmSheet(
-                "식사 기록 삭제",
-                entry.mealType + " · " + entry.menu + " 기록을 삭제할까요?",
+                "끼니 기록 삭제",
+                entry.mealLabel + " · " + entry.menu + " 기록을 삭제할까요?",
                 "삭제하면 선택한 날짜의 식단 합계에서도 빠집니다.",
                 "기록 삭제",
                 () -> {
@@ -737,18 +762,6 @@ public final class MealManagementScreen extends BaseScreen {
         }
         if (NutritionFood.KIND_INGREDIENT.equals(kind)) {
             return "재";
-        }
-        if ("아침".equals(kind)) {
-            return "아";
-        }
-        if ("점심".equals(kind)) {
-            return "점";
-        }
-        if ("저녁".equals(kind)) {
-            return "저";
-        }
-        if ("간식".equals(kind)) {
-            return "간";
         }
         return "외";
     }
