@@ -17,6 +17,7 @@ import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionTotals;
+import com.yeonsik.fitnessapp.data.ProductNutritionLink;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.time.LocalDate;
@@ -49,10 +50,12 @@ public final class MealManagementScreen extends BaseScreen {
     private boolean initialSyncRequested;
     private boolean catalogSyncing;
     private String syncMessage = "기기와 원격 카탈로그를 함께 검색합니다.";
+    private final ProductNutritionLinkDialogController productLinkController;
 
     public MealManagementScreen(ScreenHost host) {
         super(host);
         selectedDate = host.today();
+        productLinkController = new ProductNutritionLinkDialogController(host);
     }
 
     @Override
@@ -521,9 +524,39 @@ public final class MealManagementScreen extends BaseScreen {
         if (missingNotice != null) {
             details.addView(ui.text(missingNotice, 11, FitnessUi.COLOR_TERTIARY, false));
         }
+        ProductNutritionLink approved = host.nutritionCatalogRepository()
+                .approvedProductLink(food.id);
+        List<ProductNutritionLink> suggestions = host.nutritionCatalogRepository()
+                .pendingProductLinkSuggestions(food.id);
+        if (approved != null) {
+            details.addView(ui.text(
+                    "PriceTrace · " + (approved.product == null
+                            ? "catalogProductId " + approved.catalogProductId
+                            : approved.product.priceObservationLabel()),
+                    11,
+                    FitnessUi.COLOR_TERTIARY,
+                    false
+            ));
+        } else if (!suggestions.isEmpty()) {
+            details.addView(ui.text(
+                    "PriceTrace 제안 " + suggestions.size() + "건 · 승인 필요",
+                    11,
+                    FitnessUi.COLOR_TERTIARY,
+                    false
+            ));
+        }
         row.addView(details, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView add = ui.text("추가 ›", 12, FitnessUi.COLOR_TERTIARY, true);
-        row.addView(add);
+        LinearLayout actions = new LinearLayout(host.activity());
+        actions.setOrientation(LinearLayout.VERTICAL);
+        actions.setGravity(Gravity.END);
+        actions.addView(ui.text("추가 ›", 12, FitnessUi.COLOR_TERTIARY, true));
+        actions.addView(ui.textAction(
+                !suggestions.isEmpty() ? "제안 확인"
+                        : (approved == null ? "상품 연결" : "연결 관리"),
+                approved == null ? FitnessUi.COLOR_TERTIARY : FitnessUi.COLOR_MUTED,
+                () -> productLinkController.show(food)
+        ));
+        row.addView(actions);
         return row;
     }
 

@@ -44,7 +44,8 @@ public final class NutritionCatalogRepository {
             java.util.Arrays.asList(
                     "nutrition_foods",
                     "nutrition_food_nutrients",
-                    "nutrition_food_components"
+                    "nutrition_food_components",
+                    "product_nutrition_links"
             )
     );
 
@@ -70,7 +71,8 @@ public final class NutritionCatalogRepository {
             "source_type",
             "source_reference",
             "source_version",
-            "data_version"
+            "data_version",
+            "revision"
     };
 
     private static final String[] FOOD_SYNC_COLUMNS = syncColumns();
@@ -83,6 +85,12 @@ public final class NutritionCatalogRepository {
     private static final String[] COMPONENT_SYNC_COLUMNS = {
             "id", "owner_id", "parent_food_id", "child_food_id", "quantity", "unit",
             "order_index", "created_at", "updated_at", "deleted_at"
+    };
+
+    static final String[] PRODUCT_LINK_SYNC_COLUMNS = {
+            "id", "owner_id", "nutrition_food_id", "catalog_product_id", "status",
+            "source_type", "proposal_reference", "product_contract_version", "revision",
+            "reviewed_at", "created_at", "updated_at", "deleted_at"
     };
 
     private final FitnessDatabaseHelper dbHelper;
@@ -272,6 +280,297 @@ public final class NutritionCatalogRepository {
         return recipe;
     }
 
+    /** Active user-approved PriceTrace link, enriched only from the local read cache. */
+    public ProductNutritionLink approvedProductLink(String nutritionFoodId) {
+        List<ProductNutritionLink> links = readProductLinks(
+                nutritionFoodId,
+                ProductNutritionLink.STATUS_APPROVED
+        );
+        return links.isEmpty() ? null : links.get(0);
+    }
+
+    /** Pending owner-specific suggestions written by a trusted PriceTrace integration. */
+    public List<ProductNutritionLink> pendingProductLinkSuggestions(String nutritionFoodId) {
+        return readProductLinks(nutritionFoodId, ProductNutritionLink.STATUS_SUGGESTED);
+    }
+
+    public void cachePriceTraceProducts(List<ProductReadV1> products) {
+        if (products == null || products.isEmpty()) {
+            return;
+        }
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        database.beginTransaction();
+        try {
+            String fetchedAt = now();
+            for (ProductReadV1 product : products) {
+                if (product != null) {
+                    cachePriceTraceProduct(database, product, fetchedAt);
+                }
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+    }
+
+    /**
+     * Creates an immediately approved manual link only after the caller selected an exact ID.
+     * No name-based match is accepted here.
+     */
+    public ProductNutritionLink linkProduct(String nutritionFoodId, ProductReadV1 product) {
+        if (product == null) {
+            throw new IllegalArgumentException("정확한 PriceTrace 상품을 선택하세요.");
+        }
+        requireLinkableFood(nutritionFoodId);
+        String timestamp = now();
+        String id = UUID.randomUUID().toString();
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        database.beginTransaction();
+        try {
+            cachePriceTraceProduct(database, product, timestamp);
+            softDeleteApprovedLinks(database, nutritionFoodId, null, timestamp);
+
+            ContentValues values = new ContentValues();
+            values.put("id", id);
+            values.put("owner_id", userId);
+            values.put("nutrition_food_id", nutritionFoodId);
+            values.put("catalog_product_id", product.catalogProductId);
+            values.put("status", ProductNutritionLink.STATUS_APPROVED);
+            values.put("source_type", ProductNutritionLink.SOURCE_MANUAL);
+            values.putNull("proposal_reference");
+            values.put("product_contract_version", ProductReadV1.CONTRACT_VERSION);
+            values.put("revision", 1);
+            values.put("reviewed_at", timestamp);
+            values.put("created_at", timestamp);
+            values.put("updated_at", timestamp);
+            values.putNull("deleted_at");
+            database.insertOrThrow("product_nutrition_links", null, values);
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        return approvedProductLink(nutritionFoodId);
+    }
+
+    /** Approves only the catalogProductId carried by the selected suggestion row. */
+    public ProductNutritionLink approveProductSuggestion(
+            String suggestionId,
+            ProductReadV1 exactProduct
+    ) {
+        if (exactProduct == null) {
+            throw new IllegalArgumentException("제안된 catalogProductId를 확인할 수 없습니다.");
+        }
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        String nutritionFoodId;
+        String suggestedCatalogProductId;
+        try (Cursor cursor = database.rawQuery(
+                "SELECT nutrition_food_id, catalog_product_id " +
+                        "FROM product_nutrition_links " +
+                        "WHERE id = ? AND owner_id = ? AND status = 'suggested' " +
+                        "AND deleted_at IS NULL LIMIT 1",
+                new String[]{suggestionId, userId}
+        )) {
+            if (!cursor.moveToFirst()) {
+                throw new IllegalArgumentException("승인할 PriceTrace 제안을 찾지 못했습니다.");
+            }
+            nutritionFoodId = cursor.getString(0);
+            suggestedCatalogProductId = cursor.getString(1);
+        }
+        if (!exactProduct.catalogProductId.equals(suggestedCatalogProductId)) {
+            throw new IllegalArgumentException("제안 ID와 선택한 catalogProductId가 다릅니다.");
+        }
+
+        String timestamp = now();
+        database.beginTransaction();
+        try {
+            cachePriceTraceProduct(database, exactProduct, timestamp);
+            softDeleteApprovedLinks(database, nutritionFoodId, suggestionId, timestamp);
+            database.execSQL(
+                    "UPDATE product_nutrition_links SET status = 'approved', reviewed_at = ?, " +
+                            "updated_at = ?, revision = revision + 1 " +
+                            "WHERE id = ? AND owner_id = ? AND status = 'suggested' " +
+                            "AND deleted_at IS NULL",
+                    new Object[]{timestamp, timestamp, suggestionId, userId}
+            );
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        return approvedProductLink(nutritionFoodId);
+    }
+
+    public boolean rejectProductSuggestion(String suggestionId) {
+        String timestamp = now();
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        int nextRevision;
+        try (Cursor cursor = database.rawQuery(
+                "SELECT revision FROM product_nutrition_links WHERE id = ? AND owner_id = ? " +
+                        "AND status = 'suggested' AND deleted_at IS NULL LIMIT 1",
+                new String[]{suggestionId, userId}
+        )) {
+            if (!cursor.moveToFirst()) {
+                return false;
+            }
+            nextRevision = Math.max(1, cursor.getInt(0)) + 1;
+        }
+        int changed;
+        ContentValues values = new ContentValues();
+        values.put("status", ProductNutritionLink.STATUS_REJECTED);
+        values.put("reviewed_at", timestamp);
+        values.put("updated_at", timestamp);
+        values.put("revision", nextRevision);
+        changed = database.update(
+                "product_nutrition_links",
+                values,
+                "id = ? AND owner_id = ? AND status = 'suggested' AND deleted_at IS NULL",
+                new String[]{suggestionId, userId}
+        );
+        return changed > 0;
+    }
+
+    /** Soft-unlinks without deleting either the Nutrition entry or any meal snapshot. */
+    public boolean unlinkProduct(String nutritionFoodId) {
+        ProductNutritionLink existing = approvedProductLink(nutritionFoodId);
+        if (existing == null) {
+            return false;
+        }
+        String timestamp = now();
+        dbHelper.getWritableDatabase().execSQL(
+                "UPDATE product_nutrition_links SET deleted_at = ?, updated_at = ?, " +
+                        "revision = revision + 1 " +
+                        "WHERE owner_id = ? AND nutrition_food_id = ? " +
+                        "AND status = 'approved' AND deleted_at IS NULL",
+                new Object[]{timestamp, timestamp, userId, nutritionFoodId}
+        );
+        return true;
+    }
+
+    private List<ProductNutritionLink> readProductLinks(String nutritionFoodId, String status) {
+        List<ProductNutritionLink> links = new ArrayList<>();
+        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        try (Cursor cursor = database.rawQuery(
+                "SELECT l.id, l.owner_id, l.nutrition_food_id, l.catalog_product_id, " +
+                        "l.status, l.source_type, l.proposal_reference, l.revision, l.reviewed_at, " +
+                        "c.standard_product_id, c.product_name, c.seller_name, " +
+                        "c.latest_price_krw, c.price_observed_at, c.content_amount, " +
+                        "c.content_unit, c.package_count " +
+                        "FROM product_nutrition_links l " +
+                        "LEFT JOIN pricetrace_product_cache c " +
+                        "ON c.catalog_product_id = l.catalog_product_id " +
+                        "WHERE l.owner_id = ? AND l.nutrition_food_id = ? " +
+                        "AND l.status = ? AND l.deleted_at IS NULL " +
+                        "ORDER BY l.updated_at DESC, l.created_at DESC",
+                new String[]{userId, nutritionFoodId, status}
+        )) {
+            while (cursor.moveToNext()) {
+                ProductReadV1 product = null;
+                if (!cursor.isNull(10)) {
+                    try {
+                        product = new ProductReadV1(
+                                cursor.getString(3),
+                                cursor.isNull(9) ? null : cursor.getString(9),
+                                cursor.getString(10),
+                                cursor.isNull(11) ? null : cursor.getString(11),
+                                cursor.isNull(12) ? null : cursor.getInt(12),
+                                cursor.isNull(13) ? null : cursor.getString(13),
+                                cursor.isNull(14) ? null : cursor.getDouble(14),
+                                cursor.isNull(15) ? null : cursor.getString(15),
+                                cursor.isNull(16) ? null : cursor.getInt(16)
+                        );
+                    } catch (IllegalArgumentException ignored) {
+                        // A corrupt cache must not hide the underlying exact link decision.
+                    }
+                }
+                links.add(new ProductNutritionLink(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getString(2),
+                        cursor.getString(3),
+                        cursor.getString(4),
+                        cursor.getString(5),
+                        cursor.isNull(6) ? null : cursor.getString(6),
+                        cursor.getInt(7),
+                        cursor.isNull(8) ? null : cursor.getString(8),
+                        product
+                ));
+            }
+        }
+        return links;
+    }
+
+    private void requireLinkableFood(String nutritionFoodId) {
+        String normalized = nutritionFoodId == null ? "" : nutritionFoodId.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException("영양 음식 ID가 필요합니다.");
+        }
+        try (Cursor cursor = dbHelper.getReadableDatabase().rawQuery(
+                "SELECT 1 FROM nutrition_foods WHERE id = ? AND deleted_at IS NULL " +
+                        "AND (visibility = 'public' OR owner_id = ?) LIMIT 1",
+                new String[]{normalized, userId}
+        )) {
+            if (!cursor.moveToFirst()) {
+                throw new IllegalArgumentException("연결할 영양 음식을 찾지 못했습니다.");
+            }
+        }
+    }
+
+    private void softDeleteApprovedLinks(
+            SQLiteDatabase database,
+            String nutritionFoodId,
+            String exceptId,
+            String timestamp
+    ) {
+        String exceptClause = exceptId == null ? "" : " AND id <> ?";
+        List<Object> arguments = new ArrayList<>();
+        arguments.add(timestamp);
+        arguments.add(timestamp);
+        arguments.add(userId);
+        arguments.add(nutritionFoodId);
+        if (exceptId != null) {
+            arguments.add(exceptId);
+        }
+        database.execSQL(
+                "UPDATE product_nutrition_links SET deleted_at = ?, updated_at = ?, " +
+                        "revision = revision + 1 WHERE owner_id = ? AND nutrition_food_id = ? " +
+                        "AND status = 'approved' AND deleted_at IS NULL" + exceptClause,
+                arguments.toArray()
+        );
+    }
+
+    private void cachePriceTraceProduct(
+            SQLiteDatabase database,
+            ProductReadV1 product,
+            String fetchedAt
+    ) {
+        ContentValues values = new ContentValues();
+        values.put("catalog_product_id", product.catalogProductId);
+        putNullable(values, "standard_product_id", product.standardProductId);
+        values.put("product_name", product.name);
+        putNullable(values, "seller_name", product.sellerName);
+        if (product.latestObservedPriceKrw == null) {
+            values.putNull("latest_price_krw");
+            values.putNull("price_observed_at");
+        } else {
+            values.put("latest_price_krw", product.latestObservedPriceKrw);
+            values.put("price_observed_at", product.observedAt);
+        }
+        putNullableDouble(values, "content_amount", product.contentAmount);
+        putNullable(values, "content_unit", product.contentUnit);
+        if (product.packageCount == null) {
+            values.putNull("package_count");
+        } else {
+            values.put("package_count", product.packageCount);
+        }
+        values.put("contract_version", ProductReadV1.CONTRACT_VERSION);
+        values.put("fetched_at", fetchedAt);
+        database.insertWithOnConflict(
+                "pricetrace_product_cache",
+                null,
+                values,
+                SQLiteDatabase.CONFLICT_REPLACE
+        );
+    }
+
     public synchronized CatalogSyncResult syncRemote() throws Exception {
         SupabaseConfig config = supabaseConfig;
         if (config == null || !config.isConnectionConfigured()) {
@@ -283,10 +582,14 @@ public final class NutritionCatalogRepository {
             pushedRows += pushTable(config, "nutrition_foods", FOOD_SYNC_COLUMNS);
             pushedRows += pushTable(config, "nutrition_food_nutrients", NUTRIENT_SYNC_COLUMNS);
             pushedRows += pushTable(config, "nutrition_food_components", COMPONENT_SYNC_COLUMNS);
+            pushedRows += pushProductLinks(config);
         }
         int pulledRows = pullFoods(config);
         pulledRows += pullNutrients(config);
         pulledRows += pullComponents(config);
+        if (config.isConfigured()) {
+            pulledRows += pullProductLinks(config);
+        }
         return new CatalogSyncResult(pushedRows, pulledRows);
     }
 
@@ -311,6 +614,83 @@ public final class NutritionCatalogRepository {
             }
         }
         return postRows(config, table, rows);
+    }
+
+    /**
+     * Manual rows can be inserted/upserted by the owner. Trusted PriceTrace suggestions are
+     * service-role-created, so the app only PATCHes their review state and never re-inserts them.
+     */
+    private int pushProductLinks(SupabaseConfig config) throws Exception {
+        JSONArray deletedManualRows = new JSONArray();
+        JSONArray activeManualRows = new JSONArray();
+        List<JSONObject> deletedSuggestionRows = new ArrayList<>();
+        List<JSONObject> activeSuggestionDecisions = new ArrayList<>();
+        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        try (Cursor cursor = database.rawQuery(
+                "SELECT " + String.join(", ", PRODUCT_LINK_SYNC_COLUMNS) +
+                        " FROM product_nutrition_links WHERE owner_id = ?",
+                new String[]{userId}
+        )) {
+            while (cursor.moveToNext()) {
+                JSONObject row = new JSONObject();
+                for (int index = 0; index < PRODUCT_LINK_SYNC_COLUMNS.length; index++) {
+                    putCursorValue(row, PRODUCT_LINK_SYNC_COLUMNS[index], cursor, index);
+                }
+                String sourceType = nullableString(row, "source_type");
+                boolean deleted = nullableString(row, "deleted_at") != null;
+                if (ProductNutritionLink.SOURCE_MANUAL.equals(sourceType)) {
+                    (deleted ? deletedManualRows : activeManualRows).put(row);
+                    continue;
+                }
+                String status = nullableString(row, "status");
+                if (!ProductNutritionLink.STATUS_SUGGESTED.equals(status)
+                        || deleted) {
+                    (deleted ? deletedSuggestionRows : activeSuggestionDecisions).add(row);
+                }
+            }
+        }
+
+        // Release an existing approved slot before activating its replacement.
+        int pushed = postRows(config, "product_nutrition_links", deletedManualRows);
+        for (JSONObject decision : deletedSuggestionRows) {
+            patchSuggestionDecision(config, decision);
+            pushed++;
+        }
+        pushed += postRows(config, "product_nutrition_links", activeManualRows);
+        for (JSONObject decision : activeSuggestionDecisions) {
+            patchSuggestionDecision(config, decision);
+            pushed++;
+        }
+        return pushed;
+    }
+
+    private void patchSuggestionDecision(SupabaseConfig config, JSONObject row) throws Exception {
+        String id = nullableString(row, "id");
+        if (id == null) {
+            return;
+        }
+        JSONObject patch = new JSONObject();
+        for (String column : new String[]{
+                "status", "revision", "reviewed_at", "updated_at", "deleted_at"
+        }) {
+            patch.put(column, row.has(column) ? row.get(column) : JSONObject.NULL);
+        }
+        HttpURLConnection connection = openConnection(
+                joinUrl(
+                        config.supabaseUrl,
+                        "/rest/v1/product_nutrition_links?id=eq." + encode(id)
+                                + "&owner_id=eq." + encode(config.effectiveUserId())
+                ),
+                "PATCH",
+                config
+        );
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Prefer", "return=minimal");
+        connection.setDoOutput(true);
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(patch.toString().getBytes(StandardCharsets.UTF_8));
+        }
+        readResponseOrThrow(connection, 200, 204);
     }
 
     private int pullFoods(SupabaseConfig config) throws Exception {
@@ -361,6 +741,14 @@ public final class NutritionCatalogRepository {
         return rows;
     }
 
+    private int pullProductLinks(SupabaseConfig config) throws Exception {
+        return upsertProductLinkRows(getRows(
+                config,
+                "/rest/v1/product_nutrition_links?owner_id=eq." +
+                        encode(config.effectiveUserId()) + "&select=*"
+        ));
+    }
+
     private int upsertFoodRows(JSONArray rows) throws JSONException {
         SQLiteDatabase database = dbHelper.getWritableDatabase();
         int applied = 0;
@@ -396,6 +784,7 @@ public final class NutritionCatalogRepository {
                 putNullable(values, "source_version", nullableString(row, "source_version"));
                 values.put("data_version", row.optInt(
                         "data_version", NutritionFood.DATA_VERSION_MACROS_ONLY));
+                values.put("revision", Math.max(1, row.optInt("revision", 1)));
                 values.put("visibility", emptyToDefault(row.optString("visibility", "public"), "public"));
                 values.put("created_at", emptyToDefault(row.optString("created_at", ""), now()));
                 values.put("updated_at", emptyToDefault(row.optString("updated_at", ""), now()));
@@ -492,6 +881,58 @@ public final class NutritionCatalogRepository {
         return applied;
     }
 
+    private int upsertProductLinkRows(JSONArray rows) throws JSONException {
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        int applied = 0;
+        database.beginTransaction();
+        try {
+            for (int index = 0; index < rows.length(); index++) {
+                JSONObject row = rows.getJSONObject(index);
+                String id = nullableString(row, "id");
+                String ownerId = nullableString(row, "owner_id");
+                String foodId = nullableString(row, "nutrition_food_id");
+                String catalogProductId = nullableString(row, "catalog_product_id");
+                String status = nullableString(row, "status");
+                String sourceType = nullableString(row, "source_type");
+                if (id == null || ownerId == null || foodId == null || catalogProductId == null
+                        || !isKnownLinkStatus(status) || !isKnownLinkSource(sourceType)) {
+                    continue;
+                }
+                ContentValues values = new ContentValues();
+                values.put("id", id);
+                values.put("owner_id", ownerId);
+                values.put("nutrition_food_id", foodId);
+                values.put("catalog_product_id", catalogProductId);
+                values.put("status", status);
+                values.put("source_type", sourceType);
+                putNullable(values, "proposal_reference", nullableString(row, "proposal_reference"));
+                values.put(
+                        "product_contract_version",
+                        emptyToDefault(
+                                nullableString(row, "product_contract_version"),
+                                ProductReadV1.CONTRACT_VERSION
+                        )
+                );
+                values.put("revision", Math.max(1, row.optInt("revision", 1)));
+                putNullable(values, "reviewed_at", nullableString(row, "reviewed_at"));
+                values.put("created_at", emptyToDefault(row.optString("created_at", ""), now()));
+                values.put("updated_at", emptyToDefault(row.optString("updated_at", ""), now()));
+                putNullable(values, "deleted_at", nullableString(row, "deleted_at"));
+                database.insertWithOnConflict(
+                        "product_nutrition_links",
+                        null,
+                        values,
+                        SQLiteDatabase.CONFLICT_REPLACE
+                );
+                applied++;
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        return applied;
+    }
+
     private ContentValues foodValues(NutritionFood food, String timestamp) {
         ContentValues values = new ContentValues();
         values.put("id", food.id);
@@ -512,6 +953,7 @@ public final class NutritionCatalogRepository {
         putNullable(values, "source_reference", food.sourceReference);
         putNullable(values, "source_version", food.sourceVersion);
         values.put("data_version", food.dataVersion);
+        values.put("revision", food.revision);
         values.put("visibility", "private");
         values.put("created_at", timestamp);
         values.put("updated_at", timestamp);
@@ -604,6 +1046,7 @@ public final class NutritionCatalogRepository {
         }
 
         Double dataVersion = doubleAt(row, 21);
+        Double revision = doubleAt(row, 22);
         return NutritionFood.builder()
                 .id(stringAt(row, 0))
                 .ownerId(stringAt(row, 1))
@@ -617,6 +1060,7 @@ public final class NutritionCatalogRepository {
                 .dataVersion(dataVersion == null
                         ? NutritionFood.DATA_VERSION_MACROS_ONLY
                         : (int) Math.round(dataVersion))
+                .revision(revision == null ? 1 : (int) Math.round(revision))
                 .build();
     }
 
@@ -798,6 +1242,17 @@ public final class NutritionCatalogRepository {
 
     private static String emptyToNull(String value) {
         return value == null || value.trim().isEmpty() ? null : value.trim();
+    }
+
+    private static boolean isKnownLinkStatus(String value) {
+        return ProductNutritionLink.STATUS_SUGGESTED.equals(value)
+                || ProductNutritionLink.STATUS_APPROVED.equals(value)
+                || ProductNutritionLink.STATUS_REJECTED.equals(value);
+    }
+
+    private static boolean isKnownLinkSource(String value) {
+        return ProductNutritionLink.SOURCE_MANUAL.equals(value)
+                || ProductNutritionLink.SOURCE_PRICETRACE.equals(value);
     }
 
     private static void putNullable(ContentValues values, String key, String value) {

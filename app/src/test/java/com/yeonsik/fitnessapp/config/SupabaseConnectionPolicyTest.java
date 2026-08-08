@@ -58,6 +58,14 @@ public final class SupabaseConnectionPolicyTest {
                 SupabaseStoreScope.SHARED.tokenPreferencesName,
                 SupabaseStoreScope.NUTRITION.tokenPreferencesName
         );
+        assertNotEquals(
+                SupabaseStoreScope.NUTRITION.configPreferencesName,
+                SupabaseStoreScope.PRICETRACE.configPreferencesName
+        );
+        assertNotEquals(
+                SupabaseStoreScope.NUTRITION.tokenKeyAlias,
+                SupabaseStoreScope.PRICETRACE.tokenKeyAlias
+        );
     }
 
     @Test

@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 9;
+    public static final int DATABASE_VERSION = 10;
 
     public FitnessDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -19,6 +19,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createCardioTables(db);
         createMealMenuPresetTable(db);
         createNutritionTables(db);
+        createProductNutritionLinkTables(db);
     }
 
     private void createSharedRecordTables(SQLiteDatabase db) {
@@ -243,6 +244,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "source_reference TEXT, " +
                 "source_version TEXT, " +
                 "data_version INTEGER NOT NULL DEFAULT 1, " +
+                "revision INTEGER NOT NULL DEFAULT 1, " +
                 "visibility TEXT NOT NULL DEFAULT 'private', " +
                 "created_at TEXT NOT NULL, " +
                 "updated_at TEXT NOT NULL, " +
@@ -332,6 +334,53 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
+     * 사용자 승인 링크와 PriceTrace 읽기 캐시.
+     *
+     * <p>product_nutrition_links만 Nutrition DB와 동기화한다. 상품명·판매처·가격·관측시각은
+     * PriceTrace가 소유하므로 pricetrace_product_cache에만 보관하고 식사 snapshot에는 넣지
+     * 않는다.</p>
+     */
+    private void createProductNutritionLinkTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS product_nutrition_links (" +
+                "id TEXT PRIMARY KEY, " +
+                "owner_id TEXT NOT NULL, " +
+                "nutrition_food_id TEXT NOT NULL, " +
+                "catalog_product_id TEXT NOT NULL, " +
+                "status TEXT NOT NULL, " +
+                "source_type TEXT NOT NULL, " +
+                "proposal_reference TEXT, " +
+                "product_contract_version TEXT NOT NULL DEFAULT 'product-read.v1', " +
+                "revision INTEGER NOT NULL DEFAULT 1, " +
+                "reviewed_at TEXT, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT)");
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS product_nutrition_links_one_approved_idx " +
+                "ON product_nutrition_links(owner_id, nutrition_food_id) " +
+                "WHERE status = 'approved' AND deleted_at IS NULL");
+        db.execSQL("CREATE INDEX IF NOT EXISTS product_nutrition_links_pending_idx " +
+                "ON product_nutrition_links(owner_id, nutrition_food_id, created_at DESC) " +
+                "WHERE status = 'suggested' AND deleted_at IS NULL");
+        db.execSQL("CREATE INDEX IF NOT EXISTS product_nutrition_links_catalog_idx " +
+                "ON product_nutrition_links(catalog_product_id)");
+
+        db.execSQL("CREATE TABLE IF NOT EXISTS pricetrace_product_cache (" +
+                "catalog_product_id TEXT PRIMARY KEY, " +
+                "standard_product_id TEXT, " +
+                "product_name TEXT NOT NULL, " +
+                "seller_name TEXT, " +
+                "latest_price_krw INTEGER, " +
+                "price_observed_at TEXT, " +
+                "content_amount REAL, " +
+                "content_unit TEXT, " +
+                "package_count INTEGER, " +
+                "contract_version TEXT NOT NULL, " +
+                "fetched_at TEXT NOT NULL, " +
+                "CHECK ((latest_price_krw IS NULL AND price_observed_at IS NULL) " +
+                "OR (latest_price_krw IS NOT NULL AND price_observed_at IS NOT NULL)))");
+    }
+
+    /**
      * v8 카탈로그를 확장 영양소 스키마로 올린다.
      *
      * <p>새 권고 영양소 컬럼은 기본값 없이 추가해 기존 행이 NULL(모름)로 남게 한다.
@@ -350,6 +399,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         addColumnIfMissing(db, "nutrition_foods", "cholesterol_mg", "REAL");
         addColumnIfMissing(db, "nutrition_foods", "source_version", "TEXT");
         addColumnIfMissing(db, "nutrition_foods", "data_version", "INTEGER NOT NULL DEFAULT 1");
+        addColumnIfMissing(db, "nutrition_foods", "revision", "INTEGER NOT NULL DEFAULT 1");
 
         addColumnIfMissing(db, "meal_record_items", "food_kind_snapshot", "TEXT");
         addColumnIfMissing(db, "meal_record_items", "basis_amount_snapshot", "REAL");
@@ -413,6 +463,10 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 9) {
             upgradeNutritionTablesToExtendedNutrients(db);
+        }
+        if (oldVersion < 10) {
+            addColumnIfMissing(db, "nutrition_foods", "revision", "INTEGER NOT NULL DEFAULT 1");
+            createProductNutritionLinkTables(db);
         }
     }
 

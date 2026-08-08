@@ -11,6 +11,11 @@ enum SupabaseStoreScope {
             "fitnessapp:nutrition-supabase-config:v1",
             "fitnessapp_supabase_nutrition_session_v1",
             "fitnessapp:secure-nutrition-session:v1"
+    ),
+    PRICETRACE(
+            "fitnessapp:pricetrace-supabase-config:v1",
+            "fitnessapp_supabase_pricetrace_session_v1",
+            "fitnessapp:secure-pricetrace-session:v1"
     );
 
     final String configPreferencesName;
