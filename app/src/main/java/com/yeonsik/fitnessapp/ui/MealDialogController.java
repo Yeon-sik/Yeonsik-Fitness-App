@@ -13,9 +13,12 @@ import android.widget.TextView;
 import com.yeonsik.fitnessapp.R;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.MealCompositionItem;
+import com.yeonsik.fitnessapp.data.NutrientCode;
 import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
+import com.yeonsik.fitnessapp.data.NutritionProfile;
+import com.yeonsik.fitnessapp.data.NutritionTotals;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -106,15 +109,14 @@ public final class MealDialogController {
                                 FitnessUi.optionalInt(calories), FitnessUi.optionalDouble(protein),
                                 FitnessUi.optionalDouble(carbs), FitnessUi.optionalDouble(fat));
                     } else {
-                        NutritionCalculator.NutritionValues total =
-                                NutritionCalculator.sum(compositionItems);
+                        NutritionTotals total = NutritionCalculator.sum(compositionItems);
                         repository.addMeal(
                                 selectedMealDate[0],
                                 FitnessUi.inputText(menu),
-                                (int) Math.round(total.calories),
-                                total.proteinGrams,
-                                total.carbsGrams,
-                                total.fatGrams,
+                                (int) Math.round(total.calories()),
+                                total.proteinGrams(),
+                                total.carbsGrams(),
+                                total.fatGrams(),
                                 compositionItems
                         );
                     }
@@ -164,9 +166,11 @@ public final class MealDialogController {
                 return;
             }
             for (NutritionFood food : foods) {
+                String notice = food.missingRequiredNotice();
                 Button result = ui.button(
-                        food.name + " · " + food.nutritionLabel() +
-                                " / " + NutritionCalculator.trim(food.basisAmount) + food.basisUnit,
+                        food.name + " · " + food.basisLabel() + " 기준\n"
+                                + food.extendedNutritionLabel()
+                                + (notice == null ? "" : "\n" + notice),
                         false,
                         null
                 );
@@ -256,9 +260,13 @@ public final class MealDialogController {
                 NutritionCalculator.trim(food.basisAmount)
         );
         ui.addAll(body, ui.text(
-                food.name + " · 기준 " + NutritionCalculator.trim(food.basisAmount) + food.basisUnit +
-                        " = " + food.nutritionLabel(),
+                food.name + " · 기준 " + food.basisLabel() + " = " + food.extendedNutritionLabel(),
                 13,
+                FitnessUi.COLOR_MUTED,
+                false
+        ), ui.text(
+                micronutrientSummary(food),
+                12,
                 FitnessUi.COLOR_MUTED,
                 false
         ), quantity);
@@ -318,29 +326,45 @@ public final class MealDialogController {
                     ? "유형: 재료 (탭하여 외부 메뉴)"
                     : "유형: 외부 메뉴 (탭하여 재료)");
         });
-        EditText basisAmount = ui.decimalInput("기준 수량", "1");
-        EditText basisUnit = ui.input("기준 단위 (예: g, ml, serving)", "serving");
-        EditText caloriesInput = ui.decimalInput("기준 수량의 칼로리 kcal", "0");
-        EditText proteinInput = ui.decimalInput("단백질 g", "0");
-        EditText carbsInput = ui.decimalInput("탄수화물 g", "0");
-        EditText fatInput = ui.decimalInput("지방 g", "0");
+        EditText basisAmount = ui.decimalInput("기준 수량", "100");
+        EditText basisUnit = ui.input("기준 단위 (예: g, ml, serving)", "g");
+        Button prepStateButton = ui.button("", false, null);
+        String[] selectedPrepState = {NutritionFood.PREP_UNSPECIFIED};
+        prepStateButton.setText(prepStateButtonLabel(selectedPrepState[0]));
+        prepStateButton.setOnClickListener(v -> {
+            selectedPrepState[0] = nextPrepState(selectedPrepState[0]);
+            prepStateButton.setText(prepStateButtonLabel(selectedPrepState[0]));
+        });
         EditText sourceReference = ui.input("출처/메모 (선택)", "");
+        EditText sourceVersion = ui.input("출처 버전 (선택, 예: MFDS 2024-03)", "");
+        NutritionInputSection nutrients = new NutritionInputSection(ui, host.activity());
         ui.addAll(
                 body,
                 name,
                 kindButton,
                 basisAmount,
                 basisUnit,
-                caloriesInput,
-                proteinInput,
-                carbsInput,
-                fatInput,
-                sourceReference
+                prepStateButton,
+                ui.text(
+                        "아래 값은 모두 위 기준 수량에 대한 값입니다.",
+                        13,
+                        FitnessUi.COLOR_MUTED,
+                        false
+                ),
+                nutrients.view(),
+                sourceReference,
+                sourceVersion
         );
+
+        ScrollView bodyScroll = new ScrollView(host.activity());
+        bodyScroll.addView(body, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT
+        ));
 
         final AlertDialog dialog = new AlertDialog.Builder(host.activity())
                 .setTitle("음식/재료 저장")
-                .setView(body)
+                .setView(bodyScroll)
                 .setNegativeButton("취소", null)
                 .setPositiveButton("저장 후 추가", null)
                 .create();
@@ -348,21 +372,16 @@ public final class MealDialogController {
                 .setOnClickListener(v -> {
                     try {
                         double basis = parseRequired(basisAmount, "기준 수량");
-                        double caloriesValue = parseNonNegative(caloriesInput, "칼로리");
-                        double proteinValue = parseNonNegative(proteinInput, "단백질");
-                        double carbsValue = parseNonNegative(carbsInput, "탄수화물");
-                        double fatValue = parseNonNegative(fatInput, "지방");
                         NutritionFood saved = catalogRepository.saveFood(
                                 FitnessUi.inputText(name),
                                 selectedKind[0],
                                 basis,
                                 FitnessUi.inputText(basisUnit),
-                                caloriesValue,
-                                proteinValue,
-                                carbsValue,
-                                fatValue,
+                                selectedPrepState[0],
+                                nutrients.profile(),
                                 "manual",
-                                FitnessUi.inputText(sourceReference)
+                                FitnessUi.inputText(sourceReference),
+                                FitnessUi.inputText(sourceVersion)
                         );
                         compositionItems.add(MealCompositionItem.from(saved, saved.basisAmount));
                         renderComposition(
@@ -399,7 +418,12 @@ public final class MealDialogController {
         for (MealCompositionItem item : items) {
             LinearLayout row = new LinearLayout(host.activity());
             row.setOrientation(LinearLayout.HORIZONTAL);
-            TextView label = ui.text(item.label(), 14, FitnessUi.COLOR_TEXT, false);
+            TextView label = ui.text(
+                    item.label() + "\n" + item.detailLabel(),
+                    14,
+                    FitnessUi.COLOR_TEXT,
+                    false
+            );
             Button remove = ui.button("삭제", false, null);
             remove.setOnClickListener(v -> {
                 items.remove(item);
@@ -420,19 +444,96 @@ public final class MealDialogController {
             ));
         }
 
-        NutritionCalculator.NutritionValues total = NutritionCalculator.sum(items);
+        NutritionTotals total = NutritionCalculator.sum(items);
         totalView.setText(items.isEmpty()
                 ? "음식을 추가하면 영양값을 자동 계산합니다."
-                : "구성 합계: " + Math.round(total.calories) + "kcal · " +
-                        NutritionCalculator.trim(total.proteinGrams) + "g P · " +
-                        NutritionCalculator.trim(total.carbsGrams) + "g C · " +
-                        NutritionCalculator.trim(total.fatGrams) + "g F");
+                : totalSummary(total));
         if (!items.isEmpty()) {
-            calories.setText(String.valueOf(Math.round(total.calories)));
-            protein.setText(NutritionCalculator.trim(total.proteinGrams));
-            carbs.setText(NutritionCalculator.trim(total.carbsGrams));
-            fat.setText(NutritionCalculator.trim(total.fatGrams));
+            calories.setText(String.valueOf(Math.round(total.calories())));
+            protein.setText(NutritionCalculator.trim(total.proteinGrams()));
+            carbs.setText(NutritionCalculator.trim(total.carbsGrams()));
+            fat.setText(NutritionCalculator.trim(total.fatGrams()));
         }
+    }
+
+    /**
+     * 구성 합계 요약.
+     *
+     * <p>일부 음식이 어떤 영양소를 모르면 합계에 "≥"와 미상 건수를 붙인다. 모름을 0으로
+     * 더해 놓고 정확한 값처럼 보여 주면 장기 기록이 실제보다 낙관적으로 왜곡된다.</p>
+     */
+    private String totalSummary(NutritionTotals total) {
+        StringBuilder summary = new StringBuilder("구성 합계: ")
+                .append(Math.round(total.calories())).append("kcal · ")
+                .append(NutritionCalculator.trim(total.proteinGrams())).append("g P · ")
+                .append(NutritionCalculator.trim(total.carbsGrams())).append("g C · ")
+                .append(NutritionCalculator.trim(total.fatGrams())).append("g F");
+        summary.append("\n나트륨 ")
+                .append(NutritionCalculator.describeTotal(
+                        total.total(NutritionProfile.SODIUM_MG))).append("mg · 포화지방 ")
+                .append(NutritionCalculator.describeTotal(
+                        total.total(NutritionProfile.SATURATED_FAT_GRAMS))).append("g · 당류 ")
+                .append(NutritionCalculator.describeTotal(
+                        total.total(NutritionProfile.SUGARS_GRAMS))).append("g");
+
+        List<String> recommended = new ArrayList<>();
+        for (String key : NutritionProfile.RECOMMENDED_TYPED_KEYS) {
+            NutritionTotals.Total value = total.total(key);
+            if (value.knownCount() > 0) {
+                recommended.add(NutritionProfile.labelOf(key) + " "
+                        + NutritionCalculator.describeTotal(value)
+                        + NutritionProfile.unitOf(key));
+            }
+        }
+        if (!recommended.isEmpty()) {
+            summary.append("\n").append(String.join(" · ", recommended));
+        }
+
+        List<String> micronutrients = new ArrayList<>();
+        for (String code : total.knownMicronutrientCodes()) {
+            NutritionTotals.Total value = total.total(code);
+            micronutrients.add(NutrientCode.labelOf(code) + " "
+                    + NutritionCalculator.describeTotal(value)
+                    + NutrientCode.displayUnit(NutrientCode.unitOf(code)));
+        }
+        if (!micronutrients.isEmpty()) {
+            summary.append("\n").append(String.join(" · ", micronutrients));
+        }
+        return summary.toString();
+    }
+
+    /** 선택한 음식이 아는 미네랄·비타민을 기준량 기준으로 보여 준다. */
+    private String micronutrientSummary(NutritionFood food) {
+        List<String> parts = new ArrayList<>();
+        for (String code : food.profile.knownMicronutrientCodes()) {
+            parts.add(NutrientCode.labelOf(code) + " "
+                    + NutritionCalculator.trimNullable(food.profile.value(code))
+                    + NutrientCode.displayUnit(NutrientCode.unitOf(code)));
+        }
+        return parts.isEmpty()
+                ? "미네랄·비타민 정보 없음 (모름으로 기록됩니다)"
+                : String.join(" · ", parts);
+    }
+
+    private static String nextPrepState(String prepState) {
+        switch (NutritionFood.normalizePrepState(prepState)) {
+            case NutritionFood.PREP_UNSPECIFIED:
+                return NutritionFood.PREP_RAW;
+            case NutritionFood.PREP_RAW:
+                return NutritionFood.PREP_COOKED;
+            case NutritionFood.PREP_COOKED:
+                return NutritionFood.PREP_AS_SERVED;
+            case NutritionFood.PREP_AS_SERVED:
+                return NutritionFood.PREP_DRIED;
+            case NutritionFood.PREP_DRIED:
+                return NutritionFood.PREP_FROZEN;
+            default:
+                return NutritionFood.PREP_UNSPECIFIED;
+        }
+    }
+
+    private static String prepStateButtonLabel(String prepState) {
+        return "조리 상태: " + NutritionFood.prepStateLabel(prepState) + " (탭하여 변경)";
     }
 
     private void saveRecipe(EditText menu, List<MealCompositionItem> items) {
@@ -477,18 +578,6 @@ public final class MealDialogController {
         double parsed = Double.parseDouble(value);
         if (parsed <= 0) {
             throw new IllegalArgumentException(label + "은 0보다 커야 합니다.");
-        }
-        return parsed;
-    }
-
-    private double parseNonNegative(EditText input, String label) {
-        String value = FitnessUi.inputText(input).trim();
-        if (value.isEmpty()) {
-            return 0;
-        }
-        double parsed = Double.parseDouble(value);
-        if (parsed < 0) {
-            throw new IllegalArgumentException(label + "은 음수가 될 수 없습니다.");
         }
         return parsed;
     }

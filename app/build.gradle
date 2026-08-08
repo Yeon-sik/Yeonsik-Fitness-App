@@ -6,10 +6,29 @@ if (localPropertiesFile.exists()) {
     localPropertiesFile.withInputStream { stream -> localProperties.load(stream) }
 }
 
-def configValue = { String propertyKey, String environmentKey, String viteEnvironmentKey ->
+def dotenvValues = [:]
+def dotenvFile = rootProject.file("supabase/.env")
+if (dotenvFile.exists()) {
+    dotenvFile.eachLine { line ->
+        def matcher = line =~ /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/
+        if (matcher.matches()) {
+            String value = matcher.group(2)
+            if ((value.startsWith('"') && value.endsWith('"'))
+                    || (value.startsWith("'") && value.endsWith("'"))) {
+                value = value.substring(1, value.length() - 1)
+            }
+            dotenvValues[matcher.group(1)] = value
+        }
+    }
+}
+
+def dotenvValue = { String key -> dotenvValues.get(key) ?: "" }
+
+def configValue = { String propertyKey, String environmentKey, String viteEnvironmentKey, String dotenvKey ->
     localProperties.getProperty(propertyKey)
             ?: System.getenv(environmentKey)
             ?: System.getenv(viteEnvironmentKey)
+            ?: dotenvValue(dotenvKey)
             ?: ""
 }
 
@@ -17,8 +36,20 @@ def buildConfigString = { String value ->
     '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
 }
 
-def supabaseUrl = configValue("SUPABASE_URL", "SUPABASE_URL", "VITE_SUPABASE_URL")
-def supabaseAnonKey = configValue("SUPABASE_ANON_KEY", "SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY")
+// The shared/original DB is build-managed; Nutrition DB remains a separately
+// persisted Settings connection so its URL/key can be changed without rebuilding.
+def supabaseUrl = configValue(
+        "SUPABASE_URL",
+        "SUPABASE_URL",
+        "VITE_SUPABASE_URL",
+        "ORIGINAL_DB_URL"
+)
+def supabaseAnonKey = configValue(
+        "SUPABASE_ANON_KEY",
+        "SUPABASE_ANON_KEY",
+        "VITE_SUPABASE_ANON_KEY",
+        "ORIGINAL_DB_ANON"
+)
 
 def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")
 

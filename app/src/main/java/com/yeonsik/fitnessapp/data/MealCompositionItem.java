@@ -4,22 +4,22 @@ package com.yeonsik.fitnessapp.data;
 public final class MealCompositionItem {
     public final NutritionFood food;
     public final double quantity;
+    /** 섭취량만큼 환산된 전체 영양성분. 기록 시 그대로 snapshot된다. */
+    public final NutritionProfile profile;
+
     public final double calories;
     public final double proteinGrams;
     public final double carbsGrams;
     public final double fatGrams;
 
-    private MealCompositionItem(
-            NutritionFood food,
-            double quantity,
-            NutritionCalculator.NutritionValues values
-    ) {
+    private MealCompositionItem(NutritionFood food, double quantity, NutritionProfile profile) {
         this.food = food;
         this.quantity = quantity;
-        this.calories = values.calories;
-        this.proteinGrams = values.proteinGrams;
-        this.carbsGrams = values.carbsGrams;
-        this.fatGrams = values.fatGrams;
+        this.profile = profile;
+        this.calories = profile.calories();
+        this.proteinGrams = profile.proteinGrams();
+        this.carbsGrams = profile.carbsGrams();
+        this.fatGrams = profile.fatGrams();
     }
 
     public static MealCompositionItem from(NutritionFood food, double quantity) {
@@ -39,5 +39,15 @@ public final class MealCompositionItem {
     public String label() {
         return food.name + " · " + NutritionCalculator.trim(quantity) + food.basisUnit
                 + " · " + Math.round(calories) + "kcal";
+    }
+
+    /** 목록 두 번째 줄에 붙이는 상세 영양 요약. 모르는 값은 "?"로 남는다. */
+    public String detailLabel() {
+        return NutritionCalculator.trim(proteinGrams) + "g P · "
+                + NutritionCalculator.trim(carbsGrams) + "g C · "
+                + NutritionCalculator.trim(fatGrams) + "g F · 나트륨 "
+                + NutritionCalculator.trimNullable(profile.sodiumMg()) + "mg · 포화지방 "
+                + NutritionCalculator.trimNullable(profile.saturatedFatGrams()) + "g · 당류 "
+                + NutritionCalculator.trimNullable(profile.sugarsGrams()) + "g";
     }
 }

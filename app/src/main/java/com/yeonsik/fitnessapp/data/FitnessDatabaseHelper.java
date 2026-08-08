@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 8;
+    public static final int DATABASE_VERSION = 9;
 
     public FitnessDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -208,6 +208,17 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON meal_menu_presets(updated_at DESC)");
     }
 
+    /**
+     * 음식 카탈로그와 식사 기록 스냅샷 테이블.
+     *
+     * <p>필수(calories/protein/carbs/fat/sodium/saturated_fat/sugars)와 1단계 권고
+     * (fiber/added_sugars/trans_fat/cholesterol) 영양소는 typed column으로 두고,
+     * 미네랄·비타민은 nutrient_code 기반 확장 테이블에 넣는다.</p>
+     *
+     * <p>모르는 권고 영양소는 0이 아니라 NULL로 남긴다. 나트륨·포화지방·당류는 신규 저장
+     * 시 애플리케이션이 필수로 요구하지만, 4대 영양소만 있던 시절의 행을 0으로 왜곡하지
+     * 않으려고 컬럼 자체는 NULL을 허용한다. 필수값이 채워졌는지는 data_version으로 구분한다.</p>
+     */
     private void createNutritionTables(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS nutrition_foods (" +
                 "id TEXT PRIMARY KEY, " +
@@ -216,16 +227,37 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "kind TEXT NOT NULL, " +
                 "basis_amount REAL NOT NULL, " +
                 "basis_unit TEXT NOT NULL, " +
+                "prep_state TEXT NOT NULL DEFAULT 'unspecified', " +
                 "calories_kcal REAL NOT NULL DEFAULT 0, " +
                 "protein_grams REAL NOT NULL DEFAULT 0, " +
                 "carbs_grams REAL NOT NULL DEFAULT 0, " +
                 "fat_grams REAL NOT NULL DEFAULT 0, " +
+                "sodium_mg REAL, " +
+                "saturated_fat_grams REAL, " +
+                "sugars_grams REAL, " +
+                "fiber_grams REAL, " +
+                "added_sugars_grams REAL, " +
+                "trans_fat_grams REAL, " +
+                "cholesterol_mg REAL, " +
                 "source_type TEXT NOT NULL, " +
                 "source_reference TEXT, " +
+                "source_version TEXT, " +
+                "data_version INTEGER NOT NULL DEFAULT 1, " +
                 "visibility TEXT NOT NULL DEFAULT 'private', " +
                 "created_at TEXT NOT NULL, " +
                 "updated_at TEXT NOT NULL, " +
                 "deleted_at TEXT)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS nutrition_food_nutrients (" +
+                "id TEXT PRIMARY KEY, " +
+                "owner_id TEXT, " +
+                "food_id TEXT NOT NULL, " +
+                "nutrient_code TEXT NOT NULL, " +
+                "amount REAL, " +
+                "unit TEXT NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "UNIQUE(food_id, nutrient_code))");
         db.execSQL("CREATE TABLE IF NOT EXISTS nutrition_food_components (" +
                 "id TEXT PRIMARY KEY, " +
                 "owner_id TEXT, " +
@@ -243,26 +275,108 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "meal_record_id TEXT NOT NULL, " +
                 "food_id TEXT, " +
                 "food_name_snapshot TEXT NOT NULL, " +
+                "food_kind_snapshot TEXT, " +
                 "quantity REAL NOT NULL, " +
                 "unit TEXT NOT NULL, " +
+                "basis_amount_snapshot REAL, " +
+                "basis_unit_snapshot TEXT, " +
+                "prep_state_snapshot TEXT, " +
                 "calories REAL NOT NULL DEFAULT 0, " +
                 "protein_grams REAL NOT NULL DEFAULT 0, " +
                 "carbs_grams REAL NOT NULL DEFAULT 0, " +
                 "fat_grams REAL NOT NULL DEFAULT 0, " +
+                "sodium_mg REAL, " +
+                "saturated_fat_grams REAL, " +
+                "sugars_grams REAL, " +
+                "fiber_grams REAL, " +
+                "added_sugars_grams REAL, " +
+                "trans_fat_grams REAL, " +
+                "cholesterol_mg REAL, " +
+                "source_type_snapshot TEXT, " +
+                "source_reference_snapshot TEXT, " +
+                "source_version_snapshot TEXT, " +
+                "food_data_version_snapshot INTEGER, " +
                 "order_index INTEGER NOT NULL, " +
                 "created_at TEXT NOT NULL, " +
                 "updated_at TEXT NOT NULL, " +
                 "deleted_at TEXT, " +
                 "device_id TEXT NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS meal_record_item_nutrients (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "meal_record_id TEXT NOT NULL, " +
+                "meal_record_item_id TEXT NOT NULL, " +
+                "nutrient_code TEXT NOT NULL, " +
+                "amount REAL NOT NULL, " +
+                "unit TEXT NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, " +
+                "UNIQUE(meal_record_item_id, nutrient_code))");
 
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_name_idx " +
                 "ON nutrition_foods(owner_id, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_visibility_name_idx " +
                 "ON nutrition_foods(visibility, name COLLATE NOCASE)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_food_nutrients_food_idx " +
+                "ON nutrition_food_nutrients(food_id, nutrient_code)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_food_components_parent_order_idx " +
                 "ON nutrition_food_components(parent_food_id, order_index)");
         db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_items_meal_order_idx " +
                 "ON meal_record_items(meal_record_id, order_index)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_nutrients_item_idx " +
+                "ON meal_record_item_nutrients(meal_record_item_id, nutrient_code)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_nutrients_meal_idx " +
+                "ON meal_record_item_nutrients(meal_record_id, nutrient_code)");
+    }
+
+    /**
+     * v8 카탈로그를 확장 영양소 스키마로 올린다.
+     *
+     * <p>새 권고 영양소 컬럼은 기본값 없이 추가해 기존 행이 NULL(모름)로 남게 한다.
+     * 0으로 채우면 "나트륨 0mg인 음식"과 "나트륨을 모르는 음식"을 영영 구분할 수 없다.</p>
+     */
+    private void upgradeNutritionTablesToExtendedNutrients(SQLiteDatabase db) {
+        createNutritionTables(db);
+
+        addColumnIfMissing(db, "nutrition_foods", "prep_state", "TEXT NOT NULL DEFAULT 'unspecified'");
+        addColumnIfMissing(db, "nutrition_foods", "sodium_mg", "REAL");
+        addColumnIfMissing(db, "nutrition_foods", "saturated_fat_grams", "REAL");
+        addColumnIfMissing(db, "nutrition_foods", "sugars_grams", "REAL");
+        addColumnIfMissing(db, "nutrition_foods", "fiber_grams", "REAL");
+        addColumnIfMissing(db, "nutrition_foods", "added_sugars_grams", "REAL");
+        addColumnIfMissing(db, "nutrition_foods", "trans_fat_grams", "REAL");
+        addColumnIfMissing(db, "nutrition_foods", "cholesterol_mg", "REAL");
+        addColumnIfMissing(db, "nutrition_foods", "source_version", "TEXT");
+        addColumnIfMissing(db, "nutrition_foods", "data_version", "INTEGER NOT NULL DEFAULT 1");
+
+        addColumnIfMissing(db, "meal_record_items", "food_kind_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "basis_amount_snapshot", "REAL");
+        addColumnIfMissing(db, "meal_record_items", "basis_unit_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "prep_state_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "sodium_mg", "REAL");
+        addColumnIfMissing(db, "meal_record_items", "saturated_fat_grams", "REAL");
+        addColumnIfMissing(db, "meal_record_items", "sugars_grams", "REAL");
+        addColumnIfMissing(db, "meal_record_items", "fiber_grams", "REAL");
+        addColumnIfMissing(db, "meal_record_items", "added_sugars_grams", "REAL");
+        addColumnIfMissing(db, "meal_record_items", "trans_fat_grams", "REAL");
+        addColumnIfMissing(db, "meal_record_items", "cholesterol_mg", "REAL");
+        addColumnIfMissing(db, "meal_record_items", "source_type_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "source_reference_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "source_version_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "food_data_version_snapshot", "INTEGER");
+
+        // 이미 기록된 항목은 당시 음식의 기준량 정보를 잃지 않도록 카탈로그에서 한 번 채워 준다.
+        db.execSQL("UPDATE meal_record_items SET " +
+                "basis_amount_snapshot = (SELECT f.basis_amount FROM nutrition_foods f " +
+                "WHERE f.id = meal_record_items.food_id), " +
+                "basis_unit_snapshot = COALESCE((SELECT f.basis_unit FROM nutrition_foods f " +
+                "WHERE f.id = meal_record_items.food_id), unit), " +
+                "food_kind_snapshot = (SELECT f.kind FROM nutrition_foods f " +
+                "WHERE f.id = meal_record_items.food_id), " +
+                "food_data_version_snapshot = 1 " +
+                "WHERE basis_unit_snapshot IS NULL");
     }
 
     @Override
@@ -296,6 +410,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 8) {
             createNutritionTables(db);
+        }
+        if (oldVersion < 9) {
+            upgradeNutritionTablesToExtendedNutrients(db);
         }
     }
 
