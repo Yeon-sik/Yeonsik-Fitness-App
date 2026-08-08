@@ -50,8 +50,8 @@ public final class RoutineEditorScreen extends BaseScreen {
         List<RoutineExerciseInstance> routineExercises = host.routineRepository().defaultRoutineExercises();
         String routineName = host.routineRepository().defaultRoutineName();
 
-        add(ui.textAction("‹ 피트니스로", FitnessUi.COLOR_MUTED,
-                () -> host.navigate(FitnessScreen.WORKOUT)), ui.fullWidthParams(0));
+        add(ui.textAction("‹ 무산소로", FitnessUi.COLOR_MUTED,
+                () -> host.navigate(FitnessScreen.STRENGTH)), ui.fullWidthParams(0));
 
         TextView eyebrowView = ui.caption("ROUTINE", FitnessUi.COLOR_MUTED);
         eyebrowView.setPadding(0, ui.dp(16), 0, 0);
@@ -133,14 +133,14 @@ public final class RoutineEditorScreen extends BaseScreen {
                 : null;
 
         if (routineMode) {
-            add(ui.textAction("‹ 피트니스로", FitnessUi.COLOR_MUTED,
-                    () -> host.navigate(FitnessScreen.WORKOUT)), ui.fullWidthParams(0));
+            add(ui.textAction("‹ 무산소로", FitnessUi.COLOR_MUTED,
+                    () -> host.navigate(FitnessScreen.STRENGTH)), ui.fullWidthParams(0));
         } else {
             add(ui.textAction("‹ 운동으로", FitnessUi.COLOR_MUTED, () -> {
                 if (host.sessionState().activeRecordId() != null) {
                     host.navigate(FitnessScreen.WORKOUT_SESSION);
                 } else {
-                    host.navigate(FitnessScreen.WORKOUT);
+                    host.navigate(FitnessScreen.STRENGTH);
                 }
             }), ui.fullWidthParams(0));
         }
@@ -235,7 +235,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             if (host.sessionState().activeRecordId() != null) {
                 host.navigate(FitnessScreen.WORKOUT_SESSION);
             } else {
-                host.navigate(FitnessScreen.WORKOUT);
+                host.navigate(FitnessScreen.STRENGTH);
             }
         });
         addButton.setEnabled(false);

@@ -4,6 +4,7 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
@@ -35,10 +36,13 @@ public final class RoutineRepository {
 
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
-        ContentValues values = new ContentValues();
-        values.put("user_id", nextUserId);
-        db().update("routines", values, null, null);
-        db().update("routine_exercises", values, null, null);
+        if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
+            ContentValues values = new ContentValues();
+            values.put("user_id", nextUserId);
+            String[] localOwner = {SupabaseConfig.DEFAULT_USER_ID};
+            db().update("routines", values, "user_id = ?", localOwner);
+            db().update("routine_exercises", values, "user_id = ?", localOwner);
+        }
         this.userId = nextUserId;
         this.activeRoutineId = null;
     }

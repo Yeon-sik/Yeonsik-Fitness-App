@@ -5,8 +5,7 @@ import android.content.SharedPreferences;
 
 import com.yeonsik.fitnessapp.BuildConfig;
 
-public final class SupabaseConfigStore {
-    private static final String PREFS_NAME = "fitnessapp:supabase-config:v1";
+public class SupabaseConfigStore {
     private static final String KEY_URL = "supabase_url";
     private static final String KEY_ANON = "supabase_anon_key";
     private static final String KEY_USER = "user_id";
@@ -14,15 +13,55 @@ public final class SupabaseConfigStore {
 
     private final SharedPreferences preferences;
     private final SecureTokenStore tokenStore;
+    private final SupabaseConnectionPolicy connectionPolicy;
 
     public SupabaseConfigStore(Context context) {
-        preferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        tokenStore = new SecureTokenStore(context);
+        this(
+                context,
+                SupabaseStoreScope.SHARED,
+                true,
+                BuildConfig.SUPABASE_URL,
+                BuildConfig.SUPABASE_ANON_KEY
+        );
+    }
+
+    protected SupabaseConfigStore(
+            Context context,
+            SupabaseStoreScope scope,
+            boolean allowManagedConnection,
+            String managedUrl,
+            String managedAnonKey
+    ) {
+        preferences = context.getSharedPreferences(
+                scope.configPreferencesName,
+                Context.MODE_PRIVATE
+        );
+        tokenStore = new SecureTokenStore(
+                context,
+                scope.tokenKeyAlias,
+                scope.tokenPreferencesName
+        );
+        connectionPolicy = new SupabaseConnectionPolicy(
+                allowManagedConnection,
+                managedUrl,
+                managedAnonKey
+        );
     }
 
     public SupabaseConfig load() {
-        String url = preferences.getString(KEY_URL, BuildConfig.SUPABASE_URL);
-        String anonKey = preferences.getString(KEY_ANON, BuildConfig.SUPABASE_ANON_KEY);
+        String savedUrl = preferences.getString(KEY_URL, "");
+        String savedAnonKey = preferences.getString(KEY_ANON, "");
+        if (connectionPolicy.requiresManagedRebind(savedUrl, savedAnonKey)) {
+            replaceConnectionAndClearSession(
+                    connectionPolicy.resolveUrl(savedUrl),
+                    connectionPolicy.resolveAnonKey(savedAnonKey)
+            );
+            savedUrl = connectionPolicy.resolveUrl(savedUrl);
+            savedAnonKey = connectionPolicy.resolveAnonKey(savedAnonKey);
+        }
+
+        String url = connectionPolicy.resolveUrl(savedUrl);
+        String anonKey = connectionPolicy.resolveAnonKey(savedAnonKey);
         String userId = preferences.getString(KEY_USER, "");
         String email = preferences.getString(KEY_EMAIL, "");
 
@@ -39,37 +78,31 @@ public final class SupabaseConfigStore {
                 email,
                 tokenStore.accessToken(),
                 tokenStore.refreshToken(),
-                SupabaseConfig.LOCAL_SETTINGS_SOURCE
+                connectionPolicy.sourceLabel()
         );
     }
 
+    public boolean isConnectionManaged() {
+        return connectionPolicy.isManaged();
+    }
+
     public SupabaseConfig saveConnection(String supabaseUrl, String supabaseAnonKey) {
+        if (isConnectionManaged()) {
+            throw new IllegalStateException("공통 DB 연결은 앱 빌드 설정으로 관리됩니다.");
+        }
         String normalizedUrl = normalize(supabaseUrl);
+        String normalizedAnonKey = normalize(supabaseAnonKey);
         if (!normalizedUrl.isEmpty() && !normalizedUrl.startsWith("https://")) {
             throw new IllegalArgumentException("Supabase URL은 HTTPS여야 합니다.");
         }
         SupabaseConfig current = load();
         boolean connectionChanged = !current.supabaseUrl.equals(normalizedUrl)
-                || !current.supabaseAnonKey.equals(normalize(supabaseAnonKey));
+                || !current.supabaseAnonKey.equals(normalizedAnonKey);
         if (connectionChanged) {
-            clearSession();
+            replaceConnectionAndClearSession(normalizedUrl, normalizedAnonKey);
+            return load();
         }
-        SupabaseConfig config = new SupabaseConfig(
-                normalizedUrl,
-                supabaseAnonKey,
-                current.userId,
-                current.email,
-                connectionChanged ? "" : current.accessToken,
-                connectionChanged ? "" : current.refreshToken,
-                SupabaseConfig.LOCAL_SETTINGS_SOURCE
-        );
-
-        preferences.edit()
-                .putString(KEY_URL, config.supabaseUrl)
-                .putString(KEY_ANON, config.supabaseAnonKey)
-                .apply();
-
-        return config;
+        return current;
     }
 
     public SupabaseConfig saveSession(
@@ -81,6 +114,8 @@ public final class SupabaseConfigStore {
         SupabaseConfig current = load();
         tokenStore.save(accessToken, refreshToken);
         preferences.edit()
+                .putString(KEY_URL, current.supabaseUrl)
+                .putString(KEY_ANON, current.supabaseAnonKey)
                 .putString(KEY_USER, normalize(userId))
                 .putString(KEY_EMAIL, normalize(email))
                 .apply();
@@ -91,22 +126,28 @@ public final class SupabaseConfigStore {
                 email,
                 accessToken,
                 refreshToken,
-                SupabaseConfig.LOCAL_SETTINGS_SOURCE
+                current.sourceLabel
         );
     }
 
     public SupabaseConfig clearSession() {
-        tokenStore.clear();
         SupabaseConfig current = load();
-        return new SupabaseConfig(
-                current.supabaseUrl,
-                current.supabaseAnonKey,
-                current.userId,
-                current.email,
-                "",
-                "",
-                SupabaseConfig.LOCAL_SETTINGS_SOURCE
-        );
+        tokenStore.clear();
+        preferences.edit()
+                .remove(KEY_USER)
+                .remove(KEY_EMAIL)
+                .apply();
+        return current.withoutSessionIdentity();
+    }
+
+    private void replaceConnectionAndClearSession(String url, String anonKey) {
+        tokenStore.clear();
+        preferences.edit()
+                .putString(KEY_URL, normalize(url))
+                .putString(KEY_ANON, normalize(anonKey))
+                .remove(KEY_USER)
+                .remove(KEY_EMAIL)
+                .apply();
     }
 
     private static String normalize(String value) {

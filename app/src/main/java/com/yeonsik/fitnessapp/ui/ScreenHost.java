@@ -3,7 +3,10 @@ package com.yeonsik.fitnessapp.ui;
 import android.app.Activity;
 import android.widget.LinearLayout;
 
+import com.yeonsik.fitnessapp.cardio.CardioActivityType;
+import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
@@ -25,6 +28,10 @@ public interface ScreenHost {
     LinearLayout content();
 
     FitnessRepository repository();
+
+    NutritionCatalogRepository nutritionCatalogRepository();
+
+    CardioRepository cardioRepository();
 
     RoutineRepository routineRepository();
 
@@ -60,11 +67,25 @@ public interface ScreenHost {
 
     void startEmptyWorkout();
 
+    void startCardioWorkout(CardioActivityType activityType);
+
+    void openCardioSummary(String recordId);
+
+    void pauseCardioWorkout();
+
+    void resumeCardioWorkout();
+
+    void finishCardioWorkout();
+
+    void editCardioAverageHeartRate();
+
+    void cancelCardioWorkout();
+
     void showBodyMetricDialog();
 
     void showBodyMetricDialog(String date, String recordId);
 
-    void showMealDialog();
+    void openMealManagement();
 
     /** 세트 완료 시 휴식 타이머를 시작한다. null 또는 0 이하이면 기본 90초. */
     void startRestTimer(Integer restSeconds);
@@ -86,13 +107,25 @@ public interface ScreenHost {
 
     SupabaseConfig supabaseConfig();
 
+    boolean isSharedSupabaseConnectionManaged();
+
     void saveSupabaseConfig(String url, String anonKey);
+
+    SupabaseConfig nutritionSupabaseConfig();
+
+    void saveNutritionSupabaseConfig(String url, String anonKey);
 
     void signInToSupabase(String email, String password);
 
     void signUpToSupabase(String email, String password);
 
     void signOutFromSupabase();
+
+    void signInToNutritionSupabase(String email, String password);
+
+    void signUpToNutritionSupabase(String email, String password);
+
+    void signOutFromNutritionSupabase();
 
     void runManualSync();
 

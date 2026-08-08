@@ -4,16 +4,13 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-
-import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
-import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 피트니스 탭: 진행 중 배너 + 운동 시작 + 루틴 관리 + 오늘 컨디션.
+ * 피트니스 허브: 무산소·유산소 진입과 식단·체중 기록을 분리한다.
  */
 public final class WorkoutScreen extends BaseScreen {
 
@@ -24,45 +21,30 @@ public final class WorkoutScreen extends BaseScreen {
     @Override
     public void render() {
         String today = host.today();
-        host.routineRepository().activeRoutineId();
-        List<RoutineRepository.RoutineSummary> routines = host.routineRepository().routines();
         String inProgressSessionId = repository().latestInProgressSessionId();
 
         screenHeader("FITNESS", "피트니스");
 
         if (inProgressSessionId != null) {
-            continueBanner(inProgressSessionId);
+            continueBanner();
         }
 
-        section("운동 시작");
-        add(ui().button("루틴 없이 운동 시작", true, v -> host.startEmptyWorkout()), ui().fullWidthParams(0));
-        if (routines.isEmpty()) {
-            emptyState("만들어진 루틴이 없습니다.", "아래에서 루틴을 추가하세요.");
-        } else {
-            for (RoutineRepository.RoutineSummary routine : routines) {
-                List<RoutineExerciseInstance> exercises = host.routineRepository().routineExercises(routine.id);
-                add(ui().routineCard(routine.name, routine.exerciseCount, true,
-                        repository().latestCompletedWorkoutDateForRoutine(routine.id, routine.name),
-                        () -> {
-                            host.routineRepository().selectRoutine(routine.id);
-                            host.startRoutineWorkout(exercises);
-                        },
-                        () -> {
-                            host.routineRepository().selectRoutine(routine.id);
-                            host.navigate(FitnessScreen.ROUTINE_DETAIL);
-                        }));
-            }
-        }
+        section("운동");
+        LinearLayout workoutTypeRow = ui().tileRow();
+        workoutTypeRow.addView(ui().hologramStatTile(
+                "무산소", "근력·루틴", "탭하여 들어가기",
+                v -> host.navigate(FitnessScreen.STRENGTH)), ui().tileParams(true));
+        workoutTypeRow.addView(ui().hologramStatTile(
+                "유산소", "GPS", "탭하여 들어가기",
+                v -> host.navigate(FitnessScreen.CARDIO)), ui().tileParams(false));
+        add(workoutTypeRow, ui().fullWidthParams(0));
 
-        section("루틴 관리 (" + routines.size() + "/" + RoutineRepository.MAX_ROUTINES + ")");
-        add(ui().button("루틴 추가", false, v -> host.navigate(FitnessScreen.ROUTINE_ADD)), ui().fullWidthParams(0));
-
-        section("오늘 컨디션");
+        section("식단 및 체중");
         LinearLayout conditionRow = ui().tileRow();
         conditionRow.addView(ui().hologramStatTile("체중", todayWeightValue(), "탭하여 기록",
                 v -> host.showBodyMetricDialog()), ui().tileParams(true));
-        conditionRow.addView(ui().hologramStatTile("식사", repository().mealsForDate(today).size() + "건", "탭하여 기록",
-                v -> host.showMealDialog()), ui().tileParams(false));
+        conditionRow.addView(ui().hologramStatTile("식단", repository().mealsForDate(today).size() + "건", "탭하여 기록",
+                v -> host.openMealManagement()), ui().tileParams(false));
         add(conditionRow, ui().fullWidthParams(0));
 
         List<View> conditionRows = new ArrayList<>();
@@ -78,7 +60,7 @@ public final class WorkoutScreen extends BaseScreen {
 
     }
 
-    private void continueBanner(String inProgressSessionId) {
+    private void continueBanner() {
         FitnessUi ui = ui();
         LinearLayout banner = new LinearLayout(host.activity());
         banner.setOrientation(LinearLayout.HORIZONTAL);
@@ -89,7 +71,7 @@ public final class WorkoutScreen extends BaseScreen {
         banner.setClickable(true);
         banner.setFocusable(true);
         ui.pressFeedback(banner);
-        banner.setOnClickListener(v -> host.openWorkoutSession(inProgressSessionId));
+        banner.setOnClickListener(v -> host.continueWorkoutIfAvailable());
 
         LinearLayout column = new LinearLayout(host.activity());
         column.setOrientation(LinearLayout.VERTICAL);

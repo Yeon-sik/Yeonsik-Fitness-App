@@ -1362,6 +1362,37 @@ public final class FitnessUi {
     public Dialog sheet(String title, View body,
                         String primaryText, Runnable onPrimary,
                         String dangerText, Runnable onDanger) {
+        return buildSheet(
+                title,
+                body,
+                primaryText,
+                () -> {
+                    onPrimary.run();
+                    return true;
+                },
+                dangerText,
+                onDanger
+        );
+    }
+
+    /** 입력 검증에 실패하면 닫히지 않는 바텀시트. */
+    public Dialog validatedSheet(
+            String title,
+            View body,
+            String primaryText,
+            BooleanSupplier onPrimary
+    ) {
+        return buildSheet(title, body, primaryText, onPrimary, null, null);
+    }
+
+    private Dialog buildSheet(
+            String title,
+            View body,
+            String primaryText,
+            BooleanSupplier onPrimary,
+            String dangerText,
+            Runnable onDanger
+    ) {
         Dialog dialog = new Dialog(activity);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
 
@@ -1398,8 +1429,9 @@ public final class FitnessUi {
         sheet.addView(body, bodyParams);
 
         Button primary = sheetPrimaryButton(primaryText, () -> {
-            onPrimary.run();
-            dialog.dismiss();
+            if (onPrimary.getAsBoolean()) {
+                dialog.dismiss();
+            }
         });
         sheet.addView(primary, fullWidthParams(dp(20)));
 

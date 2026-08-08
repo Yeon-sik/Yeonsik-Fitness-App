@@ -1,13 +1,17 @@
 package com.yeonsik.fitnessapp;
 
+import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.graphics.Insets;
 import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.location.LocationManager;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
@@ -20,11 +24,18 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.yeonsik.fitnessapp.cardio.CardioActivityType;
+import com.yeonsik.fitnessapp.cardio.CardioMetrics;
+import com.yeonsik.fitnessapp.cardio.CardioRepository;
+import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
+import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
+import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.data.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
@@ -33,12 +44,17 @@ import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.sync.SupabaseSyncManager;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.ui.BaseScreen;
+import com.yeonsik.fitnessapp.ui.CardioScreen;
+import com.yeonsik.fitnessapp.ui.CardioSessionScreen;
+import com.yeonsik.fitnessapp.ui.CardioSummaryScreen;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.HomeScreen;
+import com.yeonsik.fitnessapp.ui.MealManagementScreen;
 import com.yeonsik.fitnessapp.ui.RecordsScreen;
 import com.yeonsik.fitnessapp.ui.RoutineEditorScreen;
 import com.yeonsik.fitnessapp.ui.ScreenHost;
 import com.yeonsik.fitnessapp.ui.SettingsScreen;
+import com.yeonsik.fitnessapp.ui.StrengthScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutExerciseDetailScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutSessionScreen;
@@ -63,6 +79,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     private enum Tab {
         HOME,
         WORKOUT,
+        MEALS,
         RECORDS,
         SETTINGS
     }
@@ -70,6 +87,8 @@ public final class MainActivity extends Activity implements ScreenHost {
     private static final String UI_PREFS = "fitness_ui_prefs";
     private static final String KEY_THEME_MODE = "theme_mode";
     private static final int REQUEST_FLEEK_CSV_IMPORT = 4101;
+    private static final int REQUEST_CARDIO_LOCATION = 4102;
+    private static final int REQUEST_CARDIO_NOTIFICATIONS = 4103;
     public static final String THEME_LIGHT = "light";
     public static final String THEME_DARK = "dark";
     public static final String THEME_SYSTEM = "system";
@@ -79,12 +98,17 @@ public final class MainActivity extends Activity implements ScreenHost {
     private final WorkoutSessionState sessionState = new WorkoutSessionState();
 
     private FitnessRepository repository;
+    private NutritionCatalogRepository nutritionCatalogRepository;
+    private CardioRepository cardioRepository;
     private ExerciseMasterRepository exerciseMasterRepository;
     private RoutineRepository routineRepository;
     private SupabaseConfigStore configStore;
+    private NutritionSupabaseConfigStore nutritionConfigStore;
     private SupabaseSyncManager syncManager;
     private SupabaseAuthManager authManager;
+    private SupabaseAuthManager nutritionAuthManager;
     private SupabaseConfig supabaseConfig;
+    private SupabaseConfig nutritionSupabaseConfig;
 
     private FitnessUi ui;
     private Map<FitnessScreen, BaseScreen> screens;
@@ -107,10 +131,12 @@ public final class MainActivity extends Activity implements ScreenHost {
     private View navDivider;
     private LinearLayout homeTabArea;
     private LinearLayout workoutTabArea;
+    private LinearLayout mealsTabArea;
     private LinearLayout recordsTabArea;
     private LinearLayout settingsTabArea;
     private TextView homeTabLabel;
     private TextView workoutTabLabel;
+    private TextView mealsTabLabel;
     private TextView recordsTabLabel;
     private TextView settingsTabLabel;
 
@@ -120,15 +146,27 @@ public final class MainActivity extends Activity implements ScreenHost {
     private String syncLabel = "local-only";
     private String syncDetail = "로컬 전용 모드";
     private String lastSyncedAt = "";
+    private CardioActivityType pendingCardioActivityType;
+    private String pendingCardioResumeRecordId;
+    private boolean waitingForLocationSettings;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         configStore = new SupabaseConfigStore(this);
         supabaseConfig = configStore.load();
+        nutritionConfigStore = new NutritionSupabaseConfigStore(this);
+        nutritionSupabaseConfig = nutritionConfigStore.load();
         authManager = new SupabaseAuthManager(configStore);
+        nutritionAuthManager = new SupabaseAuthManager(nutritionConfigStore);
         FitnessDatabaseHelper databaseHelper = new FitnessDatabaseHelper(this);
         repository = new FitnessRepository(databaseHelper, supabaseConfig.effectiveUserId());
+        nutritionCatalogRepository = new NutritionCatalogRepository(
+                databaseHelper,
+                nutritionSupabaseConfig.effectiveUserId(),
+                nutritionSupabaseConfig
+        );
+        cardioRepository = new CardioRepository(databaseHelper, repository);
         repository.reconcileSharedWorkoutSummaries();
         exerciseMasterRepository = new ExerciseMasterRepository(this);
         routineRepository = new RoutineRepository(databaseHelper, supabaseConfig.effectiveUserId());
@@ -143,6 +181,48 @@ public final class MainActivity extends Activity implements ScreenHost {
         configureWindow();
         setContentView(buildRootView());
         render();
+        handleCardioIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleCardioIntent(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (waitingForLocationSettings && locationServicesEnabled()) {
+            waitingForLocationSettings = false;
+            continuePendingCardioAction();
+            return;
+        }
+        if (currentScreen == FitnessScreen.CARDIO_SESSION) {
+            render();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+            int requestCode,
+            String[] permissions,
+            int[] grantResults
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQUEST_CARDIO_LOCATION) {
+            if (hasPreciseLocationPermission()) {
+                continuePendingCardioAction();
+            } else {
+                clearPendingCardioAction();
+                toast("GPS 거리 측정에는 정확한 위치 권한이 필요합니다.");
+            }
+            return;
+        }
+        if (requestCode == REQUEST_CARDIO_NOTIFICATIONS) {
+            continuePendingCardioActionAfterNotificationPermission();
+        }
     }
 
     @Override
@@ -170,11 +250,16 @@ public final class MainActivity extends Activity implements ScreenHost {
         RoutineEditorScreen routineEditor = new RoutineEditorScreen(this);
         map.put(FitnessScreen.HOME, new HomeScreen(this));
         map.put(FitnessScreen.WORKOUT, new WorkoutScreen(this));
+        map.put(FitnessScreen.STRENGTH, new StrengthScreen(this));
+        map.put(FitnessScreen.CARDIO, new CardioScreen(this));
         map.put(FitnessScreen.RECORDS, new RecordsScreen(this));
         map.put(FitnessScreen.SETTINGS, new SettingsScreen(this));
         map.put(FitnessScreen.WORKOUT_SESSION, new WorkoutSessionScreen(this));
         map.put(FitnessScreen.WORKOUT_EXERCISE_DETAIL, new WorkoutExerciseDetailScreen(this));
         map.put(FitnessScreen.WORKOUT_SUMMARY, new WorkoutSummaryScreen(this));
+        map.put(FitnessScreen.CARDIO_SESSION, new CardioSessionScreen(this));
+        map.put(FitnessScreen.CARDIO_SUMMARY, new CardioSummaryScreen(this));
+        map.put(FitnessScreen.MEALS, new MealManagementScreen(this));
         map.put(FitnessScreen.ROUTINE_ADD, routineEditor);
         map.put(FitnessScreen.ROUTINE_DETAIL, routineEditor);
         map.put(FitnessScreen.WORKOUT_EXERCISE_ADD, routineEditor);
@@ -313,7 +398,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         back.setBackground(ui.borderDrawable(ui.surface(), ui.border(), ui.dp(999)));
         back.setClickable(true);
         back.setFocusable(true);
-        back.setOnClickListener(v -> navigate(FitnessScreen.WORKOUT));
+        back.setOnClickListener(v -> navigate(FitnessScreen.STRENGTH));
         ui.applyDepth(back, 4);
         ui.pressFeedback(back);
         sessionTopBar.addView(back, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
@@ -483,12 +568,15 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         homeTabArea = navArea("메인", Tab.HOME);
         workoutTabArea = navArea("피트니스", Tab.WORKOUT);
+        mealsTabArea = navArea("식단", Tab.MEALS);
         recordsTabArea = navArea("기록", Tab.RECORDS);
         settingsTabArea = navArea("설정", Tab.SETTINGS);
 
         nav.addView(homeTabArea, navParams());
         nav.addView(navGap());
         nav.addView(workoutTabArea, navParams());
+        nav.addView(navGap());
+        nav.addView(mealsTabArea, navParams());
         nav.addView(navGap());
         nav.addView(recordsTabArea, navParams());
         nav.addView(navGap());
@@ -535,6 +623,8 @@ public final class MainActivity extends Activity implements ScreenHost {
             homeTabLabel = textView;
         } else if (tab == Tab.WORKOUT) {
             workoutTabLabel = textView;
+        } else if (tab == Tab.MEALS) {
+            mealsTabLabel = textView;
         } else if (tab == Tab.RECORDS) {
             recordsTabLabel = textView;
         } else {
@@ -550,6 +640,8 @@ public final class MainActivity extends Activity implements ScreenHost {
                 return FitnessScreen.HOME;
             case RECORDS:
                 return FitnessScreen.RECORDS;
+            case MEALS:
+                return FitnessScreen.MEALS;
             case SETTINGS:
                 return FitnessScreen.SETTINGS;
             default:
@@ -563,6 +655,8 @@ public final class MainActivity extends Activity implements ScreenHost {
                 return Tab.HOME;
             case RECORDS:
                 return Tab.RECORDS;
+            case MEALS:
+                return Tab.MEALS;
             case SETTINGS:
                 return Tab.SETTINGS;
             default:
@@ -577,6 +671,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         boolean activationVisible = currentScreen != FitnessScreen.WORKOUT_SESSION
                 && currentScreen != FitnessScreen.WORKOUT_EXERCISE_DETAIL
                 && currentScreen != FitnessScreen.WORKOUT_SUMMARY
+                && currentScreen != FitnessScreen.CARDIO_SESSION
+                && currentScreen != FitnessScreen.CARDIO_SUMMARY
                 && !(currentScreen == FitnessScreen.WORKOUT_EXERCISE_ADD
                 && sessionState.activeRecordId() != null);
         bottomNav.setBackgroundColor(ui.surface());
@@ -584,6 +680,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         styleNavArea(homeTabArea, homeTabLabel, activeTab == Tab.HOME, false);
         styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT,
                 workoutInProgress && activationVisible);
+        styleNavArea(mealsTabArea, mealsTabLabel, activeTab == Tab.MEALS, false);
         styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS, false);
         styleNavArea(settingsTabArea, settingsTabLabel, activeTab == Tab.SETTINGS, false);
     }
@@ -631,6 +728,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         bottomNav.setVisibility(sessionScreen
                 || currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL
                 || currentScreen == FitnessScreen.WORKOUT_SUMMARY
+                || currentScreen == FitnessScreen.CARDIO_SESSION
+                || currentScreen == FitnessScreen.CARDIO_SUMMARY
                 || fullscreenPicker
                 ? View.GONE
                 : View.VISIBLE);
@@ -687,6 +786,16 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public FitnessRepository repository() {
         return repository;
+    }
+
+    @Override
+    public NutritionCatalogRepository nutritionCatalogRepository() {
+        return nutritionCatalogRepository;
+    }
+
+    @Override
+    public CardioRepository cardioRepository() {
+        return cardioRepository;
     }
 
     @Override
@@ -759,7 +868,7 @@ public final class MainActivity extends Activity implements ScreenHost {
             repository.deleteSession(recordId);
             sessionState.clearIfMatches(recordId);
             toast("수행한 세트가 없어 운동을 저장하지 않았습니다.");
-            navigate(FitnessScreen.WORKOUT);
+            navigate(FitnessScreen.STRENGTH);
             return;
         }
         repository.finishSession(recordId);
@@ -774,13 +883,20 @@ public final class MainActivity extends Activity implements ScreenHost {
             toast("진행 중인 운동이 없습니다.");
             return;
         }
-        openWorkoutSession(recordId);
+        if (cardioRepository.isCardioSession(recordId)) {
+            openCardioSession(recordId);
+        } else {
+            openWorkoutSession(recordId);
+        }
     }
 
     @Override
     public void startRoutineWorkout(List<RoutineExerciseInstance> routineExercises) {
         if (routineExercises == null || routineExercises.isEmpty()) {
             toast("만들어진 루틴이 없습니다.");
+            return;
+        }
+        if (continueExistingWorkoutIfPresent()) {
             return;
         }
 
@@ -806,20 +922,351 @@ public final class MainActivity extends Activity implements ScreenHost {
                 "이 운동 기록과 세부 운동/세트 기록을 삭제 표시합니다.",
                 "삭제된 기록은 기록 탭에서 더 이상 보이지 않습니다.",
                 "삭제", () -> {
+                    boolean cardioSession = cardioRepository.isCardioSession(recordId);
+                    if (cardioSession) {
+                        cardioRepository.deleteLocalData(recordId);
+                    }
                     repository.deleteSession(recordId);
                     sessionState.clearIfMatches(recordId);
                     toast("운동 기록을 삭제했습니다.");
                     if (currentScreen == FitnessScreen.RECORDS) {
                         render();
                     } else {
-                        navigate(FitnessScreen.WORKOUT);
+                        navigate(cardioSession ? FitnessScreen.CARDIO : FitnessScreen.STRENGTH);
                     }
                 });
     }
 
     @Override
     public void startEmptyWorkout() {
+        if (continueExistingWorkoutIfPresent()) {
+            return;
+        }
         openWorkoutSession(repository.createEmptySession(today));
+    }
+
+    @Override
+    public void startCardioWorkout(CardioActivityType activityType) {
+        if (activityType == null) {
+            toast("유산소 유형을 선택하세요.");
+            return;
+        }
+        if (continueExistingWorkoutIfPresent()) {
+            return;
+        }
+        pendingCardioActivityType = activityType;
+        pendingCardioResumeRecordId = null;
+        requestCardioPermissionsAndContinue();
+    }
+
+    @Override
+    public void openCardioSummary(String recordId) {
+        if (!cardioRepository.isCardioSession(recordId)) {
+            toast("이 기기의 GPS 세부 기록을 찾지 못했습니다.");
+            return;
+        }
+        sessionState.setActiveRecordId(recordId);
+        sessionState.setActiveExerciseId(null);
+        navigate(FitnessScreen.CARDIO_SUMMARY);
+    }
+
+    @Override
+    public void pauseCardioWorkout() {
+        String recordId = sessionState.activeRecordId();
+        if (recordId == null || !cardioRepository.pause(recordId)) {
+            toast("일시정지할 유산소 기록을 찾지 못했습니다.");
+            return;
+        }
+        dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
+        toast("GPS 기록을 일시정지했습니다.");
+        render();
+    }
+
+    @Override
+    public void resumeCardioWorkout() {
+        String recordId = sessionState.activeRecordId();
+        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+        if (snapshot == null || !CardioRepository.STATUS_PAUSED.equals(snapshot.status)) {
+            toast("재개할 유산소 기록을 찾지 못했습니다.");
+            return;
+        }
+        pendingCardioActivityType = snapshot.activityType;
+        pendingCardioResumeRecordId = recordId;
+        requestCardioPermissionsAndContinue();
+    }
+
+    @Override
+    public void finishCardioWorkout() {
+        String recordId = sessionState.activeRecordId();
+        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+        if (snapshot == null) {
+            toast("완료할 유산소 기록을 찾지 못했습니다.");
+            return;
+        }
+        if (CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
+            openCardioSummary(recordId);
+            return;
+        }
+        if (CardioRepository.STATUS_TRACKING.equals(snapshot.status)
+                && cardioRepository.pause(recordId)) {
+            dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
+            render();
+        }
+        showCardioHeartRateSheet(recordId, true);
+    }
+
+    @Override
+    public void editCardioAverageHeartRate() {
+        String recordId = sessionState.activeRecordId();
+        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+        if (snapshot == null || !CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
+            toast("수정할 유산소 기록을 찾지 못했습니다.");
+            return;
+        }
+        showCardioHeartRateSheet(recordId, false);
+    }
+
+    @Override
+    public void cancelCardioWorkout() {
+        String recordId = sessionState.activeRecordId();
+        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+        if (snapshot == null) {
+            toast("취소할 유산소 기록을 찾지 못했습니다.");
+            return;
+        }
+        ui.confirmSheet(
+                "유산소 기록 취소",
+                "현재 " + CardioMetrics.formatDistanceKilometers(snapshot.distanceMeters)
+                        + "km 기록을 저장하지 않습니다.",
+                "이 기기에 저장된 GPS 좌표도 함께 삭제됩니다.",
+                "기록 취소",
+                () -> {
+                    stopService(new Intent(this, CardioTrackingService.class));
+                    cardioRepository.cancel(recordId);
+                    sessionState.clearIfMatches(recordId);
+                    toast("유산소 기록을 취소했습니다.");
+                    navigate(FitnessScreen.CARDIO);
+                }
+        );
+    }
+
+    private void openCardioSession(String recordId) {
+        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+        if (snapshot == null) {
+            toast("GPS 유산소 상태를 찾지 못했습니다.");
+            return;
+        }
+        sessionState.setActiveRecordId(recordId);
+        sessionState.setActiveExerciseId(null);
+        if (CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
+            navigate(FitnessScreen.CARDIO_SUMMARY);
+            return;
+        }
+        if (CardioRepository.STATUS_TRACKING.equals(snapshot.status)) {
+            dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
+        }
+        navigate(FitnessScreen.CARDIO_SESSION);
+    }
+
+    private void showCardioHeartRateSheet(String recordId, boolean finishAfterSave) {
+        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+        if (snapshot == null) {
+            toast("유산소 기록을 찾지 못했습니다.");
+            return;
+        }
+
+        LinearLayout form = ui.form();
+        int elapsedSeconds = snapshot.elapsedSeconds(System.currentTimeMillis());
+        TextView summary = ui.text(
+                CardioMetrics.formatDistanceKilometers(snapshot.distanceMeters)
+                        + "km · " + CardioMetrics.formatElapsed(elapsedSeconds),
+                14,
+                FitnessUi.COLOR_MUTED,
+                false
+        );
+        EditText averageHeartRate = ui.numberInput(
+                "평균 심박수 bpm (선택)",
+                CardioMetrics.hasAverageHeartRate(snapshot.averageHeartRateBpm)
+                        ? CardioMetrics.formatAverageHeartRate(snapshot.averageHeartRateBpm)
+                        : ""
+        );
+        TextView hint = ui.text(
+                "시계·밴드 등에서 확인한 평균값을 직접 입력하세요. 측정값이 없으면 비워둘 수 있습니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        );
+        ui.addAll(form, summary, averageHeartRate, hint);
+
+        ui.validatedSheet(
+                finishAfterSave ? snapshot.activityType.labelKo() + " 완료" : "평균 심박수 수정",
+                form,
+                finishAfterSave ? "운동 완료" : "저장",
+                () -> {
+                    String rawValue = FitnessUi.inputText(averageHeartRate).trim();
+                    Integer averageHeartRateBpm = FitnessUi.optionalInt(averageHeartRate);
+                    if (!rawValue.isEmpty()
+                            && (averageHeartRateBpm == null
+                            || !CardioMetrics.isValidAverageHeartRate(averageHeartRateBpm))) {
+                        averageHeartRate.setError("평균 심박수는 0보다 큰 정수로 입력하세요.");
+                        return false;
+                    }
+
+                    CardioRepository.SessionSnapshot saved = finishAfterSave
+                            ? cardioRepository.finish(recordId, averageHeartRateBpm)
+                            : cardioRepository.updateAverageHeartRate(recordId, averageHeartRateBpm);
+                    if (saved == null) {
+                        toast("평균 심박수를 저장하지 못했습니다.");
+                        return false;
+                    }
+                    if (finishAfterSave) {
+                        stopService(new Intent(this, CardioTrackingService.class));
+                        toast("유산소 운동을 완료했습니다.");
+                        openCardioSummary(recordId);
+                    } else {
+                        toast("평균 심박수를 저장했습니다.");
+                        render();
+                    }
+                    return true;
+                }
+        );
+    }
+
+    private boolean continueExistingWorkoutIfPresent() {
+        String activeRecordId = repository.latestInProgressSessionId();
+        if (activeRecordId == null) {
+            return false;
+        }
+        toast("진행 중인 운동을 먼저 이어갑니다.");
+        if (cardioRepository.isCardioSession(activeRecordId)) {
+            openCardioSession(activeRecordId);
+        } else {
+            openWorkoutSession(activeRecordId);
+        }
+        return true;
+    }
+
+    private void requestCardioPermissionsAndContinue() {
+        if (!hasPreciseLocationPermission()) {
+            requestPermissions(
+                    new String[]{
+                            Manifest.permission.ACCESS_COARSE_LOCATION,
+                            Manifest.permission.ACCESS_FINE_LOCATION
+                    },
+                    REQUEST_CARDIO_LOCATION
+            );
+            return;
+        }
+        continuePendingCardioAction();
+    }
+
+    private void continuePendingCardioAction() {
+        if (pendingCardioActivityType == null) {
+            return;
+        }
+        if (!locationServicesEnabled()) {
+            waitingForLocationSettings = true;
+            toast("휴대폰 위치 서비스를 켜주세요.");
+            startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+            return;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(
+                    new String[]{Manifest.permission.POST_NOTIFICATIONS},
+                    REQUEST_CARDIO_NOTIFICATIONS
+            );
+            return;
+        }
+        continuePendingCardioActionAfterNotificationPermission();
+    }
+
+    private void continuePendingCardioActionAfterNotificationPermission() {
+        CardioActivityType activityType = pendingCardioActivityType;
+        String resumeRecordId = pendingCardioResumeRecordId;
+        clearPendingCardioAction();
+        if (activityType == null || !hasPreciseLocationPermission()) {
+            return;
+        }
+
+        if (resumeRecordId != null) {
+            CardioRepository.SessionSnapshot snapshot = cardioRepository.session(resumeRecordId);
+            if (snapshot == null) {
+                toast("재개할 유산소 기록을 찾지 못했습니다.");
+                return;
+            }
+            cardioRepository.resume(resumeRecordId);
+            dispatchCardioService(CardioTrackingService.ACTION_RESUME, resumeRecordId, true);
+            sessionState.setActiveRecordId(resumeRecordId);
+            toast("GPS 기록을 재개했습니다.");
+            navigate(FitnessScreen.CARDIO_SESSION);
+            return;
+        }
+
+        String recordId = cardioRepository.startSession(activityType, today);
+        sessionState.setActiveRecordId(recordId);
+        sessionState.setActiveExerciseId(null);
+        dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
+        toast(activityType.labelKo() + " 기록을 시작했습니다.");
+        navigate(FitnessScreen.CARDIO_SESSION);
+    }
+
+    private void dispatchCardioService(String action, String recordId, boolean foregroundStart) {
+        Intent intent = new Intent(this, CardioTrackingService.class)
+                .setAction(action)
+                .putExtra(CardioTrackingService.EXTRA_RECORD_ID, recordId);
+        if (foregroundStart) {
+            startForegroundService(intent);
+        } else {
+            startService(intent);
+        }
+    }
+
+    private void handleCardioIntent(Intent intent) {
+        if (intent == null || cardioRepository == null) {
+            return;
+        }
+        String recordId = intent.getStringExtra(CardioTrackingService.EXTRA_RECORD_ID);
+        if (recordId == null || !cardioRepository.isCardioSession(recordId)) {
+            return;
+        }
+        boolean finishRequested = intent.getBooleanExtra(
+                CardioTrackingService.EXTRA_FINISH_REQUESTED, false);
+        intent.removeExtra(CardioTrackingService.EXTRA_RECORD_ID);
+        intent.removeExtra(CardioTrackingService.EXTRA_FINISH_REQUESTED);
+        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+        if (snapshot != null && CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
+            openCardioSummary(recordId);
+        } else {
+            openCardioSession(recordId);
+            if (finishRequested) {
+                finishCardioWorkout();
+            }
+        }
+    }
+
+    private boolean hasPreciseLocationPermission() {
+        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
+                == PackageManager.PERMISSION_GRANTED;
+    }
+
+    private boolean locationServicesEnabled() {
+        LocationManager manager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (manager == null) {
+            return false;
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            return manager.isLocationEnabled();
+        }
+        return manager.isProviderEnabled(LocationManager.GPS_PROVIDER)
+                || manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
+    }
+
+    private void clearPendingCardioAction() {
+        pendingCardioActivityType = null;
+        pendingCardioResumeRecordId = null;
+        waitingForLocationSettings = false;
     }
 
     @Override
@@ -859,33 +1306,8 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
-    public void showMealDialog() {
-        LinearLayout form = ui.form();
-        String todayMealDate = today();
-        String yesterdayMealDate = LocalDate.parse(todayMealDate).minusDays(1).toString();
-        String[] selectedMealDate = {todayMealDate};
-        Button mealDay = ui.button("식사일: 오늘 (탭하여 전날로 변경)", false, null);
-        mealDay.setOnClickListener(v -> {
-            boolean isToday = todayMealDate.equals(selectedMealDate[0]);
-            selectedMealDate[0] = isToday ? yesterdayMealDate : todayMealDate;
-            mealDay.setText(isToday
-                    ? "식사일: 전날 (탭하여 오늘로 변경)"
-                    : "식사일: 오늘 (탭하여 전날로 변경)");
-        });
-        EditText menu = ui.input("식단 내용", "닭가슴살 샐러드");
-        EditText calories = ui.numberInput("칼로리 kcal (선택)", "");
-        EditText protein = ui.decimalInput("단백질 g (선택)", "");
-        EditText carbs = ui.decimalInput("탄수화물 g (선택)", "");
-        EditText fat = ui.decimalInput("지방 g (선택)", "");
-        ui.addAll(form, mealDay, menu, calories, protein, carbs, fat);
-        ui.sheet("식단 기록", form,
-                "저장", () -> {
-                    repository.addMeal(selectedMealDate[0], FitnessUi.inputText(menu),
-                            FitnessUi.optionalInt(calories),
-                            FitnessUi.optionalDouble(protein), FitnessUi.optionalDouble(carbs),
-                            FitnessUi.optionalDouble(fat));
-                    render();
-                }, null, null);
+    public void openMealManagement() {
+        navigate(FitnessScreen.MEALS);
     }
 
     // ── 설정 / 동기화 ─────────────────────────────────────────────────
@@ -963,12 +1385,35 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    public boolean isSharedSupabaseConnectionManaged() {
+        return configStore.isConnectionManaged();
+    }
+
+    @Override
     public void saveSupabaseConfig(String url, String anonKey) {
         try {
             supabaseConfig = configStore.saveConnection(url, anonKey);
             applySyncStatusFromConfig();
             toast("설정을 저장했습니다.");
-        } catch (IllegalArgumentException error) {
+        } catch (IllegalArgumentException | IllegalStateException error) {
+            toast(error.getMessage());
+        }
+        render();
+    }
+
+    @Override
+    public SupabaseConfig nutritionSupabaseConfig() {
+        return nutritionSupabaseConfig;
+    }
+
+    @Override
+    public void saveNutritionSupabaseConfig(String url, String anonKey) {
+        try {
+            nutritionSupabaseConfig = nutritionConfigStore.saveConnection(url, anonKey);
+            nutritionCatalogRepository.setUserId(nutritionSupabaseConfig.effectiveUserId());
+            nutritionCatalogRepository.setSupabaseConfig(nutritionSupabaseConfig);
+            toast("Nutrition DB 설정을 저장했습니다.");
+        } catch (IllegalArgumentException | IllegalStateException error) {
             toast(error.getMessage());
         }
         render();
@@ -977,7 +1422,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void signInToSupabase(String email, String password) {
         if (!supabaseConfig.isConnectionConfigured()) {
-            toast("Supabase URL과 anon key를 먼저 저장하세요.");
+            toast("공통 DB 빌드 설정이 없습니다. 수동 대체 연결을 먼저 저장하세요.");
             return;
         }
         syncLabel = "authenticating";
@@ -1014,7 +1459,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void signUpToSupabase(String email, String password) {
         if (!supabaseConfig.isConnectionConfigured()) {
-            toast("Supabase URL과 anon key를 먼저 저장하세요.");
+            toast("공통 DB 빌드 설정이 없습니다. 수동 대체 연결을 먼저 저장하세요.");
             return;
         }
         syncLabel = "authenticating";
@@ -1057,8 +1502,94 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void signOutFromSupabase() {
         supabaseConfig = configStore.clearSession();
+        String loggedOutOwnerId = AccountOwnerPolicy.loggedOutOwnerId();
+        repository.normalizeLocalUserId(loggedOutOwnerId);
+        routineRepository.normalizeLocalUserId(loggedOutOwnerId);
         applySyncStatusFromConfig();
         toast("로그아웃했습니다. 로컬 기록은 유지됩니다.");
+        render();
+    }
+
+    @Override
+    public void signInToNutritionSupabase(String email, String password) {
+        SupabaseConfig config = nutritionSupabaseConfig;
+        if (!config.isConnectionConfigured()) {
+            toast("Nutrition DB URL과 anon key를 먼저 저장하세요.");
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                SupabaseConfig authenticated = nutritionAuthManager.signIn(
+                        config,
+                        email,
+                        password
+                );
+                runOnUiThread(() -> {
+                    nutritionSupabaseConfig = authenticated;
+                    nutritionCatalogRepository.normalizeLocalUserId(
+                            authenticated.effectiveUserId()
+                    );
+                    nutritionCatalogRepository.setSupabaseConfig(authenticated);
+                    toast("Nutrition DB에 로그인했습니다.");
+                    render();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    toast(error.getMessage() == null
+                            ? "Nutrition DB 로그인에 실패했습니다."
+                            : error.getMessage());
+                    render();
+                });
+            }
+        });
+    }
+
+    @Override
+    public void signUpToNutritionSupabase(String email, String password) {
+        SupabaseConfig config = nutritionSupabaseConfig;
+        if (!config.isConnectionConfigured()) {
+            toast("Nutrition DB URL과 anon key를 먼저 저장하세요.");
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                SupabaseAuthManager.SignUpResult result = nutritionAuthManager.signUp(
+                        config,
+                        email,
+                        password
+                );
+                runOnUiThread(() -> {
+                    if (result.emailConfirmationRequired) {
+                        toast("Nutrition DB 가입 확인 메일을 확인하세요.");
+                    } else {
+                        nutritionSupabaseConfig = result.config;
+                        nutritionCatalogRepository.normalizeLocalUserId(
+                                result.config.effectiveUserId()
+                        );
+                        nutritionCatalogRepository.setSupabaseConfig(result.config);
+                        toast("Nutrition DB 계정이 생성되었습니다.");
+                    }
+                    render();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> {
+                    toast(error.getMessage() == null
+                            ? "Nutrition DB 가입에 실패했습니다."
+                            : error.getMessage());
+                    render();
+                });
+            }
+        });
+    }
+
+    @Override
+    public void signOutFromNutritionSupabase() {
+        nutritionSupabaseConfig = nutritionConfigStore.clearSession();
+        nutritionCatalogRepository.normalizeLocalUserId(
+                AccountOwnerPolicy.loggedOutOwnerId()
+        );
+        nutritionCatalogRepository.setSupabaseConfig(nutritionSupabaseConfig);
+        toast("Nutrition DB에서 로그아웃했습니다.");
         render();
     }
 
@@ -1112,8 +1643,8 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         syncLabel = supabaseConfig.isConnectionConfigured() ? "login required" : "local-only";
         syncDetail = supabaseConfig.isConnectionConfigured()
-                ? "원격 동기화를 사용하려면 로그인하세요."
-                : "Supabase 설정이 없어 로컬 전용 모드입니다.";
+                ? "공통 DB는 연결되었습니다. 최초 1회 로그인하세요."
+                : "공통 DB 빌드 설정이 없어 로컬 전용 모드입니다.";
     }
 
     @Override

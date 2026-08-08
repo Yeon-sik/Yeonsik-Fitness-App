@@ -26,7 +26,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
     public void render() {
         String recordId = host.sessionState().activeRecordId();
         if (recordId == null) {
-            host.navigate(FitnessScreen.WORKOUT);
+            host.navigate(FitnessScreen.STRENGTH);
             return;
         }
 
@@ -185,7 +185,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
                 .setTitle("운동 나가기")
                 .setItems(new String[]{"계속 운동하기", "임시 저장하고 나가기", "기록 삭제하고 나가기"}, (dialog, which) -> {
                     if (which == 1) {
-                        host.navigate(FitnessScreen.WORKOUT);
+                        host.navigate(FitnessScreen.STRENGTH);
                         host.toast("임시 저장했습니다. 진행 중 운동에서 이어할 수 있습니다.");
                     } else if (which == 2 && recordId != null) {
                         host.confirmDeleteSession(recordId);

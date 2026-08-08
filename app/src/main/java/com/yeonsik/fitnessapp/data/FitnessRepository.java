@@ -4,6 +4,8 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.yeonsik.fitnessapp.cardio.CardioActivityType;
+import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
@@ -19,6 +21,7 @@ import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,11 +46,18 @@ public final class FitnessRepository {
 
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
-        SQLiteDatabase database = db();
-        ContentValues values = new ContentValues();
-        values.put("user_id", nextUserId);
-        for (String table : tables()) {
-            database.update(table, values, null, null);
+        if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
+            SQLiteDatabase database = db();
+            ContentValues values = new ContentValues();
+            values.put("user_id", nextUserId);
+            for (String table : tables()) {
+                database.update(
+                        table,
+                        values,
+                        "user_id = ?",
+                        new String[]{SupabaseConfig.DEFAULT_USER_ID}
+                );
+            }
         }
         this.userId = nextUserId;
         ensureDevice(nextUserId);
@@ -83,6 +93,141 @@ public final class FitnessRepository {
         ));
         db().insertOrThrow("workout_records", null, values);
         return id;
+    }
+
+    /** GPS 유산소용 부모 기록과 거리/시간 세부 종목을 함께 만든다. */
+    public String createCardioSession(String date, CardioActivityType activityType) {
+        if (activityType == null) {
+            throw new IllegalArgumentException("유산소 유형이 필요합니다.");
+        }
+        String recordId = createSession(
+                date,
+                activityType.labelKo(),
+                "cardio",
+                "",
+                now(),
+                ""
+        );
+
+        String createdAt = now();
+        ContentValues exercise = baseValues(newId(), createdAt);
+        exercise.put("record_id", recordId);
+        exercise.put("order_index", 1);
+        exercise.put("exercise_id", "cardio_" + activityType.id());
+        exercise.put("exercise_name_snapshot", activityType.labelKo());
+        exercise.put("ui_part", "cardio");
+        exercise.put("primary_sub_part_snapshot", activityType.labelKo());
+        exercise.putNull("equipment_snapshot");
+        exercise.put("record_type", FitnessRecordContract.TIME);
+        exercise.putNull("memo");
+        db().insertOrThrow("workout_exercises", null, exercise);
+
+        ContentValues record = new ContentValues();
+        record.put("category", activityType.labelKo());
+        record.put("metadata", mergedCardioMetadata(
+                sessionInfoMetadata(recordId),
+                "in_progress",
+                activityType,
+                "",
+                0,
+                0d,
+                null
+        ));
+        record.put("updated_at", createdAt);
+        db().update("workout_records", record, "id = ?", new String[]{recordId});
+        updateSharedWorkoutSummary(recordId, false);
+        return recordId;
+    }
+
+    /** 완료된 GPS 유산소를 기존 공유 기록 계약의 시간/거리 세트로 확정한다. */
+    public void completeCardioSession(
+            String recordId,
+            CardioActivityType activityType,
+            int durationSeconds,
+            double distanceMeters,
+            Integer averageHeartRateBpm
+    ) {
+        if (emptyToNull(recordId) == null || activityType == null) {
+            throw new IllegalArgumentException("완료할 유산소 세션이 없습니다.");
+        }
+        if (durationSeconds <= 0) {
+            throw new IllegalArgumentException("유산소 시간은 1초 이상이어야 합니다.");
+        }
+        if (!Double.isFinite(distanceMeters) || distanceMeters < 0) {
+            throw new IllegalArgumentException("유산소 거리는 0 이상의 유한한 값이어야 합니다.");
+        }
+        if (averageHeartRateBpm != null && averageHeartRateBpm <= 0) {
+            throw new IllegalArgumentException("평균 심박수는 0보다 커야 합니다.");
+        }
+
+        String exerciseId = cardioExerciseId(recordId);
+        if (exerciseId == null) {
+            throw new IllegalStateException("유산소 세부 종목을 찾지 못했습니다.");
+        }
+        SetInput summaryInput = new SetInput(
+                null,
+                null,
+                durationSeconds,
+                distanceMeters,
+                null,
+                null,
+                null,
+                null,
+                true
+        );
+        List<SessionSetEntry> existingSets = setsForExercise(exerciseId);
+        if (existingSets.isEmpty()) {
+            addTypedSet(recordId, exerciseId, 1, summaryInput);
+        } else {
+            updateTypedSet(recordId, existingSets.get(0).id, summaryInput);
+        }
+
+        String endedAt = now();
+        String metadata = sessionInfoMetadata(recordId);
+        ContentValues record = new ContentValues();
+        record.put("duration_seconds", durationSeconds);
+        record.put("total_volume_kg", 0d);
+        putNullable(record, "average_heart_rate", averageHeartRateBpm);
+        record.put("exercise_name", activityType.labelKo());
+        record.put("category", activityType.labelKo());
+        record.put("updated_at", endedAt);
+        record.put("metadata", mergedCardioMetadata(
+                metadata,
+                "completed",
+                activityType,
+                endedAt,
+                durationSeconds,
+                distanceMeters,
+                averageHeartRateBpm
+        ));
+        db().update("workout_records", record,
+                "id = ? AND deleted_at IS NULL", new String[]{recordId});
+        updateSharedWorkoutSummary(recordId, true);
+    }
+
+    public boolean updateCardioAverageHeartRate(String recordId, Integer averageHeartRateBpm) {
+        if (emptyToNull(recordId) == null) {
+            return false;
+        }
+        if (averageHeartRateBpm != null && averageHeartRateBpm <= 0) {
+            throw new IllegalArgumentException("평균 심박수는 0보다 커야 합니다.");
+        }
+
+        ContentValues values = new ContentValues();
+        putNullable(values, "average_heart_rate", averageHeartRateBpm);
+        values.put("metadata", metadataWithAverageHeartRate(
+                sessionInfoMetadata(recordId), averageHeartRateBpm));
+        values.put("updated_at", now());
+        boolean updated = db().update(
+                "workout_records",
+                values,
+                "id = ? AND workout_type = 'cardio' AND deleted_at IS NULL",
+                new String[]{recordId}
+        ) == 1;
+        if (updated) {
+            updateSharedWorkoutSummary(recordId, true);
+        }
+        return updated;
     }
 
     /** 파싱과 운동 매핑이 끝난 FLEEK 기록을 하나의 SQLite 트랜잭션으로 저장한다. */
@@ -318,7 +463,7 @@ public final class FitnessRepository {
         putNullable(values, "weight_kg", input.weightKg);
         values.put("volume_kg", setVolume(recordType, input));
         putNullable(values, "duration_seconds", input.durationSeconds);
-        values.putNull("distance_meters");
+        putNullable(values, "distance_meters", input.distanceMeters);
         putNullable(values, "rest_seconds", input.restSeconds);
         putNullable(values, "assisted_weight_kg", input.assistedWeightKg);
         putNullable(values, "added_weight_kg", input.addedWeightKg);
@@ -355,6 +500,7 @@ public final class FitnessRepository {
         putNullable(values, "actual_reps", input.reps);
         values.put("volume_kg", setVolume(recordType, input));
         putNullable(values, "duration_seconds", input.durationSeconds);
+        putNullable(values, "distance_meters", input.distanceMeters);
         putNullable(values, "assisted_weight_kg", input.assistedWeightKg);
         putNullable(values, "added_weight_kg", input.addedWeightKg);
         putNullable(values, "rpe", input.rpe);
@@ -398,7 +544,8 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, set_index, COALESCE(weight_kg, 0), COALESCE(actual_reps, 0), "
                         + "rpe, rest_seconds, is_completed, COALESCE(duration_seconds, 0), "
-                        + "COALESCE(assisted_weight_kg, 0), COALESCE(added_weight_kg, 0) FROM workout_sets " +
+                        + "COALESCE(distance_meters, 0), COALESCE(assisted_weight_kg, 0), "
+                        + "COALESCE(added_weight_kg, 0) FROM workout_sets " +
                         "WHERE workout_exercise_id = ? AND deleted_at IS NULL ORDER BY set_index",
                 new String[]{workoutExerciseId})) {
             while (cursor.moveToNext()) {
@@ -412,7 +559,8 @@ public final class FitnessRepository {
                         cursor.getInt(6) == 1,
                         cursor.getInt(7),
                         cursor.getDouble(8),
-                        cursor.getDouble(9)
+                        cursor.getDouble(9),
+                        cursor.getDouble(10)
                 ));
             }
         }
@@ -431,7 +579,9 @@ public final class FitnessRepository {
         }
 
         try (Cursor cursor = db().rawQuery(
-                "SELECT exercise_name, date, duration_seconds, metadata FROM workout_records WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+                "SELECT exercise_name, date, duration_seconds, metadata, workout_type, "
+                        + "average_heart_rate FROM workout_records "
+                        + "WHERE id = ? AND deleted_at IS NULL LIMIT 1",
                 new String[]{recordId})) {
             if (cursor.moveToFirst()) {
                 info.title = emptyToDefault(cursor.getString(0), "");
@@ -439,6 +589,8 @@ public final class FitnessRepository {
                 String metadata = cursor.getString(3);
                 info.startedAt = metadataValue(metadata, "started_at", "");
                 info.status = metadataValue(metadata, "status", "");
+                info.workoutType = emptyToDefault(cursor.getString(4), "other");
+                info.averageHeartRateBpm = cursor.isNull(5) ? null : cursor.getDouble(5);
                 info.durationSeconds = resolvedDurationSeconds(
                         cursor.getString(1),
                         cursor.isNull(2) ? null : cursor.getInt(2),
@@ -543,6 +695,38 @@ public final class FitnessRepository {
 
     public String addMeal(String date, String menuText, Integer calories, Double proteinGrams,
                           Double carbsGrams, Double fatGrams) {
+        return addMeal(
+                date,
+                menuText,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                Collections.emptyList()
+        );
+    }
+
+    public String addMeal(String date, String menuText, Integer calories, Double proteinGrams,
+                          Double carbsGrams, Double fatGrams,
+                          List<MealCompositionItem> compositionItems) {
+        return addMeal(
+                date,
+                "식사",
+                menuText,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                compositionItems
+        );
+    }
+
+    public String addMeal(String date, String mealType, String menuText, Integer calories,
+                          Double proteinGrams, Double carbsGrams, Double fatGrams,
+                          List<MealCompositionItem> compositionItems) {
+        List<MealCompositionItem> items = compositionItems == null
+                ? Collections.emptyList()
+                : compositionItems;
         String id = newId();
         String now = now();
         ContentValues values = baseValues(id, now);
@@ -557,9 +741,198 @@ public final class FitnessRepository {
         values.putNull("backfill_reason");
         values.put("source_app", "fitness");
         values.put("scope", "fitness");
-        values.put("metadata", json("item_type", "meal", "estimated", "false"));
-        db().insertOrThrow("meal_records", null, values);
+        values.put("metadata", json(
+                "item_type", "meal",
+                "meal_type", normalizeMealType(mealType),
+                "estimated", "false",
+                "composition_version", "1",
+                "item_count", String.valueOf(items.size())
+        ));
+
+        SQLiteDatabase database = db();
+        database.beginTransaction();
+        try {
+            database.insertOrThrow("meal_records", null, values);
+            int orderIndex = 0;
+            for (MealCompositionItem item : items) {
+                if (item == null || item.food == null) {
+                    throw new IllegalArgumentException("Meal composition contains an empty food.");
+                }
+                ContentValues itemValues = new ContentValues();
+                itemValues.put("id", newId());
+                itemValues.put("user_id", userId);
+                itemValues.put("meal_record_id", id);
+                itemValues.put("food_id", item.food.id);
+                itemValues.put("food_name_snapshot", item.food.name);
+                itemValues.put("quantity", item.quantity);
+                itemValues.put("unit", item.food.basisUnit);
+                itemValues.put("calories", item.calories);
+                itemValues.put("protein_grams", item.proteinGrams);
+                itemValues.put("carbs_grams", item.carbsGrams);
+                itemValues.put("fat_grams", item.fatGrams);
+                itemValues.put("order_index", orderIndex++);
+                itemValues.put("created_at", now);
+                itemValues.put("updated_at", now);
+                itemValues.putNull("deleted_at");
+                itemValues.put("device_id", DEVICE_ID);
+                database.insertOrThrow("meal_record_items", null, itemValues);
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
         return id;
+    }
+
+    public List<MealEntry> mealEntriesForDate(String date) {
+        List<MealEntry> entries = new ArrayList<>();
+        String selectedDate = emptyToToday(date);
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, date, menu, calories, protein_grams, carbs_grams, fat_grams, " +
+                        "metadata, created_at " +
+                        "FROM meal_records WHERE deleted_at IS NULL " +
+                        "AND scope IN ('fitness', 'both') AND date = ? " +
+                        "ORDER BY created_at ASC, id ASC",
+                new String[]{selectedDate}
+        )) {
+            while (cursor.moveToNext()) {
+                entries.add(new MealEntry(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        mealTypeFromMetadata(cursor.getString(7)),
+                        cursor.getString(2),
+                        cursor.getInt(3),
+                        cursor.getDouble(4),
+                        cursor.getDouble(5),
+                        cursor.getDouble(6),
+                        itemCountFromMetadata(cursor.getString(7)),
+                        cursor.getString(8)
+                ));
+            }
+        }
+        return entries;
+    }
+
+    public MealNutritionSummary mealNutritionForDate(String date) {
+        try (Cursor cursor = db().rawQuery(
+                "SELECT COUNT(*), COALESCE(SUM(calories), 0), " +
+                        "COALESCE(SUM(protein_grams), 0), COALESCE(SUM(carbs_grams), 0), " +
+                        "COALESCE(SUM(fat_grams), 0) FROM meal_records " +
+                        "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') AND date = ?",
+                new String[]{emptyToToday(date)}
+        )) {
+            if (cursor.moveToFirst()) {
+                return new MealNutritionSummary(
+                        cursor.getInt(0),
+                        cursor.getDouble(1),
+                        cursor.getDouble(2),
+                        cursor.getDouble(3),
+                        cursor.getDouble(4)
+                );
+            }
+        }
+        return new MealNutritionSummary(0, 0, 0, 0, 0);
+    }
+
+    public boolean deleteMeal(String id) {
+        String normalizedId = id == null ? "" : id.trim();
+        if (normalizedId.isEmpty()) {
+            return false;
+        }
+        String timestamp = now();
+        ContentValues values = new ContentValues();
+        values.put("deleted_at", timestamp);
+        values.put("updated_at", timestamp);
+        SQLiteDatabase database = db();
+        database.beginTransaction();
+        try {
+            int deleted = database.update(
+                    "meal_records",
+                    values,
+                    "id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedId}
+            );
+            database.update(
+                    "meal_record_items",
+                    values,
+                    "meal_record_id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedId}
+            );
+            database.setTransactionSuccessful();
+            return deleted > 0;
+        } finally {
+            database.endTransaction();
+        }
+    }
+
+    /** 반복 입력용 메뉴 템플릿을 기기 로컬에 저장한다. 같은 이름은 최신 영양값으로 갱신한다. */
+    public String saveMealMenuPreset(String name, Integer calories, Double proteinGrams,
+                                     Double carbsGrams, Double fatGrams) {
+        String normalizedName = normalizeMealMenuPresetName(name);
+
+        SQLiteDatabase database = db();
+        String existingId = null;
+        try (Cursor cursor = database.rawQuery(
+                "SELECT id FROM meal_menu_presets WHERE name = ? COLLATE NOCASE LIMIT 1",
+                new String[]{normalizedName})) {
+            if (cursor.moveToFirst()) {
+                existingId = cursor.getString(0);
+            }
+        }
+
+        String timestamp = now();
+        ContentValues values = new ContentValues();
+        values.put("name", normalizedName);
+        putNullable(values, "calories", calories);
+        putNullable(values, "protein_grams", proteinGrams);
+        putNullable(values, "carbs_grams", carbsGrams);
+        putNullable(values, "fat_grams", fatGrams);
+        values.put("updated_at", timestamp);
+
+        if (existingId != null) {
+            database.update("meal_menu_presets", values, "id = ?", new String[]{existingId});
+            return existingId;
+        }
+
+        String id = newId();
+        values.put("id", id);
+        values.put("created_at", timestamp);
+        database.insertOrThrow("meal_menu_presets", null, values);
+        return id;
+    }
+
+    static String normalizeMealMenuPresetName(String name) {
+        String normalizedName = emptyToNull(name);
+        if (normalizedName == null) {
+            throw new IllegalArgumentException("메뉴 이름을 입력하세요.");
+        }
+        return normalizedName;
+    }
+
+    public List<MealMenuPreset> mealMenuPresets() {
+        List<MealMenuPreset> presets = new ArrayList<>();
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, name, calories, protein_grams, carbs_grams, fat_grams " +
+                        "FROM meal_menu_presets ORDER BY updated_at DESC, name COLLATE NOCASE ASC",
+                null)) {
+            while (cursor.moveToNext()) {
+                presets.add(new MealMenuPreset(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.isNull(2) ? null : cursor.getInt(2),
+                        cursor.isNull(3) ? null : cursor.getDouble(3),
+                        cursor.isNull(4) ? null : cursor.getDouble(4),
+                        cursor.isNull(5) ? null : cursor.getDouble(5)
+                ));
+            }
+        }
+        return presets;
+    }
+
+    public boolean deleteMealMenuPreset(String id) {
+        String normalizedId = emptyToNull(id);
+        return normalizedId != null
+                && db().delete("meal_menu_presets", "id = ?", new String[]{normalizedId}) > 0;
     }
 
     public String createSessionFromRoutine(String date, String title, List<RoutineExerciseInstance> routineExercises) {
@@ -636,6 +1009,16 @@ public final class FitnessRepository {
         }
     }
 
+    private String cardioExerciseId(String recordId) {
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id FROM workout_exercises WHERE record_id = ? "
+                        + "AND exercise_id LIKE 'cardio_%' AND deleted_at IS NULL "
+                        + "ORDER BY order_index LIMIT 1",
+                new String[]{recordId})) {
+            return cursor.moveToFirst() ? cursor.getString(0) : null;
+        }
+    }
+
     private static String addMetadataValue(String metadata, String key, String value) {
         try {
             JSONObject object = metadata == null || metadata.trim().isEmpty()
@@ -658,7 +1041,8 @@ public final class FitnessRepository {
     public List<SessionRecordEntry> sessionEntriesForDate(String date) {
         List<SessionRecordEntry> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
-                "SELECT id, date, exercise_name, workout_type, duration_seconds, metadata, category, source_app FROM workout_records " +
+                "SELECT id, date, exercise_name, workout_type, duration_seconds, metadata, category, "
+                        + "source_app, average_heart_rate FROM workout_records " +
                         "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') " +
                         "AND " + COMPLETED_OR_OS_WORKOUT + " AND date = ? ORDER BY updated_at DESC",
                 new String[]{emptyToToday(date)})) {
@@ -680,7 +1064,10 @@ public final class FitnessRepository {
                                 + "  "
                                 + displaySessionType(cursor.getString(3))
                                 + "  " + formatSessionMetrics(metrics.totalVolumeKg, durationSeconds),
-                        cursor.getString(7)
+                        cursor.getString(7),
+                        cursor.getString(3),
+                        durationSeconds,
+                        cursor.isNull(8) ? null : cursor.getDouble(8)
                 ));
             }
         }
@@ -836,8 +1223,9 @@ public final class FitnessRepository {
         List<String> recordIds = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
                 "SELECT id FROM workout_records WHERE source_app = 'fitness' "
-                        + "AND deleted_at IS NULL AND metadata LIKE '%\"status\":\"completed\"%'",
-                null)) {
+                        + "AND user_id = ? AND deleted_at IS NULL "
+                        + "AND metadata LIKE '%\"status\":\"completed\"%'",
+                new String[]{userId})) {
             while (cursor.moveToNext()) {
                 recordIds.add(cursor.getString(0));
             }
@@ -944,7 +1332,8 @@ public final class FitnessRepository {
     public SessionMetrics sessionMetrics(String recordId) {
         SessionMetrics metrics = new SessionMetrics();
         try (Cursor cursor = db().rawQuery(
-                "SELECT COALESCE(SUM(COALESCE(volume_kg, COALESCE(weight_kg, 0) * COALESCE(actual_reps, 0))), 0), COUNT(*) " +
+                "SELECT COALESCE(SUM(COALESCE(volume_kg, COALESCE(weight_kg, 0) * COALESCE(actual_reps, 0))), 0), "
+                        + "COUNT(*), COALESCE(SUM(COALESCE(distance_meters, 0)), 0) " +
                         "FROM workout_sets ws " +
                         "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id " +
                         "WHERE we.record_id = ? AND we.deleted_at IS NULL AND ws.deleted_at IS NULL AND ws.is_completed = 1",
@@ -952,6 +1341,7 @@ public final class FitnessRepository {
             if (cursor.moveToFirst()) {
                 metrics.totalVolumeKg = cursor.getDouble(0);
                 metrics.setCount = cursor.getInt(1);
+                metrics.totalDistanceMeters = cursor.getDouble(2);
             }
         }
         return metrics;
@@ -1385,6 +1775,7 @@ public final class FitnessRepository {
         tables.add("workout_exercises");
         tables.add("workout_sets");
         tables.add("meal_records");
+        tables.add("meal_record_items");
         tables.add("weight_records");
         return tables;
     }
@@ -1595,6 +1986,61 @@ public final class FitnessRepository {
         }
     }
 
+    private static String mergedCardioMetadata(
+            String metadata,
+            String status,
+            CardioActivityType activityType,
+            String endedAt,
+            int durationSeconds,
+            double distanceMeters,
+            Integer averageHeartRateBpm
+    ) {
+        try {
+            JSONObject object = metadata == null || metadata.trim().isEmpty()
+                    ? new JSONObject()
+                    : new JSONObject(metadata);
+            object.put("status", status);
+            object.put("activity_type", activityType.id());
+            object.put("ended_at", emptyToDefault(endedAt, ""));
+            object.put("duration_seconds", durationSeconds);
+            object.put("active_duration_seconds", durationSeconds);
+            object.put("distance_meters", distanceMeters);
+            object.put("average_heart_rate",
+                    averageHeartRateBpm == null ? JSONObject.NULL : averageHeartRateBpm);
+            object.put("average_pace_seconds_per_km",
+                    distanceMeters <= 0 ? JSONObject.NULL
+                            : Math.round(durationSeconds / (distanceMeters / 1000d)));
+            object.put("contract_version", FitnessRecordContract.VERSION);
+            return object.toString();
+        } catch (Exception exception) {
+            return json(
+                    "status", status,
+                    "activity_type", activityType.id(),
+                    "ended_at", emptyToDefault(endedAt, ""),
+                    "duration_seconds", String.valueOf(durationSeconds),
+                    "distance_meters", String.valueOf(distanceMeters),
+                    "average_heart_rate", averageHeartRateBpm == null
+                            ? "" : String.valueOf(averageHeartRateBpm)
+            );
+        }
+    }
+
+    private static String metadataWithAverageHeartRate(
+            String metadata,
+            Integer averageHeartRateBpm
+    ) {
+        try {
+            JSONObject object = metadata == null || metadata.trim().isEmpty()
+                    ? new JSONObject()
+                    : new JSONObject(metadata);
+            object.put("average_heart_rate",
+                    averageHeartRateBpm == null ? JSONObject.NULL : averageHeartRateBpm);
+            return object.toString();
+        } catch (Exception exception) {
+            return metadata == null ? "{}" : metadata;
+        }
+    }
+
     private static int safeInt(long value) {
         if (value <= 0) {
             return 0;
@@ -1644,6 +2090,29 @@ public final class FitnessRepository {
         }
         builder.append("}");
         return builder.toString();
+    }
+
+    private static String normalizeMealType(String value) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.isEmpty() ? "식사" : normalized;
+    }
+
+    private static String mealTypeFromMetadata(String metadata) {
+        try {
+            return normalizeMealType(new JSONObject(metadata == null ? "{}" : metadata)
+                    .optString("meal_type", "식사"));
+        } catch (Exception ignored) {
+            return "식사";
+        }
+    }
+
+    private static int itemCountFromMetadata(String metadata) {
+        try {
+            return Math.max(0, new JSONObject(metadata == null ? "{}" : metadata)
+                    .optInt("item_count", 0));
+        } catch (Exception ignored) {
+            return 0;
+        }
     }
 
     private static String escapeJson(String value) {
@@ -1704,11 +2173,24 @@ public final class FitnessRepository {
         public final String id;
         public final String summary;
         public final String sourceApp;
+        public final String workoutType;
+        public final int durationSeconds;
+        public final Double averageHeartRateBpm;
 
-        public SessionRecordEntry(String id, String summary, String sourceApp) {
+        public SessionRecordEntry(
+                String id,
+                String summary,
+                String sourceApp,
+                String workoutType,
+                int durationSeconds,
+                Double averageHeartRateBpm
+        ) {
             this.id = id;
             this.summary = summary;
             this.sourceApp = sourceApp;
+            this.workoutType = workoutType;
+            this.durationSeconds = durationSeconds;
+            this.averageHeartRateBpm = averageHeartRateBpm;
         }
     }
 
@@ -1762,6 +2244,7 @@ public final class FitnessRepository {
             throw new IllegalArgumentException("세트 입력이 없습니다.");
         }
         validateNonNegative(input.weightKg, "중량");
+        validateNonNegative(input.distanceMeters, "거리");
         validateNonNegative(input.assistedWeightKg, "보조 중량");
         validateNonNegative(input.addedWeightKg, "추가 중량");
         if (input.reps != null && input.reps < 0) {
@@ -1864,6 +2347,7 @@ public final class FitnessRepository {
     public static final class SessionMetrics {
         public double totalVolumeKg;
         public int setCount;
+        public double totalDistanceMeters;
     }
 
     public static final class VolumePoint {
@@ -1933,6 +2417,7 @@ public final class FitnessRepository {
         public final Integer restSeconds;
         public final boolean isCompleted;
         public final int durationSeconds;
+        public final double distanceMeters;
         public final double assistedWeightKg;
         public final double addedWeightKg;
 
@@ -1945,6 +2430,7 @@ public final class FitnessRepository {
                 Integer restSeconds,
                 boolean isCompleted,
                 int durationSeconds,
+                double distanceMeters,
                 double assistedWeightKg,
                 double addedWeightKg
         ) {
@@ -1956,6 +2442,7 @@ public final class FitnessRepository {
             this.restSeconds = restSeconds;
             this.isCompleted = isCompleted;
             this.durationSeconds = durationSeconds;
+            this.distanceMeters = distanceMeters;
             this.assistedWeightKg = assistedWeightKg;
             this.addedWeightKg = addedWeightKg;
         }
@@ -1965,6 +2452,7 @@ public final class FitnessRepository {
         public final Double weightKg;
         public final Integer reps;
         public final Integer durationSeconds;
+        public final Double distanceMeters;
         public final Double assistedWeightKg;
         public final Double addedWeightKg;
         public final Integer rpe;
@@ -1981,9 +2469,25 @@ public final class FitnessRepository {
                 Integer restSeconds,
                 boolean completed
         ) {
+            this(weightKg, reps, durationSeconds, null, assistedWeightKg, addedWeightKg,
+                    rpe, restSeconds, completed);
+        }
+
+        public SetInput(
+                Double weightKg,
+                Integer reps,
+                Integer durationSeconds,
+                Double distanceMeters,
+                Double assistedWeightKg,
+                Double addedWeightKg,
+                Integer rpe,
+                Integer restSeconds,
+                boolean completed
+        ) {
             this.weightKg = weightKg;
             this.reps = reps;
             this.durationSeconds = durationSeconds;
+            this.distanceMeters = distanceMeters;
             this.assistedWeightKg = assistedWeightKg;
             this.addedWeightKg = addedWeightKg;
             this.rpe = rpe;
@@ -2023,7 +2527,9 @@ public final class FitnessRepository {
         public String date = "";
         public String startedAt = "";
         public String status = "";
+        public String workoutType = "other";
         public int durationSeconds;
+        public Double averageHeartRateBpm;
     }
 
     /** 직전 세션의 같은 종목 수행 기록. */
@@ -2043,6 +2549,70 @@ public final class FitnessRepository {
         public double bestSessionVolumeKg;
         public String bestVolumeDate = "";
         public int sessionCount;
+    }
+
+    public static final class MealMenuPreset {
+        public final String id;
+        public final String name;
+        public final Integer calories;
+        public final Double proteinGrams;
+        public final Double carbsGrams;
+        public final Double fatGrams;
+
+        public MealMenuPreset(String id, String name, Integer calories, Double proteinGrams,
+                              Double carbsGrams, Double fatGrams) {
+            this.id = id;
+            this.name = name;
+            this.calories = calories;
+            this.proteinGrams = proteinGrams;
+            this.carbsGrams = carbsGrams;
+            this.fatGrams = fatGrams;
+        }
+    }
+
+    public static final class MealEntry {
+        public final String id;
+        public final String date;
+        public final String mealType;
+        public final String menu;
+        public final int calories;
+        public final double proteinGrams;
+        public final double carbsGrams;
+        public final double fatGrams;
+        public final int compositionCount;
+        public final String createdAt;
+
+        public MealEntry(String id, String date, String mealType, String menu, int calories,
+                         double proteinGrams, double carbsGrams, double fatGrams,
+                         int compositionCount, String createdAt) {
+            this.id = id;
+            this.date = date;
+            this.mealType = mealType;
+            this.menu = menu;
+            this.calories = calories;
+            this.proteinGrams = proteinGrams;
+            this.carbsGrams = carbsGrams;
+            this.fatGrams = fatGrams;
+            this.compositionCount = compositionCount;
+            this.createdAt = createdAt;
+        }
+    }
+
+    public static final class MealNutritionSummary {
+        public final int mealCount;
+        public final double calories;
+        public final double proteinGrams;
+        public final double carbsGrams;
+        public final double fatGrams;
+
+        public MealNutritionSummary(int mealCount, double calories, double proteinGrams,
+                                    double carbsGrams, double fatGrams) {
+            this.mealCount = mealCount;
+            this.calories = calories;
+            this.proteinGrams = proteinGrams;
+            this.carbsGrams = carbsGrams;
+            this.fatGrams = fatGrams;
+        }
     }
 
     public static final class BodyMetricEntry {
