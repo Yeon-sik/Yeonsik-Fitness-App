@@ -176,9 +176,15 @@ public final class SettingsScreen extends BaseScreen {
     ) {
         FitnessUi ui = ui();
         if (managed) {
-            card.addView(ui.keyValue("연결 원본", config.sourceLabel));
+            card.addView(ui.text(
+                    "빌드 기본값으로 자동 연결되었습니다. 아래에서 다른 Supabase DB로 변경할 수 있습니다.",
+                    12,
+                    FitnessUi.COLOR_TERTIARY,
+                    false
+            ));
             card.addView(ui.keyValue("프로젝트", projectLabel(config)));
-            return;
+        } else {
+            card.addView(ui.keyValue("연결 원본", config.sourceLabel));
         }
 
         EditText urlInput = ui.input(urlLabel, config.supabaseUrl);

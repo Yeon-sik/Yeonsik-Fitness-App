@@ -1,8 +1,8 @@
 package com.yeonsik.fitnessapp.config;
 
-/** Selects an app-managed connection only when its URL and anon key are both complete. */
+/** Supplies a build-time connection as the first-run default without locking the device to it. */
 final class SupabaseConnectionPolicy {
-    private final boolean managed;
+    private final boolean hasManagedDefaults;
     private final String managedUrl;
     private final String managedAnonKey;
 
@@ -13,34 +13,54 @@ final class SupabaseConnectionPolicy {
     ) {
         String normalizedUrl = normalize(managedUrl);
         String normalizedAnonKey = normalize(managedAnonKey);
-        managed = allowManagedConnection
+        hasManagedDefaults = allowManagedConnection
                 && normalizedUrl.startsWith("https://")
                 && !normalizedAnonKey.isEmpty();
-        this.managedUrl = managed ? normalizedUrl : "";
-        this.managedAnonKey = managed ? normalizedAnonKey : "";
+        this.managedUrl = hasManagedDefaults ? normalizedUrl : "";
+        this.managedAnonKey = hasManagedDefaults ? normalizedAnonKey : "";
     }
 
     boolean isManaged() {
-        return managed;
+        return hasManagedDefaults;
+    }
+
+    boolean isManagedConnection(String activeUrl, String activeAnonKey) {
+        return hasManagedDefaults
+                && managedUrl.equals(normalize(activeUrl))
+                && managedAnonKey.equals(normalize(activeAnonKey));
     }
 
     String resolveUrl(String savedUrl) {
-        return managed ? managedUrl : normalize(savedUrl);
+        String normalized = normalize(savedUrl);
+        return normalized.isEmpty() ? managedUrl : normalized;
     }
 
     String resolveAnonKey(String savedAnonKey) {
-        return managed ? managedAnonKey : normalize(savedAnonKey);
+        String normalized = normalize(savedAnonKey);
+        return normalized.isEmpty() ? managedAnonKey : normalized;
     }
 
     boolean requiresManagedRebind(String savedUrl, String savedAnonKey) {
-        return managed && (!managedUrl.equals(normalize(savedUrl))
-                || !managedAnonKey.equals(normalize(savedAnonKey)));
+        return hasManagedDefaults
+                && normalize(savedUrl).isEmpty()
+                && normalize(savedAnonKey).isEmpty();
     }
 
-    String sourceLabel() {
-        return managed
-                ? SupabaseConfig.APP_MANAGED_SOURCE
+    String sourceLabel(String activeUrl, String activeAnonKey) {
+        if (isManagedConnection(activeUrl, activeAnonKey)) {
+            return SupabaseConfig.APP_MANAGED_SOURCE;
+        }
+        return normalize(activeUrl).isEmpty() && normalize(activeAnonKey).isEmpty()
+                ? SupabaseConfig.NOT_SET_SOURCE
                 : SupabaseConfig.LOCAL_SETTINGS_SOURCE;
+    }
+
+    String managedUrl() {
+        return managedUrl;
+    }
+
+    String managedAnonKey() {
+        return managedAnonKey;
     }
 
     private static String normalize(String value) {

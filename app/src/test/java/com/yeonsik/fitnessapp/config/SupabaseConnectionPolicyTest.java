@@ -10,7 +10,7 @@ import org.junit.Test;
 public final class SupabaseConnectionPolicyTest {
 
     @Test
-    public void completeManagedConnectionOverridesSavedManualConnection() {
+    public void buildConnectionSeedsFirstRunButManualConnectionWins() {
         SupabaseConnectionPolicy policy = new SupabaseConnectionPolicy(
                 true,
                 "https://shared.supabase.co",
@@ -18,16 +18,24 @@ public final class SupabaseConnectionPolicyTest {
         );
 
         assertTrue(policy.isManaged());
-        assertEquals("https://shared.supabase.co", policy.resolveUrl("https://old.supabase.co"));
-        assertEquals("shared-anon-key", policy.resolveAnonKey("old-anon-key"));
+        assertEquals("https://old.supabase.co", policy.resolveUrl("https://old.supabase.co"));
+        assertEquals("old-anon-key", policy.resolveAnonKey("old-anon-key"));
         assertTrue(policy.requiresManagedRebind(
-                "https://old.supabase.co",
-                "old-anon-key"
+                "",
+                ""
         ));
         assertFalse(policy.requiresManagedRebind(
                 "https://shared.supabase.co",
                 "shared-anon-key"
         ));
+        assertEquals(
+                SupabaseConfig.APP_MANAGED_SOURCE,
+                policy.sourceLabel("https://shared.supabase.co", "shared-anon-key")
+        );
+        assertEquals(
+                SupabaseConfig.LOCAL_SETTINGS_SOURCE,
+                policy.sourceLabel("https://old.supabase.co", "old-anon-key")
+        );
     }
 
     @Test

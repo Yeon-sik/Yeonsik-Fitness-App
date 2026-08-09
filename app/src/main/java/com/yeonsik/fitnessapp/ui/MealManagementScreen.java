@@ -78,11 +78,8 @@ public final class MealManagementScreen extends BaseScreen {
         section("기록된 끼니");
         renderMealEntries();
 
-        section("새 끼니");
-        add(mealComposer());
-
-        section("음식·메뉴 카탈로그");
-        add(catalogCard());
+        section("새 끼니 + 음식 카탈로그");
+        add(mealWorkspace());
 
         if (!initialSyncRequested) {
             initialSyncRequested = true;
@@ -298,7 +295,7 @@ public final class MealManagementScreen extends BaseScreen {
                         total.total(NutritionProfile.SUGARS_GRAMS)) + "g";
     }
 
-    private View mealComposer() {
+    private View mealWorkspace() {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
         String nextMealLabel = repository().nextMealLabelForDate(selectedDate);
@@ -345,6 +342,8 @@ public final class MealManagementScreen extends BaseScreen {
                 FitnessUi.COLOR_TERTIARY,
                 false
         ), ui.fullWidthParams(ui.dp(9)));
+        card.addView(ui.hairline(ui.border()), ui.fullWidthParams(ui.dp(20)));
+        appendCatalogSection(card);
         return card;
     }
 
@@ -415,10 +414,15 @@ public final class MealManagementScreen extends BaseScreen {
         }
     }
 
-    private View catalogCard() {
+    private void appendCatalogSection(LinearLayout card) {
         FitnessUi ui = ui();
-        LinearLayout card = ui.card();
         ui.cardHeader(card, "음식·메뉴 검색", catalogSyncing ? "동기화 중" : "로컬 + 원격");
+        card.addView(ui.text(
+                "음식이나 구성 메뉴를 누르면 위 끼니 구성에 바로 추가됩니다. 하단에서 새 음식도 등록할 수 있습니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
 
         catalogStatus = ui.text(syncMessage, 12, FitnessUi.COLOR_MUTED, false);
         catalogStatus.setPadding(0, ui.dp(5), 0, 0);
@@ -463,7 +467,6 @@ public final class MealManagementScreen extends BaseScreen {
         if (showDirectFoodForm) {
             card.addView(directFoodForm(), ui.fullWidthParams(ui.dp(10)));
         }
-        return card;
     }
 
     private void renderCatalogResults() {

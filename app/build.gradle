@@ -54,7 +54,11 @@ def nutritionSupabaseUrl = localProperties.getProperty("NUTRITION_SUPABASE_URL")
         ?: ""
 def nutritionSupabaseAnonKey = localProperties.getProperty("NUTRITION_SUPABASE_ANON_KEY")
         ?: System.getenv("NUTRITION_SUPABASE_ANON_KEY")
-        ?: dotenvValue("NUTRITION_SUPABASE_ANON_KEY", "NUTRITION_DB_ANON_KEY")
+        ?: dotenvValue(
+                "NUTRITION_SUPABASE_ANON_KEY",
+                "NUTRITION_DB_ANON_KEY",
+                "NUTRITION_DB_ANON"
+        )
         ?: ""
 def priceTraceSupabaseUrl = localProperties.getProperty("PRICETRACE_SUPABASE_URL")
         ?: System.getenv("PRICETRACE_SUPABASE_URL")
@@ -62,7 +66,11 @@ def priceTraceSupabaseUrl = localProperties.getProperty("PRICETRACE_SUPABASE_URL
         ?: ""
 def priceTraceSupabaseAnonKey = localProperties.getProperty("PRICETRACE_SUPABASE_ANON_KEY")
         ?: System.getenv("PRICETRACE_SUPABASE_ANON_KEY")
-        ?: dotenvValue("PRICETRACE_SUPABASE_ANON_KEY", "PRICETRACE_DB_ANON_KEY")
+        ?: dotenvValue(
+                "PRICETRACE_SUPABASE_ANON_KEY",
+                "PRICETRACE_DB_ANON_KEY",
+                "PRICETRACE_DB_ANON"
+        )
         ?: ""
 
 def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")

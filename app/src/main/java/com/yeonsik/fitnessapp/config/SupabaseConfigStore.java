@@ -53,11 +53,11 @@ public class SupabaseConfigStore {
         String savedAnonKey = preferences.getString(KEY_ANON, "");
         if (connectionPolicy.requiresManagedRebind(savedUrl, savedAnonKey)) {
             replaceConnectionAndClearSession(
-                    connectionPolicy.resolveUrl(savedUrl),
-                    connectionPolicy.resolveAnonKey(savedAnonKey)
+                    connectionPolicy.managedUrl(),
+                    connectionPolicy.managedAnonKey()
             );
-            savedUrl = connectionPolicy.resolveUrl(savedUrl);
-            savedAnonKey = connectionPolicy.resolveAnonKey(savedAnonKey);
+            savedUrl = connectionPolicy.managedUrl();
+            savedAnonKey = connectionPolicy.managedAnonKey();
         }
 
         String url = connectionPolicy.resolveUrl(savedUrl);
@@ -78,20 +78,20 @@ public class SupabaseConfigStore {
                 email,
                 tokenStore.accessToken(),
                 tokenStore.refreshToken(),
-                connectionPolicy.sourceLabel()
+                connectionPolicy.sourceLabel(url, anonKey)
         );
     }
 
     public boolean isConnectionManaged() {
-        return connectionPolicy.isManaged();
+        return SupabaseConfig.APP_MANAGED_SOURCE.equals(load().sourceLabel);
     }
 
     public SupabaseConfig saveConnection(String supabaseUrl, String supabaseAnonKey) {
-        if (isConnectionManaged()) {
-            throw new IllegalStateException("이 DB 연결은 앱 빌드 설정으로 관리됩니다.");
-        }
         String normalizedUrl = normalize(supabaseUrl);
         String normalizedAnonKey = normalize(supabaseAnonKey);
+        if (normalizedUrl.isEmpty() != normalizedAnonKey.isEmpty()) {
+            throw new IllegalArgumentException("Supabase URL과 anon key를 함께 입력하거나 모두 비워 주세요.");
+        }
         if (!normalizedUrl.isEmpty() && !normalizedUrl.startsWith("https://")) {
             throw new IllegalArgumentException("Supabase URL은 HTTPS여야 합니다.");
         }
