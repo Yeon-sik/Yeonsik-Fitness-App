@@ -3,6 +3,7 @@ package com.yeonsik.fitnessapp.data;
 import org.junit.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -94,7 +95,7 @@ public final class ProductReadV1Test {
     }
 
     @Test
-    public void prefersStandardNameWhenCatalogChildNameIsAlsoPresent() {
+    public void prefersStandardNameAndSeparatesExplicitBrandPrefix() {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("catalog_product_id", CATALOG_ID);
         row.put("standard_product_id", STANDARD_ID);
@@ -104,17 +105,55 @@ public final class ProductReadV1Test {
 
         ProductReadV1 product = ProductReadV1.fromMap(row);
 
-        assertEquals("CJ Hatban", product.name);
-        assertEquals("CJ · CJ Hatban", product.standardProductLabel());
+        assertEquals("Hatban", product.name);
+        assertEquals("CJ · Hatban", product.standardProductLabel());
+    }
+
+    @Test
+    public void adaptsVersionedContractWithSeparateBrandAndProductName() {
+        Map<String, Object> standardProduct = new LinkedHashMap<>();
+        standardProduct.put("id", STANDARD_ID);
+        standardProduct.put("name", "CJ · 햇반 백미밥");
+        standardProduct.put("brand", "CJ");
+
+        Map<String, Object> catalogProduct = new LinkedHashMap<>();
+        catalogProduct.put("id", CATALOG_ID);
+        catalogProduct.put("contentAmount", 210.0);
+        catalogProduct.put("contentUnit", "g");
+        catalogProduct.put("packageCount", 1);
+
+        Map<String, Object> observation = new LinkedHashMap<>();
+        observation.put("sellerLabel", "쿠팡");
+        observation.put("listedPriceKrw", 1900);
+        observation.put("observedAt", "2026-08-10T00:00:00Z");
+
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("standardProduct", standardProduct);
+        row.put("catalogProduct", catalogProduct);
+        row.put("sellerProducts", Collections.emptyList());
+        row.put("observations", Collections.singletonList(observation));
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("schemaVersion", ProductReadV1.CONTRACT_VERSION);
+        payload.put("namespace", "pricetrace");
+        payload.put("products", Collections.singletonList(row));
+
+        ProductReadV1 product = ProductReadV1.fromContractMap(payload).get(0);
+
+        assertEquals("CJ", product.brand);
+        assertEquals("햇반 백미밥", product.name);
+        assertEquals("CJ · 햇반 백미밥", product.standardProductLabel());
+        assertEquals("쿠팡", product.sellerName);
+        assertEquals(Integer.valueOf(1900), product.latestObservedPriceKrw);
     }
 
     @Test
     public void standardProductSearchDeduplicatesDifferentCatalogChildren() {
         ProductReadV1 firstChild = new ProductReadV1(
-                CATALOG_ID, STANDARD_ID, "CJ Hatban", "CJ", "Store A", null, null, 210.0, "g", 1
+                CATALOG_ID, STANDARD_ID, "Hatban", "CJ", "Store A", null, null, 210.0, "g", 1
         );
         ProductReadV1 secondChild = new ProductReadV1(
-                SECOND_CATALOG_ID, STANDARD_ID, "CJ Hatban", "CJ", "Store B", null, null, 130.0, "g", 1
+                SECOND_CATALOG_ID, STANDARD_ID, "Hatban", "CJ", "Store B", null, null, 130.0, "g", 1
         );
 
         List<ProductReadV1> results = ProductReadV1.search(

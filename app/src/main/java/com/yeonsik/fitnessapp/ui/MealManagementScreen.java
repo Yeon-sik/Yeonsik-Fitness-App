@@ -936,12 +936,11 @@ public final class MealManagementScreen extends BaseScreen {
         for (ProductReadV1 product : products) {
             Button choice = ui.button(product.standardProductLabel(), false, v -> {
                 selectedProduct[0] = product;
-                if (FitnessUi.inputText(name).trim().isEmpty()) {
-                    name.setText(product.name);
-                }
-                if (brand != null && FitnessUi.inputText(brand).trim().isEmpty()
-                        && product.brand != null) {
-                    brand.setText(product.brand);
+                name.setText(product.name);
+                markPriceTraceLoadedField(name);
+                if (brand != null) {
+                    brand.setText(product.brand == null ? "" : product.brand);
+                    markPriceTraceLoadedField(brand);
                 }
                 if (product.contentAmount != null && product.contentAmount > 0) {
                     basisAmount.setText(NutritionCalculator.trim(product.contentAmount));
@@ -958,6 +957,13 @@ public final class MealManagementScreen extends BaseScreen {
             choice.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
             results.addView(choice, ui.fullWidthParams(ui.dp(7)));
         }
+    }
+
+    /** Reuses the animated border shown on the selected date in the records calendar. */
+    private void markPriceTraceLoadedField(EditText field) {
+        FitnessUi ui = ui();
+        ui.setHologramBackground(field, ui.flatSurfaceDrawable(ui.dp(12)), ui.dp(12));
+        ui.applyDepth(field, 5);
     }
 
     private void saveDirectFood(

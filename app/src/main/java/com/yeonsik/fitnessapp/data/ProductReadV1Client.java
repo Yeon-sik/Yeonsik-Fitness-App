@@ -21,8 +21,7 @@ import java.util.Map;
 
 /** HttpURLConnection consumer for the read-only PriceTrace product-read.v1 adapter. */
 public final class ProductReadV1Client {
-    private static final String CATALOG_RPC =
-            "/rest/v1/rpc/get_public_exact_standard_product_catalog_v2";
+    private static final String PRODUCT_READ_RPC = "/rest/v1/rpc/get_product_read_v1";
 
     private volatile SupabaseConfig config;
 
@@ -35,26 +34,35 @@ public final class ProductReadV1Client {
     }
 
     public List<ProductReadV1> searchProducts(String query) throws Exception {
-        return ProductReadV1.search(fetchAll(), query, 50);
+        return ProductReadV1.search(fetch(null, query, 50), query, 50);
     }
 
     public ProductReadV1 findProduct(String catalogProductId) throws Exception {
-        for (ProductReadV1 product : fetchAll()) {
-            if (product.catalogProductId.equals(catalogProductId)) {
-                return product;
-            }
+        List<ProductReadV1> products = fetch(catalogProductId, null, 1);
+        if (products.isEmpty()) {
+            return null;
         }
-        return null;
+        ProductReadV1 product = products.get(0);
+        if (!product.catalogProductId.equals(catalogProductId)) {
+            throw new IllegalStateException(
+                    "product-read.v1 RPC가 요청하지 않은 catalogProductId를 반환했습니다."
+            );
+        }
+        return product;
     }
 
-    private List<ProductReadV1> fetchAll() throws Exception {
+    private List<ProductReadV1> fetch(
+            String catalogProductId,
+            String query,
+            int limit
+    ) throws Exception {
         SupabaseConfig active = config;
         if (!active.isConnectionConfigured()) {
             throw new IllegalStateException("PriceTrace 상품 DB 연결을 먼저 설정하세요.");
         }
 
         HttpURLConnection connection = (HttpURLConnection) new URL(
-                joinUrl(active.supabaseUrl, CATALOG_RPC)
+                joinUrl(active.supabaseUrl, PRODUCT_READ_RPC)
         ).openConnection();
         connection.setRequestMethod("POST");
         connection.setConnectTimeout(15000);
@@ -65,17 +73,22 @@ public final class ProductReadV1Client {
         connection.setRequestProperty("Content-Type", "application/json");
         connection.setRequestProperty("X-Contract-Version", ProductReadV1.CONTRACT_VERSION);
         connection.setDoOutput(true);
+        JSONObject arguments = new JSONObject();
+        arguments.put(
+                "p_catalog_product_id",
+                catalogProductId == null ? JSONObject.NULL : catalogProductId
+        );
+        arguments.put("p_query", query == null || query.trim().isEmpty() ? JSONObject.NULL : query.trim());
+        arguments.put("p_limit", Math.max(1, Math.min(limit, 100)));
         try (OutputStream output = connection.getOutputStream()) {
-            output.write("{}".getBytes(StandardCharsets.UTF_8));
+            output.write(arguments.toString().getBytes(StandardCharsets.UTF_8));
         }
 
         String body = readResponseOrThrow(connection);
-        JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
-        List<ProductReadV1> products = new ArrayList<>();
-        for (int index = 0; index < rows.length(); index++) {
-            products.add(ProductReadV1.fromMap(toMap(rows.getJSONObject(index))));
+        if (body.isEmpty()) {
+            throw new IOException("PriceTrace product-read.v1 응답이 비어 있습니다.");
         }
-        return products;
+        return ProductReadV1.fromContractMap(toMap(new JSONObject(body)));
     }
 
     private static Map<String, Object> toMap(JSONObject row) {
@@ -83,10 +96,30 @@ public final class ProductReadV1Client {
         Iterator<String> keys = row.keys();
         while (keys.hasNext()) {
             String key = keys.next();
-            Object value = row.opt(key);
-            values.put(key, value == JSONObject.NULL ? null : value);
+            values.put(key, toValue(row.opt(key)));
         }
         return values;
+    }
+
+    private static List<Object> toList(JSONArray array) {
+        List<Object> values = new ArrayList<>();
+        for (int index = 0; index < array.length(); index++) {
+            values.add(toValue(array.opt(index)));
+        }
+        return values;
+    }
+
+    private static Object toValue(Object value) {
+        if (value == null || value == JSONObject.NULL) {
+            return null;
+        }
+        if (value instanceof JSONObject) {
+            return toMap((JSONObject) value);
+        }
+        if (value instanceof JSONArray) {
+            return toList((JSONArray) value);
+        }
+        return value;
     }
 
     private static String readResponseOrThrow(HttpURLConnection connection) throws IOException {

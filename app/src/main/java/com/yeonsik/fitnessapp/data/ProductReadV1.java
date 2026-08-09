@@ -88,6 +88,23 @@ public final class ProductReadV1 {
             throw new IllegalArgumentException("지원하지 않는 PriceTrace 계약입니다: " + contract);
         }
 
+        Map<String, ?> standardProduct = mapValue(first(
+                row,
+                "standardProduct",
+                "standard_product"
+        ));
+        Map<String, ?> catalogProduct = mapValue(first(
+                row,
+                "catalogProduct",
+                "catalog_product"
+        ));
+        if (standardProduct != null || catalogProduct != null) {
+            if (standardProduct == null || catalogProduct == null) {
+                throw new IllegalArgumentException("PriceTrace 표준상품과 규격상품 정보가 모두 필요합니다.");
+            }
+            return fromVersionedProduct(row, standardProduct, catalogProduct);
+        }
+
         Object priceValue = first(
                 row,
                 "latestObservedPriceKrw",
@@ -111,20 +128,21 @@ public final class ProductReadV1 {
             seller = stringValue(first(row, "sourceLabel", "source_label"));
         }
         String brand = stringValue(first(row, "brand", "brandName", "brand_name"));
+        String name = productNameWithoutBrand(stringValue(first(
+                row,
+                "standardProductName",
+                "standard_product_name",
+                "standardName",
+                "standard_name",
+                "name",
+                "productName",
+                "product_name"
+        )), brand);
 
         return new ProductReadV1(
                 stringValue(first(row, "catalogProductId", "catalog_product_id")),
                 stringValue(first(row, "standardProductId", "standard_product_id")),
-                stringValue(first(
-                        row,
-                        "standardProductName",
-                        "standard_product_name",
-                        "standardName",
-                        "standard_name",
-                        "name",
-                        "productName",
-                        "product_name"
-                )),
+                name,
                 brand,
                 seller,
                 price,
@@ -132,6 +150,73 @@ public final class ProductReadV1 {
                 doubleValue(first(row, "contentAmount", "content_amount")),
                 stringValue(first(row, "contentUnit", "content_unit")),
                 integerValue(first(row, "packageCount", "package_count"))
+        );
+    }
+
+    /** Parses and validates the top-level product-read.v1 payload. */
+    public static List<ProductReadV1> fromContractMap(Map<String, ?> payload) {
+        String contract = stringValue(first(payload, "schemaVersion", "schema_version"));
+        if (!CONTRACT_VERSION.equals(contract)) {
+            throw new IllegalArgumentException("지원하지 않는 PriceTrace 계약입니다: " + contract);
+        }
+        String namespace = stringValue(first(payload, "namespace"));
+        if (!"pricetrace".equals(namespace)) {
+            throw new IllegalArgumentException("PriceTrace namespace가 올바르지 않습니다: " + namespace);
+        }
+        List<?> rows = listValue(first(payload, "products"));
+        if (rows == null) {
+            throw new IllegalArgumentException("PriceTrace 상품 목록이 필요합니다.");
+        }
+
+        List<ProductReadV1> products = new ArrayList<>();
+        for (Object value : rows) {
+            Map<String, ?> row = mapValue(value);
+            if (row == null) {
+                throw new IllegalArgumentException("PriceTrace 상품 형식이 올바르지 않습니다.");
+            }
+            products.add(fromMap(row));
+        }
+        return products;
+    }
+
+    private static ProductReadV1 fromVersionedProduct(
+            Map<String, ?> row,
+            Map<String, ?> standardProduct,
+            Map<String, ?> catalogProduct
+    ) {
+        String brand = stringValue(first(standardProduct, "brand", "brandName", "brand_name"));
+        String name = productNameWithoutBrand(
+                stringValue(first(standardProduct, "name", "standardName", "standard_name")),
+                brand
+        );
+        Map<String, ?> observation = firstMap(listValue(first(row, "observations")));
+        Map<String, ?> sellerProduct = firstMap(listValue(first(
+                row,
+                "sellerProducts",
+                "seller_products"
+        )));
+        String seller = observation == null
+                ? null
+                : stringValue(first(observation, "sellerLabel", "seller_label"));
+        if (seller == null && sellerProduct != null) {
+            seller = stringValue(first(sellerProduct, "sellerLabel", "seller_label"));
+        }
+
+        return new ProductReadV1(
+                stringValue(first(catalogProduct, "id", "catalogProductId", "catalog_product_id")),
+                stringValue(first(standardProduct, "id", "standardProductId", "standard_product_id")),
+                name,
+                brand,
+                seller,
+                observation == null
+                        ? null
+                        : integerValue(first(observation, "listedPriceKrw", "listed_price_krw")),
+                observation == null
+                        ? null
+                        : stringValue(first(observation, "observedAt", "observed_at")),
+                doubleValue(first(catalogProduct, "contentAmount", "content_amount")),
+                stringValue(first(catalogProduct, "contentUnit", "content_unit")),
+                integerValue(first(catalogProduct, "packageCount", "package_count"))
         );
     }
 
@@ -152,7 +237,9 @@ public final class ProductReadV1 {
                 if (product == null || product.standardProductId == null) {
                     continue;
                 }
-                String searchable = product.standardProductLabel();
+                String searchable = product.brand == null
+                        ? product.name
+                        : product.brand + " " + product.name;
                 if (!searchable.toLowerCase(Locale.ROOT).contains(term)) {
                     continue;
                 }
@@ -211,6 +298,65 @@ public final class ProductReadV1 {
             }
         }
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, ?> mapValue(Object value) {
+        return value instanceof Map ? (Map<String, ?>) value : null;
+    }
+
+    private static List<?> listValue(Object value) {
+        return value instanceof List ? (List<?>) value : null;
+    }
+
+    private static Map<String, ?> firstMap(List<?> values) {
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+        return mapValue(values.get(0));
+    }
+
+    /** Uses only the explicit PriceTrace brand field; it never guesses a brand from a title. */
+    private static String productNameWithoutBrand(String rawName, String rawBrand) {
+        String name = requireText(rawName, "상품명");
+        String brand = optionalText(rawBrand);
+        if (brand == null) {
+            return name;
+        }
+
+        String[] prefixes = {
+                brand,
+                "[" + brand + "]",
+                "(" + brand + ")",
+                "【" + brand + "】"
+        };
+        for (String prefix : prefixes) {
+            if (!name.regionMatches(true, 0, prefix, 0, prefix.length())) {
+                continue;
+            }
+            int start = prefix.length();
+            while (start < name.length() && isBrandSeparator(name.charAt(start))) {
+                start++;
+            }
+            String productName = name.substring(start).trim();
+            if (!productName.isEmpty()) {
+                return productName;
+            }
+        }
+        return name;
+    }
+
+    private static boolean isBrandSeparator(char value) {
+        return Character.isWhitespace(value)
+                || value == '·'
+                || value == '•'
+                || value == '-'
+                || value == '–'
+                || value == '—'
+                || value == ':'
+                || value == '/'
+                || value == '|'
+                || value == '_';
     }
 
     private static String stringValue(Object value) {
