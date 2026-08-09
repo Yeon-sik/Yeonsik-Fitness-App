@@ -35,6 +35,41 @@ public final class NutritionCalculatorTest {
     }
 
     @Test
+    public void calculatesPerUnitAndAcceptsEquivalentKgQuantity() {
+        NutritionFood rice = new NutritionFood(
+                "rice-210",
+                "user",
+                "Cooked rice",
+                NutritionFood.KIND_INGREDIENT,
+                210,
+                "g",
+                315,
+                6.3,
+                70,
+                0.6,
+                "manual",
+                null
+        );
+
+        NutritionProfile perGram = NutritionCalculator.perUnitProfile(
+                rice.profile,
+                rice.basisAmount,
+                rice.basisUnit
+        );
+        MealCompositionItem grams = MealCompositionItem.from(rice, 130);
+        MealCompositionItem kilograms = MealCompositionItem.from(rice, 0.13, "kg");
+
+        assertEquals(1.5, perGram.calories(), 0.001);
+        assertEquals(195, grams.calories, 0.001);
+        assertEquals(grams.calories, kilograms.calories, 0.001);
+        assertTrue(NutritionCalculator.unitNutritionLabel(
+                rice.profile,
+                rice.basisAmount,
+                rice.basisUnit
+        ).contains("1g"));
+    }
+
+    @Test
     public void sumsMultipleFoods() {
         NutritionFood rice = new NutritionFood(
                 "rice",

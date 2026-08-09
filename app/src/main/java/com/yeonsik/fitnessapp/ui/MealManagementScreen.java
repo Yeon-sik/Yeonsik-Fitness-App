@@ -17,6 +17,7 @@ import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionTotals;
+import com.yeonsik.fitnessapp.data.NutritionUnit;
 import com.yeonsik.fitnessapp.data.ProductNutritionLink;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
@@ -383,14 +384,19 @@ public final class MealManagementScreen extends BaseScreen {
             details.setPadding(ui.dp(10), 0, ui.dp(8), 0);
             details.addView(ui.text(item.food.displayName(), 14, FitnessUi.COLOR_TEXT, true));
             details.addView(ui.text(
-                    Math.round(item.calories) + " kcal  ·  " + item.food.basisUnit,
+                    Math.round(item.calories) + " kcal  ·  "
+                            + NutritionCalculator.trim(item.quantity)
+                            + NutritionUnit.display(item.food.basisUnit),
                     11,
                     FitnessUi.COLOR_MUTED,
                     false
             ));
             row.addView(details, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-            EditText quantity = ui.decimalInput("수량", NutritionCalculator.trim(item.quantity));
+            EditText quantity = ui.decimalInput(
+                    "섭취량 (" + NutritionUnit.display(item.food.basisUnit) + ")",
+                    NutritionCalculator.trim(item.quantity)
+            );
             quantity.setSelectAllOnFocus(true);
             quantityInputs.add(quantity);
             LinearLayout.LayoutParams quantityParams = new LinearLayout.LayoutParams(ui.dp(76), ui.dp(48));
@@ -568,6 +574,10 @@ public final class MealManagementScreen extends BaseScreen {
                 11,
                 FitnessUi.COLOR_MUTED,
                 false));
+        details.addView(ui.text(food.unitNutritionLabel(),
+                11,
+                FitnessUi.COLOR_TERTIARY,
+                false));
         String missingNotice = food.missingRequiredNotice();
         if (missingNotice != null) {
             details.addView(ui.text(missingNotice, 11, FitnessUi.COLOR_TERTIARY, false));
@@ -621,7 +631,7 @@ public final class MealManagementScreen extends BaseScreen {
                 ingredientMode ? "100" : "1"
         );
         EditText basisUnit = ui.input(
-                "기준 단위 (g, ml, serving)",
+                "기준 단위 (g, mg, kg, ml, L, serving)",
                 ingredientMode ? "g" : "serving"
         );
         Button prepStateButton = ui.button("", false, null);
@@ -634,6 +644,13 @@ public final class MealManagementScreen extends BaseScreen {
         EditText source = ui.input("출처·메모 (선택)", "");
         EditText sourceVersion = ui.input("출처 버전 (선택, 예: MFDS 2024-03)", "");
         NutritionInputSection nutrients = new NutritionInputSection(ui, host.activity());
+        TextView unitNutritionPreview = ui.text(
+                "단위 영양성분: 기준량과 필수 영양성분을 입력하면 자동 계산됩니다.",
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        );
+        NutritionUnitPreview.bind(unitNutritionPreview, basisAmount, basisUnit, nutrients);
         ProductReadV1[] selectedProduct = {null};
         LinearLayout priceTraceResults = new LinearLayout(host.activity());
         priceTraceResults.setOrientation(LinearLayout.VERTICAL);
@@ -692,6 +709,7 @@ public final class MealManagementScreen extends BaseScreen {
                 prepStateButton,
                 ui.text("아래 값은 모두 위 기준 수량에 대한 값입니다.", 11, FitnessUi.COLOR_MUTED, false),
                 nutrients.view(),
+                unitNutritionPreview,
                 source,
                 sourceVersion
         );
@@ -750,8 +768,10 @@ public final class MealManagementScreen extends BaseScreen {
                 if (product.contentAmount != null && product.contentAmount > 0) {
                     basisAmount.setText(NutritionCalculator.trim(product.contentAmount));
                 }
-                if (product.contentUnit != null && !product.contentUnit.trim().isEmpty()) {
-                    basisUnit.setText(product.contentUnit);
+                if (product.contentUnit != null && NutritionUnit.isSupported(product.contentUnit)) {
+                    basisUnit.setText(NutritionUnit.display(product.contentUnit));
+                } else if (product.contentUnit != null && !product.contentUnit.trim().isEmpty()) {
+                    basisUnit.setText(NutritionUnit.SERVING);
                 }
                 selection.setText("선택됨 · " + product.exactSelectionLabel());
                 results.removeAllViews();

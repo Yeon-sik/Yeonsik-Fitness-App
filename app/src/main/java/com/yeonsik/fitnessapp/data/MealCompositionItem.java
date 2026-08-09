@@ -23,21 +23,35 @@ public final class MealCompositionItem {
     }
 
     public static MealCompositionItem from(NutritionFood food, double quantity) {
+        return from(food, quantity, food == null ? null : food.basisUnit);
+    }
+
+    public static MealCompositionItem from(
+            NutritionFood food,
+            double quantity,
+            String quantityUnit
+    ) {
         if (food == null) {
             throw new IllegalArgumentException("Food is required.");
         }
         if (quantity <= 0) {
             throw new IllegalArgumentException("Quantity must be greater than zero.");
         }
+        double normalizedQuantity = NutritionUnit.convert(
+                quantity,
+                quantityUnit == null ? food.basisUnit : quantityUnit,
+                food.basisUnit
+        );
         return new MealCompositionItem(
                 food,
-                quantity,
-                NutritionCalculator.forQuantity(food, quantity)
+                normalizedQuantity,
+                NutritionCalculator.forQuantity(food, normalizedQuantity)
         );
     }
 
     public String label() {
-        return food.name + " · " + NutritionCalculator.trim(quantity) + food.basisUnit
+        return food.displayName() + " · " + NutritionCalculator.trim(quantity)
+                + NutritionUnit.display(food.basisUnit)
                 + " · " + Math.round(calories) + "kcal";
     }
 

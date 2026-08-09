@@ -221,7 +221,7 @@ public final class NutritionCatalogRepository {
         String normalizedName = requireName(name);
         String normalizedBrand = emptyToNull(brand);
         String normalizedKind = NutritionFood.normalizeKind(kind);
-        String normalizedUnit = requireName(basisUnit);
+        String normalizedUnit = NutritionUnit.requireSupported(basisUnit);
         String normalizedPrepState = NutritionFood.normalizePrepState(prepState);
         if (basisAmount <= 0) {
             throw new IllegalArgumentException("Basis amount must be greater than zero.");

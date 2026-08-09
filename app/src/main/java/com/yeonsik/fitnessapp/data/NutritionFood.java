@@ -54,7 +54,7 @@ public final class NutritionFood {
         this.brand = normalizeText(builder.brand);
         this.kind = normalizeKind(builder.kind);
         this.basisAmount = builder.basisAmount;
-        this.basisUnit = builder.basisUnit;
+        this.basisUnit = NutritionUnit.normalizeOrDefault(builder.basisUnit, NutritionUnit.SERVING);
         this.prepState = normalizePrepState(builder.prepState);
         this.profile = builder.profile == null ? NutritionProfile.empty() : builder.profile;
         this.sourceType = builder.sourceType;
@@ -100,7 +100,7 @@ public final class NutritionFood {
 
     /** 기준량 라벨. 조리 상태를 알면 함께 보여 준다. */
     public String basisLabel() {
-        String basis = NutritionCalculator.trim(basisAmount) + basisUnit;
+        String basis = NutritionCalculator.trim(basisAmount) + NutritionUnit.display(basisUnit);
         return PREP_UNSPECIFIED.equals(prepState)
                 ? basis
                 : basis + " (" + prepStateLabel(prepState) + ")";
@@ -108,6 +108,10 @@ public final class NutritionFood {
 
     public String displayName() {
         return brand == null ? name : brand + " · " + name;
+    }
+
+    public String unitNutritionLabel() {
+        return NutritionCalculator.unitNutritionLabel(profile, basisAmount, basisUnit);
     }
 
     public String nutritionLabel() {

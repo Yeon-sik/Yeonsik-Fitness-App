@@ -1,6 +1,8 @@
 package com.yeonsik.fitnessapp.ui;
 
 import android.app.Activity;
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -64,6 +66,31 @@ final class NutritionInputSection {
             builder.value(entry.getKey(), parse(entry.getKey(), raw));
         }
         return builder.build();
+    }
+
+    void addChangeListener(Runnable listener) {
+        if (listener == null) {
+            return;
+        }
+        List<EditText> inputs = new ArrayList<>();
+        inputs.addAll(requiredInputs.values());
+        inputs.addAll(optionalInputs.values());
+        for (EditText input : inputs) {
+            input.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+                }
+
+                @Override
+                public void onTextChanged(CharSequence text, int start, int before, int count) {
+                    listener.run();
+                }
+
+                @Override
+                public void afterTextChanged(Editable editable) {
+                }
+            });
+        }
     }
 
     private void build() {
