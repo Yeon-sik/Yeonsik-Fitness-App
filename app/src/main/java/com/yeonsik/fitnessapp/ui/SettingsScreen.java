@@ -25,16 +25,19 @@ public final class SettingsScreen extends BaseScreen {
 
         SupabaseConfig sharedConfig = host.supabaseConfig();
         SupabaseConfig nutritionConfig = host.nutritionSupabaseConfig();
-        renderConnectionStatus(sharedConfig, nutritionConfig);
+        SupabaseConfig priceTraceConfig = host.priceTraceSupabaseConfig();
+        renderConnectionStatus(sharedConfig, nutritionConfig, priceTraceConfig);
         renderSharedConnectionCard(sharedConfig);
         renderNutritionConnectionCard(nutritionConfig);
+        renderPriceTraceConnectionCard(priceTraceConfig);
         renderSharedAuthCard(sharedConfig);
         renderNutritionAuthCard(nutritionConfig);
     }
 
     private void renderConnectionStatus(
             SupabaseConfig sharedConfig,
-            SupabaseConfig nutritionConfig
+            SupabaseConfig nutritionConfig,
+            SupabaseConfig priceTraceConfig
     ) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
@@ -57,6 +60,10 @@ public final class SettingsScreen extends BaseScreen {
         card.addView(ui.keyValue("영양 전용 DB", nutritionStatus(nutritionConfig)));
         card.addView(ui.keyValue("영양 DB 프로젝트", projectLabel(nutritionConfig)));
         card.addView(ui.keyValue("음식·메뉴·영양성분", "영양 DB에 저장"));
+        card.addView(ui.keyValue("PriceTrace 상품 조회", priceTraceConfig.isConnectionConfigured()
+                ? "product-read.v1 읽기 전용"
+                : "연결 없음"));
+        card.addView(ui.keyValue("PriceTrace 프로젝트", projectLabel(priceTraceConfig)));
         card.addView(ui.keyValue("공통 계정", sharedConfig.email.isEmpty()
                 ? SupabaseConfig.DEFAULT_USER_ID
                 : sharedConfig.email));
@@ -127,6 +134,33 @@ public final class SettingsScreen extends BaseScreen {
                 "영양 DB anon key",
                 "영양 DB 연결 저장",
                 host::saveNutritionSupabaseConfig
+        );
+        add(card);
+    }
+
+    private void renderPriceTraceConnectionCard(SupabaseConfig config) {
+        FitnessUi ui = ui();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "PriceTrace 상품 조회", connectionStatus(
+                config,
+                host.isPriceTraceSupabaseConnectionManaged()
+        ));
+        card.addView(ui.text(
+                "PriceTrace의 검증된 상품을 product-read.v1로 읽는 별도 연결입니다. "
+                        + "상품명은 후보 검색에만 쓰고 사용자가 정확한 catalogProductId를 "
+                        + "선택해야 영양 항목과 연결됩니다. 쓰기 권한과 로그인은 사용하지 않습니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        renderConnectionFields(
+                card,
+                config,
+                host.isPriceTraceSupabaseConnectionManaged(),
+                "PriceTrace DB URL",
+                "PriceTrace DB anon key",
+                "PriceTrace 읽기 연결 저장",
+                host::savePriceTraceSupabaseConfig
         );
         add(card);
     }

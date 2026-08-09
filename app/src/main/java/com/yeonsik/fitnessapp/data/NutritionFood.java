@@ -35,6 +35,8 @@ public final class NutritionFood {
     /** 출처 데이터의 판/개정 표기. 예: "MFDS 2024-03", "제품 라벨 v2". 모르면 null. */
     public final String sourceVersion;
     public final int dataVersion;
+    /** nutrition-read.v1 content revision. Independent from the schema dataVersion. */
+    public final int revision;
 
     public final double calories;
     public final double proteinGrams;
@@ -57,6 +59,7 @@ public final class NutritionFood {
         this.sourceReference = builder.sourceReference;
         this.sourceVersion = builder.sourceVersion;
         this.dataVersion = builder.dataVersion;
+        this.revision = Math.max(1, builder.revision);
         this.calories = profile.calories();
         this.proteinGrams = profile.proteinGrams();
         this.carbsGrams = profile.carbsGrams();
@@ -185,6 +188,7 @@ public final class NutritionFood {
         private String sourceReference;
         private String sourceVersion;
         private int dataVersion = DATA_VERSION_REQUIRED_SEVEN;
+        private int revision = 1;
 
         private Builder() {
         }
@@ -238,6 +242,11 @@ public final class NutritionFood {
 
         public Builder dataVersion(int dataVersion) {
             this.dataVersion = dataVersion;
+            return this;
+        }
+
+        public Builder revision(int revision) {
+            this.revision = revision;
             return this;
         }
 

@@ -56,6 +56,14 @@ def nutritionSupabaseAnonKey = localProperties.getProperty("NUTRITION_SUPABASE_A
         ?: System.getenv("NUTRITION_SUPABASE_ANON_KEY")
         ?: dotenvValue("NUTRITION_SUPABASE_ANON_KEY", "NUTRITION_DB_ANON_KEY")
         ?: ""
+def priceTraceSupabaseUrl = localProperties.getProperty("PRICETRACE_SUPABASE_URL")
+        ?: System.getenv("PRICETRACE_SUPABASE_URL")
+        ?: dotenvValue("PRICETRACE_SUPABASE_URL", "PRICETRACE_DB_URL")
+        ?: ""
+def priceTraceSupabaseAnonKey = localProperties.getProperty("PRICETRACE_SUPABASE_ANON_KEY")
+        ?: System.getenv("PRICETRACE_SUPABASE_ANON_KEY")
+        ?: dotenvValue("PRICETRACE_SUPABASE_ANON_KEY", "PRICETRACE_DB_ANON_KEY")
+        ?: ""
 
 def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")
 
@@ -88,6 +96,8 @@ android {
         buildConfigField "String", "SUPABASE_ANON_KEY", buildConfigString(supabaseAnonKey)
         buildConfigField "String", "NUTRITION_SUPABASE_URL", buildConfigString(nutritionSupabaseUrl)
         buildConfigField "String", "NUTRITION_SUPABASE_ANON_KEY", buildConfigString(nutritionSupabaseAnonKey)
+        buildConfigField "String", "PRICETRACE_SUPABASE_URL", buildConfigString(priceTraceSupabaseUrl)
+        buildConfigField "String", "PRICETRACE_SUPABASE_ANON_KEY", buildConfigString(priceTraceSupabaseAnonKey)
     }
 
     signingConfigs {

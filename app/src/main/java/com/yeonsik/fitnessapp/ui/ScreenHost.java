@@ -8,6 +8,7 @@ import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
@@ -129,6 +130,16 @@ public interface ScreenHost {
 
     void signOutFromNutritionSupabase();
 
+    SupabaseConfig priceTraceSupabaseConfig();
+
+    boolean isPriceTraceSupabaseConnectionManaged();
+
+    void savePriceTraceSupabaseConfig(String url, String anonKey);
+
+    void searchPriceTraceProducts(String query, ProductSearchCallback callback);
+
+    void loadPriceTraceProduct(String catalogProductId, ProductLoadCallback callback);
+
     void syncNutritionCatalog(NutritionCatalogRepository.SyncCallback callback);
 
     void runManualSync();
@@ -140,4 +151,16 @@ public interface ScreenHost {
     String syncDetail();
 
     String repositoryUserLabel();
+
+    interface ProductSearchCallback {
+        void onComplete(List<ProductReadV1> products);
+
+        void onError(Exception error);
+    }
+
+    interface ProductLoadCallback {
+        void onComplete(ProductReadV1 product);
+
+        void onError(Exception error);
+    }
 }

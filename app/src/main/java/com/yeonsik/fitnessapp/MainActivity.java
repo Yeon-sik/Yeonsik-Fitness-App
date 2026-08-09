@@ -29,12 +29,15 @@ import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
+import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.data.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.data.ProductReadV1;
+import com.yeonsik.fitnessapp.data.ProductReadV1Client;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
@@ -102,11 +105,14 @@ public final class MainActivity extends Activity implements ScreenHost {
     private RoutineRepository routineRepository;
     private SupabaseConfigStore configStore;
     private NutritionSupabaseConfigStore nutritionConfigStore;
+    private PriceTraceSupabaseConfigStore priceTraceConfigStore;
     private SupabaseSyncManager syncManager;
     private SupabaseAuthManager authManager;
     private SupabaseAuthManager nutritionAuthManager;
     private SupabaseConfig supabaseConfig;
     private SupabaseConfig nutritionSupabaseConfig;
+    private SupabaseConfig priceTraceSupabaseConfig;
+    private ProductReadV1Client productReadClient;
 
     private FitnessUi ui;
     private Map<FitnessScreen, BaseScreen> screens;
@@ -153,6 +159,9 @@ public final class MainActivity extends Activity implements ScreenHost {
         supabaseConfig = configStore.load();
         nutritionConfigStore = new NutritionSupabaseConfigStore(this);
         nutritionSupabaseConfig = nutritionConfigStore.load();
+        priceTraceConfigStore = new PriceTraceSupabaseConfigStore(this);
+        priceTraceSupabaseConfig = priceTraceConfigStore.load();
+        productReadClient = new ProductReadV1Client(priceTraceSupabaseConfig);
         authManager = new SupabaseAuthManager(configStore);
         nutritionAuthManager = new SupabaseAuthManager(nutritionConfigStore);
         FitnessDatabaseHelper databaseHelper = new FitnessDatabaseHelper(this);
@@ -1577,6 +1586,66 @@ public final class MainActivity extends Activity implements ScreenHost {
         applySyncStatusFromConfig();
         toast("영양 DB 계정에서 로그아웃했습니다. 공통 계정 세션은 유지됩니다.");
         render();
+    }
+
+    @Override
+    public SupabaseConfig priceTraceSupabaseConfig() {
+        return priceTraceSupabaseConfig;
+    }
+
+    @Override
+    public boolean isPriceTraceSupabaseConnectionManaged() {
+        return priceTraceConfigStore.isConnectionManaged();
+    }
+
+    @Override
+    public void savePriceTraceSupabaseConfig(String url, String anonKey) {
+        try {
+            priceTraceSupabaseConfig = priceTraceConfigStore.saveConnection(url, anonKey);
+            productReadClient.setConfig(priceTraceSupabaseConfig);
+            toast("PriceTrace 읽기 전용 DB 설정을 저장했습니다.");
+        } catch (IllegalArgumentException | IllegalStateException error) {
+            toast(error.getMessage());
+        }
+        render();
+    }
+
+    @Override
+    public void searchPriceTraceProducts(String query, ProductSearchCallback callback) {
+        executor.execute(() -> {
+            try {
+                List<ProductReadV1> products = productReadClient.searchProducts(query);
+                nutritionCatalogRepository.cachePriceTraceProducts(products);
+                if (callback != null) {
+                    callback.onComplete(products);
+                }
+            } catch (Exception error) {
+                if (callback != null) {
+                    callback.onError(error);
+                }
+            }
+        });
+    }
+
+    @Override
+    public void loadPriceTraceProduct(String catalogProductId, ProductLoadCallback callback) {
+        executor.execute(() -> {
+            try {
+                ProductReadV1 product = productReadClient.findProduct(catalogProductId);
+                if (product != null) {
+                    nutritionCatalogRepository.cachePriceTraceProducts(
+                            java.util.Collections.singletonList(product)
+                    );
+                }
+                if (callback != null) {
+                    callback.onComplete(product);
+                }
+            } catch (Exception error) {
+                if (callback != null) {
+                    callback.onError(error);
+                }
+            }
+        });
     }
 
     @Override
