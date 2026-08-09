@@ -10,8 +10,24 @@ public final class NutritionUnit {
     public static final String MILLILITER = "ml";
     public static final String LITER = "L";
     public static final String SERVING = "serving";
+    private static final String[] SUPPORTED_UNITS = {
+            GRAM,
+            MILLIGRAM,
+            KILOGRAM,
+            MILLILITER,
+            LITER,
+            SERVING,
+            "개",
+            "portion",
+            "pack"
+    };
 
     private NutritionUnit() {
+    }
+
+    /** Canonical units exposed by nutrition basis selectors. */
+    public static String[] options() {
+        return SUPPORTED_UNITS.clone();
     }
 
     /** Canonicalizes supported aliases while preserving unknown legacy units. */

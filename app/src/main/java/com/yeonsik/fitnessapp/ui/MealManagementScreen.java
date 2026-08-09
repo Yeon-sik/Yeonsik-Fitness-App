@@ -795,8 +795,9 @@ public final class MealManagementScreen extends BaseScreen {
                 "기준 수량",
                 ingredientMode ? "100" : "1"
         );
-        EditText basisUnit = ui.input(
-                "기준 단위 (g, mg, kg, ml, L, serving)",
+        Button basisUnit = NutritionUnitSelector.create(
+                ui,
+                host.activity(),
                 ingredientMode ? "g" : "serving"
         );
         NutritionInputSection nutrients = new NutritionInputSection(ui, host.activity());
@@ -900,7 +901,7 @@ public final class MealManagementScreen extends BaseScreen {
             EditText name,
             EditText brand,
             EditText basisAmount,
-            EditText basisUnit,
+            Button basisUnit,
             ProductReadV1[] selectedProduct
     ) {
         FitnessUi ui = ui();
@@ -914,18 +915,18 @@ public final class MealManagementScreen extends BaseScreen {
             Button choice = ui.button(product.standardProductLabel(), false, v -> {
                 selectedProduct[0] = product;
                 name.setText(product.name);
-                markPriceTraceLoadedField(name);
+                lockPriceTraceLoadedField(name);
                 if (brand != null) {
                     brand.setText(product.brand == null ? "" : product.brand);
-                    markPriceTraceLoadedField(brand);
+                    lockPriceTraceLoadedField(brand);
                 }
                 if (product.contentAmount != null && product.contentAmount > 0) {
                     basisAmount.setText(NutritionCalculator.trim(product.contentAmount));
                 }
                 if (product.contentUnit != null && NutritionUnit.isSupported(product.contentUnit)) {
-                    basisUnit.setText(NutritionUnit.display(product.contentUnit));
+                    NutritionUnitSelector.setValue(basisUnit, product.contentUnit);
                 } else if (product.contentUnit != null && !product.contentUnit.trim().isEmpty()) {
-                    basisUnit.setText(NutritionUnit.SERVING);
+                    NutritionUnitSelector.setValue(basisUnit, NutritionUnit.SERVING);
                 }
                 selection.setText("선택됨 · " + product.standardProductLabel());
                 results.removeAllViews();
@@ -937,8 +938,13 @@ public final class MealManagementScreen extends BaseScreen {
     }
 
     /** Reuses the animated border shown on the selected date in the records calendar. */
-    private void markPriceTraceLoadedField(EditText field) {
+    private void lockPriceTraceLoadedField(EditText field) {
         FitnessUi ui = ui();
+        field.setEnabled(false);
+        field.setCursorVisible(false);
+        field.setLongClickable(false);
+        field.setTextIsSelectable(false);
+        field.setContentDescription(field.getText() + " · PriceTrace 선택값, 수정 불가");
         ui.setHologramBackground(field, ui.flatSurfaceDrawable(ui.dp(12)), ui.dp(12));
         ui.applyDepth(field, 5);
     }
@@ -949,7 +955,7 @@ public final class MealManagementScreen extends BaseScreen {
             String category,
             String cookingMethod,
             EditText basisAmount,
-            EditText basisUnit,
+            Button basisUnit,
             NutritionInputSection nutrients,
             boolean ingredientMode,
             ProductReadV1 selectedProduct,
@@ -974,7 +980,7 @@ public final class MealManagementScreen extends BaseScreen {
                     ingredientMode ? NutritionFood.KIND_INGREDIENT : NutritionFood.KIND_EXTERNAL_MENU,
                     category,
                     basis,
-                    FitnessUi.inputText(basisUnit),
+                    NutritionUnitSelector.value(basisUnit),
                     cookingMethod,
                     nutrients.profile(),
                     sourceType,

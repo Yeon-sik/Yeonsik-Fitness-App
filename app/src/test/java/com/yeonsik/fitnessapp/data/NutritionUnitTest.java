@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.data;
 
 import org.junit.Test;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -19,6 +20,20 @@ public final class NutritionUnitTest {
         assertTrue(NutritionUnit.isSupported("ml"));
         assertTrue(NutritionUnit.isSupported("L"));
         assertTrue(NutritionUnit.isSupported("serving"));
+    }
+
+    @Test
+    public void exposesEverySupportedUnitAsADefensiveChoiceList() {
+        String[] expected = {"g", "mg", "kg", "ml", "L", "serving", "개", "portion", "pack"};
+
+        String[] options = NutritionUnit.options();
+
+        assertArrayEquals(expected, options);
+        for (String option : options) {
+            assertTrue(NutritionUnit.isSupported(option));
+        }
+        options[0] = "changed";
+        assertEquals("g", NutritionUnit.options()[0]);
     }
 
     @Test

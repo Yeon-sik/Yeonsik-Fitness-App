@@ -333,10 +333,7 @@ public final class MealDialogController {
                     : "유형: 외부 메뉴 (탭하여 재료)");
         });
         EditText basisAmount = ui.decimalInput("기준 수량", "100");
-        EditText basisUnit = ui.input(
-                "기준 단위 (g, mg, kg, ml, L, serving)",
-                "g"
-        );
+        Button basisUnit = NutritionUnitSelector.create(ui, host.activity(), NutritionUnit.GRAM);
         Button prepStateButton = ui.button("", false, null);
         String[] selectedPrepState = {NutritionFood.PREP_UNSPECIFIED};
         prepStateButton.setText(prepStateButtonLabel(selectedPrepState[0]));
@@ -393,7 +390,7 @@ public final class MealDialogController {
                                 FitnessUi.inputText(name),
                                 selectedKind[0],
                                 basis,
-                                FitnessUi.inputText(basisUnit),
+                                NutritionUnitSelector.value(basisUnit),
                                 selectedPrepState[0],
                                 nutrients.profile(),
                                 "manual",

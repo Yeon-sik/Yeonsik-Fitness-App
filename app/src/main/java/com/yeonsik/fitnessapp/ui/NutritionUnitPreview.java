@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.ui;
 
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
 
@@ -17,7 +18,7 @@ final class NutritionUnitPreview {
     static void bind(
             TextView preview,
             EditText basisAmount,
-            EditText basisUnit,
+            Button basisUnit,
             NutritionInputSection nutrients
     ) {
         Runnable refresh = () -> refresh(preview, basisAmount, basisUnit, nutrients);
@@ -44,12 +45,11 @@ final class NutritionUnitPreview {
     private static void refresh(
             TextView preview,
             EditText basisAmount,
-            EditText basisUnit,
+            Button basisUnit,
             NutritionInputSection nutrients
     ) {
         String amountText = FitnessUi.inputText(basisAmount).trim();
-        String unitText = FitnessUi.inputText(basisUnit).trim();
-        if (amountText.isEmpty() || unitText.isEmpty()) {
+        if (amountText.isEmpty()) {
             preview.setText("단위 영양성분: 기준량과 단위를 입력하면 자동 계산됩니다.");
             return;
         }
@@ -58,7 +58,7 @@ final class NutritionUnitPreview {
             if (amount <= 0) {
                 throw new IllegalArgumentException("기준량은 0보다 커야 합니다.");
             }
-            String unit = NutritionUnit.requireSupported(unitText);
+            String unit = NutritionUnitSelector.value(basisUnit);
             NutritionProfile profile = nutrients.profile();
             preview.setText(NutritionCalculator.unitNutritionLabel(profile, amount, unit));
         } catch (Exception error) {
