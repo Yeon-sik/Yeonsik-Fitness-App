@@ -49,7 +49,7 @@ public final class MealManagementScreen extends BaseScreen {
     private EditText catalogSearchInput;
     private LinearLayout compositionRows;
     private LinearLayout catalogResults;
-    private TextView compositionTotal;
+    private LinearLayout compositionTotalBox;
     private TextView catalogStatus;
     private final List<EditText> quantityInputs = new ArrayList<>();
     private int catalogMode = CATALOG_MODE_NUTRIENTS;
@@ -334,9 +334,11 @@ public final class MealManagementScreen extends BaseScreen {
         card.addView(compositionRows, ui.fullWidthParams(ui.dp(4)));
         renderCompositionRows();
 
-        compositionTotal = ui.text("", 13, FitnessUi.COLOR_TEXT, true);
-        compositionTotal.setPadding(0, ui.dp(12), 0, 0);
-        card.addView(compositionTotal);
+        compositionTotalBox = new LinearLayout(host.activity());
+        compositionTotalBox.setOrientation(LinearLayout.VERTICAL);
+        compositionTotalBox.setPadding(ui.dp(12), ui.dp(12), ui.dp(12), ui.dp(8));
+        compositionTotalBox.setBackground(ui.flatSurfaceDrawable(ui.dp(14)));
+        card.addView(compositionTotalBox, ui.fullWidthParams(ui.dp(12)));
         updateCompositionTotal();
 
         Button saveMeal = ui.button(nextMealLabel + " 기록하기", true, v -> saveMeal());
@@ -947,23 +949,88 @@ public final class MealManagementScreen extends BaseScreen {
     }
 
     private void updateCompositionTotal() {
-        if (compositionTotal == null) {
+        if (compositionTotalBox == null) {
             return;
         }
         syncDraftFromViews();
         NutritionTotals total = NutritionCalculator.sum(draftItems);
-        compositionTotal.setText(
-                "합계  " + Math.round(total.calories()) + " kcal  ·  P " +
-                        NutritionCalculator.trim(total.proteinGrams()) + "g  ·  C " +
-                        NutritionCalculator.trim(total.carbsGrams()) + "g  ·  F " +
-                        NutritionCalculator.trim(total.fatGrams()) + "g" +
-                        "\n나트륨 " + NutritionCalculator.describeTotal(
-                                total.total(NutritionProfile.SODIUM_MG)) + "mg  ·  포화지방 " +
-                        NutritionCalculator.describeTotal(
-                                total.total(NutritionProfile.SATURATED_FAT_GRAMS)) + "g  ·  당류 " +
-                        NutritionCalculator.describeTotal(
-                                total.total(NutritionProfile.SUGARS_GRAMS)) + "g"
+        FitnessUi ui = ui();
+        compositionTotalBox.removeAllViews();
+        compositionTotalBox.addView(ui.text(
+                "끼니 구성 총합계",
+                14,
+                FitnessUi.COLOR_TEXT,
+                true
+        ));
+        addNutritionSummaryRow(
+                compositionTotalBox,
+                nutritionSummaryCell("칼로리", NutritionCalculator.trim(total.calories()) + " kcal"),
+                nutritionSummaryCell("탄수화물", NutritionCalculator.trim(total.carbsGrams()) + " g")
         );
+        addNutritionSummaryRow(
+                compositionTotalBox,
+                nutritionSummaryCell("단백질", NutritionCalculator.trim(total.proteinGrams()) + " g"),
+                nutritionSummaryCell("지방", NutritionCalculator.trim(total.fatGrams()) + " g")
+        );
+        addNutritionSummaryRow(
+                compositionTotalBox,
+                nutritionSummaryCell(
+                        "나트륨",
+                        NutritionCalculator.describeTotal(total.total(NutritionProfile.SODIUM_MG)) + " mg"
+                ),
+                nutritionSummaryCell(
+                        "포화지방",
+                        NutritionCalculator.describeTotal(
+                                total.total(NutritionProfile.SATURATED_FAT_GRAMS)
+                        ) + " g"
+                )
+        );
+        addNutritionSummaryRow(
+                compositionTotalBox,
+                nutritionSummaryCell(
+                        "당류",
+                        NutritionCalculator.describeTotal(total.total(NutritionProfile.SUGARS_GRAMS)) + " g"
+                ),
+                null
+        );
+    }
+
+    private void addNutritionSummaryRow(LinearLayout parent, View first, View second) {
+        LinearLayout row = new LinearLayout(host.activity());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.addView(first, nutritionSummaryCellParams(true));
+        row.addView(
+                second == null ? new View(host.activity()) : second,
+                nutritionSummaryCellParams(false)
+        );
+        parent.addView(row, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        ));
+    }
+
+    private View nutritionSummaryCell(String label, String value) {
+        FitnessUi ui = ui();
+        LinearLayout cell = new LinearLayout(host.activity());
+        cell.setOrientation(LinearLayout.VERTICAL);
+        cell.setMinimumHeight(ui.dp(64));
+        cell.setPadding(ui.dp(10), ui.dp(8), ui.dp(10), ui.dp(7));
+        cell.setBackground(ui.flatSurfaceDrawable(ui.dp(10)));
+        cell.addView(ui.text(label, 11, FitnessUi.COLOR_MUTED, true));
+        TextView valueView = ui.text(value, 16, FitnessUi.COLOR_TEXT, true);
+        valueView.setPadding(0, ui.dp(5), 0, 0);
+        cell.addView(valueView);
+        return cell;
+    }
+
+    private LinearLayout.LayoutParams nutritionSummaryCellParams(boolean first) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+        );
+        params.setMargins(first ? 0 : ui().dp(4), ui().dp(4), first ? ui().dp(4) : 0, 0);
+        return params;
     }
 
     private static String nextPrepState(String prepState) {
