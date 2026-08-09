@@ -50,7 +50,7 @@ public final class MealCompositionItem {
     }
 
     public String label() {
-        return food.displayName() + " · " + NutritionCalculator.trim(quantity)
+        return food.identityLabel() + " · " + NutritionCalculator.trim(quantity)
                 + NutritionUnit.display(food.basisUnit)
                 + " · " + Math.round(calories) + "kcal";
     }

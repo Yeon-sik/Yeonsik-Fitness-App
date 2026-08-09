@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 11;
+    public static final int DATABASE_VERSION = 12;
 
     public FitnessDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -227,9 +227,11 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "name TEXT NOT NULL, " +
                 "brand TEXT, " +
                 "kind TEXT NOT NULL, " +
+                "category TEXT NOT NULL DEFAULT 'other', " +
                 "basis_amount REAL NOT NULL, " +
                 "basis_unit TEXT NOT NULL, " +
                 "prep_state TEXT NOT NULL DEFAULT 'unspecified', " +
+                "cooking_method TEXT NOT NULL DEFAULT 'unspecified', " +
                 "calories_kcal REAL NOT NULL DEFAULT 0, " +
                 "protein_grams REAL NOT NULL DEFAULT 0, " +
                 "carbs_grams REAL NOT NULL DEFAULT 0, " +
@@ -322,6 +324,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON nutrition_foods(owner_id, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_brand_name_idx " +
                 "ON nutrition_foods(owner_id, brand COLLATE NOCASE, name COLLATE NOCASE)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_category_idx " +
+                "ON nutrition_foods(owner_id, category, cooking_method, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_visibility_name_idx " +
                 "ON nutrition_foods(visibility, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_food_nutrients_food_idx " +
@@ -479,6 +483,17 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
             addColumnIfMissing(db, "pricetrace_product_cache", "brand_name", "TEXT");
             db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_brand_name_idx " +
                     "ON nutrition_foods(owner_id, brand COLLATE NOCASE, name COLLATE NOCASE)");
+        }
+        if (oldVersion < 12) {
+            addColumnIfMissing(db, "nutrition_foods", "category", "TEXT NOT NULL DEFAULT 'other'");
+            addColumnIfMissing(
+                    db,
+                    "nutrition_foods",
+                    "cooking_method",
+                    "TEXT NOT NULL DEFAULT 'unspecified'"
+            );
+            db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_category_idx " +
+                    "ON nutrition_foods(owner_id, category, cooking_method, name COLLATE NOCASE)");
         }
     }
 

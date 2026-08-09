@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
+import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.text.Editable;
 import android.text.TextWatcher;
@@ -385,6 +386,7 @@ public final class MealManagementScreen extends BaseScreen {
             details.setOrientation(LinearLayout.VERTICAL);
             details.setPadding(ui.dp(10), 0, ui.dp(8), 0);
             details.addView(ui.text(item.food.displayName(), 14, FitnessUi.COLOR_TEXT, true));
+            details.addView(ui.text(item.food.categoryCookingLabel(), 11, FitnessUi.COLOR_TERTIARY, false));
             details.addView(ui.text(
                     Math.round(item.calories) + " kcal  ·  "
                             + NutritionCalculator.trim(item.quantity)
@@ -481,7 +483,7 @@ public final class MealManagementScreen extends BaseScreen {
     private String catalogModeHelper() {
         switch (catalogMode) {
             case CATALOG_MODE_INGREDIENT:
-                return "직접 만든 재료를 기준량과 조리 상태별로 저장합니다. 저장만 하거나 현재 끼니에 함께 넣을 수 있습니다.";
+                return "직접 만든 재료를 범주·종류·조리 방식으로 저장합니다. 저장만 하거나 현재 끼니에 함께 넣을 수 있습니다.";
             case CATALOG_MODE_MENU:
                 return "위에서 재료를 조합한 뒤 ‘메뉴 카탈로그에 저장’을 누릅니다. ‘끼니 기록’과는 별도 동작입니다.";
             default:
@@ -572,6 +574,7 @@ public final class MealManagementScreen extends BaseScreen {
         details.setOrientation(LinearLayout.VERTICAL);
         details.setPadding(ui.dp(10), 0, ui.dp(8), 0);
         details.addView(ui.text(food.displayName(), 14, FitnessUi.COLOR_TEXT, true));
+        details.addView(ui.text(food.categoryCookingLabel(), 11, FitnessUi.COLOR_TERTIARY, false));
         details.addView(ui.text(food.extendedNutritionLabel() + " / " + food.basisLabel(),
                 11,
                 FitnessUi.COLOR_MUTED,
@@ -624,10 +627,40 @@ public final class MealManagementScreen extends BaseScreen {
         FitnessUi ui = ui();
         LinearLayout form = ui.form();
         EditText name = ui.input(
-                ingredientMode ? "재료 이름" : "외부 메뉴 이름",
+                ingredientMode ? "종류 이름 (예: 오겹살)" : "외부 메뉴 이름",
                 ""
         );
         EditText brand = ingredientMode ? null : ui.input("브랜드 (예: 버거킹)", "");
+        String[] selectedCategory = {
+                ingredientMode
+                        ? NutritionFood.CATEGORY_OTHER
+                        : NutritionFood.CATEGORY_PROCESSED
+        };
+        Button categoryButton = ui.button(
+                categoryButtonLabel(selectedCategory[0]),
+                false,
+                null
+        );
+        categoryButton.setOnClickListener(v -> showFoodChoiceDialog(
+                "식품 범주 선택",
+                NutritionFood.categoryOptions(),
+                selectedCategory,
+                categoryButton,
+                true
+        ));
+        String[] selectedCookingMethod = {NutritionFood.COOKING_METHOD_UNSPECIFIED};
+        Button cookingMethodButton = ui.button(
+                cookingMethodButtonLabel(selectedCookingMethod[0]),
+                false,
+                null
+        );
+        cookingMethodButton.setOnClickListener(v -> showFoodChoiceDialog(
+                "조리 방식 선택",
+                NutritionFood.cookingMethodOptions(),
+                selectedCookingMethod,
+                cookingMethodButton,
+                false
+        ));
         EditText basisAmount = ui.decimalInput(
                 "기준 수량",
                 ingredientMode ? "100" : "1"
@@ -636,13 +669,6 @@ public final class MealManagementScreen extends BaseScreen {
                 "기준 단위 (g, mg, kg, ml, L, serving)",
                 ingredientMode ? "g" : "serving"
         );
-        Button prepStateButton = ui.button("", false, null);
-        String[] selectedPrepState = {NutritionFood.PREP_UNSPECIFIED};
-        prepStateButton.setText(prepStateLabel(selectedPrepState[0]));
-        prepStateButton.setOnClickListener(v -> {
-            selectedPrepState[0] = nextPrepState(selectedPrepState[0]);
-            prepStateButton.setText(prepStateLabel(selectedPrepState[0]));
-        });
         EditText source = ui.input("출처·메모 (선택)", "");
         EditText sourceVersion = ui.input("출처 버전 (선택, 예: MFDS 2024-03)", "");
         NutritionInputSection nutrients = new NutritionInputSection(ui, host.activity());
@@ -706,9 +732,10 @@ public final class MealManagementScreen extends BaseScreen {
         }
         ui.addAll(
                 form,
+                categoryButton,
+                cookingMethodButton,
                 basisAmount,
                 basisUnit,
-                prepStateButton,
                 ui.text("아래 값은 모두 위 기준 수량에 대한 값입니다.", 11, FitnessUi.COLOR_MUTED, false),
                 nutrients.view(),
                 unitNutritionPreview,
@@ -724,7 +751,8 @@ public final class MealManagementScreen extends BaseScreen {
                 ingredientMode ? "재료만 카탈로그에 저장" : "외부 메뉴만 카탈로그에 저장",
                 false,
                 v -> saveDirectFood(
-                        name, brand, basisAmount, basisUnit, selectedPrepState[0], nutrients,
+                        name, brand, selectedCategory[0], selectedCookingMethod[0],
+                        basisAmount, basisUnit, nutrients,
                         source, sourceVersion, ingredientMode, selectedProduct[0], false
                 )
         );
@@ -732,7 +760,8 @@ public final class MealManagementScreen extends BaseScreen {
                 "저장 후 현재 끼니에 추가",
                 true,
                 v -> saveDirectFood(
-                        name, brand, basisAmount, basisUnit, selectedPrepState[0], nutrients,
+                        name, brand, selectedCategory[0], selectedCookingMethod[0],
+                        basisAmount, basisUnit, nutrients,
                         source, sourceVersion, ingredientMode, selectedProduct[0], true
                 )
         );
@@ -787,9 +816,10 @@ public final class MealManagementScreen extends BaseScreen {
     private void saveDirectFood(
             EditText name,
             EditText brand,
+            String category,
+            String cookingMethod,
             EditText basisAmount,
             EditText basisUnit,
-            String prepState,
             NutritionInputSection nutrients,
             EditText source,
             EditText sourceVersion,
@@ -816,9 +846,10 @@ public final class MealManagementScreen extends BaseScreen {
                     FitnessUi.inputText(name),
                     productBrand,
                     ingredientMode ? NutritionFood.KIND_INGREDIENT : NutritionFood.KIND_EXTERNAL_MENU,
+                    category,
                     basis,
                     FitnessUi.inputText(basisUnit),
-                    prepState,
+                    cookingMethod,
                     nutrients.profile(),
                     sourceType,
                     sourceReference,
@@ -840,6 +871,39 @@ public final class MealManagementScreen extends BaseScreen {
         } catch (Exception error) {
             host.toast(error.getMessage() == null ? "영양 정보를 확인하세요." : error.getMessage());
         }
+    }
+
+    private void showFoodChoiceDialog(
+            String title,
+            String[] options,
+            String[] selected,
+            Button target,
+            boolean category
+    ) {
+        String[] labels = new String[options.length];
+        for (int index = 0; index < options.length; index++) {
+            labels[index] = category
+                    ? NutritionFood.categoryLabel(options[index])
+                    : NutritionFood.cookingMethodLabel(options[index]);
+        }
+        new AlertDialog.Builder(host.activity())
+                .setTitle(title)
+                .setItems(labels, (dialog, which) -> {
+                    selected[0] = options[which];
+                    target.setText(category
+                            ? categoryButtonLabel(selected[0])
+                            : cookingMethodButtonLabel(selected[0]));
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private static String categoryButtonLabel(String category) {
+        return "식품 범주: " + NutritionFood.categoryLabel(category);
+    }
+
+    private static String cookingMethodButtonLabel(String cookingMethod) {
+        return "조리 방식: " + NutritionFood.cookingMethodLabel(cookingMethod);
     }
 
     private void addFoodToDraft(NutritionFood food) {
@@ -1031,27 +1095,6 @@ public final class MealManagementScreen extends BaseScreen {
         );
         params.setMargins(first ? 0 : ui().dp(4), ui().dp(4), first ? ui().dp(4) : 0, 0);
         return params;
-    }
-
-    private static String nextPrepState(String prepState) {
-        switch (NutritionFood.normalizePrepState(prepState)) {
-            case NutritionFood.PREP_UNSPECIFIED:
-                return NutritionFood.PREP_RAW;
-            case NutritionFood.PREP_RAW:
-                return NutritionFood.PREP_COOKED;
-            case NutritionFood.PREP_COOKED:
-                return NutritionFood.PREP_AS_SERVED;
-            case NutritionFood.PREP_AS_SERVED:
-                return NutritionFood.PREP_DRIED;
-            case NutritionFood.PREP_DRIED:
-                return NutritionFood.PREP_FROZEN;
-            default:
-                return NutritionFood.PREP_UNSPECIFIED;
-        }
-    }
-
-    private static String prepStateLabel(String prepState) {
-        return "조리 상태: " + NutritionFood.prepStateLabel(prepState);
     }
 
     private void confirmDeleteMeal(FitnessRepository.MealEntry entry) {

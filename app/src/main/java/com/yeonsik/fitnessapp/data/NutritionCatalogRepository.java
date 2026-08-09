@@ -55,9 +55,11 @@ public final class NutritionCatalogRepository {
             "name",
             "brand",
             "kind",
+            "category",
             "basis_amount",
             "basis_unit",
             "prep_state",
+            "cooking_method",
             "calories_kcal",
             "protein_grams",
             "carbs_grams",
@@ -196,9 +198,10 @@ public final class NutritionCatalogRepository {
                 name,
                 null,
                 kind,
+                NutritionFood.categoryForKind(kind),
                 basisAmount,
                 basisUnit,
-                prepState,
+                NutritionFood.cookingMethodForPrepState(prepState),
                 profile,
                 sourceType,
                 sourceReference,
@@ -206,6 +209,7 @@ public final class NutritionCatalogRepository {
         );
     }
 
+    /** 기존 호출부와 레거시 입력을 위한 호환 오버로드. */
     public NutritionFood saveFood(
             String name,
             String brand,
@@ -218,11 +222,41 @@ public final class NutritionCatalogRepository {
             String sourceReference,
             String sourceVersion
     ) {
+        return saveFood(
+                name,
+                brand,
+                kind,
+                NutritionFood.categoryForKind(kind),
+                basisAmount,
+                basisUnit,
+                NutritionFood.cookingMethodForPrepState(prepState),
+                profile,
+                sourceType,
+                sourceReference,
+                sourceVersion
+        );
+    }
+
+    public NutritionFood saveFood(
+            String name,
+            String brand,
+            String kind,
+            String category,
+            double basisAmount,
+            String basisUnit,
+            String cookingMethod,
+            NutritionProfile profile,
+            String sourceType,
+            String sourceReference,
+            String sourceVersion
+    ) {
         String normalizedName = requireName(name);
         String normalizedBrand = emptyToNull(brand);
         String normalizedKind = NutritionFood.normalizeKind(kind);
+        String normalizedCategory = NutritionFood.normalizeCategory(category);
         String normalizedUnit = NutritionUnit.requireSupported(basisUnit);
-        String normalizedPrepState = NutritionFood.normalizePrepState(prepState);
+        String normalizedCookingMethod = NutritionFood.normalizeCookingMethod(cookingMethod);
+        String normalizedPrepState = NutritionFood.prepStateForCookingMethod(normalizedCookingMethod);
         if (basisAmount <= 0) {
             throw new IllegalArgumentException("Basis amount must be greater than zero.");
         }
@@ -234,8 +268,10 @@ public final class NutritionCatalogRepository {
                 .name(normalizedName)
                 .brand(normalizedBrand)
                 .kind(normalizedKind)
+                .category(normalizedCategory)
                 .basis(basisAmount, normalizedUnit)
                 .prepState(normalizedPrepState)
+                .cookingMethod(normalizedCookingMethod)
                 .profile(normalizedProfile)
                 .source(emptyToDefault(sourceType, "manual"), emptyToNull(sourceReference))
                 .sourceVersion(emptyToNull(sourceVersion))
@@ -272,6 +308,7 @@ public final class NutritionCatalogRepository {
                 .ownerId(userId)
                 .name(normalizedName)
                 .kind(NutritionFood.KIND_RECIPE)
+                .category(NutritionFood.CATEGORY_RECIPE)
                 .basis(1.0, "serving")
                 .prepState(NutritionFood.PREP_AS_SERVED)
                 .profile(total)
@@ -800,12 +837,17 @@ public final class NutritionCatalogRepository {
                 putNullable(values, "owner_id", nullableString(row, "owner_id"));
                 values.put("name", name);
                 putNullable(values, "brand", nullableString(row, "brand"));
-                values.put("kind", NutritionFood.normalizeKind(
-                        row.optString("kind", NutritionFood.KIND_EXTERNAL_MENU)));
+                String kind = NutritionFood.normalizeKind(
+                        row.optString("kind", NutritionFood.KIND_EXTERNAL_MENU));
+                values.put("kind", kind);
+                values.put("category", NutritionFood.normalizeCategory(
+                        row.optString("category", NutritionFood.categoryForKind(kind))));
                 values.put("basis_amount", positiveOrDefault(row.optDouble("basis_amount", 1.0)));
                 values.put("basis_unit", emptyToDefault(row.optString("basis_unit", "serving"), "serving"));
                 values.put("prep_state", NutritionFood.normalizePrepState(
                         row.optString("prep_state", NutritionFood.PREP_UNSPECIFIED)));
+                values.put("cooking_method", NutritionFood.normalizeCookingMethod(
+                        row.optString("cooking_method", NutritionFood.COOKING_METHOD_UNSPECIFIED)));
                 values.put("calories_kcal", row.optDouble("calories_kcal", 0));
                 values.put("protein_grams", row.optDouble("protein_grams", 0));
                 values.put("carbs_grams", row.optDouble("carbs_grams", 0));
@@ -976,9 +1018,11 @@ public final class NutritionCatalogRepository {
         values.put("name", food.name);
         putNullable(values, "brand", food.brand);
         values.put("kind", food.kind);
+        values.put("category", food.category);
         values.put("basis_amount", food.basisAmount);
         values.put("basis_unit", food.basisUnit);
         values.put("prep_state", food.prepState);
+        values.put("cooking_method", food.cookingMethod);
         values.put("calories_kcal", food.profile.calories());
         values.put("protein_grams", food.profile.proteinGrams());
         values.put("carbs_grams", food.profile.carbsGrams());
@@ -1068,11 +1112,11 @@ public final class NutritionCatalogRepository {
 
     private NutritionFood buildFood(Object[] row, Map<String, Double> micronutrients) {
         NutritionProfile.Builder profile = NutritionProfile.builder()
-                .value(NutritionProfile.CALORIES_KCAL, doubleAt(row, 8))
-                .value(NutritionProfile.PROTEIN_GRAMS, doubleAt(row, 9))
-                .value(NutritionProfile.CARBS_GRAMS, doubleAt(row, 10))
-                .value(NutritionProfile.FAT_GRAMS, doubleAt(row, 11));
-        int columnIndex = 12;
+                .value(NutritionProfile.CALORIES_KCAL, doubleAt(row, 10))
+                .value(NutritionProfile.PROTEIN_GRAMS, doubleAt(row, 11))
+                .value(NutritionProfile.CARBS_GRAMS, doubleAt(row, 12))
+                .value(NutritionProfile.FAT_GRAMS, doubleAt(row, 13));
+        int columnIndex = 14;
         for (String key : nullableTypedKeys()) {
             profile.value(key, doubleAt(row, columnIndex++));
         }
@@ -1082,19 +1126,21 @@ public final class NutritionCatalogRepository {
             }
         }
 
-        Double dataVersion = doubleAt(row, 22);
-        Double revision = doubleAt(row, 23);
+        Double dataVersion = doubleAt(row, 24);
+        Double revision = doubleAt(row, 25);
         return NutritionFood.builder()
                 .id(stringAt(row, 0))
                 .ownerId(stringAt(row, 1))
                 .name(stringAt(row, 2))
                 .brand(stringAt(row, 3))
                 .kind(stringAt(row, 4))
-                .basis(positiveOrDefault(doubleAt(row, 5)), emptyToDefault(stringAt(row, 6), "serving"))
-                .prepState(stringAt(row, 7))
+                .category(stringAt(row, 5))
+                .basis(positiveOrDefault(doubleAt(row, 6)), emptyToDefault(stringAt(row, 7), "serving"))
+                .prepState(stringAt(row, 8))
+                .cookingMethod(stringAt(row, 9))
                 .profile(profile.build())
-                .source(emptyToDefault(stringAt(row, 19), "manual"), stringAt(row, 20))
-                .sourceVersion(stringAt(row, 21))
+                .source(emptyToDefault(stringAt(row, 21), "manual"), stringAt(row, 22))
+                .sourceVersion(stringAt(row, 23))
                 .dataVersion(dataVersion == null
                         ? NutritionFood.DATA_VERSION_MACROS_ONLY
                         : (int) Math.round(dataVersion))
