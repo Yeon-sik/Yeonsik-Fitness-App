@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.ui;
 
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
+import android.text.InputType;
 import android.text.Editable;
 import android.text.TextUtils;
 import android.text.TextWatcher;
@@ -14,8 +15,12 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import com.yeonsik.fitnessapp.data.AthleteDailyCheckIn;
+import com.yeonsik.fitnessapp.data.AthleteNutritionGoal;
+import com.yeonsik.fitnessapp.data.AthleteNutritionPolicy;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.MealCompositionItem;
+import com.yeonsik.fitnessapp.data.NutrientCode;
 import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
@@ -85,8 +90,15 @@ public final class MealManagementScreen extends BaseScreen {
         add(dateNavigator());
         add(dailySummary());
 
+        section("선수 체크인", "기록", this::showAthleteCheckInDialog);
+        add(athleteCheckInCard());
+
         section("기록된 끼니");
         renderMealEntries();
+
+        section("영양 분석");
+        add(proteinDistributionCard());
+        add(detailedNutrientsCard());
 
         section("새 끼니 + 영양 카탈로그");
         add(mealWorkspace());
@@ -173,6 +185,8 @@ public final class MealManagementScreen extends BaseScreen {
     private View dailySummary() {
         FitnessUi ui = ui();
         FitnessRepository.MealNutritionSummary summary = repository().mealNutritionForDate(selectedDate);
+        AthleteNutritionGoal goal = repository().nutritionGoal();
+        FitnessRepository.BodyMetricEntry weight = repository().latestBodyMetricOnOrBefore(selectedDate);
         LinearLayout card = ui.heroCard();
 
         LinearLayout header = new LinearLayout(host.activity());
@@ -180,13 +194,14 @@ public final class MealManagementScreen extends BaseScreen {
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(ui.caption("DAILY NUTRITION", FitnessUi.COLOR_FLOW_MUTED),
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        header.addView(ui.flowStatusBadge(
-                catalogSyncing ? "동기화 중"
-                        : (host.nutritionSupabaseConfig().isConnectionConfigured()
-                        ? "영양 DB 연결"
-                        : "기기 저장"),
-                catalogSyncing ? FitnessUi.COLOR_WARNING : FitnessUi.COLOR_POSITIVE
-        ));
+        View goalBadge = ui.flowStatusBadge(
+                goal == null ? "목표 설정" : goal.phaseLabel(),
+                goal == null ? FitnessUi.COLOR_WARNING : FitnessUi.COLOR_POSITIVE
+        );
+        goalBadge.setClickable(true);
+        goalBadge.setFocusable(true);
+        goalBadge.setOnClickListener(v -> showNutritionGoalDialog());
+        header.addView(goalBadge);
         card.addView(header);
 
         LinearLayout caloriesRow = new LinearLayout(host.activity());
@@ -195,27 +210,529 @@ public final class MealManagementScreen extends BaseScreen {
         caloriesRow.setPadding(0, ui.dp(14), 0, ui.dp(2));
         caloriesRow.addView(ui.num(String.valueOf(Math.round(summary.calories)), 38,
                 FitnessUi.COLOR_FLOW_TEXT, true));
-        TextView unit = ui.text(" kcal", 16, FitnessUi.COLOR_FLOW_MUTED, true);
+        String calorieUnit = goal == null
+                ? " kcal"
+                : " / " + Math.round(goal.caloriesKcal) + " kcal";
+        TextView unit = ui.text(calorieUnit, 16, FitnessUi.COLOR_FLOW_MUTED, true);
         unit.setPadding(0, 0, 0, ui.dp(6));
         caloriesRow.addView(unit);
         caloriesRow.addView(ui.text("  ·  " + summary.mealCount + "끼 기록", 13,
                 FitnessUi.COLOR_FLOW_MUTED, false));
         card.addView(caloriesRow);
 
-        LinearLayout firstMacroRow = ui.tileRow();
-        firstMacroRow.addView(ui.flowMetric("단백질", NutritionCalculator.trim(summary.proteinGrams) + "g"),
-                ui.tileParams(true));
-        firstMacroRow.addView(ui.flowMetric("탄수화물", NutritionCalculator.trim(summary.carbsGrams) + "g"),
-                ui.tileParams(false));
-        card.addView(firstMacroRow, ui.fullWidthParams(ui.dp(10)));
+        if (goal == null) {
+            LinearLayout firstMacroRow = ui.tileRow();
+            firstMacroRow.addView(ui.flowMetric(
+                    "단백질",
+                    NutritionCalculator.trim(summary.proteinGrams) + "g"
+            ), ui.tileParams(true));
+            firstMacroRow.addView(ui.flowMetric(
+                    "탄수화물",
+                    NutritionCalculator.trim(summary.carbsGrams) + "g"
+            ), ui.tileParams(false));
+            card.addView(firstMacroRow, ui.fullWidthParams(ui.dp(10)));
 
-        LinearLayout secondMacroRow = ui.tileRow();
-        secondMacroRow.addView(ui.flowMetric("지방", NutritionCalculator.trim(summary.fatGrams) + "g"),
-                ui.tileParams(true));
-        secondMacroRow.addView(ui.flowMetric("상태", summary.mealCount == 0 ? "기록 시작" : "기록 유지"),
-                ui.tileParams(false));
-        card.addView(secondMacroRow, ui.fullWidthParams(ui.dp(6)));
+            LinearLayout secondMacroRow = ui.tileRow();
+            secondMacroRow.addView(ui.flowMetric(
+                    "지방",
+                    NutritionCalculator.trim(summary.fatGrams) + "g"
+            ), ui.tileParams(true));
+            secondMacroRow.addView(ui.flowMetric(
+                    "상태",
+                    summary.mealCount == 0 ? "기록 시작" : "목표 미설정"
+            ), ui.tileParams(false));
+            card.addView(secondMacroRow, ui.fullWidthParams(ui.dp(6)));
+            card.addView(ui.flowHeroButton("일일 영양 목표 설정", v -> showNutritionGoalDialog()),
+                    ui.fullWidthParams(ui.dp(14)));
+        } else {
+            addGoalProgress(card, "열량", summary.calories, goal.caloriesKcal, "kcal");
+            addGoalProgress(card, "단백질", summary.proteinGrams, goal.proteinGrams, "g");
+            addGoalProgress(card, "탄수화물", summary.carbsGrams, goal.carbsGrams, "g");
+            addGoalProgress(card, "지방", summary.fatGrams, goal.fatGrams, "g");
+        }
+
+        Double gramsPerKg = AthleteNutritionPolicy.proteinGramsPerKg(
+                summary.proteinGrams,
+                weight == null ? null : weight.weightKg
+        );
+        String weightLine = weight == null
+                ? "체중을 기록하면 단백질 g/kg를 표시합니다.  ›"
+                : "체중 " + NutritionCalculator.trim(weight.weightKg) + "kg 기준 · 단백질 "
+                + NutritionCalculator.trim(gramsPerKg) + "g/kg";
+        TextView weightView = ui.text(weightLine, 12, FitnessUi.COLOR_FLOW_MUTED, false);
+        weightView.setPadding(0, ui.dp(14), 0, 0);
+        if (weight == null) {
+            weightView.setClickable(true);
+            weightView.setFocusable(true);
+            weightView.setOnClickListener(v -> host.showBodyMetricDialog(selectedDate, null));
+        }
+        card.addView(weightView);
+        if (weight != null) {
+            TextView reference = ui.text(
+                    "일반 운동인 참고 1.4–2.0g/kg/일 · 개인 목표가 우선",
+                    11,
+                    FitnessUi.COLOR_FLOW_MUTED,
+                    false
+            );
+            reference.setPadding(0, ui.dp(3), 0, 0);
+            card.addView(reference);
+        }
         return card;
+    }
+
+    private void addGoalProgress(
+            LinearLayout card,
+            String label,
+            double consumed,
+            double target,
+            String unit
+    ) {
+        FitnessUi ui = ui();
+        LinearLayout row = new LinearLayout(host.activity());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView labelView = ui.text(label, 12, FitnessUi.COLOR_FLOW_MUTED, true);
+        row.addView(labelView, new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+        ));
+
+        double exceeded = AthleteNutritionPolicy.exceeded(consumed, target);
+        String detail = NutritionCalculator.trim(consumed) + " / "
+                + NutritionCalculator.trim(target) + unit + " · "
+                + (exceeded > 0
+                ? NutritionCalculator.trim(exceeded) + unit + " 초과"
+                : NutritionCalculator.trim(AthleteNutritionPolicy.remaining(consumed, target))
+                + unit + " 남음");
+        row.addView(ui.text(detail, 12, FitnessUi.COLOR_FLOW_TEXT, true));
+        card.addView(row, ui.fullWidthParams(ui.dp(9)));
+        card.addView(
+                ui.progressBar(AthleteNutritionPolicy.progressRatio(consumed, target), true),
+                ui.fullWidthParams(ui.dp(5))
+        );
+    }
+
+    private View athleteCheckInCard() {
+        FitnessUi ui = ui();
+        AthleteDailyCheckIn checkIn = repository().athleteCheckInForDate(selectedDate);
+        AthleteNutritionGoal goal = repository().nutritionGoal();
+        LinearLayout card = ui.card();
+
+        ui.cardHeader(
+                card,
+                "수분 · 회복 상태",
+                checkIn.hasWellnessData() ? "기록됨" : "컨디션 미기록"
+        );
+
+        String waterValue = NutritionCalculator.trim(checkIn.waterMl) + "ml";
+        if (goal != null) {
+            waterValue += " / " + goal.waterMl + "ml";
+        }
+        card.addView(ui.keyValue("수분", waterValue), ui.fullWidthParams(ui.dp(8)));
+        if (goal != null) {
+            card.addView(
+                    ui.progressBar(
+                            AthleteNutritionPolicy.progressRatio(checkIn.waterMl, goal.waterMl),
+                            false
+                    ),
+                    ui.fullWidthParams(ui.dp(7))
+            );
+        }
+
+        LinearLayout waterActions = new LinearLayout(host.activity());
+        waterActions.setOrientation(LinearLayout.HORIZONTAL);
+        waterActions.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        waterActions.addView(ui.textAction("+250ml", FitnessUi.COLOR_MUTED,
+                () -> addWater(250)));
+        waterActions.addView(ui.textAction("+500ml", FitnessUi.COLOR_MUTED,
+                () -> addWater(500)));
+        waterActions.addView(ui.textAction("수정", FitnessUi.COLOR_TEXT,
+                this::showAthleteCheckInDialog));
+        card.addView(waterActions, ui.fullWidthParams(ui.dp(5)));
+
+        LinearLayout firstRow = ui.tileRow();
+        firstRow.addView(ui.inlineStat("수면", formatSleep(checkIn.sleepHours), false),
+                ui.tileParams(true));
+        firstRow.addView(ui.inlineStat("에너지", formatScore(checkIn.energyScore), false),
+                ui.tileParams(false));
+        card.addView(firstRow, ui.fullWidthParams(ui.dp(12)));
+
+        LinearLayout secondRow = ui.tileRow();
+        secondRow.addView(ui.inlineStat("허기", formatScore(checkIn.hungerScore), false),
+                ui.tileParams(true));
+        secondRow.addView(ui.inlineStat("소화", formatScore(checkIn.digestionScore), false),
+                ui.tileParams(false));
+        card.addView(secondRow, ui.fullWidthParams(ui.dp(10)));
+
+        LinearLayout thirdRow = ui.tileRow();
+        thirdRow.addView(ui.inlineStat(
+                "훈련 준비도",
+                formatScore(checkIn.trainingReadinessScore),
+                false
+        ), ui.tileParams(true));
+        thirdRow.addView(ui.inlineStat(
+                "메모",
+                checkIn.note.isEmpty() ? "—" : checkIn.note,
+                false
+        ), ui.tileParams(false));
+        card.addView(thirdRow, ui.fullWidthParams(ui.dp(10)));
+
+        if (isLowScore(checkIn.energyScore) || isLowScore(checkIn.trainingReadinessScore)) {
+            TextView warning = ui.text(
+                    "낮은 상태가 반복되면 섭취량·훈련량을 점검하고 스포츠의학 전문가와 상담하세요.",
+                    12,
+                    FitnessUi.COLOR_WARNING,
+                    true
+            );
+            warning.setPadding(0, ui.dp(12), 0, 0);
+            card.addView(warning);
+        }
+        return card;
+    }
+
+    private View proteinDistributionCard() {
+        FitnessUi ui = ui();
+        List<FitnessRepository.MealEntry> meals = repository().mealEntriesForDate(selectedDate);
+        FitnessRepository.BodyMetricEntry weight = repository().latestBodyMetricOnOrBefore(selectedDate);
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "단백질 분배", meals.size() + "끼");
+
+        Double perMealReference = AthleteNutritionPolicy.perMealProteinReference(
+                weight == null ? null : weight.weightKg
+        );
+        String reference = perMealReference == null
+                ? "1회 20–40g 또는 체중×0.25g, 3–4시간 간격 참고"
+                : "체중 기준 1회 약 " + NutritionCalculator.trim(perMealReference)
+                + "g · 일반 참고 20–40g";
+        TextView referenceView = ui.text(reference, 12, FitnessUi.COLOR_MUTED, false);
+        referenceView.setPadding(0, ui.dp(7), 0, ui.dp(3));
+        card.addView(referenceView);
+
+        if (meals.isEmpty()) {
+            card.addView(ui.text("끼니를 기록하면 식사별 단백질을 비교합니다.",
+                    13, FitnessUi.COLOR_TERTIARY, false), ui.fullWidthParams(ui.dp(10)));
+            return card;
+        }
+        for (FitnessRepository.MealEntry meal : meals) {
+            card.addView(ui.keyValue(
+                    meal.mealLabel + " · " + meal.menu,
+                    NutritionCalculator.trim(meal.proteinGrams) + "g"
+            ));
+        }
+        return card;
+    }
+
+    private View detailedNutrientsCard() {
+        FitnessUi ui = ui();
+        NutritionTotals totals = repository().mealNutritionTotalsForDate(selectedDate);
+        AthleteNutritionGoal goal = repository().nutritionGoal();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "주요 영양성분", "미상은 0으로 계산하지 않음");
+
+        addNutrientPair(
+                card,
+                "식이섬유",
+                formatNutrientTotal(totals, NutritionProfile.FIBER_GRAMS,
+                        goal == null ? null : goal.fiberGrams),
+                "나트륨",
+                formatNutrientTotal(totals, NutritionProfile.SODIUM_MG,
+                        goal == null ? null : goal.sodiumMg)
+        );
+        addNutrientPair(card,
+                "칼륨", formatNutrientTotal(totals, NutrientCode.POTASSIUM, null),
+                "마그네슘", formatNutrientTotal(totals, NutrientCode.MAGNESIUM, null));
+        addNutrientPair(card,
+                "칼슘", formatNutrientTotal(totals, NutrientCode.CALCIUM, null),
+                "철", formatNutrientTotal(totals, NutrientCode.IRON, null));
+        addNutrientPair(card,
+                "아연", formatNutrientTotal(totals, NutrientCode.ZINC, null),
+                "비타민 D", formatNutrientTotal(totals, NutrientCode.VITAMIN_D, null));
+        addNutrientPair(card,
+                "엽산", formatNutrientTotal(totals, NutrientCode.VITAMIN_B9, null),
+                "비타민 B12", formatNutrientTotal(totals, NutrientCode.VITAMIN_B12, null));
+        return card;
+    }
+
+    private void addNutrientPair(
+            LinearLayout card,
+            String firstLabel,
+            String firstValue,
+            String secondLabel,
+            String secondValue
+    ) {
+        FitnessUi ui = ui();
+        LinearLayout row = ui.tileRow();
+        row.addView(ui.inlineStat(firstLabel, firstValue, false), ui.tileParams(true));
+        row.addView(ui.inlineStat(secondLabel, secondValue, false), ui.tileParams(false));
+        card.addView(row, ui.fullWidthParams(ui.dp(12)));
+    }
+
+    private String formatNutrientTotal(NutritionTotals totals, String key, Double target) {
+        String value = NutritionCalculator.describeTotal(totals.total(key));
+        String unit = NutritionProfile.unitOf(key);
+        if (target == null) {
+            return value + ("?".equals(value) ? "" : unit);
+        }
+        return value + ("?".equals(value) ? "" : unit)
+                + " / " + NutritionCalculator.trim(target) + unit;
+    }
+
+    private void addWater(int amountMl) {
+        try {
+            repository().addWaterForDate(selectedDate, amountMl);
+            host.rerender();
+        } catch (IllegalArgumentException error) {
+            host.toast(error.getMessage());
+        }
+    }
+
+    private static String formatSleep(Double sleepHours) {
+        return sleepHours == null ? "—" : NutritionCalculator.trim(sleepHours) + "시간";
+    }
+
+    private static String formatScore(Integer score) {
+        return score == null ? "—" : score + "/5";
+    }
+
+    private static boolean isLowScore(Integer score) {
+        return score != null && score <= 2;
+    }
+
+    private void showNutritionGoalDialog() {
+        FitnessUi ui = ui();
+        AthleteNutritionGoal current = repository().nutritionGoal();
+        String[] phaseCodes = AthleteNutritionGoal.PHASES.toArray(new String[0]);
+        String[] phaseLabels = new String[phaseCodes.length];
+        for (int index = 0; index < phaseCodes.length; index++) {
+            phaseLabels[index] = AthleteNutritionGoal.phaseLabel(phaseCodes[index]);
+        }
+        int[] phaseIndex = new int[]{current == null
+                ? AthleteNutritionGoal.PHASES.indexOf(AthleteNutritionGoal.PHASE_MAINTENANCE)
+                : AthleteNutritionGoal.PHASES.indexOf(current.phase)};
+
+        LinearLayout form = ui.form();
+        TextView guidance = ui.text(
+                "자동 처방값이 아닙니다. 코치·영양사와 정한 하루 목표를 입력하세요.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        );
+        form.addView(guidance);
+
+        Button phase = ui.button(phaseLabels[phaseIndex[0]], false, null);
+        phase.setOnClickListener(v -> new AlertDialog.Builder(host.activity())
+                .setTitle("현재 단계")
+                .setItems(phaseLabels, (dialog, which) -> {
+                    phaseIndex[0] = which;
+                    phase.setText(phaseLabels[which]);
+                })
+                .show());
+        form.addView(ui.labeledFieldColumn("현재 단계", phase), ui.fullWidthParams(ui.dp(12)));
+
+        EditText calories = ui.decimalInput("kcal", goalValue(current, GoalField.CALORIES));
+        EditText protein = ui.decimalInput("g", goalValue(current, GoalField.PROTEIN));
+        EditText carbs = ui.decimalInput("g", goalValue(current, GoalField.CARBS));
+        EditText fat = ui.decimalInput("g", goalValue(current, GoalField.FAT));
+        EditText fiber = ui.decimalInput("g", goalValue(current, GoalField.FIBER));
+        EditText sodium = ui.decimalInput("mg", goalValue(current, GoalField.SODIUM));
+        EditText water = ui.numberInput("ml", current == null ? "" : String.valueOf(current.waterMl));
+
+        form.addView(pairedFields("열량", calories, "단백질", protein),
+                ui.fullWidthParams(ui.dp(10)));
+        form.addView(pairedFields("탄수화물", carbs, "지방", fat),
+                ui.fullWidthParams(ui.dp(10)));
+        form.addView(pairedFields("식이섬유", fiber, "나트륨", sodium),
+                ui.fullWidthParams(ui.dp(10)));
+        form.addView(ui.labeledFieldColumn("수분", water), ui.fullWidthParams(ui.dp(10)));
+
+        ui.validatedSheet("일일 영양 목표", form, "목표 저장", () -> {
+            try {
+                Double caloriesValue = FitnessUi.optionalDouble(calories);
+                Double proteinValue = FitnessUi.optionalDouble(protein);
+                Double carbsValue = FitnessUi.optionalDouble(carbs);
+                Double fatValue = FitnessUi.optionalDouble(fat);
+                Double fiberValue = FitnessUi.optionalDouble(fiber);
+                Double sodiumValue = FitnessUi.optionalDouble(sodium);
+                Integer waterValue = FitnessUi.optionalInt(water);
+                if (caloriesValue == null || proteinValue == null || carbsValue == null
+                        || fatValue == null || fiberValue == null || sodiumValue == null
+                        || waterValue == null) {
+                    throw new IllegalArgumentException("모든 목표값을 입력하세요.");
+                }
+                repository().saveNutritionGoal(new AthleteNutritionGoal(
+                        phaseCodes[phaseIndex[0]],
+                        caloriesValue,
+                        proteinValue,
+                        carbsValue,
+                        fatValue,
+                        fiberValue,
+                        sodiumValue,
+                        waterValue
+                ));
+                host.rerender();
+                return true;
+            } catch (IllegalArgumentException error) {
+                host.toast(error.getMessage());
+                return false;
+            }
+        });
+    }
+
+    private void showAthleteCheckInDialog() {
+        FitnessUi ui = ui();
+        AthleteDailyCheckIn current = repository().athleteCheckInForDate(selectedDate);
+        LinearLayout form = ui.form();
+
+        TextView guidance = ui.text(
+                "점수는 진단이 아니라 변화 관찰용입니다. 허기는 5가 가장 강하고, 나머지는 5가 가장 좋습니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        );
+        form.addView(guidance);
+
+        EditText water = ui.numberInput("ml", String.valueOf(current.waterMl));
+        EditText sleep = ui.decimalInput(
+                "시간",
+                current.sleepHours == null ? "" : NutritionCalculator.trim(current.sleepHours)
+        );
+        form.addView(pairedFields("수분 섭취", water, "수면", sleep),
+                ui.fullWidthParams(ui.dp(10)));
+
+        int[] scores = new int[]{
+                nullableScore(current.energyScore),
+                nullableScore(current.hungerScore),
+                nullableScore(current.digestionScore),
+                nullableScore(current.trainingReadinessScore)
+        };
+        Button energy = scoreButton(
+                "에너지",
+                scores,
+                0,
+                new String[]{"미기록", "1 · 매우 낮음", "2 · 낮음", "3 · 보통", "4 · 좋음", "5 · 매우 좋음"}
+        );
+        Button hunger = scoreButton(
+                "허기",
+                scores,
+                1,
+                new String[]{"미기록", "1 · 거의 없음", "2 · 약함", "3 · 보통", "4 · 강함", "5 · 매우 강함"}
+        );
+        Button digestion = scoreButton(
+                "소화",
+                scores,
+                2,
+                new String[]{"미기록", "1 · 매우 불편", "2 · 불편", "3 · 보통", "4 · 편안", "5 · 매우 편안"}
+        );
+        Button readiness = scoreButton(
+                "훈련 준비도",
+                scores,
+                3,
+                new String[]{"미기록", "1 · 준비 안 됨", "2 · 낮음", "3 · 보통", "4 · 좋음", "5 · 매우 좋음"}
+        );
+        form.addView(pairedFields("에너지", energy, "허기", hunger),
+                ui.fullWidthParams(ui.dp(10)));
+        form.addView(pairedFields("소화", digestion, "훈련 준비도", readiness),
+                ui.fullWidthParams(ui.dp(10)));
+
+        EditText note = ui.input("특이사항", current.note);
+        note.setSingleLine(false);
+        note.setMinLines(2);
+        note.setMaxLines(3);
+        note.setGravity(Gravity.TOP | Gravity.START);
+        note.setInputType(InputType.TYPE_CLASS_TEXT
+                | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
+                | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
+        form.addView(ui.labeledFieldColumn("메모", note), ui.fullWidthParams(ui.dp(10)));
+
+        ui.validatedSheet("선수 체크인", form, "기록 저장", () -> {
+            try {
+                Integer waterValue = FitnessUi.optionalInt(water);
+                if (waterValue == null) {
+                    throw new IllegalArgumentException("수분 섭취량을 입력하세요.");
+                }
+                repository().saveAthleteCheckIn(new AthleteDailyCheckIn(
+                        current.id,
+                        selectedDate,
+                        waterValue,
+                        FitnessUi.optionalDouble(sleep),
+                        scoreOrNull(scores[0]),
+                        scoreOrNull(scores[1]),
+                        scoreOrNull(scores[2]),
+                        scoreOrNull(scores[3]),
+                        FitnessUi.inputText(note)
+                ));
+                host.rerender();
+                return true;
+            } catch (IllegalArgumentException error) {
+                host.toast(error.getMessage());
+                return false;
+            }
+        });
+    }
+
+    private Button scoreButton(String title, int[] scores, int scoreIndex, String[] options) {
+        FitnessUi ui = ui();
+        Button button = ui.button(scoreButtonText(scores[scoreIndex]), false, null);
+        button.setOnClickListener(v -> new AlertDialog.Builder(host.activity())
+                .setTitle(title)
+                .setItems(options, (dialog, which) -> {
+                    scores[scoreIndex] = which;
+                    button.setText(scoreButtonText(which));
+                })
+                .show());
+        return button;
+    }
+
+    private View pairedFields(String firstLabel, View first, String secondLabel, View second) {
+        FitnessUi ui = ui();
+        LinearLayout row = ui.tileRow();
+        row.addView(ui.labeledFieldColumn(firstLabel, first), ui.fieldCellParams(true));
+        row.addView(ui.labeledFieldColumn(secondLabel, second), ui.fieldCellParams(false));
+        return row;
+    }
+
+    private static String scoreButtonText(int score) {
+        return score <= 0 ? "미기록" : score + " / 5";
+    }
+
+    private static int nullableScore(Integer score) {
+        return score == null ? 0 : score;
+    }
+
+    private static Integer scoreOrNull(int score) {
+        return score <= 0 ? null : score;
+    }
+
+    private static String goalValue(AthleteNutritionGoal goal, GoalField field) {
+        if (goal == null) {
+            return "";
+        }
+        switch (field) {
+            case CALORIES:
+                return NutritionCalculator.trim(goal.caloriesKcal);
+            case PROTEIN:
+                return NutritionCalculator.trim(goal.proteinGrams);
+            case CARBS:
+                return NutritionCalculator.trim(goal.carbsGrams);
+            case FAT:
+                return NutritionCalculator.trim(goal.fatGrams);
+            case FIBER:
+                return NutritionCalculator.trim(goal.fiberGrams);
+            case SODIUM:
+                return NutritionCalculator.trim(goal.sodiumMg);
+            default:
+                return "";
+        }
+    }
+
+    private enum GoalField {
+        CALORIES,
+        PROTEIN,
+        CARBS,
+        FAT,
+        FIBER,
+        SODIUM
     }
 
     private void renderMealEntries() {

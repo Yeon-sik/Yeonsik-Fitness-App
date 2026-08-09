@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 12;
+    public static final int DATABASE_VERSION = 13;
 
     public FitnessDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -20,6 +20,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createMealMenuPresetTable(db);
         createNutritionTables(db);
         createProductNutritionLinkTables(db);
+        createAthleteNutritionTables(db);
     }
 
     private void createSharedRecordTables(SQLiteDatabase db) {
@@ -390,6 +391,44 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /**
+     * 선수용 일일 영양 루프의 로컬 데이터.
+     *
+     * <p>목표값은 사용자가 코치·영양사와 정한 값을 저장할 뿐 자동 처방하지 않는다. 체크인은
+     * 식사 스냅샷과 분리해 수분·수면·주관적 컨디션을 날짜별로 한 번만 기록한다.</p>
+     */
+    private void createAthleteNutritionTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS nutrition_goals (" +
+                "user_id TEXT PRIMARY KEY, " +
+                "phase TEXT NOT NULL, " +
+                "calories_kcal REAL NOT NULL, " +
+                "protein_grams REAL NOT NULL, " +
+                "carbs_grams REAL NOT NULL, " +
+                "fat_grams REAL NOT NULL, " +
+                "fiber_grams REAL NOT NULL, " +
+                "sodium_mg REAL NOT NULL, " +
+                "water_ml INTEGER NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL)");
+
+        db.execSQL("CREATE TABLE IF NOT EXISTS nutrition_daily_checkins (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "date TEXT NOT NULL, " +
+                "water_ml INTEGER NOT NULL DEFAULT 0, " +
+                "sleep_hours REAL, " +
+                "energy_score INTEGER, " +
+                "hunger_score INTEGER, " +
+                "digestion_score INTEGER, " +
+                "training_readiness_score INTEGER, " +
+                "note TEXT, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "UNIQUE(user_id, date))");
+        db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_daily_checkins_user_date_idx " +
+                "ON nutrition_daily_checkins(user_id, date DESC)");
+    }
+
+    /**
      * v8 카탈로그를 확장 영양소 스키마로 올린다.
      *
      * <p>새 권고 영양소 컬럼은 기본값 없이 추가해 기존 행이 NULL(모름)로 남게 한다.
@@ -494,6 +533,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
             );
             db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_category_idx " +
                     "ON nutrition_foods(owner_id, category, cooking_method, name COLLATE NOCASE)");
+        }
+        if (oldVersion < 13) {
+            createAthleteNutritionTables(db);
         }
     }
 

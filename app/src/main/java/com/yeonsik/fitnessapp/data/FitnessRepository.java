@@ -985,6 +985,188 @@ public final class FitnessRepository {
         return new MealNutritionSummary(0, 0, 0, 0, 0);
     }
 
+    /**
+     * 날짜별 상세 영양소 합계. 구성 항목이 없는 레거시 끼니는 4대 영양소만 알고 나머지는
+     * '모름'인 하나의 항목으로 더해, 누락값을 0으로 오인하지 않는다.
+     */
+    public NutritionTotals mealNutritionTotalsForDate(String date) {
+        NutritionTotals.Builder totals = NutritionTotals.builder();
+        for (MealEntry meal : mealEntriesForDate(date)) {
+            List<MealItemEntry> items = mealItemsForRecord(meal.id);
+            if (items.isEmpty()) {
+                totals.add(NutritionProfile.ofMacros(
+                        meal.calories,
+                        meal.proteinGrams,
+                        meal.carbsGrams,
+                        meal.fatGrams
+                ));
+                continue;
+            }
+            for (MealItemEntry item : items) {
+                totals.add(item.profile);
+            }
+        }
+        return totals.build();
+    }
+
+    /** 현재 계정의 사용자 지정 영양 목표. 앱이 목표값을 자동 생성하지 않는다. */
+    public AthleteNutritionGoal nutritionGoal() {
+        try (Cursor cursor = db().rawQuery(
+                "SELECT phase, calories_kcal, protein_grams, carbs_grams, fat_grams, " +
+                        "fiber_grams, sodium_mg, water_ml FROM nutrition_goals " +
+                        "WHERE user_id = ? LIMIT 1",
+                new String[]{userId}
+        )) {
+            if (cursor.moveToFirst()) {
+                return new AthleteNutritionGoal(
+                        cursor.getString(0),
+                        cursor.getDouble(1),
+                        cursor.getDouble(2),
+                        cursor.getDouble(3),
+                        cursor.getDouble(4),
+                        cursor.getDouble(5),
+                        cursor.getDouble(6),
+                        cursor.getInt(7)
+                );
+            }
+        }
+        return null;
+    }
+
+    public void saveNutritionGoal(AthleteNutritionGoal goal) {
+        if (goal == null) {
+            throw new IllegalArgumentException("영양 목표가 필요합니다.");
+        }
+        String timestamp = now();
+        String createdAt = timestamp;
+        try (Cursor cursor = db().rawQuery(
+                "SELECT created_at FROM nutrition_goals WHERE user_id = ? LIMIT 1",
+                new String[]{userId}
+        )) {
+            if (cursor.moveToFirst()) {
+                createdAt = cursor.getString(0);
+            }
+        }
+
+        ContentValues values = new ContentValues();
+        values.put("user_id", userId);
+        values.put("phase", goal.phase);
+        values.put("calories_kcal", goal.caloriesKcal);
+        values.put("protein_grams", goal.proteinGrams);
+        values.put("carbs_grams", goal.carbsGrams);
+        values.put("fat_grams", goal.fatGrams);
+        values.put("fiber_grams", goal.fiberGrams);
+        values.put("sodium_mg", goal.sodiumMg);
+        values.put("water_ml", goal.waterMl);
+        values.put("created_at", createdAt);
+        values.put("updated_at", timestamp);
+        db().insertWithOnConflict(
+                "nutrition_goals",
+                null,
+                values,
+                SQLiteDatabase.CONFLICT_REPLACE
+        );
+    }
+
+    public AthleteDailyCheckIn athleteCheckInForDate(String date) {
+        String selectedDate = emptyToToday(date);
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, date, water_ml, sleep_hours, energy_score, hunger_score, " +
+                        "digestion_score, training_readiness_score, note " +
+                        "FROM nutrition_daily_checkins WHERE user_id = ? AND date = ? LIMIT 1",
+                new String[]{userId, selectedDate}
+        )) {
+            if (cursor.moveToFirst()) {
+                return new AthleteDailyCheckIn(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getInt(2),
+                        cursor.isNull(3) ? null : cursor.getDouble(3),
+                        cursor.isNull(4) ? null : cursor.getInt(4),
+                        cursor.isNull(5) ? null : cursor.getInt(5),
+                        cursor.isNull(6) ? null : cursor.getInt(6),
+                        cursor.isNull(7) ? null : cursor.getInt(7),
+                        cursor.getString(8)
+                );
+            }
+        }
+        return AthleteDailyCheckIn.empty(selectedDate);
+    }
+
+    public void saveAthleteCheckIn(AthleteDailyCheckIn checkIn) {
+        if (checkIn == null) {
+            throw new IllegalArgumentException("선수 체크인 기록이 필요합니다.");
+        }
+        if (checkIn.isEmpty()) {
+            db().delete(
+                    "nutrition_daily_checkins",
+                    "user_id = ? AND date = ?",
+                    new String[]{userId, checkIn.date}
+            );
+            return;
+        }
+        String timestamp = now();
+        String recordId = checkIn.id;
+        String createdAt = timestamp;
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, created_at FROM nutrition_daily_checkins " +
+                        "WHERE user_id = ? AND date = ? LIMIT 1",
+                new String[]{userId, checkIn.date}
+        )) {
+            if (cursor.moveToFirst()) {
+                recordId = cursor.getString(0);
+                createdAt = cursor.getString(1);
+            }
+        }
+        if (emptyToNull(recordId) == null) {
+            recordId = newId();
+        }
+
+        ContentValues values = new ContentValues();
+        values.put("id", recordId);
+        values.put("user_id", userId);
+        values.put("date", checkIn.date);
+        values.put("water_ml", checkIn.waterMl);
+        putNullable(values, "sleep_hours", checkIn.sleepHours);
+        putNullable(values, "energy_score", checkIn.energyScore);
+        putNullable(values, "hunger_score", checkIn.hungerScore);
+        putNullable(values, "digestion_score", checkIn.digestionScore);
+        putNullable(values, "training_readiness_score", checkIn.trainingReadinessScore);
+        putNullable(values, "note", checkIn.note);
+        values.put("created_at", createdAt);
+        values.put("updated_at", timestamp);
+        db().insertWithOnConflict(
+                "nutrition_daily_checkins",
+                null,
+                values,
+                SQLiteDatabase.CONFLICT_REPLACE
+        );
+    }
+
+    public AthleteDailyCheckIn addWaterForDate(String date, int amountMl) {
+        AthleteDailyCheckIn updated = athleteCheckInForDate(date).withWaterAdded(amountMl);
+        saveAthleteCheckIn(updated);
+        return athleteCheckInForDate(date);
+    }
+
+    /** 선택 날짜에 체중 기록이 없으면 그 이전의 가장 최근 기록을 사용한다. */
+    public BodyMetricEntry latestBodyMetricOnOrBefore(String date) {
+        String sql = "SELECT id, date, weight_kg, metadata FROM weight_records " +
+                "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both') " +
+                "AND date <= ? ORDER BY date DESC, updated_at DESC LIMIT 1";
+        try (Cursor cursor = db().rawQuery(sql, new String[]{userId, emptyToToday(date)})) {
+            if (cursor.moveToFirst()) {
+                return new BodyMetricEntry(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getDouble(2),
+                        metadataValue(cursor.getString(3), "memo", "")
+                );
+            }
+        }
+        return null;
+    }
+
     public boolean deleteMeal(String id) {
         String normalizedId = id == null ? "" : id.trim();
         if (normalizedId.isEmpty()) {
@@ -1939,6 +2121,8 @@ public final class FitnessRepository {
         tables.add("meal_record_items");
         tables.add("meal_record_item_nutrients");
         tables.add("weight_records");
+        tables.add("nutrition_goals");
+        tables.add("nutrition_daily_checkins");
         return tables;
     }
 
