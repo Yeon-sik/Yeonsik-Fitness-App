@@ -65,9 +65,12 @@ def priceTraceSupabaseUrl = localProperties.getProperty("PRICETRACE_SUPABASE_URL
         ?: dotenvValue("PRICETRACE_SUPABASE_URL", "PRICETRACE_DB_URL")
         ?: ""
 def priceTraceSupabaseAnonKey = localProperties.getProperty("PRICETRACE_SUPABASE_ANON_KEY")
+        ?: localProperties.getProperty("PRICETRACE_SUPABASE_ANON")
         ?: System.getenv("PRICETRACE_SUPABASE_ANON_KEY")
+        ?: System.getenv("PRICETRACE_SUPABASE_ANON")
         ?: dotenvValue(
                 "PRICETRACE_SUPABASE_ANON_KEY",
+                "PRICETRACE_SUPABASE_ANON",
                 "PRICETRACE_DB_ANON_KEY",
                 "PRICETRACE_DB_ANON"
         )

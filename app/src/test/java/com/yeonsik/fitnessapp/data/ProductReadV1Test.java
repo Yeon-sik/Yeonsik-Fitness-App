@@ -148,6 +148,60 @@ public final class ProductReadV1Test {
     }
 
     @Test
+    public void infersMissingBrandOnlyWhenCatalogNameCorroboratesProductName() {
+        Map<String, Object> standardProduct = new LinkedHashMap<>();
+        standardProduct.put("id", STANDARD_ID);
+        standardProduct.put("name", "CJ 햇반");
+        standardProduct.put("brand", null);
+
+        Map<String, Object> catalogProduct = new LinkedHashMap<>();
+        catalogProduct.put("id", CATALOG_ID);
+        catalogProduct.put("name", "햇반 130g");
+        catalogProduct.put("contentAmount", 130.0);
+        catalogProduct.put("contentUnit", "g");
+
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("standardProduct", standardProduct);
+        row.put("catalogProduct", catalogProduct);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("schemaVersion", ProductReadV1.CONTRACT_VERSION);
+        payload.put("namespace", "pricetrace");
+        payload.put("products", Collections.singletonList(row));
+
+        ProductReadV1 product = ProductReadV1.fromContractMap(payload).get(0);
+
+        assertEquals("CJ", product.brand);
+        assertEquals("햇반", product.name);
+        assertEquals("CJ · 햇반", product.standardProductLabel());
+    }
+
+    @Test
+    public void keepsCombinedStandardNameWhenCatalogNameDoesNotCorroborateSplit() {
+        Map<String, Object> standardProduct = new LinkedHashMap<>();
+        standardProduct.put("id", STANDARD_ID);
+        standardProduct.put("name", "가격 미관측 상품");
+
+        Map<String, Object> catalogProduct = new LinkedHashMap<>();
+        catalogProduct.put("id", CATALOG_ID);
+        catalogProduct.put("name", "다른 상품 100g");
+
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("standardProduct", standardProduct);
+        row.put("catalogProduct", catalogProduct);
+
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("schemaVersion", ProductReadV1.CONTRACT_VERSION);
+        payload.put("namespace", "pricetrace");
+        payload.put("products", Collections.singletonList(row));
+
+        ProductReadV1 product = ProductReadV1.fromContractMap(payload).get(0);
+
+        assertNull(product.brand);
+        assertEquals("가격 미관측 상품", product.name);
+    }
+
+    @Test
     public void standardProductSearchDeduplicatesDifferentCatalogChildren() {
         ProductReadV1 firstChild = new ProductReadV1(
                 CATALOG_ID, STANDARD_ID, "Hatban", "CJ", "Store A", null, null, 210.0, "g", 1

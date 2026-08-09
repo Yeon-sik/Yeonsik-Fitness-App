@@ -184,10 +184,10 @@ public final class ProductReadV1 {
             Map<String, ?> standardProduct,
             Map<String, ?> catalogProduct
     ) {
-        String brand = stringValue(first(standardProduct, "brand", "brandName", "brand_name"));
-        String name = productNameWithoutBrand(
+        DisplayNameParts displayName = displayNameParts(
                 stringValue(first(standardProduct, "name", "standardName", "standard_name")),
-                brand
+                stringValue(first(standardProduct, "brand", "brandName", "brand_name")),
+                stringValue(first(catalogProduct, "name", "productName", "product_name"))
         );
         Map<String, ?> observation = firstMap(listValue(first(row, "observations")));
         Map<String, ?> sellerProduct = firstMap(listValue(first(
@@ -205,8 +205,8 @@ public final class ProductReadV1 {
         return new ProductReadV1(
                 stringValue(first(catalogProduct, "id", "catalogProductId", "catalog_product_id")),
                 stringValue(first(standardProduct, "id", "standardProductId", "standard_product_id")),
-                name,
-                brand,
+                displayName.productName,
+                displayName.brand,
                 seller,
                 observation == null
                         ? null
@@ -344,6 +344,80 @@ public final class ProductReadV1 {
             }
         }
         return name;
+    }
+
+    /**
+     * Uses the explicit brand first. If it is absent, the catalog-product name must independently
+     * corroborate the product-name suffix before the standard-name prefix is treated as a brand.
+     */
+    private static DisplayNameParts displayNameParts(
+            String rawStandardName,
+            String rawBrand,
+            String rawCatalogName
+    ) {
+        String standardName = requireText(rawStandardName, "상품명");
+        String explicitBrand = optionalText(rawBrand);
+        if (explicitBrand != null) {
+            return new DisplayNameParts(
+                    explicitBrand,
+                    productNameWithoutBrand(standardName, explicitBrand)
+            );
+        }
+
+        String catalogName = optionalText(rawCatalogName);
+        if (catalogName == null) {
+            return new DisplayNameParts(null, standardName);
+        }
+        for (int index = 1; index < standardName.length(); index++) {
+            if (!isBrandSeparator(standardName.charAt(index - 1))) {
+                continue;
+            }
+            String inferredBrand = trimBrandSeparators(standardName.substring(0, index));
+            String candidateProductName = trimBrandSeparators(standardName.substring(index));
+            if (inferredBrand.isEmpty() || candidateProductName.isEmpty()) {
+                continue;
+            }
+            if (catalogProductStartsWith(catalogName, candidateProductName)) {
+                return new DisplayNameParts(inferredBrand, candidateProductName);
+            }
+        }
+        return new DisplayNameParts(null, standardName);
+    }
+
+    private static boolean catalogProductStartsWith(String catalogName, String productName) {
+        if (!catalogName.regionMatches(true, 0, productName, 0, productName.length())) {
+            return false;
+        }
+        if (catalogName.length() == productName.length()) {
+            return true;
+        }
+        char next = catalogName.charAt(productName.length());
+        return isBrandSeparator(next)
+                || Character.isDigit(next)
+                || next == '('
+                || next == '[';
+    }
+
+    private static String trimBrandSeparators(String value) {
+        int start = 0;
+        int end = value.length();
+        while (start < end && isBrandSeparator(value.charAt(start))) {
+            start++;
+        }
+        while (end > start && isBrandSeparator(value.charAt(end - 1))) {
+            end--;
+        }
+        return value.substring(start, end).trim();
+    }
+
+    private static final class DisplayNameParts {
+        private final String brand;
+        private final String productName;
+
+        private DisplayNameParts(String brand, String productName) {
+            this.brand = brand;
+            this.productName = productName;
+        }
     }
 
     private static boolean isBrandSeparator(char value) {

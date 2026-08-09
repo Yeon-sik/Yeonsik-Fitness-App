@@ -210,7 +210,8 @@ final class NutritionInputSection {
                 1f
         );
         int gap = ui.dp(4);
-        params.setMargins(first ? 0 : gap, ui.dp(4), first ? gap : 0, 0);
+        // Keep the rounded bottom stroke inside the row instead of clipping it at the row edge.
+        params.setMargins(first ? 0 : gap, ui.dp(4), first ? gap : 0, ui.dp(2));
         return params;
     }
 

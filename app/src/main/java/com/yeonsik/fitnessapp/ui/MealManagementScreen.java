@@ -54,7 +54,6 @@ public final class MealManagementScreen extends BaseScreen {
     private LinearLayout compositionRows;
     private LinearLayout catalogResults;
     private LinearLayout compositionTotalBox;
-    private TextView catalogStatus;
     private final List<EditText> quantityInputs = new ArrayList<>();
     private int catalogMode = CATALOG_MODE_NUTRIENTS;
     private boolean initialSyncRequested;
@@ -457,12 +456,6 @@ public final class MealManagementScreen extends BaseScreen {
         String nextMealLabel = repository().nextMealLabelForDate(selectedDate);
         ui.cardHeader(card, "새 끼니 구성", nextMealLabel + " · "
                 + (selectedDate.equals(host.today()) ? "오늘" : dateLabel()));
-        card.addView(ui.text(
-                "등록한 순서대로 1끼, 2끼, 3끼… 자동 구분됩니다. 끼니 수 제한은 없습니다.",
-                12,
-                FitnessUi.COLOR_MUTED,
-                false
-        ));
 
         mealNameInput = ui.input("메뉴 이름 (예: 닭갈비, 햄버거)", draftName);
         card.addView(ui.labeledFieldColumn("이번 끼니의 이름", mealNameInput),
@@ -494,12 +487,6 @@ public final class MealManagementScreen extends BaseScreen {
         Button saveMeal = ui.button(nextMealLabel + " 기록하기", true, v -> saveMeal());
         Button saveRecipe = ui.button("메뉴 카탈로그에 저장", false, v -> saveRecipe());
         card.addView(ui.buttonRow(saveMeal, saveRecipe), ui.fullWidthParams(ui.dp(16)));
-        card.addView(ui.text(
-                "‘끼니 기록’과 ‘메뉴 카탈로그 저장’은 서로 독립적으로 실행됩니다.",
-                11,
-                FitnessUi.COLOR_TERTIARY,
-                false
-        ), ui.fullWidthParams(ui.dp(9)));
         card.addView(ui.hairline(ui.border()), ui.fullWidthParams(ui.dp(20)));
         appendCatalogSection(card);
         return card;
@@ -581,12 +568,6 @@ public final class MealManagementScreen extends BaseScreen {
     private void appendCatalogSection(LinearLayout card) {
         FitnessUi ui = ui();
         ui.cardHeader(card, "영양 카탈로그", catalogSyncing ? "동기화 중" : "로컬 + 원격");
-        card.addView(ui.text(
-                "성분 입력·재료 등록·메뉴 등록을 한 공간에서 처리합니다. 아래 카탈로그 항목을 누르면 위 끼니 구성에 추가됩니다.",
-                12,
-                FitnessUi.COLOR_MUTED,
-                false
-        ));
 
         LinearLayout modeTabs = new LinearLayout(host.activity());
         modeTabs.setOrientation(LinearLayout.HORIZONTAL);
@@ -597,9 +578,11 @@ public final class MealManagementScreen extends BaseScreen {
         card.addView(ui.text(catalogModeHelper(), 11, FitnessUi.COLOR_TERTIARY, false),
                 ui.fullWidthParams(ui.dp(4)));
 
-        catalogStatus = ui.text(syncMessage, 12, FitnessUi.COLOR_MUTED, false);
-        catalogStatus.setPadding(0, ui.dp(5), 0, 0);
-        card.addView(catalogStatus);
+        if (!syncMessage.trim().isEmpty()) {
+            TextView catalogStatus = ui.text(syncMessage, 12, FitnessUi.COLOR_MUTED, false);
+            catalogStatus.setPadding(0, ui.dp(5), 0, 0);
+            card.addView(catalogStatus);
+        }
 
         if (catalogMode == CATALOG_MODE_NUTRIENTS) {
             card.addView(directFoodForm(false), ui.fullWidthParams(ui.dp(10)));
@@ -816,8 +799,6 @@ public final class MealManagementScreen extends BaseScreen {
                 "기준 단위 (g, mg, kg, ml, L, serving)",
                 ingredientMode ? "g" : "serving"
         );
-        EditText source = ui.input("출처·메모 (선택)", "");
-        EditText sourceVersion = ui.input("출처 버전 (선택, 예: MFDS 2024-03)", "");
         NutritionInputSection nutrients = new NutritionInputSection(ui, host.activity());
         TextView unitNutritionPreview = ui.text(
                 "단위 영양성분: 기준량과 필수 영양성분을 입력하면 자동 계산됩니다.",
@@ -885,22 +866,18 @@ public final class MealManagementScreen extends BaseScreen {
                 basisUnit,
                 ui.text("아래 값은 모두 위 기준 수량에 대한 값입니다.", 11, FitnessUi.COLOR_MUTED, false),
                 nutrients.view(),
-                unitNutritionPreview,
-                source,
-                sourceVersion
+                unitNutritionPreview
         );
         if (!ingredientMode) {
-            ui.addAll(form, ui.text("PriceTrace 연결은 사용자가 정확한 상품을 선택한 경우에만 저장됩니다.",
-                    11, FitnessUi.COLOR_TERTIARY, false), priceTraceQuery, priceTraceSearch,
-                    priceTraceSelection, priceTraceResults);
+            ui.addAll(form, priceTraceQuery, priceTraceSearch, priceTraceSelection, priceTraceResults);
         }
         Button saveOnly = ui.button(
-                ingredientMode ? "재료만 카탈로그에 저장" : "외부 메뉴만 카탈로그에 저장",
+                ingredientMode ? "재료만 카탈로그에 저장" : "카탈로그에 저장",
                 false,
                 v -> saveDirectFood(
                         name, brand, selectedCategory[0], selectedCookingMethod[0],
                         basisAmount, basisUnit, nutrients,
-                        source, sourceVersion, ingredientMode, selectedProduct[0], false
+                        ingredientMode, selectedProduct[0], false
                 )
         );
         Button saveAndAdd = ui.button(
@@ -909,7 +886,7 @@ public final class MealManagementScreen extends BaseScreen {
                 v -> saveDirectFood(
                         name, brand, selectedCategory[0], selectedCookingMethod[0],
                         basisAmount, basisUnit, nutrients,
-                        source, sourceVersion, ingredientMode, selectedProduct[0], true
+                        ingredientMode, selectedProduct[0], true
                 )
         );
         form.addView(ui.buttonRow(saveOnly, saveAndAdd), ui.fullWidthParams(ui.dp(10)));
@@ -974,8 +951,6 @@ public final class MealManagementScreen extends BaseScreen {
             EditText basisAmount,
             EditText basisUnit,
             NutritionInputSection nutrients,
-            EditText source,
-            EditText sourceVersion,
             boolean ingredientMode,
             ProductReadV1 selectedProduct,
             boolean addToMeal
@@ -987,13 +962,11 @@ public final class MealManagementScreen extends BaseScreen {
             if (selectedProduct != null && (productBrand == null || productBrand.trim().isEmpty())) {
                 productBrand = selectedProduct.brand;
             }
-            String sourceReference = FitnessUi.inputText(source);
+            String sourceReference = "";
             String sourceType = "manual";
             if (selectedProduct != null) {
                 sourceType = "pricetrace_manual";
-                if (sourceReference == null || sourceReference.trim().isEmpty()) {
-                    sourceReference = "catalogProductId:" + selectedProduct.catalogProductId;
-                }
+                sourceReference = "catalogProductId:" + selectedProduct.catalogProductId;
             }
             NutritionFood saved = host.nutritionCatalogRepository().saveFood(
                     FitnessUi.inputText(name),
@@ -1006,7 +979,7 @@ public final class MealManagementScreen extends BaseScreen {
                     nutrients.profile(),
                     sourceType,
                     sourceReference,
-                    FitnessUi.inputText(sourceVersion)
+                    ""
             );
             if (selectedProduct != null) {
                 host.nutritionCatalogRepository().linkProduct(saved.id, selectedProduct);
@@ -1127,7 +1100,7 @@ public final class MealManagementScreen extends BaseScreen {
                     syncMessage = pulledRows > 0
                             ? "원격 메뉴 " + pulledRows + "개를 최신 상태로 반영했습니다."
                             : (pushedRows > 0 ? "새 메뉴를 원격 카탈로그에 저장했습니다." :
-                            "카탈로그가 최신 상태입니다.");
+                            "");
                     host.rerender();
                 });
             }
