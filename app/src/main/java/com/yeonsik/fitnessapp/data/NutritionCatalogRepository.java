@@ -177,6 +177,88 @@ public final class NutritionCatalogRepository {
         return foods;
     }
 
+    /** Saved recipes for the menu browser. */
+    public List<NutritionFood> savedRecipes() {
+        return readFoods(
+                "kind = ? AND (visibility = 'public' OR owner_id = ?)",
+                new String[]{NutritionFood.KIND_RECIPE, userId},
+                "updated_at DESC, name COLLATE NOCASE ASC",
+                null
+        );
+    }
+
+    /** Components of a saved recipe, returned in the order used when it was saved. */
+    public List<RecipeComponent> recipeComponents(String recipeId) {
+        if (recipeId == null || recipeId.trim().isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        List<Object[]> foodRows = new ArrayList<>();
+        List<Double> quantities = new ArrayList<>();
+        List<String> units = new ArrayList<>();
+        List<String> foodIds = new ArrayList<>();
+        String prefixedFoodColumns = "f." + String.join(", f.", FOOD_COLUMNS);
+        String sql = "SELECT c.quantity, c.unit, " + prefixedFoodColumns + " " +
+                "FROM nutrition_food_components c " +
+                "JOIN nutrition_foods f ON f.id = c.child_food_id " +
+                "WHERE c.parent_food_id = ? " +
+                "AND c.deleted_at IS NULL " +
+                "AND f.deleted_at IS NULL " +
+                "AND (f.visibility = 'public' OR f.owner_id = ?) " +
+                "ORDER BY c.order_index ASC, c.created_at ASC";
+        try (Cursor cursor = database.rawQuery(sql, new String[]{recipeId, userId})) {
+            while (cursor.moveToNext()) {
+                quantities.add(cursor.getDouble(0));
+                units.add(cursor.getString(1));
+                Object[] foodRow = readFoodRow(cursor, 2);
+                foodRows.add(foodRow);
+                foodIds.add((String) foodRow[0]);
+            }
+        }
+
+        Map<String, Map<String, Double>> micronutrients =
+                loadMicronutrients(database, foodIds);
+        List<RecipeComponent> components = new ArrayList<>();
+        for (int index = 0; index < foodRows.size(); index++) {
+            Object[] foodRow = foodRows.get(index);
+            NutritionFood food = buildFood(foodRow, micronutrients.get((String) foodRow[0]));
+            components.add(new RecipeComponent(food, quantities.get(index), units.get(index)));
+        }
+        return components;
+    }
+
+    private List<NutritionFood> readFoods(
+            String selection,
+            String[] selectionArgs,
+            String orderBy,
+            String limit
+    ) {
+        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        List<String> ids = new ArrayList<>();
+        List<Object[]> rows = new ArrayList<>();
+        String limitClause = limit == null ? "" : " LIMIT " + limit;
+        try (Cursor cursor = database.rawQuery(
+                "SELECT " + String.join(", ", FOOD_COLUMNS) + " " +
+                        "FROM nutrition_foods " +
+                        "WHERE deleted_at IS NULL AND " + selection + " " +
+                        "ORDER BY " + orderBy + limitClause,
+                selectionArgs
+        )) {
+            while (cursor.moveToNext()) {
+                rows.add(readFoodRow(cursor));
+                ids.add(cursor.getString(0));
+            }
+        }
+
+        Map<String, Map<String, Double>> micronutrients = loadMicronutrients(database, ids);
+        List<NutritionFood> foods = new ArrayList<>();
+        for (Object[] row : rows) {
+            foods.add(buildFood(row, micronutrients.get((String) row[0])));
+        }
+        return foods;
+    }
+
     /**
      * 새 음식/재료를 저장한다.
      *
@@ -1097,14 +1179,19 @@ public final class NutritionCatalogRepository {
 
     /** 커서 한 행을 그대로 담아 둔다. 확장 영양소를 한 번에 읽은 뒤 조립하기 위해서다. */
     private Object[] readFoodRow(Cursor cursor) {
+        return readFoodRow(cursor, 0);
+    }
+
+    private Object[] readFoodRow(Cursor cursor, int offset) {
         Object[] row = new Object[FOOD_COLUMNS.length];
         for (int index = 0; index < FOOD_COLUMNS.length; index++) {
-            if (cursor.isNull(index)) {
+            int cursorIndex = offset + index;
+            if (cursor.isNull(cursorIndex)) {
                 row[index] = null;
-            } else if (cursor.getType(index) == Cursor.FIELD_TYPE_STRING) {
-                row[index] = cursor.getString(index);
+            } else if (cursor.getType(cursorIndex) == Cursor.FIELD_TYPE_STRING) {
+                row[index] = cursor.getString(cursorIndex);
             } else {
-                row[index] = cursor.getDouble(index);
+                row[index] = cursor.getDouble(cursorIndex);
             }
         }
         return row;
@@ -1368,6 +1455,18 @@ public final class NutritionCatalogRepository {
 
     private static String now() {
         return OffsetDateTime.now().toString();
+    }
+
+    public static final class RecipeComponent {
+        public final NutritionFood food;
+        public final double quantity;
+        public final String unit;
+
+        private RecipeComponent(NutritionFood food, double quantity, String unit) {
+            this.food = food;
+            this.quantity = quantity;
+            this.unit = unit;
+        }
     }
 
     public interface SyncCallback {

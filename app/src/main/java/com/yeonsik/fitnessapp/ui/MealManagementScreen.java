@@ -3,12 +3,15 @@ package com.yeonsik.fitnessapp.ui;
 import android.app.AlertDialog;
 import android.app.DatePickerDialog;
 import android.text.Editable;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
+import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
@@ -58,6 +61,7 @@ public final class MealManagementScreen extends BaseScreen {
     private boolean catalogSyncing;
     private String syncMessage = "기기와 원격 카탈로그를 함께 검색합니다.";
     private final ProductNutritionLinkDialogController productLinkController;
+    private boolean savedMenusVisible;
 
     public MealManagementScreen(ScreenHost host) {
         super(host);
@@ -219,14 +223,159 @@ public final class MealManagementScreen extends BaseScreen {
         List<FitnessRepository.MealEntry> entries = repository().mealEntriesForDate(selectedDate);
         if (entries.isEmpty()) {
             emptyState("아직 기록된 끼니가 없습니다.", "아래에서 메뉴를 검색해 1끼를 추가하세요.");
-            return;
+        } else {
+            List<View> rows = new ArrayList<>();
+            for (int index = 0; index < entries.size(); index++) {
+                rows.add(mealRow(entries.get(index), index));
+            }
+            add(ui().rowsCard(rows));
+        }
+        renderSavedMenusSection();
+    }
+
+    private void renderSavedMenusSection() {
+        FitnessUi ui = ui();
+        LinearLayout section = new LinearLayout(host.activity());
+        section.setOrientation(LinearLayout.VERTICAL);
+
+        Button toggle = ui.button(
+                savedMenusVisible ? "저장된 메뉴 닫기" : "저장된 메뉴 보기",
+                false,
+                v -> {
+                    savedMenusVisible = !savedMenusVisible;
+                    host.rerender();
+                }
+        );
+        section.addView(toggle, ui.fullWidthParams(ui.dp(8)));
+
+        if (savedMenusVisible) {
+            List<NutritionFood> recipes = host.nutritionCatalogRepository().savedRecipes();
+            if (recipes.isEmpty()) {
+                section.addView(ui.text(
+                        "저장된 메뉴가 없습니다. 메뉴 등록에서 먼저 저장하세요.",
+                        12,
+                        FitnessUi.COLOR_TERTIARY,
+                        false
+                ), ui.fullWidthParams(ui.dp(8)));
+            } else {
+                for (NutritionFood recipe : recipes) {
+                    section.addView(savedMenuRow(recipe), ui.fullWidthParams(ui.dp(6)));
+                }
+            }
         }
 
-        List<View> rows = new ArrayList<>();
-        for (int index = 0; index < entries.size(); index++) {
-            rows.add(mealRow(entries.get(index), index));
+        add(section, ui.fullWidthParams(ui.dp(2)));
+    }
+
+    private View savedMenuRow(NutritionFood recipe) {
+        FitnessUi ui = ui();
+        LinearLayout row = new LinearLayout(host.activity());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(ui.dp(58));
+        row.setPadding(ui.dp(12), ui.dp(6), ui.dp(10), ui.dp(6));
+        row.setBackground(ui.flatSurfaceRippleDrawable(ui.dp(12)));
+        row.setClickable(true);
+        row.setFocusable(true);
+        ui.pressFeedback(row);
+        row.setOnClickListener(v -> showSavedMenuDialog(recipe));
+
+        row.addView(ui.glyphCircle("M", false));
+        TextView label = ui.text(
+                recipe.displayName() + "  ·  " + recipe.basisLabel()
+                        + "  ·  " + recipe.nutritionLabel(),
+                13,
+                FitnessUi.COLOR_TEXT,
+                true
+        );
+        label.setSingleLine(true);
+        label.setEllipsize(TextUtils.TruncateAt.END);
+        label.setPadding(ui.dp(10), 0, ui.dp(8), 0);
+        row.addView(label, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        TextView arrow = ui.text("›", 22, FitnessUi.COLOR_TERTIARY, false);
+        arrow.setGravity(Gravity.CENTER);
+        row.addView(arrow, new LinearLayout.LayoutParams(ui.dp(24), LinearLayout.LayoutParams.WRAP_CONTENT));
+        return row;
+    }
+
+    private void showSavedMenuDialog(NutritionFood recipe) {
+        FitnessUi ui = ui();
+        LinearLayout body = ui.form();
+        body.addView(ui.text(
+                recipe.basisLabel() + " 기준  ·  " + recipe.nutritionLabel(),
+                13,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        body.addView(ui.text(
+                "메뉴 구성 식품의 단위 영양",
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                true
+        ), ui.fullWidthParams(ui.dp(14)));
+
+        List<NutritionCatalogRepository.RecipeComponent> components =
+                host.nutritionCatalogRepository().recipeComponents(recipe.id);
+        if (components.isEmpty()) {
+            body.addView(ui.text(
+                    "구성 식품 정보를 찾을 수 없습니다.",
+                    13,
+                    FitnessUi.COLOR_TERTIARY,
+                    false
+            ), ui.fullWidthParams(ui.dp(8)));
+        } else {
+            for (NutritionCatalogRepository.RecipeComponent component : components) {
+                body.addView(savedMenuComponentRow(component), ui.fullWidthParams(ui.dp(8)));
+            }
         }
-        add(ui().rowsCard(rows));
+
+        ScrollView scroll = new ScrollView(host.activity());
+        scroll.setFillViewport(true);
+        scroll.addView(body, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT
+        ));
+
+        AlertDialog dialog = new AlertDialog.Builder(host.activity())
+                .setTitle(recipe.displayName())
+                .setView(scroll)
+                .setNegativeButton("닫기", null)
+                .create();
+        dialog.setOnShowListener(ignored -> {
+            if (dialog.getWindow() == null) {
+                return;
+            }
+            WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
+            params.dimAmount = 0.62f;
+            dialog.getWindow().setAttributes(params);
+            dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+        });
+        dialog.show();
+    }
+
+    private View savedMenuComponentRow(NutritionCatalogRepository.RecipeComponent component) {
+        FitnessUi ui = ui();
+        LinearLayout row = new LinearLayout(host.activity());
+        row.setOrientation(LinearLayout.VERTICAL);
+        row.setPadding(ui.dp(12), ui.dp(10), ui.dp(12), ui.dp(10));
+        row.setBackground(ui.flatSurfaceDrawable(ui.dp(12)));
+
+        String amount = NutritionCalculator.trim(component.quantity)
+                + NutritionUnit.display(component.unit);
+        row.addView(ui.text(component.food.displayName(), 14, FitnessUi.COLOR_TEXT, true));
+        row.addView(ui.text(
+                "구성량 " + amount + "  ·  기준 " + component.food.basisLabel(),
+                11,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        ));
+        row.addView(ui.text(
+                component.food.unitNutritionLabel(),
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        return row;
     }
 
     private View mealRow(FitnessRepository.MealEntry entry, int mealIndex) {
