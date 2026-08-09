@@ -15,6 +15,7 @@ public final class ProductReadV1 {
     public final String catalogProductId;
     public final String standardProductId;
     public final String name;
+    public final String brand;
     public final String sellerName;
     public final Integer latestObservedPriceKrw;
     public final String observedAt;
@@ -33,9 +34,36 @@ public final class ProductReadV1 {
             String contentUnit,
             Integer packageCount
     ) {
+        this(
+                catalogProductId,
+                standardProductId,
+                name,
+                null,
+                sellerName,
+                latestObservedPriceKrw,
+                observedAt,
+                contentAmount,
+                contentUnit,
+                packageCount
+        );
+    }
+
+    public ProductReadV1(
+            String catalogProductId,
+            String standardProductId,
+            String name,
+            String brand,
+            String sellerName,
+            Integer latestObservedPriceKrw,
+            String observedAt,
+            Double contentAmount,
+            String contentUnit,
+            Integer packageCount
+    ) {
         this.catalogProductId = requireUuid(catalogProductId, "catalogProductId");
         this.standardProductId = optionalUuid(standardProductId, "standardProductId");
         this.name = requireText(name, "상품명");
+        this.brand = optionalText(brand);
         this.sellerName = optionalText(sellerName);
         if ((latestObservedPriceKrw == null) != (optionalText(observedAt) == null)) {
             throw new IllegalArgumentException("최근 관측가와 관측시각은 함께 있거나 함께 null이어야 합니다.");
@@ -82,11 +110,13 @@ public final class ProductReadV1 {
         if (seller == null) {
             seller = stringValue(first(row, "sourceLabel", "source_label"));
         }
+        String brand = stringValue(first(row, "brand", "brandName", "brand_name"));
 
         return new ProductReadV1(
                 stringValue(first(row, "catalogProductId", "catalog_product_id")),
                 stringValue(first(row, "standardProductId", "standard_product_id")),
                 stringValue(first(row, "name", "standardName", "standard_name")),
+                brand,
                 seller,
                 price,
                 observedAt,
@@ -103,7 +133,11 @@ public final class ProductReadV1 {
         Map<String, ProductReadV1> exactProducts = new LinkedHashMap<>();
         if (products != null) {
             for (ProductReadV1 product : products) {
-                if (product == null || !product.name.toLowerCase(Locale.ROOT).contains(term)) {
+                if (product == null) {
+                    continue;
+                }
+                String searchable = (product.brand == null ? "" : product.brand + " ") + product.name;
+                if (!searchable.toLowerCase(Locale.ROOT).contains(term)) {
                     continue;
                 }
                 ProductReadV1 previous = exactProducts.get(product.catalogProductId);
@@ -140,7 +174,8 @@ public final class ProductReadV1 {
     }
 
     public String exactSelectionLabel() {
-        return name + " · " + specificationLabel()
+        String displayName = brand == null ? name : brand + " · " + name;
+        return displayName + " · " + specificationLabel()
                 + "\n" + priceObservationLabel()
                 + "\ncatalogProductId: " + catalogProductId;
     }

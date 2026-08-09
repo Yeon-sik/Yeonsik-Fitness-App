@@ -18,6 +18,7 @@ import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionTotals;
 import com.yeonsik.fitnessapp.data.ProductNutritionLink;
+import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.time.LocalDate;
@@ -31,6 +32,10 @@ import java.util.Locale;
  * 날짜별 섭취 요약, 식사 기록, 음식 카탈로그 검색, 구성 메뉴 저장을 한 흐름으로 제공한다.
  */
 public final class MealManagementScreen extends BaseScreen {
+    private static final int CATALOG_MODE_NUTRIENTS = 0;
+    private static final int CATALOG_MODE_INGREDIENT = 1;
+    private static final int CATALOG_MODE_MENU = 2;
+
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN);
 
@@ -46,7 +51,7 @@ public final class MealManagementScreen extends BaseScreen {
     private TextView compositionTotal;
     private TextView catalogStatus;
     private final List<EditText> quantityInputs = new ArrayList<>();
-    private boolean showDirectFoodForm;
+    private int catalogMode = CATALOG_MODE_NUTRIENTS;
     private boolean initialSyncRequested;
     private boolean catalogSyncing;
     private String syncMessage = "기기와 원격 카탈로그를 함께 검색합니다.";
@@ -78,7 +83,7 @@ public final class MealManagementScreen extends BaseScreen {
         section("기록된 끼니");
         renderMealEntries();
 
-        section("새 끼니 + 음식 카탈로그");
+        section("새 끼니 + 영양 카탈로그");
         add(mealWorkspace());
 
         if (!initialSyncRequested) {
@@ -334,10 +339,10 @@ public final class MealManagementScreen extends BaseScreen {
         updateCompositionTotal();
 
         Button saveMeal = ui.button(nextMealLabel + " 기록하기", true, v -> saveMeal());
-        Button saveRecipe = ui.button("구성 메뉴로 저장", false, v -> saveRecipe());
+        Button saveRecipe = ui.button("메뉴 카탈로그에 저장", false, v -> saveRecipe());
         card.addView(ui.buttonRow(saveMeal, saveRecipe), ui.fullWidthParams(ui.dp(16)));
         card.addView(ui.text(
-                "끼니 기록은 선택한 날짜에 남고, 구성 메뉴는 다음 검색에서 다시 사용할 수 있습니다.",
+                "‘끼니 기록’과 ‘메뉴 카탈로그 저장’은 서로 독립적으로 실행됩니다.",
                 11,
                 FitnessUi.COLOR_TERTIARY,
                 false
@@ -376,7 +381,7 @@ public final class MealManagementScreen extends BaseScreen {
             LinearLayout details = new LinearLayout(host.activity());
             details.setOrientation(LinearLayout.VERTICAL);
             details.setPadding(ui.dp(10), 0, ui.dp(8), 0);
-            details.addView(ui.text(item.food.name, 14, FitnessUi.COLOR_TEXT, true));
+            details.addView(ui.text(item.food.displayName(), 14, FitnessUi.COLOR_TEXT, true));
             details.addView(ui.text(
                     Math.round(item.calories) + " kcal  ·  " + item.food.basisUnit,
                     11,
@@ -416,19 +421,71 @@ public final class MealManagementScreen extends BaseScreen {
 
     private void appendCatalogSection(LinearLayout card) {
         FitnessUi ui = ui();
-        ui.cardHeader(card, "음식·메뉴 검색", catalogSyncing ? "동기화 중" : "로컬 + 원격");
+        ui.cardHeader(card, "영양 카탈로그", catalogSyncing ? "동기화 중" : "로컬 + 원격");
         card.addView(ui.text(
-                "음식이나 구성 메뉴를 누르면 위 끼니 구성에 바로 추가됩니다. 하단에서 새 음식도 등록할 수 있습니다.",
+                "성분 입력·재료 등록·메뉴 등록을 한 공간에서 처리합니다. 아래 카탈로그 항목을 누르면 위 끼니 구성에 추가됩니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
         ));
 
+        LinearLayout modeTabs = new LinearLayout(host.activity());
+        modeTabs.setOrientation(LinearLayout.HORIZONTAL);
+        addCatalogModeTab(modeTabs, "성분 입력", CATALOG_MODE_NUTRIENTS);
+        addCatalogModeTab(modeTabs, "재료 등록", CATALOG_MODE_INGREDIENT);
+        addCatalogModeTab(modeTabs, "메뉴 등록", CATALOG_MODE_MENU);
+        card.addView(modeTabs, ui.fullWidthParams(ui.dp(12)));
+        card.addView(ui.text(catalogModeHelper(), 11, FitnessUi.COLOR_TERTIARY, false),
+                ui.fullWidthParams(ui.dp(4)));
+
         catalogStatus = ui.text(syncMessage, 12, FitnessUi.COLOR_MUTED, false);
         catalogStatus.setPadding(0, ui.dp(5), 0, 0);
         card.addView(catalogStatus);
 
-        catalogSearchInput = ui.searchField("햄버거, 피자, 닭가슴살 검색");
+        if (catalogMode == CATALOG_MODE_NUTRIENTS) {
+            card.addView(directFoodForm(false), ui.fullWidthParams(ui.dp(10)));
+        } else if (catalogMode == CATALOG_MODE_INGREDIENT) {
+            card.addView(directFoodForm(true), ui.fullWidthParams(ui.dp(10)));
+        }
+
+        appendCatalogSearch(card);
+    }
+
+    private void addCatalogModeTab(LinearLayout tabs, String label, int mode) {
+        FitnessUi ui = ui();
+        Button tab = ui.filterButton(label);
+        ui.styleFilterButton(tab, catalogMode == mode);
+        tab.setOnClickListener(v -> {
+            if (catalogMode != mode) {
+                catalogMode = mode;
+                host.rerender();
+            }
+        });
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                1f
+        );
+        params.setMargins(ui.dp(2), 0, ui.dp(2), 0);
+        tabs.addView(tab, params);
+    }
+
+    private String catalogModeHelper() {
+        switch (catalogMode) {
+            case CATALOG_MODE_INGREDIENT:
+                return "직접 만든 재료를 기준량과 조리 상태별로 저장합니다. 저장만 하거나 현재 끼니에 함께 넣을 수 있습니다.";
+            case CATALOG_MODE_MENU:
+                return "위에서 재료를 조합한 뒤 ‘메뉴 카탈로그에 저장’을 누릅니다. ‘끼니 기록’과는 별도 동작입니다.";
+            default:
+                return "외부 메뉴의 브랜드·상품명을 입력하거나 PriceTrace에서 정확한 상품을 불러온 뒤 영양성분을 등록합니다.";
+        }
+    }
+
+    private void appendCatalogSearch(LinearLayout card) {
+        FitnessUi ui = ui();
+        ui.cardHeader(card, "카탈로그에서 현재 끼니에 추가", "항목 선택");
+
+        catalogSearchInput = ui.searchField("재료·메뉴 이름 검색");
         catalogSearchInput.setText(catalogQuery);
         catalogSearchInput.setSelection(catalogSearchInput.length());
         catalogSearchInput.addTextChangedListener(new TextWatcher() {
@@ -453,20 +510,8 @@ public final class MealManagementScreen extends BaseScreen {
         card.addView(catalogResults);
         renderCatalogResults();
 
-        Button directFood = ui.button(
-                showDirectFoodForm ? "직접 음식 입력 닫기" : "음식·외부 메뉴 직접 등록",
-                false,
-                v -> {
-                    showDirectFoodForm = !showDirectFoodForm;
-                    host.rerender();
-                }
-        );
         Button sync = ui.button("원격 카탈로그 새로고침", false, v -> syncCatalog(true));
-        card.addView(ui.buttonRow(directFood, sync), ui.fullWidthParams(ui.dp(14)));
-
-        if (showDirectFoodForm) {
-            card.addView(directFoodForm(), ui.fullWidthParams(ui.dp(10)));
-        }
+        card.addView(sync, ui.fullWidthParams(ui.dp(14)));
     }
 
     private void renderCatalogResults() {
@@ -518,7 +563,7 @@ public final class MealManagementScreen extends BaseScreen {
         LinearLayout details = new LinearLayout(host.activity());
         details.setOrientation(LinearLayout.VERTICAL);
         details.setPadding(ui.dp(10), 0, ui.dp(8), 0);
-        details.addView(ui.text(food.name, 14, FitnessUi.COLOR_TEXT, true));
+        details.addView(ui.text(food.displayName(), 14, FitnessUi.COLOR_TEXT, true));
         details.addView(ui.text(food.extendedNutritionLabel() + " / " + food.basisLabel(),
                 11,
                 FitnessUi.COLOR_MUTED,
@@ -563,19 +608,22 @@ public final class MealManagementScreen extends BaseScreen {
         return row;
     }
 
-    private View directFoodForm() {
+    private View directFoodForm(boolean ingredientMode) {
         FitnessUi ui = ui();
         LinearLayout form = ui.form();
-        EditText name = ui.input("음식 또는 외부 메뉴 이름", "");
-        Button kindButton = ui.button("종류: 외부 메뉴", false, null);
-        String[] selectedKind = {NutritionFood.KIND_EXTERNAL_MENU};
-        kindButton.setOnClickListener(v -> {
-            boolean external = NutritionFood.KIND_EXTERNAL_MENU.equals(selectedKind[0]);
-            selectedKind[0] = external ? NutritionFood.KIND_INGREDIENT : NutritionFood.KIND_EXTERNAL_MENU;
-            kindButton.setText(external ? "종류: 재료" : "종류: 외부 메뉴");
-        });
-        EditText basisAmount = ui.decimalInput("기준 수량", "100");
-        EditText basisUnit = ui.input("기준 단위 (g, ml, serving)", "g");
+        EditText name = ui.input(
+                ingredientMode ? "재료 이름" : "외부 메뉴 이름",
+                ""
+        );
+        EditText brand = ingredientMode ? null : ui.input("브랜드 (예: 버거킹)", "");
+        EditText basisAmount = ui.decimalInput(
+                "기준 수량",
+                ingredientMode ? "100" : "1"
+        );
+        EditText basisUnit = ui.input(
+                "기준 단위 (g, ml, serving)",
+                ingredientMode ? "g" : "serving"
+        );
         Button prepStateButton = ui.button("", false, null);
         String[] selectedPrepState = {NutritionFood.PREP_UNSPECIFIED};
         prepStateButton.setText(prepStateLabel(selectedPrepState[0]));
@@ -586,10 +634,59 @@ public final class MealManagementScreen extends BaseScreen {
         EditText source = ui.input("출처·메모 (선택)", "");
         EditText sourceVersion = ui.input("출처 버전 (선택, 예: MFDS 2024-03)", "");
         NutritionInputSection nutrients = new NutritionInputSection(ui, host.activity());
+        ProductReadV1[] selectedProduct = {null};
+        LinearLayout priceTraceResults = new LinearLayout(host.activity());
+        priceTraceResults.setOrientation(LinearLayout.VERTICAL);
+        EditText priceTraceQuery = ui.searchField("PriceTrace 상품명 검색");
+        Button priceTraceSearch = ui.button("PriceTrace 상품 불러오기", false, null);
+        TextView priceTraceSelection = ui.text(
+                "선택한 PriceTrace 상품 없음 · 상품 연결 없이도 영양 메뉴를 저장할 수 있습니다.",
+                11,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        );
+        priceTraceSearch.setOnClickListener(v -> {
+            String query = FitnessUi.inputText(priceTraceQuery).trim();
+            if (query.isEmpty()) {
+                host.toast("PriceTrace에서 검색할 상품명을 입력하세요.");
+                return;
+            }
+            priceTraceSearch.setEnabled(false);
+            priceTraceSelection.setText("PriceTrace 상품을 조회하는 중입니다.");
+            host.searchPriceTraceProducts(query, new ScreenHost.ProductSearchCallback() {
+                @Override
+                public void onComplete(List<ProductReadV1> products) {
+                    host.activity().runOnUiThread(() -> {
+                        priceTraceSearch.setEnabled(true);
+                        renderPriceTraceChoices(
+                                priceTraceResults,
+                                priceTraceSelection,
+                                products,
+                                name,
+                                brand,
+                                basisAmount,
+                                basisUnit,
+                                selectedProduct
+                        );
+                    });
+                }
+
+                @Override
+                public void onError(Exception error) {
+                    host.activity().runOnUiThread(() -> {
+                        priceTraceSearch.setEnabled(true);
+                        priceTraceSelection.setText("PriceTrace 조회 실패: " +
+                                (error.getMessage() == null ? "연결을 확인하세요." : error.getMessage()));
+                    });
+                }
+            });
+        });
+        ui.addAll(form, name);
+        if (brand != null) {
+            ui.addAll(form, brand);
+        }
         ui.addAll(
                 form,
-                name,
-                kindButton,
                 basisAmount,
                 basisUnit,
                 prepStateButton,
@@ -598,30 +695,129 @@ public final class MealManagementScreen extends BaseScreen {
                 source,
                 sourceVersion
         );
-        form.addView(ui.button("저장 후 이번 식사에 추가", true, v -> {
-            try {
-                double basis = positiveNumber(basisAmount, "기준 수량");
-                NutritionFood saved = host.nutritionCatalogRepository().saveFood(
-                        FitnessUi.inputText(name),
-                        selectedKind[0],
-                        basis,
-                        FitnessUi.inputText(basisUnit),
-                        selectedPrepState[0],
-                        nutrients.profile(),
-                        "manual",
-                        FitnessUi.inputText(source),
-                        FitnessUi.inputText(sourceVersion)
-                );
-                draftItems.add(MealCompositionItem.from(saved, saved.basisAmount));
-                showDirectFoodForm = false;
-                syncCatalog(true);
-                host.toast("음식이 저장되고 이번 식사에 추가되었습니다.");
-                host.rerender();
-            } catch (Exception error) {
-                host.toast(error.getMessage() == null ? "음식 정보를 확인하세요." : error.getMessage());
-            }
-        }), ui.fullWidthParams(ui.dp(10)));
+        if (!ingredientMode) {
+            ui.addAll(form, ui.text("PriceTrace 연결은 사용자가 정확한 상품을 선택한 경우에만 저장됩니다.",
+                    11, FitnessUi.COLOR_TERTIARY, false), priceTraceQuery, priceTraceSearch,
+                    priceTraceSelection, priceTraceResults);
+        }
+        Button saveOnly = ui.button(
+                ingredientMode ? "재료만 카탈로그에 저장" : "외부 메뉴만 카탈로그에 저장",
+                false,
+                v -> saveDirectFood(
+                        name, brand, basisAmount, basisUnit, selectedPrepState[0], nutrients,
+                        source, sourceVersion, ingredientMode, selectedProduct[0], false
+                )
+        );
+        Button saveAndAdd = ui.button(
+                "저장 후 현재 끼니에 추가",
+                true,
+                v -> saveDirectFood(
+                        name, brand, basisAmount, basisUnit, selectedPrepState[0], nutrients,
+                        source, sourceVersion, ingredientMode, selectedProduct[0], true
+                )
+        );
+        form.addView(ui.buttonRow(saveOnly, saveAndAdd), ui.fullWidthParams(ui.dp(10)));
         return form;
+    }
+
+    private void renderPriceTraceChoices(
+            LinearLayout results,
+            TextView selection,
+            List<ProductReadV1> products,
+            EditText name,
+            EditText brand,
+            EditText basisAmount,
+            EditText basisUnit,
+            ProductReadV1[] selectedProduct
+    ) {
+        FitnessUi ui = ui();
+        results.removeAllViews();
+        if (products == null || products.isEmpty()) {
+            selection.setText("일치하는 PriceTrace 상품이 없습니다. 다른 상품명을 검색하세요.");
+            return;
+        }
+        selection.setText(products.size() + "개 후보 · 브랜드·상품명·규격·판매처를 확인해 하나를 선택하세요.");
+        for (ProductReadV1 product : products) {
+            Button choice = ui.button(product.exactSelectionLabel(), false, v -> {
+                selectedProduct[0] = product;
+                if (FitnessUi.inputText(name).trim().isEmpty()) {
+                    name.setText(product.name);
+                }
+                if (brand != null && FitnessUi.inputText(brand).trim().isEmpty()
+                        && product.brand != null) {
+                    brand.setText(product.brand);
+                }
+                if (product.contentAmount != null && product.contentAmount > 0) {
+                    basisAmount.setText(NutritionCalculator.trim(product.contentAmount));
+                }
+                if (product.contentUnit != null && !product.contentUnit.trim().isEmpty()) {
+                    basisUnit.setText(product.contentUnit);
+                }
+                selection.setText("선택됨 · " + product.exactSelectionLabel());
+                results.removeAllViews();
+            });
+            choice.setAllCaps(false);
+            choice.setTextAlignment(View.TEXT_ALIGNMENT_VIEW_START);
+            results.addView(choice, ui.fullWidthParams(ui.dp(7)));
+        }
+    }
+
+    private void saveDirectFood(
+            EditText name,
+            EditText brand,
+            EditText basisAmount,
+            EditText basisUnit,
+            String prepState,
+            NutritionInputSection nutrients,
+            EditText source,
+            EditText sourceVersion,
+            boolean ingredientMode,
+            ProductReadV1 selectedProduct,
+            boolean addToMeal
+    ) {
+        try {
+            syncDraftFromViews();
+            double basis = positiveNumber(basisAmount, "기준 수량");
+            String productBrand = brand == null ? null : FitnessUi.inputText(brand);
+            if (selectedProduct != null && (productBrand == null || productBrand.trim().isEmpty())) {
+                productBrand = selectedProduct.brand;
+            }
+            String sourceReference = FitnessUi.inputText(source);
+            String sourceType = "manual";
+            if (selectedProduct != null) {
+                sourceType = "pricetrace_manual";
+                if (sourceReference == null || sourceReference.trim().isEmpty()) {
+                    sourceReference = "catalogProductId:" + selectedProduct.catalogProductId;
+                }
+            }
+            NutritionFood saved = host.nutritionCatalogRepository().saveFood(
+                    FitnessUi.inputText(name),
+                    productBrand,
+                    ingredientMode ? NutritionFood.KIND_INGREDIENT : NutritionFood.KIND_EXTERNAL_MENU,
+                    basis,
+                    FitnessUi.inputText(basisUnit),
+                    prepState,
+                    nutrients.profile(),
+                    sourceType,
+                    sourceReference,
+                    FitnessUi.inputText(sourceVersion)
+            );
+            if (selectedProduct != null) {
+                host.nutritionCatalogRepository().linkProduct(saved.id, selectedProduct);
+            }
+            if (addToMeal) {
+                draftItems.add(MealCompositionItem.from(saved, saved.basisAmount));
+            }
+            syncCatalog(true);
+            host.toast(
+                    (ingredientMode ? "재료" : "외부 메뉴") + "를 저장했습니다."
+                            + (selectedProduct == null ? "" : " PriceTrace 상품도 연결했습니다.")
+                            + (addToMeal ? " 현재 끼니에 추가되었습니다." : "")
+            );
+            host.rerender();
+        } catch (Exception error) {
+            host.toast(error.getMessage() == null ? "영양 정보를 확인하세요." : error.getMessage());
+        }
     }
 
     private void addFoodToDraft(NutritionFood food) {

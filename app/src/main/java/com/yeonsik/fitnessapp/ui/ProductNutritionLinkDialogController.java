@@ -35,7 +35,7 @@ final class ProductNutritionLinkDialogController {
 
         body.addView(ui.text(
                 "영양 정보는 이 연결 없이도 독립적으로 저장됩니다. 상품명 자동 매칭은 하지 "
-                        + "않으며 아래 결과에서 정확한 catalogProductId를 직접 선택해야 합니다.",
+                        + "않으며 아래 결과에서 정확한 PriceTrace 상품 ID를 직접 선택해야 합니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
@@ -71,8 +71,8 @@ final class ProductNutritionLinkDialogController {
             }
         }
 
-        EditText search = ui.searchField("PriceTrace 상품명 검색");
-        search.setText(food.name);
+        EditText search = ui.searchField("PriceTrace 브랜드·상품명 검색");
+        search.setText(food.displayName());
         search.setSelection(search.length());
         Button searchButton = ui.button("상품 검색", true, null);
         TextView resultStatus = ui.text(
@@ -160,7 +160,7 @@ final class ProductNutritionLinkDialogController {
         new AlertDialog.Builder(host.activity())
                 .setTitle("정확한 상품 ID 확인")
                 .setMessage(product.exactSelectionLabel()
-                        + "\n\n이 catalogProductId를 " + food.name + "에 연결할까요?")
+                        + "\n\n이 PriceTrace 상품을 " + food.displayName() + "에 연결할까요?")
                 .setPositiveButton("이 ID 연결", (dialog, which) -> {
                     repository.linkProduct(food.id, product);
                     syncLinksQuietly();

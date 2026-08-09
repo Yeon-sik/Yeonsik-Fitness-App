@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 10;
+    public static final int DATABASE_VERSION = 11;
 
     public FitnessDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -225,6 +225,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "id TEXT PRIMARY KEY, " +
                 "owner_id TEXT, " +
                 "name TEXT NOT NULL, " +
+                "brand TEXT, " +
                 "kind TEXT NOT NULL, " +
                 "basis_amount REAL NOT NULL, " +
                 "basis_unit TEXT NOT NULL, " +
@@ -319,6 +320,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
 
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_name_idx " +
                 "ON nutrition_foods(owner_id, name COLLATE NOCASE)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_brand_name_idx " +
+                "ON nutrition_foods(owner_id, brand COLLATE NOCASE, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_visibility_name_idx " +
                 "ON nutrition_foods(visibility, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_food_nutrients_food_idx " +
@@ -346,6 +349,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "owner_id TEXT NOT NULL, " +
                 "nutrition_food_id TEXT NOT NULL, " +
                 "catalog_product_id TEXT NOT NULL, " +
+                "standard_product_id TEXT, " +
                 "status TEXT NOT NULL, " +
                 "source_type TEXT NOT NULL, " +
                 "proposal_reference TEXT, " +
@@ -368,6 +372,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "catalog_product_id TEXT PRIMARY KEY, " +
                 "standard_product_id TEXT, " +
                 "product_name TEXT NOT NULL, " +
+                "brand_name TEXT, " +
                 "seller_name TEXT, " +
                 "latest_price_krw INTEGER, " +
                 "price_observed_at TEXT, " +
@@ -467,6 +472,13 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 10) {
             addColumnIfMissing(db, "nutrition_foods", "revision", "INTEGER NOT NULL DEFAULT 1");
             createProductNutritionLinkTables(db);
+        }
+        if (oldVersion < 11) {
+            addColumnIfMissing(db, "nutrition_foods", "brand", "TEXT");
+            addColumnIfMissing(db, "product_nutrition_links", "standard_product_id", "TEXT");
+            addColumnIfMissing(db, "pricetrace_product_cache", "brand_name", "TEXT");
+            db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_brand_name_idx " +
+                    "ON nutrition_foods(owner_id, brand COLLATE NOCASE, name COLLATE NOCASE)");
         }
     }
 

@@ -20,6 +20,7 @@ public final class ProductReadV1Test {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("catalog_product_id", CATALOG_ID);
         row.put("standard_product_id", STANDARD_ID);
+        row.put("brand_name", "버거킹");
         row.put("standard_name", "닭가슴살 100g");
         row.put("content_amount", 100.0);
         row.put("content_unit", "g");
@@ -30,6 +31,7 @@ public final class ProductReadV1Test {
         ProductReadV1 product = ProductReadV1.fromMap(row);
 
         assertEquals(CATALOG_ID, product.catalogProductId);
+        assertEquals("버거킹", product.brand);
         assertEquals("닭가슴살 100g", product.name);
         assertEquals("쿠팡", product.sellerName);
         assertEquals(Integer.valueOf(3200), product.latestObservedPriceKrw);
@@ -73,10 +75,10 @@ public final class ProductReadV1Test {
     @Test
     public void nameSearchDeduplicatesByExactCatalogProductId() {
         ProductReadV1 withoutPrice = new ProductReadV1(
-                CATALOG_ID, STANDARD_ID, "닭가슴살", "PX", null, null, 100.0, "g", 1
+                CATALOG_ID, STANDARD_ID, "닭가슴살", "버거킹", "PX", null, null, 100.0, "g", 1
         );
         ProductReadV1 withPrice = new ProductReadV1(
-                CATALOG_ID, STANDARD_ID, "닭가슴살", "쿠팡", 2500,
+                CATALOG_ID, STANDARD_ID, "닭가슴살", "버거킹", "쿠팡", 2500,
                 "2026-08-09T00:00:00Z", 100.0, "g", 1
         );
 
@@ -88,5 +90,17 @@ public final class ProductReadV1Test {
 
         assertEquals(1, results.size());
         assertEquals(Integer.valueOf(2500), results.get(0).latestObservedPriceKrw);
+    }
+
+    @Test
+    public void nameSearchAlsoMatchesBrand() {
+        ProductReadV1 product = new ProductReadV1(
+                CATALOG_ID, STANDARD_ID, "닭가슴살", "버거킹", "매장", null,
+                null, 1.0, "serving", 1
+        );
+
+        assertEquals(1, ProductReadV1.search(
+                java.util.Collections.singletonList(product), "버거킹", 50
+        ).size());
     }
 }

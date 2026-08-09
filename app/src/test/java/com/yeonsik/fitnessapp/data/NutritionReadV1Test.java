@@ -13,6 +13,7 @@ public final class NutritionReadV1Test {
         NutritionFood food = NutritionFood.builder()
                 .id("nutrition-1")
                 .ownerId("user-1")
+                .brand("집밥")
                 .name("닭가슴살")
                 .kind(NutritionFood.KIND_INGREDIENT)
                 .basis(100, "g")
@@ -36,6 +37,7 @@ public final class NutritionReadV1Test {
         assertEquals(NutritionReadV1.CONTRACT_VERSION, "nutrition-read.v1");
         assertEquals(100, read.basisAmount, 0.001);
         assertEquals("g", read.basisUnit);
+        assertEquals("집밥", read.brand);
         assertEquals(165, read.nutritionValues.get(NutritionProfile.CALORIES_KCAL), 0.001);
         assertEquals("제품 라벨", read.sourceReference);
         assertEquals("label-r3", read.sourceRevision);

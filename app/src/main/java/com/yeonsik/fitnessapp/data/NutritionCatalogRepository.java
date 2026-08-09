@@ -53,6 +53,7 @@ public final class NutritionCatalogRepository {
             "id",
             "owner_id",
             "name",
+            "brand",
             "kind",
             "basis_amount",
             "basis_unit",
@@ -88,7 +89,7 @@ public final class NutritionCatalogRepository {
     };
 
     static final String[] PRODUCT_LINK_SYNC_COLUMNS = {
-            "id", "owner_id", "nutrition_food_id", "catalog_product_id", "status",
+            "id", "owner_id", "nutrition_food_id", "catalog_product_id", "standard_product_id", "status",
             "source_type", "proposal_reference", "product_contract_version", "revision",
             "reviewed_at", "created_at", "updated_at", "deleted_at"
     };
@@ -155,9 +156,10 @@ public final class NutritionCatalogRepository {
                         "FROM nutrition_foods " +
                         "WHERE deleted_at IS NULL " +
                         "AND (visibility = 'public' OR owner_id = ?) " +
-                        "AND name LIKE ? COLLATE NOCASE " +
-                        "ORDER BY kind ASC, name COLLATE NOCASE ASC LIMIT 100",
-                new String[]{userId, like}
+                        "AND (name LIKE ? COLLATE NOCASE " +
+                        "OR brand LIKE ? COLLATE NOCASE) " +
+                        "ORDER BY kind ASC, brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC LIMIT 100",
+                new String[]{userId, like, like}
         )) {
             while (cursor.moveToNext()) {
                 rows.add(readFoodRow(cursor));
@@ -190,7 +192,34 @@ public final class NutritionCatalogRepository {
             String sourceReference,
             String sourceVersion
     ) {
+        return saveFood(
+                name,
+                null,
+                kind,
+                basisAmount,
+                basisUnit,
+                prepState,
+                profile,
+                sourceType,
+                sourceReference,
+                sourceVersion
+        );
+    }
+
+    public NutritionFood saveFood(
+            String name,
+            String brand,
+            String kind,
+            double basisAmount,
+            String basisUnit,
+            String prepState,
+            NutritionProfile profile,
+            String sourceType,
+            String sourceReference,
+            String sourceVersion
+    ) {
         String normalizedName = requireName(name);
+        String normalizedBrand = emptyToNull(brand);
         String normalizedKind = NutritionFood.normalizeKind(kind);
         String normalizedUnit = requireName(basisUnit);
         String normalizedPrepState = NutritionFood.normalizePrepState(prepState);
@@ -203,6 +232,7 @@ public final class NutritionCatalogRepository {
                 .id(UUID.randomUUID().toString())
                 .ownerId(userId)
                 .name(normalizedName)
+                .brand(normalizedBrand)
                 .kind(normalizedKind)
                 .basis(basisAmount, normalizedUnit)
                 .prepState(normalizedPrepState)
@@ -335,6 +365,7 @@ public final class NutritionCatalogRepository {
             values.put("owner_id", userId);
             values.put("nutrition_food_id", nutritionFoodId);
             values.put("catalog_product_id", product.catalogProductId);
+            putNullable(values, "standard_product_id", product.standardProductId);
             values.put("status", ProductNutritionLink.STATUS_APPROVED);
             values.put("source_type", ProductNutritionLink.SOURCE_MANUAL);
             values.putNull("proposal_reference");
@@ -450,10 +481,10 @@ public final class NutritionCatalogRepository {
         SQLiteDatabase database = dbHelper.getReadableDatabase();
         try (Cursor cursor = database.rawQuery(
                 "SELECT l.id, l.owner_id, l.nutrition_food_id, l.catalog_product_id, " +
-                        "l.status, l.source_type, l.proposal_reference, l.revision, l.reviewed_at, " +
-                        "c.standard_product_id, c.product_name, c.seller_name, " +
-                        "c.latest_price_krw, c.price_observed_at, c.content_amount, " +
-                        "c.content_unit, c.package_count " +
+                        "l.standard_product_id, l.status, l.source_type, l.proposal_reference, " +
+                        "l.revision, l.reviewed_at, c.standard_product_id, c.product_name, " +
+                        "c.brand_name, c.seller_name, c.latest_price_krw, c.price_observed_at, " +
+                        "c.content_amount, c.content_unit, c.package_count " +
                         "FROM product_nutrition_links l " +
                         "LEFT JOIN pricetrace_product_cache c " +
                         "ON c.catalog_product_id = l.catalog_product_id " +
@@ -464,18 +495,19 @@ public final class NutritionCatalogRepository {
         )) {
             while (cursor.moveToNext()) {
                 ProductReadV1 product = null;
-                if (!cursor.isNull(10)) {
+                if (!cursor.isNull(11)) {
                     try {
                         product = new ProductReadV1(
                                 cursor.getString(3),
-                                cursor.isNull(9) ? null : cursor.getString(9),
-                                cursor.getString(10),
-                                cursor.isNull(11) ? null : cursor.getString(11),
-                                cursor.isNull(12) ? null : cursor.getInt(12),
+                                cursor.isNull(4) ? cursor.isNull(10) ? null : cursor.getString(10) : cursor.getString(4),
+                                cursor.getString(11),
+                                cursor.isNull(12) ? null : cursor.getString(12),
                                 cursor.isNull(13) ? null : cursor.getString(13),
-                                cursor.isNull(14) ? null : cursor.getDouble(14),
+                                cursor.isNull(14) ? null : cursor.getInt(14),
                                 cursor.isNull(15) ? null : cursor.getString(15),
-                                cursor.isNull(16) ? null : cursor.getInt(16)
+                                cursor.isNull(16) ? null : cursor.getDouble(16),
+                                cursor.isNull(17) ? null : cursor.getString(17),
+                                cursor.isNull(18) ? null : cursor.getInt(18)
                         );
                     } catch (IllegalArgumentException ignored) {
                         // A corrupt cache must not hide the underlying exact link decision.
@@ -486,11 +518,12 @@ public final class NutritionCatalogRepository {
                         cursor.getString(1),
                         cursor.getString(2),
                         cursor.getString(3),
-                        cursor.getString(4),
+                        cursor.isNull(4) ? null : cursor.getString(4),
                         cursor.getString(5),
-                        cursor.isNull(6) ? null : cursor.getString(6),
-                        cursor.getInt(7),
-                        cursor.isNull(8) ? null : cursor.getString(8),
+                        cursor.getString(6),
+                        cursor.isNull(7) ? null : cursor.getString(7),
+                        cursor.getInt(8),
+                        cursor.isNull(9) ? null : cursor.getString(9),
                         product
                 ));
             }
@@ -546,6 +579,7 @@ public final class NutritionCatalogRepository {
         values.put("catalog_product_id", product.catalogProductId);
         putNullable(values, "standard_product_id", product.standardProductId);
         values.put("product_name", product.name);
+        putNullable(values, "brand_name", product.brand);
         putNullable(values, "seller_name", product.sellerName);
         if (product.latestObservedPriceKrw == null) {
             values.putNull("latest_price_krw");
@@ -765,6 +799,7 @@ public final class NutritionCatalogRepository {
                 values.put("id", id);
                 putNullable(values, "owner_id", nullableString(row, "owner_id"));
                 values.put("name", name);
+                putNullable(values, "brand", nullableString(row, "brand"));
                 values.put("kind", NutritionFood.normalizeKind(
                         row.optString("kind", NutritionFood.KIND_EXTERNAL_MENU)));
                 values.put("basis_amount", positiveOrDefault(row.optDouble("basis_amount", 1.0)));
@@ -903,6 +938,7 @@ public final class NutritionCatalogRepository {
                 values.put("owner_id", ownerId);
                 values.put("nutrition_food_id", foodId);
                 values.put("catalog_product_id", catalogProductId);
+                putNullable(values, "standard_product_id", nullableString(row, "standard_product_id"));
                 values.put("status", status);
                 values.put("source_type", sourceType);
                 putNullable(values, "proposal_reference", nullableString(row, "proposal_reference"));
@@ -938,6 +974,7 @@ public final class NutritionCatalogRepository {
         values.put("id", food.id);
         values.put("owner_id", food.ownerId);
         values.put("name", food.name);
+        putNullable(values, "brand", food.brand);
         values.put("kind", food.kind);
         values.put("basis_amount", food.basisAmount);
         values.put("basis_unit", food.basisUnit);
@@ -1031,11 +1068,11 @@ public final class NutritionCatalogRepository {
 
     private NutritionFood buildFood(Object[] row, Map<String, Double> micronutrients) {
         NutritionProfile.Builder profile = NutritionProfile.builder()
-                .value(NutritionProfile.CALORIES_KCAL, doubleAt(row, 7))
-                .value(NutritionProfile.PROTEIN_GRAMS, doubleAt(row, 8))
-                .value(NutritionProfile.CARBS_GRAMS, doubleAt(row, 9))
-                .value(NutritionProfile.FAT_GRAMS, doubleAt(row, 10));
-        int columnIndex = 11;
+                .value(NutritionProfile.CALORIES_KCAL, doubleAt(row, 8))
+                .value(NutritionProfile.PROTEIN_GRAMS, doubleAt(row, 9))
+                .value(NutritionProfile.CARBS_GRAMS, doubleAt(row, 10))
+                .value(NutritionProfile.FAT_GRAMS, doubleAt(row, 11));
+        int columnIndex = 12;
         for (String key : nullableTypedKeys()) {
             profile.value(key, doubleAt(row, columnIndex++));
         }
@@ -1045,18 +1082,19 @@ public final class NutritionCatalogRepository {
             }
         }
 
-        Double dataVersion = doubleAt(row, 21);
-        Double revision = doubleAt(row, 22);
+        Double dataVersion = doubleAt(row, 22);
+        Double revision = doubleAt(row, 23);
         return NutritionFood.builder()
                 .id(stringAt(row, 0))
                 .ownerId(stringAt(row, 1))
                 .name(stringAt(row, 2))
-                .kind(stringAt(row, 3))
-                .basis(positiveOrDefault(doubleAt(row, 4)), emptyToDefault(stringAt(row, 5), "serving"))
-                .prepState(stringAt(row, 6))
+                .brand(stringAt(row, 3))
+                .kind(stringAt(row, 4))
+                .basis(positiveOrDefault(doubleAt(row, 5)), emptyToDefault(stringAt(row, 6), "serving"))
+                .prepState(stringAt(row, 7))
                 .profile(profile.build())
-                .source(emptyToDefault(stringAt(row, 18), "manual"), stringAt(row, 19))
-                .sourceVersion(stringAt(row, 20))
+                .source(emptyToDefault(stringAt(row, 19), "manual"), stringAt(row, 20))
+                .sourceVersion(stringAt(row, 21))
                 .dataVersion(dataVersion == null
                         ? NutritionFood.DATA_VERSION_MACROS_ONLY
                         : (int) Math.round(dataVersion))

@@ -25,6 +25,7 @@ public final class NutritionFood {
     public final String id;
     public final String ownerId;
     public final String name;
+    public final String brand;
     public final String kind;
     public final double basisAmount;
     public final String basisUnit;
@@ -50,6 +51,7 @@ public final class NutritionFood {
         this.id = builder.id;
         this.ownerId = builder.ownerId;
         this.name = builder.name;
+        this.brand = normalizeText(builder.brand);
         this.kind = normalizeKind(builder.kind);
         this.basisAmount = builder.basisAmount;
         this.basisUnit = builder.basisUnit;
@@ -102,6 +104,10 @@ public final class NutritionFood {
         return PREP_UNSPECIFIED.equals(prepState)
                 ? basis
                 : basis + " (" + prepStateLabel(prepState) + ")";
+    }
+
+    public String displayName() {
+        return brand == null ? name : brand + " · " + name;
     }
 
     public String nutritionLabel() {
@@ -179,6 +185,7 @@ public final class NutritionFood {
         private String id;
         private String ownerId;
         private String name;
+        private String brand;
         private String kind = KIND_EXTERNAL_MENU;
         private double basisAmount = 1;
         private String basisUnit = "serving";
@@ -205,6 +212,11 @@ public final class NutritionFood {
 
         public Builder name(String name) {
             this.name = name;
+            return this;
+        }
+
+        public Builder brand(String brand) {
+            this.brand = brand;
             return this;
         }
 
@@ -253,5 +265,13 @@ public final class NutritionFood {
         public NutritionFood build() {
             return new NutritionFood(this);
         }
+    }
+
+    private static String normalizeText(String value) {
+        if (value == null) {
+            return null;
+        }
+        String normalized = value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 }

@@ -13,6 +13,7 @@ public final class ProductNutritionLink {
     public final String ownerId;
     public final String nutritionFoodId;
     public final String catalogProductId;
+    public final String standardProductId;
     public final String status;
     public final String sourceType;
     public final String proposalReference;
@@ -25,6 +26,7 @@ public final class ProductNutritionLink {
             String ownerId,
             String nutritionFoodId,
             String catalogProductId,
+            String standardProductId,
             String status,
             String sourceType,
             String proposalReference,
@@ -36,6 +38,7 @@ public final class ProductNutritionLink {
         this.ownerId = ownerId;
         this.nutritionFoodId = nutritionFoodId;
         this.catalogProductId = catalogProductId;
+        this.standardProductId = standardProductId;
         this.status = status;
         this.sourceType = sourceType;
         this.proposalReference = proposalReference;
