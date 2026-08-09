@@ -593,9 +593,7 @@ public final class MealManagementScreen extends BaseScreen {
                 .pendingProductLinkSuggestions(food.id);
         if (approved != null) {
             details.addView(ui.text(
-                    "PriceTrace · " + (approved.product == null
-                            ? "catalogProductId " + approved.catalogProductId
-                            : approved.product.priceObservationLabel()),
+                    "PriceTrace · " + approved.displayLabel(),
                     11,
                     FitnessUi.COLOR_TERTIARY,
                     false
@@ -785,9 +783,9 @@ public final class MealManagementScreen extends BaseScreen {
             selection.setText("일치하는 PriceTrace 상품이 없습니다. 다른 상품명을 검색하세요.");
             return;
         }
-        selection.setText(products.size() + "개 후보 · 브랜드·상품명·규격·판매처를 확인해 하나를 선택하세요.");
+        selection.setText(products.size() + "개 표준상품 후보 · 브랜드와 상품 이름만 표시합니다.");
         for (ProductReadV1 product : products) {
-            Button choice = ui.button(product.exactSelectionLabel(), false, v -> {
+            Button choice = ui.button(product.standardProductLabel(), false, v -> {
                 selectedProduct[0] = product;
                 if (FitnessUi.inputText(name).trim().isEmpty()) {
                     name.setText(product.name);
@@ -804,7 +802,7 @@ public final class MealManagementScreen extends BaseScreen {
                 } else if (product.contentUnit != null && !product.contentUnit.trim().isEmpty()) {
                     basisUnit.setText(NutritionUnit.SERVING);
                 }
-                selection.setText("선택됨 · " + product.exactSelectionLabel());
+                selection.setText("선택됨 · " + product.standardProductLabel());
                 results.removeAllViews();
             });
             choice.setAllCaps(false);

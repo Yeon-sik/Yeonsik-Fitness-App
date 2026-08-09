@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.data;
 
-/** User decision linking one Nutrition food to one exact PriceTrace catalog product. */
+/** User decision linking one Nutrition food to one PriceTrace standard product. */
 public final class ProductNutritionLink {
     public static final String STATUS_SUGGESTED = "suggested";
     public static final String STATUS_APPROVED = "approved";
@@ -57,9 +57,8 @@ public final class ProductNutritionLink {
 
     public String displayLabel() {
         if (product == null) {
-            return "catalogProductId: " + catalogProductId
-                    + " · PriceTrace 정보 새로고침 필요";
+            return "표준상품 정보 새로고침 필요";
         }
-        return product.exactSelectionLabel();
+        return product.standardProductLabel();
     }
 }

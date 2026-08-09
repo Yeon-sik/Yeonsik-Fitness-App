@@ -146,9 +146,9 @@ public final class SettingsScreen extends BaseScreen {
                 host.isPriceTraceSupabaseConnectionManaged()
         ));
         card.addView(ui.text(
-                "PriceTrace의 검증된 상품을 product-read.v1로 읽는 별도 연결입니다. "
-                        + "상품명은 후보 검색에만 쓰고 사용자가 정확한 catalogProductId를 "
-                        + "선택해야 영양 항목과 연결됩니다. 쓰기 권한과 로그인은 사용하지 않습니다.",
+                "PriceTrace의 검증된 표준상품을 product-read.v1로 읽는 별도 연결입니다. "
+                        + "표준상품 후보를 검색하고 사용자가 선택한 항목을 영양 정보와 연결합니다. "
+                        + "쓰기 권한과 로그인은 사용하지 않습니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false

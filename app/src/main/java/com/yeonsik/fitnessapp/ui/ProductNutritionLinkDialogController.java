@@ -34,8 +34,8 @@ final class ProductNutritionLinkDialogController {
         List<ProductNutritionLink> suggestions = repository.pendingProductLinkSuggestions(food.id);
 
         body.addView(ui.text(
-                "영양 정보는 이 연결 없이도 독립적으로 저장됩니다. 상품명 자동 매칭은 하지 "
-                        + "않으며 아래 결과에서 정확한 PriceTrace 상품 ID를 직접 선택해야 합니다.",
+                "영양 정보는 이 연결 없이도 독립적으로 저장됩니다. 이름 자동 매칭은 하지 "
+                        + "않으며 아래 표준상품 후보에서 연결할 항목을 직접 선택해야 합니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
@@ -63,7 +63,7 @@ final class ProductNutritionLinkDialogController {
             body.addView(ui.fieldLabel("PriceTrace 제안"));
             for (ProductNutritionLink suggestion : suggestions) {
                 Button review = ui.button(
-                        "제안 검토 · " + suggestion.catalogProductId,
+                        "제안 검토 · " + suggestion.displayLabel(),
                         false,
                         v -> loadSuggestion(food, suggestion)
                 );
@@ -146,9 +146,9 @@ final class ProductNutritionLinkDialogController {
             status.setText("검색 결과가 없습니다. 영양 항목은 연결 없이 계속 사용할 수 있습니다.");
             return;
         }
-        status.setText(products.size() + "개 후보 · ID와 규격을 확인해 하나를 선택하세요.");
+        status.setText(products.size() + "개 표준상품 후보 · 브랜드와 상품 이름만 표시합니다.");
         for (ProductReadV1 product : products) {
-            Button choice = ui.button(product.exactSelectionLabel(), false, v ->
+            Button choice = ui.button(product.standardProductLabel(), false, v ->
                     confirmExactSelection(food, product));
             choice.setAllCaps(false);
             choice.setTextAlignment(android.view.View.TEXT_ALIGNMENT_VIEW_START);
@@ -158,13 +158,13 @@ final class ProductNutritionLinkDialogController {
 
     private void confirmExactSelection(NutritionFood food, ProductReadV1 product) {
         new AlertDialog.Builder(host.activity())
-                .setTitle("정확한 상품 ID 확인")
-                .setMessage(product.exactSelectionLabel()
+                .setTitle("표준상품 연결 확인")
+                .setMessage(product.standardProductLabel()
                         + "\n\n이 PriceTrace 상품을 " + food.displayName() + "에 연결할까요?")
-                .setPositiveButton("이 ID 연결", (dialog, which) -> {
+                .setPositiveButton("연결", (dialog, which) -> {
                     repository.linkProduct(food.id, product);
                     syncLinksQuietly();
-                    host.toast("선택한 catalogProductId를 연결했습니다.");
+                    host.toast("선택한 표준상품을 연결했습니다.");
                     dismissActiveDialog();
                     host.rerender();
                 })
@@ -173,7 +173,7 @@ final class ProductNutritionLinkDialogController {
     }
 
     private void loadSuggestion(NutritionFood food, ProductNutritionLink suggestion) {
-        host.toast("제안된 catalogProductId를 PriceTrace에서 확인합니다.");
+        host.toast("제안된 표준상품을 PriceTrace에서 확인합니다.");
         host.loadPriceTraceProduct(suggestion.catalogProductId, new ScreenHost.ProductLoadCallback() {
             @Override
             public void onComplete(ProductReadV1 product) {
@@ -230,7 +230,7 @@ final class ProductNutritionLinkDialogController {
     ) {
         new AlertDialog.Builder(host.activity())
                 .setTitle("PriceTrace 제안 검토")
-                .setMessage(product.exactSelectionLabel()
+                .setMessage(product.standardProductLabel()
                         + "\n\n영양 항목: " + food.name
                         + "\n제안 참조: " + (suggestion.proposalReference == null
                         ? "없음" : suggestion.proposalReference))

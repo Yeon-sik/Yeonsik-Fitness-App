@@ -8,7 +8,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-/** Read-only adapter for an exact PriceTrace catalog product. */
+/** Read-only adapter for a PriceTrace standard product and its representative offer. */
 public final class ProductReadV1 {
     public static final String CONTRACT_VERSION = "product-read.v1";
 
@@ -115,7 +115,16 @@ public final class ProductReadV1 {
         return new ProductReadV1(
                 stringValue(first(row, "catalogProductId", "catalog_product_id")),
                 stringValue(first(row, "standardProductId", "standard_product_id")),
-                stringValue(first(row, "name", "standardName", "standard_name")),
+                stringValue(first(
+                        row,
+                        "standardProductName",
+                        "standard_product_name",
+                        "standardName",
+                        "standard_name",
+                        "name",
+                        "productName",
+                        "product_name"
+                )),
                 brand,
                 seller,
                 price,
@@ -126,32 +135,40 @@ public final class ProductReadV1 {
         );
     }
 
-    /** Case-insensitive display-name search with exact-ID de-duplication. */
+    /**
+     * Case-insensitive standard-product search.
+     *
+     * <p>The PriceTrace read projection may contain multiple catalog offers for one
+     * standard product. The app must never expose those child offers as separate
+     * nutrition choices, so rows without a standard ID are ignored and the remaining
+     * rows are de-duplicated by standardProductId.</p>
+     */
     public static List<ProductReadV1> search(List<ProductReadV1> products, String query, int limit) {
         String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         int safeLimit = limit <= 0 ? Integer.MAX_VALUE : limit;
-        Map<String, ProductReadV1> exactProducts = new LinkedHashMap<>();
+        Map<String, ProductReadV1> standardProducts = new LinkedHashMap<>();
         if (products != null) {
             for (ProductReadV1 product : products) {
-                if (product == null) {
+                if (product == null || product.standardProductId == null) {
                     continue;
                 }
-                String searchable = (product.brand == null ? "" : product.brand + " ") + product.name;
+                String searchable = product.standardProductLabel();
                 if (!searchable.toLowerCase(Locale.ROOT).contains(term)) {
                     continue;
                 }
-                ProductReadV1 previous = exactProducts.get(product.catalogProductId);
+                ProductReadV1 previous = standardProducts.get(product.standardProductId);
                 if (previous == null
                         || (previous.latestObservedPriceKrw == null
                         && product.latestObservedPriceKrw != null)) {
-                    exactProducts.put(product.catalogProductId, product);
-                }
-                if (exactProducts.size() >= safeLimit) {
-                    break;
+                    standardProducts.put(product.standardProductId, product);
                 }
             }
         }
-        return new ArrayList<>(exactProducts.values());
+        List<ProductReadV1> results = new ArrayList<>(standardProducts.values());
+        if (results.size() <= safeLimit) {
+            return results;
+        }
+        return new ArrayList<>(results.subList(0, safeLimit));
     }
 
     public String specificationLabel() {
@@ -173,9 +190,13 @@ public final class ProductReadV1 {
                 + "원 · 관측 " + observedAt;
     }
 
+    /** The only standard-product identity shown in the Fitness app UI. */
+    public String standardProductLabel() {
+        return brand == null ? name : brand + " · " + name;
+    }
+
     public String exactSelectionLabel() {
-        String displayName = brand == null ? name : brand + " · " + name;
-        return displayName + " · " + specificationLabel()
+        return standardProductLabel() + " · " + specificationLabel()
                 + "\n" + priceObservationLabel()
                 + "\ncatalogProductId: " + catalogProductId;
     }

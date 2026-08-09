@@ -386,7 +386,7 @@ public final class NutritionCatalogRepository {
      */
     public ProductNutritionLink linkProduct(String nutritionFoodId, ProductReadV1 product) {
         if (product == null) {
-            throw new IllegalArgumentException("정확한 PriceTrace 상품을 선택하세요.");
+            throw new IllegalArgumentException("연결할 표준상품을 선택하세요.");
         }
         requireLinkableFood(nutritionFoodId);
         String timestamp = now();

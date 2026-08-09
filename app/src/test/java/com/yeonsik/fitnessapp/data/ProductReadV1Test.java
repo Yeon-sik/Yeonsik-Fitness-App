@@ -13,6 +13,7 @@ import static org.junit.Assert.assertTrue;
 
 public final class ProductReadV1Test {
     private static final String CATALOG_ID = "11111111-1111-4111-8111-111111111111";
+    private static final String SECOND_CATALOG_ID = "33333333-3333-4333-8333-333333333333";
     private static final String STANDARD_ID = "22222222-2222-4222-8222-222222222222";
 
     @Test
@@ -73,7 +74,7 @@ public final class ProductReadV1Test {
     }
 
     @Test
-    public void nameSearchDeduplicatesByExactCatalogProductId() {
+    public void standardProductSearchDeduplicatesCatalogChildrenByStandardId() {
         ProductReadV1 withoutPrice = new ProductReadV1(
                 CATALOG_ID, STANDARD_ID, "닭가슴살", "버거킹", "PX", null, null, 100.0, "g", 1
         );
@@ -90,6 +91,49 @@ public final class ProductReadV1Test {
 
         assertEquals(1, results.size());
         assertEquals(Integer.valueOf(2500), results.get(0).latestObservedPriceKrw);
+    }
+
+    @Test
+    public void prefersStandardNameWhenCatalogChildNameIsAlsoPresent() {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("catalog_product_id", CATALOG_ID);
+        row.put("standard_product_id", STANDARD_ID);
+        row.put("brand_name", "CJ");
+        row.put("name", "CJ Hatban 210g");
+        row.put("standard_name", "CJ Hatban");
+
+        ProductReadV1 product = ProductReadV1.fromMap(row);
+
+        assertEquals("CJ Hatban", product.name);
+        assertEquals("CJ · CJ Hatban", product.standardProductLabel());
+    }
+
+    @Test
+    public void standardProductSearchDeduplicatesDifferentCatalogChildren() {
+        ProductReadV1 firstChild = new ProductReadV1(
+                CATALOG_ID, STANDARD_ID, "CJ Hatban", "CJ", "Store A", null, null, 210.0, "g", 1
+        );
+        ProductReadV1 secondChild = new ProductReadV1(
+                SECOND_CATALOG_ID, STANDARD_ID, "CJ Hatban", "CJ", "Store B", null, null, 130.0, "g", 1
+        );
+
+        List<ProductReadV1> results = ProductReadV1.search(
+                Arrays.asList(firstChild, secondChild), "CJ Hatban", 50
+        );
+
+        assertEquals(1, results.size());
+        assertEquals(CATALOG_ID, results.get(0).catalogProductId);
+    }
+
+    @Test
+    public void standardProductSearchIgnoresRowsWithoutStandardId() {
+        ProductReadV1 catalogOnly = new ProductReadV1(
+                CATALOG_ID, null, "Catalog child", "Brand", "PX", null, null, 100.0, "g", 1
+        );
+
+        assertTrue(ProductReadV1.search(
+                java.util.Collections.singletonList(catalogOnly), "Catalog", 50
+        ).isEmpty());
     }
 
     @Test

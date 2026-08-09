@@ -149,6 +149,9 @@ final class NutritionInputSection {
             LinearLayout row = new LinearLayout(activity);
             row.setOrientation(LinearLayout.HORIZONTAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setBaselineAligned(false);
+            row.setClipChildren(false);
+            row.setClipToPadding(false);
 
             View first = fieldTile(keys.get(index), target);
             row.addView(first, cellParams(true));
@@ -169,21 +172,29 @@ final class NutritionInputSection {
 
     private View fieldTile(String key, Map<String, EditText> target) {
         LinearLayout tile = column();
-        tile.setMinimumHeight(ui.dp(76));
-        tile.setPadding(ui.dp(10), ui.dp(8), ui.dp(10), ui.dp(6));
+        tile.setMinimumHeight(ui.dp(70));
+        tile.setPadding(ui.dp(10), ui.dp(6), ui.dp(10), ui.dp(4));
+        tile.setClipChildren(false);
+        tile.setClipToPadding(false);
         tile.setBackground(ui.flatSurfaceDrawable(ui.dp(12)));
 
         String unit = NutrientCode.displayUnit(NutritionProfile.unitOf(key));
-        tile.addView(ui.text(
+        android.widget.TextView labelView = ui.text(
                 NutritionProfile.labelOf(key) + " · " + unit,
-                11,
+                10,
                 FitnessUi.COLOR_MUTED,
                 true
-        ));
+        );
+        labelView.setIncludeFontPadding(false);
+        tile.addView(labelView);
 
         EditText input = ui.decimalInput("내용량", "");
         input.setBackground(null);
-        input.setPadding(0, ui.dp(4), 0, 0);
+        input.setMinHeight(ui.dp(36));
+        input.setMinimumHeight(ui.dp(36));
+        input.setPadding(0, ui.dp(2), 0, 0);
+        input.setGravity(Gravity.CENTER_VERTICAL);
+        input.setIncludeFontPadding(false);
         target.put(key, input);
         tile.addView(input, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
