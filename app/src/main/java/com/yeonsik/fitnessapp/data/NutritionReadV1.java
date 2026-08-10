@@ -10,6 +10,7 @@ public final class NutritionReadV1 {
 
     public final String nutritionFoodId;
     public final String name;
+    public final String brand;
     public final String kind;
     public final double basisAmount;
     public final String basisUnit;
@@ -24,6 +25,7 @@ public final class NutritionReadV1 {
     private NutritionReadV1(NutritionFood food) {
         this.nutritionFoodId = food.id;
         this.name = food.name;
+        this.brand = food.brand;
         this.kind = food.kind;
         this.basisAmount = food.basisAmount;
         this.basisUnit = food.basisUnit;

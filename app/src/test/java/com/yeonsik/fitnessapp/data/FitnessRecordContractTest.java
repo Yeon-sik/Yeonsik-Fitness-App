@@ -63,4 +63,24 @@ public final class FitnessRecordContractTest {
     public void rejectsEmptyMealMenuPresetName() {
         FitnessRepository.normalizeMealMenuPresetName("   ");
     }
+
+    @Test
+    public void acceptsAndNormalizesIsoBodyMetricDate() {
+        assertEquals("2026-08-10", FitnessRepository.requireRecordDate(" 2026-08-10 "));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsImpossibleBodyMetricDate() {
+        FitnessRepository.requireRecordDate("2026-02-30");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsNonPositiveBodyWeight() {
+        FitnessRepository.requireBodyWeight(0);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsNonFiniteBodyWeight() {
+        FitnessRepository.requireBodyWeight(Double.NaN);
+    }
 }

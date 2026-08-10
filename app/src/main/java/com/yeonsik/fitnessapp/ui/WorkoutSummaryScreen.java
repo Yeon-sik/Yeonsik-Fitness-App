@@ -35,7 +35,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
 
         FitnessRepository.SessionInfo info = repository().sessionInfo(recordId);
         boolean cardio = "cardio".equals(info.workoutType);
-        screenHeader("SUMMARY", cardio ? "유산소 요약" : "운동 요약");
+        screenHeader("완료 기록", cardio ? "유산소 요약" : "운동 요약");
 
         LinearLayout tiles = ui.tileRow();
         if (cardio) {

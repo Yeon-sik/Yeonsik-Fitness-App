@@ -19,6 +19,7 @@ import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionTotals;
+import com.yeonsik.fitnessapp.data.NutritionUnit;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -256,13 +257,18 @@ public final class MealDialogController {
     ) {
         LinearLayout body = ui.form();
         EditText quantity = ui.decimalInput(
-                "수량 (" + food.basisUnit + ")",
+                "수량 (" + NutritionUnit.display(food.basisUnit) + ")",
                 NutritionCalculator.trim(food.basisAmount)
         );
         ui.addAll(body, ui.text(
-                food.name + " · 기준 " + food.basisLabel() + " = " + food.extendedNutritionLabel(),
+                food.displayName() + " · 기준 " + food.basisLabel() + " = " + food.extendedNutritionLabel(),
                 13,
                 FitnessUi.COLOR_MUTED,
+                false
+        ), ui.text(
+                food.unitNutritionLabel(),
+                12,
+                FitnessUi.COLOR_TERTIARY,
                 false
         ), ui.text(
                 micronutrientSummary(food),
@@ -327,7 +333,7 @@ public final class MealDialogController {
                     : "유형: 외부 메뉴 (탭하여 재료)");
         });
         EditText basisAmount = ui.decimalInput("기준 수량", "100");
-        EditText basisUnit = ui.input("기준 단위 (예: g, ml, serving)", "g");
+        Button basisUnit = NutritionUnitSelector.create(ui, host.activity(), NutritionUnit.GRAM);
         Button prepStateButton = ui.button("", false, null);
         String[] selectedPrepState = {NutritionFood.PREP_UNSPECIFIED};
         prepStateButton.setText(prepStateButtonLabel(selectedPrepState[0]));
@@ -335,9 +341,14 @@ public final class MealDialogController {
             selectedPrepState[0] = nextPrepState(selectedPrepState[0]);
             prepStateButton.setText(prepStateButtonLabel(selectedPrepState[0]));
         });
-        EditText sourceReference = ui.input("출처/메모 (선택)", "");
-        EditText sourceVersion = ui.input("출처 버전 (선택, 예: MFDS 2024-03)", "");
         NutritionInputSection nutrients = new NutritionInputSection(ui, host.activity());
+        TextView unitNutritionPreview = ui.text(
+                "단위 영양성분: 기준량과 필수 영양성분을 입력하면 자동 계산됩니다.",
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        );
+        NutritionUnitPreview.bind(unitNutritionPreview, basisAmount, basisUnit, nutrients);
         ui.addAll(
                 body,
                 name,
@@ -352,8 +363,7 @@ public final class MealDialogController {
                         false
                 ),
                 nutrients.view(),
-                sourceReference,
-                sourceVersion
+                unitNutritionPreview
         );
 
         ScrollView bodyScroll = new ScrollView(host.activity());
@@ -376,12 +386,12 @@ public final class MealDialogController {
                                 FitnessUi.inputText(name),
                                 selectedKind[0],
                                 basis,
-                                FitnessUi.inputText(basisUnit),
+                                NutritionUnitSelector.value(basisUnit),
                                 selectedPrepState[0],
                                 nutrients.profile(),
                                 "manual",
-                                FitnessUi.inputText(sourceReference),
-                                FitnessUi.inputText(sourceVersion)
+                                "",
+                                ""
                         );
                         compositionItems.add(MealCompositionItem.from(saved, saved.basisAmount));
                         renderComposition(

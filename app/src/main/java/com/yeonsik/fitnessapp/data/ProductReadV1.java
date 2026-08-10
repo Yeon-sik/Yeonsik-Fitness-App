@@ -1,26 +1,30 @@
 package com.yeonsik.fitnessapp.data;
 
 import java.text.NumberFormat;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
-/** Read-only adapter for an exact PriceTrace catalog product. */
+/** Read-only adapter for a PriceTrace standard product and its representative offer. */
 public final class ProductReadV1 {
     public static final String CONTRACT_VERSION = "product-read.v1";
 
     public final String catalogProductId;
     public final String standardProductId;
     public final String name;
+    public final String brand;
     public final String sellerName;
     public final Integer latestObservedPriceKrw;
     public final String observedAt;
     public final Double contentAmount;
     public final String contentUnit;
     public final Integer packageCount;
+    private final List<ProductReadV1> catalogVariants;
 
     public ProductReadV1(
             String catalogProductId,
@@ -33,9 +37,64 @@ public final class ProductReadV1 {
             String contentUnit,
             Integer packageCount
     ) {
+        this(
+                catalogProductId,
+                standardProductId,
+                name,
+                null,
+                sellerName,
+                latestObservedPriceKrw,
+                observedAt,
+                contentAmount,
+                contentUnit,
+                packageCount
+        );
+    }
+
+    public ProductReadV1(
+            String catalogProductId,
+            String standardProductId,
+            String name,
+            String brand,
+            String sellerName,
+            Integer latestObservedPriceKrw,
+            String observedAt,
+            Double contentAmount,
+            String contentUnit,
+            Integer packageCount
+    ) {
+        this(
+                catalogProductId,
+                standardProductId,
+                name,
+                brand,
+                sellerName,
+                latestObservedPriceKrw,
+                observedAt,
+                contentAmount,
+                contentUnit,
+                packageCount,
+                Collections.emptyList()
+        );
+    }
+
+    private ProductReadV1(
+            String catalogProductId,
+            String standardProductId,
+            String name,
+            String brand,
+            String sellerName,
+            Integer latestObservedPriceKrw,
+            String observedAt,
+            Double contentAmount,
+            String contentUnit,
+            Integer packageCount,
+            List<ProductReadV1> catalogVariants
+    ) {
         this.catalogProductId = requireUuid(catalogProductId, "catalogProductId");
         this.standardProductId = optionalUuid(standardProductId, "standardProductId");
         this.name = requireText(name, "상품명");
+        this.brand = optionalText(brand);
         this.sellerName = optionalText(sellerName);
         if ((latestObservedPriceKrw == null) != (optionalText(observedAt) == null)) {
             throw new IllegalArgumentException("최근 관측가와 관측시각은 함께 있거나 함께 null이어야 합니다.");
@@ -48,6 +107,9 @@ public final class ProductReadV1 {
         this.contentAmount = contentAmount;
         this.contentUnit = optionalText(contentUnit);
         this.packageCount = packageCount;
+        this.catalogVariants = catalogVariants == null || catalogVariants.isEmpty()
+                ? Collections.emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(catalogVariants));
     }
 
     /**
@@ -58,6 +120,23 @@ public final class ProductReadV1 {
         String contract = stringValue(first(row, "contractVersion", "contract_version"));
         if (contract != null && !CONTRACT_VERSION.equals(contract)) {
             throw new IllegalArgumentException("지원하지 않는 PriceTrace 계약입니다: " + contract);
+        }
+
+        Map<String, ?> standardProduct = mapValue(first(
+                row,
+                "standardProduct",
+                "standard_product"
+        ));
+        Map<String, ?> catalogProduct = mapValue(first(
+                row,
+                "catalogProduct",
+                "catalog_product"
+        ));
+        if (standardProduct != null || catalogProduct != null) {
+            if (standardProduct == null || catalogProduct == null) {
+                throw new IllegalArgumentException("PriceTrace 표준상품과 규격상품 정보가 모두 필요합니다.");
+            }
+            return fromVersionedProduct(row, standardProduct, catalogProduct);
         }
 
         Object priceValue = first(
@@ -82,11 +161,23 @@ public final class ProductReadV1 {
         if (seller == null) {
             seller = stringValue(first(row, "sourceLabel", "source_label"));
         }
+        String brand = stringValue(first(row, "brand", "brandName", "brand_name"));
+        String name = productNameWithoutBrand(stringValue(first(
+                row,
+                "standardProductName",
+                "standard_product_name",
+                "standardName",
+                "standard_name",
+                "name",
+                "productName",
+                "product_name"
+        )), brand);
 
         return new ProductReadV1(
                 stringValue(first(row, "catalogProductId", "catalog_product_id")),
                 stringValue(first(row, "standardProductId", "standard_product_id")),
-                stringValue(first(row, "name", "standardName", "standard_name")),
+                name,
+                brand,
                 seller,
                 price,
                 observedAt,
@@ -96,28 +187,212 @@ public final class ProductReadV1 {
         );
     }
 
-    /** Case-insensitive display-name search with exact-ID de-duplication. */
+    /** Parses and validates the top-level product-read.v1 payload. */
+    public static List<ProductReadV1> fromContractMap(Map<String, ?> payload) {
+        String contract = stringValue(first(payload, "schemaVersion", "schema_version"));
+        if (!CONTRACT_VERSION.equals(contract)) {
+            throw new IllegalArgumentException("지원하지 않는 PriceTrace 계약입니다: " + contract);
+        }
+        String namespace = stringValue(first(payload, "namespace"));
+        if (!"pricetrace".equals(namespace)) {
+            throw new IllegalArgumentException("PriceTrace namespace가 올바르지 않습니다: " + namespace);
+        }
+        List<?> rows = listValue(first(payload, "products"));
+        if (rows == null) {
+            throw new IllegalArgumentException("PriceTrace 상품 목록이 필요합니다.");
+        }
+
+        List<ProductReadV1> products = new ArrayList<>();
+        for (Object value : rows) {
+            Map<String, ?> row = mapValue(value);
+            if (row == null) {
+                throw new IllegalArgumentException("PriceTrace 상품 형식이 올바르지 않습니다.");
+            }
+            products.add(fromMap(row));
+        }
+        return products;
+    }
+
+    private static ProductReadV1 fromVersionedProduct(
+            Map<String, ?> row,
+            Map<String, ?> standardProduct,
+            Map<String, ?> catalogProduct
+    ) {
+        DisplayNameParts displayName = displayNameParts(
+                stringValue(first(standardProduct, "name", "standardName", "standard_name")),
+                stringValue(first(standardProduct, "brand", "brandName", "brand_name")),
+                stringValue(first(catalogProduct, "name", "productName", "product_name"))
+        );
+        Map<String, ?> observation = firstMap(listValue(first(row, "observations")));
+        Map<String, ?> sellerProduct = firstMap(listValue(first(
+                row,
+                "sellerProducts",
+                "seller_products"
+        )));
+        String seller = observation == null
+                ? null
+                : stringValue(first(observation, "sellerLabel", "seller_label"));
+        if (seller == null && sellerProduct != null) {
+            seller = stringValue(first(sellerProduct, "sellerLabel", "seller_label"));
+        }
+
+        return new ProductReadV1(
+                stringValue(first(catalogProduct, "id", "catalogProductId", "catalog_product_id")),
+                stringValue(first(standardProduct, "id", "standardProductId", "standard_product_id")),
+                displayName.productName,
+                displayName.brand,
+                seller,
+                observation == null
+                        ? null
+                        : integerValue(first(observation, "listedPriceKrw", "listed_price_krw")),
+                observation == null
+                        ? null
+                        : stringValue(first(observation, "observedAt", "observed_at")),
+                doubleValue(first(catalogProduct, "contentAmount", "content_amount")),
+                stringValue(first(catalogProduct, "contentUnit", "content_unit")),
+                integerValue(first(catalogProduct, "packageCount", "package_count"))
+        );
+    }
+
+    /**
+     * Case-insensitive standard-product search.
+     *
+     * <p>The PriceTrace read projection may contain multiple package specifications for one
+     * standard product. Search results expose one standard product only. Exact catalog children
+     * remain internal so a nutrition link can be created only when one exact child is known.</p>
+     */
     public static List<ProductReadV1> search(List<ProductReadV1> products, String query, int limit) {
         String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         int safeLimit = limit <= 0 ? Integer.MAX_VALUE : limit;
-        Map<String, ProductReadV1> exactProducts = new LinkedHashMap<>();
+        Map<String, Map<String, ProductReadV1>> variantsByStandard = new LinkedHashMap<>();
         if (products != null) {
             for (ProductReadV1 product : products) {
-                if (product == null || !product.name.toLowerCase(Locale.ROOT).contains(term)) {
+                if (product == null || product.standardProductId == null) {
                     continue;
                 }
-                ProductReadV1 previous = exactProducts.get(product.catalogProductId);
-                if (previous == null
-                        || (previous.latestObservedPriceKrw == null
-                        && product.latestObservedPriceKrw != null)) {
-                    exactProducts.put(product.catalogProductId, product);
+                String searchable = product.brand == null
+                        ? product.name
+                        : product.brand + " " + product.name;
+                if (!searchable.toLowerCase(Locale.ROOT).contains(term)) {
+                    continue;
                 }
-                if (exactProducts.size() >= safeLimit) {
-                    break;
+                Map<String, ProductReadV1> variants = variantsByStandard.computeIfAbsent(
+                        product.standardProductId,
+                        ignored -> new LinkedHashMap<>()
+                );
+                ProductReadV1 previous = variants.get(product.catalogProductId);
+                if (previous == null || hasNewerObservation(product, previous)) {
+                    variants.put(product.catalogProductId, product);
                 }
             }
         }
-        return new ArrayList<>(exactProducts.values());
+        List<ProductReadV1> results = new ArrayList<>();
+        for (Map<String, ProductReadV1> variants : variantsByStandard.values()) {
+            ProductReadV1 representative = null;
+            for (ProductReadV1 variant : variants.values()) {
+                if (representative == null || hasNewerObservation(variant, representative)) {
+                    representative = variant;
+                }
+            }
+            if (representative == null) {
+                continue;
+            }
+            if (variants.size() == 1) {
+                results.add(representative);
+            } else {
+                results.add(representative.asStandardResult(new ArrayList<>(variants.values())));
+            }
+        }
+        if (results.size() <= safeLimit) {
+            return results;
+        }
+        return new ArrayList<>(results.subList(0, safeLimit));
+    }
+
+    private ProductReadV1 asStandardResult(List<ProductReadV1> variants) {
+        return new ProductReadV1(
+                catalogProductId,
+                standardProductId,
+                name,
+                brand,
+                sellerName,
+                latestObservedPriceKrw,
+                observedAt,
+                contentAmount,
+                contentUnit,
+                packageCount,
+                variants
+        );
+    }
+
+    /** True only for an exact product-read.v1 catalog row, never for an aggregated search row. */
+    public boolean isExactCatalogProduct() {
+        return catalogVariants.isEmpty();
+    }
+
+    public int catalogVariantCount() {
+        return catalogVariants.isEmpty() ? 1 : catalogVariants.size();
+    }
+
+    /** Exact rows backing a standard-only search result; child labels stay out of the UI. */
+    public List<ProductReadV1> exactCatalogVariants() {
+        return catalogVariants.isEmpty()
+                ? Collections.singletonList(this)
+                : catalogVariants;
+    }
+
+    /**
+     * Resolves an exact child only when the standard has one child or one child uniquely matches
+     * the entered nutrition basis. This prevents a 130 g child being linked to a 210 g entry.
+     */
+    public ProductReadV1 exactVariantForBasis(double basisAmount, String basisUnit) {
+        if (isExactCatalogProduct()) {
+            return this;
+        }
+        ProductReadV1 match = null;
+        for (ProductReadV1 variant : catalogVariants) {
+            if (variant.contentAmount == null || variant.contentUnit == null
+                    || !NutritionUnit.areCompatible(variant.contentUnit, basisUnit)) {
+                continue;
+            }
+            double converted;
+            try {
+                converted = NutritionUnit.convert(
+                        variant.contentAmount,
+                        variant.contentUnit,
+                        basisUnit
+                );
+            } catch (IllegalArgumentException ignored) {
+                continue;
+            }
+            double tolerance = Math.max(0.000001, Math.abs(basisAmount) * 0.000001);
+            if (Math.abs(converted - basisAmount) > tolerance) {
+                continue;
+            }
+            if (match != null) {
+                return null;
+            }
+            match = variant;
+        }
+        return match;
+    }
+
+    private static boolean hasNewerObservation(
+            ProductReadV1 candidate,
+            ProductReadV1 previous
+    ) {
+        if (candidate.latestObservedPriceKrw == null) {
+            return false;
+        }
+        if (previous.latestObservedPriceKrw == null) {
+            return true;
+        }
+        try {
+            return OffsetDateTime.parse(candidate.observedAt).toInstant()
+                    .isAfter(OffsetDateTime.parse(previous.observedAt).toInstant());
+        } catch (Exception ignored) {
+            return candidate.observedAt.compareTo(previous.observedAt) > 0;
+        }
     }
 
     public String specificationLabel() {
@@ -139,10 +414,14 @@ public final class ProductReadV1 {
                 + "원 · 관측 " + observedAt;
     }
 
+    /** The only standard-product identity shown in the Fitness app UI. */
+    public String standardProductLabel() {
+        return brand == null ? name : brand + " · " + name;
+    }
+
     public String exactSelectionLabel() {
-        return name + " · " + specificationLabel()
-                + "\n" + priceObservationLabel()
-                + "\ncatalogProductId: " + catalogProductId;
+        return standardProductLabel() + " · " + specificationLabel()
+                + "\n" + priceObservationLabel();
     }
 
     private static Object first(Map<String, ?> row, String... keys) {
@@ -155,6 +434,139 @@ public final class ProductReadV1 {
             }
         }
         return null;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, ?> mapValue(Object value) {
+        return value instanceof Map ? (Map<String, ?>) value : null;
+    }
+
+    private static List<?> listValue(Object value) {
+        return value instanceof List ? (List<?>) value : null;
+    }
+
+    private static Map<String, ?> firstMap(List<?> values) {
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+        return mapValue(values.get(0));
+    }
+
+    /** Uses only the explicit PriceTrace brand field; it never guesses a brand from a title. */
+    private static String productNameWithoutBrand(String rawName, String rawBrand) {
+        String name = requireText(rawName, "상품명");
+        String brand = optionalText(rawBrand);
+        if (brand == null) {
+            return name;
+        }
+
+        String[] prefixes = {
+                brand,
+                "[" + brand + "]",
+                "(" + brand + ")",
+                "【" + brand + "】"
+        };
+        for (String prefix : prefixes) {
+            if (!name.regionMatches(true, 0, prefix, 0, prefix.length())) {
+                continue;
+            }
+            int start = prefix.length();
+            while (start < name.length() && isBrandSeparator(name.charAt(start))) {
+                start++;
+            }
+            String productName = name.substring(start).trim();
+            if (!productName.isEmpty()) {
+                return productName;
+            }
+        }
+        return name;
+    }
+
+    /**
+     * Uses the explicit brand first. If it is absent, the catalog-product name must independently
+     * corroborate the product-name suffix before the standard-name prefix is treated as a brand.
+     */
+    private static DisplayNameParts displayNameParts(
+            String rawStandardName,
+            String rawBrand,
+            String rawCatalogName
+    ) {
+        String standardName = requireText(rawStandardName, "상품명");
+        String explicitBrand = optionalText(rawBrand);
+        if (explicitBrand != null) {
+            return new DisplayNameParts(
+                    explicitBrand,
+                    productNameWithoutBrand(standardName, explicitBrand)
+            );
+        }
+
+        String catalogName = optionalText(rawCatalogName);
+        if (catalogName == null) {
+            return new DisplayNameParts(null, standardName);
+        }
+        for (int index = 1; index < standardName.length(); index++) {
+            if (!isBrandSeparator(standardName.charAt(index - 1))) {
+                continue;
+            }
+            String inferredBrand = trimBrandSeparators(standardName.substring(0, index));
+            String candidateProductName = trimBrandSeparators(standardName.substring(index));
+            if (inferredBrand.isEmpty() || candidateProductName.isEmpty()) {
+                continue;
+            }
+            if (catalogProductStartsWith(catalogName, candidateProductName)) {
+                return new DisplayNameParts(inferredBrand, candidateProductName);
+            }
+        }
+        return new DisplayNameParts(null, standardName);
+    }
+
+    private static boolean catalogProductStartsWith(String catalogName, String productName) {
+        if (!catalogName.regionMatches(true, 0, productName, 0, productName.length())) {
+            return false;
+        }
+        if (catalogName.length() == productName.length()) {
+            return true;
+        }
+        char next = catalogName.charAt(productName.length());
+        return isBrandSeparator(next)
+                || Character.isDigit(next)
+                || next == '('
+                || next == '[';
+    }
+
+    private static String trimBrandSeparators(String value) {
+        int start = 0;
+        int end = value.length();
+        while (start < end && isBrandSeparator(value.charAt(start))) {
+            start++;
+        }
+        while (end > start && isBrandSeparator(value.charAt(end - 1))) {
+            end--;
+        }
+        return value.substring(start, end).trim();
+    }
+
+    private static final class DisplayNameParts {
+        private final String brand;
+        private final String productName;
+
+        private DisplayNameParts(String brand, String productName) {
+            this.brand = brand;
+            this.productName = productName;
+        }
+    }
+
+    private static boolean isBrandSeparator(char value) {
+        return Character.isWhitespace(value)
+                || value == '·'
+                || value == '•'
+                || value == '-'
+                || value == '–'
+                || value == '—'
+                || value == ':'
+                || value == '/'
+                || value == '|'
+                || value == '_';
     }
 
     private static String stringValue(Object value) {

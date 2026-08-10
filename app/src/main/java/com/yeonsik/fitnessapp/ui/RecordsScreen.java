@@ -35,40 +35,65 @@ public final class RecordsScreen extends BaseScreen {
         this.monthSummaries = new java.util.HashMap<>();
     }
 
+    /** 자정 전까지 오늘을 보고 있었다면 새 날짜로 자연스럽게 이동한다. */
+    public void onDateChanged(String previousDate, String currentDate) {
+        if (selectedDate.equals(previousDate)) {
+            selectedDate = currentDate;
+            visibleMonth = LocalDate.parse(currentDate).withDayOfMonth(1);
+        }
+    }
+
     @Override
     public void render() {
         FitnessUi ui = ui();
         monthSummaries = repository().calendarSummaries(
                 visibleMonth.toString(),
                 visibleMonth.withDayOfMonth(visibleMonth.lengthOfMonth()).toString());
-        screenHeader("RECORDS", "기록");
+        screenHeader("활동 아카이브", "기록");
 
         add(calendar());
 
         String dateHeading = LocalDate.parse(selectedDate)
                 .format(DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN));
         section(dateHeading);
-        renderSessionRecords(selectedDate);
-
-        section("체중");
-        List<View> weightRows = new ArrayList<>();
-        for (FitnessRepository.BodyMetricEntry metric : repository().bodyMetricEntriesForDate(selectedDate)) {
-            weightRows.add(weightRow(metric));
+        List<FitnessRepository.SessionRecordEntry> sessions = repository().sessionEntriesForDate(selectedDate);
+        List<FitnessRepository.BodyMetricEntry> bodyMetrics =
+                repository().bodyMetricEntriesForDate(selectedDate);
+        List<FitnessRepository.MealEntry> meals = repository().mealEntriesForDate(selectedDate);
+        if (sessions.isEmpty() && bodyMetrics.isEmpty() && meals.isEmpty()) {
+            emptyState("선택한 날짜의 기록이 없습니다.", "운동, 체중, 식사를 기록하면 여기에 모입니다.");
+            return;
         }
-        if (weightRows.isEmpty()) {
-            emptyState("선택한 날짜의 체중 기록이 없습니다.", null);
-        } else {
+
+        if (!sessions.isEmpty()) {
+            section("운동");
+            renderSessionRecords(sessions);
+        }
+
+        if (!bodyMetrics.isEmpty()) {
+            section("체중");
+            List<View> weightRows = new ArrayList<>();
+            for (FitnessRepository.BodyMetricEntry metric : bodyMetrics) {
+                weightRows.add(weightRow(metric));
+            }
             add(ui.rowsCard(weightRows));
         }
 
-        section("식단");
-        List<View> mealRows = new ArrayList<>();
-        for (String meal : repository().mealsForDate(selectedDate)) {
-            mealRows.add(ui.recordListRow("식", FitnessUi.stripLeadingDate(meal), "식단", null));
-        }
-        if (mealRows.isEmpty()) {
-            emptyState("선택한 날짜의 식단 기록이 없습니다.", null);
-        } else {
+        if (!meals.isEmpty()) {
+            section("식단", "상세 보기", () ->
+                    host.openMealManagement(selectedDate, FitnessScreen.RECORDS));
+            List<View> mealRows = new ArrayList<>();
+            for (FitnessRepository.MealEntry meal : meals) {
+                View row = ui.recordListRow(
+                        "식",
+                        meal.previewTitle,
+                        meal.previewSubtitle(),
+                        v -> host.openMealManagement(selectedDate, FitnessScreen.RECORDS)
+                );
+                row.setContentDescription(meal.previewAccessibilityLabel()
+                        + ". 탭하여 식단 관리를 엽니다.");
+                mealRows.add(row);
+            }
             add(ui.rowsCard(mealRows));
         }
     }
@@ -84,16 +109,24 @@ public final class RecordsScreen extends BaseScreen {
             visibleMonth = visibleMonth.minusMonths(1);
             host.rerender();
         });
+        previous.setContentDescription("이전 달");
         TextView title = ui.text(visibleMonth.format(DateTimeFormatter.ofPattern("yyyy년 M월", Locale.KOREAN)),
                 18, FitnessUi.COLOR_TEXT, true);
         title.setGravity(Gravity.CENTER);
-        monthHeader.addView(previous, new LinearLayout.LayoutParams(ui.dp(42), LinearLayout.LayoutParams.WRAP_CONTENT));
+        monthHeader.addView(previous, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
         monthHeader.addView(title, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        LocalDate currentMonth = LocalDate.parse(host.today()).withDayOfMonth(1);
+        boolean canMoveNext = visibleMonth.isBefore(currentMonth);
         TextView next = ui.textAction("›", FitnessUi.COLOR_MUTED, () -> {
-            visibleMonth = visibleMonth.plusMonths(1);
-            host.rerender();
+            if (canMoveNext) {
+                visibleMonth = visibleMonth.plusMonths(1);
+                host.rerender();
+            }
         });
-        monthHeader.addView(next, new LinearLayout.LayoutParams(ui.dp(42), LinearLayout.LayoutParams.WRAP_CONTENT));
+        next.setContentDescription("다음 달");
+        next.setEnabled(canMoveNext);
+        next.setAlpha(canMoveNext ? 1f : 0.35f);
+        monthHeader.addView(next, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
         card.addView(monthHeader);
 
         LinearLayout weekdays = new LinearLayout(host.activity());
@@ -139,6 +172,27 @@ public final class RecordsScreen extends BaseScreen {
 
         DaySummary summary = summarize(date);
         boolean selected = date.toString().equals(selectedDate);
+        cell.setSelected(selected);
+        List<String> recordTypes = new ArrayList<>();
+        if (summary.hasWorkout) {
+            recordTypes.add("운동");
+        }
+        if (summary.hasMeal) {
+            recordTypes.add("식사");
+        }
+        if (summary.hasWeight) {
+            recordTypes.add("체중");
+        }
+        String recordDescription = recordTypes.isEmpty()
+                ? "기록 없음"
+                : String.join(", ", recordTypes) + " 기록";
+        if (!summary.muscles.isEmpty()) {
+            recordDescription += ", " + summary.muscles;
+        }
+        cell.setContentDescription(
+                date.format(DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN))
+                        + ", " + recordDescription + (selected ? ", 선택됨" : "")
+        );
         String daySeed = "calendar-" + date.getDayOfWeek();
         cell.setBackground(selected
                 ? ui.vibrantRippleDrawable(daySeed, ui.dp(10))
@@ -219,7 +273,7 @@ public final class RecordsScreen extends BaseScreen {
                     ? String.join("·", muscles).substring(0, 8)
                     : String.join("·", muscles);
         }
-        return new DaySummary(!sessions.isEmpty(), !repository().mealsForDate(value).isEmpty(),
+        return new DaySummary(!sessions.isEmpty(), repository().mealCountForDate(value) > 0,
                 !repository().bodyMetricEntriesForDate(value).isEmpty(), muscleLabel);
     }
 
@@ -273,14 +327,7 @@ public final class RecordsScreen extends BaseScreen {
      * 세션은 루틴 이름만 컴팩트하게 보여준다. 카드 탭 = 운동 요약으로 이동,
      * 종목·세트 상세는 요약 화면에서 확인한다. 삭제는 카드 우측 액션으로 유지한다.
      */
-    private void renderSessionRecords(String date) {
-        FitnessUi ui = ui();
-        List<FitnessRepository.SessionRecordEntry> sessions = repository().sessionEntriesForDate(date);
-        if (sessions.isEmpty()) {
-            emptyState("선택한 날짜의 운동 기록이 없습니다.", null);
-            return;
-        }
-
+    private void renderSessionRecords(List<FitnessRepository.SessionRecordEntry> sessions) {
         for (FitnessRepository.SessionRecordEntry session : sessions) {
             add(sessionSummaryCard(session));
         }

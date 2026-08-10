@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 10;
+    public static final int DATABASE_VERSION = 15;
 
     public FitnessDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -19,7 +19,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createCardioTables(db);
         createMealMenuPresetTable(db);
         createNutritionTables(db);
+        createNutritionIndexes(db);
         createProductNutritionLinkTables(db);
+        createAthleteNutritionTables(db);
     }
 
     private void createSharedRecordTables(SQLiteDatabase db) {
@@ -167,6 +169,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     private void createCardioTables(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS cardio_sessions (" +
                 "record_id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
                 "activity_type TEXT NOT NULL, " +
                 "status TEXT NOT NULL, " +
                 "started_at_epoch_ms INTEGER NOT NULL, " +
@@ -183,14 +186,15 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE TABLE IF NOT EXISTS cardio_route_points (" +
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, " +
                 "record_id TEXT NOT NULL, " +
+                "user_id TEXT NOT NULL, " +
                 "captured_at_epoch_ms INTEGER NOT NULL, " +
                 "latitude REAL NOT NULL, " +
                 "longitude REAL NOT NULL, " +
                 "accuracy_meters REAL NOT NULL, " +
                 "speed_mps REAL, " +
                 "segment_distance_meters REAL NOT NULL DEFAULT 0)");
-        db.execSQL("CREATE INDEX IF NOT EXISTS cardio_sessions_status_started_idx " +
-                "ON cardio_sessions(status, started_at_epoch_ms)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS cardio_sessions_user_status_started_idx " +
+                "ON cardio_sessions(user_id, status, started_at_epoch_ms)");
         db.execSQL("CREATE INDEX IF NOT EXISTS cardio_route_points_record_time_idx " +
                 "ON cardio_route_points(record_id, captured_at_epoch_ms)");
     }
@@ -198,15 +202,17 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     private void createMealMenuPresetTable(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS meal_menu_presets (" +
                 "id TEXT PRIMARY KEY, " +
-                "name TEXT NOT NULL COLLATE NOCASE UNIQUE, " +
+                "user_id TEXT NOT NULL, " +
+                "name TEXT NOT NULL COLLATE NOCASE, " +
                 "calories INTEGER, " +
                 "protein_grams REAL, " +
                 "carbs_grams REAL, " +
                 "fat_grams REAL, " +
                 "created_at TEXT NOT NULL, " +
-                "updated_at TEXT NOT NULL)");
+                "updated_at TEXT NOT NULL, " +
+                "UNIQUE(user_id, name))");
         db.execSQL("CREATE INDEX IF NOT EXISTS meal_menu_presets_updated_idx " +
-                "ON meal_menu_presets(updated_at DESC)");
+                "ON meal_menu_presets(user_id, updated_at DESC)");
     }
 
     /**
@@ -225,10 +231,13 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "id TEXT PRIMARY KEY, " +
                 "owner_id TEXT, " +
                 "name TEXT NOT NULL, " +
+                "brand TEXT, " +
                 "kind TEXT NOT NULL, " +
+                "category TEXT NOT NULL DEFAULT 'other', " +
                 "basis_amount REAL NOT NULL, " +
                 "basis_unit TEXT NOT NULL, " +
                 "prep_state TEXT NOT NULL DEFAULT 'unspecified', " +
+                "cooking_method TEXT NOT NULL DEFAULT 'unspecified', " +
                 "calories_kcal REAL NOT NULL DEFAULT 0, " +
                 "protein_grams REAL NOT NULL DEFAULT 0, " +
                 "carbs_grams REAL NOT NULL DEFAULT 0, " +
@@ -277,6 +286,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "meal_record_id TEXT NOT NULL, " +
                 "food_id TEXT, " +
                 "food_name_snapshot TEXT NOT NULL, " +
+                "brand_snapshot TEXT, " +
                 "food_kind_snapshot TEXT, " +
                 "quantity REAL NOT NULL, " +
                 "unit TEXT NOT NULL, " +
@@ -316,9 +326,64 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "deleted_at TEXT, " +
                 "device_id TEXT NOT NULL, " +
                 "UNIQUE(meal_record_item_id, nutrient_code))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS meal_record_item_components (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "meal_record_id TEXT NOT NULL, " +
+                "meal_record_item_id TEXT NOT NULL, " +
+                "food_id TEXT, " +
+                "food_name_snapshot TEXT NOT NULL, " +
+                "brand_snapshot TEXT, " +
+                "food_kind_snapshot TEXT, " +
+                "quantity REAL NOT NULL, " +
+                "unit TEXT NOT NULL, " +
+                "basis_amount_snapshot REAL, " +
+                "basis_unit_snapshot TEXT, " +
+                "prep_state_snapshot TEXT, " +
+                "calories REAL NOT NULL DEFAULT 0, " +
+                "protein_grams REAL NOT NULL DEFAULT 0, " +
+                "carbs_grams REAL NOT NULL DEFAULT 0, " +
+                "fat_grams REAL NOT NULL DEFAULT 0, " +
+                "sodium_mg REAL, " +
+                "saturated_fat_grams REAL, " +
+                "sugars_grams REAL, " +
+                "fiber_grams REAL, " +
+                "added_sugars_grams REAL, " +
+                "trans_fat_grams REAL, " +
+                "cholesterol_mg REAL, " +
+                "source_type_snapshot TEXT, " +
+                "source_reference_snapshot TEXT, " +
+                "source_version_snapshot TEXT, " +
+                "food_data_version_snapshot INTEGER, " +
+                "order_index INTEGER NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS meal_record_item_component_nutrients (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "meal_record_id TEXT NOT NULL, " +
+                "meal_record_item_id TEXT NOT NULL, " +
+                "meal_record_item_component_id TEXT NOT NULL, " +
+                "nutrient_code TEXT NOT NULL, " +
+                "amount REAL NOT NULL, " +
+                "unit TEXT NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, " +
+                "UNIQUE(meal_record_item_component_id, nutrient_code))");
 
+    }
+
+    private void createNutritionIndexes(SQLiteDatabase db) {
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_name_idx " +
                 "ON nutrition_foods(owner_id, name COLLATE NOCASE)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_brand_name_idx " +
+                "ON nutrition_foods(owner_id, brand COLLATE NOCASE, name COLLATE NOCASE)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_category_idx " +
+                "ON nutrition_foods(owner_id, category, cooking_method, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_visibility_name_idx " +
                 "ON nutrition_foods(visibility, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_food_nutrients_food_idx " +
@@ -331,6 +396,15 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON meal_record_item_nutrients(meal_record_item_id, nutrient_code)");
         db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_nutrients_meal_idx " +
                 "ON meal_record_item_nutrients(meal_record_id, nutrient_code)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_components_parent_order_idx " +
+                "ON meal_record_item_components(meal_record_item_id, order_index)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_components_meal_idx " +
+                "ON meal_record_item_components(meal_record_id, meal_record_item_id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_component_nutrients_component_idx " +
+                "ON meal_record_item_component_nutrients(" +
+                "meal_record_item_component_id, nutrient_code)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_component_nutrients_meal_idx " +
+                "ON meal_record_item_component_nutrients(meal_record_id, nutrient_code)");
     }
 
     /**
@@ -346,6 +420,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "owner_id TEXT NOT NULL, " +
                 "nutrition_food_id TEXT NOT NULL, " +
                 "catalog_product_id TEXT NOT NULL, " +
+                "standard_product_id TEXT, " +
                 "status TEXT NOT NULL, " +
                 "source_type TEXT NOT NULL, " +
                 "proposal_reference TEXT, " +
@@ -368,6 +443,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "catalog_product_id TEXT PRIMARY KEY, " +
                 "standard_product_id TEXT, " +
                 "product_name TEXT NOT NULL, " +
+                "brand_name TEXT, " +
                 "seller_name TEXT, " +
                 "latest_price_krw INTEGER, " +
                 "price_observed_at TEXT, " +
@@ -378,6 +454,44 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "fetched_at TEXT NOT NULL, " +
                 "CHECK ((latest_price_krw IS NULL AND price_observed_at IS NULL) " +
                 "OR (latest_price_krw IS NOT NULL AND price_observed_at IS NOT NULL)))");
+    }
+
+    /**
+     * 선수용 일일 영양 루프의 로컬 데이터.
+     *
+     * <p>목표값은 사용자가 코치·영양사와 정한 값을 저장할 뿐 자동 처방하지 않는다. 체크인은
+     * 식사 스냅샷과 분리해 수분·수면·주관적 컨디션을 날짜별로 한 번만 기록한다.</p>
+     */
+    private void createAthleteNutritionTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS nutrition_goals (" +
+                "user_id TEXT PRIMARY KEY, " +
+                "phase TEXT NOT NULL, " +
+                "calories_kcal REAL NOT NULL, " +
+                "protein_grams REAL NOT NULL, " +
+                "carbs_grams REAL NOT NULL, " +
+                "fat_grams REAL NOT NULL, " +
+                "fiber_grams REAL NOT NULL, " +
+                "sodium_mg REAL NOT NULL, " +
+                "water_ml INTEGER NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL)");
+
+        db.execSQL("CREATE TABLE IF NOT EXISTS nutrition_daily_checkins (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "date TEXT NOT NULL, " +
+                "water_ml INTEGER NOT NULL DEFAULT 0, " +
+                "sleep_hours REAL, " +
+                "energy_score INTEGER, " +
+                "hunger_score INTEGER, " +
+                "digestion_score INTEGER, " +
+                "training_readiness_score INTEGER, " +
+                "note TEXT, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "UNIQUE(user_id, date))");
+        db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_daily_checkins_user_date_idx " +
+                "ON nutrition_daily_checkins(user_id, date DESC)");
     }
 
     /**
@@ -429,6 +543,19 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "WHERE basis_unit_snapshot IS NULL");
     }
 
+    /**
+     * Existing meal items already represent top-level consumed entries. Version 15 formalizes
+     * them as menus and adds immutable ingredient snapshots for newly recorded composed menus.
+     */
+    private void upgradeMealMenuHierarchy(SQLiteDatabase db) {
+        addColumnIfMissing(db, "meal_record_items", "brand_snapshot", "TEXT");
+        createNutritionTables(db);
+        db.execSQL("UPDATE meal_record_items SET brand_snapshot = (" +
+                "SELECT f.brand FROM nutrition_foods f " +
+                "WHERE f.id = meal_record_items.food_id) " +
+                "WHERE brand_snapshot IS NULL AND food_id IS NOT NULL");
+    }
+
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
         if (oldVersion < 2) {
@@ -467,6 +594,75 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 10) {
             addColumnIfMissing(db, "nutrition_foods", "revision", "INTEGER NOT NULL DEFAULT 1");
             createProductNutritionLinkTables(db);
+        }
+        if (oldVersion < 11) {
+            addColumnIfMissing(db, "nutrition_foods", "brand", "TEXT");
+            addColumnIfMissing(db, "product_nutrition_links", "standard_product_id", "TEXT");
+            addColumnIfMissing(db, "pricetrace_product_cache", "brand_name", "TEXT");
+            db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_brand_name_idx " +
+                    "ON nutrition_foods(owner_id, brand COLLATE NOCASE, name COLLATE NOCASE)");
+        }
+        if (oldVersion < 12) {
+            addColumnIfMissing(db, "nutrition_foods", "category", "TEXT NOT NULL DEFAULT 'other'");
+            addColumnIfMissing(
+                    db,
+                    "nutrition_foods",
+                    "cooking_method",
+                    "TEXT NOT NULL DEFAULT 'unspecified'"
+            );
+            db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_category_idx " +
+                    "ON nutrition_foods(owner_id, category, cooking_method, name COLLATE NOCASE)");
+        }
+        if (oldVersion < 13) {
+            createAthleteNutritionTables(db);
+        }
+        if (oldVersion < 14) {
+            upgradeLocalAccountIsolation(db);
+        }
+        if (oldVersion < 15) {
+            upgradeMealMenuHierarchy(db);
+        }
+        createNutritionIndexes(db);
+    }
+
+    /** Adds explicit ownership to device-local tables and removes the global preset-name key. */
+    private void upgradeLocalAccountIsolation(SQLiteDatabase db) {
+        addColumnIfMissing(
+                db,
+                "cardio_sessions",
+                "user_id",
+                "TEXT NOT NULL DEFAULT 'local-user'"
+        );
+        db.execSQL("UPDATE cardio_sessions SET user_id = COALESCE((" +
+                "SELECT wr.user_id FROM workout_records wr " +
+                "WHERE wr.id = cardio_sessions.record_id LIMIT 1" +
+                "), user_id)");
+
+        addColumnIfMissing(
+                db,
+                "cardio_route_points",
+                "user_id",
+                "TEXT NOT NULL DEFAULT 'local-user'"
+        );
+        db.execSQL("UPDATE cardio_route_points SET user_id = COALESCE((" +
+                "SELECT cs.user_id FROM cardio_sessions cs " +
+                "WHERE cs.record_id = cardio_route_points.record_id LIMIT 1" +
+                "), user_id)");
+        db.execSQL("DROP INDEX IF EXISTS cardio_sessions_status_started_idx");
+        db.execSQL("CREATE INDEX IF NOT EXISTS cardio_sessions_user_status_started_idx " +
+                "ON cardio_sessions(user_id, status, started_at_epoch_ms)");
+
+        if (tableExists(db, "meal_menu_presets")
+                && !hasColumn(db, "meal_menu_presets", "user_id")) {
+            db.execSQL("ALTER TABLE meal_menu_presets RENAME TO meal_menu_presets_v13");
+            db.execSQL("DROP INDEX IF EXISTS meal_menu_presets_updated_idx");
+            createMealMenuPresetTable(db);
+            db.execSQL("INSERT INTO meal_menu_presets (" +
+                    "id, user_id, name, calories, protein_grams, carbs_grams, fat_grams, " +
+                    "created_at, updated_at) " +
+                    "SELECT id, 'local-user', name, calories, protein_grams, carbs_grams, " +
+                    "fat_grams, created_at, updated_at FROM meal_menu_presets_v13");
+            db.execSQL("DROP TABLE meal_menu_presets_v13");
         }
     }
 

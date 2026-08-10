@@ -14,6 +14,15 @@ public final class NutritionCalculator {
      * 0으로 채우지 않고 모름으로 남는다.</p>
      */
     public static NutritionProfile forQuantity(NutritionFood food, double quantity) {
+        return forQuantity(food, quantity, food == null ? null : food.basisUnit);
+    }
+
+    /** Calculates a meal amount after converting the entered quantity to the food basis unit. */
+    public static NutritionProfile forQuantity(
+            NutritionFood food,
+            double quantity,
+            String quantityUnit
+    ) {
         if (food == null) {
             throw new IllegalArgumentException("Food is required.");
         }
@@ -23,7 +32,43 @@ public final class NutritionCalculator {
         if (quantity < 0) {
             throw new IllegalArgumentException("Quantity cannot be negative.");
         }
-        return food.profile.scaled(quantity / food.basisAmount);
+        double quantityInBasisUnit = NutritionUnit.convert(
+                quantity,
+                quantityUnit == null ? food.basisUnit : quantityUnit,
+                food.basisUnit
+        );
+        return food.profile.scaled(quantityInBasisUnit / food.basisAmount);
+    }
+
+    /** Calculates nutrition for one practical unit (1g, 1ml, or 1 serving). */
+    public static NutritionProfile perUnitProfile(
+            NutritionProfile profile,
+            double basisAmount,
+            String basisUnit
+    ) {
+        if (profile == null) {
+            throw new IllegalArgumentException("Nutrition profile is required.");
+        }
+        if (basisAmount <= 0) {
+            throw new IllegalArgumentException("Nutrition basis amount must be greater than zero.");
+        }
+        String unit = NutritionUnit.perUnit(basisUnit);
+        double basisInUnit = NutritionUnit.convert(basisAmount, basisUnit, unit);
+        return profile.scaled(1 / basisInUnit);
+    }
+
+    public static String unitNutritionLabel(
+            NutritionProfile profile,
+            double basisAmount,
+            String basisUnit
+    ) {
+        String unit = NutritionUnit.perUnit(basisUnit);
+        NutritionProfile perUnit = perUnitProfile(profile, basisAmount, basisUnit);
+        return "단위 영양성분 · 1" + NutritionUnit.display(unit) + " 기준: "
+                + trim(perUnit.calories()) + "kcal · P "
+                + trim(perUnit.proteinGrams()) + "g · C "
+                + trim(perUnit.carbsGrams()) + "g · F "
+                + trim(perUnit.fatGrams()) + "g";
     }
 
     /** 식사 구성 전체의 영양소 합계. 모름 항목 수를 함께 보존한다. */

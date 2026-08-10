@@ -20,6 +20,8 @@ public final class ProductNutritionLinkContractTest {
         assertTrue(Arrays.asList(NutritionCatalogRepository.PRODUCT_LINK_SYNC_COLUMNS)
                 .contains("catalog_product_id"));
         assertTrue(Arrays.asList(NutritionCatalogRepository.PRODUCT_LINK_SYNC_COLUMNS)
+                .contains("standard_product_id"));
+        assertTrue(Arrays.asList(NutritionCatalogRepository.PRODUCT_LINK_SYNC_COLUMNS)
                 .contains("product_contract_version"));
         assertFalse(Arrays.asList(NutritionCatalogRepository.PRODUCT_LINK_SYNC_COLUMNS)
                 .contains("latest_price_krw"));
@@ -48,6 +50,19 @@ public final class ProductNutritionLinkContractTest {
         assertFalse(sql.contains("alter table public.meal_record_items"));
     }
 
+    @Test
+    public void identityMigrationAddsBrandAndVersionedReadProjection() throws Exception {
+        String sql = new String(Files.readAllBytes(findIdentityMigration()), StandardCharsets.UTF_8);
+
+        assertTrue(sql.contains("add column if not exists brand text"));
+        assertTrue(sql.contains("add column if not exists standard_product_id uuid"));
+        assertTrue(sql.contains("new.brand"));
+        assertTrue(sql.contains("get_nutrition_read_v2"));
+        assertTrue(sql.contains("'nutrition-read.v2'::text"));
+        assertTrue(sql.contains("food.brand"));
+        assertTrue(sql.contains("approved.standard_product_id"));
+    }
+
     private static Path findMigration() {
         Path fromRoot = Paths.get(
                 "supabase", "nutrition", "supabase", "migrations",
@@ -61,6 +76,22 @@ public final class ProductNutritionLinkContractTest {
             return fromModule;
         }
         throw new IllegalStateException("Product nutrition migration not found from "
+                + Paths.get("").toAbsolutePath());
+    }
+
+    private static Path findIdentityMigration() {
+        Path fromRoot = Paths.get(
+                "supabase", "nutrition", "supabase", "migrations",
+                "20260809100000_nutrition_external_menu_identity.sql"
+        );
+        if (Files.exists(fromRoot)) {
+            return fromRoot;
+        }
+        Path fromModule = Paths.get("..", fromRoot.toString()).normalize();
+        if (Files.exists(fromModule)) {
+            return fromModule;
+        }
+        throw new IllegalStateException("Nutrition identity migration not found from "
                 + Paths.get("").toAbsolutePath());
     }
 }

@@ -21,6 +21,7 @@ public final class MealItemSnapshot {
 
     public final String foodId;
     public final String foodNameSnapshot;
+    public final String brandSnapshot;
     public final String foodKindSnapshot;
     public final double quantity;
     public final String unit;
@@ -38,6 +39,7 @@ public final class MealItemSnapshot {
         NutritionFood food = item.food;
         this.foodId = food.id;
         this.foodNameSnapshot = food.name;
+        this.brandSnapshot = food.brand;
         this.foodKindSnapshot = food.kind;
         this.quantity = item.quantity;
         this.unit = food.basisUnit;

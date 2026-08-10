@@ -88,6 +88,12 @@ public interface ScreenHost {
 
     void openMealManagement();
 
+    void openMealManagement(String date);
+
+    void openMealManagement(String date, FitnessScreen returnScreen);
+
+    void openSettingsConnections();
+
     /** 세트 완료 시 휴식 타이머를 시작한다. null 또는 0 이하이면 기본 90초. */
     void startRestTimer(Integer restSeconds);
 
@@ -105,6 +111,16 @@ public interface ScreenHost {
     boolean isDataImporting();
 
     String dataImportDetail();
+
+    void createLocalBackup();
+
+    void restoreLocalBackup();
+
+    void exportRecordsCsv();
+
+    boolean isDataTransferInProgress();
+
+    String dataTransferDetail();
 
     SupabaseConfig supabaseConfig();
 
@@ -141,6 +157,13 @@ public interface ScreenHost {
     void loadPriceTraceProduct(String catalogProductId, ProductLoadCallback callback);
 
     void syncNutritionCatalog(NutritionCatalogRepository.SyncCallback callback);
+
+    void setNutritionFoodPublication(
+            String nutritionFoodId,
+            String catalogProductId,
+            boolean publish,
+            NutritionCatalogRepository.PublicationCallback callback
+    );
 
     void runManualSync();
 

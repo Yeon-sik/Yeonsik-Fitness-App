@@ -13,7 +13,7 @@ public final class CardioScreen extends BaseScreen {
     public void render() {
         add(ui().textAction("‹ 피트니스", FitnessUi.COLOR_MUTED,
                 () -> host.navigate(FitnessScreen.WORKOUT)), ui().fullWidthParams(0));
-        screenHeader("CARDIO", "유산소");
+        screenHeader("지속 운동", "유산소");
 
         section("GPS 유산소");
         add(ui().button("걷기 시작", false,

@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
 import android.animation.ValueAnimator;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.Dialog;
 import android.content.res.ColorStateList;
@@ -45,8 +46,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -61,7 +60,7 @@ public final class FitnessUi {
     public static final int COLOR_SURFACE = Color.WHITE;
     public static final int COLOR_TEXT = Color.rgb(21, 22, 26);
     public static final int COLOR_MUTED = Color.rgb(106, 110, 118);
-    public static final int COLOR_TERTIARY = Color.rgb(162, 166, 174);
+    public static final int COLOR_TERTIARY = Color.rgb(110, 114, 123);
     public static final int COLOR_BORDER = Color.BLACK;
     public static final int COLOR_PRIMARY = Color.BLACK;
     public static final int COLOR_SUBTLE = Color.WHITE;
@@ -97,7 +96,7 @@ public final class FitnessUi {
     public static final int COLOR_D_ACCENT = Color.WHITE;
     public static final int COLOR_D_TEXT = Color.rgb(237, 238, 240);
     public static final int COLOR_D_MUTED = Color.rgb(154, 158, 166);
-    public static final int COLOR_D_TERTIARY = Color.rgb(110, 114, 128);
+    public static final int COLOR_D_TERTIARY = Color.rgb(132, 136, 146);
     public static final int COLOR_D_BORDER = Color.WHITE;
     public static final int COLOR_D_ON_ACCENT_MUTED = Color.argb(230, 21, 22, 26);
     public static final int COLOR_D_CHIP_ON_ACCENT = Color.argb(20, 21, 22, 26);
@@ -108,7 +107,6 @@ public final class FitnessUi {
 
     private final Activity activity;
     private final BooleanSupplier inverseSupplier;
-    private final Map<View, AnimationBinding> animationBindings = new WeakHashMap<>();
 
     public FitnessUi(Activity activity, BooleanSupplier inverseSupplier) {
         this.activity = activity;
@@ -270,60 +268,19 @@ public final class FitnessUi {
         );
     }
 
-    /** 일반 배경으로 돌아갈 때 기존 홀로그램 애니메이션과 attach listener를 함께 정리한다. */
+    /** 일반 배경으로 돌아간다. */
     public void setComponentBackground(View view, Drawable background) {
-        clearAnimationBinding(view);
         view.setBackground(background);
     }
 
-    /** 기존 배경 위에 회전하는 cyan/violet/magenta 홀로그램 테두리를 겹친다. */
+    /** 기존 배경 위에 정적인 cyan/violet/magenta 테두리를 겹친다. */
     public void setHologramBackground(View view, Drawable background, int radius) {
-        clearAnimationBinding(view);
         if (view.getBackground() == background) {
             view.setBackground(null);
         }
         HologramBorderDrawable hologram = new HologramBorderDrawable(
                 background, radius, dp(3));
-        bindAnimatedBackground(view, hologram, hologram);
-    }
-
-    private void bindAnimatedBackground(View view, Drawable background, Animatable animatable) {
-        AnimationBinding binding = new AnimationBinding(animatable);
-        animationBindings.put(view, binding);
-        view.addOnAttachStateChangeListener(binding);
-        view.setBackground(background);
-        if (view.isAttachedToWindow() && view.isShown()) {
-            animatable.start();
-        }
-    }
-
-    private void clearAnimationBinding(View view) {
-        AnimationBinding binding = animationBindings.remove(view);
-        if (binding == null) {
-            return;
-        }
-        view.removeOnAttachStateChangeListener(binding);
-        binding.drawable.stop();
-    }
-
-    private static final class AnimationBinding implements View.OnAttachStateChangeListener {
-        private final Animatable drawable;
-
-        private AnimationBinding(Animatable drawable) {
-            this.drawable = drawable;
-        }
-
-        @Override
-        public void onViewAttachedToWindow(View view) {
-            if (view.isShown()) {
-                drawable.start();
-            }
-        }
-
-        @Override
-        public void onViewDetachedFromWindow(View view) {
-            drawable.stop();
-        }
+        view.setBackground(hologram);
     }
 
     private static final class HologramBorderDrawable extends Drawable
@@ -432,8 +389,6 @@ public final class FitnessUi {
             content.setVisible(visible, restart);
             if (!visible) {
                 stop();
-            } else if (getCallback() != null && (restart || changed)) {
-                start();
             }
             return changed;
         }
@@ -744,10 +699,16 @@ public final class FitnessUi {
 
         if (actionText != null && action != null) {
             TextView actionView = text(actionText + " ›", 13, COLOR_TERTIARY, true);
-            actionView.setPadding(dp(12), dp(4), 0, dp(4));
+            actionView.setMinWidth(dp(48));
+            actionView.setMinimumWidth(dp(48));
+            actionView.setMinHeight(dp(48));
+            actionView.setMinimumHeight(dp(48));
+            actionView.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+            actionView.setPadding(dp(12), 0, 0, 0);
             actionView.setClickable(true);
             actionView.setFocusable(true);
             actionView.setOnClickListener(v -> action.run());
+            pressFeedback(actionView);
             row.addView(actionView);
         }
 
@@ -756,10 +717,16 @@ public final class FitnessUi {
 
     public TextView textAction(String value, int color, Runnable action) {
         TextView view = text(value, 14, color, true);
-        view.setPadding(dp(4), dp(8), dp(12), dp(8));
+        view.setMinWidth(dp(48));
+        view.setMinimumWidth(dp(48));
+        view.setMinHeight(dp(48));
+        view.setMinimumHeight(dp(48));
+        view.setGravity(Gravity.CENTER_VERTICAL);
+        view.setPadding(dp(8), 0, dp(12), 0);
         view.setClickable(true);
         view.setFocusable(true);
         view.setOnClickListener(v -> action.run());
+        pressFeedback(view);
         return view;
     }
 
@@ -842,12 +809,14 @@ public final class FitnessUi {
     public Button filterButton(String text) {
         Button button = button(text, false, null);
         button.setTextSize(13);
-        button.setMinHeight(dp(44));
-        button.setMinimumHeight(dp(44));
+        button.setMinHeight(dp(48));
+        button.setMinimumHeight(dp(48));
         return button;
     }
 
     public void styleFilterButton(Button button, boolean active) {
+        button.setSelected(active);
+        button.setContentDescription(button.getText() + (active ? ", 선택됨" : ""));
         button.setTextColor(active ? onVibrant() : inkMuted());
         String seed = String.valueOf(button.getText());
         button.setBackground(active
@@ -1161,6 +1130,7 @@ public final class FitnessUi {
             row.setClickable(true);
             row.setFocusable(true);
             row.setOnClickListener(listener);
+            pressFeedback(row);
         }
 
         row.addView(glyphCircle(glyph, false));
@@ -1278,6 +1248,7 @@ public final class FitnessUi {
     // ── 모션 ─────────────────────────────────────────────────────────
 
     /** 버튼/타일 공통 프레스 스케일 피드백. 클릭 이벤트를 소비하지 않는다. */
+    @SuppressLint("ClickableViewAccessibility")
     public void pressFeedback(View view) {
         view.setOnTouchListener((v, event) -> {
             switch (event.getActionMasked()) {
@@ -1383,6 +1354,18 @@ public final class FitnessUi {
             BooleanSupplier onPrimary
     ) {
         return buildSheet(title, body, primaryText, onPrimary, null, null);
+    }
+
+    /** 입력 검증과 삭제 동작을 함께 제공하는 편집용 바텀시트. */
+    public Dialog validatedSheet(
+            String title,
+            View body,
+            String primaryText,
+            BooleanSupplier onPrimary,
+            String dangerText,
+            Runnable onDanger
+    ) {
+        return buildSheet(title, body, primaryText, onPrimary, dangerText, onDanger);
     }
 
     private Dialog buildSheet(

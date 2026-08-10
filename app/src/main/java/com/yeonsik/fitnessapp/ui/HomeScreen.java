@@ -21,6 +21,10 @@ import java.util.Locale;
  * 메인 탭: 오늘의 판단 히어로 카드 + 주간 볼륨 차트 + 빠른 기록 타일 + 오늘 기록.
  */
 public final class HomeScreen extends BaseScreen {
+    private static final int HOME_ROUTINE_LIMIT = 2;
+    private static final int TODAY_RECORD_LIMIT = 3;
+
+    private boolean weeklyMealVisible;
 
     public HomeScreen(ScreenHost host) {
         super(host);
@@ -30,17 +34,25 @@ public final class HomeScreen extends BaseScreen {
     public void render() {
         String today = host.today();
         List<String> todaySessions = repository().sessionsForDate(today);
-        host.routineRepository().activeRoutineId();
+        String activeRoutineId = host.routineRepository().activeRoutineId();
         List<RoutineRepository.RoutineSummary> routines = host.routineRepository().routines();
+        List<RoutineRepository.RoutineSummary> quickRoutines = quickStartRoutines(
+                routines,
+                activeRoutineId
+        );
         FitnessRepository.DayWorkoutMetrics todayMetrics = repository().dayWorkoutMetrics(today);
         String inProgressSessionId = repository().latestInProgressSessionId();
 
         screenHeader(todayEyebrow(), "오늘의 훈련");
         heroJudgmentCard(todaySessions, todayMetrics, inProgressSessionId != null);
 
-        section("루틴 빠른 시작");
+        if (routines.size() > HOME_ROUTINE_LIMIT) {
+            section("루틴 빠른 시작", "전체 보기", () -> host.navigate(FitnessScreen.WORKOUT));
+        } else {
+            section("루틴 빠른 시작");
+        }
         if (!routines.isEmpty()) {
-            for (RoutineRepository.RoutineSummary routine : routines) {
+            for (RoutineRepository.RoutineSummary routine : quickRoutines) {
                 List<RoutineExerciseInstance> exercises = host.routineRepository().routineExercises(routine.id);
                 add(ui().quickStartRoutineCard(routine.name, routine.exerciseCount,
                         repository().latestCompletedWorkoutDateForRoutine(routine.id, routine.name),
@@ -58,27 +70,50 @@ public final class HomeScreen extends BaseScreen {
                     ui().fullWidthParams(0));
         }
 
-        section("이번 주");
+        section("이번 주", weeklyMealVisible ? "식사 숨기기" : "식사 보기", () -> {
+            weeklyMealVisible = !weeklyMealVisible;
+            host.rerender();
+        });
         weeklyVolumeCard();
-        weeklyMealCard();
+        if (weeklyMealVisible) {
+            weeklyMealCard();
+        }
 
         section("빠른 기록");
         LinearLayout quickTop = ui().tileRow();
         quickTop.addView(ui().statTile("체중", todayWeightValue(), "오늘", false,
                 v -> host.showBodyMetricDialog()), ui().tileParams(true));
-        quickTop.addView(ui().statTile("식사", repository().mealsForDate(today).size() + "끼", "오늘", false,
+        quickTop.addView(ui().statTile("식사", repository().mealCountForDate(today) + "끼", "오늘", false,
                 v -> host.openMealManagement()), ui().tileParams(false));
         add(quickTop, ui().fullWidthParams(0));
-        LinearLayout quickBottom = ui().tileRow();
-        quickBottom.addView(ui().statTile("진행 중 운동", inProgressSessionId != null ? "있음" : "없음",
-                inProgressSessionId != null ? "탭하여 이어하기" : "대기", inProgressSessionId != null,
-                v -> host.continueWorkoutIfAvailable()), ui().tileParams(true));
-        quickBottom.addView(ui().statTile("기록", "달력", "전체 보기", false,
-                v -> host.navigate(FitnessScreen.RECORDS)), ui().tileParams(false));
-        add(quickBottom, ui().fullWidthParams(ui().dp(10)));
 
         section("오늘 기록", "전체 보기", () -> host.navigate(FitnessScreen.RECORDS));
         renderTodayRecordRows(todaySessions);
+    }
+
+    private List<RoutineRepository.RoutineSummary> quickStartRoutines(
+            List<RoutineRepository.RoutineSummary> routines,
+            String activeRoutineId
+    ) {
+        List<RoutineRepository.RoutineSummary> result = new ArrayList<>();
+        if (activeRoutineId != null) {
+            for (RoutineRepository.RoutineSummary routine : routines) {
+                if (activeRoutineId.equals(routine.id)) {
+                    result.add(routine);
+                    break;
+                }
+            }
+        }
+        for (RoutineRepository.RoutineSummary routine : routines) {
+            if (result.size() >= HOME_ROUTINE_LIMIT) {
+                break;
+            }
+            if (!result.isEmpty() && result.get(0).id.equals(routine.id)) {
+                continue;
+            }
+            result.add(routine);
+        }
+        return result;
     }
 
     private void heroJudgmentCard(List<String> todaySessions, FitnessRepository.DayWorkoutMetrics metrics, boolean inProgress) {
@@ -228,7 +263,13 @@ public final class HomeScreen extends BaseScreen {
         legend.addView(previousLegend);
         card.addView(legend);
 
-        card.addView(weeklyBarChart(values, previousValues, labels), ui.fullWidthParams(ui.dp(8)));
+        card.addView(weeklyBarChart(
+                values,
+                previousValues,
+                labels,
+                "주간 운동 볼륨",
+                "kg"
+        ), ui.fullWidthParams(ui.dp(8)));
         add(card);
     }
 
@@ -296,7 +337,13 @@ public final class HomeScreen extends BaseScreen {
         legend.addView(previousLegend);
         card.addView(legend);
 
-        card.addView(weeklyBarChart(values, previousValues, labels), ui.fullWidthParams(ui.dp(8)));
+        card.addView(weeklyBarChart(
+                values,
+                previousValues,
+                labels,
+                "주간 식사 기록",
+                "끼"
+        ), ui.fullWidthParams(ui.dp(8)));
         add(card);
     }
 
@@ -323,7 +370,13 @@ public final class HomeScreen extends BaseScreen {
         return "지난주 대비 " + amount + " (" + FitnessUi.formatVolume(percent) + "%)";
     }
 
-    private View weeklyBarChart(double[] values, double[] previousValues, String[] labels) {
+    private View weeklyBarChart(
+            double[] values,
+            double[] previousValues,
+            String[] labels,
+            String descriptionLabel,
+            String unit
+    ) {
         FitnessUi ui = ui();
         double max = 1;
         boolean hasData = false;
@@ -336,6 +389,20 @@ public final class HomeScreen extends BaseScreen {
 
         LinearLayout wrapper = new LinearLayout(host.activity());
         wrapper.setOrientation(LinearLayout.VERTICAL);
+        StringBuilder chartDescription = new StringBuilder(descriptionLabel).append(". ");
+        for (int index = 0; index < labels.length; index++) {
+            if (index > 0) {
+                chartDescription.append(", ");
+            }
+            chartDescription.append(labels[index])
+                    .append(" 이번 주 ")
+                    .append(FitnessUi.formatVolume(values[index]))
+                    .append(unit)
+                    .append(", 지난주 ")
+                    .append(FitnessUi.formatVolume(previousValues[index]))
+                    .append(unit);
+        }
+        wrapper.setContentDescription(chartDescription.toString());
         int chartHeight = hasData ? ui.dp(88) : ui.dp(28);
 
         LinearLayout barsRow = new LinearLayout(host.activity());
@@ -421,14 +488,29 @@ public final class HomeScreen extends BaseScreen {
         for (String metric : repository().bodyMetricsForDate(host.today())) {
             rows.add(ui.recordListRow("체", FitnessUi.stripLeadingDate(metric), "체중", null));
         }
-        for (String meal : repository().mealsForDate(host.today())) {
-            rows.add(ui.recordListRow("식", FitnessUi.stripLeadingDate(meal), "식단", null));
+        for (FitnessRepository.MealEntry meal : repository().mealEntriesForDate(host.today())) {
+            View row = ui.recordListRow(
+                    "식",
+                    meal.previewTitle,
+                    meal.previewSubtitle(),
+                    v -> host.openMealManagement(host.today(), FitnessScreen.HOME)
+            );
+            row.setContentDescription(meal.previewAccessibilityLabel() + ". 탭하여 식단 관리를 엽니다.");
+            rows.add(row);
         }
 
         if (rows.isEmpty()) {
             emptyState("오늘 기록이 없습니다.", "운동, 체중, 식사를 기록해 보세요.");
             return;
         }
-        add(ui.rowsCard(rows));
+        int visibleCount = Math.min(TODAY_RECORD_LIMIT, rows.size());
+        add(ui.rowsCard(new ArrayList<>(rows.subList(0, visibleCount))));
+        if (rows.size() > visibleCount) {
+            add(ui.textAction(
+                    (rows.size() - visibleCount) + "개 기록 더 보기",
+                    FitnessUi.COLOR_TERTIARY,
+                    () -> host.navigate(FitnessScreen.RECORDS)
+            ), ui.fullWidthParams(0));
+        }
     }
 }
