@@ -25,14 +25,14 @@ public final class CardioSessionScreen extends BaseScreen {
         String recordId = host.sessionState().activeRecordId();
         CardioRepository.SessionSnapshot snapshot = host.cardioRepository().session(recordId);
         if (snapshot == null) {
-            screenHeader("OUTDOOR CARDIO", "유산소 기록");
+            screenHeader("실시간 기록", "유산소 기록");
             emptyState("진행 중인 GPS 유산소 기록을 찾지 못했습니다.", null);
             add(ui().button("유산소로 돌아가기", false,
                     v -> host.navigate(FitnessScreen.CARDIO)), ui().fullWidthParams(0));
             return;
         }
 
-        screenHeader("OUTDOOR CARDIO", snapshot.activityType.labelKo());
+        screenHeader("실시간 기록", snapshot.activityType.labelKo());
         add(statusCard(snapshot));
 
         LinearLayout firstRow = ui().tileRow();

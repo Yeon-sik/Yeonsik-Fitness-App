@@ -12,26 +12,38 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 
 /** 설정, 두 Supabase 연결, 두 인증 세션을 한 화면에서 명확히 보여 준다. */
 public final class SettingsScreen extends BaseScreen {
+    private boolean advancedConnectionsVisible;
 
     public SettingsScreen(ScreenHost host) {
         super(host);
     }
 
+    public void showAdvancedConnections() {
+        advancedConnectionsVisible = true;
+    }
+
     @Override
     public void render() {
-        screenHeader("SETTINGS", "설정");
+        screenHeader("앱 환경", "설정");
         renderThemeCard();
+        renderDataSafetyCard();
         renderDataImportCard();
 
         SupabaseConfig sharedConfig = host.supabaseConfig();
         SupabaseConfig nutritionConfig = host.nutritionSupabaseConfig();
         SupabaseConfig priceTraceConfig = host.priceTraceSupabaseConfig();
         renderConnectionStatus(sharedConfig, nutritionConfig, priceTraceConfig);
-        renderSharedConnectionCard(sharedConfig);
-        renderNutritionConnectionCard(nutritionConfig);
-        renderPriceTraceConnectionCard(priceTraceConfig);
-        renderSharedAuthCard(sharedConfig);
-        renderNutritionAuthCard(nutritionConfig);
+        section("연결 및 계정", advancedConnectionsVisible ? "접기" : "고급 설정", () -> {
+            advancedConnectionsVisible = !advancedConnectionsVisible;
+            host.rerender();
+        });
+        if (advancedConnectionsVisible) {
+            renderSharedConnectionCard(sharedConfig);
+            renderNutritionConnectionCard(nutritionConfig);
+            renderPriceTraceConnectionCard(priceTraceConfig);
+            renderSharedAuthCard(sharedConfig);
+            renderNutritionAuthCard(nutritionConfig);
+        }
     }
 
     private void renderConnectionStatus(
@@ -46,7 +58,11 @@ public final class SettingsScreen extends BaseScreen {
         header.setGravity(Gravity.CENTER_VERTICAL);
         header.addView(ui.text("DB 연결 구조", 17, FitnessUi.COLOR_TEXT, true),
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        header.addView(ui.statusDotBadge(host.syncLabel(), syncStatusColor(), false));
+        header.addView(ui.statusDotBadge(
+                syncStatusLabel(host.syncLabel()),
+                syncStatusColor(),
+                false
+        ));
         card.addView(header);
 
         View line = ui.hairline(FitnessUi.COLOR_BORDER);
@@ -54,16 +70,13 @@ public final class SettingsScreen extends BaseScreen {
         lineParams.height = ui.dp(1);
         card.addView(line, lineParams);
 
-        card.addView(ui.keyValue("Personal OS 공통 DB", accountStatus(sharedConfig)));
-        card.addView(ui.keyValue("공통 DB 프로젝트", projectLabel(sharedConfig)));
-        card.addView(ui.keyValue("운동·신체·식사 기록", "공통 DB에 저장"));
-        card.addView(ui.keyValue("영양 전용 DB", nutritionStatus(nutritionConfig)));
-        card.addView(ui.keyValue("영양 DB 프로젝트", projectLabel(nutritionConfig)));
-        card.addView(ui.keyValue("음식·메뉴·영양성분", "영양 DB에 저장"));
+        card.addView(ui.keyValue("Personal OS 공통 DB",
+                accountStatus(sharedConfig) + " · " + projectLabel(sharedConfig)));
+        card.addView(ui.keyValue("영양 전용 DB",
+                nutritionStatus(nutritionConfig) + " · " + projectLabel(nutritionConfig)));
         card.addView(ui.keyValue("PriceTrace 상품 조회", priceTraceConfig.isConnectionConfigured()
-                ? "product-read.v1 읽기 전용"
+                ? "읽기 전용 · " + projectLabel(priceTraceConfig)
                 : "연결 없음"));
-        card.addView(ui.keyValue("PriceTrace 프로젝트", projectLabel(priceTraceConfig)));
         card.addView(ui.keyValue("공통 계정", sharedConfig.email.isEmpty()
                 ? SupabaseConfig.DEFAULT_USER_ID
                 : sharedConfig.email));
@@ -286,8 +299,9 @@ public final class SettingsScreen extends BaseScreen {
 
     private void renderDataImportCard() {
         FitnessUi ui = ui();
+        boolean busy = host.isDataImporting() || host.isDataTransferInProgress();
         LinearLayout card = ui.card();
-        ui.cardHeader(card, "데이터 가져오기", host.isDataImporting() ? "가져오는 중" : "FLEEK CSV");
+        ui.cardHeader(card, "데이터 가져오기", busy ? "처리 중" : "FLEEK CSV");
         card.addView(ui.text(
                 "FLEEK에서 내보낸 CSV의 날짜·운동·중량·횟수를 로컬 기록으로 가져옵니다. "
                         + "같은 파일을 다시 선택하면 기존 세션은 건너뜁니다.",
@@ -301,12 +315,61 @@ public final class SettingsScreen extends BaseScreen {
             card.addView(detail);
         }
         Button importButton = ui.button(
-                host.isDataImporting() ? "가져오는 중" : "FLEEK CSV 선택",
+                busy ? "처리 중" : "FLEEK CSV 선택",
                 true,
                 v -> host.openFleekDataImport()
         );
-        importButton.setEnabled(!host.isDataImporting());
+        importButton.setEnabled(!busy);
         card.addView(importButton, ui.fullWidthParams(ui.dp(14)));
+        add(card);
+    }
+
+    private void renderDataSafetyCard() {
+        FitnessUi ui = ui();
+        boolean busy = host.isDataTransferInProgress() || host.isDataImporting();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "내 데이터 보관", busy ? "처리 중" : "로컬 파일");
+        card.addView(ui.text(
+                "운동·식단·체중·루틴 기록을 백업합니다. 로그인 정보와 DB 주소·API 키는 포함하지 않습니다.",
+                13,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        card.addView(ui.text(
+                "복원은 기존 기록을 지우지 않으며 같은 항목은 건너뜁니다.",
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        ), ui.fullWidthParams(ui.dp(8)));
+        if (!host.dataTransferDetail().isEmpty()) {
+            TextView detail = ui.text(
+                    host.dataTransferDetail(),
+                    12,
+                    FitnessUi.COLOR_TERTIARY,
+                    false
+            );
+            card.addView(detail, ui.fullWidthParams(ui.dp(10)));
+        }
+
+        Button backup = ui.button(
+                busy ? "처리 중" : "전체 백업 저장 (JSON)",
+                true,
+                v -> host.createLocalBackup()
+        );
+        backup.setEnabled(!busy);
+        card.addView(backup, ui.fullWidthParams(ui.dp(14)));
+
+        Button restore = ui.button("백업 복원", false, v -> host.restoreLocalBackup());
+        restore.setEnabled(!busy);
+        card.addView(restore, ui.fullWidthParams(ui.dp(10)));
+
+        Button csv = ui.button(
+                "기록 요약 내보내기 (CSV)",
+                false,
+                v -> host.exportRecordsCsv()
+        );
+        csv.setEnabled(!busy);
+        card.addView(csv, ui.fullWidthParams(ui.dp(10)));
         add(card);
     }
 
@@ -369,18 +432,60 @@ public final class SettingsScreen extends BaseScreen {
     }
 
     private int syncStatusColor() {
-        String label = host.syncLabel();
+        return syncStatusColorForLabel(host.syncLabel());
+    }
+
+    static int syncStatusColorForLabel(String label) {
         if ("synced".equals(label) || "configured".equals(label)) {
             return FitnessUi.COLOR_POSITIVE;
         }
-        if ("sync failed".equals(label) || "authentication failed".equals(label)) {
+        if ("sync failed".equals(label) || "authentication failed".equals(label)
+                || "local ownership failed".equals(label)
+                || "nutrition ownership failed".equals(label)) {
             return FitnessUi.COLOR_NEGATIVE;
         }
         if ("syncing".equals(label) || "authenticating".equals(label)
-                || "partial".equals(label)) {
+                || "partial".equals(label)
+                || "login required".equals(label)
+                || "confirmation required".equals(label)) {
             return FitnessUi.COLOR_WARNING;
         }
         return FitnessUi.COLOR_TERTIARY;
+    }
+
+    static String syncStatusLabel(String label) {
+        if ("synced".equals(label)) {
+            return "동기화 완료";
+        }
+        if ("configured".equals(label)) {
+            return "연결됨";
+        }
+        if ("syncing".equals(label)) {
+            return "동기화 중";
+        }
+        if ("authenticating".equals(label)) {
+            return "로그인 중";
+        }
+        if ("partial".equals(label)) {
+            return "일부 완료";
+        }
+        if ("login required".equals(label)) {
+            return "로그인 필요";
+        }
+        if ("confirmation required".equals(label)) {
+            return "가입 확인 필요";
+        }
+        if ("authentication failed".equals(label)) {
+            return "로그인 실패";
+        }
+        if ("local ownership failed".equals(label)
+                || "nutrition ownership failed".equals(label)) {
+            return "소유권 확인 실패";
+        }
+        if ("sync failed".equals(label)) {
+            return "동기화 실패";
+        }
+        return "로컬 전용";
     }
 
     private interface ConnectionSaver {

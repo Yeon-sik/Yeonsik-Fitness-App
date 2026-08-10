@@ -172,7 +172,7 @@ final class NutritionInputSection {
 
     private View fieldTile(String key, Map<String, EditText> target) {
         LinearLayout tile = column();
-        tile.setMinimumHeight(ui.dp(70));
+        tile.setMinimumHeight(ui.dp(82));
         tile.setPadding(ui.dp(10), ui.dp(6), ui.dp(10), ui.dp(4));
         tile.setClipChildren(false);
         tile.setClipToPadding(false);
@@ -190,8 +190,8 @@ final class NutritionInputSection {
 
         EditText input = ui.decimalInput("내용량", "");
         input.setBackground(null);
-        input.setMinHeight(ui.dp(36));
-        input.setMinimumHeight(ui.dp(36));
+        input.setMinHeight(ui.dp(48));
+        input.setMinimumHeight(ui.dp(48));
         input.setPadding(0, ui.dp(2), 0, 0);
         input.setGravity(Gravity.CENTER_VERTICAL);
         input.setIncludeFontPadding(false);

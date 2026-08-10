@@ -19,7 +19,7 @@ public final class StrengthScreen extends BaseScreen {
 
         add(ui().textAction("‹ 피트니스", FitnessUi.COLOR_MUTED,
                 () -> host.navigate(FitnessScreen.WORKOUT)), ui().fullWidthParams(0));
-        screenHeader("ANAEROBIC", "무산소");
+        screenHeader("루틴과 세트", "무산소");
 
         section("근력 운동 시작");
         add(ui().button("루틴 없이 운동 시작", true, v -> host.startEmptyWorkout()),

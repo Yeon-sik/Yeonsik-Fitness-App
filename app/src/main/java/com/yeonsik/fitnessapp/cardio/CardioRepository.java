@@ -47,6 +47,7 @@ public final class CardioRepository {
             long now = System.currentTimeMillis();
             ContentValues values = new ContentValues();
             values.put("record_id", recordId);
+            values.put("user_id", userId());
             values.put("activity_type", activityType.id());
             values.put("status", STATUS_TRACKING);
             values.put("started_at_epoch_ms", now);
@@ -70,9 +71,10 @@ public final class CardioRepository {
 
     public SessionSnapshot activeSession() {
         try (Cursor cursor = db().rawQuery(
-                "SELECT record_id FROM cardio_sessions WHERE status IN (?, ?) "
+                "SELECT record_id FROM cardio_sessions " +
+                        "WHERE user_id = ? AND status IN (?, ?) "
                         + "ORDER BY started_at_epoch_ms DESC LIMIT 1",
-                new String[]{STATUS_TRACKING, STATUS_PAUSED})) {
+                new String[]{userId(), STATUS_TRACKING, STATUS_PAUSED})) {
             return cursor.moveToFirst() ? session(cursor.getString(0)) : null;
         }
     }
@@ -82,8 +84,9 @@ public final class CardioRepository {
             return false;
         }
         try (Cursor cursor = db().rawQuery(
-                "SELECT 1 FROM cardio_sessions WHERE record_id = ? LIMIT 1",
-                new String[]{recordId})) {
+                "SELECT 1 FROM cardio_sessions " +
+                        "WHERE record_id = ? AND user_id = ? LIMIT 1",
+                new String[]{recordId, userId()})) {
             return cursor.moveToFirst();
         }
     }
@@ -96,9 +99,10 @@ public final class CardioRepository {
                 "SELECT cs.activity_type, cs.status, cs.started_at_epoch_ms, "
                         + "cs.last_resumed_at_epoch_ms, cs.active_duration_ms, cs.distance_meters, "
                         + "cs.accepted_point_count, cs.gps_status, wr.average_heart_rate "
-                        + "FROM cardio_sessions cs LEFT JOIN workout_records wr ON wr.id = cs.record_id "
-                        + "WHERE cs.record_id = ? LIMIT 1",
-                new String[]{recordId})) {
+                        + "FROM cardio_sessions cs LEFT JOIN workout_records wr " +
+                        "ON wr.id = cs.record_id AND wr.user_id = cs.user_id "
+                        + "WHERE cs.record_id = ? AND cs.user_id = ? LIMIT 1",
+                new String[]{recordId, userId()})) {
             if (!cursor.moveToFirst()) {
                 return null;
             }
@@ -130,7 +134,8 @@ public final class CardioRepository {
         values.put("gps_status", GPS_STOPPED);
         values.put("updated_at_epoch_ms", now);
         return db().update("cardio_sessions", values,
-                "record_id = ? AND status = ?", new String[]{recordId, STATUS_TRACKING}) == 1;
+                "record_id = ? AND user_id = ? AND status = ?",
+                new String[]{recordId, userId(), STATUS_TRACKING}) == 1;
     }
 
     public boolean resume(String recordId) {
@@ -149,7 +154,8 @@ public final class CardioRepository {
         values.put("gps_status", GPS_SEARCHING);
         values.put("updated_at_epoch_ms", now);
         return db().update("cardio_sessions", values,
-                "record_id = ? AND status = ?", new String[]{recordId, STATUS_PAUSED}) == 1;
+                "record_id = ? AND user_id = ? AND status = ?",
+                new String[]{recordId, userId(), STATUS_PAUSED}) == 1;
     }
 
     public CardioDistanceFilter.Result acceptLocation(
@@ -168,8 +174,8 @@ public final class CardioRepository {
                     "SELECT activity_type, status, distance_meters, accepted_point_count, "
                             + "last_latitude, last_longitude, last_location_time_ms, last_accuracy_meters, "
                             + "last_resumed_at_epoch_ms "
-                            + "FROM cardio_sessions WHERE record_id = ? LIMIT 1",
-                    new String[]{recordId})) {
+                            + "FROM cardio_sessions WHERE record_id = ? AND user_id = ? LIMIT 1",
+                    new String[]{recordId, userId()})) {
                 if (!cursor.moveToFirst() || !STATUS_TRACKING.equals(cursor.getString(1))) {
                     return CardioDistanceFilter.Result.rejected(CardioDistanceFilter.Reason.INVALID);
                 }
@@ -209,6 +215,7 @@ public final class CardioRepository {
 
             ContentValues point = new ContentValues();
             point.put("record_id", recordId);
+            point.put("user_id", userId());
             point.put("captured_at_epoch_ms", candidate.capturedAtMillis);
             point.put("latitude", candidate.latitude);
             point.put("longitude", candidate.longitude);
@@ -230,7 +237,12 @@ public final class CardioRepository {
             state.put("last_accuracy_meters", candidate.accuracyMeters);
             state.put("gps_status", GPS_READY);
             state.put("updated_at_epoch_ms", System.currentTimeMillis());
-            database.update("cardio_sessions", state, "record_id = ?", new String[]{recordId});
+            database.update(
+                    "cardio_sessions",
+                    state,
+                    "record_id = ? AND user_id = ?",
+                    new String[]{recordId, userId()}
+            );
             database.setTransactionSuccessful();
             return result;
         } finally {
@@ -270,7 +282,12 @@ public final class CardioRepository {
             values.putNull("last_resumed_at_epoch_ms");
             values.put("gps_status", GPS_STOPPED);
             values.put("updated_at_epoch_ms", now);
-            database.update("cardio_sessions", values, "record_id = ?", new String[]{recordId});
+            database.update(
+                    "cardio_sessions",
+                    values,
+                    "record_id = ? AND user_id = ?",
+                    new String[]{recordId, userId()}
+            );
             database.setTransactionSuccessful();
         } finally {
             database.endTransaction();
@@ -288,11 +305,22 @@ public final class CardioRepository {
     }
 
     public void cancel(String recordId) {
+        if (!isCardioSession(recordId)) {
+            return;
+        }
         SQLiteDatabase database = db();
         database.beginTransaction();
         try {
-            database.delete("cardio_route_points", "record_id = ?", new String[]{recordId});
-            database.delete("cardio_sessions", "record_id = ?", new String[]{recordId});
+            database.delete(
+                    "cardio_route_points",
+                    "record_id = ? AND user_id = ?",
+                    new String[]{recordId, userId()}
+            );
+            database.delete(
+                    "cardio_sessions",
+                    "record_id = ? AND user_id = ?",
+                    new String[]{recordId, userId()}
+            );
             fitnessRepository.deleteSession(recordId);
             database.setTransactionSuccessful();
         } finally {
@@ -301,11 +329,22 @@ public final class CardioRepository {
     }
 
     public void deleteLocalData(String recordId) {
+        if (!isCardioSession(recordId)) {
+            return;
+        }
         SQLiteDatabase database = db();
         database.beginTransaction();
         try {
-            database.delete("cardio_route_points", "record_id = ?", new String[]{recordId});
-            database.delete("cardio_sessions", "record_id = ?", new String[]{recordId});
+            database.delete(
+                    "cardio_route_points",
+                    "record_id = ? AND user_id = ?",
+                    new String[]{recordId, userId()}
+            );
+            database.delete(
+                    "cardio_sessions",
+                    "record_id = ? AND user_id = ?",
+                    new String[]{recordId, userId()}
+            );
             database.setTransactionSuccessful();
         } finally {
             database.endTransaction();
@@ -317,12 +356,16 @@ public final class CardioRepository {
         values.put("gps_status", gpsStatus);
         values.put("updated_at_epoch_ms", System.currentTimeMillis());
         database.update("cardio_sessions", values,
-                "record_id = ? AND status IN (?, ?)",
-                new String[]{recordId, STATUS_TRACKING, STATUS_PAUSED});
+                "record_id = ? AND user_id = ? AND status IN (?, ?)",
+                new String[]{recordId, userId(), STATUS_TRACKING, STATUS_PAUSED});
     }
 
     private SQLiteDatabase db() {
         return dbHelper.getWritableDatabase();
+    }
+
+    private String userId() {
+        return fitnessRepository.currentUserId();
     }
 
     private static int safeSeconds(long durationMillis) {

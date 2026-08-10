@@ -1,7 +1,9 @@
 package com.yeonsik.fitnessapp.data;
 
 import java.text.NumberFormat;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -22,6 +24,7 @@ public final class ProductReadV1 {
     public final Double contentAmount;
     public final String contentUnit;
     public final Integer packageCount;
+    private final List<ProductReadV1> catalogVariants;
 
     public ProductReadV1(
             String catalogProductId,
@@ -60,6 +63,34 @@ public final class ProductReadV1 {
             String contentUnit,
             Integer packageCount
     ) {
+        this(
+                catalogProductId,
+                standardProductId,
+                name,
+                brand,
+                sellerName,
+                latestObservedPriceKrw,
+                observedAt,
+                contentAmount,
+                contentUnit,
+                packageCount,
+                Collections.emptyList()
+        );
+    }
+
+    private ProductReadV1(
+            String catalogProductId,
+            String standardProductId,
+            String name,
+            String brand,
+            String sellerName,
+            Integer latestObservedPriceKrw,
+            String observedAt,
+            Double contentAmount,
+            String contentUnit,
+            Integer packageCount,
+            List<ProductReadV1> catalogVariants
+    ) {
         this.catalogProductId = requireUuid(catalogProductId, "catalogProductId");
         this.standardProductId = optionalUuid(standardProductId, "standardProductId");
         this.name = requireText(name, "상품명");
@@ -76,6 +107,9 @@ public final class ProductReadV1 {
         this.contentAmount = contentAmount;
         this.contentUnit = optionalText(contentUnit);
         this.packageCount = packageCount;
+        this.catalogVariants = catalogVariants == null || catalogVariants.isEmpty()
+                ? Collections.emptyList()
+                : Collections.unmodifiableList(new ArrayList<>(catalogVariants));
     }
 
     /**
@@ -223,15 +257,14 @@ public final class ProductReadV1 {
     /**
      * Case-insensitive standard-product search.
      *
-     * <p>The PriceTrace read projection may contain multiple catalog offers for one
-     * standard product. The app must never expose those child offers as separate
-     * nutrition choices, so rows without a standard ID are ignored and the remaining
-     * rows are de-duplicated by standardProductId.</p>
+     * <p>The PriceTrace read projection may contain multiple package specifications for one
+     * standard product. Search results expose one standard product only. Exact catalog children
+     * remain internal so a nutrition link can be created only when one exact child is known.</p>
      */
     public static List<ProductReadV1> search(List<ProductReadV1> products, String query, int limit) {
         String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
         int safeLimit = limit <= 0 ? Integer.MAX_VALUE : limit;
-        Map<String, ProductReadV1> standardProducts = new LinkedHashMap<>();
+        Map<String, Map<String, ProductReadV1>> variantsByStandard = new LinkedHashMap<>();
         if (products != null) {
             for (ProductReadV1 product : products) {
                 if (product == null || product.standardProductId == null) {
@@ -243,19 +276,123 @@ public final class ProductReadV1 {
                 if (!searchable.toLowerCase(Locale.ROOT).contains(term)) {
                     continue;
                 }
-                ProductReadV1 previous = standardProducts.get(product.standardProductId);
-                if (previous == null
-                        || (previous.latestObservedPriceKrw == null
-                        && product.latestObservedPriceKrw != null)) {
-                    standardProducts.put(product.standardProductId, product);
+                Map<String, ProductReadV1> variants = variantsByStandard.computeIfAbsent(
+                        product.standardProductId,
+                        ignored -> new LinkedHashMap<>()
+                );
+                ProductReadV1 previous = variants.get(product.catalogProductId);
+                if (previous == null || hasNewerObservation(product, previous)) {
+                    variants.put(product.catalogProductId, product);
                 }
             }
         }
-        List<ProductReadV1> results = new ArrayList<>(standardProducts.values());
+        List<ProductReadV1> results = new ArrayList<>();
+        for (Map<String, ProductReadV1> variants : variantsByStandard.values()) {
+            ProductReadV1 representative = null;
+            for (ProductReadV1 variant : variants.values()) {
+                if (representative == null || hasNewerObservation(variant, representative)) {
+                    representative = variant;
+                }
+            }
+            if (representative == null) {
+                continue;
+            }
+            if (variants.size() == 1) {
+                results.add(representative);
+            } else {
+                results.add(representative.asStandardResult(new ArrayList<>(variants.values())));
+            }
+        }
         if (results.size() <= safeLimit) {
             return results;
         }
         return new ArrayList<>(results.subList(0, safeLimit));
+    }
+
+    private ProductReadV1 asStandardResult(List<ProductReadV1> variants) {
+        return new ProductReadV1(
+                catalogProductId,
+                standardProductId,
+                name,
+                brand,
+                sellerName,
+                latestObservedPriceKrw,
+                observedAt,
+                contentAmount,
+                contentUnit,
+                packageCount,
+                variants
+        );
+    }
+
+    /** True only for an exact product-read.v1 catalog row, never for an aggregated search row. */
+    public boolean isExactCatalogProduct() {
+        return catalogVariants.isEmpty();
+    }
+
+    public int catalogVariantCount() {
+        return catalogVariants.isEmpty() ? 1 : catalogVariants.size();
+    }
+
+    /** Exact rows backing a standard-only search result; child labels stay out of the UI. */
+    public List<ProductReadV1> exactCatalogVariants() {
+        return catalogVariants.isEmpty()
+                ? Collections.singletonList(this)
+                : catalogVariants;
+    }
+
+    /**
+     * Resolves an exact child only when the standard has one child or one child uniquely matches
+     * the entered nutrition basis. This prevents a 130 g child being linked to a 210 g entry.
+     */
+    public ProductReadV1 exactVariantForBasis(double basisAmount, String basisUnit) {
+        if (isExactCatalogProduct()) {
+            return this;
+        }
+        ProductReadV1 match = null;
+        for (ProductReadV1 variant : catalogVariants) {
+            if (variant.contentAmount == null || variant.contentUnit == null
+                    || !NutritionUnit.areCompatible(variant.contentUnit, basisUnit)) {
+                continue;
+            }
+            double converted;
+            try {
+                converted = NutritionUnit.convert(
+                        variant.contentAmount,
+                        variant.contentUnit,
+                        basisUnit
+                );
+            } catch (IllegalArgumentException ignored) {
+                continue;
+            }
+            double tolerance = Math.max(0.000001, Math.abs(basisAmount) * 0.000001);
+            if (Math.abs(converted - basisAmount) > tolerance) {
+                continue;
+            }
+            if (match != null) {
+                return null;
+            }
+            match = variant;
+        }
+        return match;
+    }
+
+    private static boolean hasNewerObservation(
+            ProductReadV1 candidate,
+            ProductReadV1 previous
+    ) {
+        if (candidate.latestObservedPriceKrw == null) {
+            return false;
+        }
+        if (previous.latestObservedPriceKrw == null) {
+            return true;
+        }
+        try {
+            return OffsetDateTime.parse(candidate.observedAt).toInstant()
+                    .isAfter(OffsetDateTime.parse(previous.observedAt).toInstant());
+        } catch (Exception ignored) {
+            return candidate.observedAt.compareTo(previous.observedAt) > 0;
+        }
     }
 
     public String specificationLabel() {
@@ -284,8 +421,7 @@ public final class ProductReadV1 {
 
     public String exactSelectionLabel() {
         return standardProductLabel() + " · " + specificationLabel()
-                + "\n" + priceObservationLabel()
-                + "\ncatalogProductId: " + catalogProductId;
+                + "\n" + priceObservationLabel();
     }
 
     private static Object first(Map<String, ?> row, String... keys) {

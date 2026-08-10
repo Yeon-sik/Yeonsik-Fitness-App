@@ -124,6 +124,7 @@ public final class NutritionCatalogRepository {
             SQLiteDatabase database = dbHelper.getWritableDatabase();
             database.beginTransaction();
             try {
+                resolveApprovedLinkClaimConflicts(database, normalizedNextUserId);
                 ContentValues values = new ContentValues();
                 values.put("owner_id", normalizedNextUserId);
                 for (String table : CATALOG_TABLES) {
@@ -140,6 +141,44 @@ public final class NutritionCatalogRepository {
             }
         }
         userId = normalizedNextUserId;
+    }
+
+    private void resolveApprovedLinkClaimConflicts(
+            SQLiteDatabase database,
+            String nextUserId
+    ) {
+        List<String[]> conflicts = new ArrayList<>();
+        try (Cursor cursor = database.rawQuery(
+                "SELECT source.id, source.updated_at, target.id, target.updated_at " +
+                        "FROM product_nutrition_links source " +
+                        "INNER JOIN product_nutrition_links target " +
+                        "ON target.nutrition_food_id = source.nutrition_food_id " +
+                        "AND target.owner_id = ? AND target.status = 'approved' " +
+                        "AND target.deleted_at IS NULL " +
+                        "WHERE source.owner_id = ? AND source.status = 'approved' " +
+                        "AND source.deleted_at IS NULL",
+                new String[]{nextUserId, SupabaseConfig.DEFAULT_USER_ID}
+        )) {
+            while (cursor.moveToNext()) {
+                conflicts.add(new String[]{
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getString(2),
+                        cursor.getString(3)
+                });
+            }
+        }
+
+        for (String[] conflict : conflicts) {
+            boolean localWins = compareVersions(conflict[1], conflict[3]) > 0;
+            String losingId = localWins ? conflict[2] : conflict[0];
+            String winningTimestamp = localWins ? conflict[1] : conflict[3];
+            database.execSQL(
+                    "UPDATE product_nutrition_links SET deleted_at = ?, updated_at = ?, " +
+                            "revision = revision + 1 WHERE id = ? AND deleted_at IS NULL",
+                    new Object[]{winningTimestamp, winningTimestamp, losingId}
+            );
+        }
     }
 
     public void setSupabaseConfig(SupabaseConfig supabaseConfig) {
@@ -378,27 +417,23 @@ public final class NutritionCatalogRepository {
      * <p>레시피의 영양성분은 개별 음식과 같은 규칙으로 합산된다. 재료 중 하나라도 모르는
      * 영양소는 레시피에서도 모름으로 남으며, 0으로 합산되지 않는다.</p>
      */
+    /** Builds a composed menu for one meal without adding it to the reusable catalog. */
+    public NutritionFood buildRecipeForMeal(String name, List<MealCompositionItem> items) {
+        String normalizedName = requireName(name);
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("Recipe needs at least one food.");
+        }
+
+        return recipeFood(null, normalizedName, items);
+    }
+
     public NutritionFood saveRecipe(String name, List<MealCompositionItem> items) {
         String normalizedName = requireName(name);
         if (items == null || items.isEmpty()) {
             throw new IllegalArgumentException("Recipe needs at least one food.");
         }
 
-        NutritionProfile total = NutritionCalculator.recipeProfile(items);
-        NutritionFood recipe = NutritionFood.builder()
-                .id(UUID.randomUUID().toString())
-                .ownerId(userId)
-                .name(normalizedName)
-                .kind(NutritionFood.KIND_RECIPE)
-                .category(NutritionFood.CATEGORY_RECIPE)
-                .basis(1.0, "serving")
-                .prepState(NutritionFood.PREP_AS_SERVED)
-                .profile(total)
-                .source("manual_recipe", null)
-                .dataVersion(total.hasAllRequired()
-                        ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
-                        : NutritionFood.DATA_VERSION_MACROS_ONLY)
-                .build();
+        NutritionFood recipe = recipeFood(UUID.randomUUID().toString(), normalizedName, items);
 
         String timestamp = now();
         SQLiteDatabase database = dbHelper.getWritableDatabase();
@@ -429,6 +464,29 @@ public final class NutritionCatalogRepository {
         return recipe;
     }
 
+    private NutritionFood recipeFood(
+            String id,
+            String normalizedName,
+            List<MealCompositionItem> items
+    ) {
+
+        NutritionProfile total = NutritionCalculator.recipeProfile(items);
+        return NutritionFood.builder()
+                .id(id)
+                .ownerId(userId)
+                .name(normalizedName)
+                .kind(NutritionFood.KIND_RECIPE)
+                .category(NutritionFood.CATEGORY_RECIPE)
+                .basis(1.0, "serving")
+                .prepState(NutritionFood.PREP_AS_SERVED)
+                .profile(total)
+                .source("manual_recipe", null)
+                .dataVersion(total.hasAllRequired()
+                        ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
+                        : NutritionFood.DATA_VERSION_MACROS_ONLY)
+                .build();
+    }
+
     /** Active user-approved PriceTrace link, enriched only from the local read cache. */
     public ProductNutritionLink approvedProductLink(String nutritionFoodId) {
         List<ProductNutritionLink> links = readProductLinks(
@@ -436,6 +494,97 @@ public final class NutritionCatalogRepository {
                 ProductNutritionLink.STATUS_APPROVED
         );
         return links.isEmpty() ? null : links.get(0);
+    }
+
+    /** Public means explicitly published for the approved PriceTrace product link. */
+    public boolean isFoodPublic(String nutritionFoodId) {
+        if (nutritionFoodId == null || nutritionFoodId.trim().isEmpty()) {
+            return false;
+        }
+        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        try (Cursor cursor = database.rawQuery(
+                "SELECT visibility FROM nutrition_foods " +
+                        "WHERE id = ? AND deleted_at IS NULL LIMIT 1",
+                new String[]{nutritionFoodId}
+        )) {
+            return cursor.moveToFirst() && "public".equals(cursor.getString(0));
+        }
+    }
+
+    /**
+     * Publishes or unpublishes only through the authenticated, validated Nutrition RPC.
+     * The local visibility is updated from the authoritative RPC response.
+     */
+    public PublicationState setProductNutritionPublication(
+            String nutritionFoodId,
+            String catalogProductId,
+            boolean publish
+    ) throws Exception {
+        SupabaseConfig config = supabaseConfig;
+        if (config == null || !config.isConfigured()) {
+            throw new IllegalStateException("영양 DB 계정 로그인이 필요합니다.");
+        }
+        String normalizedFoodId = requireName(nutritionFoodId);
+        String normalizedCatalogProductId;
+        try {
+            normalizedCatalogProductId = UUID.fromString(catalogProductId).toString();
+        } catch (Exception error) {
+            throw new IllegalArgumentException("PriceTrace 정확 규격 ID가 올바르지 않습니다.", error);
+        }
+
+        HttpURLConnection connection = openConnection(
+                joinUrl(config.supabaseUrl,
+                        "/rest/v1/rpc/set_product_nutrition_publication_v1"),
+                "POST",
+                config
+        );
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setDoOutput(true);
+        JSONObject request = new JSONObject();
+        request.put("p_nutrition_food_id", normalizedFoodId);
+        request.put("p_catalog_product_id", normalizedCatalogProductId);
+        request.put("p_publish", publish);
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
+        }
+
+        String body = readResponseOrThrow(connection, 200);
+        JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
+        if (rows.length() != 1) {
+            throw new IOException("영양 공개 RPC가 정확히 한 행을 반환하지 않았습니다.");
+        }
+        JSONObject row = rows.getJSONObject(0);
+        String returnedFoodId = nullableString(row, "nutrition_food_id");
+        String returnedCatalogProductId = nullableString(row, "catalog_product_id");
+        String visibility = nullableString(row, "visibility");
+        if (!normalizedFoodId.equals(returnedFoodId)
+                || !normalizedCatalogProductId.equals(returnedCatalogProductId)
+                || !("public".equals(visibility) || "private".equals(visibility))
+                || publish != "public".equals(visibility)) {
+            throw new IOException("영양 공개 RPC 응답이 요청한 항목과 일치하지 않습니다.");
+        }
+
+        String updatedAt = emptyToDefault(nullableString(row, "updated_at"), now());
+        ContentValues values = new ContentValues();
+        values.put("visibility", visibility);
+        values.put("updated_at", updatedAt);
+        int changed = dbHelper.getWritableDatabase().update(
+                "nutrition_foods",
+                values,
+                "id = ? AND owner_id = ? AND deleted_at IS NULL",
+                new String[]{normalizedFoodId, config.effectiveUserId()}
+        );
+        if (changed != 1) {
+            throw new IOException("공개된 영양정보를 기기 카탈로그에 반영하지 못했습니다.");
+        }
+        return new PublicationState(
+                normalizedFoodId,
+                normalizedCatalogProductId,
+                "public".equals(visibility),
+                Math.max(1, row.optInt("publication_revision", 1)),
+                nullableString(row, "published_at")
+        );
     }
 
     /** Pending owner-specific suggestions written by a trusted PriceTrace integration. */
@@ -453,7 +602,9 @@ public final class NutritionCatalogRepository {
             String fetchedAt = now();
             for (ProductReadV1 product : products) {
                 if (product != null) {
-                    cachePriceTraceProduct(database, product, fetchedAt);
+                    for (ProductReadV1 exactVariant : product.exactCatalogVariants()) {
+                        cachePriceTraceProduct(database, exactVariant, fetchedAt);
+                    }
                 }
             }
             database.setTransactionSuccessful();
@@ -469,6 +620,11 @@ public final class NutritionCatalogRepository {
     public ProductNutritionLink linkProduct(String nutritionFoodId, ProductReadV1 product) {
         if (product == null) {
             throw new IllegalArgumentException("연결할 표준상품을 선택하세요.");
+        }
+        if (!product.isExactCatalogProduct()) {
+            throw new IllegalArgumentException(
+                    "표준상품의 여러 규격 중 하나를 임의로 연결할 수 없습니다."
+            );
         }
         requireLinkableFood(nutritionFoodId);
         String timestamp = now();
@@ -730,17 +886,25 @@ public final class NutritionCatalogRepository {
             return new CatalogSyncResult(0, 0);
         }
 
+        int pulledRows = pullFoods(config);
+        pulledRows += pullNutrients(config);
+        pulledRows += pullComponents(config);
+        if (config.isConfigured()) {
+            pulledRows += pullProductLinks(config);
+        }
+
         int pushedRows = 0;
         if (config.isConfigured()) {
             pushedRows += pushTable(config, "nutrition_foods", FOOD_SYNC_COLUMNS);
             pushedRows += pushTable(config, "nutrition_food_nutrients", NUTRIENT_SYNC_COLUMNS);
             pushedRows += pushTable(config, "nutrition_food_components", COMPONENT_SYNC_COLUMNS);
             pushedRows += pushProductLinks(config);
-        }
-        int pulledRows = pullFoods(config);
-        pulledRows += pullNutrients(config);
-        pulledRows += pullComponents(config);
-        if (config.isConfigured()) {
+
+            // Conditional writes can lose a race without overwriting it. Pull once more to
+            // converge on the remote winner and to receive deletion tombstones.
+            pulledRows += pullFoods(config);
+            pulledRows += pullNutrients(config);
+            pulledRows += pullComponents(config);
             pulledRows += pullProductLinks(config);
         }
         return new CatalogSyncResult(pushedRows, pulledRows);
@@ -755,7 +919,8 @@ public final class NutritionCatalogRepository {
         JSONArray rows = new JSONArray();
         SQLiteDatabase database = dbHelper.getReadableDatabase();
         try (Cursor cursor = database.rawQuery(
-                "SELECT " + String.join(", ", columns) + " FROM " + table + " WHERE owner_id = ?",
+                "SELECT " + String.join(", ", columns) + " FROM " + table +
+                        publicationSafePushWhere(table),
                 new String[]{userId}
         )) {
             while (cursor.moveToNext()) {
@@ -767,6 +932,32 @@ public final class NutritionCatalogRepository {
             }
         }
         return postRows(config, table, rows);
+    }
+
+    /** Public rows are immutable through ordinary sync; publication RPCs own that transition. */
+    static String publicationSafePushWhere(String table) {
+        if ("nutrition_foods".equals(table)) {
+            return " WHERE owner_id = ? AND visibility = 'private'";
+        }
+        if ("nutrition_food_nutrients".equals(table)) {
+            return " WHERE owner_id = ? AND EXISTS (" +
+                    "SELECT 1 FROM nutrition_foods parent " +
+                    "WHERE parent.id = nutrition_food_nutrients.food_id " +
+                    "AND parent.visibility = 'private')";
+        }
+        if ("nutrition_food_components".equals(table)) {
+            return " WHERE owner_id = ? AND EXISTS (" +
+                    "SELECT 1 FROM nutrition_foods parent " +
+                    "WHERE parent.id = nutrition_food_components.parent_food_id " +
+                    "AND parent.visibility = 'private')";
+        }
+        if ("product_nutrition_links".equals(table)) {
+            return " WHERE owner_id = ? AND EXISTS (" +
+                    "SELECT 1 FROM nutrition_foods parent " +
+                    "WHERE parent.id = product_nutrition_links.nutrition_food_id " +
+                    "AND parent.visibility = 'private')";
+        }
+        return " WHERE owner_id = ?";
     }
 
     /**
@@ -781,7 +972,8 @@ public final class NutritionCatalogRepository {
         SQLiteDatabase database = dbHelper.getReadableDatabase();
         try (Cursor cursor = database.rawQuery(
                 "SELECT " + String.join(", ", PRODUCT_LINK_SYNC_COLUMNS) +
-                        " FROM product_nutrition_links WHERE owner_id = ?",
+                        " FROM product_nutrition_links" +
+                        publicationSafePushWhere("product_nutrition_links"),
                 new String[]{userId}
         )) {
             while (cursor.moveToNext()) {
@@ -806,44 +998,46 @@ public final class NutritionCatalogRepository {
         // Release an existing approved slot before activating its replacement.
         int pushed = postRows(config, "product_nutrition_links", deletedManualRows);
         for (JSONObject decision : deletedSuggestionRows) {
-            patchSuggestionDecision(config, decision);
-            pushed++;
+            pushed += patchSuggestionDecision(config, decision);
         }
         pushed += postRows(config, "product_nutrition_links", activeManualRows);
         for (JSONObject decision : activeSuggestionDecisions) {
-            patchSuggestionDecision(config, decision);
-            pushed++;
+            pushed += patchSuggestionDecision(config, decision);
         }
         return pushed;
     }
 
-    private void patchSuggestionDecision(SupabaseConfig config, JSONObject row) throws Exception {
+    private int patchSuggestionDecision(SupabaseConfig config, JSONObject row) throws Exception {
         String id = nullableString(row, "id");
         if (id == null) {
-            return;
+            return 0;
         }
-        JSONObject patch = new JSONObject();
-        for (String column : new String[]{
-                "status", "revision", "reviewed_at", "updated_at", "deleted_at"
-        }) {
-            patch.put(column, row.has(column) ? row.get(column) : JSONObject.NULL);
-        }
-        HttpURLConnection connection = openConnection(
-                joinUrl(
-                        config.supabaseUrl,
-                        "/rest/v1/product_nutrition_links?id=eq." + encode(id)
-                                + "&owner_id=eq." + encode(config.effectiveUserId())
-                ),
-                "PATCH",
-                config
+        JSONArray remoteRows = getRows(
+                config,
+                "/rest/v1/product_nutrition_links?owner_id=eq."
+                        + encode(config.effectiveUserId()) + "&select=*"
         );
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("Prefer", "return=minimal");
-        connection.setDoOutput(true);
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(patch.toString().getBytes(StandardCharsets.UTF_8));
+        JSONObject remote = rowsById(remoteRows).get(id);
+        if (remote == null || compareRowVersions(row, remote, "revision") <= 0) {
+            return 0;
         }
-        readResponseOrThrow(connection, 200, 204);
+        if (hasActiveApprovedLink(row)) {
+            JSONObject conflicting = approvedSlotConflict(remoteRows, row);
+            if (conflicting != null
+                    && (compareVersions(
+                    nullableString(row, "updated_at"),
+                    nullableString(conflicting, "updated_at")
+            ) <= 0 || retireRemoteApprovedLink(config, conflicting, row) == 0)) {
+                return 0;
+            }
+        }
+        return patchRowIfUnchanged(
+                config,
+                "product_nutrition_links",
+                row,
+                remote,
+                "revision"
+        );
     }
 
     private int pullFoods(SupabaseConfig config) throws Exception {
@@ -856,7 +1050,7 @@ public final class NutritionCatalogRepository {
             rows += upsertFoodRows(getRows(
                     config,
                     "/rest/v1/nutrition_foods?owner_id=eq." + encode(config.effectiveUserId()) +
-                            "&deleted_at=is.null&select=*"
+                            "&select=*"
             ));
         }
         return rows;
@@ -872,7 +1066,7 @@ public final class NutritionCatalogRepository {
             rows += upsertNutrientRows(getRows(
                     config,
                     "/rest/v1/nutrition_food_nutrients?owner_id=eq." +
-                            encode(config.effectiveUserId()) + "&deleted_at=is.null&select=*"
+                            encode(config.effectiveUserId()) + "&select=*"
             ));
         }
         return rows;
@@ -888,7 +1082,7 @@ public final class NutritionCatalogRepository {
             rows += upsertComponentRows(getRows(
                     config,
                     "/rest/v1/nutrition_food_components?owner_id=eq." +
-                            encode(config.effectiveUserId()) + "&deleted_at=is.null&select=*"
+                            encode(config.effectiveUserId()) + "&select=*"
             ));
         }
         return rows;
@@ -912,6 +1106,17 @@ public final class NutritionCatalogRepository {
                 String id = nullableString(row, "id");
                 String name = nullableString(row, "name");
                 if (id == null || name == null) {
+                    continue;
+                }
+                int remoteRevision = Math.max(1, row.optInt("revision", 1));
+                String remoteUpdatedAt = nullableString(row, "updated_at");
+                if (!shouldApplyRemoteRow(
+                        database,
+                        "nutrition_foods",
+                        id,
+                        remoteRevision,
+                        remoteUpdatedAt
+                )) {
                     continue;
                 }
                 ContentValues values = new ContentValues();
@@ -943,7 +1148,7 @@ public final class NutritionCatalogRepository {
                 putNullable(values, "source_version", nullableString(row, "source_version"));
                 values.put("data_version", row.optInt(
                         "data_version", NutritionFood.DATA_VERSION_MACROS_ONLY));
-                values.put("revision", Math.max(1, row.optInt("revision", 1)));
+                values.put("revision", remoteRevision);
                 values.put("visibility", emptyToDefault(row.optString("visibility", "public"), "public"));
                 values.put("created_at", emptyToDefault(row.optString("created_at", ""), now()));
                 values.put("updated_at", emptyToDefault(row.optString("updated_at", ""), now()));
@@ -974,6 +1179,15 @@ public final class NutritionCatalogRepository {
                 String foodId = nullableString(row, "food_id");
                 String code = NutrientCode.normalize(nullableString(row, "nutrient_code"));
                 if (id == null || foodId == null || !NutrientCode.isKnown(code)) {
+                    continue;
+                }
+                if (!shouldApplyRemoteRow(
+                        database,
+                        "nutrition_food_nutrients",
+                        id,
+                        null,
+                        nullableString(row, "updated_at")
+                )) {
                     continue;
                 }
                 ContentValues values = new ContentValues();
@@ -1012,6 +1226,15 @@ public final class NutritionCatalogRepository {
                 String parentId = nullableString(row, "parent_food_id");
                 String childId = nullableString(row, "child_food_id");
                 if (id == null || parentId == null || childId == null) {
+                    continue;
+                }
+                if (!shouldApplyRemoteRow(
+                        database,
+                        "nutrition_food_components",
+                        id,
+                        null,
+                        nullableString(row, "updated_at")
+                )) {
                     continue;
                 }
                 ContentValues values = new ContentValues();
@@ -1057,6 +1280,34 @@ public final class NutritionCatalogRepository {
                         || !isKnownLinkStatus(status) || !isKnownLinkSource(sourceType)) {
                     continue;
                 }
+                int remoteRevision = Math.max(1, row.optInt("revision", 1));
+                String remoteUpdatedAt = nullableString(row, "updated_at");
+                if (ProductNutritionLink.STATUS_APPROVED.equals(status)
+                        && nullableString(row, "deleted_at") == null) {
+                    String localApprovedUpdatedAt = otherApprovedLinkUpdatedAt(
+                            database,
+                            foodId,
+                            id
+                    );
+                    if (compareVersions(localApprovedUpdatedAt, remoteUpdatedAt) > 0) {
+                        continue;
+                    }
+                    softDeleteApprovedLinks(
+                            database,
+                            foodId,
+                            id,
+                            emptyToDefault(remoteUpdatedAt, now())
+                    );
+                }
+                if (!shouldApplyRemoteRow(
+                        database,
+                        "product_nutrition_links",
+                        id,
+                        remoteRevision,
+                        remoteUpdatedAt
+                )) {
+                    continue;
+                }
                 ContentValues values = new ContentValues();
                 values.put("id", id);
                 values.put("owner_id", ownerId);
@@ -1073,7 +1324,7 @@ public final class NutritionCatalogRepository {
                                 ProductReadV1.CONTRACT_VERSION
                         )
                 );
-                values.put("revision", Math.max(1, row.optInt("revision", 1)));
+                values.put("revision", remoteRevision);
                 putNullable(values, "reviewed_at", nullableString(row, "reviewed_at"));
                 values.put("created_at", emptyToDefault(row.optString("created_at", ""), now()));
                 values.put("updated_at", emptyToDefault(row.optString("updated_at", ""), now()));
@@ -1091,6 +1342,22 @@ public final class NutritionCatalogRepository {
             database.endTransaction();
         }
         return applied;
+    }
+
+    private String otherApprovedLinkUpdatedAt(
+            SQLiteDatabase database,
+            String nutritionFoodId,
+            String exceptId
+    ) {
+        try (Cursor cursor = database.rawQuery(
+                "SELECT updated_at FROM product_nutrition_links " +
+                        "WHERE owner_id = ? AND nutrition_food_id = ? AND id <> ? " +
+                        "AND status = 'approved' AND deleted_at IS NULL " +
+                        "ORDER BY updated_at DESC LIMIT 1",
+                new String[]{userId, nutritionFoodId, exceptId}
+        )) {
+            return cursor.moveToFirst() && !cursor.isNull(0) ? cursor.getString(0) : null;
+        }
     }
 
     private ContentValues foodValues(NutritionFood food, String timestamp) {
@@ -1269,30 +1536,264 @@ public final class NutritionCatalogRepository {
         return columns.toArray(new String[0]);
     }
 
+    private boolean shouldApplyRemoteRow(
+            SQLiteDatabase database,
+            String table,
+            String id,
+            Integer remoteRevision,
+            String remoteUpdatedAt
+    ) {
+        String select = remoteRevision == null ? "updated_at" : "revision, updated_at";
+        try (Cursor cursor = database.rawQuery(
+                "SELECT " + select + " FROM " + table + " WHERE id = ? LIMIT 1",
+                new String[]{id}
+        )) {
+            if (!cursor.moveToFirst()) {
+                return true;
+            }
+            int updatedAtIndex = remoteRevision == null ? 0 : 1;
+            if (remoteRevision != null) {
+                int localRevision = cursor.getInt(0);
+                if (remoteRevision > localRevision) {
+                    return true;
+                }
+                if (remoteRevision < localRevision) {
+                    return false;
+                }
+            }
+            String localUpdatedAt = cursor.isNull(updatedAtIndex)
+                    ? null
+                    : cursor.getString(updatedAtIndex);
+            return compareVersions(remoteUpdatedAt, localUpdatedAt) > 0;
+        }
+    }
+
+    static int compareVersions(String left, String right) {
+        if (left == null && right == null) {
+            return 0;
+        }
+        if (left == null) {
+            return -1;
+        }
+        if (right == null) {
+            return 1;
+        }
+        try {
+            return OffsetDateTime.parse(left).toInstant()
+                    .compareTo(OffsetDateTime.parse(right).toInstant());
+        } catch (Exception ignored) {
+            return left.compareTo(right);
+        }
+    }
+
     private int postRows(SupabaseConfig config, String table, JSONArray rows) throws Exception {
         if (rows.length() == 0) {
             return 0;
         }
+        JSONArray remoteRows = getRows(
+                config,
+                "/rest/v1/" + table + "?owner_id=eq."
+                        + encode(config.effectiveUserId()) + "&select=*"
+        );
+        Map<String, JSONObject> remoteById = rowsById(remoteRows);
+        int pushed = 0;
+        for (int index = 0; index < rows.length(); index++) {
+            JSONObject local = rows.getJSONObject(index);
+            String id = nullableString(local, "id");
+            if (id == null) {
+                continue;
+            }
+            JSONObject remote = remoteById.get(id);
+            if (remote == null) {
+                if ("product_nutrition_links".equals(table)
+                        && hasActiveApprovedLink(local)) {
+                    JSONObject conflicting = approvedSlotConflict(remoteRows, local);
+                    if (conflicting != null) {
+                        if (compareVersions(
+                                nullableString(local, "updated_at"),
+                                nullableString(conflicting, "updated_at")
+                        ) <= 0 || retireRemoteApprovedLink(config, conflicting, local) == 0) {
+                            continue;
+                        }
+                    }
+                }
+                pushed += insertRowIfAbsent(config, table, local);
+                continue;
+            }
+
+            String versionKey = usesRevision(table) ? "revision" : "updated_at";
+            if (compareRowVersions(local, remote, versionKey) <= 0) {
+                continue;
+            }
+            pushed += patchRowIfUnchanged(config, table, local, remote, versionKey);
+        }
+        return pushed;
+    }
+
+    private JSONArray getRows(SupabaseConfig config, String path) throws Exception {
+        final int pageSize = 500;
+        JSONArray allRows = new JSONArray();
+        for (int offset = 0; ; offset += pageSize) {
+            String separator = path.contains("?") ? "&" : "?";
+            String pagedPath = path + separator + "order=id.asc&limit=" + pageSize
+                    + "&offset=" + offset;
+            HttpURLConnection connection = openConnection(
+                    joinUrl(config.supabaseUrl, pagedPath),
+                    "GET",
+                    config
+            );
+            connection.setRequestProperty("Accept", "application/json");
+            String body = readResponseOrThrow(connection, 200, 206);
+            JSONArray page = body.isEmpty() ? new JSONArray() : new JSONArray(body);
+            for (int index = 0; index < page.length(); index++) {
+                allRows.put(page.get(index));
+            }
+            if (page.length() < pageSize) {
+                return allRows;
+            }
+        }
+    }
+
+    private Map<String, JSONObject> rowsById(JSONArray rows) throws JSONException {
+        Map<String, JSONObject> indexed = new LinkedHashMap<>();
+        for (int index = 0; index < rows.length(); index++) {
+            JSONObject row = rows.getJSONObject(index);
+            String id = nullableString(row, "id");
+            if (id != null) {
+                indexed.put(id, row);
+            }
+        }
+        return indexed;
+    }
+
+    private boolean usesRevision(String table) {
+        return "nutrition_foods".equals(table)
+                || "product_nutrition_links".equals(table);
+    }
+
+    private int compareRowVersions(JSONObject local, JSONObject remote, String versionKey) {
+        if ("revision".equals(versionKey)) {
+            int revisionComparison = Integer.compare(
+                    Math.max(1, local.optInt("revision", 1)),
+                    Math.max(1, remote.optInt("revision", 1))
+            );
+            if (revisionComparison != 0) {
+                return revisionComparison;
+            }
+        }
+        return compareVersions(
+                nullableString(local, "updated_at"),
+                nullableString(remote, "updated_at")
+        );
+    }
+
+    private int insertRowIfAbsent(
+            SupabaseConfig config,
+            String table,
+            JSONObject row
+    ) throws Exception {
         HttpURLConnection connection = openConnection(
                 joinUrl(config.supabaseUrl, "/rest/v1/" + table + "?on_conflict=id"),
                 "POST",
                 config
         );
         connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("Prefer", "resolution=merge-duplicates,return=minimal");
+        connection.setRequestProperty(
+                "Prefer",
+                "resolution=ignore-duplicates,return=representation"
+        );
         connection.setDoOutput(true);
+        JSONArray payload = new JSONArray();
+        payload.put(row);
         try (OutputStream output = connection.getOutputStream()) {
-            output.write(rows.toString().getBytes(StandardCharsets.UTF_8));
+            output.write(payload.toString().getBytes(StandardCharsets.UTF_8));
         }
-        readResponseOrThrow(connection, 200, 201, 204);
-        return rows.length();
+        String body = readResponseOrThrow(connection, 200, 201);
+        return body.isEmpty() ? 0 : new JSONArray(body).length();
     }
 
-    private JSONArray getRows(SupabaseConfig config, String path) throws Exception {
-        HttpURLConnection connection = openConnection(joinUrl(config.supabaseUrl, path), "GET", config);
-        connection.setRequestProperty("Accept", "application/json");
+    private int patchRowIfUnchanged(
+            SupabaseConfig config,
+            String table,
+            JSONObject local,
+            JSONObject remote,
+            String versionKey
+    ) throws Exception {
+        String expected = "revision".equals(versionKey)
+                ? String.valueOf(Math.max(1, remote.optInt("revision", 1)))
+                : nullableString(remote, "updated_at");
+        String filter = expected == null ? "is.null" : "eq." + encode(expected);
+        String endpoint = joinUrl(
+                config.supabaseUrl,
+                "/rest/v1/" + table
+                        + "?id=eq." + encode(local.getString("id"))
+                        + "&owner_id=eq." + encode(config.effectiveUserId())
+                        + "&" + versionKey + "=" + filter
+        );
+        HttpURLConnection connection = openConnection(endpoint, "PATCH", config);
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Prefer", "return=representation");
+        connection.setDoOutput(true);
+        JSONObject patch = new JSONObject(local.toString());
+        patch.remove("id");
+        patch.remove("owner_id");
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(patch.toString().getBytes(StandardCharsets.UTF_8));
+        }
         String body = readResponseOrThrow(connection, 200);
-        return body.isEmpty() ? new JSONArray() : new JSONArray(body);
+        return body.isEmpty() ? 0 : new JSONArray(body).length();
+    }
+
+    private boolean hasActiveApprovedLink(JSONObject row) {
+        return ProductNutritionLink.STATUS_APPROVED.equals(nullableString(row, "status"))
+                && nullableString(row, "deleted_at") == null;
+    }
+
+    private JSONObject approvedSlotConflict(JSONArray remoteRows, JSONObject local)
+            throws JSONException {
+        String foodId = nullableString(local, "nutrition_food_id");
+        String localId = nullableString(local, "id");
+        for (int index = 0; index < remoteRows.length(); index++) {
+            JSONObject remote = remoteRows.getJSONObject(index);
+            if (hasActiveApprovedLink(remote)
+                    && foodId != null
+                    && foodId.equals(nullableString(remote, "nutrition_food_id"))
+                    && !localId.equals(nullableString(remote, "id"))) {
+                return remote;
+            }
+        }
+        return null;
+    }
+
+    private int retireRemoteApprovedLink(
+            SupabaseConfig config,
+            JSONObject remote,
+            JSONObject localReplacement
+    ) throws Exception {
+        String replacementTimestamp = emptyToDefault(
+                nullableString(localReplacement, "updated_at"),
+                now()
+        );
+        String endpoint = joinUrl(
+                config.supabaseUrl,
+                "/rest/v1/product_nutrition_links"
+                        + "?id=eq." + encode(remote.getString("id"))
+                        + "&owner_id=eq." + encode(config.effectiveUserId())
+                        + "&revision=eq." + Math.max(1, remote.optInt("revision", 1))
+        );
+        HttpURLConnection connection = openConnection(endpoint, "PATCH", config);
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Prefer", "return=representation");
+        connection.setDoOutput(true);
+        JSONObject patch = new JSONObject();
+        patch.put("deleted_at", replacementTimestamp);
+        patch.put("updated_at", replacementTimestamp);
+        patch.put("revision", Math.max(1, remote.optInt("revision", 1)) + 1);
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(patch.toString().getBytes(StandardCharsets.UTF_8));
+        }
+        String body = readResponseOrThrow(connection, 200);
+        return body.isEmpty() ? 0 : new JSONArray(body).length();
     }
 
     private HttpURLConnection openConnection(String endpoint, String method, SupabaseConfig config)
@@ -1473,6 +1974,34 @@ public final class NutritionCatalogRepository {
         void onComplete(int pushedRows, int pulledRows);
 
         void onError(Exception error);
+    }
+
+    public interface PublicationCallback {
+        void onComplete(PublicationState state);
+
+        void onError(Exception error);
+    }
+
+    public static final class PublicationState {
+        public final String nutritionFoodId;
+        public final String catalogProductId;
+        public final boolean isPublic;
+        public final int publicationRevision;
+        public final String publishedAt;
+
+        PublicationState(
+                String nutritionFoodId,
+                String catalogProductId,
+                boolean isPublic,
+                int publicationRevision,
+                String publishedAt
+        ) {
+            this.nutritionFoodId = nutritionFoodId;
+            this.catalogProductId = catalogProductId;
+            this.isPublic = isPublic;
+            this.publicationRevision = publicationRevision;
+            this.publishedAt = publishedAt;
+        }
     }
 
     public static final class CatalogSyncResult {

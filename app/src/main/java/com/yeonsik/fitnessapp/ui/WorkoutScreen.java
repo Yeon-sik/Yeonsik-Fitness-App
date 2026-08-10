@@ -4,6 +4,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.util.ArrayList;
@@ -23,7 +24,7 @@ public final class WorkoutScreen extends BaseScreen {
         String today = host.today();
         String inProgressSessionId = repository().latestInProgressSessionId();
 
-        screenHeader("FITNESS", "피트니스");
+        screenHeader("운동 선택", "피트니스");
 
         if (inProgressSessionId != null) {
             continueBanner();
@@ -41,7 +42,7 @@ public final class WorkoutScreen extends BaseScreen {
 
         add(ui().hologramStatTile(
                 "식단",
-                "오늘 " + repository().mealsForDate(today).size() + "건",
+                "오늘 " + repository().mealCountForDate(today) + "건",
                 "음식·메뉴·영양 관리",
                 v -> host.openMealManagement()
         ), ui().fullWidthParams(ui().dp(10)));
@@ -58,8 +59,15 @@ public final class WorkoutScreen extends BaseScreen {
         for (String metric : repository().bodyMetricsForDate(today)) {
             conditionRows.add(ui().recordListRow("체", FitnessUi.stripLeadingDate(metric), "체중", null));
         }
-        for (String meal : repository().mealsForDate(today)) {
-            conditionRows.add(ui().recordListRow("식", FitnessUi.stripLeadingDate(meal), "식단", null));
+        for (FitnessRepository.MealEntry meal : repository().mealEntriesForDate(today)) {
+            View row = ui().recordListRow(
+                    "식",
+                    meal.previewTitle,
+                    meal.previewSubtitle(),
+                    v -> host.openMealManagement(today, FitnessScreen.WORKOUT)
+            );
+            row.setContentDescription(meal.previewAccessibilityLabel() + ". 탭하여 식단 관리를 엽니다.");
+            conditionRows.add(row);
         }
         if (!conditionRows.isEmpty()) {
             add(ui().rowsCard(conditionRows));

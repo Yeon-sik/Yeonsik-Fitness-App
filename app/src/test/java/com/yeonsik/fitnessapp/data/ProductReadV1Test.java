@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -38,7 +39,7 @@ public final class ProductReadV1Test {
         assertEquals("쿠팡", product.sellerName);
         assertEquals(Integer.valueOf(3200), product.latestObservedPriceKrw);
         String label = product.exactSelectionLabel();
-        assertTrue(label.contains("catalogProductId: " + CATALOG_ID));
+        assertTrue(label.contains(product.specificationLabel()));
         assertTrue(label.contains("판매처 쿠팡"));
         assertTrue(label.contains("최근 관측가 3,200원"));
         assertTrue(label.contains("관측 2026-08-09T00:00:00Z"));
@@ -75,7 +76,7 @@ public final class ProductReadV1Test {
     }
 
     @Test
-    public void standardProductSearchDeduplicatesCatalogChildrenByStandardId() {
+    public void standardProductSearchDeduplicatesObservationsForTheSameCatalogChild() {
         ProductReadV1 withoutPrice = new ProductReadV1(
                 CATALOG_ID, STANDARD_ID, "닭가슴살", "버거킹", "PX", null, null, 100.0, "g", 1
         );
@@ -85,13 +86,32 @@ public final class ProductReadV1Test {
         );
 
         List<ProductReadV1> results = ProductReadV1.search(
-                Arrays.asList(withoutPrice, withPrice),
+                Arrays.asList(withPrice, withoutPrice),
                 "닭가슴",
                 50
         );
 
         assertEquals(1, results.size());
         assertEquals(Integer.valueOf(2500), results.get(0).latestObservedPriceKrw);
+    }
+
+    @Test
+    public void standardProductSearchKeepsTheNewestPricedObservationRegardlessOfOrder() {
+        ProductReadV1 older = new ProductReadV1(
+                CATALOG_ID, STANDARD_ID, "닭가슴살", "버거킹", "PX", 2400,
+                "2026-08-08T23:30:00+09:00", 100.0, "g", 1
+        );
+        ProductReadV1 newer = new ProductReadV1(
+                CATALOG_ID, STANDARD_ID, "닭가슴살", "버거킹", "PX", 2500,
+                "2026-08-08T15:00:00Z", 100.0, "g", 1
+        );
+
+        assertEquals(Integer.valueOf(2500), ProductReadV1.search(
+                Arrays.asList(older, newer), "닭가슴", 50
+        ).get(0).latestObservedPriceKrw);
+        assertEquals(Integer.valueOf(2500), ProductReadV1.search(
+                Arrays.asList(newer, older), "닭가슴", 50
+        ).get(0).latestObservedPriceKrw);
     }
 
     @Test
@@ -202,7 +222,7 @@ public final class ProductReadV1Test {
     }
 
     @Test
-    public void standardProductSearchDeduplicatesDifferentCatalogChildren() {
+    public void standardProductSearchCollapsesCatalogChildrenAndResolvesMatchingBasis() {
         ProductReadV1 firstChild = new ProductReadV1(
                 CATALOG_ID, STANDARD_ID, "Hatban", "CJ", "Store A", null, null, 210.0, "g", 1
         );
@@ -215,7 +235,13 @@ public final class ProductReadV1Test {
         );
 
         assertEquals(1, results.size());
-        assertEquals(CATALOG_ID, results.get(0).catalogProductId);
+        ProductReadV1 standardResult = results.get(0);
+        assertEquals("CJ · Hatban", standardResult.standardProductLabel());
+        assertEquals(2, standardResult.catalogVariantCount());
+        assertFalse(standardResult.isExactCatalogProduct());
+        assertEquals(CATALOG_ID, standardResult.exactVariantForBasis(210.0, "g").catalogProductId);
+        assertEquals(SECOND_CATALOG_ID, standardResult.exactVariantForBasis(0.13, "kg").catalogProductId);
+        assertNull(standardResult.exactVariantForBasis(100.0, "g"));
     }
 
     @Test

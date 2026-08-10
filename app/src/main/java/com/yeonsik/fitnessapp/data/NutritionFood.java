@@ -238,6 +238,23 @@ public final class NutritionFood {
         }
     }
 
+    /** 사용자에게 노출하는 카탈로그 분류명. 저장 값은 기존 동기화 계약을 유지한다. */
+    public static String kindLabel(String kind) {
+        switch (normalizeKind(kind)) {
+            case KIND_INGREDIENT:
+                return "단일 식품";
+            case KIND_RECIPE:
+                return "저장 메뉴";
+            default:
+                return "완제품";
+        }
+    }
+
+    /** 저장 메뉴는 다른 메뉴 안에 중첩하지 않고, 단일 식품과 완제품만 재료로 쓴다. */
+    public static boolean canBeRecipeComponent(String kind) {
+        return !KIND_RECIPE.equals(normalizeKind(kind));
+    }
+
     public static String normalizeCategory(String category) {
         String normalized = category == null ? "" : category.trim().toLowerCase(Locale.US);
         for (String option : CATEGORY_OPTIONS) {

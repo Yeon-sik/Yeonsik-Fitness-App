@@ -53,7 +53,7 @@ public final class RoutineEditorScreen extends BaseScreen {
         add(ui.textAction("‹ 무산소로", FitnessUi.COLOR_MUTED,
                 () -> host.navigate(FitnessScreen.STRENGTH)), ui.fullWidthParams(0));
 
-        TextView eyebrowView = ui.caption("ROUTINE", FitnessUi.COLOR_MUTED);
+        TextView eyebrowView = ui.caption("루틴", FitnessUi.COLOR_MUTED);
         eyebrowView.setPadding(0, ui.dp(16), 0, 0);
         add(eyebrowView);
         add(ui.titleView(routineName));
@@ -122,7 +122,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                         ? host.sessionState().activeRecordId()
                         : host.currentWorkoutRecordId());
 
-        BodyPart[] selectedBodyPart = new BodyPart[]{BodyPart.CHEST};
+        BodyPart[] selectedBodyPart = new BodyPart[]{null};
         EquipmentType[] selectedEquipment = new EquipmentType[]{null};
         List<String> selectedExerciseIds = new ArrayList<>();
         List<WeightExercise> selectedExercises = new ArrayList<>();
@@ -145,7 +145,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             }), ui.fullWidthParams(0));
         }
 
-        TextView eyebrowView = ui.caption(routineMode ? "ROUTINE" : "WORKOUT", FitnessUi.COLOR_MUTED);
+        TextView eyebrowView = ui.caption(routineMode ? "루틴 구성" : "진행 중 운동", FitnessUi.COLOR_MUTED);
         eyebrowView.setPadding(0, ui.dp(16), 0, 0);
         add(eyebrowView);
         add(ui.titleView(routineMode ? "루틴 추가" : "운동 종목 추가"));
@@ -160,6 +160,12 @@ public final class RoutineEditorScreen extends BaseScreen {
 
         LinearLayout bodyRowTop = ui.pickerRow();
         LinearLayout bodyRowBottom = ui.pickerRow();
+        Button allBodyButton = ui.filterButton("전체");
+        allBodyButton.setOnClickListener(v -> {
+            selectedBodyPart[0] = null;
+            refresh[0].run();
+        });
+        bodyRowTop.addView(allBodyButton, ui.pickerCellParams(true));
         BodyPart[] bodyParts = BodyPart.values();
         for (int index = 0; index < bodyParts.length; index++) {
             BodyPart bodyPart = bodyParts[index];
@@ -170,7 +176,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             });
             bodyButtons.add(filterButton);
             if (index < 3) {
-                bodyRowTop.addView(filterButton, ui.pickerCellParams(index == 0));
+                bodyRowTop.addView(filterButton, ui.pickerCellParams(false));
             } else {
                 bodyRowBottom.addView(filterButton, ui.pickerCellParams(index == 3));
             }
@@ -245,6 +251,7 @@ public final class RoutineEditorScreen extends BaseScreen {
         listArea.setOrientation(LinearLayout.VERTICAL);
 
         refresh[0] = () -> {
+            ui.styleFilterButton(allBodyButton, selectedBodyPart[0] == null);
             for (int index = 0; index < bodyButtons.size(); index++) {
                 ui.styleFilterButton(bodyButtons.get(index), bodyParts[index] == selectedBodyPart[0]);
             }
@@ -271,6 +278,9 @@ public final class RoutineEditorScreen extends BaseScreen {
 
             @Override
             public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (s != null && !s.toString().trim().isEmpty()) {
+                    selectedBodyPart[0] = null;
+                }
                 refresh[0].run();
             }
 
@@ -329,20 +339,24 @@ public final class RoutineEditorScreen extends BaseScreen {
                     ? ui.vibrantRippleDrawable(cardSeed, ui.dp(16))
                     : ui.flatSurfaceRippleDrawable(ui.dp(16)));
             ui.applyDepth(card, selected ? 7 : 4);
+            card.setSelected(selected);
+            card.setContentDescription(
+                    exercise.displayName() + ", " + exercise.primarySubPartNameKo
+                            + ", " + exercise.equipmentNameKo
+                            + ", " + displayRecordType(exercise)
+                            + (selected ? ", 선택됨" : ", 선택 안 됨")
+            );
 
             LinearLayout column = new LinearLayout(host.activity());
             column.setOrientation(LinearLayout.VERTICAL);
             TextView name = ui.text(exercise.displayName(), 15,
                     selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
-            TextView meta = ui.text(exercise.equipmentNameKo + " · " + exercise.primarySubPartNameKo,
+            TextView meta = ui.text(exercise.primarySubPartNameKo + " · " + exercise.equipmentNameKo
+                            + " · " + displayRecordType(exercise),
                     12, selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED, false);
-            TextView detail = ui.text(displayExerciseMechanic(exercise) + " · " + displayRecordType(exercise),
-                    12, selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_TERTIARY, false);
             meta.setPadding(0, ui.dp(4), 0, 0);
-            detail.setPadding(0, ui.dp(2), 0, 0);
             column.addView(name);
             column.addView(meta);
-            column.addView(detail);
             card.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
             if (selected) {
@@ -394,13 +408,6 @@ public final class RoutineEditorScreen extends BaseScreen {
             results.add(exercise);
         }
         return results;
-    }
-
-    private String displayExerciseMechanic(WeightExercise exercise) {
-        if (exercise.mechanicTypeNameKo != null && !exercise.mechanicTypeNameKo.isEmpty()) {
-            return exercise.mechanicTypeNameKo;
-        }
-        return exercise.mechanicType == null || exercise.mechanicType.isEmpty() ? "유형 없음" : exercise.mechanicType;
     }
 
     private String displayRecordType(WeightExercise exercise) {

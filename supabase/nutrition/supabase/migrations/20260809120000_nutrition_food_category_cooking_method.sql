@@ -86,6 +86,8 @@ begin
         old.fat_grams,
         old.sodium_mg,
         old.saturated_fat_grams,
+        old.sugars_grams,
+        old.fiber_grams,
         old.added_sugars_grams,
         old.trans_fat_grams,
         old.cholesterol_mg,

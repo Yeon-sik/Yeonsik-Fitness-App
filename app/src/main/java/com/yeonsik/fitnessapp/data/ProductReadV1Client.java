@@ -11,7 +11,9 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.SocketTimeoutException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -61,34 +63,48 @@ public final class ProductReadV1Client {
             throw new IllegalStateException("PriceTrace 상품 DB 연결을 먼저 설정하세요.");
         }
 
-        HttpURLConnection connection = (HttpURLConnection) new URL(
-                joinUrl(active.supabaseUrl, PRODUCT_READ_RPC)
-        ).openConnection();
-        connection.setRequestMethod("POST");
-        connection.setConnectTimeout(15000);
-        connection.setReadTimeout(20000);
-        connection.setRequestProperty("apikey", active.supabaseAnonKey);
-        connection.setRequestProperty("Authorization", "Bearer " + active.supabaseAnonKey);
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("X-Contract-Version", ProductReadV1.CONTRACT_VERSION);
-        connection.setDoOutput(true);
-        JSONObject arguments = new JSONObject();
-        arguments.put(
-                "p_catalog_product_id",
-                catalogProductId == null ? JSONObject.NULL : catalogProductId
-        );
-        arguments.put("p_query", query == null || query.trim().isEmpty() ? JSONObject.NULL : query.trim());
-        arguments.put("p_limit", Math.max(1, Math.min(limit, 100)));
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(arguments.toString().getBytes(StandardCharsets.UTF_8));
-        }
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(
+                    joinUrl(active.supabaseUrl, PRODUCT_READ_RPC)
+            ).openConnection();
+            connection.setRequestMethod("POST");
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(20000);
+            connection.setRequestProperty("apikey", active.supabaseAnonKey);
+            connection.setRequestProperty("Authorization", "Bearer " + active.supabaseAnonKey);
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+            connection.setRequestProperty("X-Contract-Version", ProductReadV1.CONTRACT_VERSION);
+            connection.setDoOutput(true);
+            JSONObject arguments = new JSONObject();
+            arguments.put(
+                    "p_catalog_product_id",
+                    catalogProductId == null ? JSONObject.NULL : catalogProductId
+            );
+            arguments.put(
+                    "p_query",
+                    query == null || query.trim().isEmpty() ? JSONObject.NULL : query.trim()
+            );
+            arguments.put("p_limit", Math.max(1, Math.min(limit, 100)));
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(arguments.toString().getBytes(StandardCharsets.UTF_8));
+            }
 
-        String body = readResponseOrThrow(connection);
-        if (body.isEmpty()) {
-            throw new IOException("PriceTrace product-read.v1 응답이 비어 있습니다.");
+            String body = readResponseOrThrow(connection);
+            if (body.isEmpty()) {
+                throw new IOException("PriceTrace 응답이 비어 있습니다. 잠시 후 다시 시도하세요.");
+            }
+            return ProductReadV1.fromContractMap(toMap(new JSONObject(body)));
+        } catch (UnknownHostException error) {
+            throw new IOException("인터넷 연결을 확인한 뒤 PriceTrace 검색을 다시 시도하세요.", error);
+        } catch (SocketTimeoutException error) {
+            throw new IOException("PriceTrace 응답 시간이 초과되었습니다. 다시 시도하세요.", error);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
-        return ProductReadV1.fromContractMap(toMap(new JSONObject(body)));
     }
 
     private static Map<String, Object> toMap(JSONObject row) {
@@ -127,10 +143,21 @@ public final class ProductReadV1Client {
         if (statusCode >= 200 && statusCode < 300) {
             return readStream(connection.getInputStream());
         }
-        throw new IOException(
-                "PriceTrace product-read.v1 조회 실패 (" + statusCode + "): "
-                        + readStream(connection.getErrorStream())
-        );
+        readStream(connection.getErrorStream());
+        if (statusCode == 401 || statusCode == 403) {
+            throw new IOException("PriceTrace 읽기 권한을 확인하세요. (HTTP " + statusCode + ")");
+        }
+        if (statusCode == 404) {
+            throw new IOException("PriceTrace 상품 조회 기능을 찾지 못했습니다. (HTTP 404)");
+        }
+        if (statusCode == 429) {
+            throw new IOException("PriceTrace 요청이 많습니다. 잠시 후 다시 시도하세요. (HTTP 429)");
+        }
+        if (statusCode >= 500) {
+            throw new IOException("PriceTrace 서버가 일시적으로 응답하지 않습니다. (HTTP "
+                    + statusCode + ")");
+        }
+        throw new IOException("PriceTrace 상품 조회에 실패했습니다. (HTTP " + statusCode + ")");
     }
 
     private static String readStream(InputStream stream) throws IOException {

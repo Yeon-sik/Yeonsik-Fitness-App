@@ -35,7 +35,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
         FitnessRepository.SessionMetrics metrics = repository().sessionMetrics(recordId);
         boolean inProgress = !"completed".equals(info.status);
 
-        screenHeader("WORKOUT SESSION", info.title.isEmpty() ? "운동 중" : info.title);
+        screenHeader("진행 중", info.title.isEmpty() ? "운동 중" : info.title);
 
         LinearLayout status = ui.card();
         status.setGravity(Gravity.CENTER_HORIZONTAL);

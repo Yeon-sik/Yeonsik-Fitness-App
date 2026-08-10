@@ -341,8 +341,6 @@ public final class MealDialogController {
             selectedPrepState[0] = nextPrepState(selectedPrepState[0]);
             prepStateButton.setText(prepStateButtonLabel(selectedPrepState[0]));
         });
-        EditText sourceReference = ui.input("출처/메모 (선택)", "");
-        EditText sourceVersion = ui.input("출처 버전 (선택, 예: MFDS 2024-03)", "");
         NutritionInputSection nutrients = new NutritionInputSection(ui, host.activity());
         TextView unitNutritionPreview = ui.text(
                 "단위 영양성분: 기준량과 필수 영양성분을 입력하면 자동 계산됩니다.",
@@ -365,9 +363,7 @@ public final class MealDialogController {
                         false
                 ),
                 nutrients.view(),
-                unitNutritionPreview,
-                sourceReference,
-                sourceVersion
+                unitNutritionPreview
         );
 
         ScrollView bodyScroll = new ScrollView(host.activity());
@@ -394,8 +390,8 @@ public final class MealDialogController {
                                 selectedPrepState[0],
                                 nutrients.profile(),
                                 "manual",
-                                FitnessUi.inputText(sourceReference),
-                                FitnessUi.inputText(sourceVersion)
+                                "",
+                                ""
                         );
                         compositionItems.add(MealCompositionItem.from(saved, saved.basisAmount));
                         renderComposition(

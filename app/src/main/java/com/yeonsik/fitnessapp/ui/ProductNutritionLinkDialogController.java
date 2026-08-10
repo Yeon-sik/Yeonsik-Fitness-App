@@ -11,7 +11,6 @@ import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.ProductNutritionLink;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
-
 import java.util.List;
 
 /** Explicit selection, suggestion approval, and unlink UI for cross-project product links. */
@@ -20,6 +19,7 @@ final class ProductNutritionLinkDialogController {
     private final FitnessUi ui;
     private final NutritionCatalogRepository repository;
     private AlertDialog activeDialog;
+    private boolean publicationUpdating;
 
     ProductNutritionLinkDialogController(ScreenHost host) {
         this.host = host;
@@ -32,6 +32,8 @@ final class ProductNutritionLinkDialogController {
         LinearLayout body = ui.form();
         ProductNutritionLink approved = repository.approvedProductLink(food.id);
         List<ProductNutritionLink> suggestions = repository.pendingProductLinkSuggestions(food.id);
+        boolean isPublic = repository.isFoodPublic(food.id);
+        boolean priceTraceConfigured = host.priceTraceSupabaseConfig().isConnectionConfigured();
 
         body.addView(ui.text(
                 "영양 정보는 이 연결 없이도 독립적으로 저장됩니다. 이름 자동 매칭은 하지 "
@@ -39,6 +41,10 @@ final class ProductNutritionLinkDialogController {
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
+        ));
+        body.addView(ui.keyValue(
+                "공개 상태",
+                isPublic ? "PriceTrace 공개" : "개인 영양정보"
         ));
 
         if (approved == null) {
@@ -48,15 +54,24 @@ final class ProductNutritionLinkDialogController {
             body.addView(ui.text(approved.displayLabel(), 12, FitnessUi.COLOR_TEXT, false));
             Button refresh = ui.button("상품·가격 새로고침", false,
                     v -> refreshApprovedProduct(food, approved));
-            Button unlink = ui.button("PriceTrace 연결 해제", false, v -> {
-                if (repository.unlinkProduct(food.id)) {
-                    syncLinksQuietly();
-                    host.toast("상품 연결만 해제했습니다. 영양 정보와 과거 식사 snapshot은 유지됩니다.");
-                    dismissActiveDialog();
-                    host.rerender();
-                }
-            });
+            refresh.setEnabled(priceTraceConfigured);
+            Button unlink = ui.button("PriceTrace 연결 해제", false,
+                    v -> confirmUnlink(food, approved));
             body.addView(ui.buttonRow(refresh, unlink), ui.fullWidthParams(ui.dp(10)));
+            Button publication = ui.button(
+                    isPublic ? "PriceTrace 공개 취소" : "PriceTrace에 공개",
+                    !isPublic,
+                    v -> confirmPublication(food, approved, !isPublic)
+            );
+            body.addView(publication, ui.fullWidthParams(ui.dp(8)));
+            body.addView(ui.text(
+                    isPublic
+                            ? "공개 중에는 영양값과 상품 연결을 변경할 수 없습니다. 먼저 공개를 취소하세요."
+                            : "공개하면 이 영양정보가 PriceTrace의 상품 정보 화면에 표시됩니다.",
+                    11,
+                    FitnessUi.COLOR_TERTIARY,
+                    false
+            ));
         }
 
         if (!suggestions.isEmpty()) {
@@ -76,7 +91,7 @@ final class ProductNutritionLinkDialogController {
         search.setSelection(search.length());
         Button searchButton = ui.button("상품 검색", true, null);
         TextView resultStatus = ui.text(
-                host.priceTraceSupabaseConfig().isConnectionConfigured()
+                priceTraceConfigured
                         ? "이름은 후보를 좁히는 용도입니다."
                         : "설정에서 PriceTrace 읽기 전용 DB를 먼저 연결하세요.",
                 12,
@@ -86,10 +101,25 @@ final class ProductNutritionLinkDialogController {
         LinearLayout results = new LinearLayout(host.activity());
         results.setOrientation(LinearLayout.VERTICAL);
 
+        if (isPublic) {
+            search.setEnabled(false);
+            searchButton.setEnabled(false);
+            resultStatus.setText("상품 연결을 바꾸려면 PriceTrace 공개를 먼저 취소하세요.");
+        } else if (!priceTraceConfigured) {
+            search.setEnabled(false);
+            searchButton.setEnabled(false);
+        }
+
         body.addView(ui.fieldLabel("새 상품 연결 또는 변경"));
         body.addView(search, ui.fullWidthParams(ui.dp(8)));
         body.addView(searchButton, ui.fullWidthParams(ui.dp(8)));
         body.addView(resultStatus, ui.fullWidthParams(ui.dp(8)));
+        if (!priceTraceConfigured) {
+            body.addView(ui.button("PriceTrace 연결 설정 열기", false, v -> {
+                dismissActiveDialog();
+                host.openSettingsConnections();
+            }), ui.fullWidthParams(ui.dp(8)));
+        }
         body.addView(results, ui.fullWidthParams(ui.dp(4)));
 
         searchButton.setOnClickListener(v -> {
@@ -135,6 +165,29 @@ final class ProductNutritionLinkDialogController {
         activeDialog.show();
     }
 
+    private void confirmUnlink(NutritionFood food, ProductNutritionLink approved) {
+        if (repository.isFoodPublic(food.id)) {
+            host.toast("PriceTrace 공개를 먼저 취소한 뒤 상품 연결을 해제하세요.");
+            return;
+        }
+        ui.confirmSheet(
+                "PriceTrace 연결 해제",
+                approved.displayLabel() + " 연결을 해제합니다.",
+                "영양 정보와 과거 식사 기록은 유지됩니다.",
+                "연결 해제",
+                () -> {
+                    if (!repository.unlinkProduct(food.id)) {
+                        host.toast("이미 해제되었거나 연결 정보를 찾을 수 없습니다.");
+                        return;
+                    }
+                    syncLinksQuietly();
+                    host.toast("상품 연결만 해제했습니다. 영양 정보와 과거 식사 기록은 유지됩니다.");
+                    dismissActiveDialog();
+                    host.rerender();
+                }
+        );
+    }
+
     private void renderResults(
             NutritionFood food,
             List<ProductReadV1> products,
@@ -146,17 +199,39 @@ final class ProductNutritionLinkDialogController {
             status.setText("검색 결과가 없습니다. 영양 항목은 연결 없이 계속 사용할 수 있습니다.");
             return;
         }
-        status.setText(products.size() + "개 표준상품 후보 · 브랜드와 상품 이름만 표시합니다.");
+        status.setText(products.size() + "개 표준상품 · 하위 규격은 표시하지 않습니다.");
         for (ProductReadV1 product : products) {
             Button choice = ui.button(product.standardProductLabel(), false, v ->
-                    confirmExactSelection(food, product));
+                    selectStandardProduct(food, product));
             choice.setAllCaps(false);
             choice.setTextAlignment(android.view.View.TEXT_ALIGNMENT_VIEW_START);
             results.addView(choice, ui.fullWidthParams(ui.dp(7)));
         }
     }
 
+    private void selectStandardProduct(NutritionFood food, ProductReadV1 standardProduct) {
+        ProductReadV1 exactProduct = standardProduct.exactVariantForBasis(
+                food.basisAmount,
+                food.basisUnit
+        );
+        if (exactProduct == null) {
+            new AlertDialog.Builder(host.activity())
+                    .setTitle("표준상품 확인")
+                    .setMessage(standardProduct.standardProductLabel()
+                            + "은 확인했지만 입력된 영양 기준량과 유일하게 일치하는 규격이 없습니다. "
+                            + "하위 규격을 임의로 연결하지 않으며 영양 정보는 그대로 사용할 수 있습니다.")
+                    .setPositiveButton("확인", null)
+                    .show();
+            return;
+        }
+        confirmExactSelection(food, exactProduct);
+    }
+
     private void confirmExactSelection(NutritionFood food, ProductReadV1 product) {
+        if (repository.isFoodPublic(food.id)) {
+            host.toast("PriceTrace 공개를 먼저 취소한 뒤 상품 연결을 변경하세요.");
+            return;
+        }
         new AlertDialog.Builder(host.activity())
                 .setTitle("표준상품 연결 확인")
                 .setMessage(product.standardProductLabel()
@@ -170,6 +245,68 @@ final class ProductNutritionLinkDialogController {
                 })
                 .setNegativeButton("취소", null)
                 .show();
+    }
+
+    private void confirmPublication(
+            NutritionFood food,
+            ProductNutritionLink approved,
+            boolean publish
+    ) {
+        String title = publish ? "PriceTrace에 공개" : "PriceTrace 공개 취소";
+        String message = publish
+                ? food.displayName() + "의 영양정보가 인터넷에서 공개됩니다.\n\n"
+                + approved.displayLabel() + "에 공개할까요?"
+                : food.displayName() + "의 영양정보를 PriceTrace에서 숨길까요?";
+        new AlertDialog.Builder(host.activity())
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(publish ? "공개" : "공개 취소", (dialog, which) ->
+                        setPublication(food, approved, publish))
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void setPublication(
+            NutritionFood food,
+            ProductNutritionLink approved,
+            boolean publish
+    ) {
+        if (publicationUpdating) {
+            return;
+        }
+        publicationUpdating = true;
+        dismissActiveDialog();
+        host.toast(publish ? "영양정보를 공개하는 중입니다." : "영양정보 공개를 취소하는 중입니다.");
+        host.setNutritionFoodPublication(
+                food.id,
+                approved.catalogProductId,
+                publish,
+                new NutritionCatalogRepository.PublicationCallback() {
+                    @Override
+                    public void onComplete(NutritionCatalogRepository.PublicationState state) {
+                        host.activity().runOnUiThread(() -> {
+                            publicationUpdating = false;
+                            host.toast(state.isPublic
+                                    ? "영양정보를 PriceTrace에 공개했습니다."
+                                    : "PriceTrace 공개를 취소했습니다.");
+                            dismissActiveDialog();
+                            show(food);
+                            host.rerender();
+                        });
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        host.activity().runOnUiThread(() -> {
+                            publicationUpdating = false;
+                            show(food);
+                            host.toast(error.getMessage() == null
+                                    ? "영양정보 공개 상태를 변경하지 못했습니다."
+                                    : error.getMessage());
+                        });
+                    }
+                }
+        );
     }
 
     private void loadSuggestion(NutritionFood food, ProductNutritionLink suggestion) {
@@ -228,9 +365,13 @@ final class ProductNutritionLinkDialogController {
             ProductNutritionLink suggestion,
             ProductReadV1 product
     ) {
+        if (repository.isFoodPublic(food.id)) {
+            host.toast("PriceTrace 공개를 먼저 취소한 뒤 상품 연결을 변경하세요.");
+            return;
+        }
         new AlertDialog.Builder(host.activity())
                 .setTitle("PriceTrace 제안 검토")
-                .setMessage(product.standardProductLabel()
+                .setMessage(product.exactSelectionLabel()
                         + "\n\n영양 항목: " + food.name
                         + "\n제안 참조: " + (suggestion.proposalReference == null
                         ? "없음" : suggestion.proposalReference))

@@ -18,7 +18,7 @@ public final class CardioSummaryScreen extends BaseScreen {
         String recordId = host.sessionState().activeRecordId();
         CardioRepository.SessionSnapshot snapshot = host.cardioRepository().session(recordId);
 
-        screenHeader("CARDIO SUMMARY", snapshot == null ? "유산소 요약" : snapshot.activityType.labelKo());
+        screenHeader("완료 기록", snapshot == null ? "유산소 요약" : snapshot.activityType.labelKo());
         if (snapshot == null) {
             emptyState("이 기기에서 GPS 세부 기록을 찾지 못했습니다.",
                     "공유된 운동 요약은 일반 운동 기록에서 확인할 수 있습니다.");

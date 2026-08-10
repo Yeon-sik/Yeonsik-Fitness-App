@@ -37,11 +37,18 @@ public final class RoutineRepository {
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
         if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
+            SQLiteDatabase database = db();
             ContentValues values = new ContentValues();
             values.put("user_id", nextUserId);
             String[] localOwner = {SupabaseConfig.DEFAULT_USER_ID};
-            db().update("routines", values, "user_id = ?", localOwner);
-            db().update("routine_exercises", values, "user_id = ?", localOwner);
+            database.beginTransaction();
+            try {
+                database.update("routines", values, "user_id = ?", localOwner);
+                database.update("routine_exercises", values, "user_id = ?", localOwner);
+                database.setTransactionSuccessful();
+            } finally {
+                database.endTransaction();
+            }
         }
         this.userId = nextUserId;
         this.activeRoutineId = null;
@@ -76,7 +83,8 @@ public final class RoutineRepository {
         List<RoutineSummary> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
                 "SELECT r.id, r.name, COUNT(re.id) FROM routines r "
-                        + "LEFT JOIN routine_exercises re ON re.routine_id = r.id AND re.deleted_at IS NULL "
+                        + "LEFT JOIN routine_exercises re ON re.routine_id = r.id "
+                        + "AND re.user_id = r.user_id AND re.deleted_at IS NULL "
                         + "WHERE r.user_id = ? AND r.deleted_at IS NULL GROUP BY r.id, r.name "
                         + "ORDER BY r.is_default DESC, r.created_at",
                 new String[]{userId})) {
@@ -121,8 +129,9 @@ public final class RoutineRepository {
 
     public String routineName(String routineId) {
         try (Cursor cursor = db().rawQuery(
-                "SELECT name FROM routines WHERE id = ? AND deleted_at IS NULL LIMIT 1",
-                new String[]{routineId})) {
+                "SELECT name FROM routines " +
+                        "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
+                new String[]{routineId, userId})) {
             if (cursor.moveToFirst()) {
                 return emptyToDefault(cursor.getString(0), DEFAULT_ROUTINE_NAME);
             }
@@ -162,7 +171,12 @@ public final class RoutineRepository {
         ContentValues values = new ContentValues();
         values.put("name", emptyToDefault(name, DEFAULT_ROUTINE_NAME));
         values.put("updated_at", now());
-        db().update("routines", values, "id = ? AND deleted_at IS NULL", new String[]{routineId});
+        db().update(
+                "routines",
+                values,
+                "id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{routineId, userId}
+        );
     }
 
     public RoutineExerciseInstance addToDefaultRoutine(RoutineExercise exercise) {
@@ -172,6 +186,9 @@ public final class RoutineRepository {
     private RoutineExerciseInstance addToRoutine(String routineId, RoutineExercise exercise) {
         if (exercise == null) {
             return null;
+        }
+        if (!ownsRoutine(routineId)) {
+            throw new IllegalArgumentException("현재 계정의 루틴이 아닙니다.");
         }
 
         int nextOrder = nextOrder(routineId);
@@ -205,8 +222,9 @@ public final class RoutineRepository {
         List<RoutineExerciseInstance> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, exercise_id, name_ko, ui_part, primary_sub_part, equipment, record_type, order_index " +
-                        "FROM routine_exercises WHERE routine_id = ? AND deleted_at IS NULL ORDER BY order_index, created_at",
-                new String[]{routineId})) {
+                        "FROM routine_exercises WHERE routine_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL ORDER BY order_index, created_at",
+                new String[]{routineId, userId})) {
             while (cursor.moveToNext()) {
                 rows.add(new RoutineExerciseInstance(
                         cursor.getString(0),
@@ -225,14 +243,25 @@ public final class RoutineRepository {
 
     private int nextOrder(String routineId) {
         try (Cursor cursor = db().rawQuery(
-                "SELECT COALESCE(MAX(order_index), 0) + 1 FROM routine_exercises WHERE routine_id = ? AND deleted_at IS NULL",
-                new String[]{routineId})) {
+                "SELECT COALESCE(MAX(order_index), 0) + 1 FROM routine_exercises " +
+                        "WHERE routine_id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{routineId, userId})) {
             return cursor.moveToFirst() ? cursor.getInt(0) : 1;
         }
     }
 
     private SQLiteDatabase db() {
         return dbHelper.getWritableDatabase();
+    }
+
+    private boolean ownsRoutine(String routineId) {
+        try (Cursor cursor = db().rawQuery(
+                "SELECT 1 FROM routines WHERE id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL LIMIT 1",
+                new String[]{routineId, userId}
+        )) {
+            return cursor.moveToFirst();
+        }
     }
 
     private ContentValues baseValues(String id, String now) {

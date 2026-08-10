@@ -18,6 +18,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -45,23 +46,42 @@ public final class FitnessRepository {
         this.userId = normalizeUserId(userId);
     }
 
+    public String currentUserId() {
+        return userId;
+    }
+
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
         if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
             SQLiteDatabase database = db();
-            ContentValues values = new ContentValues();
-            values.put("user_id", nextUserId);
-            for (String table : tables()) {
-                database.update(
-                        table,
-                        values,
+            database.beginTransaction();
+            try {
+                ContentValues values = new ContentValues();
+                values.put("user_id", nextUserId);
+                for (String table : claimableOwnerTables()) {
+                    database.update(
+                            table,
+                            values,
+                            "user_id = ?",
+                            new String[]{SupabaseConfig.DEFAULT_USER_ID}
+                    );
+                }
+                claimSingletonNutritionGoal(database, nextUserId);
+                claimConflictFreeDailyRows(database, nextUserId);
+                database.delete(
+                        "devices",
                         "user_id = ?",
                         new String[]{SupabaseConfig.DEFAULT_USER_ID}
                 );
+                ensureDevice(database, nextUserId);
+                database.setTransactionSuccessful();
+            } finally {
+                database.endTransaction();
             }
+        } else {
+            ensureDevice(nextUserId);
         }
         this.userId = nextUserId;
-        ensureDevice(nextUserId);
     }
 
     public String createSession(String date, String title, String sessionType, String memo, String startedAt, String endedAt) {
@@ -135,7 +155,12 @@ public final class FitnessRepository {
                 null
         ));
         record.put("updated_at", createdAt);
-        db().update("workout_records", record, "id = ?", new String[]{recordId});
+        db().update(
+                "workout_records",
+                record,
+                "id = ? AND user_id = ?",
+                new String[]{recordId, userId}
+        );
         updateSharedWorkoutSummary(recordId, false);
         return recordId;
     }
@@ -151,6 +176,7 @@ public final class FitnessRepository {
         if (emptyToNull(recordId) == null || activityType == null) {
             throw new IllegalArgumentException("완료할 유산소 세션이 없습니다.");
         }
+        requireOwnedWorkoutRecord(recordId);
         if (durationSeconds <= 0) {
             throw new IllegalArgumentException("유산소 시간은 1초 이상이어야 합니다.");
         }
@@ -202,7 +228,8 @@ public final class FitnessRepository {
                 averageHeartRateBpm
         ));
         db().update("workout_records", record,
-                "id = ? AND deleted_at IS NULL", new String[]{recordId});
+                "id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{recordId, userId});
         updateSharedWorkoutSummary(recordId, true);
     }
 
@@ -222,8 +249,8 @@ public final class FitnessRepository {
         boolean updated = db().update(
                 "workout_records",
                 values,
-                "id = ? AND workout_type = 'cardio' AND deleted_at IS NULL",
-                new String[]{recordId}
+                "id = ? AND user_id = ? AND workout_type = 'cardio' AND deleted_at IS NULL",
+                new String[]{recordId, userId}
         ) == 1;
         if (updated) {
             updateSharedWorkoutSummary(recordId, true);
@@ -395,6 +422,7 @@ public final class FitnessRepository {
     }
 
     public String addExercise(String recordId, String name, String category, int orderIndex, String memo) {
+        requireOwnedWorkoutRecord(recordId);
         String id = newId();
         String now = now();
         ContentValues values = baseValues(id, now);
@@ -416,6 +444,7 @@ public final class FitnessRepository {
         if (emptyToNull(recordId) == null || exercise == null) {
             return null;
         }
+        requireOwnedWorkoutRecord(recordId);
 
         String id = newId();
         String now = now();
@@ -452,6 +481,7 @@ public final class FitnessRepository {
     }
 
     public String addTypedSet(String recordId, String exerciseId, int setIndex, SetInput input) {
+        requireOwnedWorkoutExercise(recordId, exerciseId);
         String recordType = exerciseRecordType(exerciseId);
         validateSetInput(recordType, input);
         String id = newId();
@@ -492,6 +522,7 @@ public final class FitnessRepository {
         if (emptyToNull(recordId) == null || emptyToNull(setId) == null) {
             return;
         }
+        requireOwnedWorkoutSet(recordId, setId);
 
         String recordType = setRecordType(setId);
         validateSetInput(recordType, input);
@@ -508,7 +539,12 @@ public final class FitnessRepository {
         putNullable(values, "rest_seconds", input.restSeconds);
         values.put("is_completed", input.completed ? 1 : 0);
         values.put("updated_at", now());
-        db().update("workout_sets", values, "id = ? AND deleted_at IS NULL", new String[]{setId});
+        db().update(
+                "workout_sets",
+                values,
+                "id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{setId, userId}
+        );
         updateSessionTotalVolume(recordId);
     }
 
@@ -516,12 +552,18 @@ public final class FitnessRepository {
         if (emptyToNull(recordId) == null || emptyToNull(setId) == null) {
             return;
         }
+        requireOwnedWorkoutSet(recordId, setId);
 
         String now = now();
         ContentValues values = new ContentValues();
         values.put("deleted_at", now);
         values.put("updated_at", now);
-        db().update("workout_sets", values, "id = ? AND deleted_at IS NULL", new String[]{setId});
+        db().update(
+                "workout_sets",
+                values,
+                "id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{setId, userId}
+        );
         updateSessionTotalVolume(recordId);
     }
 
@@ -529,13 +571,24 @@ public final class FitnessRepository {
         if (emptyToNull(recordId) == null || emptyToNull(workoutExerciseId) == null) {
             return;
         }
+        requireOwnedWorkoutExercise(recordId, workoutExerciseId);
 
         String now = now();
         ContentValues values = new ContentValues();
         values.put("deleted_at", now);
         values.put("updated_at", now);
-        db().update("workout_sets", values, "workout_exercise_id = ? AND deleted_at IS NULL", new String[]{workoutExerciseId});
-        db().update("workout_exercises", values, "id = ? AND deleted_at IS NULL", new String[]{workoutExerciseId});
+        db().update(
+                "workout_sets",
+                values,
+                "workout_exercise_id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{workoutExerciseId, userId}
+        );
+        db().update(
+                "workout_exercises",
+                values,
+                "id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{workoutExerciseId, userId}
+        );
         updateSessionTotalVolume(recordId);
         updateSharedWorkoutSummary(recordId, false);
     }
@@ -547,8 +600,9 @@ public final class FitnessRepository {
                         + "rpe, rest_seconds, is_completed, COALESCE(duration_seconds, 0), "
                         + "COALESCE(distance_meters, 0), COALESCE(assisted_weight_kg, 0), "
                         + "COALESCE(added_weight_kg, 0) FROM workout_sets " +
-                        "WHERE workout_exercise_id = ? AND deleted_at IS NULL ORDER BY set_index",
-                new String[]{workoutExerciseId})) {
+                        "WHERE workout_exercise_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL ORDER BY set_index",
+                new String[]{workoutExerciseId, userId})) {
             while (cursor.moveToNext()) {
                 rows.add(new SessionSetEntry(
                         cursor.getString(0),
@@ -582,8 +636,8 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT exercise_name, date, duration_seconds, metadata, workout_type, "
                         + "average_heart_rate FROM workout_records "
-                        + "WHERE id = ? AND deleted_at IS NULL LIMIT 1",
-                new String[]{recordId})) {
+                        + "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
+                new String[]{recordId, userId})) {
             if (cursor.moveToFirst()) {
                 info.title = emptyToDefault(cursor.getString(0), "");
                 info.date = emptyToDefault(cursor.getString(1), "");
@@ -612,17 +666,19 @@ public final class FitnessRepository {
     }
 
     public String addBodyMetric(String date, double weightKg, String memo) {
-        BodyMetricEntry existing = bodyMetricForDate(date);
+        String recordDate = requireRecordDate(date);
+        double validatedWeight = requireBodyWeight(weightKg);
+        BodyMetricEntry existing = bodyMetricForDate(recordDate);
         if (existing != null) {
-            updateBodyMetric(existing.id, date, weightKg, memo);
+            updateBodyMetric(existing.id, recordDate, validatedWeight, memo);
             return existing.id;
         }
 
         String id = newId();
         String now = now();
         ContentValues values = baseValues(id, now);
-        values.put("date", emptyToToday(date));
-        values.put("weight_kg", weightKg);
+        values.put("date", recordDate);
+        values.put("weight_kg", validatedWeight);
         values.put("is_backfilled", 0);
         values.putNull("backfilled_at");
         values.putNull("backfill_reason");
@@ -643,8 +699,8 @@ public final class FitnessRepository {
             return null;
         }
         String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
-                + "WHERE id = ? AND deleted_at IS NULL LIMIT 1";
-        try (Cursor cursor = db().rawQuery(sql, new String[]{id})) {
+                + "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1";
+        try (Cursor cursor = db().rawQuery(sql, new String[]{id, userId})) {
             if (cursor.moveToFirst()) {
                 return new BodyMetricEntry(cursor.getString(0), cursor.getString(1), cursor.getDouble(2),
                         metadataValue(cursor.getString(3), "memo", ""));
@@ -656,11 +712,11 @@ public final class FitnessRepository {
     public List<BodyMetricEntry> bodyMetricEntriesForDate(String date) {
         List<BodyMetricEntry> rows = new ArrayList<>();
         String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
-                + "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both')";
-        String[] args = null;
+                + "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both')";
+        String[] args = new String[]{userId};
         if (date != null) {
             sql += " AND date = ?";
-            args = new String[]{emptyToToday(date)};
+            args = new String[]{userId, emptyToToday(date)};
         }
         sql += " ORDER BY date DESC, updated_at DESC LIMIT 20";
         try (Cursor cursor = db().rawQuery(sql, args)) {
@@ -676,12 +732,19 @@ public final class FitnessRepository {
         if (emptyToNull(id) == null) {
             return;
         }
+        String recordDate = requireRecordDate(date);
+        double validatedWeight = requireBodyWeight(weightKg);
         ContentValues values = new ContentValues();
-        values.put("date", emptyToToday(date));
-        values.put("weight_kg", weightKg);
+        values.put("date", recordDate);
+        values.put("weight_kg", validatedWeight);
         values.put("metadata", json("item_type", "body_weight", "memo", emptyToDefault(memo, "")));
         values.put("updated_at", now());
-        db().update("weight_records", values, "id = ? AND deleted_at IS NULL", new String[]{id});
+        db().update(
+                "weight_records",
+                values,
+                "id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{id, userId}
+        );
     }
 
     public void deleteBodyMetric(String id) {
@@ -691,7 +754,12 @@ public final class FitnessRepository {
         ContentValues values = new ContentValues();
         values.put("deleted_at", now());
         values.put("updated_at", now());
-        db().update("weight_records", values, "id = ? AND deleted_at IS NULL", new String[]{id});
+        db().update(
+                "weight_records",
+                values,
+                "id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{id, userId}
+        );
     }
 
     public String addMeal(String date, String menuText, Integer calories, Double proteinGrams,
@@ -725,13 +793,121 @@ public final class FitnessRepository {
     public String addMeal(String date, String mealLabel, String menuText, Integer calories,
                           Double proteinGrams, Double carbsGrams, Double fatGrams,
                           List<MealCompositionItem> compositionItems) {
+        return insertMeal(
+                date,
+                mealLabel,
+                menuText,
+                LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                compositionItems
+        );
+    }
+
+    /** Records an actual meal without asking the user to invent a separate meal name. */
+    public String addMealAtTime(String date, String mealTime, Integer calories,
+                                Double proteinGrams, Double carbsGrams, Double fatGrams,
+                                List<MealCompositionItem> compositionItems) {
         List<MealCompositionItem> items = compositionItems == null
                 ? Collections.emptyList()
                 : compositionItems;
+        String mealLabel = nextMealLabelForDate(date);
+        String firstFoodName = items.isEmpty() ? null : items.get(0).food.displayName();
+        String compatibilityMenu = MealEntryPolicy.previewTitle(
+                firstFoodName,
+                items.size(),
+                mealLabel + " 식사"
+        );
+        return insertMeal(
+                date,
+                mealLabel,
+                compatibilityMenu,
+                mealTime,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                items
+        );
+    }
+
+    /** Records one meal whose top-level entries are menus and whose children are ingredients. */
+    public String addMealMenusAtTime(
+            String date,
+            String mealTime,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            List<MealMenuSelection> menuSelections
+    ) {
+        List<MealMenuSelection> menus = menuSelections == null
+                ? Collections.emptyList()
+                : menuSelections;
+        String mealLabel = nextMealLabelForDate(date);
+        String firstMenuName = menus.isEmpty() ? null : menus.get(0).menu.food.displayName();
+        String compatibilityMenu = MealEntryPolicy.previewTitle(
+                firstMenuName,
+                menus.size(),
+                mealLabel + " Meal"
+        );
+        return insertMealMenus(
+                date,
+                mealLabel,
+                compatibilityMenu,
+                mealTime,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                menus
+        );
+    }
+
+    private String insertMeal(String date, String mealLabel, String menuText, String mealTime,
+                              Integer calories, Double proteinGrams, Double carbsGrams,
+                              Double fatGrams, List<MealCompositionItem> compositionItems) {
+        List<MealCompositionItem> items = compositionItems == null
+                ? Collections.emptyList()
+                : compositionItems;
+        List<MealMenuSelection> menus = new ArrayList<>();
+        for (MealCompositionItem item : items) {
+            menus.add(MealMenuSelection.standalone(item));
+        }
+        return insertMealMenus(
+                date,
+                mealLabel,
+                menuText,
+                mealTime,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                menus
+        );
+    }
+
+    private String insertMealMenus(
+            String date,
+            String mealLabel,
+            String menuText,
+            String mealTime,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            List<MealMenuSelection> menuSelections
+    ) {
+        List<MealMenuSelection> menus = menuSelections == null
+                ? Collections.emptyList()
+                : menuSelections;
         String id = newId();
         String now = now();
         LocalDate today = LocalDate.now();
         LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, today);
+        String eatenAt = MealEntryPolicy.eatenAt(recordDate, mealTime, ZoneId.systemDefault());
         boolean isBackfilled = MealEntryPolicy.isBackfilled(recordDate, today);
         ContentValues values = baseValues(id, now);
         values.put("date", recordDate.toString());
@@ -753,17 +929,18 @@ public final class FitnessRepository {
         values.put("metadata", json(
                 "item_type", "meal",
                 "meal_type", normalizeMealLabel(mealLabel),
+                "eaten_at", eatenAt,
                 "estimated", "false",
-                "composition_version", "1",
-                "item_count", String.valueOf(items.size())
+                "composition_version", "2",
+                "item_count", String.valueOf(menus.size())
         ));
 
         SQLiteDatabase database = db();
         database.beginTransaction();
         try {
             database.insertOrThrow("meal_records", null, values);
-            for (MealItemSnapshot snapshot : MealItemSnapshot.of(items)) {
-                insertMealItemSnapshot(database, id, snapshot, now);
+            for (int menuIndex = 0; menuIndex < menus.size(); menuIndex++) {
+                insertMealMenuSnapshot(database, id, menus.get(menuIndex), menuIndex, now);
             }
             database.setTransactionSuccessful();
         } finally {
@@ -779,50 +956,132 @@ public final class FitnessRepository {
      * DB의 값이 수정되거나 그 음식이 지워져도 이미 남긴 식사 기록은 그대로 남는다.
      * 모르는 영양소는 0이 아니라 NULL로 기록해 "0이었다"는 오해를 만들지 않는다.</p>
      */
-    private void insertMealItemSnapshot(
+    private void insertMealMenuSnapshot(
+            SQLiteDatabase database,
+            String mealRecordId,
+            MealMenuSelection menu,
+            int menuIndex,
+            String now
+    ) {
+        String menuItemId = insertMealItemSnapshot(
+                database,
+                mealRecordId,
+                MealItemSnapshot.of(menu.menu, menuIndex),
+                now
+        );
+        for (int componentIndex = 0; componentIndex < menu.components.size(); componentIndex++) {
+            insertMealComponentSnapshot(
+                    database,
+                    mealRecordId,
+                    menuItemId,
+                    MealItemSnapshot.of(menu.components.get(componentIndex), componentIndex),
+                    now
+            );
+        }
+    }
+
+    private String insertMealItemSnapshot(
             SQLiteDatabase database,
             String mealRecordId,
             MealItemSnapshot snapshot,
             String now
     ) {
         String itemId = newId();
-        ContentValues itemValues = new ContentValues();
+        ContentValues itemValues = snapshotValues(snapshot, now);
         itemValues.put("id", itemId);
         itemValues.put("user_id", userId);
         itemValues.put("meal_record_id", mealRecordId);
-        itemValues.put("food_id", snapshot.foodId);
-        itemValues.put("food_name_snapshot", snapshot.foodNameSnapshot);
-        itemValues.put("food_kind_snapshot", snapshot.foodKindSnapshot);
-        itemValues.put("quantity", snapshot.quantity);
-        itemValues.put("unit", snapshot.unit);
-        itemValues.put("basis_amount_snapshot", snapshot.basisAmountSnapshot);
-        itemValues.put("basis_unit_snapshot", snapshot.basisUnitSnapshot);
-        itemValues.put("prep_state_snapshot", snapshot.prepStateSnapshot);
+        itemValues.put("device_id", DEVICE_ID);
+        database.insertOrThrow("meal_record_items", null, itemValues);
+
+        insertSnapshotMicronutrients(
+                database,
+                "meal_record_item_nutrients",
+                mealRecordId,
+                itemId,
+                null,
+                snapshot,
+                now
+        );
+        return itemId;
+    }
+
+    private void insertMealComponentSnapshot(
+            SQLiteDatabase database,
+            String mealRecordId,
+            String mealRecordItemId,
+            MealItemSnapshot snapshot,
+            String now
+    ) {
+        String componentId = newId();
+        ContentValues values = snapshotValues(snapshot, now);
+        values.put("id", componentId);
+        values.put("user_id", userId);
+        values.put("meal_record_id", mealRecordId);
+        values.put("meal_record_item_id", mealRecordItemId);
+        values.put("device_id", DEVICE_ID);
+        database.insertOrThrow("meal_record_item_components", null, values);
+
+        insertSnapshotMicronutrients(
+                database,
+                "meal_record_item_component_nutrients",
+                mealRecordId,
+                mealRecordItemId,
+                componentId,
+                snapshot,
+                now
+        );
+    }
+
+    private ContentValues snapshotValues(MealItemSnapshot snapshot, String now) {
+        ContentValues values = new ContentValues();
+        putNullable(values, "food_id", snapshot.foodId);
+        values.put("food_name_snapshot", snapshot.foodNameSnapshot);
+        putNullable(values, "brand_snapshot", snapshot.brandSnapshot);
+        values.put("food_kind_snapshot", snapshot.foodKindSnapshot);
+        values.put("quantity", snapshot.quantity);
+        values.put("unit", snapshot.unit);
+        values.put("basis_amount_snapshot", snapshot.basisAmountSnapshot);
+        values.put("basis_unit_snapshot", snapshot.basisUnitSnapshot);
+        values.put("prep_state_snapshot", snapshot.prepStateSnapshot);
         for (Map.Entry<String, Double> column : snapshot.typedNutritionColumns().entrySet()) {
             String name = mealItemColumnName(column.getKey());
             if (column.getValue() == null) {
-                itemValues.putNull(name);
+                values.putNull(name);
             } else {
-                itemValues.put(name, column.getValue());
+                values.put(name, column.getValue());
             }
         }
-        putNullable(itemValues, "source_type_snapshot", snapshot.sourceTypeSnapshot);
-        putNullable(itemValues, "source_reference_snapshot", snapshot.sourceReferenceSnapshot);
-        putNullable(itemValues, "source_version_snapshot", snapshot.sourceVersionSnapshot);
-        itemValues.put("food_data_version_snapshot", snapshot.foodDataVersionSnapshot);
-        itemValues.put("order_index", snapshot.orderIndex);
-        itemValues.put("created_at", now);
-        itemValues.put("updated_at", now);
-        itemValues.putNull("deleted_at");
-        itemValues.put("device_id", DEVICE_ID);
-        database.insertOrThrow("meal_record_items", null, itemValues);
+        putNullable(values, "source_type_snapshot", snapshot.sourceTypeSnapshot);
+        putNullable(values, "source_reference_snapshot", snapshot.sourceReferenceSnapshot);
+        putNullable(values, "source_version_snapshot", snapshot.sourceVersionSnapshot);
+        values.put("food_data_version_snapshot", snapshot.foodDataVersionSnapshot);
+        values.put("order_index", snapshot.orderIndex);
+        values.put("created_at", now);
+        values.put("updated_at", now);
+        values.putNull("deleted_at");
+        return values;
+    }
+
+    private void insertSnapshotMicronutrients(
+            SQLiteDatabase database,
+            String table,
+            String mealRecordId,
+            String mealRecordItemId,
+            String componentId,
+            MealItemSnapshot snapshot,
+            String now
+    ) {
 
         for (MealItemSnapshot.MicronutrientRow row : snapshot.micronutrientRows()) {
             ContentValues nutrientValues = new ContentValues();
             nutrientValues.put("id", newId());
             nutrientValues.put("user_id", userId);
             nutrientValues.put("meal_record_id", mealRecordId);
-            nutrientValues.put("meal_record_item_id", itemId);
+            nutrientValues.put("meal_record_item_id", mealRecordItemId);
+            if (componentId != null) {
+                nutrientValues.put("meal_record_item_component_id", componentId);
+            }
             nutrientValues.put("nutrient_code", row.nutrientCode);
             nutrientValues.put("amount", row.amount);
             nutrientValues.put("unit", row.unit);
@@ -830,7 +1089,7 @@ public final class FitnessRepository {
             nutrientValues.put("updated_at", now);
             nutrientValues.putNull("deleted_at");
             nutrientValues.put("device_id", DEVICE_ID);
-            database.insertOrThrow("meal_record_item_nutrients", null, nutrientValues);
+            database.insertOrThrow(table, null, nutrientValues);
         }
     }
 
@@ -859,9 +1118,10 @@ public final class FitnessRepository {
                         "calories, protein_grams, carbs_grams, fat_grams, sodium_mg, " +
                         "saturated_fat_grams, sugars_grams, fiber_grams, added_sugars_grams, " +
                         "trans_fat_grams, cholesterol_mg " +
-                        "FROM meal_record_items WHERE meal_record_id = ? AND deleted_at IS NULL " +
+                        "FROM meal_record_items WHERE meal_record_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL " +
                         "ORDER BY order_index ASC",
-                new String[]{recordId}
+                new String[]{recordId, userId}
         )) {
             while (cursor.moveToNext()) {
                 String itemId = cursor.getString(0);
@@ -914,8 +1174,8 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT meal_record_item_id, nutrient_code, amount " +
                         "FROM meal_record_item_nutrients " +
-                        "WHERE meal_record_id = ? AND deleted_at IS NULL",
-                new String[]{mealRecordId}
+                        "WHERE meal_record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{mealRecordId, userId}
         )) {
             while (cursor.moveToNext()) {
                 NutritionProfile.Builder profile = profiles.get(cursor.getString(0));
@@ -939,29 +1199,91 @@ public final class FitnessRepository {
         // from the current order so deleting a middle row never leaves a numbering gap.
         int mealIndex = 0;
         try (Cursor cursor = db().rawQuery(
-                "SELECT id, date, menu, calories, protein_grams, carbs_grams, fat_grams, " +
-                        "metadata, created_at " +
-                        "FROM meal_records WHERE deleted_at IS NULL " +
-                        "AND scope IN ('fitness', 'both') AND date = ? " +
-                        "ORDER BY created_at ASC, id ASC",
-                new String[]{selectedDate}
+                "SELECT r.id, r.date, r.menu, r.calories, r.protein_grams, " +
+                        "r.carbs_grams, r.fat_grams, r.metadata, r.created_at, " +
+                        "(SELECT i.food_name_snapshot FROM meal_record_items i " +
+                        "WHERE i.meal_record_id = r.id AND i.user_id = r.user_id " +
+                        "AND i.deleted_at IS NULL ORDER BY i.order_index ASC, i.id ASC LIMIT 1), " +
+                        "(SELECT COUNT(*) FROM meal_record_items i " +
+                        "WHERE i.meal_record_id = r.id AND i.user_id = r.user_id " +
+                        "AND i.deleted_at IS NULL), r.device_id " +
+                        "FROM meal_records r WHERE r.user_id = ? AND r.deleted_at IS NULL " +
+                        "AND r.scope IN ('fitness', 'both') AND r.date = ? " +
+                        "ORDER BY r.created_at ASC, r.id ASC",
+                new String[]{userId, selectedDate}
         )) {
             while (cursor.moveToNext()) {
+                Double proteinGrams = nullableDouble(cursor, 4);
+                Double carbsGrams = nullableDouble(cursor, 5);
+                Double fatGrams = nullableDouble(cursor, 6);
+                String metadata = cursor.getString(7);
+                String eatenAt = metadataValue(metadata, "eaten_at", "");
+                int itemCount = Math.max(0, cursor.getInt(10));
                 entries.add(new MealEntry(
                         cursor.getString(0),
                         cursor.getString(1),
                         MealEntryPolicy.labelForIndex(mealIndex++),
                         cursor.getString(2),
                         cursor.getInt(3),
-                        cursor.getDouble(4),
-                        cursor.getDouble(5),
-                        cursor.getDouble(6),
-                        itemCountFromMetadata(cursor.getString(7)),
+                        proteinGrams,
+                        carbsGrams,
+                        fatGrams,
+                        itemCount,
+                        MealEntryPolicy.previewTitle(
+                                cursor.getString(9),
+                                itemCount,
+                                cursor.getString(2)
+                        ),
+                        eatenAt,
+                        DEVICE_ID.equals(cursor.getString(11)),
                         cursor.getString(8)
                 ));
             }
         }
+        entries.sort((left, right) -> {
+            boolean leftMissing = "시간 미기록".equals(left.mealTime);
+            boolean rightMissing = "시간 미기록".equals(right.mealTime);
+            if (leftMissing != rightMissing) {
+                return leftMissing ? 1 : -1;
+            }
+            int timeOrder = left.mealTime.compareTo(right.mealTime);
+            if (timeOrder != 0) {
+                return timeOrder;
+            }
+            return String.valueOf(left.createdAt).compareTo(String.valueOf(right.createdAt));
+        });
         return entries;
+    }
+
+    /** Ingredient snapshots that belonged to one consumed menu at recording time. */
+    public List<MealComponentEntry> mealComponentsForItem(String mealRecordItemId) {
+        List<MealComponentEntry> components = new ArrayList<>();
+        String itemId = mealRecordItemId == null ? "" : mealRecordItemId.trim();
+        if (itemId.isEmpty()) {
+            return components;
+        }
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, food_name_snapshot, quantity, unit, calories, " +
+                        "protein_grams, carbs_grams, fat_grams " +
+                        "FROM meal_record_item_components " +
+                        "WHERE meal_record_item_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC",
+                new String[]{itemId, userId}
+        )) {
+            while (cursor.moveToNext()) {
+                components.add(new MealComponentEntry(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getDouble(2),
+                        cursor.getString(3),
+                        cursor.getDouble(4),
+                        cursor.getDouble(5),
+                        cursor.getDouble(6),
+                        cursor.getDouble(7)
+                ));
+            }
+        }
+        return components;
     }
 
     public MealNutritionSummary mealNutritionForDate(String date) {
@@ -969,8 +1291,9 @@ public final class FitnessRepository {
                 "SELECT COUNT(*), COALESCE(SUM(calories), 0), " +
                         "COALESCE(SUM(protein_grams), 0), COALESCE(SUM(carbs_grams), 0), " +
                         "COALESCE(SUM(fat_grams), 0) FROM meal_records " +
-                        "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') AND date = ?",
-                new String[]{emptyToToday(date)}
+                        "WHERE user_id = ? AND deleted_at IS NULL " +
+                        "AND scope IN ('fitness', 'both') AND date = ?",
+                new String[]{userId, emptyToToday(date)}
         )) {
             if (cursor.moveToFirst()) {
                 return new MealNutritionSummary(
@@ -1182,20 +1505,32 @@ public final class FitnessRepository {
             int deleted = database.update(
                     "meal_records",
                     values,
-                    "id = ? AND deleted_at IS NULL",
-                    new String[]{normalizedId}
+                    "id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedId, userId}
             );
             database.update(
                     "meal_record_items",
                     values,
-                    "meal_record_id = ? AND deleted_at IS NULL",
-                    new String[]{normalizedId}
+                    "meal_record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedId, userId}
             );
             database.update(
                     "meal_record_item_nutrients",
                     values,
-                    "meal_record_id = ? AND deleted_at IS NULL",
-                    new String[]{normalizedId}
+                    "meal_record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedId, userId}
+            );
+            database.update(
+                    "meal_record_item_components",
+                    values,
+                    "meal_record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedId, userId}
+            );
+            database.update(
+                    "meal_record_item_component_nutrients",
+                    values,
+                    "meal_record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedId, userId}
             );
             database.setTransactionSuccessful();
             return deleted > 0;
@@ -1212,8 +1547,9 @@ public final class FitnessRepository {
         SQLiteDatabase database = db();
         String existingId = null;
         try (Cursor cursor = database.rawQuery(
-                "SELECT id FROM meal_menu_presets WHERE name = ? COLLATE NOCASE LIMIT 1",
-                new String[]{normalizedName})) {
+                "SELECT id FROM meal_menu_presets " +
+                        "WHERE user_id = ? AND name = ? COLLATE NOCASE LIMIT 1",
+                new String[]{userId, normalizedName})) {
             if (cursor.moveToFirst()) {
                 existingId = cursor.getString(0);
             }
@@ -1221,6 +1557,7 @@ public final class FitnessRepository {
 
         String timestamp = now();
         ContentValues values = new ContentValues();
+        values.put("user_id", userId);
         values.put("name", normalizedName);
         putNullable(values, "calories", calories);
         putNullable(values, "protein_grams", proteinGrams);
@@ -1229,7 +1566,12 @@ public final class FitnessRepository {
         values.put("updated_at", timestamp);
 
         if (existingId != null) {
-            database.update("meal_menu_presets", values, "id = ?", new String[]{existingId});
+            database.update(
+                    "meal_menu_presets",
+                    values,
+                    "id = ? AND user_id = ?",
+                    new String[]{existingId, userId}
+            );
             return existingId;
         }
 
@@ -1252,8 +1594,9 @@ public final class FitnessRepository {
         List<MealMenuPreset> presets = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, name, calories, protein_grams, carbs_grams, fat_grams " +
-                        "FROM meal_menu_presets ORDER BY updated_at DESC, name COLLATE NOCASE ASC",
-                null)) {
+                        "FROM meal_menu_presets WHERE user_id = ? " +
+                        "ORDER BY updated_at DESC, name COLLATE NOCASE ASC",
+                new String[]{userId})) {
             while (cursor.moveToNext()) {
                 presets.add(new MealMenuPreset(
                         cursor.getString(0),
@@ -1271,7 +1614,11 @@ public final class FitnessRepository {
     public boolean deleteMealMenuPreset(String id) {
         String normalizedId = emptyToNull(id);
         return normalizedId != null
-                && db().delete("meal_menu_presets", "id = ?", new String[]{normalizedId}) > 0;
+                && db().delete(
+                "meal_menu_presets",
+                "id = ? AND user_id = ?",
+                new String[]{normalizedId, userId}
+        ) > 0;
     }
 
     public String createSessionFromRoutine(String date, String title, List<RoutineExerciseInstance> routineExercises) {
@@ -1284,7 +1631,12 @@ public final class FitnessRepository {
         if (routineId != null && !routineId.trim().isEmpty()) {
             ContentValues metadataValues = new ContentValues();
             metadataValues.put("metadata", addMetadataValue(sessionInfoMetadata(recordId), "routine_id", routineId));
-            db().update("workout_records", metadataValues, "id = ?", new String[]{recordId});
+            db().update(
+                    "workout_records",
+                    metadataValues,
+                    "id = ? AND user_id = ?",
+                    new String[]{recordId, userId}
+            );
         }
         if (routineExercises == null || routineExercises.isEmpty()) {
             return recordId;
@@ -1318,10 +1670,11 @@ public final class FitnessRepository {
         if (routineId != null && !routineId.trim().isEmpty()) {
             try (Cursor cursor = db().rawQuery(
                     "SELECT date FROM workout_records "
-                            + "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') "
+                            + "WHERE user_id = ? AND deleted_at IS NULL "
+                            + "AND scope IN ('fitness', 'both') "
                             + "AND metadata LIKE ? AND metadata LIKE '%\"status\":\"completed\"%' "
                             + "ORDER BY date DESC, updated_at DESC LIMIT 1",
-                    new String[]{"%\"routine_id\":\"" + routineId + "\"%"})) {
+                    new String[]{userId, "%\"routine_id\":\"" + routineId + "\"%"})) {
                 if (cursor.moveToFirst()) {
                     return cursor.getString(0);
                 }
@@ -1333,17 +1686,19 @@ public final class FitnessRepository {
         }
         try (Cursor cursor = db().rawQuery(
                 "SELECT date FROM workout_records "
-                        + "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') "
+                        + "WHERE user_id = ? AND deleted_at IS NULL "
+                        + "AND scope IN ('fitness', 'both') "
                         + "AND metadata LIKE '%\"status\":\"completed\"%' AND exercise_name = ? "
                         + "ORDER BY date DESC, updated_at DESC LIMIT 1",
-                new String[]{routineName})) {
+                new String[]{userId, routineName})) {
             return cursor.moveToFirst() ? cursor.getString(0) : null;
         }
     }
 
     private String sessionInfoMetadata(String recordId) {
         try (Cursor cursor = db().rawQuery(
-                "SELECT metadata FROM workout_records WHERE id = ? LIMIT 1", new String[]{recordId})) {
+                "SELECT metadata FROM workout_records WHERE id = ? AND user_id = ? LIMIT 1",
+                new String[]{recordId, userId})) {
             return cursor.moveToFirst() ? cursor.getString(0) : "";
         }
     }
@@ -1351,9 +1706,10 @@ public final class FitnessRepository {
     private String cardioExerciseId(String recordId) {
         try (Cursor cursor = db().rawQuery(
                 "SELECT id FROM workout_exercises WHERE record_id = ? "
-                        + "AND exercise_id LIKE 'cardio_%' AND deleted_at IS NULL "
+                        + "AND user_id = ? AND exercise_id LIKE 'cardio_%' "
+                        + "AND deleted_at IS NULL "
                         + "ORDER BY order_index LIMIT 1",
-                new String[]{recordId})) {
+                new String[]{recordId, userId})) {
             return cursor.moveToFirst() ? cursor.getString(0) : null;
         }
     }
@@ -1382,9 +1738,10 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, date, exercise_name, workout_type, duration_seconds, metadata, category, "
                         + "source_app, average_heart_rate FROM workout_records " +
-                        "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') " +
+                        "WHERE user_id = ? AND deleted_at IS NULL " +
+                        "AND scope IN ('fitness', 'both') " +
                         "AND " + COMPLETED_OR_OS_WORKOUT + " AND date = ? ORDER BY updated_at DESC",
-                new String[]{emptyToToday(date)})) {
+                new String[]{userId, emptyToToday(date)})) {
             while (cursor.moveToNext()) {
                 SessionMetrics metrics = sessionMetrics(cursor.getString(0));
                 int durationSeconds = resolvedDurationSeconds(
@@ -1418,25 +1775,27 @@ public final class FitnessRepository {
         String range = "date >= ? AND date <= ?";
         try (Cursor cursor = db().rawQuery(
                 "SELECT date FROM workout_records WHERE deleted_at IS NULL "
-                        + "AND scope IN ('fitness', 'both') AND " + range
+                        + "AND user_id = ? AND scope IN ('fitness', 'both') AND " + range
                         + " AND " + COMPLETED_OR_OS_WORKOUT + " GROUP BY date",
-                new String[]{firstDate, lastDate})) {
+                new String[]{userId, firstDate, lastDate})) {
             while (cursor.moveToNext()) {
                 summaryFor(summaries, cursor.getString(0)).hasWorkout = true;
             }
         }
         try (Cursor cursor = db().rawQuery(
                 "SELECT date FROM meal_records WHERE deleted_at IS NULL "
-                        + "AND scope IN ('fitness', 'both') AND " + range + " GROUP BY date",
-                new String[]{firstDate, lastDate})) {
+                        + "AND user_id = ? AND scope IN ('fitness', 'both') " +
+                        "AND " + range + " GROUP BY date",
+                new String[]{userId, firstDate, lastDate})) {
             while (cursor.moveToNext()) {
                 summaryFor(summaries, cursor.getString(0)).hasMeal = true;
             }
         }
         try (Cursor cursor = db().rawQuery(
                 "SELECT date FROM weight_records WHERE deleted_at IS NULL "
-                        + "AND scope IN ('fitness', 'both') AND " + range + " GROUP BY date",
-                new String[]{firstDate, lastDate})) {
+                        + "AND user_id = ? AND scope IN ('fitness', 'both') " +
+                        "AND " + range + " GROUP BY date",
+                new String[]{userId, firstDate, lastDate})) {
             while (cursor.moveToNext()) {
                 summaryFor(summaries, cursor.getString(0)).hasWeight = true;
             }
@@ -1444,11 +1803,12 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT wr.date, we.ui_part FROM workout_records wr "
                         + "INNER JOIN workout_exercises we ON we.record_id = wr.id "
-                        + "AND we.deleted_at IS NULL WHERE wr.deleted_at IS NULL "
+                        + "AND we.user_id = wr.user_id AND we.deleted_at IS NULL "
+                        + "WHERE wr.user_id = ? AND wr.deleted_at IS NULL "
                         + "AND wr.scope IN ('fitness', 'both') AND wr." + range
                         + " AND " + COMPLETED_OR_OS_WORKOUT + " "
                         + "AND we.ui_part IS NOT NULL AND we.ui_part != '' ORDER BY wr.date, we.order_index",
-                new String[]{firstDate, lastDate})) {
+                new String[]{userId, firstDate, lastDate})) {
             while (cursor.moveToNext()) {
                 CalendarDaySummary summary = summaryFor(summaries, cursor.getString(0));
                 appendCalendarPart(summary, displayCategory(cursor.getString(1)));
@@ -1456,12 +1816,14 @@ public final class FitnessRepository {
         }
         try (Cursor cursor = db().rawQuery(
                 "SELECT wr.date, wr.workout_type, wr.category FROM workout_records wr "
-                        + "WHERE wr.deleted_at IS NULL AND wr.scope IN ('fitness', 'both') "
+                        + "WHERE wr.user_id = ? AND wr.deleted_at IS NULL "
+                        + "AND wr.scope IN ('fitness', 'both') "
                         + "AND wr." + range + " AND " + COMPLETED_OR_OS_WORKOUT + " "
                         + "AND NOT EXISTS (SELECT 1 FROM workout_exercises we "
-                        + "WHERE we.record_id = wr.id AND we.deleted_at IS NULL) "
+                        + "WHERE we.record_id = wr.id AND we.user_id = wr.user_id "
+                        + "AND we.deleted_at IS NULL) "
                         + "ORDER BY wr.date, wr.updated_at",
-                new String[]{firstDate, lastDate})) {
+                new String[]{userId, firstDate, lastDate})) {
             while (cursor.moveToNext()) {
                 appendCalendarPart(
                         summaryFor(summaries, cursor.getString(0)),
@@ -1485,7 +1847,10 @@ public final class FitnessRepository {
         List<String> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
                 "SELECT date, exercise_name, workout_type FROM workout_records " +
-                        "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') ORDER BY date DESC, updated_at DESC LIMIT 20", null)) {
+                        "WHERE user_id = ? AND deleted_at IS NULL " +
+                        "AND scope IN ('fitness', 'both') " +
+                        "ORDER BY date DESC, updated_at DESC LIMIT 20",
+                new String[]{userId})) {
             while (cursor.moveToNext()) {
                 rows.add(formatDate(cursor.getString(0)) + "  " + cursor.getString(1) + "  "
                         + displaySessionType(cursor.getString(2)));
@@ -1496,15 +1861,19 @@ public final class FitnessRepository {
 
     public String latestSessionId() {
         try (Cursor cursor = db().rawQuery(
-                "SELECT id FROM workout_records WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') ORDER BY date DESC, updated_at DESC LIMIT 1", null)) {
+                "SELECT id FROM workout_records WHERE user_id = ? AND deleted_at IS NULL " +
+                        "AND scope IN ('fitness', 'both') " +
+                        "ORDER BY date DESC, updated_at DESC LIMIT 1",
+                new String[]{userId})) {
             return cursor.moveToFirst() ? cursor.getString(0) : null;
         }
     }
 
     public String latestInProgressSessionId() {
         try (Cursor cursor = db().rawQuery(
-                "SELECT id, metadata FROM workout_records WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') ORDER BY updated_at DESC LIMIT 20",
-                null)) {
+                "SELECT id, metadata FROM workout_records WHERE user_id = ? AND deleted_at IS NULL " +
+                        "AND scope IN ('fitness', 'both') ORDER BY updated_at DESC LIMIT 20",
+                new String[]{userId})) {
             while (cursor.moveToNext()) {
                 if ("in_progress".equals(metadataValue(cursor.getString(1), "status", ""))) {
                     return cursor.getString(0);
@@ -1522,8 +1891,9 @@ public final class FitnessRepository {
         SQLiteDatabase database = db();
         boolean finished = false;
         try (Cursor cursor = database.rawQuery(
-                "SELECT date, duration_seconds, metadata FROM workout_records WHERE id = ? AND deleted_at IS NULL LIMIT 1",
-                new String[]{recordId})) {
+                "SELECT date, duration_seconds, metadata FROM workout_records " +
+                        "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
+                new String[]{recordId, userId})) {
             if (!cursor.moveToFirst()) {
                 return;
             }
@@ -1550,7 +1920,12 @@ public final class FitnessRepository {
                     durationSeconds,
                     metrics.totalVolumeKg
             ));
-            database.update("workout_records", values, "id = ?", new String[]{recordId});
+            database.update(
+                    "workout_records",
+                    values,
+                    "id = ? AND user_id = ?",
+                    new String[]{recordId, userId}
+            );
             finished = true;
         }
         if (finished) {
@@ -1563,8 +1938,9 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT id FROM workout_records WHERE source_app = 'fitness' "
                         + "AND user_id = ? AND deleted_at IS NULL "
+                        + "AND device_id = ? "
                         + "AND metadata LIKE '%\"status\":\"completed\"%'",
-                new String[]{userId})) {
+                new String[]{userId, DEVICE_ID})) {
             while (cursor.moveToNext()) {
                 recordIds.add(cursor.getString(0));
             }
@@ -1582,6 +1958,9 @@ public final class FitnessRepository {
         if (emptyToNull(recordId) == null) {
             return;
         }
+        if (!ownsWorkoutRecord(recordId)) {
+            return;
+        }
 
         SQLiteDatabase database = db();
         String now = now();
@@ -1589,33 +1968,94 @@ public final class FitnessRepository {
         values.put("deleted_at", now);
         values.put("updated_at", now);
 
-        List<String> workoutExerciseIds = new ArrayList<>();
-        try (Cursor cursor = database.rawQuery(
-                "SELECT id FROM workout_exercises WHERE record_id = ? AND deleted_at IS NULL",
-                new String[]{recordId})) {
-            while (cursor.moveToNext()) {
-                workoutExerciseIds.add(cursor.getString(0));
+        database.beginTransaction();
+        try {
+            List<String> workoutExerciseIds = new ArrayList<>();
+            try (Cursor cursor = database.rawQuery(
+                    "SELECT id FROM workout_exercises " +
+                            "WHERE record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{recordId, userId})) {
+                while (cursor.moveToNext()) {
+                    workoutExerciseIds.add(cursor.getString(0));
+                }
             }
+
+            for (String workoutExerciseId : workoutExerciseIds) {
+                database.update(
+                        "workout_sets",
+                        values,
+                        "workout_exercise_id = ? AND user_id = ? AND deleted_at IS NULL",
+                        new String[]{workoutExerciseId, userId}
+                );
+            }
+            database.update(
+                    "workout_exercises",
+                    values,
+                    "record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{recordId, userId}
+            );
+            database.update(
+                    "workout_records",
+                    values,
+                    "id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{recordId, userId}
+            );
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+    }
+
+    /** Updates only the user-owned meal time while preserving the rest of its synced metadata. */
+    public boolean updateMealTime(String id, String mealTime) {
+        String normalizedId = id == null ? "" : id.trim();
+        if (normalizedId.isEmpty()) {
+            return false;
         }
 
-        for (String workoutExerciseId : workoutExerciseIds) {
-            database.update("workout_sets", values, "workout_exercise_id = ? AND deleted_at IS NULL", new String[]{workoutExerciseId});
+        String recordDate;
+        String metadata;
+        try (Cursor cursor = db().rawQuery(
+                "SELECT date, metadata FROM meal_records " +
+                        "WHERE id = ? AND user_id = ? AND device_id = ? " +
+                        "AND deleted_at IS NULL LIMIT 1",
+                new String[]{normalizedId, userId, DEVICE_ID}
+        )) {
+            if (!cursor.moveToFirst()) {
+                return false;
+            }
+            recordDate = cursor.getString(0);
+            metadata = cursor.getString(1);
         }
-        database.update("workout_exercises", values, "record_id = ? AND deleted_at IS NULL", new String[]{recordId});
-        database.update("workout_records", values, "id = ? AND deleted_at IS NULL", new String[]{recordId});
+
+        LocalDate date = MealEntryPolicy.requireRecordDate(recordDate, LocalDate.now());
+        String eatenAt = MealEntryPolicy.eatenAt(date, mealTime, ZoneId.systemDefault());
+        ContentValues values = new ContentValues();
+        values.put("metadata", metadataWithEatenAt(metadata, eatenAt));
+        values.put("updated_at", now());
+        return db().update(
+                "meal_records",
+                values,
+                "id = ? AND user_id = ? AND device_id = ? AND deleted_at IS NULL",
+                new String[]{normalizedId, userId, DEVICE_ID}
+        ) > 0;
     }
 
     public List<String> sessionDetails(String recordId) {
         List<String> rows = new ArrayList<>();
         try (Cursor exercises = db().rawQuery(
                 "SELECT id, order_index, exercise_name_snapshot, ui_part FROM workout_exercises " +
-                        "WHERE record_id = ? AND deleted_at IS NULL ORDER BY order_index", new String[]{recordId})) {
+                        "WHERE record_id = ? AND user_id = ? AND deleted_at IS NULL " +
+                        "ORDER BY order_index",
+                new String[]{recordId, userId})) {
             while (exercises.moveToNext()) {
                 String exerciseId = exercises.getString(0);
                 rows.add(exercises.getInt(1) + ". " + exercises.getString(2) + "  " + displayCategory(exercises.getString(3)));
                 try (Cursor sets = db().rawQuery(
                         "SELECT set_index, weight_kg, actual_reps, is_completed FROM workout_sets " +
-                                "WHERE workout_exercise_id = ? AND deleted_at IS NULL ORDER BY set_index", new String[]{exerciseId})) {
+                                "WHERE workout_exercise_id = ? AND user_id = ? " +
+                                "AND deleted_at IS NULL ORDER BY set_index",
+                        new String[]{exerciseId, userId})) {
                     while (sets.moveToNext()) {
                         rows.add("   " + sets.getInt(0) + "세트  " + trimDouble(sets.getDouble(1))
                                 + "kg · " + sets.getInt(2) + "회  " + (sets.getInt(3) == 1 ? "완료" : "미완료"));
@@ -1630,8 +2070,9 @@ public final class FitnessRepository {
         List<SessionExerciseEntry> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, exercise_id, order_index, exercise_name_snapshot, ui_part, equipment_snapshot, record_type FROM workout_exercises " +
-                        "WHERE record_id = ? AND deleted_at IS NULL ORDER BY order_index",
-                new String[]{recordId})) {
+                        "WHERE record_id = ? AND user_id = ? AND deleted_at IS NULL " +
+                        "ORDER BY order_index",
+                new String[]{recordId, userId})) {
             while (cursor.moveToNext()) {
                 rows.add(new SessionExerciseEntry(
                         cursor.getString(0),
@@ -1651,8 +2092,9 @@ public final class FitnessRepository {
         DayWorkoutMetrics metrics = new DayWorkoutMetrics();
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, date, duration_seconds, metadata FROM workout_records " +
-                        "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') AND date = ?",
-                new String[]{emptyToToday(date)})) {
+                        "WHERE user_id = ? AND deleted_at IS NULL " +
+                        "AND scope IN ('fitness', 'both') AND date = ?",
+                new String[]{userId, emptyToToday(date)})) {
             while (cursor.moveToNext()) {
                 SessionMetrics sessionMetrics = sessionMetrics(cursor.getString(0));
                 metrics.sessionCount += 1;
@@ -1675,8 +2117,10 @@ public final class FitnessRepository {
                         + "COUNT(*), COALESCE(SUM(COALESCE(distance_meters, 0)), 0) " +
                         "FROM workout_sets ws " +
                         "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id " +
-                        "WHERE we.record_id = ? AND we.deleted_at IS NULL AND ws.deleted_at IS NULL AND ws.is_completed = 1",
-                new String[]{recordId})) {
+                        "WHERE we.record_id = ? AND we.user_id = ? AND ws.user_id = ? " +
+                        "AND we.deleted_at IS NULL AND ws.deleted_at IS NULL " +
+                        "AND ws.is_completed = 1",
+                new String[]{recordId, userId, userId})) {
             if (cursor.moveToFirst()) {
                 metrics.totalVolumeKg = cursor.getDouble(0);
                 metrics.setCount = cursor.getInt(1);
@@ -1693,9 +2137,13 @@ public final class FitnessRepository {
     public List<VolumePoint> recentSessionVolumes(String currentRecordId, int limit) {
         List<VolumePoint> rows = new ArrayList<>();
         String sql = "SELECT id, date, exercise_name FROM workout_records "
-                + "WHERE deleted_at IS NULL AND scope IN ('fitness', 'both') AND id != ? "
+                + "WHERE user_id = ? AND deleted_at IS NULL "
+                + "AND scope IN ('fitness', 'both') AND id != ? "
                 + "ORDER BY date DESC, updated_at DESC LIMIT ?";
-        try (Cursor cursor = db().rawQuery(sql, new String[]{currentRecordId, String.valueOf(limit)})) {
+        try (Cursor cursor = db().rawQuery(
+                sql,
+                new String[]{userId, currentRecordId, String.valueOf(limit)}
+        )) {
             while (cursor.moveToNext()) {
                 rows.add(new VolumePoint(cursor.getString(1), cursor.getString(2),
                         sessionMetrics(cursor.getString(0)).totalVolumeKg));
@@ -1719,13 +2167,16 @@ public final class FitnessRepository {
                 + "COALESCE(SUM(CASE WHEN ws.is_completed = 1 THEN COALESCE(ws.volume_kg, ws.weight_kg * ws.actual_reps) ELSE 0 END), 0) "
                 + "FROM workout_exercises we "
                 + "INNER JOIN workout_records wr ON wr.id = we.record_id AND wr.deleted_at IS NULL "
-                + "LEFT JOIN workout_sets ws ON ws.workout_exercise_id = we.id AND ws.deleted_at IS NULL "
-                + "WHERE " + EXERCISE_MATCH + " AND we.record_id != ? AND we.deleted_at IS NULL "
+                + "LEFT JOIN workout_sets ws ON ws.workout_exercise_id = we.id "
+                + "AND ws.user_id = we.user_id AND ws.deleted_at IS NULL "
+                + "WHERE wr.user_id = ? AND we.user_id = ? AND " + EXERCISE_MATCH
+                + " AND we.record_id != ? AND we.deleted_at IS NULL "
                 + "AND we.record_type = 'weight_reps' "
                 + "GROUP BY we.record_id, wr.date, wr.exercise_name, wr.updated_at "
                 + "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT ?";
         try (Cursor cursor = db().rawQuery(sql,
-                new String[]{exerciseId, exerciseName, currentRecordId, String.valueOf(limit)})) {
+                new String[]{userId, userId, exerciseId, exerciseName, currentRecordId,
+                        String.valueOf(limit)})) {
             while (cursor.moveToNext()) {
                 rows.add(new VolumePoint(cursor.getString(1), cursor.getString(2), cursor.getDouble(3)));
             }
@@ -1740,9 +2191,13 @@ public final class FitnessRepository {
         String date = null;
         String sql = "SELECT we.id, wr.date FROM workout_exercises we "
                 + "INNER JOIN workout_records wr ON wr.id = we.record_id AND wr.deleted_at IS NULL "
-                + "WHERE " + EXERCISE_MATCH + " AND we.record_id != ? AND we.deleted_at IS NULL "
+                + "WHERE wr.user_id = ? AND we.user_id = ? AND " + EXERCISE_MATCH
+                + " AND we.record_id != ? AND we.deleted_at IS NULL "
                 + "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 1";
-        try (Cursor cursor = db().rawQuery(sql, new String[]{exerciseId, exerciseName, currentRecordId})) {
+        try (Cursor cursor = db().rawQuery(
+                sql,
+                new String[]{userId, userId, exerciseId, exerciseName, currentRecordId}
+        )) {
             if (cursor.moveToFirst()) {
                 workoutExerciseId = cursor.getString(0);
                 date = cursor.getString(1);
@@ -1775,12 +2230,16 @@ public final class FitnessRepository {
                 + "FROM workout_sets ws "
                 + "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id AND we.deleted_at IS NULL "
                 + "INNER JOIN workout_records wr ON wr.id = we.record_id AND wr.deleted_at IS NULL "
-                + "WHERE " + EXERCISE_MATCH + " AND we.record_id != ? "
+                + "WHERE wr.user_id = ? AND we.user_id = ? AND ws.user_id = ? AND "
+                + EXERCISE_MATCH + " AND we.record_id != ? "
                 + "AND we.record_type = 'weight_reps' "
                 + "AND ws.deleted_at IS NULL AND ws.is_completed = 1";
         java.util.Map<String, Double> volumeByRecord = new java.util.LinkedHashMap<>();
         java.util.Map<String, String> dateByRecord = new java.util.LinkedHashMap<>();
-        try (Cursor cursor = db().rawQuery(sql, new String[]{exerciseId, exerciseName, currentRecordId})) {
+        try (Cursor cursor = db().rawQuery(
+                sql,
+                new String[]{userId, userId, userId, exerciseId, exerciseName, currentRecordId}
+        )) {
             while (cursor.moveToNext()) {
                 double weight = cursor.isNull(0) ? 0 : cursor.getDouble(0);
                 int reps = cursor.isNull(1) ? 0 : cursor.getInt(1);
@@ -1830,7 +2289,12 @@ public final class FitnessRepository {
         ContentValues values = new ContentValues();
         values.put("total_volume_kg", metrics.totalVolumeKg);
         values.put("updated_at", now());
-        db().update("workout_records", values, "id = ?", new String[]{recordId});
+        db().update(
+                "workout_records",
+                values,
+                "id = ? AND user_id = ?",
+                new String[]{recordId, userId}
+        );
     }
 
     private boolean updateSharedWorkoutSummary(String recordId, boolean publishToOs) {
@@ -1846,8 +2310,8 @@ public final class FitnessRepository {
         String currentScope;
         try (Cursor cursor = database.rawQuery(
                 "SELECT workout_type, category, metadata, source_app, scope FROM workout_records "
-                        + "WHERE id = ? AND deleted_at IS NULL LIMIT 1",
-                new String[]{recordId})) {
+                        + "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
+                new String[]{recordId, userId})) {
             if (!cursor.moveToFirst()) {
                 return false;
             }
@@ -1868,8 +2332,9 @@ public final class FitnessRepository {
         } else if ("strength".equals(workoutType)) {
             try (Cursor cursor = database.rawQuery(
                     "SELECT ui_part FROM workout_exercises "
-                            + "WHERE record_id = ? AND deleted_at IS NULL ORDER BY order_index",
-                    new String[]{recordId})) {
+                            + "WHERE record_id = ? AND user_id = ? "
+                            + "AND deleted_at IS NULL ORDER BY order_index",
+                    new String[]{recordId, userId})) {
                 while (cursor.moveToNext()) {
                     String category = personalOsStrengthCategory(cursor.getString(0));
                     if (!category.isEmpty() && !categories.contains(category)) {
@@ -1920,7 +2385,12 @@ public final class FitnessRepository {
         values.put("metadata", nextMetadata);
         values.put("scope", nextScope);
         values.put("updated_at", now());
-        database.update("workout_records", values, "id = ?", new String[]{recordId});
+        database.update(
+                "workout_records",
+                values,
+                "id = ? AND user_id = ?",
+                new String[]{recordId, userId}
+        );
         return true;
     }
 
@@ -2018,8 +2488,9 @@ public final class FitnessRepository {
 
     private int nextWorkoutExerciseOrder(String recordId) {
         try (Cursor cursor = db().rawQuery(
-                "SELECT COALESCE(MAX(order_index), 0) + 1 FROM workout_exercises WHERE record_id = ? AND deleted_at IS NULL",
-                new String[]{recordId})) {
+                "SELECT COALESCE(MAX(order_index), 0) + 1 FROM workout_exercises " +
+                        "WHERE record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{recordId, userId})) {
             return cursor.moveToFirst() ? cursor.getInt(0) : 1;
         }
     }
@@ -2030,11 +2501,12 @@ public final class FitnessRepository {
 
     public List<String> bodyMetricsForDate(String date) {
         List<String> rows = new ArrayList<>();
-        String sql = "SELECT date, weight_kg FROM weight_records WHERE deleted_at IS NULL AND scope IN ('fitness', 'both')";
-        String[] args = null;
+        String sql = "SELECT date, weight_kg FROM weight_records " +
+                "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both')";
+        String[] args = new String[]{userId};
         if (date != null) {
             sql += " AND date = ?";
-            args = new String[]{emptyToToday(date)};
+            args = new String[]{userId, emptyToToday(date)};
         }
         sql += " ORDER BY date DESC LIMIT 20";
 
@@ -2053,8 +2525,8 @@ public final class FitnessRepository {
     public int mealCountForDate(String date) {
         try (Cursor cursor = db().rawQuery(
                 "SELECT COUNT(*) FROM meal_records WHERE deleted_at IS NULL "
-                        + "AND scope IN ('fitness', 'both') AND date = ?",
-                new String[]{emptyToToday(date)})) {
+                        + "AND user_id = ? AND scope IN ('fitness', 'both') AND date = ?",
+                new String[]{userId, emptyToToday(date)})) {
             return cursor.moveToFirst() ? cursor.getInt(0) : 0;
         }
     }
@@ -2065,11 +2537,13 @@ public final class FitnessRepository {
 
     public List<String> mealsForDate(String date) {
         List<String> rows = new ArrayList<>();
-        String sql = "SELECT date, menu, calories, protein_grams, carbs_grams, fat_grams FROM meal_records WHERE deleted_at IS NULL AND scope IN ('fitness', 'both')";
-        String[] args = null;
+        String sql = "SELECT date, menu, calories, protein_grams, carbs_grams, fat_grams " +
+                "FROM meal_records WHERE user_id = ? AND deleted_at IS NULL " +
+                "AND scope IN ('fitness', 'both')";
+        String[] args = new String[]{userId};
         if (date != null) {
             sql += " AND date = ?";
-            args = new String[]{emptyToToday(date)};
+            args = new String[]{userId, emptyToToday(date)};
         }
         sql += " ORDER BY date DESC, created_at ASC, id ASC LIMIT 20";
 
@@ -2101,6 +2575,56 @@ public final class FitnessRepository {
         return database;
     }
 
+    private boolean ownsWorkoutRecord(String recordId) {
+        String normalizedId = emptyToNull(recordId);
+        if (normalizedId == null) {
+            return false;
+        }
+        try (Cursor cursor = db().rawQuery(
+                "SELECT 1 FROM workout_records " +
+                        "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
+                new String[]{normalizedId, userId}
+        )) {
+            return cursor.moveToFirst();
+        }
+    }
+
+    private void requireOwnedWorkoutRecord(String recordId) {
+        if (!ownsWorkoutRecord(recordId)) {
+            throw new IllegalArgumentException("현재 계정의 운동 기록이 아닙니다.");
+        }
+    }
+
+    private void requireOwnedWorkoutExercise(String recordId, String workoutExerciseId) {
+        try (Cursor cursor = db().rawQuery(
+                "SELECT 1 FROM workout_exercises " +
+                        "WHERE id = ? AND record_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL LIMIT 1",
+                new String[]{workoutExerciseId, recordId, userId}
+        )) {
+            if (cursor.moveToFirst()) {
+                return;
+            }
+        }
+        throw new IllegalArgumentException("현재 계정의 운동 종목이 아닙니다.");
+    }
+
+    private void requireOwnedWorkoutSet(String recordId, String setId) {
+        try (Cursor cursor = db().rawQuery(
+                "SELECT 1 FROM workout_sets ws " +
+                        "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id " +
+                        "WHERE ws.id = ? AND we.record_id = ? AND ws.user_id = ? " +
+                        "AND we.user_id = ? AND ws.deleted_at IS NULL " +
+                        "AND we.deleted_at IS NULL LIMIT 1",
+                new String[]{setId, recordId, userId, userId}
+        )) {
+            if (cursor.moveToFirst()) {
+                return;
+            }
+        }
+        throw new IllegalArgumentException("현재 계정의 운동 세트가 아닙니다.");
+    }
+
     private ContentValues baseValues(String id, String now) {
         ContentValues values = new ContentValues();
         values.put("id", id);
@@ -2112,7 +2636,7 @@ public final class FitnessRepository {
         return values;
     }
 
-    private List<String> tables() {
+    private List<String> claimableOwnerTables() {
         List<String> tables = new ArrayList<>();
         tables.add("workout_records");
         tables.add("workout_exercises");
@@ -2120,14 +2644,109 @@ public final class FitnessRepository {
         tables.add("meal_records");
         tables.add("meal_record_items");
         tables.add("meal_record_item_nutrients");
+        tables.add("meal_record_item_components");
+        tables.add("meal_record_item_component_nutrients");
         tables.add("weight_records");
-        tables.add("nutrition_goals");
-        tables.add("nutrition_daily_checkins");
+        tables.add("cardio_sessions");
+        tables.add("cardio_route_points");
+        tables.add("routines");
+        tables.add("routine_exercises");
         return tables;
     }
 
+    private void claimSingletonNutritionGoal(
+            SQLiteDatabase database,
+            String nextUserId
+    ) {
+        database.execSQL(
+                "INSERT OR REPLACE INTO nutrition_goals (" +
+                        "user_id, phase, calories_kcal, protein_grams, carbs_grams, " +
+                        "fat_grams, fiber_grams, sodium_mg, water_ml, created_at, updated_at) " +
+                        "SELECT ?, source.phase, source.calories_kcal, source.protein_grams, " +
+                        "source.carbs_grams, source.fat_grams, source.fiber_grams, " +
+                        "source.sodium_mg, source.water_ml, source.created_at, source.updated_at " +
+                        "FROM nutrition_goals source WHERE source.user_id = ? " +
+                        "AND (NOT EXISTS (SELECT 1 FROM nutrition_goals target " +
+                        "WHERE target.user_id = ?) OR julianday(source.updated_at) > julianday((" +
+                        "SELECT target.updated_at FROM nutrition_goals target " +
+                        "WHERE target.user_id = ? LIMIT 1)))",
+                new Object[]{
+                        nextUserId,
+                        SupabaseConfig.DEFAULT_USER_ID,
+                        nextUserId,
+                        nextUserId
+                }
+        );
+        database.delete(
+                "nutrition_goals",
+                "user_id = ?",
+                new String[]{SupabaseConfig.DEFAULT_USER_ID}
+        );
+    }
+
+    private void claimConflictFreeDailyRows(
+            SQLiteDatabase database,
+            String nextUserId
+    ) {
+        database.execSQL(
+                "INSERT OR REPLACE INTO nutrition_daily_checkins (" +
+                        "id, user_id, date, water_ml, sleep_hours, energy_score, hunger_score, " +
+                        "digestion_score, training_readiness_score, note, created_at, updated_at) " +
+                        "SELECT source.id, ?, source.date, source.water_ml, source.sleep_hours, " +
+                        "source.energy_score, source.hunger_score, source.digestion_score, " +
+                        "source.training_readiness_score, source.note, source.created_at, " +
+                        "source.updated_at FROM nutrition_daily_checkins source " +
+                        "WHERE source.user_id = ? AND (NOT EXISTS (" +
+                        "SELECT 1 FROM nutrition_daily_checkins target " +
+                        "WHERE target.user_id = ? AND target.date = source.date) " +
+                        "OR julianday(source.updated_at) > julianday((SELECT target.updated_at " +
+                        "FROM nutrition_daily_checkins target WHERE target.user_id = ? " +
+                        "AND target.date = source.date LIMIT 1)))",
+                new Object[]{
+                        nextUserId,
+                        SupabaseConfig.DEFAULT_USER_ID,
+                        nextUserId,
+                        nextUserId
+                }
+        );
+        database.delete(
+                "nutrition_daily_checkins",
+                "user_id = ?",
+                new String[]{SupabaseConfig.DEFAULT_USER_ID}
+        );
+
+        database.execSQL(
+                "INSERT OR REPLACE INTO meal_menu_presets (" +
+                        "id, user_id, name, calories, protein_grams, carbs_grams, fat_grams, " +
+                        "created_at, updated_at) SELECT source.id, ?, source.name, source.calories, " +
+                        "source.protein_grams, source.carbs_grams, source.fat_grams, " +
+                        "source.created_at, source.updated_at FROM meal_menu_presets source " +
+                        "WHERE source.user_id = ? AND (NOT EXISTS (" +
+                        "SELECT 1 FROM meal_menu_presets target WHERE target.user_id = ? " +
+                        "AND target.name = source.name COLLATE NOCASE) " +
+                        "OR julianday(source.updated_at) > julianday((" +
+                        "SELECT target.updated_at FROM meal_menu_presets target " +
+                        "WHERE target.user_id = ? AND target.name = source.name COLLATE NOCASE " +
+                        "LIMIT 1)))",
+                new Object[]{
+                        nextUserId,
+                        SupabaseConfig.DEFAULT_USER_ID,
+                        nextUserId,
+                        nextUserId
+                }
+        );
+        database.delete(
+                "meal_menu_presets",
+                "user_id = ?",
+                new String[]{SupabaseConfig.DEFAULT_USER_ID}
+        );
+    }
+
     private void ensureDevice(String nextUserId) {
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        ensureDevice(dbHelper.getWritableDatabase(), nextUserId);
+    }
+
+    private void ensureDevice(SQLiteDatabase database, String nextUserId) {
         String now = now();
         ContentValues values = new ContentValues();
         values.put("id", DEVICE_ID);
@@ -2184,6 +2803,25 @@ public final class FitnessRepository {
 
     private static String emptyToToday(String value) {
         return emptyToDefault(value, LocalDate.now().toString());
+    }
+
+    static String requireRecordDate(String value) {
+        String normalized = emptyToNull(value);
+        if (normalized == null) {
+            throw new IllegalArgumentException("날짜를 입력하세요.");
+        }
+        try {
+            return LocalDate.parse(normalized).toString();
+        } catch (DateTimeParseException error) {
+            throw new IllegalArgumentException("날짜를 YYYY-MM-DD 형식으로 입력하세요.");
+        }
+    }
+
+    static double requireBodyWeight(double value) {
+        if (!Double.isFinite(value) || value <= 0) {
+            throw new IllegalArgumentException("체중은 0보다 큰 숫자여야 합니다.");
+        }
+        return value;
     }
 
     private static String emptyToDefault(String value, String fallback) {
@@ -2387,6 +3025,18 @@ public final class FitnessRepository {
         }
     }
 
+    private static String metadataWithEatenAt(String metadata, String eatenAt) {
+        try {
+            JSONObject object = metadata == null || metadata.trim().isEmpty()
+                    ? new JSONObject()
+                    : new JSONObject(metadata);
+            object.put("eaten_at", eatenAt);
+            return object.toString();
+        } catch (Exception exception) {
+            return json("item_type", "meal", "eaten_at", eatenAt);
+        }
+    }
+
     private static int safeInt(long value) {
         if (value <= 0) {
             return 0;
@@ -2552,8 +3202,9 @@ public final class FitnessRepository {
 
     private String exerciseRecordType(String exerciseId) {
         try (Cursor cursor = db().rawQuery(
-                "SELECT record_type FROM workout_exercises WHERE id = ? AND deleted_at IS NULL LIMIT 1",
-                new String[]{exerciseId}
+                "SELECT record_type FROM workout_exercises " +
+                        "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
+                new String[]{exerciseId, userId}
         )) {
             if (cursor.moveToFirst()) {
                 return FitnessRecordContract.normalizeRecordType(cursor.getString(0));
@@ -2566,8 +3217,9 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT we.record_type FROM workout_sets ws "
                         + "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id "
-                        + "WHERE ws.id = ? AND ws.deleted_at IS NULL LIMIT 1",
-                new String[]{setId}
+                        + "WHERE ws.id = ? AND ws.user_id = ? AND we.user_id = ? "
+                        + "AND ws.deleted_at IS NULL LIMIT 1",
+                new String[]{setId, userId, userId}
         )) {
             if (cursor.moveToFirst()) {
                 return FitnessRecordContract.normalizeRecordType(cursor.getString(0));
@@ -2925,21 +3577,50 @@ public final class FitnessRepository {
         public final double carbsGrams;
         public final double fatGrams;
         public final int compositionCount;
+        public final String previewTitle;
+        public final String eatenAt;
+        public final String mealTime;
+        public final String macroRatio;
+        public final String macroRatioAccessibility;
+        public final boolean timeEditable;
         public final String createdAt;
 
         public MealEntry(String id, String date, String mealLabel, String menu, int calories,
-                         double proteinGrams, double carbsGrams, double fatGrams,
-                         int compositionCount, String createdAt) {
+                         Double proteinGrams, Double carbsGrams, Double fatGrams,
+                         int compositionCount, String previewTitle, String eatenAt,
+                         boolean timeEditable, String createdAt) {
             this.id = id;
             this.date = date;
             this.mealLabel = mealLabel;
             this.menu = menu;
             this.calories = calories;
-            this.proteinGrams = proteinGrams;
-            this.carbsGrams = carbsGrams;
-            this.fatGrams = fatGrams;
+            this.proteinGrams = proteinGrams == null ? 0d : proteinGrams;
+            this.carbsGrams = carbsGrams == null ? 0d : carbsGrams;
+            this.fatGrams = fatGrams == null ? 0d : fatGrams;
             this.compositionCount = compositionCount;
+            this.previewTitle = previewTitle;
+            this.eatenAt = eatenAt;
+            this.mealTime = MealEntryPolicy.displayMealTime(eatenAt);
+            this.macroRatio = MealEntryPolicy.macroRatioLabel(
+                    carbsGrams,
+                    proteinGrams,
+                    fatGrams
+            );
+            this.macroRatioAccessibility = MealEntryPolicy.macroRatioAccessibilityLabel(
+                    carbsGrams,
+                    proteinGrams,
+                    fatGrams
+            );
+            this.timeEditable = timeEditable;
             this.createdAt = createdAt;
+        }
+
+        public String previewSubtitle() {
+            return mealTime + " · " + macroRatio;
+        }
+
+        public String previewAccessibilityLabel() {
+            return previewTitle + ", " + mealTime + ", " + macroRatioAccessibility;
         }
     }
 
@@ -2965,6 +3646,42 @@ public final class FitnessRepository {
         public String label() {
             return foodName + " · " + NutritionCalculator.trim(quantity) + unit
                     + " · " + Math.round(profile.calories()) + "kcal";
+        }
+    }
+
+    public static final class MealComponentEntry {
+        public final String id;
+        public final String foodName;
+        public final double quantity;
+        public final String unit;
+        public final double calories;
+        public final double proteinGrams;
+        public final double carbsGrams;
+        public final double fatGrams;
+
+        public MealComponentEntry(
+                String id,
+                String foodName,
+                double quantity,
+                String unit,
+                double calories,
+                double proteinGrams,
+                double carbsGrams,
+                double fatGrams
+        ) {
+            this.id = id;
+            this.foodName = foodName;
+            this.quantity = quantity;
+            this.unit = unit;
+            this.calories = calories;
+            this.proteinGrams = proteinGrams;
+            this.carbsGrams = carbsGrams;
+            this.fatGrams = fatGrams;
+        }
+
+        public String label() {
+            return foodName + " · " + NutritionCalculator.trim(quantity) + unit
+                    + " · " + Math.round(calories) + "kcal";
         }
     }
 

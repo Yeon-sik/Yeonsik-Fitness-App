@@ -3,6 +3,8 @@ package com.yeonsik.fitnessapp.data;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public final class NutritionFoodClassificationTest {
     @Test
@@ -44,5 +46,19 @@ public final class NutritionFoodClassificationTest {
                 NutritionFood.PREP_COOKED,
                 NutritionFood.prepStateForCookingMethod(NutritionFood.COOKING_METHOD_BOILED)
         );
+    }
+
+    @Test
+    public void exposesTheThreeUserFacingCatalogTypes() {
+        assertEquals("단일 식품", NutritionFood.kindLabel(NutritionFood.KIND_INGREDIENT));
+        assertEquals("완제품", NutritionFood.kindLabel(NutritionFood.KIND_EXTERNAL_MENU));
+        assertEquals("저장 메뉴", NutritionFood.kindLabel(NutritionFood.KIND_RECIPE));
+    }
+
+    @Test
+    public void preventsSavedMenuNestingButAllowsFoodsAndProducts() {
+        assertTrue(NutritionFood.canBeRecipeComponent(NutritionFood.KIND_INGREDIENT));
+        assertTrue(NutritionFood.canBeRecipeComponent(NutritionFood.KIND_EXTERNAL_MENU));
+        assertFalse(NutritionFood.canBeRecipeComponent(NutritionFood.KIND_RECIPE));
     }
 }
