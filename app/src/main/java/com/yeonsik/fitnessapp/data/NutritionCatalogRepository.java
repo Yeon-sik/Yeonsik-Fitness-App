@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -95,6 +96,12 @@ public final class NutritionCatalogRepository {
             "source_type", "proposal_reference", "product_contract_version", "revision",
             "reviewed_at", "created_at", "updated_at", "deleted_at"
     };
+
+    private static final int VERIFIED_FOOD_SEARCH_LIMIT_MAX = 50;
+    private static final String VERIFIED_FOOD_ID_PREFIX =
+            VerifiedFoodCatalogSeed.FOOD_ID_PREFIX + "%";
+    private static final String VERIFIED_FOOD_SOURCE_REFERENCE_PREFIX =
+            VerifiedFoodCatalogSeed.SOURCE_REFERENCE_PREFIX + "%";
 
     private final FitnessDatabaseHelper dbHelper;
     private volatile String userId;
@@ -214,6 +221,49 @@ public final class NutritionCatalogRepository {
             foods.add(buildFood(row, micronutrients.get((String) row[0])));
         }
         return foods;
+    }
+
+    public List<NutritionFood> searchVerifiedFoods(String query, int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, VERIFIED_FOOD_SEARCH_LIMIT_MAX));
+        String term = query == null ? "" : query.trim();
+        String like = "%" + term + "%";
+        Set<String> curatedIds = VerifiedFoodCatalogSeed.curatedFoodIds();
+        StringBuilder curatedPlaceholders = new StringBuilder();
+        for (int index = 0; index < curatedIds.size(); index++) {
+            if (index > 0) {
+                curatedPlaceholders.append(", ");
+            }
+            curatedPlaceholders.append('?');
+        }
+        List<String> arguments = new ArrayList<>();
+        arguments.add(NutritionFood.KIND_INGREDIENT);
+        arguments.add(VerifiedFoodCatalogSeed.SOURCE_TYPE);
+        arguments.add(VERIFIED_FOOD_ID_PREFIX);
+        arguments.add(VERIFIED_FOOD_SOURCE_REFERENCE_PREFIX);
+        arguments.addAll(curatedIds);
+        arguments.add(like);
+        arguments.add(like);
+        List<NutritionFood> candidates = readFoods(
+                "owner_id IS NULL " +
+                        "AND visibility = 'public' " +
+                        "AND kind = ? " +
+                        "AND source_type = ? " +
+                        "AND id LIKE ? " +
+                        "AND source_reference LIKE ? " +
+                        "AND id IN (" + curatedPlaceholders + ") " +
+                        "AND (name LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(brand, '') LIKE ? COLLATE NOCASE)",
+                arguments.toArray(new String[0]),
+                "brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC",
+                String.valueOf(safeLimit)
+        );
+        List<NutritionFood> verified = new ArrayList<>();
+        for (NutritionFood candidate : candidates) {
+            if (VerifiedFoodCatalogSeed.isVerifiedSeedFood(candidate)) {
+                verified.add(candidate);
+            }
+        }
+        return verified;
     }
 
     /** Saved recipes for the menu browser. */

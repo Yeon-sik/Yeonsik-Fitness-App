@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Insets;
@@ -40,6 +41,10 @@ import com.yeonsik.fitnessapp.data.LocalDataBackupService;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.data.ProductReadV1Client;
+import com.yeonsik.fitnessapp.development.BodyProfile;
+import com.yeonsik.fitnessapp.development.DevelopmentGoal;
+import com.yeonsik.fitnessapp.development.DevelopmentInsight;
+import com.yeonsik.fitnessapp.development.DevelopmentRepository;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
@@ -51,6 +56,7 @@ import com.yeonsik.fitnessapp.ui.BaseScreen;
 import com.yeonsik.fitnessapp.ui.CardioScreen;
 import com.yeonsik.fitnessapp.ui.CardioSessionScreen;
 import com.yeonsik.fitnessapp.ui.CardioSummaryScreen;
+import com.yeonsik.fitnessapp.ui.DevelopmentScreen;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.HomeScreen;
 import com.yeonsik.fitnessapp.ui.MealManagementScreen;
@@ -86,6 +92,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         HOME,
         WORKOUT,
         RECORDS,
+        DEVELOPMENT,
         SETTINGS
     }
 
@@ -112,6 +119,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     private CardioRepository cardioRepository;
     private ExerciseMasterRepository exerciseMasterRepository;
     private RoutineRepository routineRepository;
+    private DevelopmentRepository developmentRepository;
     private SupabaseConfigStore configStore;
     private NutritionSupabaseConfigStore nutritionConfigStore;
     private PriceTraceSupabaseConfigStore priceTraceConfigStore;
@@ -145,10 +153,12 @@ public final class MainActivity extends Activity implements ScreenHost {
     private LinearLayout homeTabArea;
     private LinearLayout workoutTabArea;
     private LinearLayout recordsTabArea;
+    private LinearLayout developmentTabArea;
     private LinearLayout settingsTabArea;
     private TextView homeTabLabel;
     private TextView workoutTabLabel;
     private TextView recordsTabLabel;
+    private TextView developmentTabLabel;
     private TextView settingsTabLabel;
 
     private boolean isManualSyncing = false;
@@ -186,6 +196,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         repository.reconcileSharedWorkoutSummaries();
         exerciseMasterRepository = new ExerciseMasterRepository(this);
         routineRepository = new RoutineRepository(databaseHelper, supabaseConfig.effectiveUserId());
+        developmentRepository = new DevelopmentRepository(databaseHelper, supabaseConfig.effectiveUserId());
         syncManager = new SupabaseSyncManager(databaseHelper);
         applySyncStatusFromConfig();
 
@@ -294,6 +305,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         map.put(FitnessScreen.STRENGTH, new StrengthScreen(this));
         map.put(FitnessScreen.CARDIO, new CardioScreen(this));
         map.put(FitnessScreen.RECORDS, new RecordsScreen(this));
+        map.put(FitnessScreen.DEVELOPMENT, new DevelopmentScreen(this));
         map.put(FitnessScreen.SETTINGS, new SettingsScreen(this));
         map.put(FitnessScreen.WORKOUT_SESSION, new WorkoutSessionScreen(this));
         map.put(FitnessScreen.WORKOUT_EXERCISE_DETAIL, new WorkoutExerciseDetailScreen(this));
@@ -606,18 +618,22 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
-        nav.setPadding(ui.dp(12), ui.dp(10), ui.dp(12), ui.dp(14));
+        nav.setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(12));
 
         homeTabArea = navArea("메인", Tab.HOME);
         workoutTabArea = navArea("피트니스", Tab.WORKOUT);
         recordsTabArea = navArea("기록", Tab.RECORDS);
         settingsTabArea = navArea("설정", Tab.SETTINGS);
 
+        developmentTabArea = navArea("발전", Tab.DEVELOPMENT);
+
         nav.addView(homeTabArea, navParams());
         nav.addView(navGap());
         nav.addView(workoutTabArea, navParams());
         nav.addView(navGap());
         nav.addView(recordsTabArea, navParams());
+        nav.addView(navGap());
+        nav.addView(developmentTabArea, navParams());
         nav.addView(navGap());
         nav.addView(settingsTabArea, navParams());
         wrapper.addView(nav, new LinearLayout.LayoutParams(
@@ -633,7 +649,7 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     private View navGap() {
         View gap = new View(this);
-        gap.setLayoutParams(new LinearLayout.LayoutParams(ui.dp(6), ui.dp(1)));
+        gap.setLayoutParams(new LinearLayout.LayoutParams(ui.dp(4), ui.dp(1)));
         return gap;
     }
 
@@ -649,9 +665,9 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         TextView textView = new TextView(this);
         textView.setText(label);
-        textView.setTextSize(13);
+        textView.setTextSize(12);
         textView.setGravity(Gravity.CENTER);
-        textView.setPadding(0, ui.dp(13), 0, ui.dp(13));
+        textView.setPadding(0, ui.dp(12), 0, ui.dp(12));
         textView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
 
         area.addView(textView, new LinearLayout.LayoutParams(
@@ -665,6 +681,8 @@ public final class MainActivity extends Activity implements ScreenHost {
             workoutTabLabel = textView;
         } else if (tab == Tab.RECORDS) {
             recordsTabLabel = textView;
+        } else if (tab == Tab.DEVELOPMENT) {
+            developmentTabLabel = textView;
         } else {
             settingsTabLabel = textView;
         }
@@ -678,6 +696,8 @@ public final class MainActivity extends Activity implements ScreenHost {
                 return FitnessScreen.HOME;
             case RECORDS:
                 return FitnessScreen.RECORDS;
+            case DEVELOPMENT:
+                return FitnessScreen.DEVELOPMENT;
             case SETTINGS:
                 return FitnessScreen.SETTINGS;
             default:
@@ -691,6 +711,8 @@ public final class MainActivity extends Activity implements ScreenHost {
                 return Tab.HOME;
             case RECORDS:
                 return Tab.RECORDS;
+            case DEVELOPMENT:
+                return Tab.DEVELOPMENT;
             case MEALS:
                 return Tab.WORKOUT;
             case SETTINGS:
@@ -717,6 +739,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT,
                 workoutInProgress && activationVisible);
         styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS, false);
+        styleNavArea(developmentTabArea, developmentTabLabel, activeTab == Tab.DEVELOPMENT, false);
         styleNavArea(settingsTabArea, settingsTabLabel, activeTab == Tab.SETTINGS, false);
     }
 
@@ -1389,6 +1412,188 @@ public final class MainActivity extends Activity implements ScreenHost {
         navigate(FitnessScreen.SETTINGS);
     }
 
+    @Override
+    public DevelopmentRepository developmentRepository() {
+        return developmentRepository;
+    }
+
+    @Override
+    public void showDevelopmentBodyProfileDialog() {
+        BodyProfile currentProfile = developmentRepository.bodyProfile();
+        FitnessRepository.BodyMetricEntry todayWeight = repository.bodyMetricForDate(today());
+        LinearLayout form = ui.form();
+        EditText heightInput = ui.numberInput(
+                "키 cm",
+                currentProfile.heightCm == null ? "" : String.valueOf(currentProfile.heightCm)
+        );
+        EditText weightInput = ui.decimalInput(
+                "오늘 체중 kg",
+                todayWeight == null ? "" : FitnessUi.trimDouble(todayWeight.weightKg)
+        );
+        ui.addAll(form, heightInput, weightInput);
+        ui.validatedSheet("바디 정보 수정", form, "저장", () -> {
+            try {
+                String heightText = FitnessUi.inputText(heightInput).trim();
+                String weightText = FitnessUi.inputText(weightInput).trim();
+                if (heightText.isEmpty() && weightText.isEmpty()) {
+                    throw new IllegalArgumentException("키 또는 오늘 체중을 하나 이상 입력해 주세요.");
+                }
+                BodyProfile nextProfile = null;
+                Double nextWeightKg = null;
+                if (!heightText.isEmpty()) {
+                    int heightCm = Integer.parseInt(heightText);
+                    nextProfile = new BodyProfile(heightCm, "", "");
+                }
+                if (!weightText.isEmpty()) {
+                    double weightKg = Double.parseDouble(weightText);
+                    if (!Double.isFinite(weightKg) || weightKg < 20d || weightKg > 400d) {
+                        throw new IllegalArgumentException("체중은 20~400kg 범위로 입력해 주세요.");
+                    }
+                    nextWeightKg = weightKg;
+                }
+                if (nextProfile != null) {
+                    developmentRepository.saveBodyProfile(nextProfile);
+                }
+                if (nextWeightKg != null) {
+                    repository.addBodyMetric(
+                            today(),
+                            nextWeightKg,
+                            todayWeight == null ? "" : todayWeight.memo
+                    );
+                }
+                render();
+                return true;
+            } catch (NumberFormatException error) {
+                toast("숫자 형식이 올바르지 않습니다.");
+                return false;
+            } catch (IllegalArgumentException error) {
+                toast(error.getMessage());
+                return false;
+            }
+        });
+    }
+
+    @Override
+    public void showDevelopmentGoalDialog() {
+        DevelopmentGoal currentGoal = developmentRepository.developmentGoal();
+        String[] objectiveCodes = DevelopmentGoal.OBJECTIVES.toArray(new String[0]);
+        String[] objectiveLabels = new String[objectiveCodes.length];
+        for (int index = 0; index < objectiveCodes.length; index++) {
+            objectiveLabels[index] = DevelopmentGoal.objectiveLabelKo(objectiveCodes[index]);
+        }
+        String[] focusCodes = DevelopmentGoal.FOCUS_BODY_PARTS.toArray(new String[0]);
+        String[] focusLabels = new String[focusCodes.length];
+        for (int index = 0; index < focusCodes.length; index++) {
+            focusLabels[index] = DevelopmentGoal.bodyPartLabelKo(focusCodes[index]);
+        }
+
+        final String[] selectedObjective = {
+                currentGoal.isConfigured() ? currentGoal.objective : DevelopmentGoal.OBJECTIVE_MUSCLE_GAIN
+        };
+        final String[] selectedFocus = {
+                currentGoal.isConfigured() ? currentGoal.focusBodyPart : DevelopmentGoal.BODY_PART_CHEST
+        };
+        LinearLayout form = ui.form();
+        Button objectivePicker = ui.button(
+                "목표 · " + DevelopmentGoal.objectiveLabelKo(selectedObjective[0]),
+                false,
+                null
+        );
+        objectivePicker.setAllCaps(false);
+        objectivePicker.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle("발전 목표 선택")
+                .setSingleChoiceItems(
+                        objectiveLabels,
+                        indexOf(objectiveCodes, selectedObjective[0]),
+                        (dialog, which) -> {
+                            selectedObjective[0] = objectiveCodes[which];
+                            objectivePicker.setText("목표 · " + objectiveLabels[which]);
+                            dialog.dismiss();
+                        }
+                )
+                .show());
+        EditText weeklySessionsInput = ui.numberInput(
+                "주간 운동 목표 1~7회",
+                currentGoal.weeklySessionsTarget == null
+                        ? "3"
+                        : String.valueOf(currentGoal.weeklySessionsTarget)
+        );
+        Button focusPicker = ui.button(
+                "집중 부위 · " + DevelopmentGoal.bodyPartLabelKo(selectedFocus[0]),
+                false,
+                null
+        );
+        focusPicker.setAllCaps(false);
+        focusPicker.setOnClickListener(v -> new AlertDialog.Builder(this)
+                .setTitle("집중 부위 선택")
+                .setSingleChoiceItems(
+                        focusLabels,
+                        indexOf(focusCodes, selectedFocus[0]),
+                        (dialog, which) -> {
+                            selectedFocus[0] = focusCodes[which];
+                            focusPicker.setText("집중 부위 · " + focusLabels[which]);
+                            dialog.dismiss();
+                        }
+                )
+                .show());
+        ui.addAll(form, objectivePicker, weeklySessionsInput, focusPicker);
+        ui.validatedSheet("발전 목표 수정", form, "저장", () -> {
+            try {
+                int weeklySessions = Integer.parseInt(FitnessUi.inputText(weeklySessionsInput).trim());
+                boolean unchanged = currentGoal.isConfigured()
+                        && currentGoal.objective.equals(selectedObjective[0])
+                        && currentGoal.weeklySessionsTarget == weeklySessions
+                        && currentGoal.focusBodyPart.equals(selectedFocus[0]);
+                String effectiveFrom = unchanged ? currentGoal.effectiveFrom : today();
+                developmentRepository.saveDevelopmentGoal(new DevelopmentGoal(
+                        selectedObjective[0],
+                        weeklySessions,
+                        selectedFocus[0],
+                        effectiveFrom,
+                        "",
+                        ""
+                ));
+                render();
+                return true;
+            } catch (NumberFormatException error) {
+                toast("주간 세션은 숫자로 입력해 주세요.");
+                return false;
+            } catch (IllegalArgumentException error) {
+                toast(error.getMessage());
+                return false;
+            }
+        });
+    }
+
+    @Override
+    public void openDevelopmentInsightAction(DevelopmentInsight insight) {
+        if (insight == null) {
+            return;
+        }
+        if ("planning".equals(insight.category)) {
+            showDevelopmentGoalDialog();
+        } else if ("consistency".equals(insight.category) || "focus".equals(insight.category)) {
+            navigate(FitnessScreen.WORKOUT);
+        } else if ("recovery".equals(insight.category) || "nutrition_logging".equals(insight.category)) {
+            openMealManagement(today(), FitnessScreen.DEVELOPMENT);
+        } else if ("coverage".equals(insight.category) && insight.title.contains("체중")) {
+            showDevelopmentBodyProfileDialog();
+        } else if ("coverage".equals(insight.category)) {
+            navigate(FitnessScreen.RECORDS);
+        } else {
+            toast("연결된 다음 행동이 아직 없습니다.");
+        }
+    }
+
+    private static int indexOf(String[] values, String target) {
+        for (int index = 0; index < values.length; index++) {
+            if (values[index].equals(target)) {
+                return index;
+            }
+        }
+        return -1;
+    }
+
     // ── 설정 / 동기화 ─────────────────────────────────────────────────
 
     @Override
@@ -2042,6 +2247,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         String userId = config.effectiveUserId();
         repository.normalizeLocalUserId(userId);
         routineRepository.setUserId(userId);
+        developmentRepository.normalizeLocalUserId(userId);
     }
 
     private void completeSharedAuthentication(SupabaseConfig config, String successMessage) {
@@ -2065,6 +2271,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         String userId = config.effectiveUserId();
         repository.setUserId(userId);
         routineRepository.setUserId(userId);
+        developmentRepository.setUserId(userId);
     }
 
     private void applyAuthenticatedNutritionConfig(SupabaseConfig config) {

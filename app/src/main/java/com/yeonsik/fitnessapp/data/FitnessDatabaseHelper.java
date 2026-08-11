@@ -6,10 +6,16 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 15;
+    public static final int DATABASE_VERSION = 19;
+    private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
         super(context, DATABASE_NAME, null, DATABASE_VERSION);
+        appContext = context.getApplicationContext() == null ? context : context.getApplicationContext();
+    }
+
+    void reconcileVerifiedFoodCatalog(SQLiteDatabase database) {
+        VerifiedFoodCatalogSeed.seed(appContext, database);
     }
 
     @Override
@@ -22,6 +28,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createNutritionIndexes(db);
         createProductNutritionLinkTables(db);
         createAthleteNutritionTables(db);
+        createDevelopmentTables(db);
+        reconcileVerifiedFoodCatalog(db);
     }
 
     private void createSharedRecordTables(SQLiteDatabase db) {
@@ -494,6 +502,26 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON nutrition_daily_checkins(user_id, date DESC)");
     }
 
+    private void createDevelopmentTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS body_profiles (" +
+                "user_id TEXT PRIMARY KEY, " +
+                "height_cm INTEGER NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "CHECK (height_cm BETWEEN 50 AND 300))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS development_goals (" +
+                "user_id TEXT PRIMARY KEY, " +
+                "objective TEXT NOT NULL, " +
+                "weekly_sessions_target INTEGER NOT NULL, " +
+                "focus_body_part TEXT NOT NULL, " +
+                "effective_from TEXT NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "CHECK (objective IN ('muscle_gain','strength','fat_loss','endurance','maintenance')), " +
+                "CHECK (weekly_sessions_target BETWEEN 1 AND 7), " +
+                "CHECK (focus_body_part IN ('chest','back','legs','shoulders','arms','abs')))");
+    }
+
     /**
      * v8 카탈로그를 확장 영양소 스키마로 올린다.
      *
@@ -622,7 +650,13 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 15) {
             upgradeMealMenuHierarchy(db);
         }
+        // Idempotently enforce the feature schema for every historical upgrade path. This also
+        // repairs development preview databases that reached v16-v18 without these tables.
+        createDevelopmentTables(db);
         createNutritionIndexes(db);
+        if (oldVersion < 19) {
+            reconcileVerifiedFoodCatalog(db);
+        }
     }
 
     /** Adds explicit ownership to device-local tables and removes the global preset-name key. */

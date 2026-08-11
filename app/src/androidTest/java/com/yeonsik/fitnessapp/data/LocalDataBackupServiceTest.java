@@ -64,6 +64,10 @@ public final class LocalDataBackupServiceTest {
                     1,
                     tables.getJSONArray("meal_record_item_component_nutrients").length()
             );
+            assertEquals(1, tables.getJSONArray("body_profiles").length());
+            assertEquals(1, tables.getJSONArray("development_goals").length());
+            assertFalse(tables.getJSONArray("body_profiles").getJSONObject(0).has("user_id"));
+            assertFalse(tables.getJSONArray("development_goals").getJSONObject(0).has("user_id"));
             assertEquals(
                     "2026-08-10T12:00:00+09:00",
                     new JSONObject(tables.getJSONArray("meal_records").getJSONObject(0)
@@ -167,6 +171,29 @@ public final class LocalDataBackupServiceTest {
                             "AND parent.id = 'public-food' AND parent.owner_id IS NULL " +
                             "AND child.id = 'public-nested-food' AND child.owner_id IS NULL"
             ));
+            assertEquals(TARGET_RECORD_USER, scalar(
+                    target.database,
+                    "SELECT user_id FROM body_profiles"
+            ));
+            assertEquals("181", scalar(
+                    target.database,
+                    "SELECT height_cm FROM body_profiles WHERE user_id = '" +
+                            TARGET_RECORD_USER + "'"
+            ));
+            assertEquals(TARGET_RECORD_USER, scalar(
+                    target.database,
+                    "SELECT user_id FROM development_goals"
+            ));
+            assertEquals("muscle_gain", scalar(
+                    target.database,
+                    "SELECT objective FROM development_goals WHERE user_id = '" +
+                            TARGET_RECORD_USER + "'"
+            ));
+            assertEquals("4", scalar(
+                    target.database,
+                    "SELECT weekly_sessions_target FROM development_goals WHERE user_id = '" +
+                            TARGET_RECORD_USER + "'"
+            ));
 
             LocalDataBackupService.RestoreResult second = restorer.restoreBackup(
                     new ByteArrayInputStream(payload)
@@ -269,6 +296,8 @@ public final class LocalDataBackupServiceTest {
             JSONObject tables = legacy.getJSONObject("tables");
             tables.remove("meal_record_item_components");
             tables.remove("meal_record_item_component_nutrients");
+            tables.remove("body_profiles");
+            tables.remove("development_goals");
             JSONArray mealItems = tables.getJSONArray("meal_record_items");
             for (int index = 0; index < mealItems.length(); index++) {
                 mealItems.getJSONObject(index).remove("brand_snapshot");
@@ -291,6 +320,104 @@ public final class LocalDataBackupServiceTest {
                     target.database,
                     "SELECT COUNT(*) FROM meal_record_items WHERE id = 'meal-menu-1'"
             ));
+        } finally {
+            source.closeAndDelete();
+            target.closeAndDelete();
+        }
+    }
+
+    @Test
+    public void restoreRetiresLegacyCookedOfficialFoodButKeepsHistoricalMealSnapshot()
+            throws Exception {
+        TestDatabase source = openDatabase("local_backup_raw_policy_source_");
+        TestDatabase target = openDatabase("local_backup_raw_policy_target_");
+        try {
+            seedSource(source);
+            seedLegacyCookedCatalogUsage(source.database);
+
+            LocalDataBackupService exporter = new LocalDataBackupService(
+                    source.helper,
+                    SOURCE_RECORD_USER,
+                    SOURCE_NUTRITION_USER
+            );
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            exporter.writeBackup(output);
+
+            LocalDataBackupService restorer = new LocalDataBackupService(
+                    target.helper,
+                    TARGET_RECORD_USER,
+                    TARGET_NUTRITION_USER
+            );
+            restorer.restoreBackup(new ByteArrayInputStream(output.toByteArray()));
+
+            assertEquals("1", scalar(
+                    target.database,
+                    "SELECT COUNT(*) FROM nutrition_foods "
+                            + "WHERE id = 'kfind:R209-008000551-0000' "
+                            + "AND deleted_at IS NOT NULL"
+            ));
+            assertEquals("106|22.97|raw", scalar(
+                    target.database,
+                    "SELECT printf('%.0f|%.2f|%s', calories_kcal, protein_grams, "
+                            + "cooking_method) FROM nutrition_foods "
+                            + "WHERE id = 'kfind:R209-008000501-0000'"
+            ));
+            assertEquals("R209-008000551-0000|164|35.47|cooked|legacy-v1", scalar(
+                    target.database,
+                    "SELECT printf('%s|%.0f|%.2f|%s|%s', "
+                            + "substr(food_id, 7), calories, protein_grams, "
+                            + "prep_state_snapshot, source_version_snapshot) "
+                            + "FROM meal_record_items WHERE id = 'legacy-meal-item'"
+            ));
+        } finally {
+            source.closeAndDelete();
+            target.closeAndDelete();
+        }
+    }
+
+    @Test
+    public void versionFifteenBackupWithoutDevelopmentTablesRemainsReadableButUnknownTablesFail()
+            throws Exception {
+        TestDatabase source = openDatabase("local_backup_v15_source_");
+        TestDatabase target = openDatabase("local_backup_v15_target_");
+        try {
+            seedSource(source);
+            LocalDataBackupService exporter = new LocalDataBackupService(
+                    source.helper,
+                    SOURCE_RECORD_USER,
+                    SOURCE_NUTRITION_USER
+            );
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            exporter.writeBackup(output);
+
+            JSONObject legacy = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
+            legacy.put("databaseVersion", 15);
+            JSONObject tables = legacy.getJSONObject("tables");
+            tables.remove("body_profiles");
+            tables.remove("development_goals");
+
+            LocalDataBackupService restorer = new LocalDataBackupService(
+                    target.helper,
+                    TARGET_RECORD_USER,
+                    TARGET_NUTRITION_USER
+            );
+            JSONObject unknownTableBackup = new JSONObject(legacy.toString());
+            unknownTableBackup.getJSONObject("tables").put("future_table", new JSONArray());
+            expectRejected(
+                    restorer,
+                    unknownTableBackup.toString().getBytes(StandardCharsets.UTF_8)
+            );
+
+            LocalDataBackupService.BackupPreview preview = restorer.previewBackup(
+                    new ByteArrayInputStream(legacy.toString().getBytes(StandardCharsets.UTF_8))
+            );
+            assertEquals(15, preview.getDatabaseVersion());
+            LocalDataBackupService.RestoreResult result = restorer.restoreBackup(
+                    new ByteArrayInputStream(legacy.toString().getBytes(StandardCharsets.UTF_8))
+            );
+            assertTrue(result.getImportedRows() > 0);
+            assertEquals("0", scalar(target.database, "SELECT COUNT(*) FROM body_profiles"));
+            assertEquals("0", scalar(target.database, "SELECT COUNT(*) FROM development_goals"));
         } finally {
             source.closeAndDelete();
             target.closeAndDelete();
@@ -420,6 +547,7 @@ public final class LocalDataBackupServiceTest {
         insertMealRecord(db, "meal-1", SOURCE_RECORD_USER, "Chicken Bowl", "private-meal-metadata");
         insertMealHierarchy(db);
         insertWeightRecord(db, "weight-1", SOURCE_RECORD_USER, 78.4, "private-weight-metadata");
+        insertDevelopmentData(db);
 
         insertNutritionFood(db, "owned-recipe", SOURCE_NUTRITION_USER, "Owned Recipe", "recipe");
         insertNutritionFood(db, "public-food", null, "Public Food", "ingredient");
@@ -452,6 +580,84 @@ public final class LocalDataBackupServiceTest {
 
         insertDevice(db, SOURCE_RECORD_USER, "device-1");
         insertPriceTraceCache(db, "cache product");
+    }
+
+    private static void seedLegacyCookedCatalogUsage(SQLiteDatabase db) {
+        String legacyFoodId = "kfind:R209-008000551-0000";
+        String legacyReference = VerifiedFoodCatalogSeed.SOURCE_REFERENCE_PREFIX
+                + "R209-008000551-0000&searchMonthCd=AVG&searchRegionCd=ZZ";
+
+        insertNutritionFood(
+                db,
+                legacyFoodId,
+                null,
+                "닭가슴살(껍질 제거, 구이)",
+                NutritionFood.KIND_INGREDIENT
+        );
+        ContentValues official = new ContentValues();
+        official.put("category", NutritionFood.CATEGORY_POULTRY);
+        official.put("prep_state", NutritionFood.PREP_COOKED);
+        official.put("cooking_method", NutritionFood.COOKING_METHOD_GRILLED);
+        official.put("calories_kcal", 164.0);
+        official.put("protein_grams", 35.47);
+        official.put("carbs_grams", 0.0);
+        official.put("fat_grams", 2.28);
+        official.put("source_type", VerifiedFoodCatalogSeed.SOURCE_TYPE);
+        official.put("source_reference", legacyReference);
+        official.put("source_version", "legacy-v1");
+        official.put("data_version", NutritionFood.DATA_VERSION_REQUIRED_SEVEN);
+        db.update("nutrition_foods", official, "id = ?", new String[]{legacyFoodId});
+
+        insertNutritionFood(
+                db,
+                "legacy-owned-recipe",
+                SOURCE_NUTRITION_USER,
+                "Legacy meal recipe",
+                NutritionFood.KIND_RECIPE
+        );
+        insertNutritionComponent(
+                db,
+                "legacy-owned-component",
+                SOURCE_NUTRITION_USER,
+                "legacy-owned-recipe",
+                legacyFoodId,
+                100.0,
+                0
+        );
+
+        insertMealRecord(
+                db,
+                "legacy-meal",
+                SOURCE_RECORD_USER,
+                "Legacy chicken",
+                "legacy-raw-policy"
+        );
+        ContentValues item = new ContentValues();
+        item.put("id", "legacy-meal-item");
+        item.put("user_id", SOURCE_RECORD_USER);
+        item.put("meal_record_id", "legacy-meal");
+        item.put("food_id", legacyFoodId);
+        item.put("food_name_snapshot", "닭가슴살(껍질 제거, 구이)");
+        item.put("food_kind_snapshot", NutritionFood.KIND_INGREDIENT);
+        item.put("quantity", 100.0);
+        item.put("unit", NutritionUnit.GRAM);
+        item.put("basis_amount_snapshot", 100.0);
+        item.put("basis_unit_snapshot", NutritionUnit.GRAM);
+        item.put("prep_state_snapshot", NutritionFood.PREP_COOKED);
+        item.put("calories", 164.0);
+        item.put("protein_grams", 35.47);
+        item.put("carbs_grams", 0.0);
+        item.put("fat_grams", 2.28);
+        item.put("source_type_snapshot", VerifiedFoodCatalogSeed.SOURCE_TYPE);
+        item.put("source_reference_snapshot", legacyReference);
+        item.put("source_version_snapshot", "legacy-v1");
+        item.put("food_data_version_snapshot", NutritionFood.DATA_VERSION_REQUIRED_SEVEN);
+        item.put("order_index", 0);
+        item.put("created_at", "2026-08-10T12:00:00Z");
+        item.put("updated_at", "2026-08-10T12:00:00Z");
+        item.putNull("deleted_at");
+        item.put("device_id", "device-1");
+        db.insertOrThrow("meal_record_items", null, item);
     }
 
     private static void seedTargetBaseline(SQLiteDatabase db) {
@@ -649,6 +855,25 @@ public final class LocalDataBackupServiceTest {
         values.put("metadata", "{\"tag\":\"" + metadataTag + "\"}");
         values.put("contract_version", 1);
         db.insertOrThrow("weight_records", null, values);
+    }
+
+    private static void insertDevelopmentData(SQLiteDatabase db) {
+        ContentValues profile = new ContentValues();
+        profile.put("user_id", SOURCE_RECORD_USER);
+        profile.put("height_cm", 181);
+        profile.put("created_at", "2026-08-10T00:00:00Z");
+        profile.put("updated_at", "2026-08-10T00:00:00Z");
+        db.insertOrThrow("body_profiles", null, profile);
+
+        ContentValues goal = new ContentValues();
+        goal.put("user_id", SOURCE_RECORD_USER);
+        goal.put("objective", "muscle_gain");
+        goal.put("weekly_sessions_target", 4);
+        goal.put("focus_body_part", "chest");
+        goal.put("effective_from", "2026-08-10");
+        goal.put("created_at", "2026-08-10T00:00:00Z");
+        goal.put("updated_at", "2026-08-10T00:00:00Z");
+        db.insertOrThrow("development_goals", null, goal);
     }
 
     private static void insertNutritionFood(

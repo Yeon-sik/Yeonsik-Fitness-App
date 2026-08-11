@@ -159,6 +159,10 @@ public final class LocalDataBackupService {
                     }
                 }
             }
+            // A pre-v18 backup may contain the former cooked official catalog. Reconcile inside
+            // the same transaction so restored meal snapshots remain immutable while only the
+            // current curated, preparation-specific catalog stays searchable.
+            dbHelper.reconcileVerifiedFoodCatalog(database);
             database.setTransactionSuccessful();
             return new RestoreResult(importedRows, skippedRows);
         } catch (JSONException e) {
@@ -527,6 +531,10 @@ public final class LocalDataBackupService {
         if (databaseVersion < 15) {
             required.remove("meal_record_item_components");
             required.remove("meal_record_item_component_nutrients");
+        }
+        if (databaseVersion < 16) {
+            required.remove("body_profiles");
+            required.remove("development_goals");
         }
         if (!required.equals(actual)) {
             throw new IllegalArgumentException("Backup table set is not supported.");
@@ -986,6 +994,8 @@ public final class LocalDataBackupService {
         tables.add("product_nutrition_links");
         tables.add("nutrition_goals");
         tables.add("nutrition_daily_checkins");
+        tables.add("body_profiles");
+        tables.add("development_goals");
         return Collections.unmodifiableList(tables);
     }
 
