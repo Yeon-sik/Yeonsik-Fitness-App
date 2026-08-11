@@ -1,11 +1,11 @@
 # Fitness App | Project Detail
 
-> 이 문서는 `main` 커밋 `25081edf8aa4b656ab084ec9a6b4c120f0e542fb`의 Android 구조, 로컬 우선 데이터 흐름, 발전 탭 MVP, 공식 식품 카탈로그, 검증·운영 경계를 설명한다.
+> 이 문서는 현재 `main` 커밋 `d14f49f2dcbbc0f16f51f651fefbdc2311c4bdeb`의 Android 구조, 로컬 우선 데이터 흐름, 발전 탭 MVP, 공식 식품 카탈로그, 검증·운영 경계를 설명한다.
 
 | 항목 | 내용 |
 | --- | --- |
 | 문서 상태 | Active — repository verified 기준 |
-| 적용 범위 | `main` `25081edf8aa4b656ab084ec9a6b4c120f0e542fb` |
+| 적용 범위 | `main` `d14f49f2dcbbc0f16f51f651fefbdc2311c4bdeb` |
 | 최종 갱신 | 2026-08-11 |
 | 진실 원천 | Java 코드, SQLite 스키마·migration, asset seed, Android/unit 테스트, Gradle·GitHub Actions 결과 |
 | 운영 경계 | 로컬 빌드·APK 생성은 확인했지만 실기기·운영 Supabase·Notion Actions read-back은 별도 확인 대상 |
@@ -162,7 +162,7 @@ Fitness App이 상세 세트와 루틴을 소유하고 Personal OS에는 완료 
 
 ## 7. 테스트와 검증 전략
 
-검증 source boundary는 `main` 커밋 `25081edf8aa4b656ab084ec9a6b4c120f0e542fb`다. 2026-08-11에 다음 명령을 실행했다.
+검증 source boundary는 기능 병합 커밋 `25081edf8aa4b656ab084ec9a6b4c120f0e542fb`다. 이후 문서 보정만 포함한 현재 `main`은 `d14f49f2dcbbc0f16f51f651fefbdc2311c4bdeb`이며, 2026-08-11에 다음 명령을 실행했다.
 
 ```powershell
 .\gradlew.bat testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug --rerun-tasks

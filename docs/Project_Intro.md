@@ -6,7 +6,7 @@
 | --- | --- |
 | 프로젝트 형태 | 개인 Android 프로젝트 |
 | 담당 범위 | Android View UI, SQLite 데이터 계층, 운동 기록 계약, 식단 카탈로그, Supabase Auth·동기화 |
-| 현재 기준 | `main` `25081edf8aa4b656ab084ec9a6b4c120f0e542fb` |
+| 현재 기준 | `main` `d14f49f2dcbbc0f16f51f651fefbdc2311c4bdeb` |
 | 현재 상태 | 발전 탭 MVP·신체 기본정보·공식 식품 검색 구현, debug 검증 통과, 실기기·운영 게이트 미검증 |
 | 주요 기술 | Java 17, Android View, SQLiteOpenHelper, Gradle 9, Supabase REST/Auth |
 | 문서 기준일 | 2026-08-11 |
@@ -68,7 +68,7 @@
 
 ## 5. 검증 현황
 
-검증 기준은 `main` 커밋 `25081edf8aa4b656ab084ec9a6b4c120f0e542fb`이며 2026-08-11에 실행했다.
+검증 실행 기준은 기능 병합 커밋 `25081edf8aa4b656ab084ec9a6b4c120f0e542fb`이며 2026-08-11에 실행했다. 현재 문서·코드 기준은 그 기능에 문서 보정 커밋을 포함한 `main` `d14f49f2dcbbc0f16f51f651fefbdc2311c4bdeb`이다.
 
 | 검증 항목 | 상태 | 근거와 경계 |
 | --- | --- | --- |
