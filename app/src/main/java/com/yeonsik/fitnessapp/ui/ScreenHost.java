@@ -9,6 +9,8 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
+import com.yeonsik.fitnessapp.development.DevelopmentInsight;
+import com.yeonsik.fitnessapp.development.DevelopmentRepository;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
@@ -93,6 +95,14 @@ public interface ScreenHost {
     void openMealManagement(String date, FitnessScreen returnScreen);
 
     void openSettingsConnections();
+
+    DevelopmentRepository developmentRepository();
+
+    void showDevelopmentBodyProfileDialog();
+
+    void showDevelopmentGoalDialog();
+
+    void openDevelopmentInsightAction(DevelopmentInsight insight);
 
     /** 세트 완료 시 휴식 타이머를 시작한다. null 또는 0 이하이면 기본 90초. */
     void startRestTimer(Integer restSeconds);

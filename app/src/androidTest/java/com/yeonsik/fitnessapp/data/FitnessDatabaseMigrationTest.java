@@ -10,6 +10,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.development.DevelopmentRepository;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -47,6 +48,13 @@ public final class FitnessDatabaseMigrationTest {
             SQLiteDatabase upgraded = helper.getWritableDatabase();
 
             assertEquals(FitnessDatabaseHelper.DATABASE_VERSION, upgraded.getVersion());
+            assertTrue(isPrimaryKeyColumn(upgraded, "body_profiles", "user_id"));
+            assertTrue(hasColumn(upgraded, "body_profiles", "height_cm"));
+            assertTrue(isPrimaryKeyColumn(upgraded, "development_goals", "user_id"));
+            assertTrue(hasColumn(upgraded, "development_goals", "objective"));
+            assertTrue(hasColumn(upgraded, "development_goals", "weekly_sessions_target"));
+            assertTrue(hasColumn(upgraded, "development_goals", "focus_body_part"));
+            assertTrue(hasColumn(upgraded, "development_goals", "effective_from"));
             assertTrue(hasColumn(upgraded, "nutrition_foods", "brand"));
             assertTrue(hasColumn(upgraded, "nutrition_foods", "category"));
             assertTrue(hasColumn(upgraded, "nutrition_foods", "cooking_method"));
@@ -129,6 +137,20 @@ public final class FitnessDatabaseMigrationTest {
                     "'product-read.v1', 1, '2026-08-10T00:00:00Z', " +
                     "'2026-08-10T00:00:00Z', '2026-08-10T00:00:00Z')",
                     new Object[]{AUTH_USER_ID});
+            database.execSQL("INSERT INTO body_profiles " +
+                    "(user_id, height_cm, created_at, updated_at) VALUES " +
+                    "('local-user', 181, '2026-08-10T09:00:01+09:00', " +
+                    "'2026-08-10T09:00:01+09:00'), " +
+                    "(?, 170, '2026-08-10T00:00:00Z', '2026-08-10T00:00:00Z')",
+                    new Object[]{AUTH_USER_ID});
+            database.execSQL("INSERT INTO development_goals " +
+                    "(user_id, objective, weekly_sessions_target, focus_body_part, " +
+                    "effective_from, created_at, updated_at) VALUES " +
+                    "('local-user', 'muscle_gain', 4, 'chest', '2026-08-10', " +
+                    "'2026-08-10T09:00:01+09:00', '2026-08-10T09:00:01+09:00'), " +
+                    "(?, 'strength', 5, 'back', '2026-08-10', " +
+                    "'2026-08-10T00:00:02Z', '2026-08-10T00:00:02Z')",
+                    new Object[]{AUTH_USER_ID});
 
             FitnessRepository repository = new FitnessRepository(helper, "local-user");
             repository.normalizeLocalUserId(AUTH_USER_ID);
@@ -138,6 +160,11 @@ public final class FitnessDatabaseMigrationTest {
                     SupabaseConfig.empty()
             );
             catalogRepository.normalizeLocalUserId(AUTH_USER_ID);
+            DevelopmentRepository developmentRepository = new DevelopmentRepository(
+                    helper,
+                    "local-user"
+            );
+            developmentRepository.normalizeLocalUserId(AUTH_USER_ID);
 
             assertEquals("2400", scalar(database,
                     "SELECT calories_kcal FROM nutrition_goals WHERE user_id = '" +
@@ -160,6 +187,19 @@ public final class FitnessDatabaseMigrationTest {
             assertEquals("0", scalar(database,
                     "SELECT COUNT(*) FROM product_nutrition_links " +
                             "WHERE owner_id = 'local-user'"));
+            assertEquals("181", scalar(database,
+                    "SELECT height_cm FROM body_profiles WHERE user_id = '" +
+                            AUTH_USER_ID + "'"));
+            assertEquals("strength", scalar(database,
+                    "SELECT objective FROM development_goals WHERE user_id = '" +
+                            AUTH_USER_ID + "'"));
+            assertEquals("5", scalar(database,
+                    "SELECT weekly_sessions_target FROM development_goals WHERE user_id = '" +
+                            AUTH_USER_ID + "'"));
+            assertEquals("0", scalar(database,
+                    "SELECT COUNT(*) FROM body_profiles WHERE user_id = 'local-user'"));
+            assertEquals("0", scalar(database,
+                    "SELECT COUNT(*) FROM development_goals WHERE user_id = 'local-user'"));
         } finally {
             if (helper != null) {
                 helper.close();
@@ -227,6 +267,17 @@ public final class FitnessDatabaseMigrationTest {
             while (cursor.moveToNext()) {
                 if (column.equals(cursor.getString(cursor.getColumnIndexOrThrow("name")))) {
                     return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isPrimaryKeyColumn(SQLiteDatabase db, String table, String column) {
+        try (Cursor cursor = db.rawQuery("PRAGMA table_info(" + table + ")", null)) {
+            while (cursor.moveToNext()) {
+                if (column.equals(cursor.getString(cursor.getColumnIndexOrThrow("name")))) {
+                    return cursor.getInt(cursor.getColumnIndexOrThrow("pk")) > 0;
                 }
             }
         }

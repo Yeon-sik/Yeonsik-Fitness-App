@@ -32,6 +32,7 @@ import com.yeonsik.fitnessapp.data.NutritionTotals;
 import com.yeonsik.fitnessapp.data.NutritionUnit;
 import com.yeonsik.fitnessapp.data.ProductNutritionLink;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
+import com.yeonsik.fitnessapp.data.VerifiedFoodCatalogSeed;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.time.LocalDate;
@@ -51,6 +52,11 @@ public final class MealManagementScreen extends BaseScreen {
     private static final int CATALOG_MODE_SINGLE_FOOD = 1;
     private static final int CATALOG_MODE_FINISHED_PRODUCT = 2;
     private static final String CATALOG_FILTER_ALL = "all";
+    private static final int VERIFIED_SINGLE_FOOD_RESULT_LIMIT = 8;
+    private static final String VERIFIED_SINGLE_FOOD_SEARCH_TAG =
+            "verified-single-food-search-input";
+    private static final String VERIFIED_SINGLE_FOOD_RESULTS_TAG =
+            "verified-single-food-results";
 
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN);
@@ -60,6 +66,7 @@ public final class MealManagementScreen extends BaseScreen {
     private String selectedDate;
     private String draftMealTime = currentMealTime();
     private String catalogQuery = "";
+    private String verifiedSingleFoodQuery = "";
     private final List<MealMenuSelection> draftMenus = new ArrayList<>();
     private final List<MealCompositionItem> draftIngredients = new ArrayList<>();
     private String draftMenuName = "";
@@ -67,8 +74,10 @@ public final class MealManagementScreen extends BaseScreen {
     private Button mealTimeButton;
     private EditText menuNameInput;
     private EditText catalogSearchInput;
+    private EditText verifiedSingleFoodSearchInput;
     private LinearLayout compositionRows;
     private LinearLayout catalogResults;
+    private LinearLayout verifiedSingleFoodResults;
     private LinearLayout compositionTotalBox;
     private LinearLayout menuBuilderTotalBox;
     private final List<EditText> menuQuantityInputs = new ArrayList<>();
@@ -1581,6 +1590,13 @@ public final class MealManagementScreen extends BaseScreen {
         }
 
         if (catalogMode == CATALOG_MODE_SINGLE_FOOD) {
+            appendVerifiedSingleFoodSearch(card);
+            card.addView(ui.hairline(ui.border()), ui.fullWidthParams(ui.dp(18)));
+            ui.cardHeader(
+                    card,
+                    "직접 등록",
+                    "공식 DB에 없거나 조리 방식이 다른 식품만 직접 입력하세요."
+            );
             card.addView(directFoodForm(true), ui.fullWidthParams(ui.dp(10)));
         } else if (catalogMode == CATALOG_MODE_FINISHED_PRODUCT) {
             card.addView(directFoodForm(false), ui.fullWidthParams(ui.dp(10)));
@@ -1698,6 +1714,45 @@ public final class MealManagementScreen extends BaseScreen {
         card.addView(sync, ui.fullWidthParams(ui.dp(14)));
     }
 
+    private void appendVerifiedSingleFoodSearch(LinearLayout card) {
+        FitnessUi ui = ui();
+        ui.cardHeader(
+                card,
+                "검증 식품 불러오기",
+                "식약처·농촌진흥청 공식 · 항목별 표기 조리상태의 가식부 100g 기준 "
+                        + "(회는 생것 기준, 구이는 구이 후, 곡물은 취사 전 마른 원곡) · "
+                        + "선택하면 현재 끼니(또는 메뉴 재료)에 바로 추가"
+        );
+
+        verifiedSingleFoodSearchInput = ui.searchField("닭가슴살, 연어, 현미, 브로콜리 검색");
+        verifiedSingleFoodSearchInput.setTag(VERIFIED_SINGLE_FOOD_SEARCH_TAG);
+        verifiedSingleFoodSearchInput.setContentDescription("검증 식품 불러오기 검색");
+        verifiedSingleFoodSearchInput.setText(verifiedSingleFoodQuery);
+        verifiedSingleFoodSearchInput.setSelection(verifiedSingleFoodSearchInput.length());
+        verifiedSingleFoodSearchInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence text, int start, int before, int count) {
+                verifiedSingleFoodQuery = text == null ? "" : text.toString();
+                renderVerifiedSingleFoodResults();
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+            }
+        });
+        card.addView(verifiedSingleFoodSearchInput, ui.fullWidthParams(ui.dp(12)));
+
+        verifiedSingleFoodResults = new LinearLayout(host.activity());
+        verifiedSingleFoodResults.setOrientation(LinearLayout.VERTICAL);
+        verifiedSingleFoodResults.setTag(VERIFIED_SINGLE_FOOD_RESULTS_TAG);
+        card.addView(verifiedSingleFoodResults);
+        renderVerifiedSingleFoodResults();
+    }
+
     private void renderCatalogResults() {
         if (catalogResults == null) {
             return;
@@ -1733,6 +1788,63 @@ public final class MealManagementScreen extends BaseScreen {
             catalogResults.addView(ui.text("검색어를 더 입력하면 결과를 좁힐 수 있습니다.",
                     11, FitnessUi.COLOR_TERTIARY, false), ui.fullWidthParams(ui.dp(8)));
         }
+    }
+
+    private void renderVerifiedSingleFoodResults() {
+        if (verifiedSingleFoodResults == null) {
+            return;
+        }
+        FitnessUi ui = ui();
+        verifiedSingleFoodResults.removeAllViews();
+
+        List<NutritionFood> foods = new ArrayList<>();
+        List<NutritionFood> verifiedMatches = host.nutritionCatalogRepository()
+                .searchVerifiedFoods(
+                        verifiedSingleFoodQuery,
+                        VERIFIED_SINGLE_FOOD_RESULT_LIMIT + 1
+                );
+        for (NutritionFood food : verifiedMatches) {
+            if (isVerifiedSingleFoodVisible(food)) {
+                foods.add(food);
+            }
+        }
+        if (foods.isEmpty()) {
+            verifiedSingleFoodResults.addView(ui.text(
+                    "공식 검증 식품 결과가 없습니다. 아래 직접 등록으로 이어서 입력할 수 있습니다.",
+                    13,
+                    FitnessUi.COLOR_TERTIARY,
+                    false
+            ));
+            return;
+        }
+
+        int limit = Math.min(VERIFIED_SINGLE_FOOD_RESULT_LIMIT, foods.size());
+        for (int index = 0; index < limit; index++) {
+            NutritionFood food = foods.get(index);
+            verifiedSingleFoodResults.addView(catalogFoodRow(food));
+            if (index < limit - 1) {
+                verifiedSingleFoodResults.addView(ui.hairline(ui.border()),
+                        new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
+            }
+        }
+        if (foods.size() > limit) {
+            verifiedSingleFoodResults.addView(ui.text(
+                    "검색어를 더 입력하면 공식 검증 식품 결과를 더 좁힐 수 있습니다.",
+                    11,
+                    FitnessUi.COLOR_TERTIARY,
+                    false
+            ), ui.fullWidthParams(ui.dp(8)));
+        }
+    }
+
+    private boolean isVerifiedSingleFoodVisible(NutritionFood food) {
+        return food != null
+                && NutritionFood.KIND_INGREDIENT.equals(NutritionFood.normalizeKind(food.kind))
+                && isVerifiedCatalogSeedFood(food);
+    }
+
+    private boolean isVerifiedCatalogSeedFood(NutritionFood food) {
+        return VerifiedFoodCatalogSeed.isVerifiedSeedFood(food);
     }
 
     private View catalogFoodRow(NutritionFood food) {
@@ -1773,6 +1885,10 @@ public final class MealManagementScreen extends BaseScreen {
                 11,
                 FitnessUi.COLOR_TERTIARY,
                 false));
+        if (isVerifiedCatalogSeedFood(food)) {
+            details.addView(ui.statusDotBadge("공식 DB · K-FIND", FitnessUi.COLOR_POSITIVE, false),
+                    ui.fullWidthParams(ui.dp(6)));
+        }
         String missingNotice = food.missingRequiredNotice();
         if (missingNotice != null) {
             details.addView(ui.text(missingNotice, 11, FitnessUi.COLOR_TERTIARY, false));
@@ -2325,6 +2441,9 @@ public final class MealManagementScreen extends BaseScreen {
     private void syncDraftFromViews() {
         if (catalogSearchInput != null) {
             catalogQuery = FitnessUi.inputText(catalogSearchInput);
+        }
+        if (verifiedSingleFoodSearchInput != null) {
+            verifiedSingleFoodQuery = FitnessUi.inputText(verifiedSingleFoodSearchInput);
         }
         if (menuNameInput != null) {
             draftMenuName = FitnessUi.inputText(menuNameInput);
