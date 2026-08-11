@@ -81,7 +81,7 @@ main push
 
 ### 발전과 신체정보
 
-`body_profiles`는 사용자별 키를 50~300cm 범위의 정수로 저장한다. 체중은 기존 날짜별 `body_metrics` 흐름을 이용하므로 발전 화면은 기준일 이전 가장 최근 체중을 읽는다. `development_goals`는 다음 계약을 SQLite CHECK로 제한한다.
+`body_profiles`는 사용자별 키를 50~300cm 범위의 정수로 저장한다. 체중은 기존 날짜별 `weight_records` 흐름을 이용하므로 발전 화면은 기준일 이전 가장 최근 체중을 읽는다. `development_goals`는 다음 계약을 SQLite CHECK로 제한한다.
 
 | 필드 | 허용값 |
 | --- | --- |
