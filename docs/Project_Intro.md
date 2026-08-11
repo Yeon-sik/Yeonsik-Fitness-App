@@ -1,80 +1,102 @@
-# Fitness App | 상세 운동 기록을 소유하고 Personal OS에 요약을 공유하는 Android 앱
+# Fitness App | 운동 기록·식단·발전 점검을 한곳에서 관리하는 Android 앱
 
-> Fitness App은 운동 루틴·세션·종목·세트를 로컬에서 빠르게 기록하고, 완료된 운동의 요약만 Personal OS와 공유하는 네이티브 Android 애플리케이션이다.
+> Fitness App은 운동의 상세 기록을 로컬에 소유하고, 식단과 최근 기록을 함께 조회해 다음 행동을 정리하는 Java 17 기반 네이티브 Android 앱이다. 완료된 운동 요약만 Personal OS와 공유한다.
 
 | 항목 | 내용 |
 | --- | --- |
-| 프로젝트 형태 | 개인 프로젝트 |
-| 담당 범위 | Android UI, SQLite 데이터 계층, 운동 계약, Supabase Auth·동기화 |
-| 현재 상태 | 1.0 코드 후보, 로컬 단위 테스트·debug APK 통과, 배포 게이트 미검증 |
-| 문서 기준 | `84b8cd5ac077` 기반 `feat/fitness-ux-restructure` dirty working tree |
-| 주요 기술 | Java 17, Android View, SQLiteOpenHelper, Supabase REST/Auth, Gradle |
+| 프로젝트 형태 | 개인 Android 프로젝트 |
+| 담당 범위 | Android View UI, SQLite 데이터 계층, 운동 기록 계약, 식단 카탈로그, Supabase Auth·동기화 |
+| 현재 기준 | `main` `25081edf8aa4b656ab084ec9a6b4c120f0e542fb` |
+| 현재 상태 | 발전 탭 MVP·신체 기본정보·공식 식품 검색 구현, debug 검증 통과, 실기기·운영 게이트 미검증 |
+| 주요 기술 | Java 17, Android View, SQLiteOpenHelper, Gradle 9, Supabase REST/Auth |
+| 문서 기준일 | 2026-08-11 |
 | Repository | [Yeon-sik/Yeonsik-Fitness-App](https://github.com/Yeon-sik/Yeonsik-Fitness-App) |
 | 상세 문서 | [Project_Detail.md](./Project_Detail.md) |
 
 ## 1. 30초 요약
 
-- **문제**: 운동 중에는 종목·세트·중량·횟수를 빠르게 기록해야 하지만, 상위 Personal OS에는 상세 세트보다 일상 요약이 필요하다.
-- **해결**: Fitness App이 상세 데이터를 SQLite에 소유하고, 완료된 세션만 Fitness Record Contract v1 요약으로 승격해 Supabase에 동기화한다.
-- **현재 결과**: 루틴, 세션, 종목별 기록 유형, 기록 달력, 주간 지표, 인증·수동 동기화 코드가 구현돼 있다.
-- **검증 경계**: 2026-07-27 `testDebugUnitTest assembleDebug`가 통과했지만 운영 RLS, 두 계정 격리, 서명 release, 실기기 교차 앱 동기화는 확인되지 않았다.
+- **문제**: 운동 중에는 세트·중량·횟수를 빠르게 남겨야 하고, 운동 이후에는 최근 기록을 바탕으로 무엇을 보완할지 확인해야 한다. 식단 입력은 검증 가능한 영양 데이터와 조리상태를 함께 구분해야 한다.
+- **해결**: Fitness App이 운동 상세와 로컬 식단 기록을 SQLite에 저장하고, 하단 `발전` 탭에서 최근 14일 운동·식사·체중·체크인 기록과 주간 목표를 한 화면으로 점검한다.
+- **현재 결과**: 발전 목표와 집중 부위, 키·최근 체중 입력, 우선 행동 최대 3개, 훈련 부위 근거, 영양·회복 기록 커버리지, 단일 식품 검색, 공식 영양 카탈로그가 구현됐다.
+- **공유 경계**: 운동 종목·세트 같은 상세 데이터는 Fitness App이 소유하고, 완료된 운동의 요약만 Fitness Record Contract v1 범위로 Personal OS에 공유한다.
+- **검증 경계**: `main` 기준 로컬 단위 테스트·debug APK·Android 테스트 APK·lint는 통과했다. ADB 연결 기기가 없어 계측 테스트와 실제 설치·로그인·동기화는 아직 실행하지 않았다.
 
 ## 2. 문제와 해결
 
 | 사용자 문제 | 해결 방식 | 현재 근거 |
 | --- | --- | --- |
-| 운동 중 상세 세트 입력이 느리다 | 루틴에서 세션을 만들고 종목별 세트를 직접 기록한다 | `ui/WorkoutSessionScreen.java`, `ui/WorkoutExerciseDetailScreen.java` |
-| 운동 유형마다 입력 필드가 다르다 | 6개 record type 계약으로 중량·횟수·시간 조합을 구분한다 | `data/FitnessRecordContract.java` |
-| Personal OS에 상세 데이터까지 노출하면 경계가 흐려진다 | 완료 세션의 부위·종류 요약만 `scope=both`로 발행한다 | `data/FitnessRepository.java` |
-| 네트워크 실패가 운동 기록을 막을 수 있다 | SQLite를 우선 사용하고 설정 화면에서 수동 동기화한다 | `data/FitnessDatabaseHelper.java`, `sync/SupabaseSyncManager.java` |
+| 운동 중 상세 입력이 복잡하다 | 루틴·세션·종목·세트를 programmatic View로 기록하고 record type별 필수값을 검증한다 | `app/src/main/java/com/yeonsik/fitnessapp/ui/WorkoutSessionScreen.java`, `WorkoutExerciseDetailScreen.java`, `FitnessRecordContract.java` |
+| 최근 기록에서 다음 행동을 찾기 어렵다 | `발전` 탭이 최근 14일과 이번 주 진행률을 계산해 근거·다음 행동·판단 한계를 함께 보여 준다 | `DevelopmentScreen.java`, `DevelopmentRepository.java`, `DevelopmentInsightRules.java` |
+| 키와 체중을 별도 화면에서 관리해야 한다 | 발전 탭에서 키와 오늘 체중을 입력한다. 키는 발전 프로필에, 체중은 기존 날짜별 체중 기록 흐름에 저장한다 | `MainActivity.java`, `BodyProfile.java`, `FitnessRepository` |
+| 식단 입력값의 출처와 조리상태가 불명확하다 | 공식 원재료성 식품 데이터에서 선별한 54개 행을 로컬 SQLite 카탈로그로 시드하고 100g·생것/구이 상태를 행별로 표시한다 | `VerifiedFoodCatalogSeed.java`, `verified_food_catalog_v3.json` |
+| 회와 구이 식품을 같은 이름으로 선택하면 기록이 모호해진다 | 표시명에 생것 기준·구이 상태를 포함하고, 내부 조리상태는 기존 `raw`·`grilled` 계약을 사용한다 | `NutritionCatalogRepository.java`, `MealManagementScreen.java` |
+| 네트워크 실패가 기록을 막을 수 있다 | 로컬 SQLite를 우선 사용하고 설정에서 원격 동기화를 수동 실행한다 | `FitnessDatabaseHelper.java`, `SupabaseSyncManager.java` |
 
 ## 3. 핵심 기능과 결과
 
 | 영역 | 구현 결과 | 검증 수준 |
 | --- | --- | --- |
-| 운동 루틴 | 루틴 생성·편집, 종목 선택, 최근 운동 표시 | 저장소 검증 |
-| 세션 기록 | 운동 시작·완료, 종목·세트 상세, RPE·휴식 등 계약 필드 | 저장소·단위 테스트 |
-| 기록 분석 | 달력, 주간 볼륨, 종목 최고 기록·추정 1RM 제한 적용 | 저장소·단위 테스트 |
-| Personal OS 공유 | 완료 운동의 카테고리 코드·계약 버전·요약 범위 저장 | 저장소·계약 테스트 |
-| 인증·동기화 | Supabase Auth access/refresh token, REST 동기화, 수동 실행 | 저장소 검증, 운영 미검증 |
-| Android 보안 | Keystore 토큰 저장, 백업·cleartext 차단, release 서명 변수 요구 | 저장소 검증 |
+| 운동 루틴·세션 | 루틴 편집, 운동 시작·완료, 종목·세트·RPE·휴식 기록 | 저장소·계약 단위 테스트, debug 빌드 |
+| 기록 화면 | 날짜별 기록, 주간 지표, 종목별 기록과 홀로그램 테두리 애니메이션 | 코드·Android 테스트 소스, APK 빌드; 기기 실행 미검증 |
+| 발전 탭 MVP | 목표(근비대·근력·감량·지구력·유지), 주간 횟수 1~7회, 집중 부위, 우선 행동, 훈련·영양·회복 근거 | 모델·repository 단위 테스트, Android 테스트 APK 빌드 |
+| 신체 기본정보 | 키 50~300cm, 오늘 체중 kg 입력. 기존 체중 기록과 함께 최근값을 표시 | 입력 검증 코드·Android 테스트 소스, 기기 실행 미검증 |
+| 단일 식품 등록 | 이름 검색, 공식 DB 배지, 100g 영양값, 조리상태 선택 후 현재 끼니에 추가 | 카탈로그·검색 테스트 소스, Android 테스트 APK 빌드 |
+| 공식 식품 카탈로그 | 닭·소·돼지·곡물·채소와 생선 6행(연어·참치·고등어 생것/구이), 총 54행 | 원본 재생성 명령과 Android 시드 테스트 소스 |
+| 데이터 보호 | Auth 토큰 Keystore 저장, 로컬 소유권 정규화, 백업·복원 시 발전 테이블과 카탈로그 재조정 | 코드·migration/backup 테스트 소스 |
+| Personal OS 공유 | 완료 운동의 category code·contract version·scope 요약만 발행 | 저장소 계약 테스트, 운영 연결 미검증 |
+
+### 공식 식품 데이터의 기준
+
+공식 원본은 [공공데이터포털 전국통합식품영양성분정보(원재료성식품) 표준데이터](https://www.data.go.kr/data/15100065/standard.do)와 [K-FIND 식품영양성분 데이터베이스](https://various.foodsafetykorea.go.kr/nutrient/)다.
+
+- 모든 행은 가식부 100g 기준으로 저장한다.
+- 생것 행은 `raw`/`생것`, 구이 행은 `grilled`/`구이`로 저장한다. 구이 수치는 생것에서 수율을 계산한 값이 아니라 공식 구이 행의 독립 측정값이다.
+- 공식 공란은 `null`로 유지한다. 생선의 당류 또는 부산 생고등어의 나트륨·포화지방을 임의로 0으로 보정하지 않는다.
+- `회`는 공식 조리상태가 아니라 검색·표시용 별칭이다. 생선 raw 행이 회 섭취 안전성이나 횟감 등급을 보증하는 것은 아니다.
 
 ## 4. 핵심 사용 흐름
 
 ```text
 앱 실행
-  → SQLite에서 루틴·최근 기록 로드
-  → 루틴 선택 또는 직접 세션 시작
-  → 종목별 세트 기록
-  → 세션 완료
-  → 상세 데이터는 Fitness App에 유지
-  → 요약에 contract_version·category_codes·scope=both 기록
-  → 로그인 상태에서 Supabase 수동 동기화
+  → SQLite에서 오늘 기록·루틴·목표·식품 카탈로그 로드
+  → 운동 탭에서 세션·종목·세트 기록
+  → 식단 탭에서 단일 식품 검색 또는 직접 등록
+  → 발전 탭에서 최근 14일 근거·주간 목표·신체 기본정보 확인
+  → 필요한 카드의 다음 행동으로 운동·식사·체크인·기록 화면 이동
+  → 운동 완료 시 요약만 Fitness Record Contract v1로 동기화
 ```
 
 ## 5. 검증 현황
 
-| 검증 항목 | 상태 | 확인일 | 근거 |
-| --- | --- | --- | --- |
-| Java 단위 테스트 | 통과 | 2026-07-27 | `gradlew testDebugUnitTest` |
-| Android debug APK | 통과 | 2026-07-27 | `gradlew assembleDebug` |
-| release 빌드 | 미실행 | 2026-07-27 | 서명 환경변수 4개 필요 |
-| 운영 Supabase·RLS | 미검증 | 2026-07-27 | 실제 프로젝트 적용 확인 필요 |
-| 두 계정 격리 | 미검증 | 2026-07-27 | 운영 Auth 계정 2개 필요 |
-| 실기기·교차 앱 동기화 | 미검증 | 2026-07-27 | Android와 Personal OS 동시 검증 필요 |
+검증 기준은 `main` 커밋 `25081edf8aa4b656ab084ec9a6b4c120f0e542fb`이며 2026-08-11에 실행했다.
 
-Gradle 9 빌드는 통과했지만 Gradle 10과 호환되지 않을 수 있는 deprecated feature 경고가 남아 있다.
+| 검증 항목 | 상태 | 근거와 경계 |
+| --- | --- | --- |
+| 공식 카탈로그 생성 | 통과 | `scripts/generate-verified-food-catalog.ps1` 실행 결과 54행(생것 51·구이 3) |
+| Java 단위 테스트 | 통과 | `./gradlew.bat testDebugUnitTest` 포함 전체 명령 |
+| Android debug APK | 통과 | `./gradlew.bat assembleDebug` |
+| Android 테스트 APK·Java 계측 컴파일 | 통과 | `./gradlew.bat assembleDebugAndroidTest`, `compileDebugAndroidTestJavaWithJavac` |
+| lint | 통과 | `./gradlew.bat lintDebug` |
+| 실제 계측 테스트 | 미실행 | `adb devices -l`에 연결 기기 0대 |
+| release 서명 빌드 | 미실행 | `FITNESS_RELEASE_*` 4개 환경변수와 서명 키 필요 |
+| 운영 Supabase·RLS·두 계정 격리 | 미검증 | 실제 프로젝트와 Auth 계정 2개 필요 |
+| Personal OS 교차 앱 동기화 | 미검증 | 두 앱 로그인·완료 세션·원격 read-back 필요 |
+| Notion 발행 | 문서 main 병합 후 Actions 확인 필요 | 저장소 workflow는 `on-main-push` 모드로 구성됨 |
+
+빌드에는 Gradle deprecated feature 경고가 남아 있어 Gradle 10 호환성은 별도 확인이 필요하다. 로컬 빌드 성공은 배포나 실기기 동작의 증거가 아니다.
 
 ## 6. 현재 한계와 다음 단계
 
-- **현재 한계**: 로컬 build 성공은 배포 서명, 운영 RLS, 스토어 정책, 실제 기기 동작을 증명하지 않는다.
-- **지금 해야 하는 한 단계**: 같은 운영 Supabase에 두 계정을 만들고 Fitness App 상세 행과 Personal OS 요약 행의 소유권 격리를 검증한다.
-- **다음 릴리스 게이트**: Android release signing, 실기기 로그인·동기화, 개인정보·데이터 삭제 절차다.
-- **범위 밖**: AI 운동 처방, 의료 판단, 자동 센서 연동은 현재 1.0 계약에 포함되지 않는다.
+- **실기기 게이트**: 연결된 Android 기기에서 앱 설치, 발전 탭 입력, 생것·구이 식품 선택, 홀로그램 애니메이션, 백업 복원을 한 번에 검증해야 한다.
+- **운영 데이터 게이트**: 공유 Personal OS 프로젝트와 FitnessApp 전용 Nutrition 프로젝트의 Auth·RLS·소유권 격리를 두 계정으로 확인해야 한다.
+- **식품 범위**: 현재는 선별한 공식 54행이다. 추가 품목은 동일한 원본 코드·공식명·조리상태·100g 기준·결측 정책을 갖춰야 한다.
+- **발전 범위**: MVP는 기록 기반 점검이다. 의료 진단, 자동 처방, 영양소 목표 계산, 센서 기반 생체 판단은 구현하지 않았다.
+- **운영 문서**: 문서 변경을 `main`에 병합하면 GitHub Actions가 검증 후 Notion 전용 mirror 페이지를 갱신하도록 구성돼 있다. Actions와 두 페이지 read-back을 확인해야 문서 발행을 완료로 판단한다.
 
 ## 7. 관련 문서
 
 - [README](../README.md)
 - [프로젝트 상세](./Project_Detail.md)
-- [Personal OS의 Fitness Record Contract](https://github.com/Yeon-sik/Always_Memo/blob/main/docs/FITNESS_RECORD_CONTRACT_V1.md)
+- [Personal OS Fitness Record Contract v1](https://github.com/Yeon-sik/Always_Memo/blob/main/docs/FITNESS_RECORD_CONTRACT_V1.md)
 - [통합 릴리스 준비 기준](https://github.com/Yeon-sik/Always_Memo/blob/main/docs/RELEASE_READINESS.md)
+- [공식 원재료성 식품 영양성분 표준데이터](https://www.data.go.kr/data/15100065/standard.do)
