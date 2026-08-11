@@ -46,6 +46,8 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -107,6 +109,7 @@ public final class FitnessUi {
 
     private final Activity activity;
     private final BooleanSupplier inverseSupplier;
+    private final Map<View, AnimationBinding> animationBindings = new WeakHashMap<>();
 
     public FitnessUi(Activity activity, BooleanSupplier inverseSupplier) {
         this.activity = activity;
@@ -268,19 +271,60 @@ public final class FitnessUi {
         );
     }
 
-    /** 일반 배경으로 돌아간다. */
+    /** 일반 배경으로 돌아갈 때 기존 홀로그램 애니메이션과 attach listener를 함께 정리한다. */
     public void setComponentBackground(View view, Drawable background) {
+        clearAnimationBinding(view);
         view.setBackground(background);
     }
 
-    /** 기존 배경 위에 정적인 cyan/violet/magenta 테두리를 겹친다. */
+    /** 기존 배경 위에 회전하는 cyan/violet/magenta 홀로그램 테두리를 겹친다. */
     public void setHologramBackground(View view, Drawable background, int radius) {
+        clearAnimationBinding(view);
         if (view.getBackground() == background) {
             view.setBackground(null);
         }
         HologramBorderDrawable hologram = new HologramBorderDrawable(
                 background, radius, dp(3));
-        view.setBackground(hologram);
+        bindAnimatedBackground(view, hologram, hologram);
+    }
+
+    private void bindAnimatedBackground(View view, Drawable background, Animatable animatable) {
+        AnimationBinding binding = new AnimationBinding(animatable);
+        animationBindings.put(view, binding);
+        view.addOnAttachStateChangeListener(binding);
+        view.setBackground(background);
+        if (view.isAttachedToWindow() && view.isShown()) {
+            animatable.start();
+        }
+    }
+
+    private void clearAnimationBinding(View view) {
+        AnimationBinding binding = animationBindings.remove(view);
+        if (binding == null) {
+            return;
+        }
+        view.removeOnAttachStateChangeListener(binding);
+        binding.drawable.stop();
+    }
+
+    private static final class AnimationBinding implements View.OnAttachStateChangeListener {
+        private final Animatable drawable;
+
+        private AnimationBinding(Animatable drawable) {
+            this.drawable = drawable;
+        }
+
+        @Override
+        public void onViewAttachedToWindow(View view) {
+            if (view.isShown()) {
+                drawable.start();
+            }
+        }
+
+        @Override
+        public void onViewDetachedFromWindow(View view) {
+            drawable.stop();
+        }
     }
 
     private static final class HologramBorderDrawable extends Drawable
@@ -389,6 +433,8 @@ public final class FitnessUi {
             content.setVisible(visible, restart);
             if (!visible) {
                 stop();
+            } else if (getCallback() != null && (restart || changed)) {
+                start();
             }
             return changed;
         }
