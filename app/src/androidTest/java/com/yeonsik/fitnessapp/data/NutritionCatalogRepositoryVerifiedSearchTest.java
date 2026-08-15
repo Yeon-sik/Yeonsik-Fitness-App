@@ -36,6 +36,7 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
     private static final String GRILLED_SALMON_ID = "kfind:R211-201174050-0000";
     private static final String GRILLED_TUNA_ID = "kfind:R211-059074050-0000";
     private static final String GRILLED_MACKEREL_ID = "kfind:R211-021014050-7300";
+    private static final String GRILLED_CROAKER_ID = "kfind:R211-117014050-0000";
 
     @Test
     public void searchVerifiedFoodsFiltersInSqlAndIgnoresImpostors() {
@@ -146,6 +147,44 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
     }
 
     @Test
+    public void searchVerifiedFoodsIncludesImageBasedCookedRiceRows() {
+        Context isolatedContext = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+
+        FitnessDatabaseHelper helper = null;
+        try {
+            helper = new FitnessDatabaseHelper(isolatedContext);
+            NutritionCatalogRepository repository = new NutritionCatalogRepository(
+                    helper,
+                    USER_ID,
+                    SupabaseConfig.empty()
+            );
+
+            List<NutritionFood> foods = repository.searchVerifiedFoods("밥", 10);
+
+            assertEquals(VerifiedFoodCatalogSeed.RICE_EXPECTED_COUNT, foods.size());
+            NutritionFood whiteRice = findById(foods, "kfind:USER-RICE-백미밥");
+            assertNotNull(whiteRice);
+            assertEquals("백미밥", whiteRice.name);
+            assertEquals(146.0, whiteRice.calories, 0.001);
+            assertEquals(31.7, whiteRice.carbsGrams, 0.001);
+            assertEquals(VerifiedFoodCatalogSeed.RICE_SOURCE_TYPE, whiteRice.sourceType);
+            assertEquals(
+                    VerifiedFoodCatalogSeed.RICE_SOURCE_REFERENCE,
+                    whiteRice.sourceReference
+            );
+            assertEquals(NutritionFood.PREP_COOKED, whiteRice.prepState);
+        } finally {
+            if (helper != null) {
+                helper.close();
+            }
+            isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
     public void searchVerifiedSeafoodReturnsRawAndGrilledVariants() {
         Context isolatedContext = new IsolatedDatabaseContext(
                 ApplicationProvider.getApplicationContext()
@@ -184,6 +223,15 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
                     "고등어회(생것·부산 평균)",
                     GRILLED_MACKEREL_ID,
                     "고등어구이(수입·일본 평균)"
+            );
+            List<NutritionFood> croakerFoods = repository.searchVerifiedFoods("민어", 10);
+            assertEquals(1, croakerFoods.size());
+            assertSeafoodVariant(
+                    findById(croakerFoods, GRILLED_CROAKER_ID),
+                    GRILLED_CROAKER_ID,
+                    "민어구이(대표 평균)",
+                    NutritionFood.PREP_COOKED,
+                    NutritionFood.COOKING_METHOD_GRILLED
             );
         } finally {
             if (helper != null) {

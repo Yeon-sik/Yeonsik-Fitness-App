@@ -166,6 +166,11 @@ public interface ScreenHost {
 
     void loadPriceTraceProduct(String catalogProductId, ProductLoadCallback callback);
 
+    void loadPublicProductNutrition(
+            String catalogProductId,
+            PublicNutritionCallback callback
+    );
+
     void syncNutritionCatalog(NutritionCatalogRepository.SyncCallback callback);
 
     void setNutritionFoodPublication(
@@ -193,6 +198,12 @@ public interface ScreenHost {
 
     interface ProductLoadCallback {
         void onComplete(ProductReadV1 product);
+
+        void onError(Exception error);
+    }
+
+    interface PublicNutritionCallback {
+        void onComplete(NutritionCatalogRepository.PublicProductNutrition nutrition);
 
         void onError(Exception error);
     }

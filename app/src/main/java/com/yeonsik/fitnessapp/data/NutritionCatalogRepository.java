@@ -93,7 +93,9 @@ public final class NutritionCatalogRepository {
 
     static final String[] PRODUCT_LINK_SYNC_COLUMNS = {
             "id", "owner_id", "nutrition_food_id", "catalog_product_id", "standard_product_id", "status",
-            "source_type", "proposal_reference", "product_contract_version", "revision",
+            "source_type", "proposal_reference", "product_contract_version",
+            "catalog_product_revision", "catalog_content_amount", "catalog_content_unit",
+            "catalog_package_count", "revision",
             "reviewed_at", "created_at", "updated_at", "deleted_at"
     };
 
@@ -237,9 +239,11 @@ public final class NutritionCatalogRepository {
         }
         List<String> arguments = new ArrayList<>();
         arguments.add(NutritionFood.KIND_INGREDIENT);
-        arguments.add(VerifiedFoodCatalogSeed.SOURCE_TYPE);
         arguments.add(VERIFIED_FOOD_ID_PREFIX);
+        arguments.add(VerifiedFoodCatalogSeed.SOURCE_TYPE);
         arguments.add(VERIFIED_FOOD_SOURCE_REFERENCE_PREFIX);
+        arguments.add(VerifiedFoodCatalogSeed.RICE_SOURCE_TYPE);
+        arguments.add(VerifiedFoodCatalogSeed.RICE_SOURCE_REFERENCE);
         arguments.addAll(curatedIds);
         arguments.add(like);
         arguments.add(like);
@@ -247,9 +251,9 @@ public final class NutritionCatalogRepository {
                 "owner_id IS NULL " +
                         "AND visibility = 'public' " +
                         "AND kind = ? " +
-                        "AND source_type = ? " +
                         "AND id LIKE ? " +
-                        "AND source_reference LIKE ? " +
+                        "AND ((source_type = ? AND source_reference LIKE ?) " +
+                        "OR (source_type = ? AND source_reference = ?)) " +
                         "AND id IN (" + curatedPlaceholders + ") " +
                         "AND (name LIKE ? COLLATE NOCASE " +
                         "OR COALESCE(brand, '') LIKE ? COLLATE NOCASE)",
@@ -462,6 +466,171 @@ public final class NutritionCatalogRepository {
     }
 
     /**
+     * Saves a dining-out menu as a private external-menu catalog row.
+     *
+     * <p>The macro values are user-entered estimates, so this path intentionally stores the
+     * macros-only data version and keeps unknown micronutrients as NULL.</p>
+     */
+    public NutritionFood saveDiningOutMenu(
+            String storeName,
+            String menuName,
+            Double carbsGrams,
+            Double proteinGrams,
+            Double fatGrams
+    ) {
+        String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
+        String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
+        MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
+        if (!MealEntryPolicy.hasDiningOutEstimatedMacros(
+                carbsGrams,
+                proteinGrams,
+                fatGrams
+        )) {
+            throw new IllegalArgumentException(
+                    "메뉴로 저장하려면 추정 탄수화물·단백질·지방을 입력하세요."
+            );
+        }
+
+        return saveDiningOutMenuCatalogRow(
+                normalizedStoreName,
+                normalizedMenuName,
+                NutritionProfile.ofMacros(
+                        MealEntryPolicy.estimatedDiningOutCalories(
+                                carbsGrams,
+                                proteinGrams,
+                                fatGrams
+                        ),
+                        proteinGrams,
+                        carbsGrams,
+                        fatGrams
+                ),
+                NutritionFood.DATA_VERSION_MACROS_ONLY
+        );
+    }
+
+    /** Saves a complete user-estimated dining-out nutrition profile for reuse. */
+    public NutritionFood saveDiningOutMenuWithNutrition(
+            String storeName,
+            String menuName,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams
+    ) {
+        String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
+        String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
+        MealEntryPolicy.requireDiningOutEstimatedNutrition(
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams
+        );
+        if (!MealEntryPolicy.hasDiningOutEstimatedNutrition(
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams
+        )) {
+            throw new IllegalArgumentException(
+                    "메뉴로 저장하려면 외식 영양성분을 입력하세요."
+            );
+        }
+
+        NutritionProfile profile = NutritionProfile.builder()
+                .value(NutritionProfile.CALORIES_KCAL, calories.doubleValue())
+                .value(NutritionProfile.PROTEIN_GRAMS, proteinGrams)
+                .value(NutritionProfile.CARBS_GRAMS, carbsGrams)
+                .value(NutritionProfile.FAT_GRAMS, fatGrams)
+                .value(NutritionProfile.SODIUM_MG, sodiumMg)
+                .value(NutritionProfile.SUGARS_GRAMS, sugarsGrams)
+                .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFatGrams)
+                .build();
+        return saveDiningOutMenuCatalogRow(
+                normalizedStoreName,
+                normalizedMenuName,
+                profile,
+                NutritionFood.DATA_VERSION_REQUIRED_SEVEN
+        );
+    }
+
+    private NutritionFood saveDiningOutMenuCatalogRow(
+            String normalizedStoreName,
+            String normalizedMenuName,
+            NutritionProfile profile,
+            int dataVersion
+    ) {
+
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        String existingId = null;
+        String existingCreatedAt = null;
+        try (Cursor cursor = database.rawQuery(
+                "SELECT id, created_at FROM nutrition_foods " +
+                        "WHERE owner_id = ? AND kind = ? AND name = ? COLLATE NOCASE " +
+                        "AND brand = ? COLLATE NOCASE AND source_type = ? " +
+                        "AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1",
+                new String[]{
+                        userId,
+                        NutritionFood.KIND_EXTERNAL_MENU,
+                        normalizedMenuName,
+                        normalizedStoreName,
+                        "manual_estimate"
+                }
+        )) {
+            if (cursor.moveToFirst()) {
+                existingId = cursor.getString(0);
+                existingCreatedAt = cursor.getString(1);
+            }
+        }
+
+        String timestamp = now();
+        NutritionFood food = NutritionFood.builder()
+                .id(existingId == null ? UUID.randomUUID().toString() : existingId)
+                .ownerId(userId)
+                .name(normalizedMenuName)
+                .brand(normalizedStoreName)
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .category(NutritionFood.CATEGORY_OTHER)
+                .basis(1.0, NutritionUnit.SERVING)
+                .prepState(NutritionFood.PREP_AS_SERVED)
+                .profile(profile)
+                .source("manual_estimate", "dining_out")
+                .dataVersion(dataVersion)
+                .build();
+
+        ContentValues values = foodValues(food, timestamp);
+        if (existingCreatedAt != null && !existingCreatedAt.trim().isEmpty()) {
+            values.put("created_at", existingCreatedAt);
+        }
+        database.beginTransaction();
+        try {
+            if (existingId == null) {
+                database.insertOrThrow("nutrition_foods", null, values);
+            } else {
+                database.update(
+                        "nutrition_foods",
+                        values,
+                        "id = ? AND owner_id = ?",
+                        new String[]{existingId, userId}
+                );
+            }
+            replaceMicronutrients(database, food);
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        return food;
+    }
+
+    /**
      * 구성 재료로 레시피를 만든다.
      *
      * <p>레시피의 영양성분은 개별 음식과 같은 규칙으로 합산된다. 재료 중 하나라도 모르는
@@ -664,6 +833,117 @@ public final class NutritionCatalogRepository {
     }
 
     /**
+     * Reads the public Nutrition projection for one exact PriceTrace catalog product.
+     * PriceTrace search returns product identity/specification only; this separate call resolves
+     * the Nutrition publication before a meal-entry form can prefill nutrition values.
+     */
+    public PublicProductNutrition fetchPublicProductNutrition(String catalogProductId)
+            throws Exception {
+        SupabaseConfig config = supabaseConfig;
+        if (config == null || !config.isConnectionConfigured()) {
+            throw new IllegalStateException("Nutrition DB connection is required.");
+        }
+        String normalizedCatalogProductId;
+        try {
+            normalizedCatalogProductId = UUID.fromString(catalogProductId).toString();
+        } catch (Exception error) {
+            throw new IllegalArgumentException("PriceTrace catalog product ID is invalid.", error);
+        }
+
+        HttpURLConnection connection = openConnection(
+                joinUrl(config.supabaseUrl,
+                        "/rest/v1/rpc/get_public_product_nutrition_v1"),
+                "POST",
+                config.withoutSessionIdentity()
+        );
+        connection.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setDoOutput(true);
+        JSONObject request = new JSONObject();
+        request.put("p_namespace", "pricetrace");
+        request.put("p_catalog_product_id", normalizedCatalogProductId);
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
+        }
+
+        String body = readResponseOrThrow(connection, 200);
+        JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
+        if (rows.length() == 0) {
+            return null;
+        }
+        return parsePublicProductNutrition(rows.getJSONObject(0));
+    }
+
+    public static PublicProductNutrition parsePublicProductNutrition(JSONObject row)
+            throws JSONException {
+        if (row == null) {
+            throw new IllegalArgumentException("Public nutrition response is required.");
+        }
+        String catalogProductId = nullableString(row, "catalog_product_id");
+        if (catalogProductId == null) {
+            throw new IllegalArgumentException("Public nutrition response has no catalog product ID.");
+        }
+
+        NutritionProfile.Builder profile = NutritionProfile.builder();
+        JSONObject nutritionValues = row.optJSONObject("nutrition_values");
+        if (nutritionValues != null) {
+            for (String key : NutritionProfile.REQUIRED_KEYS) {
+                putNumericNutritionValue(profile, key, nutritionValues.opt(key));
+            }
+            for (String key : NutritionProfile.RECOMMENDED_TYPED_KEYS) {
+                putNumericNutritionValue(profile, key, nutritionValues.opt(key));
+            }
+        }
+
+        JSONObject micronutrients = row.optJSONObject("micronutrients");
+        if (micronutrients != null) {
+            for (NutrientCode nutrient : NutrientCode.all()) {
+                Object value = micronutrients.opt(nutrient.code);
+                if (value instanceof JSONObject) {
+                    value = ((JSONObject) value).opt("amount");
+                }
+                putNumericNutritionValue(profile, nutrient.code, value);
+            }
+        }
+
+        return new PublicProductNutrition(
+                catalogProductId,
+                nullableString(row, "nutrition_food_id"),
+                nullableString(row, "name"),
+                nullableString(row, "basis_unit"),
+                row.optDouble("basis_amount", 0),
+                profile.build(),
+                nullableString(row, "catalog_product_revision"),
+                row.optDouble("catalog_content_amount", 0),
+                nullableString(row, "catalog_content_unit"),
+                row.optInt("catalog_package_count", 0)
+        );
+    }
+
+    private static void putNumericNutritionValue(
+            NutritionProfile.Builder profile,
+            String key,
+            Object raw
+    ) {
+        if (raw == null || raw == JSONObject.NULL) {
+            return;
+        }
+        double value;
+        if (raw instanceof Number) {
+            value = ((Number) raw).doubleValue();
+        } else {
+            try {
+                value = Double.parseDouble(String.valueOf(raw));
+            } catch (NumberFormatException ignored) {
+                return;
+            }
+        }
+        if (!Double.isNaN(value) && !Double.isInfinite(value) && value >= 0) {
+            profile.value(key, value);
+        }
+    }
+
+    /**
      * Creates an immediately approved manual link only after the caller selected an exact ID.
      * No name-based match is accepted here.
      */
@@ -676,6 +956,7 @@ public final class NutritionCatalogRepository {
                     "표준상품의 여러 규격 중 하나를 임의로 연결할 수 없습니다."
             );
         }
+        requirePriceTraceCatalogMetadata(product);
         requireLinkableFood(nutritionFoodId);
         String timestamp = now();
         String id = UUID.randomUUID().toString();
@@ -691,6 +972,7 @@ public final class NutritionCatalogRepository {
             values.put("nutrition_food_id", nutritionFoodId);
             values.put("catalog_product_id", product.catalogProductId);
             putNullable(values, "standard_product_id", product.standardProductId);
+            putPriceTraceCatalogMetadata(values, product);
             values.put("status", ProductNutritionLink.STATUS_APPROVED);
             values.put("source_type", ProductNutritionLink.SOURCE_MANUAL);
             values.putNull("proposal_reference");
@@ -716,6 +998,7 @@ public final class NutritionCatalogRepository {
         if (exactProduct == null) {
             throw new IllegalArgumentException("제안된 catalogProductId를 확인할 수 없습니다.");
         }
+        requirePriceTraceCatalogMetadata(exactProduct);
         SQLiteDatabase database = dbHelper.getWritableDatabase();
         String nutritionFoodId;
         String suggestedCatalogProductId;
@@ -743,10 +1026,21 @@ public final class NutritionCatalogRepository {
             softDeleteApprovedLinks(database, nutritionFoodId, suggestionId, timestamp);
             database.execSQL(
                     "UPDATE product_nutrition_links SET status = 'approved', reviewed_at = ?, " +
+                            "catalog_product_revision = ?, catalog_content_amount = ?, " +
+                            "catalog_content_unit = ?, catalog_package_count = ?, " +
                             "updated_at = ?, revision = revision + 1 " +
                             "WHERE id = ? AND owner_id = ? AND status = 'suggested' " +
                             "AND deleted_at IS NULL",
-                    new Object[]{timestamp, timestamp, suggestionId, userId}
+                    new Object[]{
+                            timestamp,
+                            exactProduct.revision,
+                            exactProduct.contentAmount,
+                            exactProduct.contentUnit,
+                            exactProduct.packageCount,
+                            timestamp,
+                            suggestionId,
+                            userId
+                    }
             );
             database.setTransactionSuccessful();
         } finally {
@@ -807,9 +1101,11 @@ public final class NutritionCatalogRepository {
         try (Cursor cursor = database.rawQuery(
                 "SELECT l.id, l.owner_id, l.nutrition_food_id, l.catalog_product_id, " +
                         "l.standard_product_id, l.status, l.source_type, l.proposal_reference, " +
-                        "l.revision, l.reviewed_at, c.standard_product_id, c.product_name, " +
-                        "c.brand_name, c.seller_name, c.latest_price_krw, c.price_observed_at, " +
-                        "c.content_amount, c.content_unit, c.package_count " +
+                        "l.revision, l.reviewed_at, l.catalog_product_revision, " +
+                        "l.catalog_content_amount, l.catalog_content_unit, l.catalog_package_count, " +
+                        "c.standard_product_id, c.product_name, c.brand_name, c.seller_name, " +
+                        "c.latest_price_krw, c.price_observed_at, c.content_amount, c.content_unit, " +
+                        "c.package_count, c.catalog_product_revision " +
                         "FROM product_nutrition_links l " +
                         "LEFT JOIN pricetrace_product_cache c " +
                         "ON c.catalog_product_id = l.catalog_product_id " +
@@ -820,19 +1116,20 @@ public final class NutritionCatalogRepository {
         )) {
             while (cursor.moveToNext()) {
                 ProductReadV1 product = null;
-                if (!cursor.isNull(11)) {
+                if (!cursor.isNull(14)) {
                     try {
                         product = new ProductReadV1(
                                 cursor.getString(3),
-                                cursor.isNull(4) ? cursor.isNull(10) ? null : cursor.getString(10) : cursor.getString(4),
-                                cursor.getString(11),
-                                cursor.isNull(12) ? null : cursor.getString(12),
-                                cursor.isNull(13) ? null : cursor.getString(13),
-                                cursor.isNull(14) ? null : cursor.getInt(14),
-                                cursor.isNull(15) ? null : cursor.getString(15),
-                                cursor.isNull(16) ? null : cursor.getDouble(16),
+                                cursor.isNull(4) ? cursor.isNull(14) ? null : cursor.getString(14) : cursor.getString(4),
+                                cursor.getString(15),
+                                cursor.isNull(16) ? null : cursor.getString(16),
                                 cursor.isNull(17) ? null : cursor.getString(17),
-                                cursor.isNull(18) ? null : cursor.getInt(18)
+                                cursor.isNull(18) ? null : cursor.getInt(18),
+                                cursor.isNull(19) ? null : cursor.getString(19),
+                                cursor.isNull(20) ? null : cursor.getDouble(20),
+                                cursor.isNull(21) ? null : cursor.getString(21),
+                                cursor.isNull(22) ? null : cursor.getInt(22),
+                                cursor.isNull(23) ? null : cursor.getString(23)
                         );
                     } catch (IllegalArgumentException ignored) {
                         // A corrupt cache must not hide the underlying exact link decision.
@@ -849,6 +1146,10 @@ public final class NutritionCatalogRepository {
                         cursor.isNull(7) ? null : cursor.getString(7),
                         cursor.getInt(8),
                         cursor.isNull(9) ? null : cursor.getString(9),
+                        cursor.isNull(10) ? null : cursor.getString(10),
+                        cursor.isNull(11) ? null : cursor.getDouble(11),
+                        cursor.isNull(12) ? null : cursor.getString(12),
+                        cursor.isNull(13) ? null : cursor.getInt(13),
                         product
                 ));
             }
@@ -920,6 +1221,7 @@ public final class NutritionCatalogRepository {
         } else {
             values.put("package_count", product.packageCount);
         }
+        putNullable(values, "catalog_product_revision", product.revision);
         values.put("contract_version", ProductReadV1.CONTRACT_VERSION);
         values.put("fetched_at", fetchedAt);
         database.insertWithOnConflict(
@@ -928,6 +1230,21 @@ public final class NutritionCatalogRepository {
                 values,
                 SQLiteDatabase.CONFLICT_REPLACE
         );
+    }
+
+    private void requirePriceTraceCatalogMetadata(ProductReadV1 product) {
+        if (!product.hasValidPriceTraceCatalogMetadata()) {
+            throw new IllegalArgumentException(
+                    "PriceTrace product-read.v1의 상품별 revision·규격값이 없거나 허용값이 아닙니다."
+            );
+        }
+    }
+
+    private void putPriceTraceCatalogMetadata(ContentValues values, ProductReadV1 product) {
+        values.put("catalog_product_revision", product.revision);
+        values.put("catalog_content_amount", product.contentAmount);
+        values.put("catalog_content_unit", product.contentUnit);
+        values.put("catalog_package_count", product.packageCount);
     }
 
     public synchronized CatalogSyncResult syncRemote() throws Exception {
@@ -1374,6 +1691,14 @@ public final class NutritionCatalogRepository {
                                 ProductReadV1.CONTRACT_VERSION
                         )
                 );
+                putNullable(values, "catalog_product_revision", nullableString(row, "catalog_product_revision"));
+                putNullableDouble(values, "catalog_content_amount", nullableDouble(row, "catalog_content_amount"));
+                putNullable(values, "catalog_content_unit", nullableString(row, "catalog_content_unit"));
+                if (row.isNull("catalog_package_count")) {
+                    values.putNull("catalog_package_count");
+                } else {
+                    values.put("catalog_package_count", row.optInt("catalog_package_count"));
+                }
                 values.put("revision", remoteRevision);
                 putNullable(values, "reviewed_at", nullableString(row, "reviewed_at"));
                 values.put("created_at", emptyToDefault(row.optString("created_at", ""), now()));
@@ -1667,7 +1992,20 @@ public final class NutritionCatalogRepository {
                         }
                     }
                 }
-                pushed += insertRowIfAbsent(config, table, local);
+                JSONObject insertPayload = local;
+                if ("product_nutrition_links".equals(table)) {
+                    // The remote RLS contract does not allow a client INSERT to claim
+                    // trusted PriceTrace specification metadata. Insert the owner-approved
+                    // link first, then apply the locally verified metadata through the
+                    // authenticated UPDATE path below.
+                    insertPayload = directInsertProductLinkPayload(local);
+                }
+                int inserted = insertRowIfAbsent(config, table, insertPayload);
+                pushed += inserted;
+                if (inserted > 0
+                        && "product_nutrition_links".equals(table)) {
+                    patchRowIfUnchanged(config, table, local, insertPayload, "revision");
+                }
                 continue;
             }
 
@@ -1797,6 +2135,15 @@ public final class NutritionCatalogRepository {
     private boolean hasActiveApprovedLink(JSONObject row) {
         return ProductNutritionLink.STATUS_APPROVED.equals(nullableString(row, "status"))
                 && nullableString(row, "deleted_at") == null;
+    }
+
+    static JSONObject directInsertProductLinkPayload(JSONObject row) throws JSONException {
+        JSONObject payload = new JSONObject(row.toString());
+        payload.put("catalog_product_revision", JSONObject.NULL);
+        payload.put("catalog_content_amount", JSONObject.NULL);
+        payload.put("catalog_content_unit", JSONObject.NULL);
+        payload.put("catalog_package_count", JSONObject.NULL);
+        return payload;
     }
 
     private JSONObject approvedSlotConflict(JSONArray remoteRows, JSONObject local)
@@ -2051,6 +2398,47 @@ public final class NutritionCatalogRepository {
             this.isPublic = isPublic;
             this.publicationRevision = publicationRevision;
             this.publishedAt = publishedAt;
+        }
+    }
+
+    public static final class PublicProductNutrition {
+        public final String catalogProductId;
+        public final String nutritionFoodId;
+        public final String name;
+        public final String basisUnit;
+        public final double basisAmount;
+        public final NutritionProfile profile;
+        public final String catalogProductRevision;
+        public final double catalogContentAmount;
+        public final String catalogContentUnit;
+        public final int catalogPackageCount;
+
+        PublicProductNutrition(
+                String catalogProductId,
+                String nutritionFoodId,
+                String name,
+                String basisUnit,
+                double basisAmount,
+                NutritionProfile profile,
+                String catalogProductRevision,
+                double catalogContentAmount,
+                String catalogContentUnit,
+                int catalogPackageCount
+        ) {
+            this.catalogProductId = catalogProductId;
+            this.nutritionFoodId = nutritionFoodId;
+            this.name = name;
+            this.basisUnit = basisUnit;
+            this.basisAmount = basisAmount;
+            this.profile = profile;
+            this.catalogProductRevision = catalogProductRevision;
+            this.catalogContentAmount = catalogContentAmount;
+            this.catalogContentUnit = catalogContentUnit;
+            this.catalogPackageCount = catalogPackageCount;
+        }
+
+        public boolean hasRequiredNutrition() {
+            return profile != null && profile.hasAllRequired();
         }
     }
 

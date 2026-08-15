@@ -150,6 +150,7 @@ public final class ProductReadV1Test {
         Map<String, Object> row = new LinkedHashMap<>();
         row.put("standardProduct", standardProduct);
         row.put("catalogProduct", catalogProduct);
+        row.put("revision", "sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
         row.put("sellerProducts", Collections.emptyList());
         row.put("observations", Collections.singletonList(observation));
 
@@ -165,6 +166,8 @@ public final class ProductReadV1Test {
         assertEquals("CJ · 햇반 백미밥", product.standardProductLabel());
         assertEquals("쿠팡", product.sellerName);
         assertEquals(Integer.valueOf(1900), product.latestObservedPriceKrw);
+        assertEquals("sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", product.revision);
+        assertTrue(product.hasValidPriceTraceCatalogMetadata());
     }
 
     @Test

@@ -866,6 +866,284 @@ public final class FitnessRepository {
         );
     }
 
+    /** Records a dining-out meal without creating a catalog row. */
+    public String addDiningOutMealAtTime(
+            String date,
+            String mealTime,
+            String storeName,
+            String menuName
+    ) {
+        return addDiningOutMealAtTime(
+                date,
+                mealTime,
+                storeName,
+                menuName,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    /**
+     * Records a dining-out meal with optional user-entered macro estimates.
+     * These values are explicitly marked as estimates and are not catalog snapshots.
+     */
+    public String addDiningOutMealAtTime(
+            String date,
+            String mealTime,
+            String storeName,
+            String menuName,
+            Double carbsGrams,
+            Double proteinGrams,
+            Double fatGrams
+    ) {
+        return addDiningOutMealAtTime(
+                date,
+                mealTime,
+                storeName,
+                menuName,
+                carbsGrams,
+                proteinGrams,
+                fatGrams,
+                null
+        );
+    }
+
+    /**
+     * Records a dining-out meal and optionally snapshots the saved catalog menu into it.
+     */
+    public String addDiningOutMealAtTime(
+            String date,
+            String mealTime,
+            String storeName,
+            String menuName,
+            Double carbsGrams,
+            Double proteinGrams,
+            Double fatGrams,
+            MealCompositionItem menuSnapshot
+    ) {
+        return insertDiningOutMeal(
+                date,
+                mealTime,
+                storeName,
+                menuName,
+                null,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                null,
+                null,
+                null,
+                menuSnapshot,
+                true
+        );
+    }
+
+    /**
+     * Records a dining-out meal with a complete, user-entered estimated nutrition profile.
+     * Detailed nutrients are stored in the existing meal-item snapshot columns.
+     */
+    public String addDiningOutMealAtTimeWithNutrition(
+            String date,
+            String mealTime,
+            String storeName,
+            String menuName,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams,
+            MealCompositionItem menuSnapshot
+    ) {
+        return insertDiningOutMeal(
+                date,
+                mealTime,
+                storeName,
+                menuName,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams,
+                menuSnapshot,
+                false
+        );
+    }
+
+    private String insertDiningOutMeal(
+            String date,
+            String mealTime,
+            String storeName,
+            String menuName,
+            Integer caloriesInput,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams,
+            MealCompositionItem menuSnapshot,
+            boolean legacyMacroEstimate
+    ) {
+        String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
+        String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
+        boolean hasEstimatedNutrition;
+        int calories;
+        if (legacyMacroEstimate) {
+            MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
+            hasEstimatedNutrition = MealEntryPolicy.hasDiningOutEstimatedMacros(
+                    carbsGrams,
+                    proteinGrams,
+                    fatGrams
+            );
+            calories = MealEntryPolicy.estimatedDiningOutCalories(
+                    carbsGrams,
+                    proteinGrams,
+                    fatGrams
+            );
+        } else {
+            MealEntryPolicy.requireDiningOutEstimatedNutrition(
+                    caloriesInput,
+                    proteinGrams,
+                    carbsGrams,
+                    fatGrams,
+                    sodiumMg,
+                    sugarsGrams,
+                    saturatedFatGrams
+            );
+            hasEstimatedNutrition = MealEntryPolicy.hasDiningOutEstimatedNutrition(
+                    caloriesInput,
+                    proteinGrams,
+                    carbsGrams,
+                    fatGrams,
+                    sodiumMg,
+                    sugarsGrams,
+                    saturatedFatGrams
+            );
+            calories = hasEstimatedNutrition ? caloriesInput : 0;
+            if (hasEstimatedNutrition && menuSnapshot == null) {
+                menuSnapshot = diningOutNutritionSnapshot(
+                        normalizedStoreName,
+                        normalizedMenuName,
+                        caloriesInput,
+                        proteinGrams,
+                        carbsGrams,
+                        fatGrams,
+                        sodiumMg,
+                        sugarsGrams,
+                        saturatedFatGrams
+                );
+            }
+        }
+        int itemCount = menuSnapshot == null ? 0 : 1;
+        LocalDate today = LocalDate.now();
+        LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, today);
+        String eatenAt = MealEntryPolicy.eatenAt(recordDate, mealTime, ZoneId.systemDefault());
+        boolean isBackfilled = MealEntryPolicy.isBackfilled(recordDate, today);
+        String id = newId();
+        String now = now();
+
+        ContentValues values = baseValues(id, now);
+        values.put("date", recordDate.toString());
+        // menu remains populated for the legacy shared-record projection.
+        values.put("menu", normalizedMenuName);
+        values.put("meal_kind", MealRecordKind.DINING_OUT);
+        values.put("store_name", normalizedStoreName);
+        values.put("menu_name", normalizedMenuName);
+        values.put("calories", calories);
+        values.put("protein_grams", hasEstimatedNutrition ? proteinGrams : 0d);
+        if (hasEstimatedNutrition) {
+            values.put("carbs_grams", carbsGrams);
+            values.put("fat_grams", fatGrams);
+        } else {
+            values.putNull("carbs_grams");
+            values.putNull("fat_grams");
+        }
+        values.put("is_backfilled", isBackfilled ? 1 : 0);
+        if (isBackfilled) {
+            values.put("backfilled_at", now);
+            values.put("backfill_reason", "manual past dining-out entry");
+        } else {
+            values.putNull("backfilled_at");
+            values.putNull("backfill_reason");
+        }
+        values.put("source_app", "fitness");
+        values.put("scope", "fitness");
+        values.put("metadata", json(
+                "item_type", "meal",
+                "meal_kind", MealRecordKind.DINING_OUT,
+                "meal_type", normalizeMealLabel(nextMealLabelForDate(date)),
+                "eaten_at", eatenAt,
+                "store_name", normalizedStoreName,
+                "menu_name", normalizedMenuName,
+                "nutrition_status", hasEstimatedNutrition ? "estimated" : "unknown",
+                "nutrition_source", hasEstimatedNutrition ? "manual_estimate" : "unknown",
+                "estimated", hasEstimatedNutrition ? "true" : "false",
+                "composition_version", "2",
+                "item_count", String.valueOf(itemCount)
+        ));
+
+        SQLiteDatabase database = db();
+        database.beginTransaction();
+        try {
+            database.insertOrThrow("meal_records", null, values);
+            if (menuSnapshot != null) {
+                insertMealMenuSnapshot(
+                        database,
+                        id,
+                        MealMenuSelection.standalone(menuSnapshot),
+                        0,
+                        now
+                );
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        return id;
+    }
+
+    private MealCompositionItem diningOutNutritionSnapshot(
+            String storeName,
+            String menuName,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams
+    ) {
+        NutritionProfile profile = NutritionProfile.builder()
+                .value(NutritionProfile.CALORIES_KCAL, calories.doubleValue())
+                .value(NutritionProfile.PROTEIN_GRAMS, proteinGrams)
+                .value(NutritionProfile.CARBS_GRAMS, carbsGrams)
+                .value(NutritionProfile.FAT_GRAMS, fatGrams)
+                .value(NutritionProfile.SODIUM_MG, sodiumMg)
+                .value(NutritionProfile.SUGARS_GRAMS, sugarsGrams)
+                .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFatGrams)
+                .build();
+        NutritionFood food = NutritionFood.builder()
+                .id(null)
+                .ownerId(userId)
+                .name(menuName)
+                .brand(storeName)
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .category(NutritionFood.CATEGORY_OTHER)
+                .basis(1.0, NutritionUnit.SERVING)
+                .prepState(NutritionFood.PREP_AS_SERVED)
+                .profile(profile)
+                .source("manual_estimate", "dining_out")
+                .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
+                .build();
+        return MealCompositionItem.from(food, food.basisAmount);
+    }
+
     private String insertMeal(String date, String mealLabel, String menuText, String mealTime,
                               Integer calories, Double proteinGrams, Double carbsGrams,
                               Double fatGrams, List<MealCompositionItem> compositionItems) {
@@ -912,6 +1190,9 @@ public final class FitnessRepository {
         ContentValues values = baseValues(id, now);
         values.put("date", recordDate.toString());
         values.put("menu", emptyToDefault(menuText, "Meal"));
+        values.put("meal_kind", MealRecordKind.FOOD);
+        values.putNull("store_name");
+        values.putNull("menu_name");
         values.put("calories", calories == null ? 0 : calories);
         values.put("protein_grams", proteinGrams == null ? 0 : proteinGrams);
         values.put("carbs_grams", carbsGrams == null ? 0 : carbsGrams);
@@ -928,6 +1209,7 @@ public final class FitnessRepository {
         values.put("scope", "fitness");
         values.put("metadata", json(
                 "item_type", "meal",
+                "meal_kind", MealRecordKind.FOOD,
                 "meal_type", normalizeMealLabel(mealLabel),
                 "eaten_at", eatenAt,
                 "estimated", "false",
@@ -1201,6 +1483,7 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT r.id, r.date, r.menu, r.calories, r.protein_grams, " +
                         "r.carbs_grams, r.fat_grams, r.metadata, r.created_at, " +
+                        "r.meal_kind, r.store_name, r.menu_name, " +
                         "(SELECT i.food_name_snapshot FROM meal_record_items i " +
                         "WHERE i.meal_record_id = r.id AND i.user_id = r.user_id " +
                         "AND i.deleted_at IS NULL ORDER BY i.order_index ASC, i.id ASC LIMIT 1), " +
@@ -1218,7 +1501,31 @@ public final class FitnessRepository {
                 Double fatGrams = nullableDouble(cursor, 6);
                 String metadata = cursor.getString(7);
                 String eatenAt = metadataValue(metadata, "eaten_at", "");
-                int itemCount = Math.max(0, cursor.getInt(10));
+                String mealKind = MealRecordKind.normalize(firstNonBlank(
+                        cursor.getString(9),
+                        metadataValue(metadata, "meal_kind", MealRecordKind.FOOD)
+                ));
+                String storeName = firstNonBlank(
+                        cursor.getString(10),
+                        metadataValue(metadata, "store_name", "")
+                );
+                String menuName = firstNonBlank(
+                        cursor.getString(11),
+                        metadataValue(metadata, "menu_name", "")
+                );
+                String nutritionStatus = metadataValue(
+                        metadata,
+                        "nutrition_status",
+                        MealRecordKind.isDiningOut(mealKind) ? "unknown" : "recorded"
+                );
+                int itemCount = Math.max(0, cursor.getInt(13));
+                String previewTitle = MealRecordKind.isDiningOut(mealKind)
+                        ? MealEntryPolicy.previewDiningOutTitle(storeName, menuName)
+                        : MealEntryPolicy.previewTitle(
+                                cursor.getString(12),
+                                itemCount,
+                                cursor.getString(2)
+                        );
                 entries.add(new MealEntry(
                         cursor.getString(0),
                         cursor.getString(1),
@@ -1229,13 +1536,13 @@ public final class FitnessRepository {
                         carbsGrams,
                         fatGrams,
                         itemCount,
-                        MealEntryPolicy.previewTitle(
-                                cursor.getString(9),
-                                itemCount,
-                                cursor.getString(2)
-                        ),
+                        previewTitle,
                         eatenAt,
-                        DEVICE_ID.equals(cursor.getString(11)),
+                        mealKind,
+                        storeName,
+                        menuName,
+                        nutritionStatus,
+                        DEVICE_ID.equals(cursor.getString(14)),
                         cursor.getString(8)
                 ));
             }
@@ -2828,6 +3135,10 @@ public final class FitnessRepository {
         return value == null || value.trim().isEmpty() ? fallback : value.trim();
     }
 
+    private static String firstNonBlank(String primary, String fallback) {
+        return primary == null || primary.trim().isEmpty() ? fallback : primary.trim();
+    }
+
     private static String emptyToNull(String value) {
         return value == null || value.trim().isEmpty() ? null : value.trim();
     }
@@ -3580,6 +3891,10 @@ public final class FitnessRepository {
         public final String previewTitle;
         public final String eatenAt;
         public final String mealTime;
+        public final String mealKind;
+        public final String storeName;
+        public final String menuName;
+        public final String nutritionStatus;
         public final String macroRatio;
         public final String macroRatioAccessibility;
         public final boolean timeEditable;
@@ -3588,6 +3903,8 @@ public final class FitnessRepository {
         public MealEntry(String id, String date, String mealLabel, String menu, int calories,
                          Double proteinGrams, Double carbsGrams, Double fatGrams,
                          int compositionCount, String previewTitle, String eatenAt,
+                         String mealKind, String storeName, String menuName,
+                         String nutritionStatus,
                          boolean timeEditable, String createdAt) {
             this.id = id;
             this.date = date;
@@ -3601,6 +3918,11 @@ public final class FitnessRepository {
             this.previewTitle = previewTitle;
             this.eatenAt = eatenAt;
             this.mealTime = MealEntryPolicy.displayMealTime(eatenAt);
+            this.mealKind = MealRecordKind.normalize(mealKind);
+            this.storeName = storeName == null ? "" : storeName.trim();
+            this.menuName = menuName == null ? "" : menuName.trim();
+            this.nutritionStatus = nutritionStatus == null || nutritionStatus.trim().isEmpty()
+                    ? "recorded" : nutritionStatus.trim();
             this.macroRatio = MealEntryPolicy.macroRatioLabel(
                     carbsGrams,
                     proteinGrams,
@@ -3615,8 +3937,19 @@ public final class FitnessRepository {
             this.createdAt = createdAt;
         }
 
+        public boolean isDiningOut() {
+            return MealRecordKind.isDiningOut(mealKind);
+        }
+
+        public boolean hasEstimatedNutrition() {
+            return "estimated".equals(nutritionStatus);
+        }
+
         public String previewSubtitle() {
-            return mealTime + " · " + macroRatio;
+            return isDiningOut()
+                    ? mealTime + " · 외식 · "
+                    + (hasEstimatedNutrition() ? "영양 추정" : "영양 미입력")
+                    : mealTime + " · " + macroRatio;
         }
 
         public String previewAccessibilityLabel() {

@@ -10,6 +10,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 
 import com.yeonsik.fitnessapp.data.NutrientCode;
+import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 
 import java.util.ArrayList;
@@ -103,6 +104,22 @@ final class NutritionInputSection {
                 }
             });
         }
+    }
+
+    void applyProfile(NutritionProfile profile) {
+        if (profile == null) {
+            return;
+        }
+        for (Map.Entry<String, EditText> entry : requiredInputs.entrySet()) {
+            setInputValue(entry.getValue(), profile.value(entry.getKey()));
+        }
+        for (Map.Entry<String, EditText> entry : optionalInputs.entrySet()) {
+            setInputValue(entry.getValue(), profile.value(entry.getKey()));
+        }
+    }
+
+    private void setInputValue(EditText input, Double value) {
+        input.setText(value == null ? "" : NutritionCalculator.trim(value));
     }
 
     private void build() {

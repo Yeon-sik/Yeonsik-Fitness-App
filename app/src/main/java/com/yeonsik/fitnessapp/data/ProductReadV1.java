@@ -21,6 +21,8 @@ public final class ProductReadV1 {
     public final String sellerName;
     public final Integer latestObservedPriceKrw;
     public final String observedAt;
+    /** Revision of this exact product document, not the top-level payload revision. */
+    public final String revision;
     public final Double contentAmount;
     public final String contentUnit;
     public final Integer packageCount;
@@ -47,7 +49,8 @@ public final class ProductReadV1 {
                 observedAt,
                 contentAmount,
                 contentUnit,
-                packageCount
+                packageCount,
+                null
         );
     }
 
@@ -74,6 +77,35 @@ public final class ProductReadV1 {
                 contentAmount,
                 contentUnit,
                 packageCount,
+                null
+        );
+    }
+
+    public ProductReadV1(
+            String catalogProductId,
+            String standardProductId,
+            String name,
+            String brand,
+            String sellerName,
+            Integer latestObservedPriceKrw,
+            String observedAt,
+            Double contentAmount,
+            String contentUnit,
+            Integer packageCount,
+            String revision
+    ) {
+        this(
+                catalogProductId,
+                standardProductId,
+                name,
+                brand,
+                sellerName,
+                latestObservedPriceKrw,
+                observedAt,
+                contentAmount,
+                contentUnit,
+                packageCount,
+                revision,
                 Collections.emptyList()
         );
     }
@@ -89,6 +121,7 @@ public final class ProductReadV1 {
             Double contentAmount,
             String contentUnit,
             Integer packageCount,
+            String revision,
             List<ProductReadV1> catalogVariants
     ) {
         this.catalogProductId = requireUuid(catalogProductId, "catalogProductId");
@@ -104,6 +137,7 @@ public final class ProductReadV1 {
         }
         this.latestObservedPriceKrw = latestObservedPriceKrw;
         this.observedAt = optionalText(observedAt);
+        this.revision = validateRevision(revision);
         this.contentAmount = contentAmount;
         this.contentUnit = optionalText(contentUnit);
         this.packageCount = packageCount;
@@ -183,7 +217,8 @@ public final class ProductReadV1 {
                 observedAt,
                 doubleValue(first(row, "contentAmount", "content_amount")),
                 stringValue(first(row, "contentUnit", "content_unit")),
-                integerValue(first(row, "packageCount", "package_count"))
+                integerValue(first(row, "packageCount", "package_count")),
+                stringValue(first(row, "revision", "catalogProductRevision", "catalog_product_revision"))
         );
     }
 
@@ -250,7 +285,8 @@ public final class ProductReadV1 {
                         : stringValue(first(observation, "observedAt", "observed_at")),
                 doubleValue(first(catalogProduct, "contentAmount", "content_amount")),
                 stringValue(first(catalogProduct, "contentUnit", "content_unit")),
-                integerValue(first(catalogProduct, "packageCount", "package_count"))
+                integerValue(first(catalogProduct, "packageCount", "package_count")),
+                stringValue(first(row, "revision", "catalogProductRevision", "catalog_product_revision"))
         );
     }
 
@@ -321,6 +357,7 @@ public final class ProductReadV1 {
                 contentAmount,
                 contentUnit,
                 packageCount,
+                revision,
                 variants
         );
     }
@@ -328,6 +365,21 @@ public final class ProductReadV1 {
     /** True only for an exact product-read.v1 catalog row, never for an aggregated search row. */
     public boolean isExactCatalogProduct() {
         return catalogVariants.isEmpty();
+    }
+
+    /** True only when all four link metadata values are present and match PriceTrace v1. */
+    public boolean hasValidPriceTraceCatalogMetadata() {
+        return revision != null
+                && revision.matches("^sha256:[0-9a-f]{64}$")
+                && contentAmount != null
+                && !contentAmount.isNaN()
+                && !contentAmount.isInfinite()
+                && contentAmount > 0
+                && ("g".equals(contentUnit)
+                || "ml".equals(contentUnit)
+                || "each".equals(contentUnit))
+                && packageCount != null
+                && packageCount > 0;
     }
 
     public int catalogVariantCount() {
@@ -422,6 +474,14 @@ public final class ProductReadV1 {
     public String exactSelectionLabel() {
         return standardProductLabel() + " · " + specificationLabel()
                 + "\n" + priceObservationLabel();
+    }
+
+    private static String validateRevision(String value) {
+        String normalized = optionalText(value);
+        if (normalized != null && !normalized.matches("^sha256:[0-9a-f]{64}$")) {
+            throw new IllegalArgumentException("PriceTrace 상품 revision 형식이 올바르지 않습니다.");
+        }
+        return normalized;
     }
 
     private static Object first(Map<String, ?> row, String... keys) {

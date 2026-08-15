@@ -58,6 +58,9 @@ public final class FitnessDatabaseMigrationTest {
             assertTrue(hasColumn(upgraded, "nutrition_foods", "brand"));
             assertTrue(hasColumn(upgraded, "nutrition_foods", "category"));
             assertTrue(hasColumn(upgraded, "nutrition_foods", "cooking_method"));
+            assertTrue(hasColumn(upgraded, "meal_records", "meal_kind"));
+            assertTrue(hasColumn(upgraded, "meal_records", "store_name"));
+            assertTrue(hasColumn(upgraded, "meal_records", "menu_name"));
             assertTrue(hasColumn(upgraded, "meal_record_items", "brand_snapshot"));
             assertTrue(hasColumn(
                     upgraded,

@@ -30,9 +30,17 @@ import java.util.Set;
  */
 public final class VerifiedFoodCatalogSeed {
     public static final String SOURCE_TYPE = "kfind_official";
+    /** User-provided rice chart values are kept separate from official K-FIND provenance. */
+    public static final String RICE_SOURCE_TYPE = "user_reference_image";
+    public static final String RICE_SOURCE_REFERENCE =
+            "user-provided:image-rice-nutrition-chart";
+    /** The chart was applied on this date; it is not an official dataset revision. */
+    public static final String RICE_SOURCE_VERSION = "2026-08-15";
     public static final String ASSET_NAME = "verified_food_catalog_v3.json";
-    public static final int EXPECTED_COUNT = 54;
-    public static final int SEEDED_FOOD_COUNT = EXPECTED_COUNT;
+    public static final String RICE_ASSET_NAME = "rice_nutrition_reference_v1.json";
+    public static final int EXPECTED_COUNT = 55;
+    public static final int RICE_EXPECTED_COUNT = 6;
+    public static final int SEEDED_FOOD_COUNT = EXPECTED_COUNT + RICE_EXPECTED_COUNT;
     public static final String FOOD_ID_PREFIX = "kfind:";
     public static final String MEASUREMENT_POLICY =
             "per_item_preparation_edible_portion_100g";
@@ -46,6 +54,7 @@ public final class VerifiedFoodCatalogSeed {
     private static final String RAW_MACKEREL_SOURCE_REFERENCE_SUFFIX =
             "&searchMonthCd=AVG&searchRegionCd=33";
     private static final int ASSET_VERSION = 3;
+    private static final String RICE_CODE_PREFIX = "USER-RICE-";
     private static final Map<String, Set<String>> ALLOWED_MISSING_REQUIRED_FIELDS =
             buildAllowedMissingRequiredFields();
     private static final Map<String, FoodMetadata> METADATA_BY_CODE = buildMetadata();
@@ -96,11 +105,14 @@ public final class VerifiedFoodCatalogSeed {
         int expectedDataVersion = food.profile.hasAllRequired()
                 ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
                 : NutritionFood.DATA_VERSION_MACROS_ONLY;
+        String expectedSourceReference = metadata.sourceReference == null
+                ? sourceReference(code)
+                : metadata.sourceReference;
         return food.ownerId == null
                 && metadata.name.equals(food.name)
                 && metadata.category.equals(food.category)
-                && SOURCE_TYPE.equals(food.sourceType)
-                && sourceReference(code).equals(food.sourceReference)
+                && metadata.sourceType.equals(food.sourceType)
+                && expectedSourceReference.equals(food.sourceReference)
                 && Double.compare(food.basisAmount, 100.0) == 0
                 && NutritionUnit.GRAM.equals(food.basisUnit)
                 && expectedPrepState.equals(food.prepState)
@@ -147,7 +159,7 @@ public final class VerifiedFoodCatalogSeed {
         values.putNull("added_sugars_grams");
         putNullableDouble(values, "trans_fat_grams", food.profile.transFatGrams());
         putNullableDouble(values, "cholesterol_mg", food.profile.cholesterolMg());
-        values.put("source_type", SOURCE_TYPE);
+        values.put("source_type", food.metadata.sourceType);
         values.put("source_reference", food.sourceReference);
         values.put("source_version", food.sourceVersion);
         values.put(
@@ -254,9 +266,9 @@ public final class VerifiedFoodCatalogSeed {
     }
 
     private static Map<String, SeedFood> loadFoods(Context context) {
-        if (METADATA_BY_CODE.size() != EXPECTED_COUNT) {
+        if (METADATA_BY_CODE.size() != SEEDED_FOOD_COUNT) {
             throw new IllegalStateException(
-                    "Verified food metadata must contain " + EXPECTED_COUNT + " unique rows."
+                    "Verified food metadata must contain " + SEEDED_FOOD_COUNT + " unique rows."
             );
         }
         try (InputStream stream = context.getAssets().open(ASSET_NAME);
@@ -295,14 +307,100 @@ public final class VerifiedFoodCatalogSeed {
                 }
                 foods.put(food.code, food);
             }
-            if (!seenCodes.equals(METADATA_BY_CODE.keySet())) {
+            if (!seenCodes.equals(officialFoodCodes())) {
                 throw new IllegalStateException(
-                        "Verified food asset codes do not match the catalog metadata."
+                        "Verified food asset codes do not match the official catalog metadata."
+                );
+            }
+            foods.putAll(loadRiceFoods(context));
+            if (foods.size() != SEEDED_FOOD_COUNT) {
+                throw new IllegalStateException(
+                        "Verified food catalog must contain exactly " + SEEDED_FOOD_COUNT
+                                + " rows."
                 );
             }
             return foods;
         } catch (IOException | JSONException error) {
             throw new IllegalStateException("Unable to load verified food catalog.", error);
+        }
+    }
+
+    private static Set<String> officialFoodCodes() {
+        Set<String> codes = new LinkedHashSet<>();
+        for (Map.Entry<String, FoodMetadata> entry : METADATA_BY_CODE.entrySet()) {
+            if (SOURCE_TYPE.equals(entry.getValue().sourceType)) {
+                codes.add(entry.getKey());
+            }
+        }
+        return codes;
+    }
+
+    private static Map<String, SeedFood> loadRiceFoods(Context context)
+            throws IOException, JSONException {
+        try (InputStream stream = context.getAssets().open(RICE_ASSET_NAME);
+             BufferedReader reader = new BufferedReader(
+                     new InputStreamReader(stream, StandardCharsets.UTF_8)
+             )) {
+            StringBuilder json = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                json.append(line);
+            }
+            JSONObject root = new JSONObject(json.toString());
+            if (root.optInt("version", 0) != 1
+                    || root.optDouble("basis_amount", 0) != 100.0
+                    || !NutritionUnit.GRAM.equals(root.optString("basis_unit", ""))
+                    || !RICE_SOURCE_TYPE.equals(root.optString("source_type", ""))
+                    || !RICE_SOURCE_REFERENCE.equals(root.optString("source_reference", ""))
+                    || !RICE_SOURCE_VERSION.equals(root.optString("source_version", ""))) {
+                throw new IllegalStateException("Invalid cooked-rice reference metadata.");
+            }
+            JSONArray rows = root.optJSONArray("foods");
+            if (rows == null || rows.length() != RICE_EXPECTED_COUNT) {
+                throw new IllegalStateException(
+                        "Cooked-rice reference must contain exactly "
+                                + RICE_EXPECTED_COUNT + " rows."
+                );
+            }
+
+            Map<String, SeedFood> foods = new LinkedHashMap<>();
+            for (int index = 0; index < rows.length(); index++) {
+                JSONObject row = rows.getJSONObject(index);
+                String code = requireString(row, "code");
+                FoodMetadata metadata = METADATA_BY_CODE.get(code);
+                if (metadata == null || !RICE_SOURCE_TYPE.equals(metadata.sourceType)) {
+                    throw new IllegalStateException("Unknown cooked-rice code: " + code);
+                }
+                if (!metadata.name.equals(requireString(row, "name"))) {
+                    throw new IllegalStateException("Cooked-rice name does not match: " + code);
+                }
+                NutritionProfile profile = NutritionProfile.builder()
+                        .value(NutritionProfile.CALORIES_KCAL,
+                                requiredNumber(row, "calories_kcal"))
+                        .value(NutritionProfile.PROTEIN_GRAMS,
+                                requiredNumber(row, "protein_grams"))
+                        .value(NutritionProfile.CARBS_GRAMS,
+                                requiredNumber(row, "carbs_grams"))
+                        .value(NutritionProfile.FAT_GRAMS,
+                                requiredNumber(row, "fat_grams"))
+                        .value(NutritionProfile.FIBER_GRAMS,
+                                requiredNumber(row, "fiber_grams"))
+                        .build();
+                if (foods.put(
+                        code,
+                        new SeedFood(
+                                code,
+                                FOOD_ID_PREFIX + code,
+                                metadata,
+                                RICE_SOURCE_REFERENCE,
+                                RICE_SOURCE_VERSION,
+                                profile
+                        )
+                ) != null) {
+                    throw new IllegalStateException("Duplicate cooked-rice code: " + code);
+                }
+            }
+            return foods;
         }
     }
 
@@ -519,6 +617,13 @@ public final class VerifiedFoodCatalogSeed {
         addGrain(foods, "R101-008000701-0000", "흑미(마른쌀)");
         addGrain(foods, "R101-047002001-0000", "잡곡(혼합 원곡)");
 
+        addRice(foods, "백미밥");
+        addRice(foods, "현미밥");
+        addRice(foods, "보리밥");
+        addRice(foods, "흑미밥");
+        addRice(foods, "일반 잡곡밥");
+        addRice(foods, "콩 많이 넣은 잡곡밥");
+
         addSeafood(
                 foods,
                 "R211-201174001-0000",
@@ -555,6 +660,12 @@ public final class VerifiedFoodCatalogSeed {
                 "고등어구이(수입·일본 평균)",
                 NutritionFood.COOKING_METHOD_GRILLED
         );
+        addSeafood(
+                foods,
+                "R211-117014050-0000",
+                "민어구이(대표 평균)",
+                NutritionFood.COOKING_METHOD_GRILLED
+        );
 
         return Collections.unmodifiableMap(foods);
     }
@@ -568,6 +679,7 @@ public final class VerifiedFoodCatalogSeed {
         addAllowedMissingField(fieldsByCode, "R211-201174050-0000", "sugars_grams");
         addAllowedMissingField(fieldsByCode, "R211-059074050-0000", "sugars_grams");
         addAllowedMissingField(fieldsByCode, "R211-021014050-7300", "sugars_grams");
+        addAllowedMissingField(fieldsByCode, "R211-117014050-0000", "sugars_grams");
 
         Map<String, Set<String>> immutable = new LinkedHashMap<>();
         for (Map.Entry<String, Set<String>> entry : fieldsByCode.entrySet()) {
@@ -681,11 +793,31 @@ public final class VerifiedFoodCatalogSeed {
                         name,
                         null,
                         category,
-                        cookingMethod
+                        cookingMethod,
+                        SOURCE_TYPE,
+                        null
                 )
         );
         if (previous != null) {
             throw new IllegalStateException("Duplicate verified food metadata code: " + code);
+        }
+    }
+
+    private static void addRice(Map<String, FoodMetadata> foods, String name) {
+        String code = RICE_CODE_PREFIX + name.replace(" ", "-");
+        FoodMetadata previous = foods.put(
+                code,
+                new FoodMetadata(
+                        name,
+                        null,
+                        NutritionFood.CATEGORY_GRAIN,
+                        NutritionFood.COOKING_METHOD_OTHER,
+                        RICE_SOURCE_TYPE,
+                        RICE_SOURCE_REFERENCE
+                )
+        );
+        if (previous != null) {
+            throw new IllegalStateException("Duplicate rice metadata code: " + code);
         }
     }
 
@@ -719,17 +851,23 @@ public final class VerifiedFoodCatalogSeed {
         private final String brand;
         private final String category;
         private final String cookingMethod;
+        private final String sourceType;
+        private final String sourceReference;
 
         private FoodMetadata(
                 String name,
                 String brand,
                 String category,
-                String cookingMethod
+                String cookingMethod,
+                String sourceType,
+                String sourceReference
         ) {
             this.name = name;
             this.brand = brand;
             this.category = category;
             this.cookingMethod = cookingMethod;
+            this.sourceType = sourceType;
+            this.sourceReference = sourceReference;
         }
     }
 
@@ -753,9 +891,12 @@ public final class VerifiedFoodCatalogSeed {
 
         private boolean canBeUpdated() {
             return ownerId == null
-                    && SOURCE_TYPE.equals(sourceType)
+                    && (SOURCE_TYPE.equals(sourceType)
+                    || RICE_SOURCE_TYPE.equals(sourceType)
+                    || RICE_SOURCE_REFERENCE.equals(sourceReference))
                     && sourceReference != null
-                    && sourceReference.startsWith(SOURCE_REFERENCE_PREFIX);
+                    && (sourceReference.startsWith(SOURCE_REFERENCE_PREFIX)
+                    || RICE_SOURCE_REFERENCE.equals(sourceReference));
         }
     }
 }

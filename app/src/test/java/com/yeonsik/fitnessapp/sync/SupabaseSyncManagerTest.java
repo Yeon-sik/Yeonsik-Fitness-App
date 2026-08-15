@@ -30,14 +30,12 @@ public final class SupabaseSyncManagerTest {
     }
 
     @Test
-    public void syncsMealSnapshotsAfterTheirParentRows() {
-        int parent = SupabaseSyncManager.TABLES.indexOf("meal_records");
-        int items = SupabaseSyncManager.TABLES.indexOf("meal_record_items");
-        int nutrients = SupabaseSyncManager.TABLES.indexOf("meal_record_item_nutrients");
-
-        assertTrue(parent >= 0);
-        assertTrue(parent < items);
-        assertTrue(items < nutrients);
+    public void keepsLocalMealSnapshotsOutOfSharedSyncUntilRemoteContractExists() {
+        assertTrue(SupabaseSyncManager.TABLES.contains("meal_records"));
+        assertFalse(SupabaseSyncManager.TABLES.contains("meal_record_items"));
+        assertFalse(SupabaseSyncManager.TABLES.contains("meal_record_item_nutrients"));
+        assertFalse(SupabaseSyncManager.TABLES.contains("meal_record_item_components"));
+        assertFalse(SupabaseSyncManager.TABLES.contains("meal_record_item_component_nutrients"));
     }
 
     @Test
@@ -50,5 +48,20 @@ public final class SupabaseSyncManagerTest {
                 "meal_record_items",
                 "food_name_snapshot"
         ));
+    }
+
+    @Test
+    public void keepsDiningOutDenormalizedColumnsOutOfTheLegacySharedPayload() {
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "meal_kind"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "store_name"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "menu_name"));
+        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "metadata"));
+    }
+
+    @Test
+    public void keepsLocalContractMarkerOutOfSharedPayload() {
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "contract_version"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("workout_records", "contract_version"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("weight_records", "contract_version"));
     }
 }

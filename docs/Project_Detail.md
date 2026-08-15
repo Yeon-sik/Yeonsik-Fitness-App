@@ -95,22 +95,23 @@ main push
 
 `nutrition_foods`와 `nutrition_food_nutrients`는 단일 식품 선택에 사용된다. 공식 asset `app/src/main/assets/verified_food_catalog_v3.json`은 다음 불변식을 가진다.
 
-- 총 54행: 생것 51행, 구이 3행.
+- 총 55행: 생것 51행, 구이 4행.
 - 각 행의 기준량은 가식부 100g이다.
 - 생것은 `prep_state=raw`, `cooking_method=raw`; 구이는 `prep_state=cooked`, `cooking_method=grilled`다.
 - 공식 ID는 `kfind:<FOOD_CD>`, 소유자는 `NULL`, visibility는 `public`, source type은 `kfind_official`이다.
 - 출처 링크는 K-FIND 상세 URL과 공식 데이터 생성일(`source_version`)을 보존한다.
-- 공식 공란은 `NULL`로 유지한다. 현재 허용된 결측은 생선 당류 5행과 부산 생고등어의 나트륨·포화지방 2개 필드다.
+- 공식 공란은 `NULL`로 유지한다. 현재 허용된 결측은 생선 당류 6행과 부산 생고등어의 나트륨·포화지방 2개 필드다.
 - 참다랑어 생것처럼 원본에 같은 코드가 중복되는 경우 generator가 대표 공식명 행을 선택한다.
 - raw 생선의 표시명에 `회`를 포함할 수 있지만 이는 검색 별칭이며 횟감·생식 안전성 인증이 아니다.
 
-현재 생선 6행은 다음처럼 구분된다.
+현재 생선 7행은 다음처럼 구분된다.
 
 | 표시 흐름 | 공식 상태 | 데이터 주의 |
 | --- | --- | --- |
 | 연어회(홍연어·생것 기준) / 연어구이(홍연어) | 생것 / 구운것 | 동일 홍연어 계열의 공식 raw·grilled 행 |
 | 참치회(참다랑어·생것 기준) / 참치구이(참다랑어) | 생것 / 구운것 | 참치는 통칭이므로 종을 표시 |
 | 고등어회(생것·부산 평균) / 고등어구이(수입·일본 평균) | 생것 / 구운것 | 같은 원산지 짝이 아닌 독립 공식 평균값 |
+| 민어구이(대표 평균) | 구운것 | 공식 민어 구이 대표 평균 행 |
 
 ## 4. 핵심 기술 의사결정
 
@@ -175,7 +176,7 @@ Fitness App이 상세 세트와 루틴을 소유하고 Personal OS에는 완료 
 | Android debug build | manifest·resource·APK | 통과 | 설치·화면 smoke 미실행 |
 | Android test APK | 발전·애니메이션·식품·migration·backup 테스트 패키징 | 통과 | `adb devices -l` 연결 기기 0대 |
 | lint | debug lint 및 test lint model | 통과 | deprecated Gradle warning은 별도 남음 |
-| 공식 카탈로그 generator | 원본 다운로드·행 선택·null 정책 | 54행 생성 통과 | 원본 제공 시점과 API 응답 변화는 재생성 시 확인 |
+| 공식 카탈로그 generator | 원본 다운로드·행 선택·null 정책 | 55행 생성 통과 | 원본 제공 시점과 API 응답 변화는 재생성 시 확인 |
 | Supabase integration | Auth·RLS·동기화 | 미검증 | 운영 URL·두 계정 필요 |
 | physical device E2E | 발전 입력·식품 선택·animation·backup | 미실행 | 연결 기기 필요 |
 
@@ -219,7 +220,7 @@ feature branch
 | P0 | 실기기 계측·설치 미검증 | 실제 화면·animation·입력·복원 동작 미확인 | ADB 기기 연결 후 targeted instrumentation 실행 |
 | P0 | 운영 RLS·두 계정 격리 미검증 | 원격 개인 데이터 경계 미확인 | shared/Nutrition 프로젝트별 Auth 계정 2개 CRUD 테스트 |
 | P0 | signed release 미검증 | 배포 가능 여부 미확인 | release 환경변수 주입 후 `assembleRelease`·설치 smoke |
-| P1 | 공식 식품 범위 54행 | 사용자 검색 범위 제한 | 같은 provenance·조리·결측 계약으로 curated rows 확장 |
+| P1 | 공식 식품 범위 55행 | 사용자 검색 범위 제한 | 같은 provenance·조리·결측 계약으로 curated rows 확장 |
 | P1 | REST 매핑·재시도 직접 관리 | API 변화 시 유지보수 비용 | 오류·재시도·충돌 계약을 추가 테스트로 고정 |
 | P1 | Gradle deprecated feature 경고 | Gradle 10 업그레이드 위험 | `--warning-mode all`로 원인별 갱신 |
 | P1 | 발전 규칙의 기록 의존성 | 기록이 적으면 판단 커버리지 낮음 | 날짜별 기록·신체정보·목표 입력을 먼저 확보하고 규칙을 작은 단위로 확장 |

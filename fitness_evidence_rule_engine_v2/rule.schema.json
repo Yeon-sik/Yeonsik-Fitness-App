@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fitness Evidence Rule",
+  "type": "object",
+  "required": [
+    "rule_id",
+    "domain",
+    "question",
+    "condition",
+    "recommendation_ko",
+    "confidence",
+    "evidence_refs",
+    "last_reviewed"
+  ],
+  "properties": {
+    "rule_id": {
+      "type": "string"
+    },
+    "domain": {
+      "type": "string"
+    },
+    "question": {
+      "type": "string"
+    },
+    "condition": {
+      "type": "object"
+    },
+    "recommendation_ko": {
+      "type": "string"
+    },
+    "confidence": {
+      "enum": [
+        "low",
+        "moderate",
+        "high"
+      ]
+    },
+    "evidence_refs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "hard_gate": {
+      "type": "boolean"
+    },
+    "medical_rule": {
+      "type": "boolean"
+    },
+    "last_reviewed": {
+      "type": "string",
+      "format": "date"
+    }
+  }
+}

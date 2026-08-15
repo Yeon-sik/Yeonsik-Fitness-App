@@ -99,6 +99,185 @@ public final class MealEntryPolicy {
         return fallback.isEmpty() ? "직접 입력 끼니" : fallback;
     }
 
+    /** External meals keep the store and the consumed menu as separate display snapshots. */
+    public static String previewDiningOutTitle(String storeName, String menuName) {
+        String store = normalizedText(storeName);
+        String menu = normalizedText(menuName);
+        if (store.isEmpty()) {
+            store = "가게 미기록";
+        }
+        if (menu.isEmpty()) {
+            menu = "메뉴 미기록";
+        }
+        return store + " · " + menu;
+    }
+
+    public static String requireDiningOutStoreName(String value) {
+        return requireDiningOutText(value, "가게 명");
+    }
+
+    public static String requireDiningOutMenuName(String value) {
+        return requireDiningOutText(value, "먹은 메뉴");
+    }
+
+    /** Parses one optional macro estimate entered for a dining-out record. */
+    public static Double optionalDiningOutMacro(String value, String label) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        final double parsed;
+        try {
+            parsed = Double.parseDouble(normalized);
+        } catch (NumberFormatException error) {
+            throw new IllegalArgumentException(label + "은 숫자로 입력하세요.");
+        }
+        requireNonNegativeDiningOutMacro(parsed, label);
+        return parsed;
+    }
+
+    /** Parses a required macro value entered for a dining-out record. */
+    public static Double requireDiningOutMacro(String value, String label) {
+        Double parsed = optionalDiningOutMacro(value, label);
+        if (parsed == null) {
+            throw new IllegalArgumentException(label + "은 필수 입력입니다.");
+        }
+        return parsed;
+    }
+
+    /** Parses the optional whole-kcal estimate entered for a dining-out record. */
+    public static Integer optionalDiningOutCalories(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        final int parsed;
+        try {
+            parsed = Integer.parseInt(normalized);
+        } catch (NumberFormatException error) {
+            throw new IllegalArgumentException("칼로리는 0 이상인 정수로 입력하세요.");
+        }
+        if (parsed < 0) {
+            throw new IllegalArgumentException("칼로리는 0 이상인 정수로 입력하세요.");
+        }
+        return parsed;
+    }
+
+    /** Ensures estimates are either omitted or complete and non-negative. */
+    public static void requireDiningOutEstimatedMacros(
+            Double carbsGrams,
+            Double proteinGrams,
+            Double fatGrams
+    ) {
+        boolean hasAny = carbsGrams != null || proteinGrams != null || fatGrams != null;
+        if (!hasAny) {
+            return;
+        }
+        if (carbsGrams == null || proteinGrams == null || fatGrams == null) {
+            throw new IllegalArgumentException(
+                    "외식 추정 영양값은 탄수화물·단백질·지방을 모두 입력하세요."
+            );
+        }
+        requireNonNegativeDiningOutMacro(carbsGrams, "탄수화물");
+        requireNonNegativeDiningOutMacro(proteinGrams, "단백질");
+        requireNonNegativeDiningOutMacro(fatGrams, "지방");
+    }
+
+    public static boolean hasDiningOutEstimatedMacros(
+            Double carbsGrams,
+            Double proteinGrams,
+            Double fatGrams
+    ) {
+        return carbsGrams != null || proteinGrams != null || fatGrams != null;
+    }
+
+    /** Ensures a complete dining-out nutrition estimate is either omitted or fully present. */
+    public static void requireDiningOutEstimatedNutrition(
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams
+    ) {
+        boolean hasAny = calories != null
+                || proteinGrams != null
+                || carbsGrams != null
+                || fatGrams != null
+                || sodiumMg != null
+                || sugarsGrams != null
+                || saturatedFatGrams != null;
+        if (!hasAny) {
+            return;
+        }
+        if (calories == null || proteinGrams == null || carbsGrams == null
+                || fatGrams == null || sodiumMg == null || sugarsGrams == null
+                || saturatedFatGrams == null) {
+            throw new IllegalArgumentException(
+                    "외식 추정 영양값은 칼로리·탄수화물·단백질·지방·나트륨·당류·포화지방을 모두 입력하세요."
+            );
+        }
+        if (calories < 0) {
+            throw new IllegalArgumentException("칼로리는 0 이상인 숫자로 입력하세요.");
+        }
+        requireNonNegativeDiningOutMacro(proteinGrams, "단백질");
+        requireNonNegativeDiningOutMacro(carbsGrams, "탄수화물");
+        requireNonNegativeDiningOutMacro(fatGrams, "지방");
+        requireNonNegativeDiningOutMacro(sodiumMg, "나트륨");
+        requireNonNegativeDiningOutMacro(sugarsGrams, "당류");
+        requireNonNegativeDiningOutMacro(saturatedFatGrams, "포화지방");
+    }
+
+    public static boolean hasDiningOutEstimatedNutrition(
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams
+    ) {
+        return calories != null
+                || proteinGrams != null
+                || carbsGrams != null
+                || fatGrams != null
+                || sodiumMg != null
+                || sugarsGrams != null
+                || saturatedFatGrams != null;
+    }
+
+    /** Calculates estimated energy using the standard 4/4/9 macro conversion. */
+    public static int estimatedDiningOutCalories(
+            Double carbsGrams,
+            Double proteinGrams,
+            Double fatGrams
+    ) {
+        requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
+        if (!hasDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams)) {
+            return 0;
+        }
+        double calories = carbsGrams * 4d + proteinGrams * 4d + fatGrams * 9d;
+        if (calories > Integer.MAX_VALUE) {
+            throw new IllegalArgumentException("외식 추정 영양값이 너무 큽니다.");
+        }
+        return (int) Math.round(calories);
+    }
+
+    private static String requireDiningOutText(String value, String label) {
+        String normalized = normalizedText(value);
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(label + "을 입력하세요.");
+        }
+        return normalized;
+    }
+
+    private static void requireNonNegativeDiningOutMacro(double value, String label) {
+        if (Double.isNaN(value) || Double.isInfinite(value) || value < 0d) {
+            throw new IllegalArgumentException(label + "은 0 이상인 숫자로 입력하세요.");
+        }
+    }
+
     /** Macro energy ratio: carbohydrates 4 kcal/g, protein 4 kcal/g, fat 9 kcal/g. */
     public static String macroRatioLabel(Double carbsGrams, Double proteinGrams, Double fatGrams) {
         int[] ratios = macroRatios(carbsGrams, proteinGrams, fatGrams);
