@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 19;
+    public static final int DATABASE_VERSION = 24;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -21,12 +21,14 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         createSharedRecordTables(db);
+        createDiningOutMealIndexes(db);
         createRoutineTables(db);
         createCardioTables(db);
         createMealMenuPresetTable(db);
         createNutritionTables(db);
         createNutritionIndexes(db);
         createProductNutritionLinkTables(db);
+        createVerifiedReceiptImportTable(db);
         createAthleteNutritionTables(db);
         createDevelopmentTables(db);
         reconcileVerifiedFoodCatalog(db);
@@ -61,26 +63,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "scope TEXT NOT NULL, " +
                 "metadata TEXT NOT NULL, " +
                 "contract_version INTEGER NOT NULL DEFAULT 1)");
-        db.execSQL("CREATE TABLE IF NOT EXISTS meal_records (" +
-                "id TEXT PRIMARY KEY, " +
-                "user_id TEXT NOT NULL, " +
-                "date TEXT NOT NULL, " +
-                "menu TEXT NOT NULL, " +
-                "calories INTEGER NOT NULL, " +
-                "protein_grams REAL NOT NULL, " +
-                "carbs_grams REAL, " +
-                "fat_grams REAL, " +
-                "created_at TEXT NOT NULL, " +
-                "is_backfilled INTEGER NOT NULL, " +
-                "backfilled_at TEXT, " +
-                "backfill_reason TEXT, " +
-                "updated_at TEXT NOT NULL, " +
-                "deleted_at TEXT, " +
-                "device_id TEXT NOT NULL, " +
-                "source_app TEXT NOT NULL, " +
-                "scope TEXT NOT NULL, " +
-                "metadata TEXT NOT NULL, " +
-                "contract_version INTEGER NOT NULL DEFAULT 1)");
+        createMealRecordTable(db);
         db.execSQL("CREATE TABLE IF NOT EXISTS weight_records (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -143,6 +126,32 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX IF NOT EXISTS workout_sets_exercise_order_idx ON workout_sets(workout_exercise_id, set_index)");
         db.execSQL("CREATE INDEX IF NOT EXISTS meal_records_user_scope_date_idx ON meal_records(user_id, scope, date)");
         db.execSQL("CREATE INDEX IF NOT EXISTS weight_records_user_scope_date_idx ON weight_records(user_id, scope, date)");
+    }
+
+    private void createMealRecordTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS meal_records (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "date TEXT NOT NULL, " +
+                "menu TEXT NOT NULL, " +
+                "meal_kind TEXT NOT NULL DEFAULT 'food', " +
+                "store_name TEXT, " +
+                "menu_name TEXT, " +
+                "calories INTEGER NOT NULL, " +
+                "protein_grams REAL NOT NULL, " +
+                "carbs_grams REAL, " +
+                "fat_grams REAL, " +
+                "created_at TEXT NOT NULL, " +
+                "is_backfilled INTEGER NOT NULL, " +
+                "backfilled_at TEXT, " +
+                "backfill_reason TEXT, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, " +
+                "source_app TEXT NOT NULL, " +
+                "scope TEXT NOT NULL, " +
+                "metadata TEXT NOT NULL, " +
+                "contract_version INTEGER NOT NULL DEFAULT 1)");
     }
 
     private void createRoutineTables(SQLiteDatabase db) {
@@ -433,6 +442,10 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "source_type TEXT NOT NULL, " +
                 "proposal_reference TEXT, " +
                 "product_contract_version TEXT NOT NULL DEFAULT 'product-read.v1', " +
+                "catalog_product_revision TEXT, " +
+                "catalog_content_amount REAL, " +
+                "catalog_content_unit TEXT, " +
+                "catalog_package_count INTEGER, " +
                 "revision INTEGER NOT NULL DEFAULT 1, " +
                 "reviewed_at TEXT, " +
                 "created_at TEXT NOT NULL, " +
@@ -458,6 +471,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "content_amount REAL, " +
                 "content_unit TEXT, " +
                 "package_count INTEGER, " +
+                "catalog_product_revision TEXT, " +
                 "contract_version TEXT NOT NULL, " +
                 "fetched_at TEXT NOT NULL, " +
                 "CHECK ((latest_price_krw IS NULL AND price_observed_at IS NULL) " +
@@ -657,6 +671,65 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 19) {
             reconcileVerifiedFoodCatalog(db);
         }
+        if (oldVersion < 20) {
+            upgradeDiningOutMealRecords(db);
+        }
+        if (oldVersion < 21) {
+            upgradeProductNutritionLinkPriceTraceMetadata(db);
+        }
+        if (oldVersion < 22) {
+            createVerifiedReceiptImportTable(db);
+        }
+        if (oldVersion < 24) {
+            reconcileVerifiedFoodCatalog(db);
+        }
+    }
+
+    /** Adds explicit dining-out identity while keeping the shared metadata contract intact. */
+    private void upgradeDiningOutMealRecords(SQLiteDatabase db) {
+        if (!tableExists(db, "meal_records")) {
+            createMealRecordTable(db);
+        }
+        addColumnIfMissing(db, "meal_records", "meal_kind", "TEXT NOT NULL DEFAULT 'food'");
+        addColumnIfMissing(db, "meal_records", "store_name", "TEXT");
+        addColumnIfMissing(db, "meal_records", "menu_name", "TEXT");
+        createDiningOutMealIndexes(db);
+    }
+
+    private void upgradeProductNutritionLinkPriceTraceMetadata(SQLiteDatabase db) {
+        addColumnIfMissing(db, "product_nutrition_links", "catalog_product_revision", "TEXT");
+        addColumnIfMissing(db, "product_nutrition_links", "catalog_content_amount", "REAL");
+        addColumnIfMissing(db, "product_nutrition_links", "catalog_content_unit", "TEXT");
+        addColumnIfMissing(db, "product_nutrition_links", "catalog_package_count", "INTEGER");
+        addColumnIfMissing(db, "pricetrace_product_cache", "catalog_product_revision", "TEXT");
+    }
+
+    private void createDiningOutMealIndexes(SQLiteDatabase db) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_records_user_kind_date_idx " +
+                "ON meal_records(user_id, meal_kind, date)");
+    }
+
+    /** Purchase evidence stays separate from meal_records until the user confirms consumption. */
+    private void createVerifiedReceiptImportTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS verified_receipt_items (" +
+                "receipt_id TEXT NOT NULL, " +
+                "receipt_item_id TEXT NOT NULL, " +
+                "ledger_entry_id TEXT NOT NULL, " +
+                "user_id TEXT NOT NULL, " +
+                "description_snapshot TEXT NOT NULL, " +
+                "purchased_quantity REAL NOT NULL, " +
+                "unit TEXT NOT NULL, " +
+                "total_price_krw INTEGER NOT NULL, " +
+                "catalog_product_id TEXT, " +
+                "nutrition_food_id TEXT, " +
+                "status TEXT NOT NULL DEFAULT 'pending_consumption', " +
+                "consumed_quantity REAL, " +
+                "meal_record_id TEXT, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "PRIMARY KEY(receipt_id, receipt_item_id))");
+        db.execSQL("CREATE INDEX IF NOT EXISTS verified_receipt_items_user_status_idx " +
+                "ON verified_receipt_items(user_id, status, created_at)");
     }
 
     /** Adds explicit ownership to device-local tables and removes the global preset-name key. */

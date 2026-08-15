@@ -90,15 +90,16 @@ $grilledCodes = @(
     # Plain grilled fish flesh
     'R211-201174050-0000',
     'R211-059074050-0000',
-    'R211-021014050-7300'
+    'R211-021014050-7300',
+    'R211-117014050-0000'
 )
 
 $selectedCodes = @($rawCodes + $grilledCodes)
 
-if ($rawCodes.Count -ne 51 -or $grilledCodes.Count -ne 3 -or
-        $selectedCodes.Count -ne 54 -or
-        ($selectedCodes | Sort-Object -Unique).Count -ne 54) {
-    throw 'The verified catalog selection must contain 51 raw and 3 grilled unique codes.'
+if ($rawCodes.Count -ne 51 -or $grilledCodes.Count -ne 4 -or
+        $selectedCodes.Count -ne 55 -or
+        ($selectedCodes | Sort-Object -Unique).Count -ne 55) {
+    throw 'The verified catalog selection must contain 51 raw and 4 grilled unique codes.'
 }
 
 $rowsByCode = @{}
@@ -117,6 +118,7 @@ $allowedMissingColumns = @{
     'R211-059074050-0000' = @('SUGAR')
     'R211-021014001-1208' = @('NAT', 'FASAT')
     'R211-021014050-7300' = @('SUGAR')
+    'R211-117014050-0000' = @('SUGAR')
 }
 
 function Convert-OfficialNumber {
@@ -217,4 +219,4 @@ $json = $asset | ConvertTo-Json -Depth 8 -Compress
 $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($resolvedOutput, $json, $utf8WithoutBom)
 
-Write-Output "Generated $($foods.Count) verified foods (51 raw, 3 grilled) at $resolvedOutput"
+Write-Output "Generated $($foods.Count) verified foods (51 raw, 4 grilled) at $resolvedOutput"

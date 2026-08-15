@@ -72,6 +72,18 @@ public final class MealEntryPolicyTest {
     }
 
     @Test
+    public void diningOutKeepsStoreAndMenuDistinctAndRequiresBoth() {
+        assertEquals("강남식당 · 제육볶음",
+                MealEntryPolicy.previewDiningOutTitle("강남식당", "제육볶음"));
+        assertEquals("강남식당", MealEntryPolicy.requireDiningOutStoreName(" 강남식당 "));
+        assertEquals("제육볶음", MealEntryPolicy.requireDiningOutMenuName(" 제육볶음 "));
+        assertThrows(IllegalArgumentException.class,
+                () -> MealEntryPolicy.requireDiningOutStoreName("   "));
+        assertThrows(IllegalArgumentException.class,
+                () -> MealEntryPolicy.requireDiningOutMenuName(""));
+    }
+
+    @Test
     public void macroRatioUsesEnergyAndAlwaysTotalsOneHundredPercent() {
         assertEquals("탄 50% · 단 25% · 지 25%",
                 MealEntryPolicy.macroRatioLabel(50d, 25d, 11.111111d));
@@ -81,5 +93,78 @@ public final class MealEntryPolicyTest {
                 MealEntryPolicy.macroRatioLabel(0d, 0d, 0d));
         assertEquals("탄·단·지 비율 없음",
                 MealEntryPolicy.macroRatioLabel(null, 10d, 5d));
+    }
+
+    @Test
+    public void diningOutMacroEstimatesAreOptionalButCompleteWhenPresent() {
+        assertEquals(Double.valueOf(70d),
+                MealEntryPolicy.optionalDiningOutMacro(" 70 ", "탄수화물"));
+        assertEquals(620,
+                MealEntryPolicy.estimatedDiningOutCalories(70d, 40d, 20d));
+        assertTrue(MealEntryPolicy.hasDiningOutEstimatedMacros(70d, 40d, 20d));
+        assertFalse(MealEntryPolicy.hasDiningOutEstimatedMacros(null, null, null));
+        assertEquals(0, MealEntryPolicy.estimatedDiningOutCalories(null, null, null));
+    }
+
+    @Test
+    public void diningOutRecordRequiresOnlyTheThreeMacros() {
+        assertEquals(Double.valueOf(70d),
+                MealEntryPolicy.requireDiningOutMacro(" 70 ", "탄수화물"));
+        assertEquals(Double.valueOf(40d),
+                MealEntryPolicy.requireDiningOutMacro("40", "단백질"));
+        assertEquals(Double.valueOf(20d),
+                MealEntryPolicy.requireDiningOutMacro("20", "지방"));
+        assertThrows(IllegalArgumentException.class,
+                () -> MealEntryPolicy.requireDiningOutMacro("", "지방"));
+    }
+
+    @Test
+    public void diningOutMacroEstimatesRejectPartialOrInvalidValues() {
+        assertThrows(IllegalArgumentException.class,
+                () -> MealEntryPolicy.requireDiningOutEstimatedMacros(70d, 40d, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> MealEntryPolicy.optionalDiningOutMacro("-1", "지방"));
+        assertThrows(IllegalArgumentException.class,
+                () -> MealEntryPolicy.optionalDiningOutMacro("not-a-number", "단백질"));
+    }
+
+    @Test
+    public void diningOutCompleteNutritionRequiresCaloriesAndAllExtendedNutrients() {
+        assertEquals(Integer.valueOf(620),
+                MealEntryPolicy.optionalDiningOutCalories("620"));
+        MealEntryPolicy.requireDiningOutEstimatedNutrition(
+                620,
+                40d,
+                70d,
+                20d,
+                900d,
+                12d,
+                8d
+        );
+        assertTrue(MealEntryPolicy.hasDiningOutEstimatedNutrition(
+                620,
+                40d,
+                70d,
+                20d,
+                900d,
+                12d,
+                8d
+        ));
+    }
+
+    @Test
+    public void diningOutCompleteNutritionRejectsPartialValues() {
+        assertThrows(IllegalArgumentException.class, () ->
+                MealEntryPolicy.requireDiningOutEstimatedNutrition(
+                        620,
+                        40d,
+                        70d,
+                        20d,
+                        900d,
+                        null,
+                        8d
+                ));
+        assertThrows(IllegalArgumentException.class,
+                () -> MealEntryPolicy.optionalDiningOutCalories("620.5"));
     }
 }

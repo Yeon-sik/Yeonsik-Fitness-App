@@ -30,17 +30,21 @@ public final class VerifiedFoodCatalogSeedTest {
     private static final String GRILLED_SALMON_ID = "kfind:R211-201174050-0000";
     private static final String GRILLED_TUNA_ID = "kfind:R211-059074050-0000";
     private static final String GRILLED_MACKEREL_ID = "kfind:R211-021014050-7300";
+    private static final String GRILLED_CROAKER_ID = "kfind:R211-117014050-0000";
+    private static final String WHITE_RICE_ID = "kfind:USER-RICE-백미밥";
+    private static final String MIXED_RICE_ID = "kfind:USER-RICE-일반-잡곡밥";
     private static final String[] SEAFOOD_IDS = {
             RAW_SALMON_ID,
             RAW_TUNA_ID,
             RAW_MACKEREL_ID,
             GRILLED_SALMON_ID,
             GRILLED_TUNA_ID,
-            GRILLED_MACKEREL_ID
+            GRILLED_MACKEREL_ID,
+            GRILLED_CROAKER_ID
     };
     private static final int EXPECTED_RAW_COUNT = 51;
-    private static final int EXPECTED_GRILLED_COUNT = 3;
-    private static final int EXPECTED_SEAFOOD_COUNT = 6;
+    private static final int EXPECTED_GRILLED_COUNT = 4;
+    private static final int EXPECTED_SEAFOOD_COUNT = 7;
 
     @Test
     public void freshDatabaseSeedsExactly54VerifiedFoodsWithCompleteProvenance() {
@@ -70,7 +74,7 @@ public final class VerifiedFoodCatalogSeedTest {
             assertEquals(0, countInvalidBasis(database));
             assertEquals(0, countInvalidOwnership(database));
             assertEquals(1, countMissingRequiredExceptSugars(database));
-            assertEquals(5, countMissingSugars(database));
+            assertEquals(6, countMissingSugars(database));
             assertEquals(EXPECTED_SEAFOOD_COUNT, countMissingRequiredSeven(database));
             assertEquals(0, countIncompleteFoodsOutsideSeafood(database));
             assertEquals(0, countInvalidSourceReferences(database));
@@ -182,6 +186,19 @@ public final class VerifiedFoodCatalogSeedTest {
                     5.87,
                     null
             );
+            assertSeafoodMacros(
+                    database,
+                    GRILLED_CROAKER_ID,
+                    111.0,
+                    23.4,
+                    0.0,
+                    0.8,
+                    NutritionFood.PREP_COOKED,
+                    NutritionFood.COOKING_METHOD_GRILLED,
+                    140.0,
+                    0.18,
+                    null
+            );
 
             assertMicronutrient(
                     database,
@@ -196,6 +213,63 @@ public final class VerifiedFoodCatalogSeedTest {
                     NutrientCode.VITAMIN_C,
                     29.17,
                     NutrientCode.UNIT_MG
+            );
+        } finally {
+            if (helper != null) {
+                helper.close();
+            }
+            isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void freshDatabaseSeedsImageBasedCookedRiceRowsWithChartMacros() {
+        Context isolatedContext = isolatedContext();
+        FitnessDatabaseHelper helper = null;
+        try {
+            helper = new FitnessDatabaseHelper(isolatedContext);
+            SQLiteDatabase database = helper.getWritableDatabase();
+
+            assertEquals(
+                    VerifiedFoodCatalogSeed.RICE_EXPECTED_COUNT,
+                    scalarInt(
+                            database,
+                            "SELECT COUNT(*) FROM nutrition_foods " +
+                                    "WHERE source_type = ? AND deleted_at IS NULL",
+                            VerifiedFoodCatalogSeed.RICE_SOURCE_TYPE
+                    )
+            );
+            assertFoodMacros(
+                    database,
+                    WHITE_RICE_ID,
+                    146.0,
+                    2.65,
+                    31.7,
+                    0.33,
+                    NutritionFood.PREP_COOKED,
+                    NutritionFood.COOKING_METHOD_OTHER
+            );
+            assertFoodMacros(
+                    database,
+                    MIXED_RICE_ID,
+                    157.5,
+                    4.0,
+                    34.0,
+                    1.0,
+                    NutritionFood.PREP_COOKED,
+                    NutritionFood.COOKING_METHOD_OTHER
+            );
+            assertEquals(
+                    1,
+                    scalarInt(
+                            database,
+                            "SELECT COUNT(*) FROM nutrition_foods " +
+                                    "WHERE source_type = ? AND source_reference = ? " +
+                                    "AND source_version = ? AND fiber_grams = 0.9",
+                            VerifiedFoodCatalogSeed.RICE_SOURCE_TYPE,
+                            VerifiedFoodCatalogSeed.RICE_SOURCE_REFERENCE,
+                            VerifiedFoodCatalogSeed.RICE_SOURCE_VERSION
+                    )
             );
         } finally {
             if (helper != null) {
@@ -239,7 +313,7 @@ public final class VerifiedFoodCatalogSeedTest {
             assertTrue(tableExists(database, "development_goals"));
             assertEquals(VerifiedFoodCatalogSeed.EXPECTED_COUNT, countOfficialFoods(database));
             assertEquals(EXPECTED_SEAFOOD_COUNT, countSeafood(database));
-            assertEquals(5, countMissingSugars(database));
+            assertEquals(6, countMissingSugars(database));
             assertEquals(1, countMissingRequiredExceptSugars(database));
             assertEquals(EXPECTED_SEAFOOD_COUNT, countMissingRequiredSeven(database));
             assertEquals(
@@ -335,7 +409,7 @@ public final class VerifiedFoodCatalogSeedTest {
             assertEquals(FitnessDatabaseHelper.DATABASE_VERSION, database.getVersion());
             assertEquals(VerifiedFoodCatalogSeed.EXPECTED_COUNT, countOfficialFoods(database));
             assertEquals(1, countMissingRequiredExceptSugars(database));
-            assertEquals(5, countMissingSugars(database));
+            assertEquals(6, countMissingSugars(database));
             assertEquals(EXPECTED_SEAFOOD_COUNT, countMissingRequiredSeven(database));
             assertEquals(0, countInvalidSourceReferences(database));
             assertEquals(0, countInvalidPreparation(database));

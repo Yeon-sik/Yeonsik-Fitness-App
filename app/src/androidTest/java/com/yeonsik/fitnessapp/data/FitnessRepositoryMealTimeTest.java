@@ -86,6 +86,227 @@ public final class FitnessRepositoryMealTimeTest {
     }
 
     @Test
+    public void diningOutStoresStoreAndMenuSeparatelyWithoutFoodSnapshotRows() throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String date = LocalDate.now().minusDays(1).toString();
+            String recordId = repository.addDiningOutMealAtTime(
+                    date,
+                    "19:20",
+                    "강남식당",
+                    "제육볶음"
+            );
+
+            FitnessRepository.MealEntry entry = repository.mealEntriesForDate(date).get(0);
+            assertEquals(recordId, entry.id);
+            assertTrue(entry.isDiningOut());
+            assertEquals("강남식당", entry.storeName);
+            assertEquals("제육볶음", entry.menuName);
+            assertEquals("강남식당 · 제육볶음", entry.previewTitle);
+            assertEquals("19:20 · 외식 · 영양 미입력", entry.previewSubtitle());
+            assertEquals(0, entry.compositionCount);
+            assertEquals("dining_out", scalar(helper.getReadableDatabase(),
+                    "SELECT meal_kind FROM meal_records WHERE id = '" + recordId + "'"));
+            assertEquals("강남식당", scalar(helper.getReadableDatabase(),
+                    "SELECT store_name FROM meal_records WHERE id = '" + recordId + "'"));
+            assertEquals("제육볶음", scalar(helper.getReadableDatabase(),
+                    "SELECT menu_name FROM meal_records WHERE id = '" + recordId + "'"));
+            assertEquals("0", scalar(helper.getReadableDatabase(),
+                    "SELECT COUNT(*) FROM meal_record_items WHERE meal_record_id = '" + recordId + "'"));
+            assertEquals("dining_out", metadata(helper.getReadableDatabase(), recordId)
+                    .getString("meal_kind"));
+            assertEquals("강남식당", metadata(helper.getReadableDatabase(), recordId)
+                    .getString("store_name"));
+            assertEquals("제육볶음", metadata(helper.getReadableDatabase(), recordId)
+                    .getString("menu_name"));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void diningOutStoresUserEstimatedMacrosAndCalculatedCalories() throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String date = LocalDate.now().minusDays(1).toString();
+            String recordId = repository.addDiningOutMealAtTime(
+                    date,
+                    "19:20",
+                    "강남식당",
+                    "제육볶음",
+                    70d,
+                    40d,
+                    20d
+            );
+
+            FitnessRepository.MealEntry entry = repository.mealEntriesForDate(date).get(0);
+            assertEquals(recordId, entry.id);
+            assertTrue(entry.hasEstimatedNutrition());
+            assertEquals(70d, entry.carbsGrams, 0.001d);
+            assertEquals(40d, entry.proteinGrams, 0.001d);
+            assertEquals(20d, entry.fatGrams, 0.001d);
+            assertEquals(620, entry.calories);
+            assertEquals("19:20 · 외식 · 영양 추정", entry.previewSubtitle());
+            assertEquals(620d, repository.mealNutritionForDate(date).calories, 0.001d);
+
+            JSONObject metadata = metadata(helper.getReadableDatabase(), recordId);
+            assertEquals("estimated", metadata.getString("nutrition_status"));
+            assertEquals("manual_estimate", metadata.getString("nutrition_source"));
+            assertTrue(metadata.getBoolean("estimated"));
+            assertEquals("0", scalar(helper.getReadableDatabase(),
+                    "SELECT COUNT(*) FROM meal_record_items WHERE meal_record_id = '" + recordId + "'"));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void savedDiningOutMenuIsCatalogedAndSnapshottedIntoTheMeal() throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            NutritionCatalogRepository catalog = new NutritionCatalogRepository(
+                    helper,
+                    USER_ID,
+                    com.yeonsik.fitnessapp.config.SupabaseConfig.empty()
+            );
+            NutritionFood savedMenu = catalog.saveDiningOutMenu(
+                    "강남식당",
+                    "제육볶음",
+                    70d,
+                    40d,
+                    20d
+            );
+            String date = LocalDate.now().minusDays(1).toString();
+            String recordId = repository.addDiningOutMealAtTime(
+                    date,
+                    "19:20",
+                    "강남식당",
+                    "제육볶음",
+                    70d,
+                    40d,
+                    20d,
+                    MealCompositionItem.from(savedMenu, savedMenu.basisAmount)
+            );
+
+            SQLiteDatabase database = helper.getReadableDatabase();
+            assertEquals("1", scalar(database,
+                    "SELECT COUNT(*) FROM nutrition_foods WHERE id = '" + savedMenu.id + "'"));
+            assertEquals("강남식당", scalar(database,
+                    "SELECT brand FROM nutrition_foods WHERE id = '" + savedMenu.id + "'"));
+            assertEquals("external_menu", scalar(database,
+                    "SELECT kind FROM nutrition_foods WHERE id = '" + savedMenu.id + "'"));
+            assertEquals("manual_estimate", scalar(database,
+                    "SELECT source_type FROM nutrition_foods WHERE id = '" + savedMenu.id + "'"));
+            assertEquals("1", scalar(database,
+                    "SELECT COUNT(*) FROM meal_record_items WHERE meal_record_id = '" + recordId + "'"));
+            assertEquals(savedMenu.id, scalar(database,
+                    "SELECT food_id FROM meal_record_items WHERE meal_record_id = '" + recordId + "'"));
+            assertEquals("제육볶음", scalar(database,
+                    "SELECT food_name_snapshot FROM meal_record_items WHERE meal_record_id = '" + recordId + "'"));
+            assertEquals("1", metadata(database, recordId).getString("item_count"));
+            assertEquals(1, repository.mealItemsForRecord(recordId).size());
+            assertEquals(1, repository.mealEntriesForDate(date).get(0).compositionCount);
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void completeDiningOutNutritionIsStoredInCatalogAndMealSnapshot() throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            NutritionCatalogRepository catalog = new NutritionCatalogRepository(
+                    helper,
+                    USER_ID,
+                    com.yeonsik.fitnessapp.config.SupabaseConfig.empty()
+            );
+            NutritionFood savedMenu = catalog.saveDiningOutMenuWithNutrition(
+                    "강남식당",
+                    "제육볶음",
+                    620,
+                    40d,
+                    70d,
+                    20d,
+                    900d,
+                    12d,
+                    8d
+            );
+            String date = LocalDate.now().minusDays(1).toString();
+            String recordId = repository.addDiningOutMealAtTimeWithNutrition(
+                    date,
+                    "19:20",
+                    "강남식당",
+                    "제육볶음",
+                    620,
+                    40d,
+                    70d,
+                    20d,
+                    900d,
+                    12d,
+                    8d,
+                    MealCompositionItem.from(savedMenu, savedMenu.basisAmount)
+            );
+
+            SQLiteDatabase database = helper.getReadableDatabase();
+            assertEquals(620d, Double.parseDouble(scalar(database,
+                    "SELECT calories_kcal FROM nutrition_foods WHERE id = '" + savedMenu.id + "'")),
+                    0.001d);
+            assertEquals(900d, Double.parseDouble(scalar(database,
+                    "SELECT sodium_mg FROM nutrition_foods WHERE id = '" + savedMenu.id + "'")),
+                    0.001d);
+            assertEquals(12d, Double.parseDouble(scalar(database,
+                    "SELECT sugars_grams FROM nutrition_foods WHERE id = '" + savedMenu.id + "'")),
+                    0.001d);
+            assertEquals(8d, Double.parseDouble(scalar(database,
+                    "SELECT saturated_fat_grams FROM nutrition_foods WHERE id = '" + savedMenu.id + "'")),
+                    0.001d);
+            assertEquals(620d, Double.parseDouble(scalar(database,
+                    "SELECT calories FROM meal_record_items WHERE meal_record_id = '" + recordId + "'")),
+                    0.001d);
+            assertEquals(900d, Double.parseDouble(scalar(database,
+                    "SELECT sodium_mg FROM meal_record_items WHERE meal_record_id = '" + recordId + "'")),
+                    0.001d);
+            assertEquals(12d, Double.parseDouble(scalar(database,
+                    "SELECT sugars_grams FROM meal_record_items WHERE meal_record_id = '" + recordId + "'")),
+                    0.001d);
+            assertEquals(8d, Double.parseDouble(scalar(database,
+                    "SELECT saturated_fat_grams FROM meal_record_items WHERE meal_record_id = '" + recordId + "'")),
+                    0.001d);
+
+            NutritionTotals totals = repository.mealNutritionTotalsForDate(date);
+            assertEquals(900d, totals.total(NutritionProfile.SODIUM_MG).knownSum(), 0.001d);
+            assertEquals(12d, totals.total(NutritionProfile.SUGARS_GRAMS).knownSum(), 0.001d);
+            assertEquals(8d, totals.total(NutritionProfile.SATURATED_FAT_GRAMS).knownSum(), 0.001d);
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
     public void timeEditIsRejectedForRowsOwnedByAnotherDevice() {
         IsolatedDatabaseContext context = new IsolatedDatabaseContext(
                 ApplicationProvider.getApplicationContext()

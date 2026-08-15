@@ -38,9 +38,10 @@ public final class SupabaseSyncManager {
             "workout_records",
             "workout_exercises",
             "workout_sets",
+            // The shared Personal OS project currently owns the legacy meal summary only.
+            // Detailed meal snapshots remain local until their separately-owned remote
+            // contract is deployed; requesting those tables makes every sync fail with 404.
             "meal_records",
-            "meal_record_items",
-            "meal_record_item_nutrients",
             "weight_records"
     );
 
@@ -254,6 +255,9 @@ public final class SupabaseSyncManager {
                     }
                     Object value = object.get(name);
                     putJsonValue(values, name, value);
+                    if ("meal_records".equals(table) && "metadata".equals(name)) {
+                        applyMealRecordMetadataColumns(values, value);
+                    }
                 }
 
                 database.insertWithOnConflict(table, null, values, SQLiteDatabase.CONFLICT_REPLACE);
@@ -368,7 +372,48 @@ public final class SupabaseSyncManager {
      * snapshot fields out of its payload until that separately managed contract is migrated.
      */
     static boolean shouldSyncColumn(String table, String column) {
-        return !("meal_record_items".equals(table) && "brand_snapshot".equals(column));
+        // The deployed shared project still exposes the pre-contract-version schema.
+        // Keep this local migration marker out of every REST payload until that remote
+        // contract is actually deployed.
+        if ("contract_version".equals(column)) {
+            return false;
+        }
+        if ("meal_record_items".equals(table) && "brand_snapshot".equals(column)) {
+            return false;
+        }
+        // The shared Personal OS schema still owns only the legacy meal columns. These
+        // denormalized local columns are mirrored in metadata until that shared contract grows.
+        return !("meal_records".equals(table)
+                && ("meal_kind".equals(column)
+                || "store_name".equals(column)
+                || "menu_name".equals(column)));
+    }
+
+    private static void applyMealRecordMetadataColumns(ContentValues values, Object rawMetadata) {
+        if (rawMetadata == null || rawMetadata == JSONObject.NULL) {
+            return;
+        }
+        try {
+            JSONObject metadata = rawMetadata instanceof JSONObject
+                    ? (JSONObject) rawMetadata
+                    : new JSONObject(String.valueOf(rawMetadata));
+            putOptionalMetadataValue(values, "meal_kind", metadata.optString("meal_kind", ""));
+            putOptionalMetadataValue(values, "store_name", metadata.optString("store_name", ""));
+            putOptionalMetadataValue(values, "menu_name", metadata.optString("menu_name", ""));
+        } catch (JSONException ignored) {
+            // Keep the legacy row usable if an older client stored non-JSON metadata.
+        }
+    }
+
+    private static void putOptionalMetadataValue(
+            ContentValues values,
+            String column,
+            String value
+    ) {
+        if (value == null || value.trim().isEmpty()) {
+            return;
+        }
+        values.put(column, value.trim());
     }
 
     static int compareVersions(String left, String right) {

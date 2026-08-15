@@ -167,11 +167,8 @@ public final class MealDialogController {
                 return;
             }
             for (NutritionFood food : foods) {
-                String notice = food.missingRequiredNotice();
                 Button result = ui.button(
-                        food.name + " · " + food.basisLabel() + " 기준\n"
-                                + food.extendedNutritionLabel()
-                                + (notice == null ? "" : "\n" + notice),
+                        NutritionFood.kindLabel(food.kind) + " · " + food.name,
                         false,
                         null
                 );

@@ -19,6 +19,10 @@ public final class ProductNutritionLink {
     public final String proposalReference;
     public final int revision;
     public final String reviewedAt;
+    public final String catalogProductRevision;
+    public final Double catalogContentAmount;
+    public final String catalogContentUnit;
+    public final Integer catalogPackageCount;
     public final ProductReadV1 product;
 
     public ProductNutritionLink(
@@ -32,6 +36,10 @@ public final class ProductNutritionLink {
             String proposalReference,
             int revision,
             String reviewedAt,
+            String catalogProductRevision,
+            Double catalogContentAmount,
+            String catalogContentUnit,
+            Integer catalogPackageCount,
             ProductReadV1 product
     ) {
         this.id = id;
@@ -44,6 +52,10 @@ public final class ProductNutritionLink {
         this.proposalReference = proposalReference;
         this.revision = Math.max(1, revision);
         this.reviewedAt = reviewedAt;
+        this.catalogProductRevision = catalogProductRevision;
+        this.catalogContentAmount = catalogContentAmount;
+        this.catalogContentUnit = catalogContentUnit;
+        this.catalogPackageCount = catalogPackageCount;
         this.product = product;
     }
 

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "basis_amount": 100,
+  "basis_unit": "g",
+  "source_type": "user_reference_image",
+  "source_reference": "user-provided:image-rice-nutrition-chart",
+  "source_version": "2026-08-15",
+  "foods": [
+    {"code": "USER-RICE-백미밥", "name": "백미밥", "calories_kcal": 146, "protein_grams": 2.65, "carbs_grams": 31.7, "fat_grams": 0.33, "fiber_grams": 0.9},
+    {"code": "USER-RICE-현미밥", "name": "현미밥", "calories_kcal": 172, "protein_grams": 3.1, "carbs_grams": 38.9, "fat_grams": 0.47, "fiber_grams": 2.0},
+    {"code": "USER-RICE-보리밥", "name": "보리밥", "calories_kcal": 161, "protein_grams": 2.9, "carbs_grams": 36.8, "fat_grams": 0.24, "fiber_grams": 2.4},
+    {"code": "USER-RICE-흑미밥", "name": "흑미밥", "calories_kcal": 155, "protein_grams": 3.25, "carbs_grams": 33.5, "fat_grams": 0.75, "fiber_grams": 1.5, "range_note": "약 150~160 kcal · 탄수화물 32~35g · 단백질 3.0~3.5g · 지방 0.5~1.0g · 식이섬유 1~2g"},
+    {"code": "USER-RICE-일반-잡곡밥", "name": "일반 잡곡밥", "calories_kcal": 157.5, "protein_grams": 4.0, "carbs_grams": 34.0, "fat_grams": 1.0, "fiber_grams": 2.25, "range_note": "약 150~165 kcal · 탄수화물 32~36g · 단백질 3.5~4.5g · 지방 0.5~1.5g · 식이섬유 1.5~3g"},
+    {"code": "USER-RICE-콩-많이-넣은-잡곡밥", "name": "콩 많이 넣은 잡곡밥", "calories_kcal": 165, "protein_grams": 5.5, "carbs_grams": 31.5, "fat_grams": 2.0, "fiber_grams": 3.5, "range_note": "약 150~180 kcal · 탄수화물 28~35g · 단백질 4~7g · 지방 1~3g · 식이섬유 2~5g"}
+  ]
+}

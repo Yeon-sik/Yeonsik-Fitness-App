@@ -2122,6 +2122,26 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    public void loadPublicProductNutrition(
+            String catalogProductId,
+            PublicNutritionCallback callback
+    ) {
+        executor.execute(() -> {
+            try {
+                NutritionCatalogRepository.PublicProductNutrition nutrition =
+                        nutritionCatalogRepository.fetchPublicProductNutrition(catalogProductId);
+                if (callback != null) {
+                    callback.onComplete(nutrition);
+                }
+            } catch (Exception error) {
+                if (callback != null) {
+                    callback.onError(error);
+                }
+            }
+        });
+    }
+
+    @Override
     public void syncNutritionCatalog(NutritionCatalogRepository.SyncCallback callback) {
         executor.execute(() -> {
             try {

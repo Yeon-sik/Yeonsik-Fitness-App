@@ -23,6 +23,14 @@ public final class ProductNutritionLinkContractTest {
                 .contains("standard_product_id"));
         assertTrue(Arrays.asList(NutritionCatalogRepository.PRODUCT_LINK_SYNC_COLUMNS)
                 .contains("product_contract_version"));
+        assertTrue(Arrays.asList(NutritionCatalogRepository.PRODUCT_LINK_SYNC_COLUMNS)
+                .contains("catalog_product_revision"));
+        assertTrue(Arrays.asList(NutritionCatalogRepository.PRODUCT_LINK_SYNC_COLUMNS)
+                .contains("catalog_content_amount"));
+        assertTrue(Arrays.asList(NutritionCatalogRepository.PRODUCT_LINK_SYNC_COLUMNS)
+                .contains("catalog_content_unit"));
+        assertTrue(Arrays.asList(NutritionCatalogRepository.PRODUCT_LINK_SYNC_COLUMNS)
+                .contains("catalog_package_count"));
         assertFalse(Arrays.asList(NutritionCatalogRepository.PRODUCT_LINK_SYNC_COLUMNS)
                 .contains("latest_price_krw"));
     }
@@ -63,6 +71,20 @@ public final class ProductNutritionLinkContractTest {
         assertTrue(sql.contains("approved.standard_product_id"));
     }
 
+    @Test
+    public void pricetraceMetadataMigrationKeepsExactRevisionAndSpecification() throws Exception {
+        String sql = new String(Files.readAllBytes(findPriceTraceMetadataMigration()), StandardCharsets.UTF_8);
+
+        assertTrue(sql.contains("catalog_product_revision text"));
+        assertTrue(sql.contains("catalog_content_amount numeric"));
+        assertTrue(sql.contains("catalog_content_unit text"));
+        assertTrue(sql.contains("catalog_package_count integer"));
+        assertTrue(sql.contains("^sha256:[0-9a-f]{64}$"));
+        assertTrue(sql.contains("catalog_content_unit in ('g', 'ml', 'each')"));
+        assertTrue(sql.contains("get_public_product_nutrition_v1"));
+        assertTrue(sql.contains("link.catalog_product_revision"));
+    }
+
     private static Path findMigration() {
         Path fromRoot = Paths.get(
                 "supabase", "nutrition", "supabase", "migrations",
@@ -92,6 +114,22 @@ public final class ProductNutritionLinkContractTest {
             return fromModule;
         }
         throw new IllegalStateException("Nutrition identity migration not found from "
+                + Paths.get("").toAbsolutePath());
+    }
+
+    private static Path findPriceTraceMetadataMigration() {
+        Path fromRoot = Paths.get(
+                "supabase", "nutrition", "supabase", "migrations",
+                "20260814100000_product_nutrition_link_pricetrace_metadata.sql"
+        );
+        if (Files.exists(fromRoot)) {
+            return fromRoot;
+        }
+        Path fromModule = Paths.get("..", fromRoot.toString()).normalize();
+        if (Files.exists(fromModule)) {
+            return fromModule;
+        }
+        throw new IllegalStateException("PriceTrace metadata migration not found from "
                 + Paths.get("").toAbsolutePath());
     }
 }
