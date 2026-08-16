@@ -562,11 +562,119 @@ public final class NutritionCatalogRepository {
         );
     }
 
+    /** Saves one menu option as a separate reusable Nutrition catalog row. */
+    public NutritionFood saveDiningOutOption(
+            String storeName,
+            String menuName,
+            DiningOutOption option
+    ) {
+        return saveDiningOutOption(storeName, menuName, null, option);
+    }
+
+    /** Saves one option while retaining the exact restaurant -> location -> menu identity. */
+    public NutritionFood saveDiningOutOption(
+            String storeName,
+            String menuName,
+            DiningOutIdentity identity,
+            DiningOutOption option
+    ) {
+        String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
+        String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
+        if (option == null || !option.hasNutrition() || !option.hasCompleteMacros()) {
+            throw new IllegalArgumentException(
+                    "옵션 영양성분은 칼로리와 탄수화물·단백질·지방을 모두 입력해야 합니다."
+            );
+        }
+        Double protein = option.profile.value(NutritionProfile.PROTEIN_GRAMS);
+        Double carbs = option.profile.value(NutritionProfile.CARBS_GRAMS);
+        Double fat = option.profile.value(NutritionProfile.FAT_GRAMS);
+        MealEntryPolicy.requireDiningOutEstimatedMacros(carbs, protein, fat);
+        double calories = option.profile.isKnown(NutritionProfile.CALORIES_KCAL)
+                ? option.profile.calories()
+                : MealEntryPolicy.estimatedDiningOutCalories(carbs, protein, fat);
+        NutritionProfile profile = NutritionProfile.builder()
+                .value(NutritionProfile.CALORIES_KCAL, calories)
+                .value(NutritionProfile.PROTEIN_GRAMS, protein)
+                .value(NutritionProfile.CARBS_GRAMS, carbs)
+                .value(NutritionProfile.FAT_GRAMS, fat)
+                .build();
+        return saveDiningOutOptionCatalogRow(
+                normalizedStoreName,
+                normalizedMenuName,
+                option.name,
+                profile,
+                diningOutOptionSourceReference(normalizedStoreName, normalizedMenuName, identity)
+        );
+    }
+
+    private String diningOutOptionSourceReference(
+            String storeName,
+            String menuName,
+            DiningOutIdentity identity
+    ) {
+        JSONObject reference = new JSONObject();
+        try {
+            reference.put("contract_version", "dining-out-option.v1");
+            reference.put("restaurant_name", storeName);
+            reference.put("menu_name", menuName);
+            if (identity == null) {
+                reference.put("restaurant_id", JSONObject.NULL);
+                reference.put("restaurant_location_id", JSONObject.NULL);
+                reference.put("restaurant_menu_id", JSONObject.NULL);
+            } else {
+                reference.put("restaurant_id", identity.restaurantId);
+                reference.put("restaurant_location_id", identity.restaurantLocationId);
+                reference.put("restaurant_menu_id", identity.restaurantMenuId);
+            }
+            return reference.toString();
+        } catch (JSONException error) {
+            throw new IllegalStateException("Dining-out option identity could not be encoded.", error);
+        }
+    }
+
     private NutritionFood saveDiningOutMenuCatalogRow(
             String normalizedStoreName,
             String normalizedMenuName,
+        NutritionProfile profile,
+        int dataVersion
+    ) {
+        return saveDiningOutCatalogRow(
+                normalizedStoreName,
+                normalizedMenuName,
+                normalizedMenuName,
+                profile,
+                dataVersion,
+                "manual_estimate",
+                "dining_out"
+        );
+    }
+
+    private NutritionFood saveDiningOutOptionCatalogRow(
+            String normalizedStoreName,
+            String normalizedMenuName,
+            String normalizedOptionName,
             NutritionProfile profile,
-            int dataVersion
+            String sourceReference
+    ) {
+        return saveDiningOutCatalogRow(
+                normalizedStoreName,
+                normalizedOptionName,
+                normalizedMenuName,
+                profile,
+                NutritionFood.DATA_VERSION_MACROS_ONLY,
+                "manual_option",
+                sourceReference
+        );
+    }
+
+    private NutritionFood saveDiningOutCatalogRow(
+            String normalizedStoreName,
+            String normalizedFoodName,
+            String normalizedMenuName,
+            NutritionProfile profile,
+            int dataVersion,
+            String sourceType,
+            String sourceReference
     ) {
 
         SQLiteDatabase database = dbHelper.getWritableDatabase();
@@ -576,13 +684,15 @@ public final class NutritionCatalogRepository {
                 "SELECT id, created_at FROM nutrition_foods " +
                         "WHERE owner_id = ? AND kind = ? AND name = ? COLLATE NOCASE " +
                         "AND brand = ? COLLATE NOCASE AND source_type = ? " +
+                        "AND source_reference = ? " +
                         "AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1",
                 new String[]{
                         userId,
                         NutritionFood.KIND_EXTERNAL_MENU,
-                        normalizedMenuName,
+                        normalizedFoodName,
                         normalizedStoreName,
-                        "manual_estimate"
+                        sourceType,
+                        sourceReference
                 }
         )) {
             if (cursor.moveToFirst()) {
@@ -595,14 +705,14 @@ public final class NutritionCatalogRepository {
         NutritionFood food = NutritionFood.builder()
                 .id(existingId == null ? UUID.randomUUID().toString() : existingId)
                 .ownerId(userId)
-                .name(normalizedMenuName)
+                .name(normalizedFoodName)
                 .brand(normalizedStoreName)
                 .kind(NutritionFood.KIND_EXTERNAL_MENU)
                 .category(NutritionFood.CATEGORY_OTHER)
                 .basis(1.0, NutritionUnit.SERVING)
                 .prepState(NutritionFood.PREP_AS_SERVED)
                 .profile(profile)
-                .source("manual_estimate", "dining_out")
+                .source(sourceType, sourceReference)
                 .dataVersion(dataVersion)
                 .build();
 

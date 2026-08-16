@@ -173,6 +173,137 @@ public final class FitnessRepositoryMealTimeTest {
     }
 
     @Test
+    public void diningOutStoresMenuOptionsInsideTheMealSnapshot() throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String date = LocalDate.now().minusDays(1).toString();
+            String recordId = repository.addDiningOutMealAtTimeWithOptions(
+                    date,
+                    "19:20",
+                    "텐진라면",
+                    "텐진라멘",
+                    70d,
+                    40d,
+                    20d,
+                    null,
+                    Arrays.asList("면 추가", "고기 추가", "면 추가")
+            );
+
+            List<FitnessRepository.MealItemEntry> menus = repository.mealItemsForRecord(recordId);
+            assertEquals(1, menus.size());
+            List<FitnessRepository.MealComponentEntry> options =
+                    repository.mealComponentsForItem(menus.get(0).id);
+            assertEquals(2, options.size());
+            assertEquals("면 추가", options.get(0).foodName);
+            assertEquals("고기 추가", options.get(1).foodName);
+            assertEquals("2", metadata(helper.getReadableDatabase(), recordId)
+                    .getString("option_count"));
+            assertEquals(620d, repository.mealNutritionForDate(date).calories, 0.001d);
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void nutrientBearingDiningOutOptionIsAddedToSnapshotTotal() throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String date = LocalDate.now().minusDays(1).toString();
+            DiningOutOption option = DiningOutOption.withProfile(
+                    "고기 추가",
+                    NutritionProfile.ofMacros(180, 16, 2, 11)
+            );
+            String recordId = repository.addDiningOutMealAtTimeWithOptionNutrition(
+                    date,
+                    "19:20",
+                    "텐진라멘",
+                    "텐진라멘",
+                    70d,
+                    40d,
+                    20d,
+                    null,
+                    Collections.singletonList(option)
+            );
+
+            List<FitnessRepository.MealItemEntry> menus = repository.mealItemsForRecord(recordId);
+            assertEquals(1, menus.size());
+            List<FitnessRepository.MealComponentEntry> options =
+                    repository.mealComponentsForItem(menus.get(0).id);
+            assertEquals(1, options.size());
+            assertEquals(180d, options.get(0).calories, 0.001d);
+            assertEquals(800d, repository.mealNutritionTotalsForDate(date)
+                    .total(NutritionProfile.CALORIES_KCAL).knownSum(), 0.001d);
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void linkedDiningOutStoresExactPriceTraceIdentityAndBranchName() throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String date = LocalDate.now().minusDays(1).toString();
+            DiningOutIdentity identity = DiningOutIdentity.fromPriceTrace(
+                    "11111111-1111-4111-8111-111111111111",
+                    "텐진라면",
+                    "22222222-2222-4222-8222-222222222222",
+                    "강남점",
+                    "33333333-3333-4333-8333-333333333333",
+                    "텐진라멘",
+                    "44444444-4444-4444-8444-444444444444"
+            );
+            String recordId = repository.addDiningOutMealAtTimeWithIdentity(
+                    date,
+                    "19:20",
+                    identity,
+                    70d,
+                    40d,
+                    20d,
+                    null,
+                    Arrays.asList("면 추가")
+            );
+
+            assertEquals("강남점", scalar(helper.getReadableDatabase(),
+                    "SELECT branch_name FROM meal_records WHERE id = '" + recordId + "'"));
+            assertEquals(identity.restaurantId, scalar(helper.getReadableDatabase(),
+                    "SELECT restaurant_id FROM meal_records WHERE id = '" + recordId + "'"));
+            assertEquals(identity.restaurantLocationId, scalar(helper.getReadableDatabase(),
+                    "SELECT restaurant_location_id FROM meal_records WHERE id = '" + recordId + "'"));
+            assertEquals(identity.restaurantMenuId, scalar(helper.getReadableDatabase(),
+                    "SELECT restaurant_menu_id FROM meal_records WHERE id = '" + recordId + "'"));
+            assertEquals(identity.catalogProductId, scalar(helper.getReadableDatabase(),
+                    "SELECT catalog_product_id FROM meal_records WHERE id = '" + recordId + "'"));
+            JSONObject savedMetadata = metadata(helper.getReadableDatabase(), recordId);
+            assertEquals(DiningOutIdentity.CONTRACT_VERSION,
+                    savedMetadata.getString("identity_contract"));
+            assertEquals(identity.restaurantLocationId,
+                    savedMetadata.getString("restaurant_location_id"));
+            assertEquals("강남점", savedMetadata.getString("branch_name"));
+            assertEquals("텐진라멘", savedMetadata.getString("menu_name"));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
     public void savedDiningOutMenuIsCatalogedAndSnapshottedIntoTheMeal() throws Exception {
         IsolatedDatabaseContext context = new IsolatedDatabaseContext(
                 ApplicationProvider.getApplicationContext()

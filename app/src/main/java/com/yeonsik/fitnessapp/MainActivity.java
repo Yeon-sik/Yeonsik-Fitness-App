@@ -41,6 +41,7 @@ import com.yeonsik.fitnessapp.data.LocalDataBackupService;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.data.ProductReadV1Client;
+import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client;
 import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.development.DevelopmentInsight;
@@ -105,6 +106,16 @@ public final class MainActivity extends Activity implements ScreenHost {
     private static final int REQUEST_LOCAL_BACKUP_RESTORE = 4112;
     private static final int REQUEST_RECORDS_CSV_EXPORT = 4113;
     private static final String PRICE_TRACE_LOG_TAG = "PriceTraceSearch";
+    public static final String DEBUG_PROVISION_SESSION_ACTION =
+            "com.yeonsik.fitnessapp.DEBUG_PROVISION_SESSION";
+    private static final String EXTRA_ACCESS_TOKEN = "access_token";
+    private static final String EXTRA_REFRESH_TOKEN = "refresh_token";
+    private static final String EXTRA_USER_ID = "user_id";
+    private static final String EXTRA_EMAIL = "email";
+    private static final String EXTRA_NUTRITION_ACCESS_TOKEN = "nutrition_access_token";
+    private static final String EXTRA_NUTRITION_REFRESH_TOKEN = "nutrition_refresh_token";
+    private static final String EXTRA_NUTRITION_USER_ID = "nutrition_user_id";
+    private static final String EXTRA_NUTRITION_EMAIL = "nutrition_email";
     public static final String THEME_LIGHT = "light";
     public static final String THEME_DARK = "dark";
     public static final String THEME_SYSTEM = "system";
@@ -130,6 +141,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     private SupabaseConfig nutritionSupabaseConfig;
     private SupabaseConfig priceTraceSupabaseConfig;
     private ProductReadV1Client productReadClient;
+    private RestaurantMenuReadV1Client restaurantMenuReadClient;
 
     private FitnessUi ui;
     private Map<FitnessScreen, BaseScreen> screens;
@@ -183,6 +195,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         priceTraceConfigStore = new PriceTraceSupabaseConfigStore(this);
         priceTraceSupabaseConfig = priceTraceConfigStore.load();
         productReadClient = new ProductReadV1Client(priceTraceSupabaseConfig);
+        restaurantMenuReadClient = new RestaurantMenuReadV1Client(priceTraceSupabaseConfig);
         authManager = new SupabaseAuthManager(configStore);
         nutritionAuthManager = new SupabaseAuthManager(nutritionConfigStore);
         databaseHelper = new FitnessDatabaseHelper(this);
@@ -208,6 +221,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         configureWindow();
         setContentView(buildRootView());
         render();
+        handleDebugSessionProvisioning(getIntent());
         handleCardioIntent(getIntent());
     }
 
@@ -215,7 +229,81 @@ public final class MainActivity extends Activity implements ScreenHost {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        handleDebugSessionProvisioning(intent);
         handleCardioIntent(intent);
+    }
+
+    /**
+     * Debug-only host provisioning accepts an already-issued session, never a password.
+     * The companion build/install script obtains the session outside the APK and this
+     * path deliberately refuses to replace an existing session or run in release builds.
+     */
+    private void handleDebugSessionProvisioning(Intent intent) {
+        if (!BuildConfig.DEBUG
+                || intent == null
+                || !DEBUG_PROVISION_SESSION_ACTION.equals(intent.getAction())) {
+            return;
+        }
+        Log.i(PRICE_TRACE_LOG_TAG, "debug session provisioning intent received");
+
+        boolean provisioned = false;
+        String accessToken = normalizeIntentExtra(intent, EXTRA_ACCESS_TOKEN);
+        String refreshToken = normalizeIntentExtra(intent, EXTRA_REFRESH_TOKEN);
+        String userId = normalizeIntentExtra(intent, EXTRA_USER_ID);
+        String email = normalizeIntentExtra(intent, EXTRA_EMAIL);
+        if (!accessToken.isEmpty()
+                && !refreshToken.isEmpty()
+                && canProvisionDebugSession(supabaseConfig, userId)) {
+                try {
+                    applyAuthenticatedSharedConfig(configStore.saveSession(
+                            userId,
+                            email,
+                            accessToken,
+                            refreshToken
+                    ));
+                    provisioned = true;
+                    Log.i(PRICE_TRACE_LOG_TAG, "shared debug session persisted");
+                } catch (RuntimeException error) {
+                    Log.w(PRICE_TRACE_LOG_TAG, "shared debug session provisioning failed", error);
+                }
+        }
+
+        String nutritionAccessToken = normalizeIntentExtra(intent, EXTRA_NUTRITION_ACCESS_TOKEN);
+        String nutritionRefreshToken = normalizeIntentExtra(intent, EXTRA_NUTRITION_REFRESH_TOKEN);
+        String nutritionUserId = normalizeIntentExtra(intent, EXTRA_NUTRITION_USER_ID);
+        String nutritionEmail = normalizeIntentExtra(intent, EXTRA_NUTRITION_EMAIL);
+        if (!nutritionAccessToken.isEmpty()
+                && !nutritionRefreshToken.isEmpty()
+                && canProvisionDebugSession(nutritionSupabaseConfig, nutritionUserId)) {
+                try {
+                    applyAuthenticatedNutritionConfig(nutritionConfigStore.saveSession(
+                            nutritionUserId,
+                            nutritionEmail,
+                            nutritionAccessToken,
+                            nutritionRefreshToken
+                    ));
+                    provisioned = true;
+                    Log.i(PRICE_TRACE_LOG_TAG, "nutrition debug session persisted");
+                } catch (RuntimeException error) {
+                    Log.w(PRICE_TRACE_LOG_TAG, "nutrition debug session provisioning failed", error);
+                }
+        }
+
+        if (provisioned) {
+            applySyncStatusFromConfig();
+            toast("Personal OS와 Nutrition 세션을 적용했습니다.");
+            render();
+        }
+    }
+
+    private static String normalizeIntentExtra(Intent intent, String key) {
+        String value = intent.getStringExtra(key);
+        return value == null ? "" : value.trim();
+    }
+
+    private static boolean canProvisionDebugSession(SupabaseConfig current, String userId) {
+        return !userId.isEmpty()
+                && (!current.isConfigured() || current.userId.equals(userId));
     }
 
     @Override
@@ -2071,6 +2159,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         try {
             priceTraceSupabaseConfig = priceTraceConfigStore.saveConnection(url, anonKey);
             productReadClient.setConfig(priceTraceSupabaseConfig);
+            restaurantMenuReadClient.setConfig(priceTraceSupabaseConfig);
             toast("PriceTrace 읽기 전용 DB 설정을 저장했습니다.");
         } catch (IllegalArgumentException | IllegalStateException error) {
             toast(error.getMessage());
@@ -2112,6 +2201,46 @@ public final class MainActivity extends Activity implements ScreenHost {
                 }
                 if (callback != null) {
                     callback.onComplete(product);
+                }
+            } catch (Exception error) {
+                if (callback != null) {
+                    callback.onError(error);
+                }
+            }
+        });
+    }
+
+    @Override
+    public void searchPriceTraceRestaurants(String query, RestaurantSearchCallback callback) {
+        executor.execute(() -> {
+            try {
+                List<RestaurantMenuReadV1Client.RestaurantSummary> restaurants =
+                        restaurantMenuReadClient.searchRestaurants(query);
+                if (callback != null) {
+                    callback.onComplete(restaurants);
+                }
+            } catch (Exception error) {
+                Log.w(
+                        PRICE_TRACE_LOG_TAG,
+                        "restaurant-directory.v1 search failed: "
+                                + error.getClass().getSimpleName(),
+                        error
+                );
+                if (callback != null) {
+                    callback.onError(error);
+                }
+            }
+        });
+    }
+
+    @Override
+    public void loadPriceTraceRestaurant(String restaurantId, RestaurantLoadCallback callback) {
+        executor.execute(() -> {
+            try {
+                RestaurantMenuReadV1Client.RestaurantDetail restaurant =
+                        restaurantMenuReadClient.loadRestaurant(restaurantId);
+                if (callback != null) {
+                    callback.onComplete(restaurant);
                 }
             } catch (Exception error) {
                 if (callback != null) {

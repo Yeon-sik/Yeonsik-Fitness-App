@@ -5,7 +5,11 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.yeonsik.fitnessapp.data.AthleteNutritionGoal;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.NutritionCalculator;
+import com.yeonsik.fitnessapp.data.NutritionProfile;
+import com.yeonsik.fitnessapp.data.NutritionTotals;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
@@ -23,8 +27,6 @@ import java.util.Locale;
 public final class HomeScreen extends BaseScreen {
     private static final int HOME_ROUTINE_LIMIT = 2;
     private static final int TODAY_RECORD_LIMIT = 3;
-
-    private boolean weeklyMealVisible;
 
     public HomeScreen(ScreenHost host) {
         super(host);
@@ -70,14 +72,10 @@ public final class HomeScreen extends BaseScreen {
                     ui().fullWidthParams(0));
         }
 
-        section("이번 주", weeklyMealVisible ? "식사 숨기기" : "식사 보기", () -> {
-            weeklyMealVisible = !weeklyMealVisible;
-            host.rerender();
-        });
+        section("이번 주");
         weeklyVolumeCard();
-        if (weeklyMealVisible) {
-            weeklyMealCard();
-        }
+        weeklyMealCard();
+        weeklyNutritionTrendCard();
 
         section("빠른 기록");
         LinearLayout quickTop = ui().tileRow();
@@ -345,6 +343,494 @@ public final class HomeScreen extends BaseScreen {
                 "끼"
         ), ui.fullWidthParams(ui.dp(8)));
         add(card);
+    }
+
+    private void weeklyNutritionTrendCard() {
+        FitnessUi ui = ui();
+        LocalDate weekStart = LocalDate.now().with(DayOfWeek.MONDAY);
+        double[] calories = new double[7];
+        double[] carbs = new double[7];
+        double[] protein = new double[7];
+        double[] fat = new double[7];
+        boolean[] caloriesAvailable = new boolean[7];
+        boolean[] carbsAvailable = new boolean[7];
+        boolean[] proteinAvailable = new boolean[7];
+        boolean[] fatAvailable = new boolean[7];
+        String[] labels = new String[7];
+        DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("E", Locale.KOREAN);
+        StringBuilder description = new StringBuilder("주간 영양 추이. ");
+
+        for (int index = 0; index < 7; index++) {
+            LocalDate date = weekStart.plusDays(index);
+            labels[index] = date.format(dayFormatter);
+            NutritionTotals totals = repository().mealNutritionTotalsForDate(date.toString());
+            NutritionTotals.Total caloriesTotal = totals.total(NutritionProfile.CALORIES_KCAL);
+            NutritionTotals.Total carbsTotal = totals.total(NutritionProfile.CARBS_GRAMS);
+            NutritionTotals.Total proteinTotal = totals.total(NutritionProfile.PROTEIN_GRAMS);
+            NutritionTotals.Total fatTotal = totals.total(NutritionProfile.FAT_GRAMS);
+            caloriesAvailable[index] = caloriesTotal.isComplete();
+            carbsAvailable[index] = carbsTotal.isComplete();
+            proteinAvailable[index] = proteinTotal.isComplete();
+            fatAvailable[index] = fatTotal.isComplete();
+            calories[index] = caloriesAvailable[index] ? caloriesTotal.knownSum() : 0d;
+            carbs[index] = carbsAvailable[index] ? carbsTotal.knownSum() : 0d;
+            protein[index] = proteinAvailable[index] ? proteinTotal.knownSum() : 0d;
+            fat[index] = fatAvailable[index] ? fatTotal.knownSum() : 0d;
+            if (index > 0) {
+                description.append(", ");
+            }
+            description.append(labels[index])
+                    .append(" kcal ").append(NutritionCalculator.describeTotal(caloriesTotal))
+                    .append(", C ").append(NutritionCalculator.describeTotal(carbsTotal)).append("g")
+                    .append(", P ").append(NutritionCalculator.describeTotal(proteinTotal)).append("g")
+                    .append(", F ").append(NutritionCalculator.describeTotal(fatTotal)).append("g");
+        }
+
+        LinearLayout card = ui.card();
+        card.addView(ui.caption("칼로리 / 탄단지 변화 추이", FitnessUi.COLOR_MUTED));
+        card.addView(ui.text(
+                "총합이 아닌 날짜별 변화 · 일평균 "
+                        + averageNutrition(calories, caloriesAvailable, "kcal")
+                        + " · C " + averageNutrition(carbs, carbsAvailable, "g")
+                        + " · P " + averageNutrition(protein, proteinAvailable, "g")
+                        + " · F " + averageNutrition(fat, fatAvailable, "g"),
+                13,
+                FitnessUi.COLOR_TEXT,
+                true
+        ));
+        AthleteNutritionGoal nutritionGoal = repository().nutritionGoal();
+        card.addView(ui.text(
+                nutritionReferenceText(nutritionGoal),
+                11,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        ));
+        if (nutritionGoal == null) {
+            card.addView(ui.text(
+                    "영양소별 목표를 설정하면 7일 달성률 그래프가 표시됩니다.",
+                    12,
+                    FitnessUi.COLOR_TEXT,
+                    false
+            ), ui.fullWidthParams(ui.dp(10)));
+            card.addView(ui.flowHeroButton(
+                    "영양 목표 설정",
+                    v -> host.openMealManagement(LocalDate.now().toString(), FitnessScreen.HOME)
+            ), ui.fullWidthParams(ui.dp(10)));
+            add(card);
+            return;
+        }
+
+        LinearLayout legend = new LinearLayout(host.activity());
+        legend.setOrientation(LinearLayout.HORIZONTAL);
+        legend.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        legend.setPadding(0, ui.dp(10), 0, 0);
+        legend.addView(ui.text("칼로리", 10, ui.vibrantColor(0), true));
+        TextView carbsLegend = ui.text("탄수화물", 10, ui.hologramAccentColor(0), true);
+        carbsLegend.setPadding(ui.dp(12), 0, 0, 0);
+        legend.addView(carbsLegend);
+        TextView proteinLegend = ui.text("단백질", 10, ui.hologramAccentColor(1), true);
+        proteinLegend.setPadding(ui.dp(12), 0, 0, 0);
+        legend.addView(proteinLegend);
+        TextView fatLegend = ui.text("지방", 10, ui.hologramAccentColor(2), true);
+        fatLegend.setPadding(ui.dp(12), 0, 0, 0);
+        legend.addView(fatLegend);
+        card.addView(legend);
+        card.addView(weeklyNutritionBarChart(
+                calories,
+                carbs,
+                protein,
+                fat,
+                caloriesAvailable,
+                carbsAvailable,
+                proteinAvailable,
+                fatAvailable,
+                labels,
+                description.toString(),
+                nutritionGoal
+        ), ui.fullWidthParams(ui.dp(8)));
+        add(card);
+    }
+
+    private String averageNutrition(double[] values, boolean[] available, String unit) {
+        double sum = 0d;
+        int count = 0;
+        for (int index = 0; index < values.length; index++) {
+            if (available[index]) {
+                sum += values[index];
+                count++;
+            }
+        }
+        return count == 0
+                ? "?"
+                : NutritionCalculator.trim(sum / count) + unit;
+    }
+
+    private String nutritionReferenceText(AthleteNutritionGoal goal) {
+        if (goal == null) {
+            return "기준 미설정 · 영양 목표에서 영양소별 기준값을 설정하세요";
+        }
+        return "기준 · kcal " + NutritionCalculator.trim(goal.caloriesKcal)
+                + " · C " + NutritionCalculator.trim(goal.carbsGrams) + "g"
+                + " · P " + NutritionCalculator.trim(goal.proteinGrams) + "g"
+                + " · F " + NutritionCalculator.trim(goal.fatGrams) + "g";
+    }
+
+    private View weeklyNutritionBarChart(
+            double[] calories,
+            double[] carbs,
+            double[] protein,
+            double[] fat,
+            boolean[] caloriesAvailable,
+            boolean[] carbsAvailable,
+            boolean[] proteinAvailable,
+            boolean[] fatAvailable,
+            String[] labels,
+            String description,
+            AthleteNutritionGoal nutritionGoal
+    ) {
+        FitnessUi ui = ui();
+        boolean hasData = false;
+        for (int index = 0; index < labels.length; index++) {
+            hasData = hasData
+                    || (caloriesAvailable[index] && calories[index] > 0d)
+                    || (carbsAvailable[index] && carbs[index] > 0d)
+                    || (proteinAvailable[index] && protein[index] > 0d)
+                    || (fatAvailable[index] && fat[index] > 0d);
+        }
+
+        LinearLayout wrapper = new LinearLayout(host.activity());
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        wrapper.setContentDescription(description + " 각 날짜에 칼로리, 탄수화물, 단백질, 지방 4개 막대"
+                + ", 영양소별 일일 목표 대비 달성률");
+        int chartHeight = hasData ? ui.dp(104) : ui.dp(28);
+        TextView scaleLabel = ui.text(
+                "목표 달성률 0%  ·  기준 100%  ·  초과 125%+",
+                10,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        );
+        scaleLabel.setGravity(Gravity.END);
+        wrapper.addView(scaleLabel);
+        LinearLayout bars = new LinearLayout(host.activity());
+        bars.setOrientation(LinearLayout.HORIZONTAL);
+        bars.setGravity(Gravity.BOTTOM);
+        for (int index = 0; index < labels.length; index++) {
+            LinearLayout dayGroup = new LinearLayout(host.activity());
+            dayGroup.setOrientation(LinearLayout.HORIZONTAL);
+            dayGroup.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+            addTrendBar(dayGroup, labels[index] + " 칼로리", calories[index], nutritionGoal.caloriesKcal,
+                    caloriesAvailable[index], ui.vibrantColor(0), "kcal");
+            addTrendBar(dayGroup, labels[index] + " 탄수화물", carbs[index], nutritionGoal.carbsGrams,
+                    carbsAvailable[index], ui.hologramAccentColor(0), "g");
+            addTrendBar(dayGroup, labels[index] + " 단백질", protein[index], nutritionGoal.proteinGrams,
+                    proteinAvailable[index], ui.hologramAccentColor(1), "g");
+            addTrendBar(dayGroup, labels[index] + " 지방", fat[index], nutritionGoal.fatGrams,
+                    fatAvailable[index], ui.hologramAccentColor(2), "g");
+            bars.addView(dayGroup, new LinearLayout.LayoutParams(
+                    0, chartHeight, 1f));
+        }
+        wrapper.addView(bars, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, chartHeight));
+        wrapper.addView(ui.hairline(FitnessUi.COLOR_BORDER), new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
+        LinearLayout labelsRow = new LinearLayout(host.activity());
+        labelsRow.setOrientation(LinearLayout.HORIZONTAL);
+        for (String label : labels) {
+            TextView day = ui.text(label, 11, FitnessUi.COLOR_TERTIARY, false);
+            day.setGravity(Gravity.CENTER);
+            labelsRow.addView(day, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        }
+        LinearLayout.LayoutParams labelsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        labelsParams.setMargins(0, ui.dp(8), 0, 0);
+        wrapper.addView(labelsRow, labelsParams);
+        return wrapper;
+    }
+
+    private void addTrendBar(
+            LinearLayout parent,
+            String label,
+            double value,
+            double reference,
+            boolean available,
+            int color,
+            String unit
+    ) {
+        FitnessUi ui = ui();
+        int height = !available || value <= 0d
+                ? ui.dp(4)
+                : Math.max(ui.dp(10), (int) Math.round(
+                        Math.min(value / reference, 1.25d) / 1.25d * ui.dp(96)));
+        View bar = new View(host.activity());
+        int barColor = available && value > 0d ? color : ui.barEmpty();
+        bar.setBackground(ui.borderDrawable(barColor, barColor, ui.dp(999)));
+        String ratio = available
+                ? NutritionCalculator.trim(value / reference * 100d) + "%"
+                : "영양 정보 없음";
+        bar.setContentDescription(label + " " + NutritionCalculator.trim(value) + unit
+                + " / 기준 " + NutritionCalculator.trim(reference) + unit + " · " + ratio);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ui.dp(5), height);
+        params.setMargins(ui.dp(1), 0, ui.dp(1), 0);
+        parent.addView(bar, params);
+    }
+
+    private View weeklySingleSeriesBarChart(
+            double[] values,
+            boolean[] available,
+            String[] labels,
+            String unit,
+            String descriptionLabel,
+            int color
+    ) {
+        FitnessUi ui = ui();
+        double max = 1d;
+        boolean hasData = false;
+        StringBuilder description = new StringBuilder(descriptionLabel).append(". ");
+        for (int index = 0; index < values.length; index++) {
+            if (available[index]) {
+                max = Math.max(max, values[index]);
+                hasData = hasData || values[index] > 0d;
+            }
+            if (index > 0) {
+                description.append(", ");
+            }
+            description.append(labels[index]).append(" ")
+                    .append(NutritionCalculator.trim(values[index])).append(unit);
+        }
+        LinearLayout wrapper = new LinearLayout(host.activity());
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        wrapper.setContentDescription(description.toString());
+        int chartHeight = hasData ? ui.dp(80) : ui.dp(28);
+        LinearLayout bars = new LinearLayout(host.activity());
+        bars.setOrientation(LinearLayout.HORIZONTAL);
+        bars.setGravity(Gravity.BOTTOM);
+        for (int index = 0; index < values.length; index++) {
+            int height = !available[index] || values[index] <= 0d
+                    ? ui.dp(4)
+                    : Math.max(ui.dp(10), (int) Math.round(values[index] / max * chartHeight));
+            View bar = new View(host.activity());
+            int barColor = available[index] && values[index] > 0d ? color : ui.barEmpty();
+            bar.setBackground(ui.borderDrawable(barColor, barColor, ui.dp(999)));
+            bars.addView(bar, new LinearLayout.LayoutParams(
+                    0, height, 1f));
+        }
+        wrapper.addView(bars, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, chartHeight));
+        wrapper.addView(ui.hairline(FitnessUi.COLOR_BORDER), new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
+        LinearLayout labelsRow = new LinearLayout(host.activity());
+        labelsRow.setOrientation(LinearLayout.HORIZONTAL);
+        for (String label : labels) {
+            TextView day = ui.text(label, 11, FitnessUi.COLOR_TERTIARY, false);
+            day.setGravity(Gravity.CENTER);
+            labelsRow.addView(day, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        }
+        LinearLayout.LayoutParams labelsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        labelsParams.setMargins(0, ui.dp(8), 0, 0);
+        wrapper.addView(labelsRow, labelsParams);
+        return wrapper;
+    }
+
+    private void weeklyMacroCard() {
+        FitnessUi ui = ui();
+        LocalDate weekStart = LocalDate.now().with(DayOfWeek.MONDAY);
+        double[] carbs = new double[7];
+        double[] protein = new double[7];
+        double[] fat = new double[7];
+        boolean[] carbsAvailable = new boolean[7];
+        boolean[] proteinAvailable = new boolean[7];
+        boolean[] fatAvailable = new boolean[7];
+        String[] labels = new String[7];
+        MacroSummary carbsSummary = new MacroSummary();
+        MacroSummary proteinSummary = new MacroSummary();
+        MacroSummary fatSummary = new MacroSummary();
+        int mealDays = 0;
+        DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("E", Locale.KOREAN);
+        StringBuilder chartDescription = new StringBuilder("주간 탄단지 그래프. ");
+
+        for (int i = 0; i < 7; i++) {
+            LocalDate date = weekStart.plusDays(i);
+            labels[i] = date.format(dayFormatter);
+            NutritionTotals totals = repository().mealNutritionTotalsForDate(date.toString());
+            NutritionTotals.Total carbsTotal = totals.total(NutritionProfile.CARBS_GRAMS);
+            NutritionTotals.Total proteinTotal = totals.total(NutritionProfile.PROTEIN_GRAMS);
+            NutritionTotals.Total fatTotal = totals.total(NutritionProfile.FAT_GRAMS);
+            carbsSummary.add(carbsTotal);
+            proteinSummary.add(proteinTotal);
+            fatSummary.add(fatTotal);
+
+            carbsAvailable[i] = carbsTotal.isComplete();
+            proteinAvailable[i] = proteinTotal.isComplete();
+            fatAvailable[i] = fatTotal.isComplete();
+            carbs[i] = carbsAvailable[i] ? carbsTotal.knownSum() : 0;
+            protein[i] = proteinAvailable[i] ? proteinTotal.knownSum() : 0;
+            fat[i] = fatAvailable[i] ? fatTotal.knownSum() : 0;
+            if (totals.itemCount() > 0) {
+                mealDays++;
+            }
+
+            if (i > 0) {
+                chartDescription.append(", ");
+            }
+            chartDescription.append(labels[i])
+                    .append(" 탄수화물 ").append(NutritionCalculator.describeTotal(carbsTotal)).append("g")
+                    .append(", 단백질 ").append(NutritionCalculator.describeTotal(proteinTotal)).append("g")
+                    .append(", 지방 ").append(NutritionCalculator.describeTotal(fatTotal)).append("g");
+        }
+
+        LinearLayout card = ui.card();
+        LinearLayout header = new LinearLayout(host.activity());
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.BOTTOM);
+        LinearLayout titleColumn = new LinearLayout(host.activity());
+        titleColumn.setOrientation(LinearLayout.VERTICAL);
+        titleColumn.addView(ui.caption("주간 탄단지", FitnessUi.COLOR_MUTED));
+        titleColumn.addView(ui.text(
+                "탄수화물 " + carbsSummary.display() + "g · 단백질 "
+                        + proteinSummary.display() + "g · 지방 " + fatSummary.display() + "g",
+                13,
+                FitnessUi.COLOR_TEXT,
+                true
+        ));
+        header.addView(titleColumn, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        header.addView(ui.text("기록 " + mealDays + "일", 12, FitnessUi.COLOR_TERTIARY, false));
+        card.addView(header);
+
+        LinearLayout legend = new LinearLayout(host.activity());
+        legend.setOrientation(LinearLayout.HORIZONTAL);
+        legend.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
+        legend.setPadding(0, ui.dp(10), 0, 0);
+        legend.addView(ui.text("탄수화물", 10, ui.hologramAccentColor(0), true));
+        TextView proteinLegend = ui.text("단백질", 10, ui.hologramAccentColor(1), true);
+        proteinLegend.setPadding(ui.dp(12), 0, 0, 0);
+        legend.addView(proteinLegend);
+        TextView fatLegend = ui.text("지방", 10, ui.hologramAccentColor(2), true);
+        fatLegend.setPadding(ui.dp(12), 0, 0, 0);
+        legend.addView(fatLegend);
+        card.addView(legend);
+
+        card.addView(weeklyMacroBarChart(
+                carbs,
+                protein,
+                fat,
+                carbsAvailable,
+                proteinAvailable,
+                fatAvailable,
+                labels,
+                chartDescription.toString()
+        ), ui.fullWidthParams(ui.dp(8)));
+        add(card);
+    }
+
+    private View weeklyMacroBarChart(
+            double[] carbs,
+            double[] protein,
+            double[] fat,
+            boolean[] carbsAvailable,
+            boolean[] proteinAvailable,
+            boolean[] fatAvailable,
+            String[] labels,
+            String description
+    ) {
+        FitnessUi ui = ui();
+        double max = 1;
+        boolean hasData = false;
+        for (int i = 0; i < labels.length; i++) {
+            if (carbsAvailable[i]) {
+                max = Math.max(max, carbs[i]);
+                hasData = hasData || carbs[i] > 0;
+            }
+            if (proteinAvailable[i]) {
+                max = Math.max(max, protein[i]);
+                hasData = hasData || protein[i] > 0;
+            }
+            if (fatAvailable[i]) {
+                max = Math.max(max, fat[i]);
+                hasData = hasData || fat[i] > 0;
+            }
+        }
+
+        LinearLayout wrapper = new LinearLayout(host.activity());
+        wrapper.setOrientation(LinearLayout.VERTICAL);
+        wrapper.setContentDescription(description);
+        int chartHeight = hasData ? ui.dp(96) : ui.dp(28);
+
+        LinearLayout barsRow = new LinearLayout(host.activity());
+        barsRow.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < labels.length; i++) {
+            LinearLayout dayGroup = new LinearLayout(host.activity());
+            dayGroup.setOrientation(LinearLayout.HORIZONTAL);
+            dayGroup.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+            addMacroBar(dayGroup, carbs[i], max, carbsAvailable[i], ui.hologramAccentColor(0));
+            addMacroBar(dayGroup, protein[i], max, proteinAvailable[i], ui.hologramAccentColor(1));
+            addMacroBar(dayGroup, fat[i], max, fatAvailable[i], ui.hologramAccentColor(2));
+            barsRow.addView(dayGroup, new LinearLayout.LayoutParams(
+                    0, chartHeight, 1f));
+        }
+        wrapper.addView(barsRow, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, chartHeight));
+
+        View baseline = ui.hairline(FitnessUi.COLOR_BORDER);
+        wrapper.addView(baseline, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(1)));
+
+        LinearLayout labelsRow = new LinearLayout(host.activity());
+        labelsRow.setOrientation(LinearLayout.HORIZONTAL);
+        for (String label : labels) {
+            TextView day = ui.text(label, 11, FitnessUi.COLOR_TERTIARY, false);
+            day.setGravity(Gravity.CENTER);
+            labelsRow.addView(day, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        }
+        LinearLayout.LayoutParams labelsParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        labelsParams.setMargins(0, ui.dp(8), 0, 0);
+        wrapper.addView(labelsRow, labelsParams);
+        return wrapper;
+    }
+
+    private void addMacroBar(
+            LinearLayout parent,
+            double value,
+            double max,
+            boolean available,
+            int color
+    ) {
+        FitnessUi ui = ui();
+        int height = !available || value <= 0
+                ? ui.dp(4)
+                : Math.max(ui.dp(10), (int) Math.round(value / max * ui.dp(96)));
+        View bar = new View(host.activity());
+        int barColor = available && value > 0 ? color : ui.barEmpty();
+        bar.setBackground(ui.borderDrawable(barColor, barColor, ui.dp(999)));
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ui.dp(6), height);
+        params.setMargins(ui.dp(1), 0, ui.dp(1), 0);
+        parent.addView(bar, params);
+    }
+
+    private static final class MacroSummary {
+        private double knownSum;
+        private boolean hasKnown;
+        private boolean hasUnknown;
+
+        private void add(NutritionTotals.Total total) {
+            if (total.knownCount() > 0) {
+                knownSum += total.knownSum();
+                hasKnown = true;
+            }
+            hasUnknown = hasUnknown || total.missingCount() > 0;
+        }
+
+        private String display() {
+            if (!hasKnown) {
+                return "?";
+            }
+            return (hasUnknown ? "≥" : "") + NutritionCalculator.trim(knownSum);
+        }
     }
 
     private String weeklyMealComparison(int currentMeals, int previousMeals) {

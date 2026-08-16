@@ -9,6 +9,7 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
+import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client;
 import com.yeonsik.fitnessapp.development.DevelopmentInsight;
 import com.yeonsik.fitnessapp.development.DevelopmentRepository;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
@@ -166,6 +167,10 @@ public interface ScreenHost {
 
     void loadPriceTraceProduct(String catalogProductId, ProductLoadCallback callback);
 
+    void searchPriceTraceRestaurants(String query, RestaurantSearchCallback callback);
+
+    void loadPriceTraceRestaurant(String restaurantId, RestaurantLoadCallback callback);
+
     void loadPublicProductNutrition(
             String catalogProductId,
             PublicNutritionCallback callback
@@ -198,6 +203,18 @@ public interface ScreenHost {
 
     interface ProductLoadCallback {
         void onComplete(ProductReadV1 product);
+
+        void onError(Exception error);
+    }
+
+    interface RestaurantSearchCallback {
+        void onComplete(List<RestaurantMenuReadV1Client.RestaurantSummary> restaurants);
+
+        void onError(Exception error);
+    }
+
+    interface RestaurantLoadCallback {
+        void onComplete(RestaurantMenuReadV1Client.RestaurantDetail restaurant);
 
         void onError(Exception error);
     }
