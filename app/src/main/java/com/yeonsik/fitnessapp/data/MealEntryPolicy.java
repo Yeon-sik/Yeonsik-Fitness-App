@@ -101,7 +101,16 @@ public final class MealEntryPolicy {
 
     /** External meals keep the store and the consumed menu as separate display snapshots. */
     public static String previewDiningOutTitle(String storeName, String menuName) {
+        return previewDiningOutTitle(storeName, "", menuName);
+    }
+
+    public static String previewDiningOutTitle(
+            String storeName,
+            String branchName,
+            String menuName
+    ) {
         String store = normalizedText(storeName);
+        String branch = normalizedText(branchName);
         String menu = normalizedText(menuName);
         if (store.isEmpty()) {
             store = "가게 미기록";
@@ -109,7 +118,9 @@ public final class MealEntryPolicy {
         if (menu.isEmpty()) {
             menu = "메뉴 미기록";
         }
-        return store + " · " + menu;
+        return branch.isEmpty()
+                ? store + " · " + menu
+                : store + " · " + branch + " · " + menu;
     }
 
     public static String requireDiningOutStoreName(String value) {

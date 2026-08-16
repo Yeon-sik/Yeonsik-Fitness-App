@@ -75,6 +75,8 @@ public final class MealEntryPolicyTest {
     public void diningOutKeepsStoreAndMenuDistinctAndRequiresBoth() {
         assertEquals("강남식당 · 제육볶음",
                 MealEntryPolicy.previewDiningOutTitle("강남식당", "제육볶음"));
+        assertEquals("강남식당 · 강남점 · 제육볶음",
+                MealEntryPolicy.previewDiningOutTitle("강남식당", "강남점", "제육볶음"));
         assertEquals("강남식당", MealEntryPolicy.requireDiningOutStoreName(" 강남식당 "));
         assertEquals("제육볶음", MealEntryPolicy.requireDiningOutMenuName(" 제육볶음 "));
         assertThrows(IllegalArgumentException.class,

@@ -51,10 +51,24 @@ public final class SupabaseSyncManagerTest {
     }
 
     @Test
-    public void keepsDiningOutDenormalizedColumnsOutOfTheLegacySharedPayload() {
-        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "meal_kind"));
-        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "store_name"));
-        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "menu_name"));
+    public void syncsDiningOutIdentityColumnsAfterSharedContractMigration() {
+        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "meal_kind"));
+        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "store_name"));
+        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "branch_name"));
+        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "menu_name"));
+        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "restaurant_id"));
+        assertTrue(SupabaseSyncManager.shouldSyncColumn(
+                "meal_records",
+                "restaurant_location_id"
+        ));
+        assertTrue(SupabaseSyncManager.shouldSyncColumn(
+                "meal_records",
+                "restaurant_menu_id"
+        ));
+        assertTrue(SupabaseSyncManager.shouldSyncColumn(
+                "meal_records",
+                "catalog_product_id"
+        ));
         assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "metadata"));
     }
 

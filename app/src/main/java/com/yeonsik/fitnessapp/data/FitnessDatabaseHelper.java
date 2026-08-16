@@ -6,7 +6,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 24;
+    public static final int DATABASE_VERSION = 25;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -136,7 +136,12 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "menu TEXT NOT NULL, " +
                 "meal_kind TEXT NOT NULL DEFAULT 'food', " +
                 "store_name TEXT, " +
+                "branch_name TEXT, " +
                 "menu_name TEXT, " +
+                "restaurant_id TEXT, " +
+                "restaurant_location_id TEXT, " +
+                "restaurant_menu_id TEXT, " +
+                "catalog_product_id TEXT, " +
                 "calories INTEGER NOT NULL, " +
                 "protein_grams REAL NOT NULL, " +
                 "carbs_grams REAL, " +
@@ -683,6 +688,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 24) {
             reconcileVerifiedFoodCatalog(db);
         }
+        if (oldVersion < 25) {
+            upgradeDiningOutIdentity(db);
+        }
     }
 
     /** Adds explicit dining-out identity while keeping the shared metadata contract intact. */
@@ -692,8 +700,22 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         addColumnIfMissing(db, "meal_records", "meal_kind", "TEXT NOT NULL DEFAULT 'food'");
         addColumnIfMissing(db, "meal_records", "store_name", "TEXT");
+        addColumnIfMissing(db, "meal_records", "branch_name", "TEXT");
         addColumnIfMissing(db, "meal_records", "menu_name", "TEXT");
         createDiningOutMealIndexes(db);
+    }
+
+    private void upgradeDiningOutIdentity(SQLiteDatabase db) {
+        if (!tableExists(db, "meal_records")) {
+            createMealRecordTable(db);
+        }
+        addColumnIfMissing(db, "meal_records", "branch_name", "TEXT");
+        addColumnIfMissing(db, "meal_records", "restaurant_id", "TEXT");
+        addColumnIfMissing(db, "meal_records", "restaurant_location_id", "TEXT");
+        addColumnIfMissing(db, "meal_records", "restaurant_menu_id", "TEXT");
+        addColumnIfMissing(db, "meal_records", "catalog_product_id", "TEXT");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_records_dining_out_identity_idx "
+                + "ON meal_records(user_id, restaurant_id, restaurant_location_id, restaurant_menu_id)");
     }
 
     private void upgradeProductNutritionLinkPriceTraceMetadata(SQLiteDatabase db) {

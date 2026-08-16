@@ -367,10 +367,7 @@ public final class SupabaseSyncManager {
         return "devices".equals(table) ? "last_seen_at" : "updated_at";
     }
 
-    /**
-     * The shared Personal OS database is owned outside this repository. Keep additive local
-     * snapshot fields out of its payload until that separately managed contract is migrated.
-     */
+    /** Shared meal identity columns are deployed by the PersonalOSApp migration. */
     static boolean shouldSyncColumn(String table, String column) {
         // The deployed shared project still exposes the pre-contract-version schema.
         // Keep this local migration marker out of every REST payload until that remote
@@ -381,12 +378,7 @@ public final class SupabaseSyncManager {
         if ("meal_record_items".equals(table) && "brand_snapshot".equals(column)) {
             return false;
         }
-        // The shared Personal OS schema still owns only the legacy meal columns. These
-        // denormalized local columns are mirrored in metadata until that shared contract grows.
-        return !("meal_records".equals(table)
-                && ("meal_kind".equals(column)
-                || "store_name".equals(column)
-                || "menu_name".equals(column)));
+        return true;
     }
 
     private static void applyMealRecordMetadataColumns(ContentValues values, Object rawMetadata) {
@@ -399,7 +391,24 @@ public final class SupabaseSyncManager {
                     : new JSONObject(String.valueOf(rawMetadata));
             putOptionalMetadataValue(values, "meal_kind", metadata.optString("meal_kind", ""));
             putOptionalMetadataValue(values, "store_name", metadata.optString("store_name", ""));
+            putOptionalMetadataValue(values, "branch_name", metadata.optString("branch_name", ""));
             putOptionalMetadataValue(values, "menu_name", metadata.optString("menu_name", ""));
+            putOptionalMetadataValue(values, "restaurant_id", metadata.optString("restaurant_id", ""));
+            putOptionalMetadataValue(
+                    values,
+                    "restaurant_location_id",
+                    metadata.optString("restaurant_location_id", "")
+            );
+            putOptionalMetadataValue(
+                    values,
+                    "restaurant_menu_id",
+                    metadata.optString("restaurant_menu_id", "")
+            );
+            putOptionalMetadataValue(
+                    values,
+                    "catalog_product_id",
+                    metadata.optString("catalog_product_id", "")
+            );
         } catch (JSONException ignored) {
             // Keep the legacy row usable if an older client stored non-JSON metadata.
         }
