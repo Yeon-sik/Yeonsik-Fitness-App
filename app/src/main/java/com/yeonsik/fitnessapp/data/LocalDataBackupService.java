@@ -536,6 +536,20 @@ public final class LocalDataBackupService {
             required.remove("body_profiles");
             required.remove("development_goals");
         }
+        if (databaseVersion < 30) {
+            required.remove("supplement_items");
+            required.remove("supplement_schedules");
+            required.remove("supplement_intake_records");
+        }
+        if (databaseVersion < 31) {
+            required.remove("supplement_schedule_slots");
+            required.remove("supplement_effect_checkins");
+        }
+        if (databaseVersion < 32) {
+            required.remove("composition_templates");
+            required.remove("composition_groups");
+            required.remove("composition_members");
+        }
         if (!required.equals(actual)) {
             throw new IllegalArgumentException("Backup table set is not supported.");
         }
@@ -984,6 +998,9 @@ public final class LocalDataBackupService {
         tables.add("cardio_sessions");
         tables.add("cardio_route_points");
         tables.add("meal_menu_presets");
+        tables.add("composition_templates");
+        tables.add("composition_groups");
+        tables.add("composition_members");
         tables.add("nutrition_foods");
         tables.add("nutrition_food_nutrients");
         tables.add("nutrition_food_components");
@@ -996,6 +1013,11 @@ public final class LocalDataBackupService {
         tables.add("nutrition_daily_checkins");
         tables.add("body_profiles");
         tables.add("development_goals");
+        tables.add("supplement_items");
+        tables.add("supplement_schedules");
+        tables.add("supplement_schedule_slots");
+        tables.add("supplement_intake_records");
+        tables.add("supplement_effect_checkins");
         return Collections.unmodifiableList(tables);
     }
 

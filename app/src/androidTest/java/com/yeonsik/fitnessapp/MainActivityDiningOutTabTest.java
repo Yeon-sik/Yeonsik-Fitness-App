@@ -27,6 +27,7 @@ public final class MainActivityDiningOutTabTest {
                 clickText(root, "외식");
 
                 EditText store = findEditTextWithContentDescription(root, "가게 명");
+                EditText branch = findEditTextWithContentDescription(root, "지점");
                 EditText menu = findEditTextWithContentDescription(root, "먹은 메뉴");
                 EditText carbs = findEditTextWithContentDescription(root, "탄수화물");
                 EditText protein = findEditTextWithContentDescription(root, "단백질");
@@ -36,6 +37,7 @@ public final class MainActivityDiningOutTabTest {
                 EditText sugars = findEditTextWithContentDescription(root, "당류");
                 EditText saturatedFat = findEditTextWithContentDescription(root, "포화지방");
                 assertNotNull(store);
+                assertNotNull(branch);
                 assertNotNull(menu);
                 assertNotNull(carbs);
                 assertNotNull(protein);
@@ -45,6 +47,7 @@ public final class MainActivityDiningOutTabTest {
                 assertNotNull(sugars);
                 assertNotNull(saturatedFat);
                 store.setText("테스트 외식 가게");
+                branch.setText("테스트 지점");
                 menu.setText("테스트 메뉴");
                 calories.setText("620");
                 carbs.setText("70");
@@ -56,7 +59,7 @@ public final class MainActivityDiningOutTabTest {
 
                 clickText(root, "메뉴 저장하고 기록");
 
-                assertNotNull(findText(root, "테스트 외식 가게 · 테스트 메뉴"));
+                assertNotNull(findText(root, "테스트 외식 가게 · 테스트 지점 · 테스트 메뉴"));
                 assertNotNull(findTextContaining(root, "외식 · 영양 추정"));
                 assertEquals(1, activity.nutritionCatalogRepository()
                         .searchFoods("테스트 메뉴").size());

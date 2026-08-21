@@ -61,4 +61,28 @@ public final class NutritionFoodClassificationTest {
         assertTrue(NutritionFood.canBeRecipeComponent(NutritionFood.KIND_EXTERNAL_MENU));
         assertFalse(NutritionFood.canBeRecipeComponent(NutritionFood.KIND_RECIPE));
     }
+
+    @Test
+    public void distinguishesDiningOutMenusFromOtherFinishedProducts() {
+        NutritionFood diningOut = NutritionFood.builder()
+                .name("김치찌개")
+                .brand("테스트 식당")
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .source("manual_estimate", "{\"schema_version\":\"dining-out-identity.v1\"}")
+                .build();
+        NutritionFood packaged = NutritionFood.builder()
+                .name("포장 식품")
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .source("manual", "packaged")
+                .build();
+        NutritionFood option = NutritionFood.builder()
+                .name("치즈 추가")
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .source("manual_option", "dining-out-option")
+                .build();
+
+        assertTrue(diningOut.isDiningOutMenu());
+        assertFalse(packaged.isDiningOutMenu());
+        assertFalse(option.isDiningOutMenu());
+    }
 }

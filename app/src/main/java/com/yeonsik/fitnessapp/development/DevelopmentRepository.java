@@ -212,6 +212,11 @@ public final class DevelopmentRepository {
         );
     }
 
+    /** 발전 화면에서 사용하는 읽기 전용 논문 근거 평가. 원천 기록을 변경하지 않는다. */
+    public PaperAdviceAssessment buildPaperAdviceAssessment(LocalDate referenceDate) {
+        return new PaperAdviceSnapshotAssembler(dbHelper, this).assess(referenceDate);
+    }
+
     private Double latestWeightOnOrBefore(LocalDate referenceDate) {
         try (Cursor cursor = db().rawQuery(
                 "SELECT weight_kg FROM weight_records WHERE user_id = ? AND deleted_at IS NULL " +

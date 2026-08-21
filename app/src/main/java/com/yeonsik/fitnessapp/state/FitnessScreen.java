@@ -17,6 +17,7 @@ public enum FitnessScreen {
     CARDIO_SESSION,
     CARDIO_SUMMARY,
     MEALS,
+    SUPPLEMENTS,
     RECORDS,
     DEVELOPMENT,
     SETTINGS

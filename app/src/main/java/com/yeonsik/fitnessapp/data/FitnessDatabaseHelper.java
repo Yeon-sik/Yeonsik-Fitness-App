@@ -1,12 +1,22 @@
 package com.yeonsik.fitnessapp.data;
 
+import android.content.ContentValues;
 import android.content.Context;
+import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
+import org.json.JSONObject;
+
+import java.nio.charset.StandardCharsets;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
+
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 25;
+    public static final int DATABASE_VERSION = 33;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -21,16 +31,19 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         createSharedRecordTables(db);
+        createSyncStateTables(db);
         createDiningOutMealIndexes(db);
         createRoutineTables(db);
         createCardioTables(db);
         createMealMenuPresetTable(db);
         createNutritionTables(db);
+        createCompositionTables(db);
         createNutritionIndexes(db);
         createProductNutritionLinkTables(db);
         createVerifiedReceiptImportTable(db);
         createAthleteNutritionTables(db);
         createDevelopmentTables(db);
+        createSupplementTables(db);
         reconcileVerifiedFoodCatalog(db);
     }
 
@@ -128,6 +141,30 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX IF NOT EXISTS weight_records_user_scope_date_idx ON weight_records(user_id, scope, date)");
     }
 
+    private void createSyncStateTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS sync_state (" +
+                "scope_key TEXT NOT NULL, " +
+                "table_name TEXT NOT NULL, " +
+                "direction TEXT NOT NULL, " +
+                "cursor_version TEXT, " +
+                "cursor_id TEXT NOT NULL DEFAULT '', " +
+                "updated_at TEXT NOT NULL, " +
+                "PRIMARY KEY(scope_key, table_name, direction))");
+
+        db.execSQL("CREATE INDEX IF NOT EXISTS devices_user_sync_push_idx " +
+                "ON devices(user_id, last_seen_at, id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS workout_records_user_sync_push_idx " +
+                "ON workout_records(user_id, updated_at, id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS workout_exercises_user_sync_push_idx " +
+                "ON workout_exercises(user_id, updated_at, id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS workout_sets_user_sync_push_idx " +
+                "ON workout_sets(user_id, updated_at, id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_records_user_sync_push_idx " +
+                "ON meal_records(user_id, updated_at, id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS weight_records_user_sync_push_idx " +
+                "ON weight_records(user_id, updated_at, id)");
+    }
+
     private void createMealRecordTable(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS meal_records (" +
                 "id TEXT PRIMARY KEY, " +
@@ -142,6 +179,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "restaurant_location_id TEXT, " +
                 "restaurant_menu_id TEXT, " +
                 "catalog_product_id TEXT, " +
+                "composition_template_id TEXT, " +
+                "composition_template_revision INTEGER, " +
                 "calories INTEGER NOT NULL, " +
                 "protein_grams REAL NOT NULL, " +
                 "carbs_grams REAL, " +
@@ -306,6 +345,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
                 "meal_record_id TEXT NOT NULL, " +
+                "composition_template_id TEXT, " +
+                "composition_template_revision_snapshot INTEGER, " +
                 "food_id TEXT, " +
                 "food_name_snapshot TEXT NOT NULL, " +
                 "brand_snapshot TEXT, " +
@@ -353,6 +394,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "user_id TEXT NOT NULL, " +
                 "meal_record_id TEXT NOT NULL, " +
                 "meal_record_item_id TEXT NOT NULL, " +
+                "composition_group_key_snapshot TEXT, " +
+                "composition_role_snapshot TEXT, " +
+                "composition_member_id_snapshot TEXT, " +
                 "food_id TEXT, " +
                 "food_name_snapshot TEXT NOT NULL, " +
                 "brand_snapshot TEXT, " +
@@ -397,6 +441,65 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "device_id TEXT NOT NULL, " +
                 "UNIQUE(meal_record_item_component_id, nutrient_code))");
 
+    }
+
+    /**
+     * Reusable composition definitions. These are local product definitions, not meal history:
+     * a template can change while a meal record remains immutable through its snapshots.
+     */
+    private void createCompositionTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS composition_templates (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "name TEXT NOT NULL, " +
+                "template_kind TEXT NOT NULL, " +
+                "root_food_id TEXT, " +
+                "source_reference TEXT, " +
+                "revision INTEGER NOT NULL DEFAULT 1, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL)");
+        db.execSQL("CREATE TABLE IF NOT EXISTS composition_groups (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "template_id TEXT NOT NULL, " +
+                "group_key TEXT NOT NULL, " +
+                "label TEXT NOT NULL, " +
+                "selection_mode TEXT NOT NULL, " +
+                "min_selected INTEGER NOT NULL DEFAULT 0, " +
+                "max_selected INTEGER NOT NULL DEFAULT 99, " +
+                "order_index INTEGER NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, " +
+                "UNIQUE(user_id, template_id, group_key))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS composition_members (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "template_id TEXT NOT NULL, " +
+                "group_id TEXT, " +
+                "nutrition_food_id TEXT, " +
+                "name_snapshot TEXT NOT NULL, " +
+                "brand_snapshot TEXT, " +
+                "quantity REAL NOT NULL DEFAULT 1, " +
+                "unit TEXT NOT NULL DEFAULT 'serving', " +
+                "default_selected INTEGER NOT NULL DEFAULT 0, " +
+                "order_index INTEGER NOT NULL, " +
+                "source_reference_snapshot TEXT, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS composition_templates_user_kind_updated_idx " +
+                "ON composition_templates(user_id, template_kind, updated_at DESC)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS composition_groups_template_order_idx " +
+                "ON composition_groups(template_id, order_index)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS composition_members_group_order_idx " +
+                "ON composition_members(group_id, order_index)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS composition_members_food_idx " +
+                "ON composition_members(user_id, nutrition_food_id)");
     }
 
     private void createNutritionIndexes(SQLiteDatabase db) {
@@ -539,6 +642,77 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "CHECK (objective IN ('muscle_gain','strength','fat_loss','endurance','maintenance')), " +
                 "CHECK (weekly_sessions_target BETWEEN 1 AND 7), " +
                 "CHECK (focus_body_part IN ('chest','back','legs','shoulders','arms','abs')))");
+    }
+
+    /** User-defined supplement plans and immutable per-dose intake snapshots. */
+    private void createSupplementTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS supplement_items (" +
+                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, " +
+                "supplement_type_code TEXT NOT NULL, supplement_type_name TEXT NOT NULL, " +
+                "brand_name TEXT NOT NULL DEFAULT '', product_form TEXT NOT NULL DEFAULT '', " +
+                "purpose_code TEXT NOT NULL DEFAULT 'general_health', " +
+                "is_active INTEGER NOT NULL DEFAULT 1, " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, CHECK (is_active IN (0, 1)))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS supplement_schedules (" +
+                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, supplement_item_id TEXT NOT NULL, " +
+                "dose_amount REAL NOT NULL, dose_unit TEXT NOT NULL, " +
+                "serving_amount REAL, serving_unit TEXT, " +
+                "active_ingredient_amount REAL, active_ingredient_unit TEXT, " +
+                "ingredient_details TEXT NOT NULL DEFAULT '', " +
+                "times_per_day INTEGER NOT NULL, timing_label TEXT NOT NULL, " +
+                "effective_from TEXT NOT NULL DEFAULT '1970-01-01', effective_to TEXT, " +
+                "type_code_snapshot TEXT NOT NULL DEFAULT '', " +
+                "type_name_snapshot TEXT NOT NULL DEFAULT '', " +
+                "brand_name_snapshot TEXT NOT NULL DEFAULT '', " +
+                "product_form_snapshot TEXT NOT NULL DEFAULT '', " +
+                "purpose_code_snapshot TEXT NOT NULL DEFAULT 'general_health', " +
+                "revision INTEGER NOT NULL DEFAULT 1, " +
+                "instructions TEXT NOT NULL DEFAULT '', is_active INTEGER NOT NULL DEFAULT 1, " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, CHECK (dose_amount > 0), " +
+                "CHECK (times_per_day BETWEEN 1 AND 6), CHECK (is_active IN (0, 1)))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS supplement_schedule_slots (" +
+                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, schedule_id TEXT NOT NULL, " +
+                "slot_index INTEGER NOT NULL, timing_label TEXT NOT NULL, scheduled_time TEXT, " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, UNIQUE(user_id, schedule_id, slot_index), " +
+                "CHECK (slot_index BETWEEN 1 AND 6))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS supplement_intake_records (" +
+                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, schedule_id TEXT NOT NULL, " +
+                "supplement_item_id TEXT NOT NULL, schedule_slot_id TEXT, " +
+                "date TEXT NOT NULL, dose_index INTEGER NOT NULL, " +
+                "status TEXT NOT NULL, taken_at TEXT, type_code_snapshot TEXT NOT NULL, " +
+                "type_name_snapshot TEXT NOT NULL, brand_name_snapshot TEXT NOT NULL, " +
+                "dose_amount_snapshot REAL NOT NULL, dose_unit_snapshot TEXT NOT NULL, " +
+                "serving_amount_snapshot REAL, serving_unit_snapshot TEXT, " +
+                "active_ingredient_amount_snapshot REAL, active_ingredient_unit_snapshot TEXT, " +
+                "ingredient_details_snapshot TEXT NOT NULL DEFAULT '', " +
+                "timing_label_snapshot TEXT NOT NULL, instructions_snapshot TEXT NOT NULL DEFAULT '', " +
+                "record_source TEXT NOT NULL DEFAULT 'on_date', " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, UNIQUE(user_id, schedule_id, date, dose_index), " +
+                "CHECK (dose_index BETWEEN 1 AND 6), " +
+                "CHECK (status IN ('taken', 'skipped')))");
+        db.execSQL("CREATE TABLE IF NOT EXISTS supplement_effect_checkins (" +
+                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, supplement_item_id TEXT NOT NULL, " +
+                "date TEXT NOT NULL, effect_score INTEGER NOT NULL, " +
+                "adverse_effects TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, UNIQUE(user_id, supplement_item_id, date), " +
+                "CHECK (effect_score BETWEEN 1 AND 5))");
+        db.execSQL("CREATE INDEX IF NOT EXISTS supplement_items_user_active_idx " +
+                "ON supplement_items(user_id, is_active, created_at)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS supplement_schedules_user_item_active_idx " +
+                "ON supplement_schedules(user_id, supplement_item_id, is_active)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS supplement_schedules_user_effective_idx " +
+                "ON supplement_schedules(user_id, effective_from, effective_to)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS supplement_slots_user_schedule_idx " +
+                "ON supplement_schedule_slots(user_id, schedule_id, slot_index)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS supplement_intakes_user_date_idx " +
+                "ON supplement_intake_records(user_id, date DESC, created_at DESC)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS supplement_effect_user_item_date_idx " +
+                "ON supplement_effect_checkins(user_id, supplement_item_id, date DESC)");
     }
 
     /**
@@ -691,6 +865,370 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 25) {
             upgradeDiningOutIdentity(db);
         }
+        if (oldVersion < 26) {
+            reconcileVerifiedFoodCatalog(db);
+        }
+        if (oldVersion < 27) {
+            reconcileVerifiedFoodCatalog(db);
+        }
+        if (oldVersion < 29) {
+            upgradeKnownDiningOutBranchDefaults(db);
+        }
+        if (oldVersion < 30) {
+            createSupplementTables(db);
+        }
+        if (oldVersion < 31) {
+            upgradeSupplementTablesToVersion31(db);
+        }
+        if (oldVersion < 32) {
+            upgradeCompositionSchema(db);
+        }
+        if (oldVersion < 33) {
+            createSyncStateTables(db);
+        }
+    }
+
+    private void upgradeCompositionSchema(SQLiteDatabase db) {
+        createCompositionTables(db);
+
+        addColumnIfMissing(db, "meal_records", "composition_template_id", "TEXT");
+        addColumnIfMissing(
+                db,
+                "meal_records",
+                "composition_template_revision",
+                "INTEGER"
+        );
+        addColumnIfMissing(db, "meal_record_items", "composition_template_id", "TEXT");
+        addColumnIfMissing(
+                db,
+                "meal_record_items",
+                "composition_template_revision_snapshot",
+                "INTEGER"
+        );
+        addColumnIfMissing(
+                db,
+                "meal_record_item_components",
+                "composition_group_key_snapshot",
+                "TEXT"
+        );
+        addColumnIfMissing(
+                db,
+                "meal_record_item_components",
+                "composition_role_snapshot",
+                "TEXT"
+        );
+        addColumnIfMissing(
+                db,
+                "meal_record_item_components",
+                "composition_member_id_snapshot",
+                "TEXT"
+        );
+
+        // Existing dining-out options were already immutable component snapshots. We only add
+        // their generic role; names, IDs, and nutrient values are deliberately untouched.
+        db.execSQL("UPDATE meal_record_item_components SET " +
+                "composition_group_key_snapshot = 'legacy_options', " +
+                "composition_role_snapshot = 'optional' " +
+                "WHERE (composition_group_key_snapshot IS NULL " +
+                "OR trim(composition_group_key_snapshot) = '') " +
+                "AND meal_record_id IN (SELECT id FROM meal_records " +
+                "WHERE meal_kind = 'dining_out')");
+
+        migrateLegacyDiningOutOptionTemplates(db);
+        upgradeDiningOutCompositionMetadata(db);
+    }
+
+    /** Converts catalog-backed manual dining-out options into generic template members. */
+    private void migrateLegacyDiningOutOptionTemplates(SQLiteDatabase db) {
+        if (!tableExists(db, "nutrition_foods")) {
+            return;
+        }
+        Map<String, String> templateIds = new HashMap<>();
+        Map<String, String> groupIds = new HashMap<>();
+        try (Cursor cursor = db.query(
+                "nutrition_foods",
+                new String[]{
+                        "id", "owner_id", "name", "brand", "basis_unit", "source_reference",
+                        "created_at", "updated_at"
+                },
+                "source_type = ? AND deleted_at IS NULL",
+                new String[]{"manual_option"},
+                null,
+                null,
+                "updated_at ASC, id ASC"
+        )) {
+            while (cursor.moveToNext()) {
+                String foodId = cursor.getString(0);
+                String userId = valueOrDefault(cursor.getString(1), "local-user");
+                String name = valueOrDefault(cursor.getString(2), "외식 옵션");
+                String brand = blankToNull(cursor.getString(3));
+                String unit = valueOrDefault(cursor.getString(4), "serving");
+                String sourceReference = blankToNull(cursor.getString(5));
+                JSONObject source = parseJson(sourceReference);
+
+                String identityKey = userId + "|"
+                        + jsonText(source, "restaurant_id") + "|"
+                        + jsonText(source, "restaurant_location_id") + "|"
+                        + jsonText(source, "restaurant_menu_id") + "|"
+                        + jsonText(source, "source_namespace") + "|"
+                        + jsonText(source, "source_location_code") + "|"
+                        + jsonText(source, "restaurant_name") + "|"
+                        + jsonText(source, "menu_name");
+                String templateId = templateIds.get(identityKey);
+                if (templateId == null) {
+                    templateId = deterministicId("legacy-dining-out-template:" + identityKey);
+                    templateIds.put(identityKey, templateId);
+                    String groupId = deterministicId(templateId + ":legacy_options");
+                    groupIds.put(identityKey, groupId);
+
+                    ContentValues template = new ContentValues();
+                    template.put("id", templateId);
+                    template.put("user_id", userId);
+                    template.put("name", diningOutTemplateName(source));
+                    template.put("template_kind", CompositionTemplate.KIND_DINING_OUT);
+                    template.put("source_reference", compositionSourceReference(source));
+                    template.put("revision", 1);
+                    template.put("created_at", valueOrDefault(cursor.getString(6), OffsetDateTime.now().toString()));
+                    template.put("updated_at", valueOrDefault(cursor.getString(7), OffsetDateTime.now().toString()));
+                    template.put("device_id", "fitness-migration-v32");
+                    db.insertWithOnConflict(
+                            "composition_templates",
+                            null,
+                            template,
+                            SQLiteDatabase.CONFLICT_IGNORE
+                    );
+
+                    ContentValues group = new ContentValues();
+                    group.put("id", groupId);
+                    group.put("user_id", userId);
+                    group.put("template_id", templateId);
+                    group.put("group_key", "legacy_options");
+                    group.put("label", "기존 외식 옵션");
+                    group.put("selection_mode", CompositionGroup.MODE_OPTIONAL_MANY);
+                    group.put("min_selected", 0);
+                    group.put("max_selected", 99);
+                    group.put("order_index", 0);
+                    group.put("created_at", template.getAsString("created_at"));
+                    group.put("updated_at", template.getAsString("updated_at"));
+                    group.put("device_id", "fitness-migration-v32");
+                    db.insertWithOnConflict(
+                            "composition_groups",
+                            null,
+                            group,
+                            SQLiteDatabase.CONFLICT_IGNORE
+                    );
+                }
+
+                String groupId = groupIds.get(identityKey);
+                if (groupId == null) {
+                    groupId = deterministicId(templateId + ":legacy_options");
+                    groupIds.put(identityKey, groupId);
+                }
+                ContentValues member = new ContentValues();
+                member.put("id", deterministicId(templateId + ":member:" + foodId));
+                member.put("user_id", userId);
+                member.put("template_id", templateId);
+                member.put("group_id", groupId);
+                member.put("nutrition_food_id", foodId);
+                member.put("name_snapshot", name);
+                if (brand == null) {
+                    member.putNull("brand_snapshot");
+                } else {
+                    member.put("brand_snapshot", brand);
+                }
+                member.put("quantity", 1);
+                member.put("unit", unit);
+                member.put("default_selected", 0);
+                member.put("order_index", 0);
+                if (sourceReference == null) {
+                    member.putNull("source_reference_snapshot");
+                } else {
+                    member.put("source_reference_snapshot", sourceReference);
+                }
+                member.put("created_at", valueOrDefault(cursor.getString(6), OffsetDateTime.now().toString()));
+                member.put("updated_at", valueOrDefault(cursor.getString(7), OffsetDateTime.now().toString()));
+                member.put("device_id", "fitness-migration-v32");
+                db.insertWithOnConflict(
+                        "composition_members",
+                        null,
+                        member,
+                        SQLiteDatabase.CONFLICT_IGNORE
+                );
+            }
+        }
+    }
+
+    private void upgradeDiningOutCompositionMetadata(SQLiteDatabase db) {
+        if (!tableExists(db, "meal_records") || !hasColumn(db, "meal_records", "metadata")) {
+            return;
+        }
+        try (Cursor cursor = db.query(
+                "meal_records",
+                new String[]{"id", "metadata"},
+                "meal_kind = ?",
+                new String[]{"dining_out"},
+                null,
+                null,
+                null
+        )) {
+            while (cursor.moveToNext()) {
+                JSONObject metadata = parseJson(cursor.getString(1));
+                if (metadata == null) {
+                    continue;
+                }
+                try {
+                    if (metadata.optInt("composition_version", 0) < 3) {
+                        metadata.put("composition_version", 3);
+                    }
+                    metadata.put("composition_contract", CompositionTemplate.CONTRACT_VERSION);
+                    if (metadata.optInt("option_count", 0) > 0) {
+                        metadata.put("composition_kind", "ad_hoc_selection");
+                    } else if (!metadata.has("composition_kind")) {
+                        metadata.put("composition_kind", "standalone");
+                    }
+                } catch (Exception ignored) {
+                    continue;
+                }
+                ContentValues values = new ContentValues();
+                values.put("metadata", metadata.toString());
+                db.update("meal_records", values, "id = ?", new String[]{cursor.getString(0)});
+            }
+        }
+    }
+
+    private String compositionSourceReference(JSONObject source) {
+        try {
+            JSONObject result = source == null ? new JSONObject() : new JSONObject(source.toString());
+            result.put("schema_version", CompositionTemplate.CONTRACT_VERSION);
+            result.put("migration_source", "dining-out-option.v1");
+            return result.toString();
+        } catch (Exception ignored) {
+            return "{\"schema_version\":\"composition-template.v1\",\"migration_source\":\"dining-out-option.v1\"}";
+        }
+    }
+
+    private String diningOutTemplateName(JSONObject source) {
+        String restaurant = jsonText(source, "restaurant_name");
+        String menu = jsonText(source, "menu_name");
+        if (restaurant.isEmpty() && menu.isEmpty()) {
+            return "기존 외식 메뉴";
+        }
+        if (restaurant.isEmpty()) {
+            return menu;
+        }
+        if (menu.isEmpty()) {
+            return restaurant;
+        }
+        return restaurant + " · " + menu;
+    }
+
+    private JSONObject parseJson(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return new JSONObject();
+        }
+        try {
+            return new JSONObject(value);
+        } catch (Exception ignored) {
+            return new JSONObject();
+        }
+    }
+
+    private String jsonText(JSONObject object, String key) {
+        if (object == null) {
+            return "";
+        }
+        String value = object.optString(key, "");
+        return value == null ? "" : value.trim();
+    }
+
+    private String valueOrDefault(String value, String fallback) {
+        return value == null || value.trim().isEmpty() ? fallback : value;
+    }
+
+    private String blankToNull(String value) {
+        return value == null || value.trim().isEmpty() ? null : value.trim();
+    }
+
+    private String deterministicId(String value) {
+        return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8)).toString();
+    }
+
+    private void upgradeSupplementTablesToVersion31(SQLiteDatabase db) {
+        createSupplementTables(db);
+        addColumnIfMissing(db, "supplement_items", "product_form", "TEXT NOT NULL DEFAULT ''");
+        addColumnIfMissing(db, "supplement_items", "purpose_code",
+                "TEXT NOT NULL DEFAULT 'general_health'");
+
+        addColumnIfMissing(db, "supplement_schedules", "serving_amount", "REAL");
+        addColumnIfMissing(db, "supplement_schedules", "serving_unit", "TEXT");
+        addColumnIfMissing(db, "supplement_schedules", "active_ingredient_amount", "REAL");
+        addColumnIfMissing(db, "supplement_schedules", "active_ingredient_unit", "TEXT");
+        addColumnIfMissing(db, "supplement_schedules", "ingredient_details",
+                "TEXT NOT NULL DEFAULT ''");
+        addColumnIfMissing(db, "supplement_schedules", "effective_from",
+                "TEXT NOT NULL DEFAULT '1970-01-01'");
+        addColumnIfMissing(db, "supplement_schedules", "effective_to", "TEXT");
+        addColumnIfMissing(db, "supplement_schedules", "type_code_snapshot",
+                "TEXT NOT NULL DEFAULT ''");
+        addColumnIfMissing(db, "supplement_schedules", "type_name_snapshot",
+                "TEXT NOT NULL DEFAULT ''");
+        addColumnIfMissing(db, "supplement_schedules", "brand_name_snapshot",
+                "TEXT NOT NULL DEFAULT ''");
+        addColumnIfMissing(db, "supplement_schedules", "product_form_snapshot",
+                "TEXT NOT NULL DEFAULT ''");
+        addColumnIfMissing(db, "supplement_schedules", "purpose_code_snapshot",
+                "TEXT NOT NULL DEFAULT 'general_health'");
+        addColumnIfMissing(db, "supplement_schedules", "revision", "INTEGER NOT NULL DEFAULT 1");
+
+        db.execSQL("UPDATE supplement_schedules SET " +
+                "serving_amount = COALESCE(serving_amount, dose_amount), " +
+                "serving_unit = COALESCE(serving_unit, dose_unit), " +
+                "effective_from = CASE WHEN effective_from = '1970-01-01' " +
+                "AND length(created_at) >= 10 THEN substr(created_at, 1, 10) ELSE effective_from END, " +
+                "type_code_snapshot = COALESCE(NULLIF(type_code_snapshot, ''), " +
+                "(SELECT i.supplement_type_code FROM supplement_items i " +
+                "WHERE i.id = supplement_schedules.supplement_item_id)), " +
+                "type_name_snapshot = COALESCE(NULLIF(type_name_snapshot, ''), " +
+                "(SELECT i.supplement_type_name FROM supplement_items i " +
+                "WHERE i.id = supplement_schedules.supplement_item_id)), " +
+                "brand_name_snapshot = COALESCE(NULLIF(brand_name_snapshot, ''), " +
+                "(SELECT i.brand_name FROM supplement_items i " +
+                "WHERE i.id = supplement_schedules.supplement_item_id)), " +
+                "product_form_snapshot = COALESCE(NULLIF(product_form_snapshot, ''), " +
+                "(SELECT i.product_form FROM supplement_items i " +
+                "WHERE i.id = supplement_schedules.supplement_item_id)), " +
+                "purpose_code_snapshot = COALESCE(NULLIF(purpose_code_snapshot, 'general_health'), " +
+                "(SELECT i.purpose_code FROM supplement_items i " +
+                "WHERE i.id = supplement_schedules.supplement_item_id), 'general_health')");
+
+        addColumnIfMissing(db, "supplement_intake_records", "schedule_slot_id", "TEXT");
+        addColumnIfMissing(db, "supplement_intake_records", "serving_amount_snapshot", "REAL");
+        addColumnIfMissing(db, "supplement_intake_records", "serving_unit_snapshot", "TEXT");
+        addColumnIfMissing(db, "supplement_intake_records",
+                "active_ingredient_amount_snapshot", "REAL");
+        addColumnIfMissing(db, "supplement_intake_records",
+                "active_ingredient_unit_snapshot", "TEXT");
+        addColumnIfMissing(db, "supplement_intake_records", "ingredient_details_snapshot",
+                "TEXT NOT NULL DEFAULT ''");
+        addColumnIfMissing(db, "supplement_intake_records", "record_source",
+                "TEXT NOT NULL DEFAULT 'on_date'");
+        db.execSQL("UPDATE supplement_intake_records SET " +
+                "schedule_slot_id = COALESCE(schedule_slot_id, schedule_id || ':slot:' || dose_index), " +
+                "serving_amount_snapshot = COALESCE(serving_amount_snapshot, dose_amount_snapshot), " +
+                "serving_unit_snapshot = COALESCE(serving_unit_snapshot, dose_unit_snapshot), " +
+                "record_source = CASE WHEN substr(created_at, 1, 10) = date " +
+                "THEN 'on_date' ELSE 'backfill' END");
+
+        for (int slot = 1; slot <= 6; slot++) {
+            db.execSQL("INSERT OR IGNORE INTO supplement_schedule_slots (" +
+                            "id, user_id, schedule_id, slot_index, timing_label, scheduled_time, " +
+                            "created_at, updated_at, deleted_at, device_id) " +
+                            "SELECT id || ':slot:' || ?, user_id, id, ?, timing_label, NULL, " +
+                            "created_at, updated_at, NULL, device_id FROM supplement_schedules " +
+                            "WHERE times_per_day >= ?",
+                    new Object[]{slot, slot, slot});
+        }
+        createSupplementTables(db);
     }
 
     /** Adds explicit dining-out identity while keeping the shared metadata contract intact. */
@@ -716,6 +1254,47 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         addColumnIfMissing(db, "meal_records", "catalog_product_id", "TEXT");
         db.execSQL("CREATE INDEX IF NOT EXISTS meal_records_dining_out_identity_idx "
                 + "ON meal_records(user_id, restaurant_id, restaurant_location_id, restaurant_menu_id)");
+    }
+
+    /** Repairs known local branch labels while preserving any exact external identity columns. */
+    private void upgradeKnownDiningOutBranchDefaults(SQLiteDatabase db) {
+        if (!tableExists(db, "meal_records")
+                || !hasColumn(db, "meal_records", "store_name")
+                || !hasColumn(db, "meal_records", "branch_name")
+                || !hasColumn(db, "meal_records", "metadata")) {
+            return;
+        }
+        String where = "meal_kind = ? "
+                + "AND (branch_name IS NULL OR trim(branch_name) = '' "
+                + "OR lower(trim(branch_name)) = 'null') "
+                + "AND replace(replace(COALESCE(store_name, ''), ' ', ''), '　', '') "
+                + "LIKE ?";
+        String[] args = {MealRecordKind.DINING_OUT, "%고향엄마손%칼국수%"};
+        try (Cursor cursor = db.query(
+                "meal_records",
+                new String[]{"id", "metadata"},
+                where,
+                args,
+                null,
+                null,
+                null
+        )) {
+            while (cursor.moveToNext()) {
+                String id = cursor.getString(0);
+                ContentValues values = new ContentValues();
+                values.put("branch_name", "영등포점");
+                values.put("updated_at", OffsetDateTime.now().toString());
+                String metadata = cursor.getString(1);
+                try {
+                    JSONObject object = new JSONObject(metadata);
+                    object.put("branch_name", "영등포점");
+                    values.put("metadata", object.toString());
+                } catch (Exception ignored) {
+                    // The dedicated branch column remains repairable even for legacy metadata.
+                }
+                db.update("meal_records", values, "id = ?", new String[]{id});
+            }
+        }
     }
 
     private void upgradeProductNutritionLinkPriceTraceMetadata(SQLiteDatabase db) {

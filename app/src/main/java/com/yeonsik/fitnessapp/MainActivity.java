@@ -51,6 +51,7 @@ import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
+import com.yeonsik.fitnessapp.supplement.SupplementRepository;
 import com.yeonsik.fitnessapp.sync.SupabaseSyncManager;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.ui.BaseScreen;
@@ -66,6 +67,7 @@ import com.yeonsik.fitnessapp.ui.RoutineEditorScreen;
 import com.yeonsik.fitnessapp.ui.ScreenHost;
 import com.yeonsik.fitnessapp.ui.SettingsScreen;
 import com.yeonsik.fitnessapp.ui.StrengthScreen;
+import com.yeonsik.fitnessapp.ui.SupplementScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutExerciseDetailScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutSessionScreen;
@@ -116,6 +118,10 @@ public final class MainActivity extends Activity implements ScreenHost {
     private static final String EXTRA_NUTRITION_REFRESH_TOKEN = "nutrition_refresh_token";
     private static final String EXTRA_NUTRITION_USER_ID = "nutrition_user_id";
     private static final String EXTRA_NUTRITION_EMAIL = "nutrition_email";
+    private static final String EXTRA_PRICE_TRACE_ACCESS_TOKEN = "price_trace_access_token";
+    private static final String EXTRA_PRICE_TRACE_REFRESH_TOKEN = "price_trace_refresh_token";
+    private static final String EXTRA_PRICE_TRACE_USER_ID = "price_trace_user_id";
+    private static final String EXTRA_PRICE_TRACE_EMAIL = "price_trace_email";
     public static final String THEME_LIGHT = "light";
     public static final String THEME_DARK = "dark";
     public static final String THEME_SYSTEM = "system";
@@ -131,12 +137,14 @@ public final class MainActivity extends Activity implements ScreenHost {
     private ExerciseMasterRepository exerciseMasterRepository;
     private RoutineRepository routineRepository;
     private DevelopmentRepository developmentRepository;
+    private SupplementRepository supplementRepository;
     private SupabaseConfigStore configStore;
     private NutritionSupabaseConfigStore nutritionConfigStore;
     private PriceTraceSupabaseConfigStore priceTraceConfigStore;
     private SupabaseSyncManager syncManager;
     private SupabaseAuthManager authManager;
     private SupabaseAuthManager nutritionAuthManager;
+    private SupabaseAuthManager priceTraceAuthManager;
     private SupabaseConfig supabaseConfig;
     private SupabaseConfig nutritionSupabaseConfig;
     private SupabaseConfig priceTraceSupabaseConfig;
@@ -198,6 +206,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         restaurantMenuReadClient = new RestaurantMenuReadV1Client(priceTraceSupabaseConfig);
         authManager = new SupabaseAuthManager(configStore);
         nutritionAuthManager = new SupabaseAuthManager(nutritionConfigStore);
+        priceTraceAuthManager = new SupabaseAuthManager(priceTraceConfigStore);
         databaseHelper = new FitnessDatabaseHelper(this);
         repository = new FitnessRepository(databaseHelper, supabaseConfig.effectiveUserId());
         nutritionCatalogRepository = new NutritionCatalogRepository(
@@ -210,6 +219,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         exerciseMasterRepository = new ExerciseMasterRepository(this);
         routineRepository = new RoutineRepository(databaseHelper, supabaseConfig.effectiveUserId());
         developmentRepository = new DevelopmentRepository(databaseHelper, supabaseConfig.effectiveUserId());
+        supplementRepository = new SupplementRepository(databaseHelper, supabaseConfig.effectiveUserId());
         syncManager = new SupabaseSyncManager(databaseHelper);
         applySyncStatusFromConfig();
 
@@ -289,9 +299,30 @@ public final class MainActivity extends Activity implements ScreenHost {
                 }
         }
 
+        String priceTraceAccessToken = normalizeIntentExtra(intent, EXTRA_PRICE_TRACE_ACCESS_TOKEN);
+        String priceTraceRefreshToken = normalizeIntentExtra(intent, EXTRA_PRICE_TRACE_REFRESH_TOKEN);
+        String priceTraceUserId = normalizeIntentExtra(intent, EXTRA_PRICE_TRACE_USER_ID);
+        String priceTraceEmail = normalizeIntentExtra(intent, EXTRA_PRICE_TRACE_EMAIL);
+        if (!priceTraceAccessToken.isEmpty()
+                && !priceTraceRefreshToken.isEmpty()
+                && canProvisionDebugSession(priceTraceSupabaseConfig, priceTraceUserId)) {
+            try {
+                applyPriceTraceSessionConfig(priceTraceConfigStore.saveSession(
+                        priceTraceUserId,
+                        priceTraceEmail,
+                        priceTraceAccessToken,
+                        priceTraceRefreshToken
+                ));
+                provisioned = true;
+                Log.i(PRICE_TRACE_LOG_TAG, "PriceTrace debug session persisted");
+            } catch (RuntimeException error) {
+                Log.w(PRICE_TRACE_LOG_TAG, "PriceTrace debug session provisioning failed", error);
+            }
+        }
+
         if (provisioned) {
             applySyncStatusFromConfig();
-            toast("Personal OS와 Nutrition 세션을 적용했습니다.");
+            toast("빌드 세션을 적용했습니다.");
             render();
         }
     }
@@ -401,6 +432,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         map.put(FitnessScreen.CARDIO_SESSION, new CardioSessionScreen(this));
         map.put(FitnessScreen.CARDIO_SUMMARY, new CardioSummaryScreen(this));
         map.put(FitnessScreen.MEALS, new MealManagementScreen(this));
+        map.put(FitnessScreen.SUPPLEMENTS, new SupplementScreen(this));
         map.put(FitnessScreen.ROUTINE_ADD, routineEditor);
         map.put(FitnessScreen.ROUTINE_DETAIL, routineEditor);
         map.put(FitnessScreen.WORKOUT_EXERCISE_ADD, routineEditor);
@@ -949,6 +981,11 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public RoutineRepository routineRepository() {
         return routineRepository;
+    }
+
+    @Override
+    public SupplementRepository supplementRepository() {
+        return supplementRepository;
     }
 
     @Override
@@ -2160,10 +2197,73 @@ public final class MainActivity extends Activity implements ScreenHost {
             priceTraceSupabaseConfig = priceTraceConfigStore.saveConnection(url, anonKey);
             productReadClient.setConfig(priceTraceSupabaseConfig);
             restaurantMenuReadClient.setConfig(priceTraceSupabaseConfig);
-            toast("PriceTrace 읽기 전용 DB 설정을 저장했습니다.");
+            toast("PriceTrace DB 설정을 저장했습니다.");
         } catch (IllegalArgumentException | IllegalStateException error) {
             toast(error.getMessage());
         }
+        render();
+    }
+
+    @Override
+    public void signInToPriceTraceSupabase(String email, String password) {
+        if (!priceTraceSupabaseConfig.isConnectionConfigured()) {
+            toast("PriceTrace DB 설정이 없습니다. 연결 설정을 먼저 확인하세요.");
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                SupabaseConfig authenticated = priceTraceAuthManager.signIn(
+                        priceTraceSupabaseConfig,
+                        email,
+                        password
+                );
+                runOnUiThread(() -> {
+                    applyPriceTraceSessionConfig(authenticated);
+                    toast("PriceTrace 계정으로 로그인했습니다.");
+                    render();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast(error.getMessage() == null
+                        ? "PriceTrace 로그인에 실패했습니다."
+                        : error.getMessage()));
+            }
+        });
+    }
+
+    @Override
+    public void signUpToPriceTraceSupabase(String email, String password) {
+        if (!priceTraceSupabaseConfig.isConnectionConfigured()) {
+            toast("PriceTrace DB 설정이 없습니다. 연결 설정을 먼저 확인하세요.");
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                SupabaseAuthManager.SignUpResult result = priceTraceAuthManager.signUp(
+                        priceTraceSupabaseConfig,
+                        email,
+                        password
+                );
+                runOnUiThread(() -> {
+                    if (result.emailConfirmationRequired) {
+                        toast("PriceTrace 가입 확인 메일을 확인한 뒤 로그인하세요.");
+                    } else {
+                        applyPriceTraceSessionConfig(result.config);
+                        toast("PriceTrace 계정이 생성되고 로그인되었습니다.");
+                    }
+                    render();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast(error.getMessage() == null
+                        ? "PriceTrace 계정 생성에 실패했습니다."
+                        : error.getMessage()));
+            }
+        });
+    }
+
+    @Override
+    public void signOutFromPriceTraceSupabase() {
+        applyPriceTraceSessionConfig(priceTraceConfigStore.clearSession());
+        toast("PriceTrace 계정에서 로그아웃했습니다.");
         render();
     }
 
@@ -2325,6 +2425,45 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    public void setDiningOutMenuPublication(
+            String nutritionFoodId,
+            boolean publish,
+            NutritionCatalogRepository.PublicationCallback callback
+    ) {
+        executor.execute(() -> {
+            try {
+                SupabaseConfig activeNutritionConfig = nutritionSupabaseConfig;
+                if (!activeNutritionConfig.isConfigured()) {
+                    throw new IllegalStateException("영양 DB 계정 로그인이 필요합니다.");
+                }
+                activeNutritionConfig = nutritionAuthManager.refresh(activeNutritionConfig);
+                applyNutritionSessionConfig(activeNutritionConfig);
+                SupabaseConfig activePriceTraceConfig = priceTraceSupabaseConfig;
+                if (publish) {
+                    if (!activePriceTraceConfig.isConfigured()) {
+                        throw new IllegalStateException("PT 관리자 계정 로그인이 필요합니다.");
+                    }
+                    activePriceTraceConfig = priceTraceAuthManager.refresh(activePriceTraceConfig);
+                    applyPriceTraceSessionConfig(activePriceTraceConfig);
+                }
+                NutritionCatalogRepository.PublicationState state =
+                        nutritionCatalogRepository.publishDiningOutMenuToPriceTrace(
+                                nutritionFoodId,
+                                publish,
+                                activePriceTraceConfig
+                        );
+                if (callback != null) {
+                    callback.onComplete(state);
+                }
+            } catch (Exception error) {
+                if (callback != null) {
+                    callback.onError(error);
+                }
+            }
+        });
+    }
+
+    @Override
     public void runManualSync() {
         if (!supabaseConfig.isConfigured()) {
             toast("Supabase 연결 설정을 저장하고 계정에 로그인하세요.");
@@ -2397,6 +2536,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         repository.normalizeLocalUserId(userId);
         routineRepository.setUserId(userId);
         developmentRepository.normalizeLocalUserId(userId);
+        supplementRepository.normalizeLocalUserId(userId);
     }
 
     private void completeSharedAuthentication(SupabaseConfig config, String successMessage) {
@@ -2421,6 +2561,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         repository.setUserId(userId);
         routineRepository.setUserId(userId);
         developmentRepository.setUserId(userId);
+        supplementRepository.setUserId(userId);
     }
 
     private void applyAuthenticatedNutritionConfig(SupabaseConfig config) {
@@ -2450,6 +2591,12 @@ public final class MainActivity extends Activity implements ScreenHost {
         nutritionSupabaseConfig = config;
         nutritionCatalogRepository.setUserId(config.effectiveUserId());
         nutritionCatalogRepository.setSupabaseConfig(config);
+    }
+
+    private void applyPriceTraceSessionConfig(SupabaseConfig config) {
+        priceTraceSupabaseConfig = config;
+        productReadClient.setConfig(config);
+        restaurantMenuReadClient.setConfig(config);
     }
 
     private void applySyncStatusFromConfig() {

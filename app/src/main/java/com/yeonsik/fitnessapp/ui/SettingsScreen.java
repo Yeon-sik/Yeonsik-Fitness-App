@@ -43,6 +43,7 @@ public final class SettingsScreen extends BaseScreen {
             renderPriceTraceConnectionCard(priceTraceConfig);
             renderSharedAuthCard(sharedConfig);
             renderNutritionAuthCard(nutritionConfig);
+            renderPriceTraceAuthCard(priceTraceConfig);
         }
     }
 
@@ -74,8 +75,9 @@ public final class SettingsScreen extends BaseScreen {
                 accountStatus(sharedConfig) + " · " + projectLabel(sharedConfig)));
         card.addView(ui.keyValue("영양 전용 DB",
                 nutritionStatus(nutritionConfig) + " · " + projectLabel(nutritionConfig)));
-        card.addView(ui.keyValue("PriceTrace 상품 조회", priceTraceConfig.isConnectionConfigured()
-                ? "읽기 전용 · " + projectLabel(priceTraceConfig)
+        card.addView(ui.keyValue("PriceTrace DB", priceTraceConfig.isConnectionConfigured()
+                ? (priceTraceConfig.isConfigured() ? "관리자 세션 · " : "읽기 전용 · ")
+                        + projectLabel(priceTraceConfig)
                 : "연결 없음"));
         card.addView(ui.keyValue("공통 계정", sharedConfig.email.isEmpty()
                 ? SupabaseConfig.DEFAULT_USER_ID
@@ -159,9 +161,8 @@ public final class SettingsScreen extends BaseScreen {
                 host.isPriceTraceSupabaseConnectionManaged()
         ));
         card.addView(ui.text(
-                "PriceTrace의 검증된 표준상품을 product-read.v1로 읽는 별도 연결입니다. "
-                        + "표준상품 후보를 검색하고 사용자가 선택한 항목을 영양 정보와 연결합니다. "
-                        + "쓰기 권한과 로그인은 사용하지 않습니다.",
+                "PriceTrace의 검증된 표준상품과 식당을 읽습니다. FT 식당 메뉴를 PT에 등록하려면 "
+                        + "아래 PriceTrace 관리자 계정으로 별도 로그인해야 합니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
@@ -172,8 +173,30 @@ public final class SettingsScreen extends BaseScreen {
                 host.isPriceTraceSupabaseConnectionManaged(),
                 "PriceTrace DB URL",
                 "PriceTrace DB anon key",
-                "PriceTrace 읽기 연결 저장",
+                "PriceTrace DB 연결 저장",
                 host::savePriceTraceSupabaseConfig
+        );
+        add(card);
+    }
+
+    private void renderPriceTraceAuthCard(SupabaseConfig config) {
+        FitnessUi ui = ui();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "PriceTrace 관리자 계정", config.isConfigured() ? config.email : "로그인 필요");
+        card.addView(ui.text(
+                "FT에서 식당·메뉴를 PT에 공개할 때 사용하는 별도 관리자 세션입니다. "
+                        + "공통 DB·영양 DB 계정과는 다른 PT 계정입니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        renderAuthControls(
+                card,
+                config,
+                "PriceTrace DB 연결을 먼저 설정하세요.",
+                host::signInToPriceTraceSupabase,
+                host::signUpToPriceTraceSupabase,
+                host::signOutFromPriceTraceSupabase
         );
         add(card);
     }

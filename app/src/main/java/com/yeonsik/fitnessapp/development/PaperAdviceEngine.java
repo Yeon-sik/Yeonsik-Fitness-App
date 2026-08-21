@@ -38,6 +38,7 @@ public final class PaperAdviceEngine {
 
         addSleepAdvice(input, advice);
         addProteinAdvice(input, advice);
+        addWeightRateAdvice(input, advice);
         addFailureAdvice(input, advice);
         addColdWaterAdvice(input, advice);
         if (advice.isEmpty() && input.goal.isEmpty()) {
@@ -55,12 +56,29 @@ public final class PaperAdviceEngine {
     }
 
     private static void addSleepAdvice(PaperAdviceInput input, List<PaperAdvice> advice) {
-        boolean shortSleep = input.sleepHours != null && input.sleepHours < 7d;
-        boolean lowReadiness = isLow(input.energyScore) || isLow(input.readinessScore);
+        boolean shortSleep = input.sleepHours != null
+                && input.sleepRecordedDays >= 3
+                && input.sleepHours < 7d;
+        boolean lowReadiness = input.lowEnergyOrReadinessDays >= 2;
         if (!shortSleep && !lowReadiness) return;
-        String observation = shortSleep
-                ? String.format("최근 수면 입력이 %.1f시간으로 기록되었습니다.", input.sleepHours)
-                : "에너지 또는 훈련 준비도 점수가 2 이하로 기록되었습니다.";
+        String observation;
+        if (shortSleep && lowReadiness) {
+            observation = String.format(
+                    "최근 7일 수면 기록 %d일의 평균이 %.1f시간이고, 에너지 또는 준비도 2 이하가 %d일입니다.",
+                    input.sleepRecordedDays,
+                    input.sleepHours,
+                    input.lowEnergyOrReadinessDays
+            );
+        } else if (shortSleep) {
+            observation = String.format(
+                    "최근 7일 수면 기록 %d일의 평균이 %.1f시간입니다.",
+                    input.sleepRecordedDays,
+                    input.sleepHours
+            );
+        } else {
+            observation = "최근 7일 에너지 또는 훈련 준비도 2 이하가 "
+                    + input.lowEnergyOrReadinessDays + "일입니다.";
+        }
         advice.add(new PaperAdvice(
                 "REC_SLEEP_001", "recovery", "오늘의 readiness를 보수적으로 조절하세요", observation,
                 "기술 복잡도·세션량·고강도 노출을 조절할 후보로 표시하고, 하루 수치만으로 훈련을 자동 취소하지 마세요.",
@@ -71,7 +89,8 @@ public final class PaperAdviceEngine {
 
     private static void addProteinAdvice(PaperAdviceInput input, List<PaperAdvice> advice) {
         boolean belowReviewPoint = input.proteinGPerKg != null
-                && input.proteinRecordedDays >= 7
+                && input.proteinRecordedDays >= input.proteinWindowDays
+                && input.resistanceTrainingSessionsPerWeek > 0
                 && input.proteinGPerKg < 1.6d;
         boolean relevantGoal = input.hasGoal("hypertrophy") || input.hasGoal("lean_gain")
                 || input.hasGoal("recomposition") || input.hasGoal("max_strength");
@@ -82,6 +101,24 @@ public final class PaperAdviceEngine {
                 "식사 기록의 누락과 에너지 섭취를 먼저 확인한 뒤 총 단백질을 높일 수 있는지 검토하세요. 보충제만으로 해결한다고 가정하지 않습니다.",
                 "1.6g/kg/day는 meta-analysis의 평균적 포화점 추정치에 가깝고 개인의 절대 최소량이나 보장된 목표량이 아닙니다.",
                 "high", PaperAdvice.Status.ACTIONABLE, Arrays.asList("08#1", "08#2")
+        ));
+    }
+
+    private static void addWeightRateAdvice(PaperAdviceInput input, List<PaperAdvice> advice) {
+        if (!input.hasGoal("fat_loss")
+                || input.weeklyWeightChangePct == null
+                || input.weeklyWeightChangePct >= -1d) {
+            return;
+        }
+        advice.add(new PaperAdvice(
+                "FAT_RATE_003", "weight", "감량 속도를 보수적으로 검토하세요",
+                String.format(
+                        "각 4일 이상 기록된 두 7일 평균 체중을 비교했을 때 주간 변화율이 %.2f%%입니다.",
+                        input.weeklyWeightChangePct
+                ),
+                "식사 기록 누락, 수행 저하, 허기와 회복 상태를 함께 확인하고 감량 속도를 낮출 필요가 있는지 검토하세요.",
+                "7일 평균끼리의 단기 비교이며 체지방·제지방 변화나 에너지 적자의 원인을 확정하지 않습니다.",
+                "moderate", PaperAdvice.Status.ACTIONABLE, Arrays.asList("03#6", "03#7")
         ));
     }
 
@@ -110,7 +147,4 @@ public final class PaperAdviceEngine {
         ));
     }
 
-    private static boolean isLow(Integer value) {
-        return value != null && value <= 2;
-    }
 }

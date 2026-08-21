@@ -11,6 +11,10 @@ import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.ProductNutritionLink;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import java.util.List;
 
 /** Explicit selection, suggestion approval, and unlink UI for cross-project product links. */
@@ -163,6 +167,164 @@ final class ProductNutritionLinkDialogController {
                 .setNegativeButton("닫기", null)
                 .create();
         activeDialog.show();
+    }
+
+    void showDiningOutPublication(NutritionFood food) {
+        dismissActiveDialog();
+        boolean isPublic = repository.isFoodPublic(food.id);
+        boolean hasExactIdentity = hasExactDiningOutIdentity(food);
+        boolean needsIdentityRepair = hasPriceTraceIdentity(food) && !hasExactIdentity;
+        boolean priceTraceAuthenticated = host.priceTraceSupabaseConfig().isConfigured();
+        LinearLayout body = ui.form();
+        body.addView(ui.text(
+                "식당·메뉴 공개는 일반 완제품 공개와 분리됩니다. 선택한 PriceTrace 식당·지점·메뉴 ID를 그대로 사용하며 이름으로 연결하지 않습니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        body.addView(ui.keyValue(
+                "공개 상태",
+                isPublic ? "PT 공개" : "개인 식당 메뉴"
+        ));
+        body.addView(ui.keyValue(
+                "정확 identity",
+                hasExactIdentity
+                        ? "연결됨"
+                        : needsIdentityRepair
+                        ? "연결됨 · 지점 source code 보완 필요"
+                        : "없음"
+        ));
+        body.addView(ui.keyValue(
+                "PT 관리자 세션",
+                priceTraceAuthenticated ? "연결됨" : "로그인 필요"
+        ));
+
+        Button publication = ui.button(
+                isPublic
+                        ? "PT 공개 취소"
+                        : (hasExactIdentity || needsIdentityRepair
+                        ? "PT에 공개"
+                        : "PT에 식당·메뉴 등록 후 공개"),
+                !isPublic && priceTraceAuthenticated,
+                v -> confirmDiningOutPublication(food, !isPublic)
+        );
+        publication.setEnabled(isPublic || priceTraceAuthenticated);
+        body.addView(publication, ui.fullWidthParams(ui.dp(8)));
+        body.addView(ui.text(
+                !priceTraceAuthenticated
+                        ? "설정에서 PriceTrace 관리자 계정으로 로그인하세요."
+                        : hasExactIdentity
+                        ? "공개하면 기존 PT 식당에 메뉴만 연결합니다."
+                        : needsIdentityRepair
+                        ? "기존 PT 지점에서 source code를 확인한 뒤 identity를 보완하고 공개합니다."
+                        : "공개하면 PT에 식당·지점·메뉴를 함께 등록한 뒤 공개합니다.",
+                11,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        ));
+
+        ScrollView scroll = new ScrollView(host.activity());
+        scroll.addView(body, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT
+        ));
+        activeDialog = new AlertDialog.Builder(host.activity())
+                .setTitle(food.brand + " · " + food.name + " · PT 공개")
+                .setView(scroll)
+                .setNegativeButton("닫기", null)
+                .create();
+        activeDialog.show();
+    }
+
+    private boolean hasExactDiningOutIdentity(NutritionFood food) {
+        JSONObject identity = parseDiningOutIdentity(food);
+        if (identity == null) {
+            return false;
+        }
+        return hasPriceTraceIdentity(identity) && hasText(identity, "source_location_code");
+    }
+
+    private boolean hasPriceTraceIdentity(NutritionFood food) {
+        JSONObject identity = parseDiningOutIdentity(food);
+        return identity != null && hasPriceTraceIdentity(identity);
+    }
+
+    private boolean hasPriceTraceIdentity(JSONObject identity) {
+        String contract = identity.optString(
+                "schema_version",
+                identity.optString("contract_version", "")
+        );
+        return "dining-out-identity.v1".equals(contract)
+                && hasText(identity, "restaurant_id")
+                && hasText(identity, "restaurant_location_id")
+                && hasText(identity, "restaurant_menu_id")
+                && hasText(identity, "catalog_product_id");
+    }
+
+    private JSONObject parseDiningOutIdentity(NutritionFood food) {
+        if (food == null || food.sourceReference == null) {
+            return null;
+        }
+        try {
+            return new JSONObject(food.sourceReference);
+        } catch (JSONException ignored) {
+            return null;
+        }
+    }
+
+    private boolean hasText(JSONObject object, String key) {
+        return !object.optString(key, "").trim().isEmpty();
+    }
+
+    private void confirmDiningOutPublication(NutritionFood food, boolean publish) {
+        String title = publish ? "PT에 식당 메뉴 공개" : "PT 식당 메뉴 공개 취소";
+        String message = publish
+                ? food.brand + " · " + food.name + "을(를) PT에서 공개할까요?"
+                : food.brand + " · " + food.name + "을(를) PT에서 숨길까요?";
+        new AlertDialog.Builder(host.activity())
+                .setTitle(title)
+                .setMessage(message)
+                .setPositiveButton(publish ? "공개" : "공개 취소",
+                        (dialog, which) -> setDiningOutPublication(food, publish))
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private void setDiningOutPublication(NutritionFood food, boolean publish) {
+        if (publicationUpdating) {
+            return;
+        }
+        publicationUpdating = true;
+        dismissActiveDialog();
+        host.toast(publish ? "PT 식당 메뉴를 공개하는 중입니다." : "PT 식당 메뉴 공개를 취소하는 중입니다.");
+        host.setDiningOutMenuPublication(
+                food.id,
+                publish,
+                new NutritionCatalogRepository.PublicationCallback() {
+                    @Override
+                    public void onComplete(NutritionCatalogRepository.PublicationState state) {
+                        host.activity().runOnUiThread(() -> {
+                            publicationUpdating = false;
+                            host.toast(state.isPublic
+                                    ? "PT에 식당 메뉴를 공개했습니다."
+                                    : "PT 식당 메뉴 공개를 취소했습니다.");
+                            showDiningOutPublication(food);
+                            host.rerender();
+                        });
+                    }
+
+                    @Override
+                    public void onError(Exception error) {
+                        host.activity().runOnUiThread(() -> {
+                            publicationUpdating = false;
+                            showDiningOutPublication(food);
+                            host.toast(error.getMessage() == null
+                                    ? "PT 식당 메뉴 공개 상태를 변경하지 못했습니다."
+                                    : error.getMessage());
+                        });
+                    }
+                }
+        );
     }
 
     private void confirmUnlink(NutritionFood food, ProductNutritionLink approved) {

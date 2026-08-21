@@ -66,7 +66,32 @@ public final class FitnessDatabaseMigrationTest {
             assertTrue(hasColumn(upgraded, "meal_records", "restaurant_location_id"));
             assertTrue(hasColumn(upgraded, "meal_records", "restaurant_menu_id"));
             assertTrue(hasColumn(upgraded, "meal_records", "catalog_product_id"));
+            assertTrue(hasColumn(upgraded, "meal_records", "composition_template_id"));
+            assertTrue(hasColumn(upgraded, "meal_records", "composition_template_revision"));
+            assertTrue(hasColumn(upgraded, "supplement_items", "product_form"));
+            assertTrue(hasColumn(upgraded, "supplement_items", "purpose_code"));
+            assertTrue(hasColumn(upgraded, "supplement_schedules", "effective_from"));
+            assertTrue(hasColumn(upgraded, "supplement_schedules", "active_ingredient_amount"));
+            assertTrue(hasColumn(upgraded, "supplement_schedule_slots", "timing_label"));
+            assertTrue(hasColumn(upgraded, "supplement_intake_records", "record_source"));
+            assertTrue(hasColumn(upgraded, "supplement_effect_checkins", "effect_score"));
             assertTrue(hasColumn(upgraded, "meal_record_items", "brand_snapshot"));
+            assertTrue(hasColumn(upgraded, "meal_record_items", "composition_template_id"));
+            assertTrue(hasColumn(
+                    upgraded,
+                    "meal_record_item_components",
+                    "composition_group_key_snapshot"
+            ));
+            assertTrue(hasColumn(
+                    upgraded,
+                    "meal_record_item_components",
+                    "composition_role_snapshot"
+            ));
+            assertTrue(hasColumn(
+                    upgraded,
+                    "meal_record_item_components",
+                    "composition_member_id_snapshot"
+            ));
             assertTrue(hasColumn(
                     upgraded,
                     "meal_record_item_components",
@@ -80,6 +105,10 @@ public final class FitnessDatabaseMigrationTest {
             assertTrue(indexExists(upgraded, "nutrition_foods_owner_brand_name_idx"));
             assertTrue(indexExists(upgraded, "nutrition_foods_owner_category_idx"));
             assertTrue(indexExists(upgraded, "meal_record_item_components_parent_order_idx"));
+            assertTrue(tableExists(upgraded, "composition_templates"));
+            assertTrue(tableExists(upgraded, "composition_groups"));
+            assertTrue(tableExists(upgraded, "composition_members"));
+            assertTrue(indexExists(upgraded, "composition_templates_user_kind_updated_idx"));
             assertEquals("local-user", scalar(
                     upgraded,
                     "SELECT user_id FROM cardio_sessions WHERE record_id = 'record-1'"
@@ -91,6 +120,20 @@ public final class FitnessDatabaseMigrationTest {
             assertEquals("local-user", scalar(
                     upgraded,
                     "SELECT user_id FROM meal_menu_presets WHERE id = 'preset-1'"
+            ));
+            assertEquals("1", scalar(
+                    upgraded,
+                    "SELECT COUNT(*) FROM composition_templates " +
+                            "WHERE template_kind = 'dining_out'"
+            ));
+            assertEquals("1", scalar(
+                    upgraded,
+                    "SELECT COUNT(*) FROM composition_members " +
+                            "WHERE nutrition_food_id = 'legacy-option-1'"
+            ));
+            assertEquals("legacy_options", scalar(
+                    upgraded,
+                    "SELECT group_key FROM composition_groups LIMIT 1"
             ));
         } finally {
             if (helper != null) {
@@ -259,6 +302,14 @@ public final class FitnessDatabaseMigrationTest {
                 "fat_grams REAL NOT NULL DEFAULT 0, source_type TEXT NOT NULL, " +
                 "source_reference TEXT, visibility TEXT NOT NULL DEFAULT 'private', " +
                 "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT)");
+        db.execSQL("INSERT INTO nutrition_foods (" +
+                "id, owner_id, name, kind, basis_amount, basis_unit, calories_kcal, " +
+                "protein_grams, carbs_grams, fat_grams, source_type, source_reference, " +
+                "created_at, updated_at) VALUES (" +
+                "'legacy-option-1', 'local-user', '감자튀김', 'external_menu', 1, 'serving', " +
+                "320, 4, 42, 15, 'manual_option', " +
+                "'{\"restaurant_name\":\"맥도날드\",\"menu_name\":\"고추크림치즈버거 세트\",\"restaurant_id\":\"restaurant-1\",\"restaurant_menu_id\":\"menu-1\"}', " +
+                "'2026-08-08T00:00:00Z', '2026-08-08T00:00:00Z')");
 
         db.execSQL("CREATE TABLE meal_record_items (" +
                 "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, meal_record_id TEXT NOT NULL, " +
@@ -296,6 +347,15 @@ public final class FitnessDatabaseMigrationTest {
         try (Cursor cursor = db.rawQuery(
                 "SELECT 1 FROM sqlite_master WHERE type = 'index' AND name = ?",
                 new String[]{index}
+        )) {
+            return cursor.moveToFirst();
+        }
+    }
+
+    private static boolean tableExists(SQLiteDatabase db, String table) {
+        try (Cursor cursor = db.rawQuery(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+                new String[]{table}
         )) {
             return cursor.moveToFirst();
         }

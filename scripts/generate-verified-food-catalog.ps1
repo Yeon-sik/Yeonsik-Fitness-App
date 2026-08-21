@@ -43,6 +43,8 @@ $rawCodes = @(
     'R209-027068501-0000',
     'R209-027061801-0000',
     'R209-027068101-0000',
+    # Imported beef: chuck eye roll represented by the official U.S. beef chuck row
+    'R209-027018401-0000',
     # Pork
     'R209-014008701-0000',
     'R209-014008301-0000',
@@ -53,6 +55,7 @@ $rawCodes = @(
     'R209-014008101-0000',
     'R209-014008801-0000',
     # Vegetables and mushrooms
+    'R106-003000001-0000',
     'R106-092000001-0000',
     'R106-115000001-0000',
     'R106-129000001-0000',
@@ -74,6 +77,18 @@ $rawCodes = @(
     'R106-122000001-0000',
     'R106-198040001-0000',
     'R106-030000001-0000',
+    'R102-001060001-0000',
+    'R102-006000001-0000',
+    'R106-053002201-0000',
+    'R106-191040001-0000',
+    # Fruits
+    'R108-050000001-0000',
+    'R108-037000001-0000',
+    'R108-019010001-0000',
+    'R108-010020001-0000',
+    'R108-098010001-0000',
+    'R108-069000001-0000',
+    'R108-092000001-0000',
     # Dry grains used before cooking
     'R101-008000301-0000',
     'R101-008000501-0000',
@@ -96,10 +111,10 @@ $grilledCodes = @(
 
 $selectedCodes = @($rawCodes + $grilledCodes)
 
-if ($rawCodes.Count -ne 51 -or $grilledCodes.Count -ne 4 -or
-        $selectedCodes.Count -ne 55 -or
-        ($selectedCodes | Sort-Object -Unique).Count -ne 55) {
-    throw 'The verified catalog selection must contain 51 raw and 4 grilled unique codes.'
+if ($rawCodes.Count -ne 64 -or $grilledCodes.Count -ne 4 -or
+        $selectedCodes.Count -ne 68 -or
+        ($selectedCodes | Sort-Object -Unique).Count -ne 68) {
+    throw 'The verified catalog selection must contain 64 raw and 4 grilled unique codes.'
 }
 
 $rowsByCode = @{}
@@ -219,4 +234,4 @@ $json = $asset | ConvertTo-Json -Depth 8 -Compress
 $utf8WithoutBom = New-Object System.Text.UTF8Encoding($false)
 [System.IO.File]::WriteAllText($resolvedOutput, $json, $utf8WithoutBom)
 
-Write-Output "Generated $($foods.Count) verified foods (51 raw, 4 grilled) at $resolvedOutput"
+Write-Output "Generated $($foods.Count) verified foods (64 raw, 4 grilled) at $resolvedOutput"

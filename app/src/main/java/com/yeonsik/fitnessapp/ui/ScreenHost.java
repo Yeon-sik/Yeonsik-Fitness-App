@@ -17,6 +17,7 @@ import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
+import com.yeonsik.fitnessapp.supplement.SupplementRepository;
 
 import java.util.List;
 
@@ -38,6 +39,8 @@ public interface ScreenHost {
     CardioRepository cardioRepository();
 
     RoutineRepository routineRepository();
+
+    SupplementRepository supplementRepository();
 
     ExerciseMasterRepository exerciseMasterRepository();
 
@@ -163,6 +166,12 @@ public interface ScreenHost {
 
     void savePriceTraceSupabaseConfig(String url, String anonKey);
 
+    void signInToPriceTraceSupabase(String email, String password);
+
+    void signUpToPriceTraceSupabase(String email, String password);
+
+    void signOutFromPriceTraceSupabase();
+
     void searchPriceTraceProducts(String query, ProductSearchCallback callback);
 
     void loadPriceTraceProduct(String catalogProductId, ProductLoadCallback callback);
@@ -181,6 +190,12 @@ public interface ScreenHost {
     void setNutritionFoodPublication(
             String nutritionFoodId,
             String catalogProductId,
+            boolean publish,
+            NutritionCatalogRepository.PublicationCallback callback
+    );
+
+    void setDiningOutMenuPublication(
+            String nutritionFoodId,
             boolean publish,
             NutritionCatalogRepository.PublicationCallback callback
     );

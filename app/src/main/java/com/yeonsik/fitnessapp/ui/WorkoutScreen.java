@@ -6,6 +6,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
+import com.yeonsik.fitnessapp.supplement.SupplementRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -45,6 +46,18 @@ public final class WorkoutScreen extends BaseScreen {
                 "오늘 " + repository().mealCountForDate(today) + "건",
                 "음식·메뉴·영양 관리",
                 v -> host.openMealManagement()
+        ), ui().fullWidthParams(ui().dp(10)));
+
+        SupplementRepository.Progress supplementProgress = host.supplementRepository().progress(today);
+        add(ui().hologramStatTile(
+                "영양제",
+                supplementProgress.planned == 0
+                        ? "복용 계획 없음"
+                        : "오늘 " + supplementProgress.taken + " / " + supplementProgress.planned + "회",
+                supplementProgress.skipped == 0
+                        ? "복용 계획·매일 기록"
+                        : "건너뜀 " + supplementProgress.skipped + "회 · 계획 관리",
+                v -> host.navigate(FitnessScreen.SUPPLEMENTS)
         ), ui().fullWidthParams(ui().dp(10)));
 
         section("신체 기록");

@@ -23,7 +23,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -104,6 +106,8 @@ public final class NutritionCatalogRepository {
             VerifiedFoodCatalogSeed.FOOD_ID_PREFIX + "%";
     private static final String VERIFIED_FOOD_SOURCE_REFERENCE_PREFIX =
             VerifiedFoodCatalogSeed.SOURCE_REFERENCE_PREFIX + "%";
+    private static final String DINING_OUT_OPTION_SOURCE_TYPE = "manual_option";
+    private static final int SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX = 50;
 
     private final FitnessDatabaseHelper dbHelper;
     private volatile String userId;
@@ -225,6 +229,17 @@ public final class NutritionCatalogRepository {
         return foods;
     }
 
+    public NutritionFood findFoodById(String foodId) {
+        String normalizedId = requireName(foodId);
+        List<NutritionFood> foods = readFoods(
+                "id = ?",
+                new String[]{normalizedId},
+                "id",
+                "1"
+        );
+        return foods.isEmpty() ? null : foods.get(0);
+    }
+
     public List<NutritionFood> searchVerifiedFoods(String query, int limit) {
         int safeLimit = Math.max(1, Math.min(limit, VERIFIED_FOOD_SEARCH_LIMIT_MAX));
         String term = query == null ? "" : query.trim();
@@ -268,6 +283,77 @@ public final class NutritionCatalogRepository {
             }
         }
         return verified;
+    }
+
+    /** Searches reusable nutrient-bearing options saved for the current restaurant. */
+    public List<NutritionFood> savedDiningOutOptions(
+            String storeName,
+            DiningOutIdentity identity,
+            String query,
+            int limit
+    ) {
+        String normalizedStoreName = storeName == null ? "" : storeName.trim();
+        if (normalizedStoreName.isEmpty()) {
+            return new ArrayList<>();
+        }
+        int safeLimit = Math.max(1, Math.min(limit, SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX));
+        String normalizedQuery = query == null ? "" : query.trim();
+        List<NutritionFood> candidates = readFoods(
+                "owner_id = ? AND kind = ? AND brand = ? COLLATE NOCASE "
+                        + "AND source_type = ? AND name LIKE ? COLLATE NOCASE",
+                new String[]{
+                        userId,
+                        NutritionFood.KIND_EXTERNAL_MENU,
+                        normalizedStoreName,
+                        DINING_OUT_OPTION_SOURCE_TYPE,
+                        "%" + normalizedQuery + "%"
+                },
+                "updated_at DESC, name COLLATE NOCASE ASC",
+                null
+        );
+        List<NutritionFood> results = new ArrayList<>();
+        Set<String> names = new LinkedHashSet<>();
+        for (NutritionFood candidate : candidates) {
+            if (!matchesDiningOutOptionIdentity(candidate, identity)) {
+                continue;
+            }
+            String normalizedName = candidate.name == null
+                    ? ""
+                    : candidate.name.trim().toLowerCase(Locale.ROOT);
+            if (normalizedName.isEmpty() || !names.add(normalizedName)) {
+                continue;
+            }
+            results.add(candidate);
+            if (results.size() >= safeLimit) {
+                break;
+            }
+        }
+        return results;
+    }
+
+    private boolean matchesDiningOutOptionIdentity(
+            NutritionFood food,
+            DiningOutIdentity identity
+    ) {
+        if (identity == null || food == null
+                || food.sourceReference == null
+                || food.sourceReference.trim().isEmpty()) {
+            return true;
+        }
+        try {
+            JSONObject reference = new JSONObject(food.sourceReference);
+            String restaurantId = nullableString(reference, "restaurant_id");
+            String locationId = nullableString(reference, "restaurant_location_id");
+            // Options saved before exact PriceTrace identity was selected remain reusable
+            // through the restaurant-name fallback above.
+            if (restaurantId == null && locationId == null) {
+                return true;
+            }
+            return identity.restaurantId.equals(restaurantId)
+                    && identity.restaurantLocationId.equals(locationId);
+        } catch (JSONException error) {
+            return false;
+        }
     }
 
     /** Saved recipes for the menu browser. */
@@ -478,6 +564,25 @@ public final class NutritionCatalogRepository {
             Double proteinGrams,
             Double fatGrams
     ) {
+        return saveDiningOutMenu(
+                storeName,
+                menuName,
+                carbsGrams,
+                proteinGrams,
+                fatGrams,
+                null
+        );
+    }
+
+    /** Saves a dining-out menu and preserves an explicitly selected PriceTrace identity. */
+    public NutritionFood saveDiningOutMenu(
+            String storeName,
+            String menuName,
+            Double carbsGrams,
+            Double proteinGrams,
+            Double fatGrams,
+            DiningOutIdentity identity
+    ) {
         String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
         String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
         MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
@@ -504,7 +609,8 @@ public final class NutritionCatalogRepository {
                         carbsGrams,
                         fatGrams
                 ),
-                NutritionFood.DATA_VERSION_MACROS_ONLY
+                NutritionFood.DATA_VERSION_MACROS_ONLY,
+                diningOutMenuSourceReference(normalizedStoreName, normalizedMenuName, identity)
         );
     }
 
@@ -519,6 +625,33 @@ public final class NutritionCatalogRepository {
             Double sodiumMg,
             Double sugarsGrams,
             Double saturatedFatGrams
+    ) {
+        return saveDiningOutMenuWithNutrition(
+                storeName,
+                menuName,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams,
+                null
+        );
+    }
+
+    /** Saves a complete menu estimate with an explicitly selected PriceTrace identity. */
+    public NutritionFood saveDiningOutMenuWithNutrition(
+            String storeName,
+            String menuName,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams,
+            DiningOutIdentity identity
     ) {
         String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
         String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
@@ -558,7 +691,8 @@ public final class NutritionCatalogRepository {
                 normalizedStoreName,
                 normalizedMenuName,
                 profile,
-                NutritionFood.DATA_VERSION_REQUIRED_SEVEN
+                NutritionFood.DATA_VERSION_REQUIRED_SEVEN,
+                diningOutMenuSourceReference(normalizedStoreName, normalizedMenuName, identity)
         );
     }
 
@@ -603,20 +737,56 @@ public final class NutritionCatalogRepository {
                 normalizedMenuName,
                 option.name,
                 profile,
-                diningOutOptionSourceReference(normalizedStoreName, normalizedMenuName, identity)
+                diningOutOptionSourceReference(
+                        normalizedStoreName,
+                        normalizedMenuName,
+                        identity,
+                        option
+                )
         );
     }
 
     private String diningOutOptionSourceReference(
             String storeName,
             String menuName,
-            DiningOutIdentity identity
+            DiningOutIdentity identity,
+            DiningOutOption option
     ) {
         JSONObject reference = new JSONObject();
         try {
             reference.put("contract_version", "dining-out-option.v1");
+            reference.put("composition_contract", CompositionTemplate.CONTRACT_VERSION);
             reference.put("restaurant_name", storeName);
             reference.put("menu_name", menuName);
+            reference.put("composition_group_key", option.groupKey);
+            reference.put("composition_group_label", option.groupLabel);
+            reference.put("composition_role", option.role);
+            if (option.sourceReference != null && !option.sourceReference.trim().isEmpty()) {
+                try {
+                    JSONObject previous = new JSONObject(option.sourceReference);
+                    if (previous.has("composition_template_id")) {
+                        reference.put(
+                                "composition_template_id",
+                                previous.optString("composition_template_id", "")
+                        );
+                    }
+                    if (previous.has("composition_template_revision")) {
+                        reference.put(
+                                "composition_template_revision",
+                                previous.isNull("composition_template_revision")
+                                        ? JSONObject.NULL
+                                        : previous.optInt("composition_template_revision", 1)
+                        );
+                    }
+                } catch (JSONException ignored) {
+                    // Preserve the normal catalog identity when an older source is not JSON.
+                }
+            }
+            if (option.memberId == null) {
+                reference.put("composition_member_id", JSONObject.NULL);
+            } else {
+                reference.put("composition_member_id", option.memberId);
+            }
             if (identity == null) {
                 reference.put("restaurant_id", JSONObject.NULL);
                 reference.put("restaurant_location_id", JSONObject.NULL);
@@ -632,11 +802,37 @@ public final class NutritionCatalogRepository {
         }
     }
 
+    private String diningOutMenuSourceReference(
+            String restaurantName,
+            String menuName,
+            DiningOutIdentity identity
+    ) {
+        if (identity != null) {
+            return identity.metadataJson();
+        }
+        JSONObject reference = new JSONObject();
+        try {
+            reference.put("schema_version", "dining-out-identity.v1");
+            reference.put("namespace", "fitnessapp");
+            reference.put("restaurant_id", JSONObject.NULL);
+            reference.put("restaurant_name", restaurantName);
+            reference.put("restaurant_location_id", JSONObject.NULL);
+            reference.put("branch_name", JSONObject.NULL);
+            reference.put("restaurant_menu_id", JSONObject.NULL);
+            reference.put("menu_name", menuName);
+            reference.put("catalog_product_id", JSONObject.NULL);
+            return reference.toString();
+        } catch (JSONException error) {
+            throw new IllegalStateException("Dining-out publication identity could not be encoded.", error);
+        }
+    }
+
     private NutritionFood saveDiningOutMenuCatalogRow(
             String normalizedStoreName,
             String normalizedMenuName,
-        NutritionProfile profile,
-        int dataVersion
+            NutritionProfile profile,
+            int dataVersion,
+            String sourceReference
     ) {
         return saveDiningOutCatalogRow(
                 normalizedStoreName,
@@ -645,7 +841,7 @@ public final class NutritionCatalogRepository {
                 profile,
                 dataVersion,
                 "manual_estimate",
-                "dining_out"
+                sourceReference
         );
     }
 
@@ -662,7 +858,7 @@ public final class NutritionCatalogRepository {
                 normalizedMenuName,
                 profile,
                 NutritionFood.DATA_VERSION_MACROS_ONLY,
-                "manual_option",
+                DINING_OUT_OPTION_SOURCE_TYPE,
                 sourceReference
         );
     }
@@ -914,6 +1110,327 @@ public final class NutritionCatalogRepository {
                 Math.max(1, row.optInt("publication_revision", 1)),
                 nullableString(row, "published_at")
         );
+    }
+
+    /** Publishes a dining-out menu through the exact restaurant/menu identity contract. */
+    public PublicationState setDiningOutMenuPublication(
+            String nutritionFoodId,
+            boolean publish
+    ) throws Exception {
+        SupabaseConfig config = supabaseConfig;
+        if (config == null || !config.isConfigured()) {
+            throw new IllegalStateException("영양 DB 계정 로그인이 필요합니다.");
+        }
+        String normalizedFoodId = requireName(nutritionFoodId);
+        HttpURLConnection connection = openConnection(
+                joinUrl(config.supabaseUrl,
+                        "/rest/v1/rpc/set_dining_out_menu_publication_v1"),
+                "POST",
+                config
+        );
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setDoOutput(true);
+        JSONObject request = new JSONObject();
+        request.put("p_nutrition_food_id", normalizedFoodId);
+        request.put("p_publish", publish);
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
+        }
+
+        String body = readResponseOrThrow(connection, 200);
+        JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
+        if (rows.length() != 1) {
+            throw new IOException("식당 메뉴 공개 RPC가 정확히 한 행을 반환하지 않았습니다.");
+        }
+        JSONObject row = rows.getJSONObject(0);
+        String returnedFoodId = nullableString(row, "nutrition_food_id");
+        String visibility = nullableString(row, "visibility");
+        if (!normalizedFoodId.equals(returnedFoodId)
+                || !("public".equals(visibility) || "private".equals(visibility))
+                || publish != "public".equals(visibility)) {
+            throw new IOException("식당 메뉴 공개 RPC 응답이 요청한 항목과 일치하지 않습니다.");
+        }
+
+        String updatedAt = emptyToDefault(nullableString(row, "updated_at"), now());
+        ContentValues values = new ContentValues();
+        values.put("visibility", visibility);
+        values.put("updated_at", updatedAt);
+        int changed = dbHelper.getWritableDatabase().update(
+                "nutrition_foods",
+                values,
+                "id = ? AND owner_id = ? AND deleted_at IS NULL",
+                new String[]{normalizedFoodId, config.effectiveUserId()}
+        );
+        if (changed != 1) {
+            throw new IOException("식당 메뉴 공개 상태를 기기 카탈로그에 반영하지 못했습니다.");
+        }
+        return new PublicationState(
+                normalizedFoodId,
+                nullableString(row, "catalog_product_id"),
+                "public".equals(visibility),
+                Math.max(1, row.optInt("publication_revision", 1)),
+                nullableString(row, "published_at")
+        );
+    }
+
+    /** Registers the FT-owned menu in PT first, then publishes its Nutrition projection. */
+    public PublicationState publishDiningOutMenuToPriceTrace(
+            String nutritionFoodId,
+            boolean publish,
+            SupabaseConfig priceTraceConfig
+    ) throws Exception {
+        if (!publish) {
+            return setDiningOutMenuPublication(nutritionFoodId, false);
+        }
+        SupabaseConfig nutritionConfig = supabaseConfig;
+        if (nutritionConfig == null || !nutritionConfig.isConfigured()) {
+            throw new IllegalStateException("영양 DB 계정 로그인이 필요합니다.");
+        }
+        if (priceTraceConfig == null || !priceTraceConfig.isConfigured()) {
+            throw new IllegalStateException("PT 관리자 계정 로그인이 필요합니다.");
+        }
+
+        String normalizedFoodId = requireName(nutritionFoodId);
+        NutritionFood food = findFoodById(normalizedFoodId);
+        if (food == null || !food.isDiningOutMenu()) {
+            throw new IllegalArgumentException("공개할 FT 식당 메뉴를 찾을 수 없습니다.");
+        }
+
+        JSONObject identity = new JSONObject();
+        if (food.sourceReference != null && !food.sourceReference.trim().isEmpty()) {
+            try {
+                identity = new JSONObject(food.sourceReference);
+            } catch (JSONException ignored) {
+                // Legacy "dining_out" rows use the new FitnessApp source identity below.
+            }
+        }
+
+        String restaurantName = emptyToDefault(
+                nullableString(identity, "restaurant_name"),
+                emptyToDefault(food.brand, "식당명 미기록")
+        );
+        String menuName = emptyToDefault(nullableString(identity, "menu_name"), food.name);
+        String restaurantId = nullableString(identity, "restaurant_id");
+        String locationId = nullableString(identity, "restaurant_location_id");
+        String menuId = nullableString(identity, "restaurant_menu_id");
+        String catalogProductId = nullableString(identity, "catalog_product_id");
+        boolean hasAnyPriceTraceId = restaurantId != null
+                || locationId != null
+                || menuId != null
+                || catalogProductId != null;
+        boolean hasAllPriceTraceIds = restaurantId != null
+                && locationId != null
+                && menuId != null
+                && catalogProductId != null;
+        if (hasAnyPriceTraceId && !hasAllPriceTraceIds) {
+            throw new IllegalStateException("PT 식당·지점·메뉴 identity가 일부만 저장되어 있습니다.");
+        }
+
+        String sourceNamespace = nullableString(identity, "namespace");
+        String sourceLocationCode = nullableString(identity, "source_location_code");
+        if (hasAllPriceTraceIds) {
+            SourceLocationIdentity sourceLocation = resolvePriceTraceLocation(
+                    priceTraceConfig,
+                    restaurantId,
+                    locationId,
+                    sourceNamespace,
+                    sourceLocationCode
+            );
+            sourceNamespace = emptyToDefault(
+                    sourceLocation.namespace,
+                    DiningOutIdentity.NAMESPACE
+            );
+            sourceLocationCode = sourceLocation.code;
+            if (sourceLocationCode == null) {
+                throw new IllegalStateException(
+                        "PriceTrace 지점 응답에 source identity가 없습니다. PT 지점 설정을 확인하세요."
+                );
+            }
+        } else {
+            sourceNamespace = "fitnessapp";
+            sourceLocationCode = "restaurant:" + restaurantName.trim().toLowerCase(Locale.US);
+        }
+
+        JSONObject request = new JSONObject();
+        request.put("p_idempotency_key", "fitnessapp:dining-out:" + normalizedFoodId);
+        request.put("p_nutrition_food_id", normalizedFoodId);
+        request.put("p_nutrition_revision", Math.max(1, food.revision));
+        putNullable(request, "p_restaurant_id", restaurantId);
+        request.put("p_restaurant_name", restaurantName);
+        putNullable(request, "p_restaurant_location_id", locationId);
+        request.put("p_source_location_namespace", sourceNamespace);
+        request.put("p_source_location_code", sourceLocationCode);
+        putNullable(request, "p_location_label", nullableString(identity, "branch_name"));
+        putNullable(request, "p_restaurant_menu_id", menuId);
+        putNullable(request, "p_catalog_product_id", catalogProductId);
+        request.put("p_menu_name", menuName);
+        request.put("p_menu_category_label", NutritionFood.categoryLabel(food.category));
+        request.put("p_serving_label", food.basisLabel());
+
+        HttpURLConnection ptConnection = openConnection(
+                joinUrl(priceTraceConfig.supabaseUrl,
+                        "/rest/v1/rpc/admin_publish_fitness_dining_out_v1"),
+                "POST",
+                priceTraceConfig
+        );
+        ptConnection.setRequestProperty("Content-Type", "application/json");
+        ptConnection.setRequestProperty("Accept", "application/json");
+        ptConnection.setDoOutput(true);
+        try (OutputStream output = ptConnection.getOutputStream()) {
+            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
+        }
+        String ptBody = readResponseOrThrow(ptConnection, 200);
+        JSONArray ptRows = ptBody.isEmpty() ? new JSONArray() : new JSONArray(ptBody);
+        if (ptRows.length() != 1) {
+            throw new IOException("PT 식당 메뉴 등록 RPC가 정확히 한 행을 반환하지 않았습니다.");
+        }
+        JSONObject ptRow = ptRows.getJSONObject(0);
+        String registeredRestaurantId = requireReturnedUuid(ptRow, "restaurant_id");
+        String registeredLocationId = requireReturnedUuid(ptRow, "restaurant_location_id");
+        String registeredMenuId = requireReturnedUuid(ptRow, "restaurant_menu_id");
+        String registeredCatalogProductId = requireReturnedUuid(ptRow, "catalog_product_id");
+
+        attachDiningOutMenuIdentity(
+                nutritionConfig,
+                normalizedFoodId,
+                registeredRestaurantId,
+                registeredLocationId,
+                registeredMenuId,
+                registeredCatalogProductId
+        );
+        attachDiningOutMenuNutritionLink(
+                nutritionConfig,
+                normalizedFoodId,
+                registeredCatalogProductId
+        );
+        return setDiningOutMenuPublication(normalizedFoodId, true);
+    }
+
+    private SourceLocationIdentity resolvePriceTraceLocation(
+            SupabaseConfig priceTraceConfig,
+            String restaurantId,
+            String locationId,
+            String storedSourceNamespace,
+            String storedSourceLocationCode
+    ) throws Exception {
+        if (storedSourceLocationCode != null && !storedSourceLocationCode.trim().isEmpty()) {
+            return new SourceLocationIdentity(
+                    storedSourceNamespace,
+                    storedSourceLocationCode.trim()
+            );
+        }
+
+        RestaurantMenuReadV1Client.RestaurantDetail detail =
+                new RestaurantMenuReadV1Client(priceTraceConfig).loadRestaurant(restaurantId);
+        for (RestaurantMenuReadV1Client.RestaurantLocation location : detail.locations) {
+            if (locationId.equals(location.restaurantLocationId)) {
+                String sourceLocationCode = location.sourceLocationCode == null
+                        ? ""
+                        : location.sourceLocationCode.trim();
+                return new SourceLocationIdentity(
+                        location.sourceNamespace,
+                        sourceLocationCode.isEmpty() ? null : sourceLocationCode
+                );
+            }
+        }
+        throw new IOException("PriceTrace 응답에서 요청한 지점 identity를 찾지 못했습니다.");
+    }
+
+    private static final class SourceLocationIdentity {
+        private final String namespace;
+        private final String code;
+
+        private SourceLocationIdentity(String namespace, String code) {
+            this.namespace = namespace;
+            this.code = code;
+        }
+    }
+
+    private void attachDiningOutMenuIdentity(
+            SupabaseConfig config,
+            String nutritionFoodId,
+            String restaurantId,
+            String locationId,
+            String menuId,
+            String catalogProductId
+    ) throws Exception {
+        HttpURLConnection connection = openConnection(
+                joinUrl(config.supabaseUrl,
+                        "/rest/v1/rpc/attach_dining_out_menu_identity_v1"),
+                "POST",
+                config
+        );
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setDoOutput(true);
+        JSONObject request = new JSONObject();
+        request.put("p_nutrition_food_id", nutritionFoodId);
+        request.put("p_restaurant_id", restaurantId);
+        request.put("p_restaurant_location_id", locationId);
+        request.put("p_restaurant_menu_id", menuId);
+        request.put("p_catalog_product_id", catalogProductId);
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
+        }
+        String body = readResponseOrThrow(connection, 200);
+        JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
+        if (rows.length() != 1) {
+            throw new IOException("FT 식당 메뉴 identity 연결 RPC가 정확히 한 행을 반환하지 않았습니다.");
+        }
+        JSONObject row = rows.getJSONObject(0);
+        String returnedFoodId = nullableString(row, "nutrition_food_id");
+        String sourceReference = nullableString(row, "source_reference");
+        if (!nutritionFoodId.equals(returnedFoodId) || sourceReference == null) {
+            throw new IOException("FT 식당 메뉴 identity 연결 응답이 요청과 일치하지 않습니다.");
+        }
+        ContentValues values = new ContentValues();
+        values.put("source_reference", sourceReference);
+        values.put("updated_at", emptyToDefault(nullableString(row, "updated_at"), now()));
+        int changed = dbHelper.getWritableDatabase().update(
+                "nutrition_foods",
+                values,
+                "id = ? AND owner_id = ? AND deleted_at IS NULL",
+                new String[]{nutritionFoodId, config.effectiveUserId()}
+        );
+        if (changed != 1) {
+            throw new IOException("FT 식당 메뉴 identity를 기기 카탈로그에 반영하지 못했습니다.");
+        }
+    }
+
+    private void attachDiningOutMenuNutritionLink(
+            SupabaseConfig config,
+            String nutritionFoodId,
+            String catalogProductId
+    ) throws Exception {
+        HttpURLConnection connection = openConnection(
+                joinUrl(config.supabaseUrl,
+                        "/rest/v1/rpc/attach_dining_out_menu_nutrition_link_v1"),
+                "POST",
+                config
+        );
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setDoOutput(true);
+        JSONObject request = new JSONObject();
+        request.put("p_nutrition_food_id", nutritionFoodId);
+        request.put("p_catalog_product_id", catalogProductId);
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
+        }
+        String body = readResponseOrThrow(connection, 200);
+        JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
+        if (rows.length() != 1) {
+            throw new IOException("FT 식당 메뉴 영양 링크 RPC가 정확히 한 행을 반환하지 않았습니다.");
+        }
+        JSONObject row = rows.getJSONObject(0);
+        String returnedFoodId = nullableString(row, "nutrition_food_id");
+        String returnedCatalogProductId = nullableString(row, "catalog_product_id");
+        if (!nutritionFoodId.equals(returnedFoodId)
+                || !catalogProductId.equals(returnedCatalogProductId)
+                || !"approved".equals(nullableString(row, "status"))) {
+            throw new IOException("FT 식당 메뉴 영양 링크 응답이 요청한 exact identity와 일치하지 않습니다.");
+        }
     }
 
     /** Pending owner-specific suggestions written by a trusted PriceTrace integration. */
@@ -2392,6 +2909,23 @@ public final class NutritionCatalogRepository {
 
     private static String nullableString(JSONObject object, String key) {
         return !object.has(key) || object.isNull(key) ? null : object.optString(key, null);
+    }
+
+    private static void putNullable(JSONObject object, String key, String value)
+            throws JSONException {
+        object.put(key, value == null ? JSONObject.NULL : value);
+    }
+
+    private static String requireReturnedUuid(JSONObject object, String key) throws IOException {
+        String value = nullableString(object, key);
+        if (value == null) {
+            throw new IOException("PT 등록 응답에 " + key + "가 없습니다.");
+        }
+        try {
+            return UUID.fromString(value).toString();
+        } catch (IllegalArgumentException error) {
+            throw new IOException("PT 등록 응답의 " + key + "가 UUID가 아닙니다.", error);
+        }
     }
 
     private static Double nullableDouble(JSONObject object, String key) {

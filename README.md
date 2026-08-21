@@ -68,6 +68,19 @@ and preferences namespace. Active Nutrition migrations live under
 `supabase/nutrition/supabase/migrations/`; see `supabase/README.md` before
 applying them to the Fitness-only remote project.
 
+For a local debug build, use the session-aware install task when
+`supabase/.env` contains `EMAIL` and `PASSWORD`:
+
+```powershell
+.\gradlew.bat installDebugWithEnvSession --no-daemon
+```
+
+It builds the APK, installs it with `adb install -r`, requests short-lived
+Supabase sessions outside the APK, and stores the returned tokens in the
+Android Keystore. If the credentials are missing or automatic authentication
+fails, the APK is still installed and the existing Settings login form is used.
+The password is never placed in `BuildConfig` or the APK.
+
 ## Release
 
 Signed release builds require:

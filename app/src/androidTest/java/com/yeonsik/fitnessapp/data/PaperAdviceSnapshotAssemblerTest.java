@@ -50,6 +50,12 @@ public final class PaperAdviceSnapshotAssemblerTest {
                     "",
                     ""
             ));
+            for (int day = 28; day <= 31; day++) {
+                fitness.addBodyMetric(String.format("2026-07-%02d", day), 82.0, "");
+            }
+            for (int day = 4; day <= 6; day++) {
+                fitness.addBodyMetric(String.format("2026-08-%02d", day), 80.0, "");
+            }
             fitness.addBodyMetric("2026-08-10", 80.0, "");
             for (int day = 4; day <= 10; day++) {
                 fitness.addMeal(
@@ -61,17 +67,19 @@ public final class PaperAdviceSnapshotAssemblerTest {
                         20.0
                 );
             }
-            fitness.saveAthleteCheckIn(new AthleteDailyCheckIn(
-                    "",
-                    "2026-08-10",
-                    2000,
-                    6.2,
-                    2,
-                    3,
-                    4,
-                    2,
-                    ""
-            ));
+            for (int day = 8; day <= 10; day++) {
+                fitness.saveAthleteCheckIn(new AthleteDailyCheckIn(
+                        "",
+                        String.format("2026-08-%02d", day),
+                        2000,
+                        6.2,
+                        2,
+                        3,
+                        4,
+                        2,
+                        ""
+                ));
+            }
             String recordId = fitness.createSession(
                     "2026-08-10",
                     "가슴 운동",
@@ -95,9 +103,18 @@ public final class PaperAdviceSnapshotAssemblerTest {
             assertEquals(80.0, input.bodyWeightKg, 0.001);
             assertEquals(1.25, input.proteinGPerKg, 0.001);
             assertEquals(7, input.proteinRecordedDays);
+            assertEquals(7, input.proteinWindowDays);
+            assertEquals(7, input.mealCount);
             assertEquals(6.2, input.sleepHours, 0.001);
+            assertEquals(3, input.sleepRecordedDays);
+            assertEquals(3, input.lowEnergyOrReadinessDays);
             assertEquals(Integer.valueOf(2), input.energyScore);
             assertEquals(Integer.valueOf(2), input.readinessScore);
+            assertEquals(4, input.currentWeightRecordedDays);
+            assertEquals(4, input.previousWeightRecordedDays);
+            assertEquals(80.0, input.currentWeight7DayAverageKg, 0.001);
+            assertEquals(82.0, input.previousWeight7DayAverageKg, 0.001);
+            assertEquals(-2.439, input.weeklyWeightChangePct, 0.001);
             assertEquals(1, input.resistanceTrainingSessionsPerWeek);
             assertEquals(1.0, input.weeklyHardSetsPerMuscle.get("chest"), 0.001);
             assertTrue(input.recentDataDays >= 7);

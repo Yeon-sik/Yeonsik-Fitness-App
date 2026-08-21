@@ -86,6 +86,40 @@ public final class MealEntryPolicyTest {
     }
 
     @Test
+    public void knownDiningOutBranchDefaultsApplyOnlyWhenBranchIsMissing() {
+        assertEquals("영등포점", MealEntryPolicy.defaultDiningOutBranchName(
+                "고향 엄마손 생바지락 칼국수"
+        ));
+        assertEquals("영등포점", MealEntryPolicy.resolveDiningOutBranchName(
+                "고향 엄마손 칼국수",
+                null
+        ));
+        assertEquals("영등포점", MealEntryPolicy.resolveDiningOutBranchName(
+                "고향 엄마손 칼국수",
+                "null"
+        ));
+        assertEquals("강남점", MealEntryPolicy.resolveDiningOutBranchName(
+                "고향 엄마손 칼국수",
+                "강남점"
+        ));
+        assertEquals("", MealEntryPolicy.defaultDiningOutBranchName("알 수 없는 식당"));
+    }
+
+    @Test
+    public void diningOutPreviewDoesNotExposeNullLiteral() {
+        assertEquals(
+                "고향 엄마손 칼국수 · 얼큰 바지락 칼국수",
+                MealEntryPolicy.previewDiningOutTitle(
+                        "고향 엄마손 칼국수",
+                        "null",
+                        "얼큰 바지락 칼국수"
+                )
+        );
+        assertTrue(MealEntryPolicy.isMissingText(null));
+        assertTrue(MealEntryPolicy.isMissingText(" null "));
+    }
+
+    @Test
     public void macroRatioUsesEnergyAndAlwaysTotalsOneHundredPercent() {
         assertEquals("탄 50% · 단 25% · 지 25%",
                 MealEntryPolicy.macroRatioLabel(50d, 25d, 11.111111d));

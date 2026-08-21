@@ -23,6 +23,7 @@ public final class VerifiedFoodCatalogSeedTest {
     private static final String DATABASE_PREFIX = "verified_food_seed_";
     private static final String BROCCOLI_ID = "kfind:R106-092000001-0000";
     private static final String CHICKEN_BREAST_ID = "kfind:R209-008000501-0000";
+    private static final String CHUCK_EYE_ROLL_ID = "kfind:R209-027018401-0000";
     private static final String LEGACY_COOKED_CHICKEN_ID = "kfind:R209-008000551-0000";
     private static final String RAW_SALMON_ID = "kfind:R211-201174001-0000";
     private static final String RAW_TUNA_ID = "kfind:R211-059074001-0000";
@@ -42,12 +43,12 @@ public final class VerifiedFoodCatalogSeedTest {
             GRILLED_MACKEREL_ID,
             GRILLED_CROAKER_ID
     };
-    private static final int EXPECTED_RAW_COUNT = 51;
+    private static final int EXPECTED_RAW_COUNT = 64;
     private static final int EXPECTED_GRILLED_COUNT = 4;
     private static final int EXPECTED_SEAFOOD_COUNT = 7;
 
     @Test
-    public void freshDatabaseSeedsExactly54VerifiedFoodsWithCompleteProvenance() {
+    public void freshDatabaseSeedsExpectedVerifiedFoodsWithCompleteProvenance() {
         Context isolatedContext = isolatedContext();
         FitnessDatabaseHelper helper = null;
         try {
@@ -104,6 +105,16 @@ public final class VerifiedFoodCatalogSeedTest {
                     22.97,
                     0.0,
                     0.97,
+                    NutritionFood.PREP_RAW,
+                    NutritionFood.COOKING_METHOD_RAW
+            );
+            assertFoodMacros(
+                    database,
+                    CHUCK_EYE_ROLL_ID,
+                    268.0,
+                    16.98,
+                    0.97,
+                    21.31,
                     NutritionFood.PREP_RAW,
                     NutritionFood.COOKING_METHOD_RAW
             );
