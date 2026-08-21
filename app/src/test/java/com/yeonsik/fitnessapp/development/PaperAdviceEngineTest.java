@@ -25,7 +25,9 @@ public final class PaperAdviceEngineTest {
     public void returnsSleepAndProteinAdviceWithPaperReferences() {
         List<PaperAdvice> advice = engine.evaluate(PaperAdviceInput.builder()
                 .referenceDate(LocalDate.of(2026, 8, 14)).goal("hypertrophy")
-                .sleepHours(6.2).proteinGPerKg(1.2).proteinRecordedDays(7)
+                .sleepHours(6.2).sleepRecordedDays(3)
+                .proteinGPerKg(1.2).proteinRecordedDays(7)
+                .resistanceTrainingSessionsPerWeek(2)
                 .recentDataDays(7).build());
         assertEquals(2, advice.size());
         assertEquals("REC_SLEEP_001", advice.get(0).adviceId);
@@ -62,5 +64,32 @@ public final class PaperAdviceEngineTest {
         assertEquals(1, advice.size());
         assertEquals("TRAIN_FAIL_001", advice.get(0).adviceId);
         assertTrue(advice.get(0).evidenceRefs.contains("02#3"));
+    }
+
+    @Test
+    public void flagsFastLossOnlyWhenTwoWeightWindowsAreReady() {
+        List<PaperAdvice> advice = engine.evaluate(PaperAdviceInput.builder()
+                .goal("fat_loss")
+                .currentWeight7DayAverageKg(78.8).currentWeightRecordedDays(4)
+                .previousWeight7DayAverageKg(80.0).previousWeightRecordedDays(4)
+                .weeklyWeightChangePct(-1.5)
+                .recentDataDays(8)
+                .build());
+
+        assertEquals(1, advice.size());
+        assertEquals("FAT_RATE_003", advice.get(0).adviceId);
+        assertTrue(advice.get(0).evidenceRefs.contains("03#6"));
+    }
+
+    @Test
+    public void doesNotTreatSparseSleepOrProteinAsACompletedObservationWindow() {
+        List<PaperAdvice> advice = engine.evaluate(PaperAdviceInput.builder()
+                .goal("hypertrophy")
+                .sleepHours(5.5).sleepRecordedDays(2)
+                .proteinGPerKg(1.1).proteinRecordedDays(6)
+                .recentDataDays(6)
+                .build());
+
+        assertTrue(advice.isEmpty());
     }
 }

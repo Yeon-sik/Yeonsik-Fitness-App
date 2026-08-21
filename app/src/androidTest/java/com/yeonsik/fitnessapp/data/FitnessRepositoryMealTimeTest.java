@@ -131,6 +131,82 @@ public final class FitnessRepositoryMealTimeTest {
     }
 
     @Test
+    public void directlyRegisteredDiningOutStoresEditableBranchWithoutPriceTraceIdentity()
+            throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String date = LocalDate.now().minusDays(1).toString();
+            String recordId = repository.addDiningOutMealAtTimeWithBranchAndOptionNutrition(
+                    date,
+                    "19:20",
+                    "강남식당",
+                    "테스트 지점",
+                    "제육볶음",
+                    70d,
+                    40d,
+                    20d,
+                    null,
+                    Collections.emptyList()
+            );
+
+            FitnessRepository.MealEntry entry = repository.mealEntriesForDate(date).get(0);
+            assertEquals("강남식당 · 테스트 지점 · 제육볶음", entry.previewTitle);
+            assertEquals("테스트 지점", scalar(helper.getReadableDatabase(),
+                    "SELECT branch_name FROM meal_records WHERE id = '" + recordId + "'"));
+            assertEquals("테스트 지점", metadata(helper.getReadableDatabase(), recordId)
+                    .getString("branch_name"));
+            assertEquals("1", scalar(helper.getReadableDatabase(),
+                    "SELECT COUNT(*) FROM meal_records WHERE id = '" + recordId
+                            + "' AND restaurant_id IS NULL AND restaurant_location_id IS NULL"));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void knownDiningOutStoreUsesYeongdeungpoDefaultWhenDirectBranchIsMissing()
+            throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String date = LocalDate.now().minusDays(1).toString();
+            String recordId = repository.addDiningOutMealAtTimeWithBranchAndOptionNutrition(
+                    date,
+                    "19:20",
+                    "고향 엄마손 생바지락 칼국수",
+                    "null",
+                    "얼큰 바지락 칼국수",
+                    70d,
+                    40d,
+                    20d,
+                    null,
+                    Collections.emptyList()
+            );
+
+            FitnessRepository.MealEntry entry = repository.mealEntriesForDate(date).get(0);
+            assertEquals("고향 엄마손 생바지락 칼국수 · 영등포점 · 얼큰 바지락 칼국수",
+                    entry.previewTitle);
+            assertEquals("영등포점", scalar(helper.getReadableDatabase(),
+                    "SELECT branch_name FROM meal_records WHERE id = '" + recordId + "'"));
+            assertEquals("영등포점", metadata(helper.getReadableDatabase(), recordId)
+                    .getString("branch_name"));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
     public void diningOutStoresUserEstimatedMacrosAndCalculatedCalories() throws Exception {
         IsolatedDatabaseContext context = new IsolatedDatabaseContext(
                 ApplicationProvider.getApplicationContext()

@@ -154,7 +154,9 @@ public final class RestaurantMenuReadV1Client {
             }
             locations.add(new RestaurantLocation(
                     requiredUuid(row, "id"),
-                    optionalText(row, "locationLabel")
+                    optionalText(row, "locationLabel"),
+                    optionalText(row, "sourceLabel"),
+                    optionalText(row, "sourceRestaurantCode")
             ));
         }
         return Collections.unmodifiableList(locations);
@@ -247,10 +249,19 @@ public final class RestaurantMenuReadV1Client {
     public static final class RestaurantLocation {
         public final String restaurantLocationId;
         public final String branchName;
+        public final String sourceNamespace;
+        public final String sourceLocationCode;
 
-        private RestaurantLocation(String restaurantLocationId, String branchName) {
+        private RestaurantLocation(
+                String restaurantLocationId,
+                String branchName,
+                String sourceNamespace,
+                String sourceLocationCode
+        ) {
             this.restaurantLocationId = restaurantLocationId;
             this.branchName = branchName;
+            this.sourceNamespace = sourceNamespace;
+            this.sourceLocationCode = sourceLocationCode;
         }
     }
 

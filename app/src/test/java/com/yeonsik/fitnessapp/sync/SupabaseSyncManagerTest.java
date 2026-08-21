@@ -75,7 +75,27 @@ public final class SupabaseSyncManagerTest {
     @Test
     public void keepsLocalContractMarkerOutOfSharedPayload() {
         assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "contract_version"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
+                "meal_records",
+                "composition_template_id"
+        ));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
+                "meal_records",
+                "composition_template_revision"
+        ));
         assertFalse(SupabaseSyncManager.shouldSyncColumn("workout_records", "contract_version"));
         assertFalse(SupabaseSyncManager.shouldSyncColumn("weight_records", "contract_version"));
+    }
+
+    @Test
+    public void keepsUndeployedWorkoutAggregateOutOfSharedPayload() {
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
+                "workout_records",
+                "total_volume_kg"
+        ));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
+                "workout_sets",
+                "volume_kg"
+        ));
     }
 }

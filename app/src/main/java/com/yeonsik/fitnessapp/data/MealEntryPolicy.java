@@ -15,6 +15,9 @@ public final class MealEntryPolicy {
             DateTimeFormatter.ofPattern("H:mm", Locale.ROOT);
     private static final DateTimeFormatter TIME_DISPLAY_FORMAT =
             DateTimeFormatter.ofPattern("HH:mm", Locale.ROOT);
+    private static final String GOHYANG_MAMAS_HAND_KEYWORD = "고향엄마손";
+    private static final String KALGUKSU_KEYWORD = "칼국수";
+    private static final String GOHYANG_MAMAS_HAND_DEFAULT_BRANCH = "영등포점";
 
     private MealEntryPolicy() {
     }
@@ -109,9 +112,9 @@ public final class MealEntryPolicy {
             String branchName,
             String menuName
     ) {
-        String store = normalizedText(storeName);
-        String branch = normalizedText(branchName);
-        String menu = normalizedText(menuName);
+        String store = isMissingText(storeName) ? "" : normalizedText(storeName);
+        String branch = isMissingText(branchName) ? "" : normalizedText(branchName);
+        String menu = isMissingText(menuName) ? "" : normalizedText(menuName);
         if (store.isEmpty()) {
             store = "가게 미기록";
         }
@@ -121,6 +124,34 @@ public final class MealEntryPolicy {
         return branch.isEmpty()
                 ? store + " · " + menu
                 : store + " · " + branch + " · " + menu;
+    }
+
+    /**
+     * Resolves a local dining-out branch label without creating or replacing a cross-app
+     * identity. Existing restaurant and location IDs remain whatever was stored.
+     */
+    public static String resolveDiningOutBranchName(String storeName, String branchName) {
+        String explicit = normalizedText(branchName);
+        if (!isMissingText(explicit)) {
+            return explicit;
+        }
+        return defaultDiningOutBranchName(storeName);
+    }
+
+    /** Returns a known local branch default, or an empty string when no default is known. */
+    public static String defaultDiningOutBranchName(String storeName) {
+        String normalizedStore = normalizedText(storeName).replaceAll("\\s+", "");
+        if (normalizedStore.contains(GOHYANG_MAMAS_HAND_KEYWORD)
+                && normalizedStore.contains(KALGUKSU_KEYWORD)) {
+            return GOHYANG_MAMAS_HAND_DEFAULT_BRANCH;
+        }
+        return "";
+    }
+
+    /** Null database/JSON values must not become the literal UI text "null". */
+    public static boolean isMissingText(String value) {
+        String normalized = normalizedText(value);
+        return normalized.isEmpty() || "null".equalsIgnoreCase(normalized);
     }
 
     public static String requireDiningOutStoreName(String value) {

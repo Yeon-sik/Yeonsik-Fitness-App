@@ -38,7 +38,7 @@ public final class VerifiedFoodCatalogSeed {
     public static final String RICE_SOURCE_VERSION = "2026-08-15";
     public static final String ASSET_NAME = "verified_food_catalog_v3.json";
     public static final String RICE_ASSET_NAME = "rice_nutrition_reference_v1.json";
-    public static final int EXPECTED_COUNT = 55;
+    public static final int EXPECTED_COUNT = 68;
     public static final int RICE_EXPECTED_COUNT = 6;
     public static final int SEEDED_FOOD_COUNT = EXPECTED_COUNT + RICE_EXPECTED_COUNT;
     public static final String FOOD_ID_PREFIX = "kfind:";
@@ -579,6 +579,7 @@ public final class VerifiedFoodCatalogSeed {
         addBeef(foods, "R209-027068501-0000", "소고기 사태(한우 1등급)");
         addBeef(foods, "R209-027061801-0000", "소고기 양지(한우 1등급)");
         addBeef(foods, "R209-027068101-0000", "소고기 갈비(한우 1등급)");
+        addBeef(foods, "R209-027018401-0000", "척 아이롤(미국산)");
 
         addPork(foods, "R209-014008701-0000", "돼지고기 안심");
         addPork(foods, "R209-014008301-0000", "돼지고기 등심");
@@ -589,6 +590,7 @@ public final class VerifiedFoodCatalogSeed {
         addPork(foods, "R209-014008101-0000", "돼지고기 갈비");
         addPork(foods, "R209-014008801-0000", "돼지고기 앞다리");
 
+        addVegetable(foods, "R106-003000001-0000", "가지");
         addVegetable(foods, "R106-092000001-0000", "브로콜리");
         addVegetable(foods, "R106-115000001-0000", "시금치");
         addVegetable(foods, "R106-129000001-0000", "양배추");
@@ -610,6 +612,18 @@ public final class VerifiedFoodCatalogSeed {
         addVegetable(foods, "R106-122000001-0000", "아스파라거스");
         addVegetable(foods, "R106-198040001-0000", "단호박");
         addVegetable(foods, "R106-030000001-0000", "콜리플라워");
+        addVegetable(foods, "R102-001060001-0000", "감자(대지)");
+        addVegetable(foods, "R102-006000001-0000", "고구마");
+        addVegetable(foods, "R106-053002201-0000", "마늘");
+        addVegetable(foods, "R106-191040001-0000", "대파");
+
+        addFruit(foods, "R108-050000001-0000", "사과");
+        addFruit(foods, "R108-037000001-0000", "바나나");
+        addFruit(foods, "R108-019010001-0000", "딸기");
+        addFruit(foods, "R108-010020001-0000", "귤(온주밀감)");
+        addFruit(foods, "R108-098010001-0000", "포도(거봉)");
+        addFruit(foods, "R108-069000001-0000", "오렌지");
+        addFruit(foods, "R108-092000001-0000", "파인애플");
 
         addGrain(foods, "R101-008000301-0000", "백미(마른쌀)");
         addGrain(foods, "R101-008000501-0000", "현미(마른쌀)");
@@ -752,6 +766,14 @@ public final class VerifiedFoodCatalogSeed {
             String name
     ) {
         addRaw(foods, code, name, NutritionFood.CATEGORY_VEGETABLE);
+    }
+
+    private static void addFruit(
+            Map<String, FoodMetadata> foods,
+            String code,
+            String name
+    ) {
+        addRaw(foods, code, name, NutritionFood.CATEGORY_FRUIT);
     }
 
     private static void addGrain(

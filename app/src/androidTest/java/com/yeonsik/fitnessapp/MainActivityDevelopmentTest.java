@@ -31,6 +31,8 @@ public final class MainActivityDevelopmentTest {
                 assertNotNull(findText(root, "우선 행동"));
                 assertNotNull(findText(root, "훈련 부위 근거"));
                 assertNotNull(findText(root, "영양·회복 근거"));
+                assertNotNull(findText(root, "논문 기반 점검"));
+                assertNotNull(findText(root, "적용 준비도"));
                 assertNotNull(findText(root, "판단 근거 범위"));
             });
         }

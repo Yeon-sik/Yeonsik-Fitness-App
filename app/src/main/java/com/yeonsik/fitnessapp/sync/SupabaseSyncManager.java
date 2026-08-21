@@ -213,7 +213,11 @@ public final class SupabaseSyncManager {
         return rows;
     }
 
-    private int applyRows(
+    /**
+     * Pulls newer remote values without replacing the whole local row.
+     * Remote schemas can lag behind the local SQLite schema; omitted local columns must survive.
+     */
+    int applyRows(
             SQLiteDatabase database,
             String table,
             JSONArray rows,
@@ -260,7 +264,23 @@ public final class SupabaseSyncManager {
                     }
                 }
 
-                database.insertWithOnConflict(table, null, values, SQLiteDatabase.CONFLICT_REPLACE);
+                int updated = database.update(
+                        table,
+                        values,
+                        "id = ? AND user_id = ?",
+                        new String[]{id, userId}
+                );
+                if (updated == 0) {
+                    long inserted = database.insertWithOnConflict(
+                            table,
+                            null,
+                            values,
+                            SQLiteDatabase.CONFLICT_IGNORE
+                    );
+                    if (inserted == -1L) {
+                        continue;
+                    }
+                }
                 applied++;
             }
             database.setTransactionSuccessful();
@@ -375,7 +395,27 @@ public final class SupabaseSyncManager {
         if ("contract_version".equals(column)) {
             return false;
         }
+        // The connected Personal OS project has not exposed this local workout
+        // aggregate in its PostgREST schema cache yet. Keep manual sync usable
+        // until the corresponding remote migration is deployed; the value
+        // remains available in the local Fitness database.
+        if ("workout_records".equals(table) && "total_volume_kg".equals(column)) {
+            return false;
+        }
+        // The deployed shared project has not exposed this local workout-set aggregate
+        // in its PostgREST schema cache. Keep it local until that migration is deployed.
+        if ("workout_sets".equals(table) && "volume_kg".equals(column)) {
+            return false;
+        }
         if ("meal_record_items".equals(table) && "brand_snapshot".equals(column)) {
+            return false;
+        }
+        // Composition template references are local definitions. The shared meal-summary
+        // contract does not expose these columns yet; keep the local link out of REST payloads
+        // until a separately-owned remote migration is deployed.
+        if ("meal_records".equals(table)
+                && ("composition_template_id".equals(column)
+                || "composition_template_revision".equals(column))) {
             return false;
         }
         return true;
@@ -419,7 +459,9 @@ public final class SupabaseSyncManager {
             String column,
             String value
     ) {
-        if (value == null || value.trim().isEmpty()) {
+        if (value == null
+                || value.trim().isEmpty()
+                || "null".equalsIgnoreCase(value.trim())) {
             return;
         }
         values.put(column, value.trim());

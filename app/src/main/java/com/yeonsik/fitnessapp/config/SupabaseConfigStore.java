@@ -113,12 +113,15 @@ public class SupabaseConfigStore {
     ) {
         SupabaseConfig current = load();
         tokenStore.save(accessToken, refreshToken);
-        preferences.edit()
+        boolean saved = preferences.edit()
                 .putString(KEY_URL, current.supabaseUrl)
                 .putString(KEY_ANON, current.supabaseAnonKey)
                 .putString(KEY_USER, normalize(userId))
                 .putString(KEY_EMAIL, normalize(email))
-                .apply();
+                .commit();
+        if (!saved) {
+            throw new IllegalStateException("Supabase 로그인 정보를 저장하지 못했습니다.");
+        }
         return new SupabaseConfig(
                 current.supabaseUrl,
                 current.supabaseAnonKey,
@@ -147,7 +150,7 @@ public class SupabaseConfigStore {
                 .putString(KEY_ANON, normalize(anonKey))
                 .remove(KEY_USER)
                 .remove(KEY_EMAIL)
-                .apply();
+                .commit();
     }
 
     private static String normalize(String value) {

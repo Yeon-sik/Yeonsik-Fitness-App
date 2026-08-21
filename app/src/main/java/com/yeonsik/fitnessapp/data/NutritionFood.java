@@ -255,6 +255,12 @@ public final class NutritionFood {
         return !KIND_RECIPE.equals(normalizeKind(kind));
     }
 
+    /** Dining-out menu rows are Fitness-owned external menus, not ordinary packaged products. */
+    public boolean isDiningOutMenu() {
+        return KIND_EXTERNAL_MENU.equals(normalizeKind(kind))
+                && "manual_estimate".equalsIgnoreCase(sourceType);
+    }
+
     public static String normalizeCategory(String category) {
         String normalized = category == null ? "" : category.trim().toLowerCase(Locale.US);
         for (String option : CATEGORY_OPTIONS) {

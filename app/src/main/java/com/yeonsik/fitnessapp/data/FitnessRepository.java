@@ -35,19 +35,27 @@ public final class FitnessRepository {
             "(source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')";
 
     private final FitnessDatabaseHelper dbHelper;
+    private final CompositionTemplateRepository compositionTemplateRepository;
     private String userId;
 
     public FitnessRepository(FitnessDatabaseHelper dbHelper, String userId) {
         this.dbHelper = dbHelper;
         this.userId = normalizeUserId(userId);
+        this.compositionTemplateRepository = new CompositionTemplateRepository(dbHelper, this.userId);
     }
 
     public void setUserId(String userId) {
         this.userId = normalizeUserId(userId);
+        compositionTemplateRepository.setUserId(this.userId);
     }
 
     public String currentUserId() {
         return userId;
+    }
+
+    /** Local reusable meal/menu definitions. Detailed templates are intentionally not in the shared sync set. */
+    public CompositionTemplateRepository compositionTemplates() {
+        return compositionTemplateRepository;
     }
 
     public void normalizeLocalUserId(String userId) {
@@ -1080,6 +1088,43 @@ public final class FitnessRepository {
         );
     }
 
+    /** Records complete nutrition for a directly registered dining-out branch. */
+    public String addDiningOutMealAtTimeWithBranchAndNutritionAndOptionNutrition(
+            String date,
+            String mealTime,
+            String storeName,
+            String branchName,
+            String menuName,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams,
+            MealCompositionItem menuSnapshot,
+            List<DiningOutOption> options
+    ) {
+        return insertDiningOutMeal(
+                date,
+                mealTime,
+                storeName,
+                menuName,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams,
+                branchName,
+                null,
+                menuSnapshot,
+                options,
+                false
+        );
+    }
+
     /** Records macro nutrition and separately snapshots nutrient-bearing options. */
     public String addDiningOutMealAtTimeWithOptionNutrition(
             String date,
@@ -1104,6 +1149,39 @@ public final class FitnessRepository {
                 null,
                 null,
                 null,
+                null,
+                menuSnapshot,
+                options,
+                true
+        );
+    }
+
+    /** Records macro nutrition for a directly registered dining-out branch. */
+    public String addDiningOutMealAtTimeWithBranchAndOptionNutrition(
+            String date,
+            String mealTime,
+            String storeName,
+            String branchName,
+            String menuName,
+            Double carbsGrams,
+            Double proteinGrams,
+            Double fatGrams,
+            MealCompositionItem menuSnapshot,
+            List<DiningOutOption> options
+    ) {
+        return insertDiningOutMeal(
+                date,
+                mealTime,
+                storeName,
+                menuName,
+                null,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                null,
+                null,
+                null,
+                branchName,
                 null,
                 menuSnapshot,
                 options,
@@ -1256,9 +1334,52 @@ public final class FitnessRepository {
             List<?> optionNames,
             boolean legacyMacroEstimate
     ) {
+        return insertDiningOutMeal(
+                date,
+                mealTime,
+                storeName,
+                menuName,
+                caloriesInput,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams,
+                identity == null ? null : identity.branchName,
+                identity,
+                menuSnapshot,
+                optionNames,
+                legacyMacroEstimate
+        );
+    }
+
+    private String insertDiningOutMeal(
+            String date,
+            String mealTime,
+            String storeName,
+            String menuName,
+            Integer caloriesInput,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams,
+            String branchName,
+            DiningOutIdentity identity,
+            MealCompositionItem menuSnapshot,
+            List<?> optionNames,
+            boolean legacyMacroEstimate
+    ) {
         String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
         String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
+        String normalizedBranchName = identity == null
+                ? optionalDiningOutBranchName(normalizedStoreName, branchName)
+                : identity.branchName;
         List<DiningOutOption> normalizedOptions = normalizeDiningOutOptions(optionNames);
+        String compositionTemplateId = compositionTemplateId(normalizedOptions);
+        Integer compositionTemplateRevision = compositionTemplateRevision(normalizedOptions);
         boolean hasEstimatedNutrition;
         int calories;
         if (legacyMacroEstimate) {
@@ -1323,7 +1444,11 @@ public final class FitnessRepository {
         values.put("meal_kind", MealRecordKind.DINING_OUT);
         values.put("store_name", normalizedStoreName);
         if (identity == null) {
-            values.putNull("branch_name");
+            if (normalizedBranchName == null) {
+                values.putNull("branch_name");
+            } else {
+                values.put("branch_name", normalizedBranchName);
+            }
             values.putNull("restaurant_id");
             values.putNull("restaurant_location_id");
             values.putNull("restaurant_menu_id");
@@ -1336,6 +1461,12 @@ public final class FitnessRepository {
             values.put("catalog_product_id", identity.catalogProductId);
         }
         values.put("menu_name", normalizedMenuName);
+        putNullable(values, "composition_template_id", compositionTemplateId);
+        if (compositionTemplateRevision == null) {
+            values.putNull("composition_template_revision");
+        } else {
+            values.put("composition_template_revision", compositionTemplateRevision);
+        }
         values.put("calories", calories);
         values.put("protein_grams", hasEstimatedNutrition ? proteinGrams : 0d);
         if (hasEstimatedNutrition) {
@@ -1365,7 +1496,11 @@ public final class FitnessRepository {
                 "nutrition_status", hasEstimatedNutrition ? "estimated" : "unknown",
                 "nutrition_source", hasEstimatedNutrition ? "manual_estimate" : "unknown",
                 "estimated", hasEstimatedNutrition ? "true" : "false",
-                "composition_version", "2",
+                "composition_version", "3",
+                "composition_contract", CompositionTemplate.CONTRACT_VERSION,
+                "composition_kind", normalizedOptions.isEmpty()
+                        ? "standalone"
+                        : "ad_hoc_selection",
                 "item_count", String.valueOf(itemCount),
                 "option_count", String.valueOf(normalizedOptions.size())
         );
@@ -1389,8 +1524,34 @@ public final class FitnessRepository {
             } catch (Exception error) {
                 throw new IllegalStateException("외식 식별자 메타데이터를 만들지 못했습니다.", error);
             }
+        } else if (normalizedBranchName != null) {
+            try {
+                JSONObject metadataObject = new JSONObject(metadata);
+                metadataObject.put("branch_name", normalizedBranchName);
+                metadata = metadataObject.toString();
+            } catch (Exception error) {
+                throw new IllegalStateException("직접 등록 외식 지점 메타데이터를 만들지 못했습니다.", error);
+            }
         }
         values.put("metadata", metadata);
+        if (compositionTemplateId != null) {
+            try {
+                JSONObject compositionMetadata = new JSONObject(metadata);
+                compositionMetadata.put("composition_template_id", compositionTemplateId);
+                if (compositionTemplateRevision == null) {
+                    compositionMetadata.put("composition_template_revision", JSONObject.NULL);
+                } else {
+                    compositionMetadata.put(
+                            "composition_template_revision",
+                            compositionTemplateRevision
+                    );
+                }
+                metadata = compositionMetadata.toString();
+                values.put("metadata", metadata);
+            } catch (Exception error) {
+                throw new IllegalStateException("구성 템플릿 메타데이터를 만들지 못했습니다.", error);
+            }
+        }
 
         SQLiteDatabase database = db();
         database.beginTransaction();
@@ -1410,7 +1571,10 @@ public final class FitnessRepository {
                         id,
                         menuSelection,
                         0,
-                        now
+                        now,
+                        normalizedOptions,
+                        compositionTemplateId,
+                        compositionTemplateRevision
                 );
             }
             database.setTransactionSuccessful();
@@ -1418,6 +1582,11 @@ public final class FitnessRepository {
             database.endTransaction();
         }
         return id;
+    }
+
+    private String optionalDiningOutBranchName(String storeName, String value) {
+        String normalized = MealEntryPolicy.resolveDiningOutBranchName(storeName, value);
+        return normalized.isEmpty() ? null : normalized;
     }
 
     private List<DiningOutOption> normalizeDiningOutOptions(List<?> optionNames) {
@@ -1434,7 +1603,8 @@ public final class FitnessRepository {
             }
             boolean alreadyPresent = false;
             for (DiningOutOption existing : normalized) {
-                if (existing.name.equalsIgnoreCase(option.name)) {
+                if (existing.name.equalsIgnoreCase(option.name)
+                        && existing.groupKey.equalsIgnoreCase(option.groupKey)) {
                     alreadyPresent = true;
                     break;
                 }
@@ -1444,6 +1614,51 @@ public final class FitnessRepository {
             }
         }
         return normalized;
+    }
+
+    private String compositionTemplateId(List<DiningOutOption> options) {
+        if (options == null) {
+            return null;
+        }
+        for (DiningOutOption option : options) {
+            if (option == null || option.sourceReference == null) {
+                continue;
+            }
+            try {
+                String id = new JSONObject(option.sourceReference)
+                        .optString("composition_template_id", "")
+                        .trim();
+                if (!id.isEmpty()) {
+                    return id;
+                }
+            } catch (Exception ignored) {
+                // A legacy source string has no template reference.
+            }
+        }
+        return null;
+    }
+
+    private Integer compositionTemplateRevision(List<DiningOutOption> options) {
+        if (options == null) {
+            return null;
+        }
+        for (DiningOutOption option : options) {
+            if (option == null || option.sourceReference == null) {
+                continue;
+            }
+            try {
+                JSONObject source = new JSONObject(option.sourceReference);
+                if (!source.has("composition_template_revision")
+                        || source.isNull("composition_template_revision")) {
+                    continue;
+                }
+                int revision = source.optInt("composition_template_revision", 0);
+                return revision <= 0 ? null : revision;
+            } catch (Exception ignored) {
+                // A legacy source string has no template revision.
+            }
+        }
+        return null;
     }
 
     private MealCompositionItem diningOutOptionSnapshot(String storeName, DiningOutOption option) {
@@ -1457,14 +1672,32 @@ public final class FitnessRepository {
                 .basis(1.0, NutritionUnit.SERVING)
                 .prepState(NutritionFood.PREP_AS_SERVED)
                 .profile(option.profile)
-                .source("manual_option", option.sourceReference == null
-                        ? "dining_out"
-                        : option.sourceReference)
+                .source("manual_option", diningOutOptionSourceReference(option))
                 .dataVersion(option.hasNutrition()
                         ? NutritionFood.DATA_VERSION_MACROS_ONLY
                         : NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
                 .build();
         return MealCompositionItem.from(food, food.basisAmount);
+    }
+
+    private String diningOutOptionSourceReference(DiningOutOption option) {
+        try {
+            JSONObject source = option.sourceReference == null
+                    ? new JSONObject()
+                    : new JSONObject(option.sourceReference);
+            source.put("composition_contract", CompositionTemplate.CONTRACT_VERSION);
+            source.put("composition_group_key", option.groupKey);
+            source.put("composition_group_label", option.groupLabel);
+            source.put("composition_role", option.role);
+            if (option.memberId == null) {
+                source.put("composition_member_id", JSONObject.NULL);
+            } else {
+                source.put("composition_member_id", option.memberId);
+            }
+            return source.toString();
+        } catch (Exception ignored) {
+            return option.sourceReference == null ? "dining_out" : option.sourceReference;
+        }
     }
 
     private MealCompositionItem diningOutNutritionSnapshot(
@@ -1604,18 +1837,65 @@ public final class FitnessRepository {
             int menuIndex,
             String now
     ) {
+        insertMealMenuSnapshot(database, mealRecordId, menu, menuIndex, now, null);
+    }
+
+    private void insertMealMenuSnapshot(
+            SQLiteDatabase database,
+            String mealRecordId,
+            MealMenuSelection menu,
+            int menuIndex,
+            String now,
+            List<DiningOutOption> diningOutOptions
+    ) {
+        insertMealMenuSnapshot(
+                database,
+                mealRecordId,
+                menu,
+                menuIndex,
+                now,
+                diningOutOptions,
+                null,
+                null
+        );
+    }
+
+    private void insertMealMenuSnapshot(
+            SQLiteDatabase database,
+            String mealRecordId,
+            MealMenuSelection menu,
+            int menuIndex,
+            String now,
+            List<DiningOutOption> diningOutOptions,
+            String compositionTemplateId,
+            Integer compositionTemplateRevision
+    ) {
         String menuItemId = insertMealItemSnapshot(
                 database,
                 mealRecordId,
                 MealItemSnapshot.of(menu.menu, menuIndex),
-                now
+                now,
+                compositionTemplateId,
+                compositionTemplateRevision
         );
         for (int componentIndex = 0; componentIndex < menu.components.size(); componentIndex++) {
+            DiningOutOption option = diningOutOptions == null
+                    || componentIndex >= diningOutOptions.size()
+                    ? null
+                    : diningOutOptions.get(componentIndex);
             insertMealComponentSnapshot(
                     database,
                     mealRecordId,
                     menuItemId,
-                    MealItemSnapshot.of(menu.components.get(componentIndex), componentIndex),
+                    option == null
+                            ? MealItemSnapshot.of(menu.components.get(componentIndex), componentIndex)
+                            : MealItemSnapshot.of(
+                                    menu.components.get(componentIndex),
+                                    componentIndex,
+                                    option.groupKey,
+                                    option.role,
+                                    option.memberId
+                            ),
                     now
             );
         }
@@ -1625,13 +1905,21 @@ public final class FitnessRepository {
             SQLiteDatabase database,
             String mealRecordId,
             MealItemSnapshot snapshot,
-            String now
+            String now,
+            String compositionTemplateId,
+            Integer compositionTemplateRevision
     ) {
         String itemId = newId();
         ContentValues itemValues = snapshotValues(snapshot, now);
         itemValues.put("id", itemId);
         itemValues.put("user_id", userId);
         itemValues.put("meal_record_id", mealRecordId);
+        putNullable(itemValues, "composition_template_id", compositionTemplateId);
+        if (compositionTemplateRevision == null) {
+            itemValues.putNull("composition_template_revision_snapshot");
+        } else {
+            itemValues.put("composition_template_revision_snapshot", compositionTemplateRevision);
+        }
         itemValues.put("device_id", DEVICE_ID);
         database.insertOrThrow("meal_record_items", null, itemValues);
 
@@ -1660,6 +1948,9 @@ public final class FitnessRepository {
         values.put("user_id", userId);
         values.put("meal_record_id", mealRecordId);
         values.put("meal_record_item_id", mealRecordItemId);
+        putNullable(values, "composition_group_key_snapshot", snapshot.compositionGroupKeySnapshot);
+        putNullable(values, "composition_role_snapshot", snapshot.compositionRoleSnapshot);
+        putNullable(values, "composition_member_id_snapshot", snapshot.compositionMemberIdSnapshot);
         values.put("device_id", DEVICE_ID);
         database.insertOrThrow("meal_record_item_components", null, values);
 
@@ -1883,10 +2174,13 @@ public final class FitnessRepository {
                         cursor.getString(12),
                         metadataValue(metadata, "menu_name", "")
                 );
-                String branchName = firstNonBlank(
+                String rawBranchName = firstNonBlank(
                         cursor.getString(11),
                         metadataValue(metadata, "branch_name", "")
                 );
+                String branchName = MealRecordKind.isDiningOut(mealKind)
+                        ? MealEntryPolicy.resolveDiningOutBranchName(storeName, rawBranchName)
+                        : rawBranchName;
                 String nutritionStatus = metadataValue(
                         metadata,
                         "nutrition_status",
@@ -1947,6 +2241,8 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, food_name_snapshot, quantity, unit, calories, " +
                         "protein_grams, carbs_grams, fat_grams " +
+                        ", composition_group_key_snapshot, composition_role_snapshot, " +
+                        "composition_member_id_snapshot " +
                         "FROM meal_record_item_components " +
                         "WHERE meal_record_item_id = ? AND user_id = ? " +
                         "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC",
@@ -1961,7 +2257,10 @@ public final class FitnessRepository {
                         cursor.getDouble(4),
                         cursor.getDouble(5),
                         cursor.getDouble(6),
-                        cursor.getDouble(7)
+                        cursor.getDouble(7),
+                        cursor.isNull(8) ? null : cursor.getString(8),
+                        cursor.isNull(9) ? null : cursor.getString(9),
+                        cursor.isNull(10) ? null : cursor.getString(10)
                 ));
             }
         }
@@ -3521,7 +3820,9 @@ public final class FitnessRepository {
     }
 
     private static String firstNonBlank(String primary, String fallback) {
-        return primary == null || primary.trim().isEmpty() ? fallback : primary.trim();
+        return MealEntryPolicy.isMissingText(primary)
+                ? (fallback == null ? "" : fallback.trim())
+                : primary.trim();
     }
 
     private static String emptyToNull(String value) {
@@ -3630,7 +3931,13 @@ public final class FitnessRepository {
             return fallback;
         }
         try {
-            return new JSONObject(metadata).optString(key, fallback);
+            JSONObject object = new JSONObject(metadata);
+            Object value = object.opt(key);
+            if (value == null || value == JSONObject.NULL) {
+                return fallback;
+            }
+            String normalized = value.toString().trim();
+            return MealEntryPolicy.isMissingText(normalized) ? fallback : normalized;
         } catch (Exception exception) {
             return fallback;
         }
@@ -4305,9 +4612,10 @@ public final class FitnessRepository {
             this.eatenAt = eatenAt;
             this.mealTime = MealEntryPolicy.displayMealTime(eatenAt);
             this.mealKind = MealRecordKind.normalize(mealKind);
-            this.storeName = storeName == null ? "" : storeName.trim();
-            this.branchName = branchName == null ? "" : branchName.trim();
-            this.menuName = menuName == null ? "" : menuName.trim();
+            this.storeName = MealEntryPolicy.isMissingText(storeName) ? "" : storeName.trim();
+            this.branchName = MealEntryPolicy.isMissingText(branchName)
+                    ? "" : branchName.trim();
+            this.menuName = MealEntryPolicy.isMissingText(menuName) ? "" : menuName.trim();
             this.nutritionStatus = nutritionStatus == null || nutritionStatus.trim().isEmpty()
                     ? "recorded" : nutritionStatus.trim();
             this.macroRatio = MealEntryPolicy.macroRatioLabel(
@@ -4378,6 +4686,9 @@ public final class FitnessRepository {
         public final double proteinGrams;
         public final double carbsGrams;
         public final double fatGrams;
+        public final String compositionGroupKey;
+        public final String compositionRole;
+        public final String compositionMemberId;
 
         public MealComponentEntry(
                 String id,
@@ -4389,6 +4700,34 @@ public final class FitnessRepository {
                 double carbsGrams,
                 double fatGrams
         ) {
+            this(
+                    id,
+                    foodName,
+                    quantity,
+                    unit,
+                    calories,
+                    proteinGrams,
+                    carbsGrams,
+                    fatGrams,
+                    null,
+                    null,
+                    null
+            );
+        }
+
+        public MealComponentEntry(
+                String id,
+                String foodName,
+                double quantity,
+                String unit,
+                double calories,
+                double proteinGrams,
+                double carbsGrams,
+                double fatGrams,
+                String compositionGroupKey,
+                String compositionRole,
+                String compositionMemberId
+        ) {
             this.id = id;
             this.foodName = foodName;
             this.quantity = quantity;
@@ -4397,6 +4736,9 @@ public final class FitnessRepository {
             this.proteinGrams = proteinGrams;
             this.carbsGrams = carbsGrams;
             this.fatGrams = fatGrams;
+            this.compositionGroupKey = compositionGroupKey;
+            this.compositionRole = compositionRole;
+            this.compositionMemberId = compositionMemberId;
         }
 
         public String label() {

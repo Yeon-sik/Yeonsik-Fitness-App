@@ -39,14 +39,17 @@ final class SecureTokenStore {
     }
 
     void save(String accessToken, String refreshToken) {
-        preferences.edit()
+        boolean saved = preferences.edit()
                 .putString(KEY_ACCESS, encrypt(accessToken))
                 .putString(KEY_REFRESH, encrypt(refreshToken))
-                .apply();
+                .commit();
+        if (!saved) {
+            throw new IllegalStateException("보안 세션을 저장하지 못했습니다.");
+        }
     }
 
     void clear() {
-        preferences.edit().clear().apply();
+        preferences.edit().clear().commit();
     }
 
     private String encrypt(String value) {

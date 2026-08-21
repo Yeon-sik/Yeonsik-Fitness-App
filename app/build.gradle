@@ -164,6 +164,29 @@ tasks.register("verifyReleaseConfiguration") {
 
 }
 
+tasks.register("installDebugWithEnvSession") {
+    dependsOn("assembleDebug")
+    doLast {
+        if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
+            throw new GradleException("installDebugWithEnvSession currently requires Windows PowerShell.")
+        }
+        def output = providers.exec {
+            commandLine(
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    rootProject.file("scripts/install-debug-with-env-session.ps1").absolutePath,
+                    "-SkipBuild"
+            )
+        }.standardOutput.asText.get()
+        if (output) {
+            println(output)
+        }
+    }
+}
+
 dependencies {
     implementation "com.google.android.gms:play-services-location:21.4.0"
     testImplementation "junit:junit:4.13.2"

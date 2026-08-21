@@ -32,10 +32,19 @@ public final class MealItemSnapshot {
     public final String sourceReferenceSnapshot;
     public final String sourceVersionSnapshot;
     public final int foodDataVersionSnapshot;
+    public final String compositionGroupKeySnapshot;
+    public final String compositionRoleSnapshot;
+    public final String compositionMemberIdSnapshot;
     public final NutritionProfile profile;
     public final int orderIndex;
 
-    private MealItemSnapshot(MealCompositionItem item, int orderIndex) {
+    private MealItemSnapshot(
+            MealCompositionItem item,
+            int orderIndex,
+            String compositionGroupKeySnapshot,
+            String compositionRoleSnapshot,
+            String compositionMemberIdSnapshot
+    ) {
         NutritionFood food = item.food;
         this.foodId = food.id;
         this.foodNameSnapshot = food.name;
@@ -50,18 +59,38 @@ public final class MealItemSnapshot {
         this.sourceReferenceSnapshot = food.sourceReference;
         this.sourceVersionSnapshot = food.sourceVersion;
         this.foodDataVersionSnapshot = food.dataVersion;
+        this.compositionGroupKeySnapshot = blankToNull(compositionGroupKeySnapshot);
+        this.compositionRoleSnapshot = blankToNull(compositionRoleSnapshot);
+        this.compositionMemberIdSnapshot = blankToNull(compositionMemberIdSnapshot);
         this.profile = item.profile;
         this.orderIndex = orderIndex;
     }
 
     public static MealItemSnapshot of(MealCompositionItem item, int orderIndex) {
+        return of(item, orderIndex, null, null, null);
+    }
+
+    /** Creates a snapshot with the generic composition role used by variable menu members. */
+    public static MealItemSnapshot of(
+            MealCompositionItem item,
+            int orderIndex,
+            String compositionGroupKeySnapshot,
+            String compositionRoleSnapshot,
+            String compositionMemberIdSnapshot
+    ) {
         if (item == null || item.food == null) {
             throw new IllegalArgumentException("Meal composition contains an empty food.");
         }
         if (orderIndex < 0) {
             throw new IllegalArgumentException("Order index cannot be negative.");
         }
-        return new MealItemSnapshot(item, orderIndex);
+        return new MealItemSnapshot(
+                item,
+                orderIndex,
+                compositionGroupKeySnapshot,
+                compositionRoleSnapshot,
+                compositionMemberIdSnapshot
+        );
     }
 
     public static List<MealItemSnapshot> of(List<MealCompositionItem> items) {
@@ -105,6 +134,11 @@ public final class MealItemSnapshot {
         keys.addAll(NutritionProfile.REQUIRED_KEYS);
         keys.addAll(NutritionProfile.RECOMMENDED_TYPED_KEYS);
         return Collections.unmodifiableList(keys);
+    }
+
+    private static String blankToNull(String value) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.isEmpty() ? null : normalized;
     }
 
     public static final class MicronutrientRow {

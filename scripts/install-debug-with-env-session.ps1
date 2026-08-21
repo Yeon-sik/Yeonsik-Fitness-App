@@ -1,6 +1,7 @@
 param(
     [string]$DeviceSerial = $env:ANDROID_SERIAL,
-    [switch]$SkipFinalLaunch
+    [switch]$SkipFinalLaunch,
+    [switch]$SkipBuild
 )
 
 $ErrorActionPreference = 'Stop'
@@ -13,33 +14,28 @@ $packageName = 'com.yeonsik.fitnessapp'
 $activityName = "$packageName/.MainActivity"
 $provisionAction = "$packageName.DEBUG_PROVISION_SESSION"
 
-if (-not (Test-Path -LiteralPath $envPath)) {
-    throw "Missing supabase/.env"
-}
-
 $envValues = @{}
-foreach ($line in Get-Content -LiteralPath $envPath) {
-    if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$') {
-        $name = $Matches[1]
-        $value = $Matches[2].Trim()
-        if ($value.Length -ge 2 -and (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'")))) {
-            $value = $value.Substring(1, $value.Length - 2)
+if (Test-Path -LiteralPath $envPath) {
+    foreach ($line in Get-Content -LiteralPath $envPath) {
+        if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$') {
+            $name = $Matches[1]
+            $value = $Matches[2].Trim()
+            if ($value.Length -ge 2 -and (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'")))) {
+                $value = $value.Substring(1, $value.Length - 2)
+            }
+            $envValues[$name] = $value
         }
-        $envValues[$name] = $value
     }
 }
 
-foreach ($requiredName in @(
-    'SUPABASE_URL',
-    'SUPABASE_ANON_KEY',
-    'NUTRITION_SUPABASE_URL',
-    'NUTRITION_SUPABASE_ANON_KEY',
-    'EMAIL',
-    'PASSWORD'
-)) {
-    if (-not $envValues.ContainsKey($requiredName) -or [string]::IsNullOrWhiteSpace($envValues[$requiredName])) {
-        throw "supabase/.env is missing $requiredName"
+function Get-EnvValue {
+    param([string[]]$Names)
+    foreach ($name in $Names) {
+        if ($envValues.ContainsKey($name) -and -not [string]::IsNullOrWhiteSpace($envValues[$name])) {
+            return [string]$envValues[$name]
+        }
     }
+    return ''
 }
 
 function Get-SupabasePasswordSession {
@@ -100,9 +96,13 @@ function Wait-PersistedSession {
 
 Push-Location $repoRoot
 try {
-    & .\gradlew.bat assembleDebug --no-daemon
-    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $apkPath)) {
-        throw 'Debug APK build failed'
+    if (-not $SkipBuild) {
+        & .\gradlew.bat assembleDebug --no-daemon
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $apkPath)) {
+            throw 'Debug APK build failed'
+        }
+    } elseif (-not (Test-Path -LiteralPath $apkPath)) {
+        throw 'Debug APK was not found; run assembleDebug first'
     }
 
     $deviceLines = @(& adb devices)
@@ -128,74 +128,160 @@ try {
         throw 'Could not restart app process for session provisioning'
     }
 
-    $session = Get-SupabasePasswordSession `
-        -BaseUrl $envValues['SUPABASE_URL'] `
-        -AnonKey $envValues['SUPABASE_ANON_KEY'] `
-        -Email $envValues['EMAIL'] `
-        -Password $envValues['PASSWORD']
-    $nutritionSession = Get-SupabasePasswordSession `
-        -BaseUrl $envValues['NUTRITION_SUPABASE_URL'] `
-        -AnonKey $envValues['NUTRITION_SUPABASE_ANON_KEY'] `
-        -Email $envValues['EMAIL'] `
-        -Password $envValues['PASSWORD']
+    $sessionArgs = @('shell', 'am', 'start', '-n', $activityName, '-a', $provisionAction)
+    $persistedChecks = @()
+    $autoLoginLabels = @()
 
-    $userId = if ($null -ne $session.user.id) { [string]$session.user.id } else { '' }
-    $email = if ($null -ne $session.user.email) { [string]$session.user.email } else { $envValues['EMAIL'] }
-    $nutritionUserId = if ($null -ne $nutritionSession.user.id) { [string]$nutritionSession.user.id } else { '' }
-    $nutritionEmail = if ($null -ne $nutritionSession.user.email) { [string]$nutritionSession.user.email } else { $envValues['EMAIL'] }
-    $sessionComplete = -not (
-        [string]::IsNullOrWhiteSpace($session.access_token) -or
-        [string]::IsNullOrWhiteSpace($session.refresh_token) -or
-        [string]::IsNullOrWhiteSpace($userId) -or
-        [string]::IsNullOrWhiteSpace($nutritionSession.access_token) -or
-        [string]::IsNullOrWhiteSpace($nutritionSession.refresh_token) -or
-        [string]::IsNullOrWhiteSpace($nutritionUserId)
+    $sharedUrl = Get-EnvValue @('SUPABASE_URL', 'VITE_SUPABASE_URL', 'ORIGINAL_DB_URL')
+    $sharedAnonKey = Get-EnvValue @('SUPABASE_ANON_KEY', 'VITE_SUPABASE_ANON_KEY', 'ORIGINAL_DB_ANON')
+    $email = Get-EnvValue @('EMAIL')
+    $password = Get-EnvValue @('PASSWORD')
+    if ($sharedUrl -and $sharedAnonKey -and $email -and $password) {
+        try {
+            $session = Get-SupabasePasswordSession `
+                -BaseUrl $sharedUrl `
+                -AnonKey $sharedAnonKey `
+                -Email $email `
+                -Password $password
+            $userId = if ($null -ne $session.user.id) { [string]$session.user.id } else { '' }
+            $sessionEmail = if ($null -ne $session.user.email) { [string]$session.user.email } else { $email }
+            if ([string]::IsNullOrWhiteSpace($session.access_token) `
+                    -or [string]::IsNullOrWhiteSpace($session.refresh_token) `
+                    -or [string]::IsNullOrWhiteSpace($userId)) {
+                throw 'incomplete session'
+            }
+            $sessionArgs += @(
+                '--es', 'access_token', $session.access_token,
+                '--es', 'refresh_token', $session.refresh_token,
+                '--es', 'user_id', $userId,
+                '--es', 'email', $sessionEmail
+            )
+            $persistedChecks += [pscustomobject]@{
+                ConfigFile = 'fitnessapp:supabase-config:v1.xml'
+                TokenFile = 'fitnessapp:secure-session:v1.xml'
+                Label = 'Shared Supabase'
+            }
+            $autoLoginLabels += 'Personal OS'
+        } catch {
+            Write-Warning 'Personal OS 자동 로그인을 건너뜁니다. 앱 설정에서 직접 로그인하세요.'
+        }
+    }
+
+    $nutritionUrl = Get-EnvValue @('NUTRITION_SUPABASE_URL', 'NUTRITION_DB_URL')
+    $nutritionAnonKey = Get-EnvValue @(
+        'NUTRITION_SUPABASE_ANON_KEY',
+        'NUTRITION_DB_ANON_KEY',
+        'NUTRITION_DB_ANON'
     )
-    if (-not $sessionComplete) {
-        throw 'Supabase password authentication returned an incomplete session'
+    if ($nutritionUrl -and $nutritionAnonKey -and $email -and $password) {
+        try {
+            $nutritionSession = Get-SupabasePasswordSession `
+                -BaseUrl $nutritionUrl `
+                -AnonKey $nutritionAnonKey `
+                -Email $email `
+                -Password $password
+            $nutritionUserId = if ($null -ne $nutritionSession.user.id) { [string]$nutritionSession.user.id } else { '' }
+            $nutritionEmail = if ($null -ne $nutritionSession.user.email) { [string]$nutritionSession.user.email } else { $email }
+            if ([string]::IsNullOrWhiteSpace($nutritionSession.access_token) `
+                    -or [string]::IsNullOrWhiteSpace($nutritionSession.refresh_token) `
+                    -or [string]::IsNullOrWhiteSpace($nutritionUserId)) {
+                throw 'incomplete session'
+            }
+            $sessionArgs += @(
+                '--es', 'nutrition_access_token', $nutritionSession.access_token,
+                '--es', 'nutrition_refresh_token', $nutritionSession.refresh_token,
+                '--es', 'nutrition_user_id', $nutritionUserId,
+                '--es', 'nutrition_email', $nutritionEmail
+            )
+            $persistedChecks += [pscustomobject]@{
+                ConfigFile = 'fitnessapp:nutrition-supabase-config:v1.xml'
+                TokenFile = 'fitnessapp:secure-nutrition-session:v1.xml'
+                Label = 'Nutrition Supabase'
+            }
+            $autoLoginLabels += 'Nutrition'
+        } catch {
+            Write-Warning 'Nutrition 자동 로그인을 건너뜁니다. 앱 설정에서 직접 로그인하세요.'
+        }
     }
 
-    & adb -s $DeviceSerial shell am start -n $activityName -a $provisionAction `
-        --es access_token $session.access_token `
-        --es refresh_token $session.refresh_token `
-        --es user_id $userId `
-        --es email $email `
-        --es nutrition_access_token $nutritionSession.access_token `
-        --es nutrition_refresh_token $nutritionSession.refresh_token `
-        --es nutrition_user_id $nutritionUserId `
-        --es nutrition_email $nutritionEmail | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Session provisioning launch failed'
+    $priceTraceUrl = Get-EnvValue @('PRICETRACE_SUPABASE_URL', 'PRICETRACE_DB_URL')
+    $priceTraceAnonKey = Get-EnvValue @(
+        'PRICETRACE_SUPABASE_ANON_KEY',
+        'PRICETRACE_SUPABASE_ANON',
+        'PRICETRACE_DB_ANON_KEY',
+        'PRICETRACE_DB_ANON'
+    )
+    $priceTraceEmail = Get-EnvValue @('PRICE_TRACE_EMAIL')
+    $priceTracePassword = Get-EnvValue @('PRICE_TRACE_PW')
+    if ($priceTraceUrl -and $priceTraceAnonKey -and $priceTraceEmail -and $priceTracePassword) {
+        try {
+            $priceTraceSession = Get-SupabasePasswordSession `
+                -BaseUrl $priceTraceUrl `
+                -AnonKey $priceTraceAnonKey `
+                -Email $priceTraceEmail `
+                -Password $priceTracePassword
+            $priceTraceUserId = if ($null -ne $priceTraceSession.user.id) { [string]$priceTraceSession.user.id } else { '' }
+            $resolvedPriceTraceEmail = if ($null -ne $priceTraceSession.user.email) {
+                [string]$priceTraceSession.user.email
+            } else {
+                $priceTraceEmail
+            }
+            if ([string]::IsNullOrWhiteSpace($priceTraceSession.access_token) `
+                    -or [string]::IsNullOrWhiteSpace($priceTraceSession.refresh_token) `
+                    -or [string]::IsNullOrWhiteSpace($priceTraceUserId)) {
+                throw 'incomplete session'
+            }
+            $sessionArgs += @(
+                '--es', 'price_trace_access_token', $priceTraceSession.access_token,
+                '--es', 'price_trace_refresh_token', $priceTraceSession.refresh_token,
+                '--es', 'price_trace_user_id', $priceTraceUserId,
+                '--es', 'price_trace_email', $resolvedPriceTraceEmail
+            )
+            $persistedChecks += [pscustomobject]@{
+                ConfigFile = 'fitnessapp:pricetrace-supabase-config:v1.xml'
+                TokenFile = 'fitnessapp:secure-pricetrace-session:v1.xml'
+                Label = 'PriceTrace Supabase'
+            }
+            $autoLoginLabels += 'PriceTrace'
+        } catch {
+            Write-Warning 'PriceTrace 자동 로그인을 건너뜁니다. 앱 설정에서 직접 로그인하세요.'
+        }
     }
 
-    Wait-PersistedSession `
-        -Device $DeviceSerial `
-        -ConfigFile 'fitnessapp:supabase-config:v1.xml' `
-        -TokenFile 'fitnessapp:secure-session:v1.xml' `
-        -Label 'Shared Supabase'
-    Wait-PersistedSession `
-        -Device $DeviceSerial `
-        -ConfigFile 'fitnessapp:nutrition-supabase-config:v1.xml' `
-        -TokenFile 'fitnessapp:secure-nutrition-session:v1.xml' `
-        -Label 'Nutrition Supabase'
+    if ($autoLoginLabels.Count -gt 0) {
+        & adb -s $DeviceSerial @sessionArgs | Out-Null
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Session provisioning launch failed'
+        }
+        foreach ($check in $persistedChecks) {
+            Wait-PersistedSession `
+                -Device $DeviceSerial `
+                -ConfigFile $check.ConfigFile `
+                -TokenFile $check.TokenFile `
+                -Label $check.Label
+        }
+    } else {
+        Write-Host '자동 로그인 정보가 없어 앱 설정 화면에서 로그인할 수 있습니다.'
+    }
 
     if (-not $SkipFinalLaunch) {
         & adb -s $DeviceSerial shell am start -n $activityName | Out-Null
         if ($LASTEXITCODE -ne 0) {
             throw 'Final app launch failed'
         }
-        Wait-PersistedSession `
-            -Device $DeviceSerial `
-            -ConfigFile 'fitnessapp:supabase-config:v1.xml' `
-            -TokenFile 'fitnessapp:secure-session:v1.xml' `
-            -Label 'Shared Supabase after launch'
-        Wait-PersistedSession `
-            -Device $DeviceSerial `
-            -ConfigFile 'fitnessapp:nutrition-supabase-config:v1.xml' `
-            -TokenFile 'fitnessapp:secure-nutrition-session:v1.xml' `
-            -Label 'Nutrition Supabase after launch'
+        foreach ($check in $persistedChecks) {
+            Wait-PersistedSession `
+                -Device $DeviceSerial `
+                -ConfigFile $check.ConfigFile `
+                -TokenFile $check.TokenFile `
+                -Label "$($check.Label) after launch"
+        }
     }
-    Write-Host "Updated $packageName on $DeviceSerial with adb install -r; existing app data was preserved."
+    if ($autoLoginLabels.Count -gt 0) {
+        Write-Host "Updated $packageName on $DeviceSerial with adb install -r and provisioned: $($autoLoginLabels -join ', ')."
+    } else {
+        Write-Host "Updated $packageName on $DeviceSerial with adb install -r; use the in-app login form."
+    }
 } finally {
     Pop-Location
 }
