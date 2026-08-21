@@ -550,6 +550,9 @@ public final class LocalDataBackupService {
             required.remove("composition_groups");
             required.remove("composition_members");
         }
+        if (databaseVersion < 34) {
+            required.remove("meal_record_item_consumptions");
+        }
         if (!required.equals(actual)) {
             throw new IllegalArgumentException("Backup table set is not supported.");
         }
@@ -1008,6 +1011,7 @@ public final class LocalDataBackupService {
         tables.add("meal_record_item_nutrients");
         tables.add("meal_record_item_components");
         tables.add("meal_record_item_component_nutrients");
+        tables.add("meal_record_item_consumptions");
         tables.add("product_nutrition_links");
         tables.add("nutrition_goals");
         tables.add("nutrition_daily_checkins");

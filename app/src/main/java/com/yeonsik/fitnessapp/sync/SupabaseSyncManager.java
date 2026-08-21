@@ -686,6 +686,12 @@ public final class SupabaseSyncManager {
         if ("contract_version".equals(column)) {
             return false;
         }
+        // The local shared-consumption allocation contract is not deployed in the remote
+        // meal summary schema yet. Keep the marker local until that migration is verified.
+        if ("meal_records".equals(table)
+                && "nutrition_calculation_contract".equals(column)) {
+            return false;
+        }
         // The connected Personal OS project has not exposed this local workout
         // aggregate in its PostgREST schema cache yet. Keep manual sync usable
         // until the corresponding remote migration is deployed; the value
