@@ -33,6 +33,11 @@ import java.util.Set;
 public final class SupabaseSyncManager {
     private static final String ANDROID_DEVICE_ID = "android-local";
     private static final int PAGE_SIZE = 500;
+    private static final int RPC_BATCH_SIZE = 500;
+    private static final int RPC_CONTRACT_VERSION = 1;
+    private static final int MAX_RPC_CALLS = 1000;
+    private static final String PULL_DIRECTION = "pull";
+    private static final String PUSH_DIRECTION = "push";
     static final List<String> TABLES = Arrays.asList(
             "devices",
             "workout_records",
@@ -52,6 +57,17 @@ public final class SupabaseSyncManager {
     }
 
     public SyncResult manualSync(SupabaseConfig config) throws Exception {
+        if (!config.isConfigured()) {
+            throw new IllegalStateException("Supabase configuration is empty.");
+        }
+        try {
+            return manualSyncRpc(config);
+        } catch (RpcUnavailableException unavailable) {
+            return manualSyncLegacy(config);
+        }
+    }
+
+    private SyncResult manualSyncLegacy(SupabaseConfig config) throws Exception {
         if (!config.isConfigured()) {
             throw new IllegalStateException("Supabase 설정이 비어 있습니다.");
         }
@@ -83,6 +99,247 @@ public final class SupabaseSyncManager {
 
         return new SyncResult(pushedRows, pulledRows, OffsetDateTime.now().toString());
     }
+
+    private SyncResult manualSyncRpc(SupabaseConfig config) throws Exception {
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        String userId = config.effectiveUserId();
+        String scopeKey = config.supabaseUrl + "|" + userId;
+        FitnessRepository repository = new FitnessRepository(dbHelper, userId);
+        repository.reconcileSharedWorkoutSummaries();
+
+        Map<String, SyncCursor> pullCursors = loadPullCursors(database, scopeKey);
+        int pushedRows = 0;
+        int pulledRows = 0;
+        int rpcCalls = 0;
+        String syncedAt = OffsetDateTime.now().toString();
+
+        // Parent tables are fully uploaded before their children. This keeps the first
+        // bootstrap safe even when the remote database has no Fitness rows yet.
+        for (String table : TABLES) {
+            while (true) {
+                SyncCursor pushCursor = loadCursor(
+                        database,
+                        scopeKey,
+                        table,
+                        PUSH_DIRECTION
+                );
+                JSONArray changes = tableRowsToJson(
+                        database,
+                        table,
+                        userId,
+                        pushCursor,
+                        RPC_BATCH_SIZE
+                );
+                if (changes.length() == 0) {
+                    break;
+                }
+
+                JSONObject payload = new JSONObject();
+                payload.put(table, changes);
+                RpcResponse response = invokeSyncRpc(config, payload, pullCursors);
+                rpcCalls = checkedRpcCalls(rpcCalls + 1);
+                pulledRows += applyRpcResponse(database, response, userId);
+                savePullCursors(database, scopeKey, pullCursors, response.nextCursors);
+
+                SyncCursor nextPushCursor = cursorFromLastRow(table, changes);
+                saveCursor(
+                        database,
+                        scopeKey,
+                        table,
+                        PUSH_DIRECTION,
+                        nextPushCursor
+                );
+                pushedRows += response.pushedRows;
+                syncedAt = response.serverTime;
+            }
+        }
+
+        // Drain remote keyset pages after all local batches have committed. At least one
+        // empty call is required when this device has no local changes.
+        boolean hasMore;
+        do {
+            RpcResponse response = invokeSyncRpc(config, new JSONObject(), pullCursors);
+            rpcCalls = checkedRpcCalls(rpcCalls + 1);
+            pulledRows += applyRpcResponse(database, response, userId);
+            savePullCursors(database, scopeKey, pullCursors, response.nextCursors);
+            pushedRows += response.pushedRows;
+            syncedAt = response.serverTime;
+            hasMore = response.hasMore();
+        } while (hasMore);
+
+        repository.reconcileSharedWorkoutSummaries();
+        return new SyncResult(pushedRows, pulledRows, syncedAt);
+    }
+
+    private int checkedRpcCalls(int rpcCalls) throws IOException {
+        if (rpcCalls > MAX_RPC_CALLS) {
+            throw new IOException("Supabase sync stopped: RPC pagination did not converge.");
+        }
+        return rpcCalls;
+    }
+
+    private RpcResponse invokeSyncRpc(
+            SupabaseConfig config,
+            JSONObject changes,
+            Map<String, SyncCursor> pullCursors
+    ) throws Exception {
+        String endpoint = joinUrl(config.supabaseUrl, "/rest/v1/rpc/sync_fitness_data_v1");
+        HttpURLConnection connection = openConnection(endpoint, "POST", config);
+        connection.setRequestProperty("Content-Type", "application/json");
+        connection.setRequestProperty("Accept", "application/json");
+        connection.setDoOutput(true);
+
+        JSONObject request = new JSONObject();
+        request.put("p_changes", changes);
+        request.put("p_cursors", cursorsToJson(pullCursors));
+        request.put("p_limit", RPC_BATCH_SIZE);
+        try (OutputStream output = connection.getOutputStream()) {
+            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
+        }
+
+        int statusCode = connection.getResponseCode();
+        if (statusCode == 200) {
+            String body = readStream(connection.getInputStream());
+            return RpcResponse.fromJson(new JSONObject(body));
+        }
+
+        String error = readStream(connection.getErrorStream());
+        if (isRpcUnavailable(statusCode, error)) {
+            throw new RpcUnavailableException();
+        }
+        throw new IOException("Supabase sync RPC failed (" + statusCode + "): " + error);
+    }
+
+    static boolean isRpcUnavailable(int statusCode, String body) {
+        if (statusCode != 404 || body == null) {
+            return false;
+        }
+        return body.contains("PGRST202");
+    }
+
+    private int applyRpcResponse(
+            SQLiteDatabase database,
+            RpcResponse response,
+            String userId
+    ) throws JSONException {
+        int applied = 0;
+        for (String table : TABLES) {
+            JSONArray echo = response.echoRows.optJSONArray(table);
+            if (echo != null) {
+                applied += applyRows(database, table, echo, userId);
+            }
+            JSONArray rows = response.rows.optJSONArray(table);
+            if (rows != null) {
+                applied += applyRows(database, table, rows, userId);
+            }
+        }
+        return applied;
+    }
+
+    private Map<String, SyncCursor> loadPullCursors(
+            SQLiteDatabase database,
+            String scopeKey
+    ) {
+        Map<String, SyncCursor> cursors = new LinkedHashMap<>();
+        for (String table : TABLES) {
+            SyncCursor cursor = loadCursor(database, scopeKey, table, PULL_DIRECTION);
+            if (cursor.version != null) {
+                cursors.put(table, cursor);
+            }
+        }
+        return cursors;
+    }
+
+    private SyncCursor loadCursor(
+            SQLiteDatabase database,
+            String scopeKey,
+            String table,
+            String direction
+    ) {
+        try (Cursor cursor = database.query(
+                "sync_state",
+                new String[]{"cursor_version", "cursor_id"},
+                "scope_key = ? AND table_name = ? AND direction = ?",
+                new String[]{scopeKey, table, direction},
+                null,
+                null,
+                null,
+                "1"
+        )) {
+            if (cursor.moveToFirst()) {
+                String version = cursor.isNull(0) ? null : cursor.getString(0);
+                String id = cursor.isNull(1) ? "" : cursor.getString(1);
+                return new SyncCursor(version, id);
+            }
+        }
+        return SyncCursor.empty();
+    }
+
+    private void saveCursor(
+            SQLiteDatabase database,
+            String scopeKey,
+            String table,
+            String direction,
+            SyncCursor cursor
+    ) {
+        if (cursor == null || cursor.version == null) {
+            return;
+        }
+        ContentValues values = new ContentValues();
+        values.put("scope_key", scopeKey);
+        values.put("table_name", table);
+        values.put("direction", direction);
+        values.put("cursor_version", cursor.version);
+        values.put("cursor_id", cursor.id);
+        values.put("updated_at", OffsetDateTime.now().toString());
+        database.insertWithOnConflict(
+                "sync_state",
+                null,
+                values,
+                SQLiteDatabase.CONFLICT_REPLACE
+        );
+    }
+
+    private void savePullCursors(
+            SQLiteDatabase database,
+            String scopeKey,
+            Map<String, SyncCursor> pullCursors,
+            JSONObject nextCursors
+    ) {
+        for (String table : TABLES) {
+            JSONObject object = nextCursors.optJSONObject(table);
+            if (object == null) {
+                continue;
+            }
+            String version = nullableString(object, "version");
+            if (version == null) {
+                continue;
+            }
+            SyncCursor cursor = new SyncCursor(version, object.optString("id", ""));
+            saveCursor(database, scopeKey, table, PULL_DIRECTION, cursor);
+            pullCursors.put(table, cursor);
+        }
+    }
+
+    private JSONObject cursorsToJson(Map<String, SyncCursor> cursors) throws JSONException {
+        JSONObject object = new JSONObject();
+        for (Map.Entry<String, SyncCursor> entry : cursors.entrySet()) {
+            JSONObject cursor = new JSONObject();
+            cursor.put("version", entry.getValue().version);
+            cursor.put("id", entry.getValue().id);
+            object.put(entry.getKey(), cursor);
+        }
+        return object;
+    }
+
+    private SyncCursor cursorFromLastRow(String table, JSONArray rows) throws JSONException {
+        JSONObject last = rows.getJSONObject(rows.length() - 1);
+        return new SyncCursor(
+                nullableString(last, versionColumn(table)),
+                last.optString("id", "")
+        );
+    }
+
 
     private int pushTable(
             SQLiteDatabase database,
@@ -159,15 +416,45 @@ public final class SupabaseSyncManager {
             String table,
             String userId
     ) throws JSONException {
+        return tableRowsToJson(database, table, userId, SyncCursor.empty(), 0);
+    }
+
+    private JSONArray tableRowsToJson(
+            SQLiteDatabase database,
+            String table,
+            String userId,
+            SyncCursor syncCursor,
+            int limit
+    ) throws JSONException {
         List<String> columns = tableColumns(database, table);
         JSONArray rows = new JSONArray();
-        String sql = "devices".equals(table)
-                ? "SELECT * FROM devices WHERE id = ? AND user_id = ?"
-                : "SELECT * FROM " + table + " WHERE device_id = ? AND user_id = ?";
+        String versionColumn = versionColumn(table);
+        StringBuilder sql = new StringBuilder("SELECT * FROM ").append(table).append(" WHERE ");
+        List<String> arguments = new ArrayList<>();
+        if ("devices".equals(table)) {
+            sql.append("id = ? AND user_id = ?");
+            arguments.add(ANDROID_DEVICE_ID);
+            arguments.add(userId);
+        } else {
+            sql.append("device_id = ? AND user_id = ?");
+            arguments.add(ANDROID_DEVICE_ID);
+            arguments.add(userId);
+        }
+        if (syncCursor != null && syncCursor.version != null) {
+            sql.append(" AND (").append(versionColumn).append(" > ? OR (")
+                    .append(versionColumn).append(" = ? AND id > ?))");
+            arguments.add(syncCursor.version);
+            arguments.add(syncCursor.version);
+            arguments.add(syncCursor.id);
+        }
+        sql.append(" ORDER BY ").append(versionColumn).append(", id");
+        if (limit > 0) {
+            sql.append(" LIMIT ").append(limit);
+        }
 
         try (Cursor cursor = database.rawQuery(
-                sql,
-                new String[]{ANDROID_DEVICE_ID, userId}
+                sql.toString(),
+                arguments.toArray(new String[0])
         )) {
             while (cursor.moveToNext()) {
                 JSONObject object = new JSONObject();
@@ -387,7 +674,11 @@ public final class SupabaseSyncManager {
         return "devices".equals(table) ? "last_seen_at" : "updated_at";
     }
 
-    /** Shared meal identity columns are deployed by the PersonalOSApp migration. */
+    /**
+     * Keeps locally-added columns out of the shared payload until the additive remote
+     * migration is verified. The same values remain in the shared {@code metadata} JSON,
+     * so this compatibility path does not discard dining-out identity data.
+    */
     static boolean shouldSyncColumn(String table, String column) {
         // The deployed shared project still exposes the pre-contract-version schema.
         // Keep this local migration marker out of every REST payload until that remote
@@ -405,6 +696,20 @@ public final class SupabaseSyncManager {
         // The deployed shared project has not exposed this local workout-set aggregate
         // in its PostgREST schema cache. Keep it local until that migration is deployed.
         if ("workout_sets".equals(table) && "volume_kg".equals(column)) {
+            return false;
+        }
+        // The common Personal OS dining-out identity migration is not part of the tracked
+        // deployed contract yet. Keep these columns local and rely on metadata until the
+        // remote schema is confirmed to expose them.
+        if ("meal_records".equals(table)
+                && ("meal_kind".equals(column)
+                || "store_name".equals(column)
+                || "branch_name".equals(column)
+                || "menu_name".equals(column)
+                || "restaurant_id".equals(column)
+                || "restaurant_location_id".equals(column)
+                || "restaurant_menu_id".equals(column)
+                || "catalog_product_id".equals(column))) {
             return false;
         }
         if ("meal_record_items".equals(table) && "brand_snapshot".equals(column)) {
@@ -596,6 +901,88 @@ public final class SupabaseSyncManager {
 
         values.put(name, String.valueOf(value));
     }
+
+    private static final class SyncCursor {
+        final String version;
+        final String id;
+
+        SyncCursor(String version, String id) {
+            this.version = version;
+            this.id = id == null ? "" : id;
+        }
+
+        static SyncCursor empty() {
+            return new SyncCursor(null, "");
+        }
+    }
+
+    private static final class RpcResponse {
+        final int pushedRows;
+        final JSONObject rows;
+        final JSONObject echoRows;
+        final JSONObject nextCursors;
+        final JSONObject hasMore;
+        final String serverTime;
+
+        RpcResponse(
+                int pushedRows,
+                JSONObject rows,
+                JSONObject echoRows,
+                JSONObject nextCursors,
+                JSONObject hasMore,
+                String serverTime
+        ) {
+            this.pushedRows = pushedRows;
+            this.rows = rows;
+            this.echoRows = echoRows;
+            this.nextCursors = nextCursors;
+            this.hasMore = hasMore;
+            this.serverTime = serverTime;
+        }
+
+        static RpcResponse fromJson(JSONObject object) throws JSONException {
+            int contractVersion = object.optInt("contract_version", 0);
+            if (contractVersion != RPC_CONTRACT_VERSION) {
+                throw new JSONException("Unsupported Fitness sync RPC contract: " + contractVersion);
+            }
+            JSONObject pushed = object.optJSONObject("pushed");
+            int pushedRows = 0;
+            if (pushed != null) {
+                for (String table : TABLES) {
+                    pushedRows += pushed.optInt(table, 0);
+                }
+            }
+            return new RpcResponse(
+                    pushedRows,
+                    requireObject(object, "rows"),
+                    requireObject(object, "echo_rows"),
+                    requireObject(object, "next_cursors"),
+                    requireObject(object, "has_more"),
+                    object.optString("server_time", OffsetDateTime.now().toString())
+            );
+        }
+
+        boolean hasMore() {
+            for (String table : TABLES) {
+                if (hasMore.optBoolean(table, false)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static JSONObject requireObject(JSONObject parent, String key) throws JSONException {
+            JSONObject object = parent.optJSONObject(key);
+            if (object == null) {
+                throw new JSONException("Fitness sync RPC response is missing " + key);
+            }
+            return object;
+        }
+    }
+
+    private static final class RpcUnavailableException extends IOException {
+    }
+
 
     public static final class SyncResult {
         public final int pushedRows;

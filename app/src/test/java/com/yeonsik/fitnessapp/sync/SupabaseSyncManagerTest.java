@@ -51,21 +51,21 @@ public final class SupabaseSyncManagerTest {
     }
 
     @Test
-    public void syncsDiningOutIdentityColumnsAfterSharedContractMigration() {
-        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "meal_kind"));
-        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "store_name"));
-        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "branch_name"));
-        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "menu_name"));
-        assertTrue(SupabaseSyncManager.shouldSyncColumn("meal_records", "restaurant_id"));
-        assertTrue(SupabaseSyncManager.shouldSyncColumn(
+    public void keepsDiningOutIdentityColumnsOutOfSharedPayloadUntilMigrationIsVerified() {
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "meal_kind"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "store_name"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "branch_name"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "menu_name"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "restaurant_id"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
                 "meal_records",
                 "restaurant_location_id"
         ));
-        assertTrue(SupabaseSyncManager.shouldSyncColumn(
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
                 "meal_records",
                 "restaurant_menu_id"
         ));
-        assertTrue(SupabaseSyncManager.shouldSyncColumn(
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
                 "meal_records",
                 "catalog_product_id"
         ));
@@ -98,4 +98,25 @@ public final class SupabaseSyncManagerTest {
                 "volume_kg"
         ));
     }
+    @Test
+    public void fallsBackOnlyWhenSyncRpcIsMissing() {
+        assertTrue(SupabaseSyncManager.isRpcUnavailable(
+                404,
+                "{\"code\":\"PGRST202\",\"message\":\"sync_fitness_data_v1 missing\"}"
+        ));
+        assertFalse(SupabaseSyncManager.isRpcUnavailable(
+                500,
+                "{\"code\":\"PGRST202\",\"message\":\"server failure\"}"
+        ));
+        assertFalse(SupabaseSyncManager.isRpcUnavailable(
+                404,
+                "{\"code\":\"PGRST204\",\"message\":\"column missing\"}"
+        ));
+        assertFalse(SupabaseSyncManager.isRpcUnavailable(
+                404,
+                "{\"code\":\"PGRST301\",\"message\":\"sync_fitness_data_v1 denied\"}"
+        ));
+    }
+
+
 }

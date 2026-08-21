@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 32;
+    public static final int DATABASE_VERSION = 33;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -31,6 +31,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         createSharedRecordTables(db);
+        createSyncStateTables(db);
         createDiningOutMealIndexes(db);
         createRoutineTables(db);
         createCardioTables(db);
@@ -138,6 +139,30 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX IF NOT EXISTS workout_sets_exercise_order_idx ON workout_sets(workout_exercise_id, set_index)");
         db.execSQL("CREATE INDEX IF NOT EXISTS meal_records_user_scope_date_idx ON meal_records(user_id, scope, date)");
         db.execSQL("CREATE INDEX IF NOT EXISTS weight_records_user_scope_date_idx ON weight_records(user_id, scope, date)");
+    }
+
+    private void createSyncStateTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS sync_state (" +
+                "scope_key TEXT NOT NULL, " +
+                "table_name TEXT NOT NULL, " +
+                "direction TEXT NOT NULL, " +
+                "cursor_version TEXT, " +
+                "cursor_id TEXT NOT NULL DEFAULT '', " +
+                "updated_at TEXT NOT NULL, " +
+                "PRIMARY KEY(scope_key, table_name, direction))");
+
+        db.execSQL("CREATE INDEX IF NOT EXISTS devices_user_sync_push_idx " +
+                "ON devices(user_id, last_seen_at, id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS workout_records_user_sync_push_idx " +
+                "ON workout_records(user_id, updated_at, id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS workout_exercises_user_sync_push_idx " +
+                "ON workout_exercises(user_id, updated_at, id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS workout_sets_user_sync_push_idx " +
+                "ON workout_sets(user_id, updated_at, id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_records_user_sync_push_idx " +
+                "ON meal_records(user_id, updated_at, id)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS weight_records_user_sync_push_idx " +
+                "ON weight_records(user_id, updated_at, id)");
     }
 
     private void createMealRecordTable(SQLiteDatabase db) {
@@ -857,6 +882,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 32) {
             upgradeCompositionSchema(db);
+        }
+        if (oldVersion < 33) {
+            createSyncStateTables(db);
         }
     }
 
