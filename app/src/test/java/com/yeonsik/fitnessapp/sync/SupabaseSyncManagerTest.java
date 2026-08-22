@@ -97,6 +97,10 @@ public final class SupabaseSyncManagerTest {
                 "workout_sets",
                 "volume_kg"
         ));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
+                "workout_sets",
+                "rir"
+        ));
     }
     @Test
     public void fallsBackOnlyWhenSyncRpcIsMissing() {

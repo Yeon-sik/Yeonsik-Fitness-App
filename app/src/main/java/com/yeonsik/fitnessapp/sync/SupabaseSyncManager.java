@@ -757,6 +757,11 @@ public final class SupabaseSyncManager {
         if ("workout_sets".equals(table) && "volume_kg".equals(column)) {
             return false;
         }
+        // RIR is locally deployed first. The shared workout_sets schema still exposes only the
+        // legacy RPE column, so sending RIR would make the whole row PATCH fail with PGRST204.
+        if ("workout_sets".equals(table) && "rir".equals(column)) {
+            return false;
+        }
         // The common Personal OS dining-out identity migration is not part of the tracked
         // deployed contract yet. Keep these columns local and rely on metadata until the
         // remote schema is confirmed to expose them.

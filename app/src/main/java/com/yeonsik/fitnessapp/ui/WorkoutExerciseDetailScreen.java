@@ -288,7 +288,9 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         ));
         addColumnHeader(row, primaryLabel(recordType), ui.fieldCellParams(false));
         addColumnHeader(row, secondaryLabel(recordType), ui.fieldCellParams(false));
-        addColumnHeader(row, "RPE", ui.fieldCellParams(false));
+        if (FitnessRecordContract.supportsRir(recordType)) {
+            addColumnHeader(row, "RIR", ui.fieldCellParams(false));
+        }
         addColumnHeader(row, "완료", new LinearLayout.LayoutParams(
                 ui.dp(44),
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -329,21 +331,28 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
         EditText primary = typedPrimaryInput(exercise.recordType, set);
         EditText secondary = typedSecondaryInput(exercise.recordType, set);
-        EditText rpe = ui.numberInput("", set.rpe == null ? "" : String.valueOf(set.rpe));
-        for (EditText input : new EditText[]{primary, secondary, rpe}) {
+        EditText rir = FitnessRecordContract.supportsRir(exercise.recordType)
+                ? ui.numberInput("", set.rir == null ? "" : String.valueOf(set.rir))
+                : null;
+        EditText[] effortInputs = rir == null
+                ? new EditText[]{primary, secondary}
+                : new EditText[]{primary, secondary, rir};
+        for (EditText input : effortInputs) {
             input.setGravity(Gravity.CENTER);
             input.setPadding(ui.dp(6), ui.dp(9), ui.dp(6), ui.dp(9));
         }
         secondary.setEnabled(!secondaryLabel(exercise.recordType).isEmpty());
         row.addView(primary, ui.fieldCellParams(false));
         row.addView(secondary, ui.fieldCellParams(false));
-        row.addView(rpe, ui.fieldCellParams(false));
+        if (rir != null) {
+            row.addView(rir, ui.fieldCellParams(false));
+        }
 
         if (previousSet != null) {
             previous.setClickable(true);
             previous.setFocusable(true);
             previous.setOnClickListener(view -> {
-                applyPrevious(exercise.recordType, previousSet, primary, secondary, rpe);
+                applyPrevious(exercise.recordType, previousSet, primary, secondary, rir);
                 try {
                     repository().updateTypedSet(
                             recordId,
@@ -352,7 +361,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                                     exercise.recordType,
                                     primary,
                                     secondary,
-                                    rpe,
+                                    rir,
                                     set.restSeconds,
                                     set.isCompleted
                             )
@@ -382,7 +391,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                                 exercise.recordType,
                                 primary,
                                 secondary,
-                                rpe,
+                                rir,
                                 completed ? defaultRestSeconds[0] : set.restSeconds,
                                 completed
                         )
@@ -459,7 +468,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             String recordType,
             EditText primary,
             EditText secondary,
-            EditText rpe,
+            EditText rir,
             Integer restSeconds,
             boolean completed
     ) {
@@ -494,7 +503,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 duration,
                 assisted,
                 added,
-                FitnessUi.optionalInt(rpe),
+                rir == null ? null : FitnessUi.optionalInt(rir),
                 restSeconds,
                 completed
         );
@@ -505,7 +514,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             FitnessRepository.SessionSetEntry previous,
             EditText primary,
             EditText secondary,
-            EditText rpe
+            EditText rir
     ) {
         String type = FitnessRecordContract.normalizeRecordType(recordType);
         if (FitnessRecordContract.REPS_ONLY.equals(type)) {
@@ -525,7 +534,9 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             primary.setText(zeroToBlank(previous.weightKg));
             secondary.setText(zeroToBlank(previous.actualReps));
         }
-        rpe.setText(previous.rpe == null ? "" : String.valueOf(previous.rpe));
+        if (rir != null) {
+            rir.setText(previous.rir == null ? "" : String.valueOf(previous.rir));
+        }
     }
 
     private static String primaryLabel(String recordType) {
@@ -869,7 +880,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                         last == null || last.durationSeconds == 0 ? null : last.durationSeconds,
                         last == null || last.assistedWeightKg == 0 ? null : last.assistedWeightKg,
                         last == null || last.addedWeightKg == 0 ? null : last.addedWeightKg,
-                        null,
+                        last == null ? null : last.rir,
                         defaultRestSeconds[0],
                         false
                 )

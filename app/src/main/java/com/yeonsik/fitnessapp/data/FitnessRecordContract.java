@@ -35,6 +35,18 @@ public final class FitnessRecordContract {
         }
     }
 
+    /**
+     * RIR applies to repetition-based strength sets. Time-based records have no remaining-reps
+     * estimate, so their set editor intentionally does not render or persist this field.
+     */
+    public static boolean supportsRir(String recordType) {
+        String normalized = normalizeRecordType(recordType);
+        return WEIGHT_REPS.equals(normalized)
+                || REPS_ONLY.equals(normalized)
+                || ASSISTED_WEIGHT_REPS.equals(normalized)
+                || BODYWEIGHT_ADDED_WEIGHT_REPS.equals(normalized);
+    }
+
     public static String categoryCode(String value) {
         String normalized = value == null ? "" : value.trim().toLowerCase(Locale.US);
         switch (normalized) {
