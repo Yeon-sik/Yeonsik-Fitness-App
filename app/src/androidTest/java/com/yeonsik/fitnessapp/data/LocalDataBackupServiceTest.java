@@ -296,6 +296,15 @@ public final class LocalDataBackupServiceTest {
             JSONObject tables = legacy.getJSONObject("tables");
             tables.remove("meal_record_item_components");
             tables.remove("meal_record_item_component_nutrients");
+            tables.remove("meal_record_item_consumptions");
+            tables.remove("composition_templates");
+            tables.remove("composition_groups");
+            tables.remove("composition_members");
+            tables.remove("supplement_items");
+            tables.remove("supplement_schedules");
+            tables.remove("supplement_schedule_slots");
+            tables.remove("supplement_intake_records");
+            tables.remove("supplement_effect_checkins");
             tables.remove("body_profiles");
             tables.remove("development_goals");
             JSONArray mealItems = tables.getJSONArray("meal_record_items");
@@ -393,6 +402,15 @@ public final class LocalDataBackupServiceTest {
             JSONObject legacy = new JSONObject(output.toString(StandardCharsets.UTF_8.name()));
             legacy.put("databaseVersion", 15);
             JSONObject tables = legacy.getJSONObject("tables");
+            tables.remove("meal_record_item_consumptions");
+            tables.remove("composition_templates");
+            tables.remove("composition_groups");
+            tables.remove("composition_members");
+            tables.remove("supplement_items");
+            tables.remove("supplement_schedules");
+            tables.remove("supplement_schedule_slots");
+            tables.remove("supplement_intake_records");
+            tables.remove("supplement_effect_checkins");
             tables.remove("body_profiles");
             tables.remove("development_goals");
 

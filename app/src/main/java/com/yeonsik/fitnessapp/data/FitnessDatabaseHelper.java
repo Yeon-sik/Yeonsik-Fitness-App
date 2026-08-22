@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 33;
+    public static final int DATABASE_VERSION = 34;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -38,6 +38,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createMealMenuPresetTable(db);
         createNutritionTables(db);
         createCompositionTables(db);
+        createDiningOutConsumptionTables(db);
         createNutritionIndexes(db);
         createProductNutritionLinkTables(db);
         createVerifiedReceiptImportTable(db);
@@ -151,18 +152,74 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "updated_at TEXT NOT NULL, " +
                 "PRIMARY KEY(scope_key, table_name, direction))");
 
-        db.execSQL("CREATE INDEX IF NOT EXISTS devices_user_sync_push_idx " +
-                "ON devices(user_id, last_seen_at, id)");
-        db.execSQL("CREATE INDEX IF NOT EXISTS workout_records_user_sync_push_idx " +
-                "ON workout_records(user_id, updated_at, id)");
-        db.execSQL("CREATE INDEX IF NOT EXISTS workout_exercises_user_sync_push_idx " +
-                "ON workout_exercises(user_id, updated_at, id)");
-        db.execSQL("CREATE INDEX IF NOT EXISTS workout_sets_user_sync_push_idx " +
-                "ON workout_sets(user_id, updated_at, id)");
-        db.execSQL("CREATE INDEX IF NOT EXISTS meal_records_user_sync_push_idx " +
-                "ON meal_records(user_id, updated_at, id)");
-        db.execSQL("CREATE INDEX IF NOT EXISTS weight_records_user_sync_push_idx " +
-                "ON weight_records(user_id, updated_at, id)");
+        createSyncIndexIfColumnsExist(
+                db,
+                "devices_user_sync_push_idx",
+                "devices",
+                "user_id",
+                "last_seen_at",
+                "id"
+        );
+        createSyncIndexIfColumnsExist(
+                db,
+                "workout_records_user_sync_push_idx",
+                "workout_records",
+                "user_id",
+                "updated_at",
+                "id"
+        );
+        createSyncIndexIfColumnsExist(
+                db,
+                "workout_exercises_user_sync_push_idx",
+                "workout_exercises",
+                "user_id",
+                "updated_at",
+                "id"
+        );
+        createSyncIndexIfColumnsExist(
+                db,
+                "workout_sets_user_sync_push_idx",
+                "workout_sets",
+                "user_id",
+                "updated_at",
+                "id"
+        );
+        createSyncIndexIfColumnsExist(
+                db,
+                "meal_records_user_sync_push_idx",
+                "meal_records",
+                "user_id",
+                "updated_at",
+                "id"
+        );
+        createSyncIndexIfColumnsExist(
+                db,
+                "weight_records_user_sync_push_idx",
+                "weight_records",
+                "user_id",
+                "updated_at",
+                "id"
+        );
+    }
+
+    private void createSyncIndexIfColumnsExist(
+            SQLiteDatabase db,
+            String indexName,
+            String tableName,
+            String... columns
+    ) {
+        if (!tableExists(db, tableName)) {
+            return;
+        }
+        for (String column : columns) {
+            if (!hasColumn(db, tableName, column)) {
+                return;
+            }
+        }
+        db.execSQL(
+                "CREATE INDEX IF NOT EXISTS " + indexName + " ON " + tableName + "("
+                        + String.join(", ", columns) + ")"
+        );
     }
 
     private void createMealRecordTable(SQLiteDatabase db) {
@@ -181,6 +238,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "catalog_product_id TEXT, " +
                 "composition_template_id TEXT, " +
                 "composition_template_revision INTEGER, " +
+                "nutrition_calculation_contract TEXT, " +
                 "calories INTEGER NOT NULL, " +
                 "protein_grams REAL NOT NULL, " +
                 "carbs_grams REAL, " +
@@ -355,6 +413,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "unit TEXT NOT NULL, " +
                 "basis_amount_snapshot REAL, " +
                 "basis_unit_snapshot TEXT, " +
+                "portion_basis_snapshot TEXT, " +
+                "nominal_servings_snapshot REAL, " +
                 "prep_state_snapshot TEXT, " +
                 "calories REAL NOT NULL DEFAULT 0, " +
                 "protein_grams REAL NOT NULL DEFAULT 0, " +
@@ -530,8 +590,34 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "meal_record_item_component_id, nutrient_code)");
         db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_component_nutrients_meal_idx " +
                 "ON meal_record_item_component_nutrients(meal_record_id, nutrient_code)");
+
     }
 
+    /** Per-item local consumption allocation for the dining-out sharing contract. */
+    private void createDiningOutConsumptionTables(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS meal_record_item_consumptions (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "meal_record_id TEXT NOT NULL, " +
+                "meal_record_item_id TEXT NOT NULL, " +
+                "contract_version TEXT NOT NULL, " +
+                "consumer_scope TEXT NOT NULL DEFAULT 'self', " +
+                "diner_count INTEGER NOT NULL DEFAULT 1, " +
+                "consumed_fraction REAL NOT NULL, " +
+                "share_method TEXT NOT NULL, " +
+                "confidence TEXT NOT NULL DEFAULT 'estimated', " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, " +
+                "CHECK (diner_count >= 1 AND diner_count <= 100), " +
+                "CHECK (consumed_fraction > 0 AND consumed_fraction <= 1), " +
+                "UNIQUE(user_id, meal_record_item_id, consumer_scope))");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_consumptions_item_idx " +
+                "ON meal_record_item_consumptions(meal_record_item_id, user_id, deleted_at)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_consumptions_record_idx " +
+                "ON meal_record_item_consumptions(meal_record_id, user_id, deleted_at)");
+    }
     /**
      * 사용자 승인 링크와 PriceTrace 읽기 캐시.
      *
@@ -886,8 +972,21 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 33) {
             createSyncStateTables(db);
         }
+        if (oldVersion < 34) {
+            upgradeDiningOutConsumptionSchema(db);
+        }
     }
 
+    private void upgradeDiningOutConsumptionSchema(SQLiteDatabase db) {
+        addColumnIfMissing(db, "meal_records", "nutrition_calculation_contract", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "portion_basis_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "nominal_servings_snapshot", "REAL");
+        createDiningOutConsumptionTables(db);
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_consumptions_item_idx " +
+                "ON meal_record_item_consumptions(meal_record_item_id, user_id, deleted_at)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_consumptions_record_idx " +
+                "ON meal_record_item_consumptions(meal_record_id, user_id, deleted_at)");
+    }
     private void upgradeCompositionSchema(SQLiteDatabase db) {
         createCompositionTables(db);
 
