@@ -2984,6 +2984,53 @@ public final class FitnessRepository {
     public String createSessionFromRoutine(String date, String title, String routineId,
                                            List<RoutineExerciseInstance> routineExercises) {
         String recordId = createSession(date, title, "strength", "", now(), "");
+        populateSessionFromRoutine(recordId, routineId, routineExercises);
+        return recordId;
+    }
+
+    public String createManualPastSessionFromRoutine(
+            String date,
+            String title,
+            String routineId,
+            List<RoutineExerciseInstance> routineExercises,
+            String startedAt,
+            String endedAt
+    ) {
+        String recordDate = requireRecordDate(date);
+        Integer durationSeconds = computeDurationSeconds(recordDate, startedAt, endedAt);
+        if (durationSeconds == null || durationSeconds <= 0) {
+            throw new IllegalArgumentException("운동 시작 시각과 운동 시간을 확인하세요.");
+        }
+
+        String recordId = createSession(recordDate, title, "strength", "", startedAt, "");
+        ContentValues values = new ContentValues();
+        values.put("duration_seconds", durationSeconds);
+        values.put("is_backfilled", 1);
+        values.put("backfilled_at", now());
+        values.put("backfill_reason", "manual_entry");
+        values.put("metadata", mergedWorkoutMetadata(
+                sessionInfoMetadata(recordId),
+                "in_progress",
+                startedAt,
+                endedAt,
+                durationSeconds,
+                0d
+        ));
+        db().update(
+                "workout_records",
+                values,
+                "id = ? AND user_id = ?",
+                new String[]{recordId, userId}
+        );
+        populateSessionFromRoutine(recordId, routineId, routineExercises);
+        return recordId;
+    }
+
+    private void populateSessionFromRoutine(
+            String recordId,
+            String routineId,
+            List<RoutineExerciseInstance> routineExercises
+    ) {
         if (routineId != null && !routineId.trim().isEmpty()) {
             ContentValues metadataValues = new ContentValues();
             metadataValues.put("metadata", addMetadataValue(sessionInfoMetadata(recordId), "routine_id", routineId));
@@ -2995,7 +3042,7 @@ public final class FitnessRepository {
             );
         }
         if (routineExercises == null || routineExercises.isEmpty()) {
-            return recordId;
+            return;
         }
 
         SQLiteDatabase database = db();
@@ -3019,7 +3066,6 @@ public final class FitnessRepository {
             database.insertOrThrow("workout_exercises", null, values);
         }
         updateSharedWorkoutSummary(recordId, false);
-        return recordId;
     }
 
     public String latestCompletedWorkoutDateForRoutine(String routineId, String routineName) {
@@ -3247,7 +3293,7 @@ public final class FitnessRepository {
         SQLiteDatabase database = db();
         boolean finished = false;
         try (Cursor cursor = database.rawQuery(
-                "SELECT date, duration_seconds, metadata FROM workout_records " +
+                "SELECT date, duration_seconds, metadata, is_backfilled FROM workout_records " +
                         "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
                 new String[]{recordId, userId})) {
             if (!cursor.moveToFirst()) {
@@ -3256,9 +3302,18 @@ public final class FitnessRepository {
 
             String date = cursor.getString(0);
             String metadata = cursor.getString(2);
-            String endedAt = now();
+            boolean isBackfilled = cursor.getInt(3) == 1;
+            String updatedAt = now();
+            String endedAt = isBackfilled
+                    ? metadataValue(metadata, "ended_at", "")
+                    : updatedAt;
+            if (endedAt.isEmpty()) {
+                endedAt = updatedAt;
+            }
             String startedAt = metadataValue(metadata, "started_at", "");
-            Integer durationSeconds = computeDurationSeconds(date, startedAt, endedAt);
+            Integer durationSeconds = isBackfilled && !cursor.isNull(1)
+                    ? cursor.getInt(1)
+                    : computeDurationSeconds(date, startedAt, endedAt);
             if (durationSeconds == null || durationSeconds <= 0) {
                 durationSeconds = cursor.isNull(1) ? 0 : cursor.getInt(1);
             }
@@ -3267,7 +3322,7 @@ public final class FitnessRepository {
             ContentValues values = new ContentValues();
             values.put("duration_seconds", durationSeconds);
             values.put("total_volume_kg", metrics.totalVolumeKg);
-            values.put("updated_at", endedAt);
+            values.put("updated_at", updatedAt);
             values.put("metadata", mergedWorkoutMetadata(
                     metadata,
                     "completed",

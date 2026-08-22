@@ -41,6 +41,9 @@ public final class WorkoutScreen extends BaseScreen {
                 v -> host.navigate(FitnessScreen.CARDIO)), ui().tileParams(false));
         add(workoutTypeRow, ui().fullWidthParams(0));
 
+        add(ui().button("지난 운동 수동 등록", false, v -> host.showPastWorkoutDialog()),
+                ui().fullWidthParams(ui().dp(10)));
+
         add(ui().hologramStatTile(
                 "식단",
                 "오늘 " + repository().mealCountForDate(today) + "건",

@@ -34,8 +34,10 @@ public final class WorkoutSessionScreen extends BaseScreen {
         FitnessRepository.SessionInfo info = repository().sessionInfo(recordId);
         FitnessRepository.SessionMetrics metrics = repository().sessionMetrics(recordId);
         boolean inProgress = !"completed".equals(info.status);
+        boolean manualEntry = inProgress && info.durationSeconds > 0;
 
-        screenHeader("진행 중", info.title.isEmpty() ? "운동 중" : info.title);
+        screenHeader(manualEntry ? "수동 등록" : "진행 중",
+                info.title.isEmpty() ? "운동 중" : info.title);
 
         LinearLayout status = ui.card();
         status.setGravity(Gravity.CENTER_HORIZONTAL);
@@ -69,7 +71,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
         startView.setText(FitnessUi.formatStartTime(info.startedAt));
         add(status);
 
-        if (inProgress) {
+        if (inProgress && !manualEntry) {
             startElapsedTicker(elapsedView, info.startedAt);
         } else {
             elapsedView.setText(info.durationSeconds > 0

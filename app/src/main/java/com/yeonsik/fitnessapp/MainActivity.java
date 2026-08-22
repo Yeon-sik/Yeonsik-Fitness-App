@@ -79,6 +79,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -101,6 +106,9 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     private static final String UI_PREFS = "fitness_ui_prefs";
     private static final String KEY_THEME_MODE = "theme_mode";
+    private static final DateTimeFormatter MANUAL_WORKOUT_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("H:mm");
+    private static final ZoneOffset KOREA_OFFSET = ZoneOffset.ofHours(9);
     private static final int REQUEST_FLEEK_CSV_IMPORT = 4101;
     private static final int REQUEST_CARDIO_LOCATION = 4102;
     private static final int REQUEST_CARDIO_NOTIFICATIONS = 4103;
@@ -1128,6 +1136,104 @@ public final class MainActivity extends Activity implements ScreenHost {
             return;
         }
         openWorkoutSession(repository.createEmptySession(today()));
+    }
+
+    @Override
+    public void showPastWorkoutDialog() {
+        if (continueExistingWorkoutIfPresent()) {
+            return;
+        }
+
+        String activeRoutineId = routineRepository.activeRoutineId();
+        List<RoutineRepository.RoutineSummary> routines = routineRepository.routines();
+        RoutineRepository.RoutineSummary[] selectedRoutine = {null};
+        for (RoutineRepository.RoutineSummary routine : routines) {
+            if (routine.id.equals(activeRoutineId)) {
+                selectedRoutine[0] = routine;
+                break;
+            }
+        }
+
+        LinearLayout form = ui.form();
+        EditText dateInput = ui.input("날짜 (YYYY-MM-DD)", LocalDate.now().minusDays(1).toString());
+        EditText startTimeInput = ui.input("시작 시각 (HH:mm)", "18:00");
+        EditText durationInput = ui.numberInput("운동 시간 (분)", "60");
+        Button routineButton = ui.button(manualWorkoutRoutineLabel(selectedRoutine[0]), false, null);
+        routineButton.setOnClickListener(v -> {
+            String[] labels = new String[routines.size() + 1];
+            labels[0] = "루틴 없이 운동";
+            int checked = 0;
+            for (int index = 0; index < routines.size(); index++) {
+                RoutineRepository.RoutineSummary routine = routines.get(index);
+                labels[index + 1] = manualWorkoutRoutineLabel(routine);
+                if (selectedRoutine[0] != null && routine.id.equals(selectedRoutine[0].id)) {
+                    checked = index + 1;
+                }
+            }
+            new AlertDialog.Builder(this)
+                    .setTitle("운동 루틴")
+                    .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                        selectedRoutine[0] = which == 0 ? null : routines.get(which - 1);
+                        routineButton.setText(manualWorkoutRoutineLabel(selectedRoutine[0]));
+                        dialog.dismiss();
+                    })
+                    .show();
+        });
+        ui.addAll(
+                form,
+                ui.labeledFieldColumn("운동 날짜", dateInput),
+                ui.labeledFieldColumn("시작 시각", startTimeInput),
+                ui.labeledFieldColumn("운동 시간", durationInput),
+                ui.labeledFieldColumn("운동 루틴", routineButton)
+        );
+
+        ui.validatedSheet("지난 운동 수동 등록", form, "세트 입력으로 이동", () -> {
+            try {
+                LocalDate selectedDate = LocalDate.parse(FitnessUi.inputText(dateInput).trim());
+                LocalTime selectedTime = LocalTime.parse(
+                        FitnessUi.inputText(startTimeInput).trim(),
+                        MANUAL_WORKOUT_TIME_FORMAT
+                );
+                Integer durationMinutes = FitnessUi.optionalInt(durationInput);
+                if (durationMinutes == null || durationMinutes <= 0 || durationMinutes > 1440) {
+                    throw new IllegalArgumentException("운동 시간은 1~1440분으로 입력하세요.");
+                }
+
+                OffsetDateTime startedAt = selectedDate.atTime(selectedTime).atOffset(KOREA_OFFSET);
+                OffsetDateTime endedAt = startedAt.plusMinutes(durationMinutes);
+                if (endedAt.isAfter(OffsetDateTime.now(KOREA_OFFSET))) {
+                    throw new IllegalArgumentException("종료 시각이 현재보다 늦을 수 없습니다.");
+                }
+
+                RoutineRepository.RoutineSummary routine = selectedRoutine[0];
+                List<RoutineExerciseInstance> exercises = routine == null
+                        ? java.util.Collections.emptyList()
+                        : routineRepository.routineExercises(routine.id);
+                String recordId = repository.createManualPastSessionFromRoutine(
+                        selectedDate.toString(),
+                        routine == null ? "루틴 없이 운동" : routine.name,
+                        routine == null ? null : routine.id,
+                        exercises,
+                        startedAt.toString(),
+                        endedAt.toString()
+                );
+                toast("세트와 횟수를 입력한 뒤 운동 완료를 누르세요.");
+                openWorkoutSession(recordId);
+                return true;
+            } catch (DateTimeParseException error) {
+                toast("날짜는 YYYY-MM-DD, 시작 시각은 HH:mm 형식으로 입력하세요.");
+                return false;
+            } catch (IllegalArgumentException error) {
+                toast(error.getMessage());
+                return false;
+            }
+        });
+    }
+
+    private static String manualWorkoutRoutineLabel(RoutineRepository.RoutineSummary routine) {
+        return routine == null
+                ? "루틴 없이 운동"
+                : routine.name + " · " + routine.exerciseCount + "종목";
     }
 
     @Override
