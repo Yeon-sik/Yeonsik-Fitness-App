@@ -213,10 +213,16 @@ public final class RecordsScreen extends BaseScreen {
         LinearLayout markers = new LinearLayout(host.activity());
         markers.setOrientation(LinearLayout.HORIZONTAL);
         markers.setGravity(Gravity.CENTER);
-        addMarker(markers, summary.hasWorkout, selected ? ui.onVibrant() : ui.hologramAccentColor(0));
-        addMarker(markers, summary.hasMeal, selected ? ui.onVibrant() : ui.hologramAccentColor(2));
-        addMarker(markers, summary.hasWeight, selected ? ui.onVibrant() : ui.hologramAccentColor(1));
-        cell.addView(markers, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(9)));
+        addMarker(markers, summary.hasMeal, "●",
+                selected ? ui.onVibrant() : ui.hologramAccentColor(2));
+        addMarker(markers, summary.hasWeight, "■",
+                selected ? ui.onVibrant() : ui.hologramAccentColor(1));
+        addMarker(markers, summary.hasWorkout, "▲",
+                selected ? ui.onVibrant() : ui.hologramAccentColor(0));
+        cell.addView(markers, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                ui.dp(12)
+        ));
 
         TextView muscle = ui.text(summary.muscles, 9,
                 selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_MUTED, false);
@@ -233,15 +239,16 @@ public final class RecordsScreen extends BaseScreen {
         return cell;
     }
 
-    private void addMarker(LinearLayout row, boolean visible, int color) {
+    private void addMarker(LinearLayout row, boolean visible, String symbol, int color) {
         if (!visible) {
             return;
         }
-        View marker = new View(host.activity());
-        marker.setBackground(ui().borderDrawable(color, color, ui().dp(999)));
-        row.addView(marker, new LinearLayout.LayoutParams(ui().dp(5), ui().dp(5)));
+        TextView marker = ui().text(symbol, 9, color, true);
+        marker.setGravity(Gravity.CENTER);
+        marker.setIncludeFontPadding(false);
+        row.addView(marker, new LinearLayout.LayoutParams(ui().dp(10), ui().dp(12)));
         View gap = new View(host.activity());
-        row.addView(gap, new LinearLayout.LayoutParams(ui().dp(3), ui().dp(1)));
+        row.addView(gap, new LinearLayout.LayoutParams(ui().dp(2), ui().dp(1)));
     }
 
     private void addCalendarLegend(LinearLayout card) {
@@ -250,9 +257,9 @@ public final class RecordsScreen extends BaseScreen {
         legend.setOrientation(LinearLayout.HORIZONTAL);
         legend.setGravity(Gravity.CENTER_VERTICAL);
         legend.setPadding(0, ui.dp(12), 0, 0);
-        legend.addView(ui.text("● 운동", 11, ui.hologramAccentColor(0), false), ui.fieldCellParams(true));
-        legend.addView(ui.text("● 식사", 11, ui.hologramAccentColor(2), false), ui.fieldCellParams(false));
-        legend.addView(ui.text("● 체중", 11, ui.hologramAccentColor(1), false), ui.fieldCellParams(false));
+        legend.addView(ui.text("● 식단", 11, ui.hologramAccentColor(2), false), ui.fieldCellParams(true));
+        legend.addView(ui.text("■ 체중", 11, ui.hologramAccentColor(1), false), ui.fieldCellParams(false));
+        legend.addView(ui.text("▲ 운동", 11, ui.hologramAccentColor(0), false), ui.fieldCellParams(false));
         card.addView(legend);
     }
 
