@@ -1243,7 +1243,8 @@ public final class FitnessUi {
                 super.onDraw(canvas);
                 int left = dp(12);
                 int right = getWidth() - dp(12);
-                int top = dp(12);
+                // Reserve a small band above the plot so the value labels stay inside the chart.
+                int top = dp(28);
                 int bottom = getHeight() - dp(14);
                 paint.setStrokeWidth(dp(1));
                 paint.setColor(axisColor);
@@ -1251,6 +1252,7 @@ public final class FitnessUi {
                 if (points.isEmpty()) {
                     paint.setTextSize(dp(12));
                     paint.setColor(mutedColor);
+                    paint.setTextAlign(Paint.Align.LEFT);
                     canvas.drawText("이전 기록 없음", left, top + dp(14), paint);
                     return;
                 }
@@ -1286,6 +1288,25 @@ public final class FitnessUi {
                             : left + (right - left) * index / (float) (points.size() - 1);
                     float y = bottom - (float) ((bottom - top) * value / max);
                     canvas.drawCircle(x, y, dp(4), paint);
+                }
+
+                paint.setColor(mutedColor);
+                paint.setTextSize(dp(10));
+                paint.setTypeface(Typeface.DEFAULT_BOLD);
+                paint.setTextAlign(Paint.Align.CENTER);
+                Paint.FontMetrics fontMetrics = paint.getFontMetrics();
+                for (int index = 0; index < points.size(); index++) {
+                    double value = points.get(index) == null ? 0 : points.get(index);
+                    float x = points.size() == 1
+                            ? (left + right) / 2f
+                            : left + (right - left) * index / (float) (points.size() - 1);
+                    float y = bottom - (float) ((bottom - top) * value / max);
+                    String label = formatVolume(value) + "kg";
+                    float halfLabelWidth = paint.measureText(label) / 2f;
+                    float labelX = Math.max(left + halfLabelWidth,
+                            Math.min(right - halfLabelWidth, x));
+                    float labelY = Math.max(-fontMetrics.top, y - dp(7));
+                    canvas.drawText(label, labelX, labelY, paint);
                 }
             }
         };
