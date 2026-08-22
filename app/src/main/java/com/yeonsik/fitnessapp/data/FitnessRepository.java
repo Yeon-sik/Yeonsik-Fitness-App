@@ -2412,6 +2412,125 @@ public final class FitnessRepository {
         return entries;
     }
 
+    /** Recent active dining-out records available for local reuse. */
+    public List<MealEntry> recentDiningOutEntries(int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 50));
+        List<String> dates = new ArrayList<>();
+        try (Cursor cursor = db().rawQuery(
+                "SELECT date FROM meal_records WHERE user_id = ? AND meal_kind = ? " +
+                        "AND deleted_at IS NULL AND scope IN ('fitness', 'both') " +
+                        "GROUP BY date ORDER BY date DESC LIMIT ?",
+                new String[]{userId, MealRecordKind.DINING_OUT, String.valueOf(safeLimit)}
+        )) {
+            while (cursor.moveToNext()) {
+                dates.add(cursor.getString(0));
+            }
+        }
+
+        List<MealEntry> entries = new ArrayList<>();
+        for (String date : dates) {
+            for (MealEntry entry : mealEntriesForDate(date)) {
+                if (entry.isDiningOut()) {
+                    entries.add(entry);
+                }
+            }
+        }
+        entries.sort((left, right) -> {
+            int dateOrder = right.date.compareTo(left.date);
+            if (dateOrder != 0) {
+                return dateOrder;
+            }
+            int createdOrder = String.valueOf(right.createdAt)
+                    .compareTo(String.valueOf(left.createdAt));
+            if (createdOrder != 0) {
+                return createdOrder;
+            }
+            return right.id.compareTo(left.id);
+        });
+        if (entries.size() > safeLimit) {
+            return new ArrayList<>(entries.subList(0, safeLimit));
+        }
+        return entries;
+    }
+
+    /** Exact PT identity saved on a local dining-out record, if present. */
+    public DiningOutIdentity diningOutIdentityForRecord(String mealRecordId) {
+        String recordId = mealRecordId == null ? "" : mealRecordId.trim();
+        if (recordId.isEmpty()) {
+            return null;
+        }
+        try (Cursor cursor = db().rawQuery(
+                "SELECT restaurant_id, store_name, restaurant_location_id, branch_name, " +
+                        "restaurant_menu_id, menu_name, catalog_product_id, metadata " +
+                        "FROM meal_records WHERE id = ? AND user_id = ? " +
+                        "AND meal_kind = ? AND deleted_at IS NULL LIMIT 1",
+                new String[]{recordId, userId, MealRecordKind.DINING_OUT}
+        )) {
+            if (!cursor.moveToFirst()) {
+                return null;
+            }
+            String metadata = cursor.getString(7);
+            String restaurantId = firstNonBlank(
+                    cursor.getString(0),
+                    metadataValue(metadata, "restaurant_id", "")
+            );
+            String restaurantName = firstNonBlank(
+                    cursor.getString(1),
+                    metadataValue(metadata, "restaurant_name", "")
+            );
+            String locationId = firstNonBlank(
+                    cursor.getString(2),
+                    metadataValue(metadata, "restaurant_location_id", "")
+            );
+            String branchName = firstNonBlank(
+                    cursor.getString(3),
+                    metadataValue(metadata, "branch_name", "")
+            );
+            String menuId = firstNonBlank(
+                    cursor.getString(4),
+                    metadataValue(metadata, "restaurant_menu_id", "")
+            );
+            String menuName = firstNonBlank(
+                    cursor.getString(5),
+                    metadataValue(metadata, "menu_name", "")
+            );
+            String productId = firstNonBlank(
+                    cursor.getString(6),
+                    metadataValue(metadata, "catalog_product_id", "")
+            );
+            if (restaurantId.isEmpty() || restaurantName.isEmpty() || locationId.isEmpty()
+                    || menuId.isEmpty() || menuName.isEmpty() || productId.isEmpty()) {
+                return null;
+            }
+            String sourceNamespace = metadataValue(
+                    metadata,
+                    "identity_namespace",
+                    DiningOutIdentity.NAMESPACE
+            );
+            if (sourceNamespace.isEmpty()) {
+                sourceNamespace = DiningOutIdentity.NAMESPACE;
+            }
+            String sourceLocationCode = emptyToNull(
+                    metadataValue(metadata, "source_location_code", "")
+            );
+            try {
+                return DiningOutIdentity.fromPriceTrace(
+                        restaurantId,
+                        restaurantName,
+                        locationId,
+                        sourceNamespace,
+                        sourceLocationCode,
+                        emptyToNull(branchName),
+                        menuId,
+                        menuName,
+                        productId
+                );
+            } catch (IllegalArgumentException ignored) {
+                return null;
+            }
+        }
+    }
+
     /** Ingredient snapshots that belonged to one consumed menu at recording time. */
     public List<MealComponentEntry> mealComponentsForItem(String mealRecordItemId) {
         List<MealComponentEntry> components = new ArrayList<>();

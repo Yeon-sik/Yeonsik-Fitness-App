@@ -109,6 +109,7 @@ public final class FitnessRepositoryMealTimeTest {
             assertEquals("제육볶음", entry.menuName);
             assertEquals("강남식당 · 제육볶음", entry.previewTitle);
             assertEquals("19:20 · 외식 · 영양 미입력", entry.previewSubtitle());
+            assertEquals(recordId, repository.recentDiningOutEntries(10).get(0).id);
             assertEquals(0, entry.compositionCount);
             assertEquals("dining_out", scalar(helper.getReadableDatabase(),
                     "SELECT meal_kind FROM meal_records WHERE id = '" + recordId + "'"));
@@ -373,6 +374,14 @@ public final class FitnessRepositoryMealTimeTest {
                     savedMetadata.getString("restaurant_location_id"));
             assertEquals("강남점", savedMetadata.getString("branch_name"));
             assertEquals("텐진라멘", savedMetadata.getString("menu_name"));
+            DiningOutIdentity restored = repository.diningOutIdentityForRecord(recordId);
+            assertTrue(restored != null);
+            assertEquals(identity.restaurantId, restored.restaurantId);
+            assertEquals(identity.restaurantLocationId, restored.restaurantLocationId);
+            assertEquals(identity.restaurantMenuId, restored.restaurantMenuId);
+            assertEquals(identity.catalogProductId, restored.catalogProductId);
+            assertEquals("강남점", restored.branchName);
+            assertEquals(recordId, repository.recentDiningOutEntries(10).get(0).id);
         } finally {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
@@ -398,7 +407,9 @@ public final class FitnessRepositoryMealTimeTest {
                     "제육볶음",
                     70d,
                     40d,
-                    20d
+                    20d,
+                    "강남점",
+                    null
             );
             String date = LocalDate.now().minusDays(1).toString();
             String recordId = repository.addDiningOutMealAtTime(
@@ -421,6 +432,12 @@ public final class FitnessRepositoryMealTimeTest {
                     "SELECT kind FROM nutrition_foods WHERE id = '" + savedMenu.id + "'"));
             assertEquals("manual_estimate", scalar(database,
                     "SELECT source_type FROM nutrition_foods WHERE id = '" + savedMenu.id + "'"));
+            JSONObject savedSource = new JSONObject(savedMenu.sourceReference);
+            assertEquals("강남점", savedSource.getString("branch_name"));
+            List<NutritionFood> savedDiningOutMenus = catalog.savedDiningOutMenus();
+            assertEquals(1, savedDiningOutMenus.size());
+            assertEquals(savedMenu.id, savedDiningOutMenus.get(0).id);
+            assertEquals(recordId, repository.recentDiningOutEntries(10).get(0).id);
             assertEquals("1", scalar(database,
                     "SELECT COUNT(*) FROM meal_record_items WHERE meal_record_id = '" + recordId + "'"));
             assertEquals(savedMenu.id, scalar(database,

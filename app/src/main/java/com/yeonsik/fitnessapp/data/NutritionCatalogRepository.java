@@ -106,6 +106,7 @@ public final class NutritionCatalogRepository {
             VerifiedFoodCatalogSeed.FOOD_ID_PREFIX + "%";
     private static final String VERIFIED_FOOD_SOURCE_REFERENCE_PREFIX =
             VerifiedFoodCatalogSeed.SOURCE_REFERENCE_PREFIX + "%";
+    private static final String DINING_OUT_MENU_SOURCE_TYPE = "manual_estimate";
     private static final String DINING_OUT_OPTION_SOURCE_TYPE = "manual_option";
     private static final int SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX = 50;
 
@@ -330,7 +331,19 @@ public final class NutritionCatalogRepository {
         }
         return results;
     }
-
+    /** Private dining-out menus saved by the current Nutrition owner for reuse in meal entry. */
+    public List<NutritionFood> savedDiningOutMenus() {
+        return readFoods(
+                "owner_id = ? AND kind = ? AND source_type = ?",
+                new String[]{
+                        userId,
+                        NutritionFood.KIND_EXTERNAL_MENU,
+                        DINING_OUT_MENU_SOURCE_TYPE
+                },
+                "updated_at DESC, brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC",
+                null
+        );
+    }
     private boolean matchesDiningOutOptionIdentity(
             NutritionFood food,
             DiningOutIdentity identity
@@ -570,6 +583,7 @@ public final class NutritionCatalogRepository {
                 carbsGrams,
                 proteinGrams,
                 fatGrams,
+                null,
                 null
         );
     }
@@ -581,6 +595,27 @@ public final class NutritionCatalogRepository {
             Double carbsGrams,
             Double proteinGrams,
             Double fatGrams,
+            DiningOutIdentity identity
+    ) {
+        return saveDiningOutMenu(
+                storeName,
+                menuName,
+                carbsGrams,
+                proteinGrams,
+                fatGrams,
+                identity == null ? null : identity.branchName,
+                identity
+        );
+    }
+
+    /** Saves a dining-out menu and preserves an explicitly selected PriceTrace identity. */
+    public NutritionFood saveDiningOutMenu(
+            String storeName,
+            String menuName,
+            Double carbsGrams,
+            Double proteinGrams,
+            Double fatGrams,
+            String branchName,
             DiningOutIdentity identity
     ) {
         String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
@@ -610,7 +645,12 @@ public final class NutritionCatalogRepository {
                         fatGrams
                 ),
                 NutritionFood.DATA_VERSION_MACROS_ONLY,
-                diningOutMenuSourceReference(normalizedStoreName, normalizedMenuName, identity)
+                diningOutMenuSourceReference(
+                        normalizedStoreName,
+                        normalizedMenuName,
+                        branchName,
+                        identity
+                )
         );
     }
 
@@ -636,6 +676,7 @@ public final class NutritionCatalogRepository {
                 sodiumMg,
                 sugarsGrams,
                 saturatedFatGrams,
+                null,
                 null
         );
     }
@@ -651,6 +692,35 @@ public final class NutritionCatalogRepository {
             Double sodiumMg,
             Double sugarsGrams,
             Double saturatedFatGrams,
+            DiningOutIdentity identity
+    ) {
+        return saveDiningOutMenuWithNutrition(
+                storeName,
+                menuName,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams,
+                identity == null ? null : identity.branchName,
+                identity
+        );
+    }
+
+    /** Saves a complete menu estimate with an explicitly selected PriceTrace identity. */
+    public NutritionFood saveDiningOutMenuWithNutrition(
+            String storeName,
+            String menuName,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams,
+            String branchName,
             DiningOutIdentity identity
     ) {
         String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
@@ -692,7 +762,12 @@ public final class NutritionCatalogRepository {
                 normalizedMenuName,
                 profile,
                 NutritionFood.DATA_VERSION_REQUIRED_SEVEN,
-                diningOutMenuSourceReference(normalizedStoreName, normalizedMenuName, identity)
+                diningOutMenuSourceReference(
+                        normalizedStoreName,
+                        normalizedMenuName,
+                        branchName,
+                        identity
+                )
         );
     }
 
@@ -805,6 +880,7 @@ public final class NutritionCatalogRepository {
     private String diningOutMenuSourceReference(
             String restaurantName,
             String menuName,
+            String branchName,
             DiningOutIdentity identity
     ) {
         if (identity != null) {
@@ -817,7 +893,11 @@ public final class NutritionCatalogRepository {
             reference.put("restaurant_id", JSONObject.NULL);
             reference.put("restaurant_name", restaurantName);
             reference.put("restaurant_location_id", JSONObject.NULL);
-            reference.put("branch_name", JSONObject.NULL);
+            if (branchName == null || branchName.trim().isEmpty()) {
+                reference.put("branch_name", JSONObject.NULL);
+            } else {
+                reference.put("branch_name", branchName.trim());
+            }
             reference.put("restaurant_menu_id", JSONObject.NULL);
             reference.put("menu_name", menuName);
             reference.put("catalog_product_id", JSONObject.NULL);
