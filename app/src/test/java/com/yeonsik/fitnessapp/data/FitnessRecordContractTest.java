@@ -29,7 +29,7 @@ public final class FitnessRecordContractTest {
                         null,
                         null,
                         null,
-                        8,
+                        2,
                         90,
                         true
                 )
@@ -37,16 +37,16 @@ public final class FitnessRecordContractTest {
     }
 
     @Test
-    public void completedTimeSetAcceptsDurationAndOptionalRpe() {
+    public void completedStrengthSetAcceptsRirZero() {
         FitnessRepository.validateSetInputForRecordType(
-                FitnessRecordContract.TIME,
+                FitnessRecordContract.WEIGHT_REPS,
                 new FitnessRepository.SetInput(
+                        45d,
+                        8,
                         null,
                         null,
-                        45,
                         null,
-                        null,
-                        9,
+                        0,
                         60,
                         true
                 )

@@ -375,13 +375,15 @@ public final class FitnessRepository {
     }
 
     private static SetInput importedSetInput(FleekCsvImporter.SetData set) {
+        // FLEEK exports the historical RPE field. Keep importing that value into the legacy
+        // column below, but never reinterpret it as RIR (the scales have opposite meanings).
         return new SetInput(
                 set.weightKg,
                 set.reps,
                 set.durationSeconds,
                 set.assistedWeightKg,
                 set.addedWeightKg,
-                set.rpe,
+                null,
                 null,
                 true
         );
@@ -475,16 +477,16 @@ public final class FitnessRepository {
         return addSet(recordId, exerciseId, setIndex, weightKg, reps, null, completed);
     }
 
-    public String addSet(String recordId, String exerciseId, int setIndex, double weightKg, int reps, Integer rpe, boolean completed) {
-        return addSet(recordId, exerciseId, setIndex, weightKg, reps, rpe, null, completed);
+    public String addSet(String recordId, String exerciseId, int setIndex, double weightKg, int reps, Integer rir, boolean completed) {
+        return addSet(recordId, exerciseId, setIndex, weightKg, reps, rir, null, completed);
     }
 
-    public String addSet(String recordId, String exerciseId, int setIndex, double weightKg, int reps, Integer rpe, Integer restSeconds, boolean completed) {
+    public String addSet(String recordId, String exerciseId, int setIndex, double weightKg, int reps, Integer rir, Integer restSeconds, boolean completed) {
         return addTypedSet(
                 recordId,
                 exerciseId,
                 setIndex,
-                new SetInput(weightKg, reps, null, null, null, rpe, restSeconds, completed)
+                new SetInput(weightKg, reps, null, null, null, rir, restSeconds, completed)
         );
     }
 
@@ -507,22 +509,22 @@ public final class FitnessRepository {
         putNullable(values, "assisted_weight_kg", input.assistedWeightKg);
         putNullable(values, "added_weight_kg", input.addedWeightKg);
         values.put("is_completed", input.completed ? 1 : 0);
-        putNullable(values, "rpe", input.rpe);
+        putNullable(values, "rir", input.rir);
         values.putNull("memo");
         db().insertOrThrow("workout_sets", null, values);
         updateSessionTotalVolume(recordId);
         return id;
     }
 
-    public void updateSet(String recordId, String setId, double weightKg, int reps, Integer rpe, boolean completed) {
-        updateSet(recordId, setId, weightKg, reps, rpe, null, completed);
+    public void updateSet(String recordId, String setId, double weightKg, int reps, Integer rir, boolean completed) {
+        updateSet(recordId, setId, weightKg, reps, rir, null, completed);
     }
 
-    public void updateSet(String recordId, String setId, double weightKg, int reps, Integer rpe, Integer restSeconds, boolean completed) {
+    public void updateSet(String recordId, String setId, double weightKg, int reps, Integer rir, Integer restSeconds, boolean completed) {
         updateTypedSet(
                 recordId,
                 setId,
-                new SetInput(weightKg, reps, null, null, null, rpe, restSeconds, completed)
+                new SetInput(weightKg, reps, null, null, null, rir, restSeconds, completed)
         );
     }
 
@@ -543,7 +545,7 @@ public final class FitnessRepository {
         putNullable(values, "distance_meters", input.distanceMeters);
         putNullable(values, "assisted_weight_kg", input.assistedWeightKg);
         putNullable(values, "added_weight_kg", input.addedWeightKg);
-        putNullable(values, "rpe", input.rpe);
+        putNullable(values, "rir", input.rir);
         putNullable(values, "rest_seconds", input.restSeconds);
         values.put("is_completed", input.completed ? 1 : 0);
         values.put("updated_at", now());
@@ -605,7 +607,7 @@ public final class FitnessRepository {
         List<SessionSetEntry> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, set_index, COALESCE(weight_kg, 0), COALESCE(actual_reps, 0), "
-                        + "rpe, rest_seconds, is_completed, COALESCE(duration_seconds, 0), "
+                        + "rir, rest_seconds, is_completed, COALESCE(duration_seconds, 0), "
                         + "COALESCE(distance_meters, 0), COALESCE(assisted_weight_kg, 0), "
                         + "COALESCE(added_weight_kg, 0) FROM workout_sets " +
                         "WHERE workout_exercise_id = ? AND user_id = ? " +
@@ -4493,8 +4495,8 @@ public final class FitnessRepository {
         if (input.restSeconds != null && input.restSeconds < 0) {
             throw new IllegalArgumentException("휴식 시간은 음수일 수 없습니다.");
         }
-        if (input.rpe != null && (input.rpe < 1 || input.rpe > 10)) {
-            throw new IllegalArgumentException("RPE는 1부터 10 사이여야 합니다.");
+        if (input.rir != null && (input.rir < 0 || input.rir > 5)) {
+            throw new IllegalArgumentException("RIR는 0부터 5 사이여야 합니다.");
         }
         if (!input.completed) {
             return;
@@ -4658,7 +4660,7 @@ public final class FitnessRepository {
         public final int setIndex;
         public final double weightKg;
         public final int actualReps;
-        public final Integer rpe;
+        public final Integer rir;
         public final Integer restSeconds;
         public final boolean isCompleted;
         public final int durationSeconds;
@@ -4671,7 +4673,7 @@ public final class FitnessRepository {
                 int setIndex,
                 double weightKg,
                 int actualReps,
-                Integer rpe,
+                Integer rir,
                 Integer restSeconds,
                 boolean isCompleted,
                 int durationSeconds,
@@ -4683,7 +4685,7 @@ public final class FitnessRepository {
             this.setIndex = setIndex;
             this.weightKg = weightKg;
             this.actualReps = actualReps;
-            this.rpe = rpe;
+            this.rir = rir;
             this.restSeconds = restSeconds;
             this.isCompleted = isCompleted;
             this.durationSeconds = durationSeconds;
@@ -4700,7 +4702,7 @@ public final class FitnessRepository {
         public final Double distanceMeters;
         public final Double assistedWeightKg;
         public final Double addedWeightKg;
-        public final Integer rpe;
+        public final Integer rir;
         public final Integer restSeconds;
         public final boolean completed;
 
@@ -4710,12 +4712,12 @@ public final class FitnessRepository {
                 Integer durationSeconds,
                 Double assistedWeightKg,
                 Double addedWeightKg,
-                Integer rpe,
+                Integer rir,
                 Integer restSeconds,
                 boolean completed
         ) {
             this(weightKg, reps, durationSeconds, null, assistedWeightKg, addedWeightKg,
-                    rpe, restSeconds, completed);
+                    rir, restSeconds, completed);
         }
 
         public SetInput(
@@ -4725,7 +4727,7 @@ public final class FitnessRepository {
                 Double distanceMeters,
                 Double assistedWeightKg,
                 Double addedWeightKg,
-                Integer rpe,
+                Integer rir,
                 Integer restSeconds,
                 boolean completed
         ) {
@@ -4735,7 +4737,7 @@ public final class FitnessRepository {
             this.distanceMeters = distanceMeters;
             this.assistedWeightKg = assistedWeightKg;
             this.addedWeightKg = addedWeightKg;
-            this.rpe = rpe;
+            this.rir = rir;
             this.restSeconds = restSeconds;
             this.completed = completed;
         }

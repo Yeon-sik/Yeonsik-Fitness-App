@@ -246,17 +246,19 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             FitnessRepository.SessionSetEntry set
     ) {
         String type = FitnessRecordContract.normalizeRecordType(recordType);
-        String rpe = set.rpe == null ? "" : " · RPE " + set.rpe;
+        String rir = FitnessRecordContract.supportsRir(type) && set.rir != null
+                ? " · RIR " + set.rir
+                : "";
         if (FitnessRecordContract.WEIGHT_TIME.equals(type)) {
-            return set.durationSeconds + "초" + rpe;
+            return set.durationSeconds + "초";
         }
         if (FitnessRecordContract.REPS_ONLY.equals(type)
                 || FitnessRecordContract.TIME.equals(type)) {
             if (FitnessRecordContract.TIME.equals(type) && set.distanceMeters > 0d) {
                 return CardioMetrics.formatDistanceKilometers(set.distanceMeters) + "km";
             }
-            return rpe.isEmpty() ? "완료" : rpe.substring(3);
+            return rir.isEmpty() ? "완료" : rir.substring(3);
         }
-        return "×" + set.actualReps + rpe;
+        return "×" + set.actualReps + rir;
     }
 }

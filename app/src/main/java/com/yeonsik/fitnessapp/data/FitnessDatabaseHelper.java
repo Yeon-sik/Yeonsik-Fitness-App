@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 34;
+    public static final int DATABASE_VERSION = 35;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -127,6 +127,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "added_weight_kg REAL, " +
                 "is_completed INTEGER NOT NULL, " +
                 "rpe INTEGER, " +
+                "rir INTEGER, " +
                 "memo TEXT, " +
                 "created_at TEXT NOT NULL, " +
                 "updated_at TEXT NOT NULL, " +
@@ -974,6 +975,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 34) {
             upgradeDiningOutConsumptionSchema(db);
+        }
+        if (oldVersion < 35) {
+            addColumnIfMissing(db, "workout_sets", "rir", "INTEGER");
         }
     }
 

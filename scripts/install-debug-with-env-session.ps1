@@ -1,5 +1,7 @@
 param(
     [string]$DeviceSerial = $env:ANDROID_SERIAL,
+    [ValidateSet('Debug', 'Qa')]
+    [string]$Variant = 'Debug',
     [switch]$SkipFinalLaunch,
     [switch]$SkipBuild
 )
@@ -9,7 +11,8 @@ Set-StrictMode -Version Latest
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $envPath = Join-Path $repoRoot 'supabase/.env'
-$apkPath = Join-Path $repoRoot 'app/build/outputs/apk/debug/app-debug.apk'
+$variantDirectory = $Variant.ToLowerInvariant()
+$apkPath = Join-Path $repoRoot "app/build/outputs/apk/$variantDirectory/app-$variantDirectory.apk"
 $packageName = 'com.yeonsik.fitnessapp'
 $activityName = "$packageName/.MainActivity"
 $provisionAction = "$packageName.DEBUG_PROVISION_SESSION"
@@ -97,12 +100,12 @@ function Wait-PersistedSession {
 Push-Location $repoRoot
 try {
     if (-not $SkipBuild) {
-        & .\gradlew.bat assembleDebug --no-daemon
+        & .\gradlew.bat "assemble$Variant" --no-daemon
         if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $apkPath)) {
-            throw 'Debug APK build failed'
+            throw "$Variant APK build failed"
         }
     } elseif (-not (Test-Path -LiteralPath $apkPath)) {
-        throw 'Debug APK was not found; run assembleDebug first'
+        throw "$Variant APK was not found; run assemble$Variant first"
     }
 
     $deviceLines = @(& adb devices)
@@ -121,7 +124,7 @@ try {
         throw 'APK installation failed'
     }
 
-    # Ensure the provisioning intent is handled by a fresh debug Activity.
+    # Ensure the provisioning intent is handled by a fresh debuggable Activity.
     # This stops the process only; it does not clear app data or uninstall the APK.
     & adb -s $DeviceSerial shell am force-stop $packageName
     if ($LASTEXITCODE -ne 0) {

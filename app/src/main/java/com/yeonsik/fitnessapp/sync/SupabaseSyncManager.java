@@ -139,7 +139,13 @@ public final class SupabaseSyncManager {
                 RpcResponse response = invokeSyncRpc(config, payload, pullCursors);
                 rpcCalls = checkedRpcCalls(rpcCalls + 1);
                 pulledRows += applyRpcResponse(database, response, userId);
-                savePullCursors(database, scopeKey, pullCursors, response.nextCursors);
+                savePullCursors(
+                        database,
+                        scopeKey,
+                        pullCursors,
+                        response.nextCursors,
+                        userId
+                );
 
                 SyncCursor nextPushCursor = cursorFromLastRow(table, changes);
                 saveCursor(
@@ -161,7 +167,13 @@ public final class SupabaseSyncManager {
             RpcResponse response = invokeSyncRpc(config, new JSONObject(), pullCursors);
             rpcCalls = checkedRpcCalls(rpcCalls + 1);
             pulledRows += applyRpcResponse(database, response, userId);
-            savePullCursors(database, scopeKey, pullCursors, response.nextCursors);
+            savePullCursors(
+                    database,
+                    scopeKey,
+                    pullCursors,
+                    response.nextCursors,
+                    userId
+            );
             pushedRows += response.pushedRows;
             syncedAt = response.serverTime;
             hasMore = response.hasMore();
@@ -304,8 +316,26 @@ public final class SupabaseSyncManager {
             SQLiteDatabase database,
             String scopeKey,
             Map<String, SyncCursor> pullCursors,
-            JSONObject nextCursors
-    ) {
+            JSONObject nextCursors,
+            String userId
+    ) throws RpcUnavailableException {
+        // A cursor is only safe after the row at its boundary is present locally.
+        // Otherwise a malformed/partial RPC response can permanently skip rows.
+        for (String table : TABLES) {
+            JSONObject object = nextCursors.optJSONObject(table);
+            if (object == null) {
+                continue;
+            }
+            String version = nullableString(object, "version");
+            if (version == null) {
+                continue;
+            }
+            SyncCursor cursor = new SyncCursor(version, object.optString("id", ""));
+            if (!isPullCursorApplied(database, table, userId, cursor)) {
+                throw new RpcCursorMismatchException();
+            }
+        }
+
         for (String table : TABLES) {
             JSONObject object = nextCursors.optJSONObject(table);
             if (object == null) {
@@ -318,6 +348,29 @@ public final class SupabaseSyncManager {
             SyncCursor cursor = new SyncCursor(version, object.optString("id", ""));
             saveCursor(database, scopeKey, table, PULL_DIRECTION, cursor);
             pullCursors.put(table, cursor);
+        }
+    }
+
+    private boolean isPullCursorApplied(
+            SQLiteDatabase database,
+            String table,
+            String userId,
+            SyncCursor cursor
+    ) {
+        if (cursor == null || cursor.version == null || cursor.id.isEmpty()) {
+            return false;
+        }
+        try (Cursor rows = database.query(
+                table,
+                new String[]{"id"},
+                "id = ? AND user_id = ?",
+                new String[]{cursor.id, userId},
+                null,
+                null,
+                null,
+                "1"
+        )) {
+            return rows.moveToFirst();
         }
     }
 
@@ -704,6 +757,11 @@ public final class SupabaseSyncManager {
         if ("workout_sets".equals(table) && "volume_kg".equals(column)) {
             return false;
         }
+        // RIR is locally deployed first. The shared workout_sets schema still exposes only the
+        // legacy RPE column, so sending RIR would make the whole row PATCH fail with PGRST204.
+        if ("workout_sets".equals(table) && "rir".equals(column)) {
+            return false;
+        }
         // The common Personal OS dining-out identity migration is not part of the tracked
         // deployed contract yet. Keep these columns local and rely on metadata until the
         // remote schema is confirmed to expose them.
@@ -986,7 +1044,13 @@ public final class SupabaseSyncManager {
         }
     }
 
-    private static final class RpcUnavailableException extends IOException {
+    private static class RpcUnavailableException extends IOException {
+    }
+
+    private static final class RpcCursorMismatchException extends RpcUnavailableException {
+        RpcCursorMismatchException() {
+            super();
+        }
     }
 
 

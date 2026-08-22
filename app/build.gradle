@@ -36,6 +36,24 @@ def buildConfigString = { String value ->
     '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
 }
 
+def localOrEnvironment = { String propertyName, String environmentName ->
+    localProperties.getProperty(propertyName)
+            ?: System.getenv(environmentName)
+            ?: ""
+}
+
+// The QA keystore is intentionally supplied outside the repository. Keep one
+// per application and move it between trusted build machines when needed.
+def defaultQaStorePath = new File(
+        System.getProperty("user.home"),
+        ".android/keystores/YeonsikFitness/fitness-qa.jks"
+).absolutePath
+def qaStorePath = localOrEnvironment("FITNESS_QA_STORE_FILE", "FITNESS_QA_STORE_FILE")
+        ?: defaultQaStorePath
+def qaStorePassword = localOrEnvironment("FITNESS_QA_STORE_PASSWORD", "FITNESS_QA_STORE_PASSWORD")
+def qaKeyAlias = localOrEnvironment("FITNESS_QA_KEY_ALIAS", "FITNESS_QA_KEY_ALIAS")
+def qaKeyPassword = localOrEnvironment("FITNESS_QA_KEY_PASSWORD", "FITNESS_QA_KEY_PASSWORD")
+
 // Personal records use the shared Personal OS project. Nutrition catalog data
 // uses an independent FitnessApp-only Supabase project and session.
 def supabaseUrl = localProperties.getProperty("SUPABASE_URL")
@@ -113,6 +131,14 @@ android {
     }
 
     signingConfigs {
+        qa {
+            if (qaStorePath) {
+                storeFile file(qaStorePath)
+                storePassword qaStorePassword
+                keyAlias qaKeyAlias
+                keyPassword qaKeyPassword
+            }
+        }
         release {
             def storePath = System.getenv("FITNESS_RELEASE_STORE_FILE")
             if (storePath) {
@@ -127,6 +153,11 @@ android {
     buildTypes {
         debug {
             debuggable true
+        }
+        qa {
+            initWith debug
+            debuggable true
+            signingConfig signingConfigs.qa
         }
         release {
             debuggable false
@@ -164,6 +195,25 @@ tasks.register("verifyReleaseConfiguration") {
 
 }
 
+tasks.register("verifyQaConfiguration") {
+    doLast {
+        [
+                "FITNESS_QA_STORE_FILE": qaStorePath,
+                "FITNESS_QA_STORE_PASSWORD": qaStorePassword,
+                "FITNESS_QA_KEY_ALIAS": qaKeyAlias,
+                "FITNESS_QA_KEY_PASSWORD": qaKeyPassword
+        ].each { key, value ->
+            if (!value) {
+                throw new GradleException("Missing required QA signing value: ${key}")
+            }
+        }
+        File keystore = file(qaStorePath)
+        if (!keystore.isFile()) {
+            throw new GradleException("QA keystore was not found: ${keystore.absolutePath}")
+        }
+    }
+}
+
 tasks.register("installDebugWithEnvSession") {
     dependsOn("assembleDebug")
     doLast {
@@ -187,6 +237,31 @@ tasks.register("installDebugWithEnvSession") {
     }
 }
 
+tasks.register("installQaWithEnvSession") {
+    dependsOn("assembleQa")
+    doLast {
+        if (!System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win")) {
+            throw new GradleException("installQaWithEnvSession currently requires Windows PowerShell.")
+        }
+        def output = providers.exec {
+            commandLine(
+                    "powershell.exe",
+                    "-NoProfile",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-File",
+                    rootProject.file("scripts/install-debug-with-env-session.ps1").absolutePath,
+                    "-Variant",
+                    "Qa",
+                    "-SkipBuild"
+            )
+        }.standardOutput.asText.get()
+        if (output) {
+            println(output)
+        }
+    }
+}
+
 dependencies {
     implementation "com.google.android.gms:play-services-location:21.4.0"
     testImplementation "junit:junit:4.13.2"
@@ -197,6 +272,10 @@ dependencies {
 
 tasks.matching { it.name in ["bundleRelease", "assembleRelease"] }.configureEach {
     dependsOn("verifyReleaseConfiguration")
+}
+
+tasks.matching { it.name in ["bundleQa", "assembleQa", "installQa", "installQaWithEnvSession"] }.configureEach {
+    dependsOn("verifyQaConfiguration")
 }
 
 tasks.named("preBuild").configure {
