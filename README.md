@@ -81,6 +81,52 @@ Android Keystore. If the credentials are missing or automatic authentication
 fails, the APK is still installed and the existing Settings login form is used.
 The password is never placed in `BuildConfig` or the APK.
 
+## Shared QA signing
+
+The default Android debug key is generated per computer. Do not use it when
+the same APK package must be updated from more than one machine. Create one
+separate keystore for this app's QA builds, keep it outside Git, and move that
+keystore only through a trusted, encrypted USB or other secure channel. The
+keystore contains the private signing key; a certificate or public key alone
+cannot sign an APK.
+
+Create the keystore once on a trusted machine. Let `keytool` prompt for both
+passwords so they do not appear in shell history:
+
+```powershell
+keytool -genkeypair -v -storetype JKS `
+  -keystore fitness-qa.jks `
+  -alias fitness-qa `
+  -keyalg RSA -keysize 4096 -validity 10000
+```
+
+On each build computer, point Gradle at its current USB path. These values may
+be placed in the ignored `local.properties` file or supplied as environment
+variables; never commit them:
+
+```properties
+FITNESS_QA_STORE_FILE=E:/android-keys/fitness-qa.jks
+FITNESS_QA_STORE_PASSWORD=use-the-keystore-password
+FITNESS_QA_KEY_ALIAS=fitness-qa
+FITNESS_QA_KEY_PASSWORD=use-the-key-password
+```
+
+Build and install the shared-key variant with:
+
+```powershell
+.\gradlew.bat testDebugUnitTest assembleQa
+.\gradlew.bat installQaWithEnvSession --no-daemon
+```
+
+`qa` uses the same application ID as the current app, so all computers using
+this keystore can update the same installation with `adb install -r`. The
+current physical device was installed with a different old key. Therefore the
+first migration to this newly created QA key cannot be an in-place update:
+back up the device database, uninstall the old package, install the QA APK,
+and restore or re-sync the data. After that one-time migration, use only the
+shared QA keystore for this package. If the old key is found, use it for the
+first update instead and no migration is needed.
+
 ## Release
 
 Signed release builds require:
