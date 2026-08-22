@@ -44,7 +44,12 @@ def localOrEnvironment = { String propertyName, String environmentName ->
 
 // The QA keystore is intentionally supplied outside the repository. Keep one
 // per application and move it between trusted build machines when needed.
+def defaultQaStorePath = new File(
+        System.getProperty("user.home"),
+        ".android/keystores/YeonsikFitness/fitness-qa.jks"
+).absolutePath
 def qaStorePath = localOrEnvironment("FITNESS_QA_STORE_FILE", "FITNESS_QA_STORE_FILE")
+        ?: defaultQaStorePath
 def qaStorePassword = localOrEnvironment("FITNESS_QA_STORE_PASSWORD", "FITNESS_QA_STORE_PASSWORD")
 def qaKeyAlias = localOrEnvironment("FITNESS_QA_KEY_ALIAS", "FITNESS_QA_KEY_ALIAS")
 def qaKeyPassword = localOrEnvironment("FITNESS_QA_KEY_PASSWORD", "FITNESS_QA_KEY_PASSWORD")

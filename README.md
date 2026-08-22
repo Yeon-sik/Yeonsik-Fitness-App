@@ -90,26 +90,34 @@ keystore only through a trusted, encrypted USB or other secure channel. The
 keystore contains the private signing key; a certificate or public key alone
 cannot sign an APK.
 
-Create the keystore once on a trusted machine. Let `keytool` prompt for both
+Create the keystore once on a trusted machine. Store it at the same
+user-specific path on every build computer. Let `keytool` prompt for both
 passwords so they do not appear in shell history:
 
 ```powershell
+New-Item -ItemType Directory -Force `
+  (Join-Path $env:USERPROFILE '.android\keystores\YeonsikFitness') | Out-Null
+
 keytool -genkeypair -v -storetype JKS `
-  -keystore fitness-qa.jks `
+  -keystore (Join-Path $env:USERPROFILE '.android\keystores\YeonsikFitness\fitness-qa.jks') `
   -alias fitness-qa `
   -keyalg RSA -keysize 4096 -validity 10000
 ```
 
-On each build computer, point Gradle at its current USB path. These values may
-be placed in the ignored `local.properties` file or supplied as environment
-variables; never commit them:
+Copy the same keystore from the encrypted USB to
+`%USERPROFILE%\.android\keystores\YeonsikFitness\fitness-qa.jks` on each
+computer. Gradle uses this path by default. Only the credentials below need to
+be supplied in the ignored `local.properties` file or as environment variables;
+never commit them:
 
 ```properties
-FITNESS_QA_STORE_FILE=E:/android-keys/fitness-qa.jks
 FITNESS_QA_STORE_PASSWORD=use-the-keystore-password
 FITNESS_QA_KEY_ALIAS=fitness-qa
 FITNESS_QA_KEY_PASSWORD=use-the-key-password
 ```
+
+`FITNESS_QA_STORE_FILE` remains available as an optional override for an
+exceptional machine, but the standard location should be used consistently.
 
 Build and install the shared-key variant with:
 
