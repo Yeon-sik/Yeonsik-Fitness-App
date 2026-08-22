@@ -271,6 +271,18 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         return button;
     }
 
+    private static LinearLayout.LayoutParams compactSetFieldParams(
+            FitnessUi ui,
+            boolean first
+    ) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ui.dp(58),
+                ui.dp(40)
+        );
+        params.setMargins(first ? 0 : ui.dp(6), 0, 0, 0);
+        return params;
+    }
+
     private void addColumnHeader(LinearLayout row, String label, LinearLayout.LayoutParams params) {
         TextView header = ui().caption(label, FitnessUi.COLOR_MUTED);
         header.setGravity(Gravity.CENTER);
@@ -286,10 +298,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 ui.dp(52),
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
-        addColumnHeader(row, primaryLabel(recordType), ui.fieldCellParams(false));
-        addColumnHeader(row, secondaryLabel(recordType), ui.fieldCellParams(false));
+        addColumnHeader(row, primaryLabel(recordType), compactSetFieldParams(ui, true));
+        addColumnHeader(row, secondaryLabel(recordType), compactSetFieldParams(ui, false));
         if (FitnessRecordContract.supportsRir(recordType)) {
-            addColumnHeader(row, "RIR", ui.fieldCellParams(false));
+            addColumnHeader(row, "RIR", compactSetFieldParams(ui, false));
         }
         addColumnHeader(row, "완료", new LinearLayout.LayoutParams(
                 ui.dp(44),
@@ -310,14 +322,22 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             FitnessRepository.SessionSetEntry previousSet
     ) {
         FitnessUi ui = ui();
+        LinearLayout setBox = new LinearLayout(host.activity());
+        setBox.setOrientation(LinearLayout.VERTICAL);
+        if (set.isCompleted) {
+            setBox.setBackground(ui.borderDrawable(ui.subtle(), ui.subtle(), ui.dp(12)));
+            ui.applyDepth(setBox, 2);
+        }
+
+        TextView volumeDelta = volumeDeltaLabel(ui, exercise.recordType, set, previousSet);
+        if (volumeDelta != null) {
+            setBox.addView(volumeDelta, ui.fullWidthParams(ui.dp(2)));
+        }
+
         LinearLayout row = new LinearLayout(host.activity());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(ui.dp(2), ui.dp(6), ui.dp(2), ui.dp(6));
-        if (set.isCompleted) {
-            row.setBackground(ui.borderDrawable(ui.subtle(), ui.subtle(), ui.dp(12)));
-            ui.applyDepth(row, 2);
-        }
+        row.setPadding(ui.dp(2), ui.dp(3), ui.dp(2), ui.dp(3));
 
         TextView previous = ui.num(
                 previousSet == null ? "--" : setSummary(exercise.recordType, previousSet),
@@ -327,7 +347,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         );
         previous.setGravity(Gravity.CENTER);
         previous.setMaxLines(2);
-        row.addView(previous, new LinearLayout.LayoutParams(ui.dp(52), ui.dp(52)));
+        row.addView(previous, new LinearLayout.LayoutParams(ui.dp(52), ui.dp(44)));
 
         EditText primary = typedPrimaryInput(exercise.recordType, set);
         EditText secondary = typedSecondaryInput(exercise.recordType, set);
@@ -339,13 +359,16 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 : new EditText[]{primary, secondary, rir};
         for (EditText input : effortInputs) {
             input.setGravity(Gravity.CENTER);
-            input.setPadding(ui.dp(6), ui.dp(9), ui.dp(6), ui.dp(9));
+            input.setTextSize(14);
+            input.setMinHeight(ui.dp(38));
+            input.setMinimumHeight(ui.dp(38));
+            input.setPadding(ui.dp(4), ui.dp(3), ui.dp(4), ui.dp(3));
         }
         secondary.setEnabled(!secondaryLabel(exercise.recordType).isEmpty());
-        row.addView(primary, ui.fieldCellParams(false));
-        row.addView(secondary, ui.fieldCellParams(false));
+        row.addView(primary, compactSetFieldParams(ui, true));
+        row.addView(secondary, compactSetFieldParams(ui, false));
         if (rir != null) {
-            row.addView(rir, ui.fieldCellParams(false));
+            row.addView(rir, compactSetFieldParams(ui, false));
         }
 
         if (previousSet != null) {
@@ -407,7 +430,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 styleStamp(stamp, set.isCompleted);
             }
         });
-        row.addView(stampCell, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(52)));
+        row.addView(stampCell, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
 
         if (set.setIndex > 1) {
             TextView delete = ui.num("×", 18, FitnessUi.COLOR_MUTED, true);
@@ -418,14 +441,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 repository().deleteSet(recordId, set.id);
                 host.rerender();
             });
-            row.addView(delete, new LinearLayout.LayoutParams(ui.dp(30), ui.dp(52)));
+            row.addView(delete, new LinearLayout.LayoutParams(ui.dp(30), ui.dp(44)));
         } else {
             row.addView(new TextView(host.activity()), new LinearLayout.LayoutParams(
                     ui.dp(30),
-                    LinearLayout.LayoutParams.WRAP_CONTENT
+                    ui.dp(44)
             ));
         }
-        card.addView(row, ui.fullWidthParams(ui.dp(6)));
+        setBox.addView(row, ui.fullWidthParams(0));
+        card.addView(setBox, ui.fullWidthParams(ui.dp(6)));
     }
 
     private EditText typedPrimaryInput(
@@ -595,6 +619,39 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             return "추가 " + FitnessUi.trimDouble(set.addedWeightKg) + "kg\n" + set.actualReps + "회";
         }
         return FitnessUi.trimDouble(set.weightKg) + "kg\n" + set.actualReps + "회";
+    }
+
+    /** 완료된 중량×횟수 세트를 직전 세션의 같은 세트 번호와 비교한다. */
+    private static TextView volumeDeltaLabel(
+            FitnessUi ui,
+            String recordType,
+            FitnessRepository.SessionSetEntry set,
+            FitnessRepository.SessionSetEntry previousSet
+    ) {
+        if (!FitnessRecordContract.WEIGHT_REPS.equals(
+                FitnessRecordContract.normalizeRecordType(recordType))
+                || previousSet == null
+                || !set.isCompleted) {
+            return null;
+        }
+
+        double currentVolume = set.weightKg * set.actualReps;
+        double previousVolume = previousSet.weightKg * previousSet.actualReps;
+        double delta = currentVolume - previousVolume;
+        String direction = delta < 0 ? "덜" : "더";
+        int color = delta > 0
+                ? FitnessUi.COLOR_POSITIVE
+                : delta < 0 ? FitnessUi.COLOR_NEGATIVE : FitnessUi.COLOR_MUTED;
+        TextView label = ui.num(
+                "지난 세트보다 " + FitnessUi.formatVolume(Math.abs(delta))
+                        + " KG " + direction + " 들었어요",
+                11,
+                color,
+                true
+        );
+        label.setGravity(Gravity.CENTER);
+        label.setPadding(0, 0, 0, ui.dp(2));
+        return label;
     }
 
     private static FitnessRepository.SetInput emptySetInput(
