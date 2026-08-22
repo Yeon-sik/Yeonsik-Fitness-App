@@ -84,13 +84,19 @@ public final class RecordsScreen extends BaseScreen {
                     host.openMealManagement(selectedDate, FitnessScreen.RECORDS));
             List<View> mealRows = new ArrayList<>();
             for (FitnessRepository.MealEntry meal : meals) {
+                String mealTitle = meal.isDiningOut()
+                        ? meal.storeName + " - " + meal.menuName
+                        : meal.previewTitle;
+                String accessibilityLabel = meal.isDiningOut()
+                        ? mealTitle + ", " + meal.previewSubtitle()
+                        : meal.previewAccessibilityLabel();
                 View row = ui.recordListRow(
                         "식",
-                        meal.previewTitle,
+                        mealTitle,
                         meal.previewSubtitle(),
                         v -> host.openMealManagement(selectedDate, FitnessScreen.RECORDS)
                 );
-                row.setContentDescription(meal.previewAccessibilityLabel()
+                row.setContentDescription(accessibilityLabel
                         + ". 탭하여 식단 관리를 엽니다.");
                 mealRows.add(row);
             }
