@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
+import android.text.Editable;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
@@ -329,7 +331,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             ui.applyDepth(setBox, 2);
         }
 
-        TextView volumeDelta = volumeDeltaLabel(ui, exercise.recordType, set, previousSet);
+        TextView volumeDelta = volumeDeltaLabel(ui, exercise.recordType, previousSet);
         if (volumeDelta != null) {
             setBox.addView(volumeDelta, ui.fullWidthParams(ui.dp(2)));
         }
@@ -369,6 +371,28 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         row.addView(secondary, compactSetFieldParams(ui, false));
         if (rir != null) {
             row.addView(rir, compactSetFieldParams(ui, false));
+        }
+
+        if (volumeDelta != null) {
+            TextWatcher volumeDeltaWatcher = new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+                    // 입력 중간값은 afterTextChanged에서 다시 계산한다.
+                }
+
+                @Override
+                public void onTextChanged(CharSequence text, int start, int before, int count) {
+                    // 입력 중간값은 afterTextChanged에서 다시 계산한다.
+                }
+
+                @Override
+                public void afterTextChanged(Editable editable) {
+                    updateVolumeDeltaLabel(volumeDelta, primary, secondary, previousSet);
+                }
+            };
+            primary.addTextChangedListener(volumeDeltaWatcher);
+            secondary.addTextChangedListener(volumeDeltaWatcher);
+            updateVolumeDeltaLabel(volumeDelta, primary, secondary, previousSet);
         }
 
         if (previousSet != null) {
@@ -621,37 +645,53 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         return FitnessUi.trimDouble(set.weightKg) + "kg\n" + set.actualReps + "회";
     }
 
-    /** 완료된 중량×횟수 세트를 직전 세션의 같은 세트 번호와 비교한다. */
+    /** 한 세트 박스에 하나씩 표시할 중량×횟수 비교 라벨을 만든다. */
     private static TextView volumeDeltaLabel(
             FitnessUi ui,
             String recordType,
-            FitnessRepository.SessionSetEntry set,
             FitnessRepository.SessionSetEntry previousSet
     ) {
         if (!FitnessRecordContract.WEIGHT_REPS.equals(
                 FitnessRecordContract.normalizeRecordType(recordType))
-                || previousSet == null
-                || !set.isCompleted) {
+                || previousSet == null) {
             return null;
         }
 
-        double currentVolume = set.weightKg * set.actualReps;
+        TextView label = ui.num("", 11, FitnessUi.COLOR_MUTED, true);
+        label.setGravity(Gravity.CENTER);
+        label.setPadding(0, 0, 0, ui.dp(2));
+        label.setVisibility(View.GONE);
+        return label;
+    }
+
+    /** 중량과 횟수가 입력될 때마다 한 세트의 총 중량 차이를 갱신한다. */
+    private static void updateVolumeDeltaLabel(
+            TextView label,
+            EditText weightInput,
+            EditText repsInput,
+            FitnessRepository.SessionSetEntry previousSet
+    ) {
+        Double currentWeight = FitnessUi.optionalDouble(weightInput);
+        Integer currentReps = FitnessUi.optionalInt(repsInput);
+        if (currentWeight == null
+                || currentReps == null
+                || currentWeight < 0
+                || currentReps <= 0) {
+            label.setVisibility(View.GONE);
+            return;
+        }
+
+        double currentVolume = currentWeight * currentReps;
         double previousVolume = previousSet.weightKg * previousSet.actualReps;
         double delta = currentVolume - previousVolume;
         String direction = delta < 0 ? "덜" : "더";
         int color = delta > 0
                 ? FitnessUi.COLOR_POSITIVE
                 : delta < 0 ? FitnessUi.COLOR_NEGATIVE : FitnessUi.COLOR_MUTED;
-        TextView label = ui.num(
-                "지난 세트보다 " + FitnessUi.formatVolume(Math.abs(delta))
-                        + " KG " + direction + " 들었어요",
-                11,
-                color,
-                true
-        );
-        label.setGravity(Gravity.CENTER);
-        label.setPadding(0, 0, 0, ui.dp(2));
-        return label;
+        label.setText("지난 세트보다 " + FitnessUi.formatVolume(Math.abs(delta))
+                + " KG " + direction + " 들었어요");
+        label.setTextColor(color);
+        label.setVisibility(View.VISIBLE);
     }
 
     private static FitnessRepository.SetInput emptySetInput(
