@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+  <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1024" height="1536" viewBox="0 0 1024 1536">
+    <defs><pattern id="deepProjectionHatch" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(18)">
+    <rect width="14" height="14" fill="#ef4444" fill-opacity="0.18"/>
+    <path d="M0 0 V14" stroke="#ef4444" stroke-opacity="0.78" stroke-width="4"/>
+  </pattern></defs>
+    <g id="base"><image href="../source/front-master.png" x="0" y="0" width="1024" height="1536"/></g>
+    <g id="muscle-layers">
+      <g id="pectoralis_major_clavicular" data-muscle-id="pectoralis_major_clavicular" data-name-ko="대흉근 쇄골부" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M507 303 C468 294 420 296 374 312 C406 319 455 333 507 351 Z"/><path d="M507 303 C468 294 420 296 374 312 C406 319 455 333 507 351 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="pectoralis_major_sternocostal_upper" data-muscle-id="pectoralis_major_sternocostal_upper" data-name-ko="대흉근 흉늑부 상부 (기능 구획)" data-kind="functional_region" style="display:none" fill="#f97316" fill-opacity="0.58" stroke="#9a3412" stroke-width="2" stroke-linejoin="round" stroke-dasharray="5 4">
+        <path d="M507 351 C454 331 401 319 370 337 C351 354 348 386 362 413 C399 433 451 438 507 423 Z"/><path d="M507 351 C454 331 401 319 370 337 C351 354 348 386 362 413 C399 433 451 438 507 423 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="pectoralis_major_sternocostal_lower" data-muscle-id="pectoralis_major_sternocostal_lower" data-name-ko="대흉근 흉늑부 하부 (기능 구획)" data-kind="functional_region" style="display:none" fill="#f97316" fill-opacity="0.58" stroke="#9a3412" stroke-width="2" stroke-linejoin="round" stroke-dasharray="5 4">
+        <path d="M362 413 C397 439 451 447 507 423 L507 451 C452 461 398 451 370 432 Z"/><path d="M362 413 C397 439 451 447 507 423 L507 451 C452 461 398 451 370 432 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="deltoid_anterior" data-muscle-id="deltoid_anterior" data-name-ko="전면 삼각근" data-kind="anatomical_region" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M373 306 C345 284 317 282 294 302 C321 304 344 319 361 345 L382 318 Z"/><path d="M373 306 C345 284 317 282 294 302 C321 304 344 319 361 345 L382 318 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="deltoid_lateral" data-muscle-id="deltoid_lateral" data-name-ko="측면 삼각근" data-kind="anatomical_region" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M294 302 C274 322 270 359 279 389 C284 407 294 421 305 430 C302 382 316 337 361 345 C345 319 321 304 294 302 Z"/><path d="M294 302 C274 322 270 359 279 389 C284 407 294 421 305 430 C302 382 316 337 361 345 C345 319 321 304 294 302 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="biceps_brachii_long_head" data-muscle-id="biceps_brachii_long_head" data-name-ko="상완이두근 장두" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M304 401 C286 424 282 461 293 492 C302 509 313 508 322 492 C333 468 336 430 326 407 C319 400 311 398 304 401 Z"/><path d="M304 401 C286 424 282 461 293 492 C302 509 313 508 322 492 C333 468 336 430 326 407 C319 400 311 398 304 401 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="biceps_brachii_short_head" data-muscle-id="biceps_brachii_short_head" data-name-ko="상완이두근 단두" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M326 407 C336 401 344 408 349 423 C354 449 346 479 329 501 C321 508 313 507 306 501 C324 473 331 439 326 407 Z"/><path d="M326 407 C336 401 344 408 349 423 C354 449 346 479 329 501 C321 508 313 507 306 501 C324 473 331 439 326 407 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="brachialis" data-muscle-id="brachialis" data-name-ko="상완근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M282 414 C263 439 260 477 275 508 L296 497 C281 462 285 427 306 400 Z"/><path d="M282 414 C263 439 260 477 275 508 L296 497 C281 462 285 427 306 400 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="forearm_flexors" data-muscle-id="forearm_flexors" data-name-ko="전완 굴곡근군" data-kind="anatomical_group" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M293 502 C272 520 246 555 221 603 C198 648 181 686 169 724 L197 716 C221 681 246 642 268 601 C289 562 302 527 306 505 Z"/><path d="M293 502 C272 520 246 555 221 603 C198 648 181 686 169 724 L197 716 C221 681 246 642 268 601 C289 562 302 527 306 505 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="brachioradialis" data-muscle-id="brachioradialis" data-name-ko="상완요골근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M276 505 C251 527 222 570 196 623 C178 660 163 691 145 716 L169 724 C190 699 211 664 232 624 C256 579 278 540 293 519 Z"/><path d="M276 505 C251 527 222 570 196 623 C178 660 163 691 145 716 L169 724 C190 699 211 664 232 624 C256 579 278 540 293 519 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="serratus_anterior" data-muscle-id="serratus_anterior" data-name-ko="전거근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M370 422 C388 428 404 438 416 450 L397 458 C386 448 377 438 370 422 Z"/><path d="M367 447 C386 453 402 463 416 476 L396 483 C385 472 375 460 367 447 Z"/><path d="M367 473 C385 480 401 490 414 503 L393 509 C382 497 373 486 367 473 Z"/><path d="M370 422 C388 428 404 438 416 450 L397 458 C386 448 377 438 370 422 Z" transform="translate(1024 0) scale(-1 1)"/><path d="M367 447 C386 453 402 463 416 476 L396 483 C385 472 375 460 367 447 Z" transform="translate(1024 0) scale(-1 1)"/><path d="M367 473 C385 480 401 490 414 503 L393 509 C382 497 373 486 367 473 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="rectus_abdominis" data-muscle-id="rectus_abdominis" data-name-ko="복직근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M445 438 C462 432 486 433 507 440 L507 770 C486 760 462 756 445 743 C434 677 435 505 445 438 Z"/><path d="M445 438 C462 432 486 433 507 440 L507 770 C486 760 462 756 445 743 C434 677 435 505 445 438 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="external_oblique" data-muscle-id="external_oblique" data-name-ko="외복사근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M378 441 C401 451 422 482 435 527 L445 743 C420 717 393 684 381 646 C369 575 364 500 378 441 Z"/><path d="M378 441 C401 451 422 482 435 527 L445 743 C420 717 393 684 381 646 C369 575 364 500 378 441 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="internal_oblique_deep" data-muscle-id="internal_oblique_deep" data-name-ko="내복사근 위치 투영" data-kind="deep_projection" style="display:none" fill="url(#deepProjectionHatch)" fill-opacity="1" stroke="#991b1b" stroke-width="2" stroke-linejoin="round" stroke-dasharray="10 7">
+        <path d="M394 557 C414 567 431 585 443 611 L441 698 C421 678 406 653 397 624 Z"/><path d="M394 557 C414 567 431 585 443 611 L441 698 C421 678 406 653 397 624 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="transverse_abdominis_deep" data-muscle-id="transverse_abdominis_deep" data-name-ko="복횡근 위치 투영" data-kind="deep_projection" style="display:none" fill="url(#deepProjectionHatch)" fill-opacity="1" stroke="#991b1b" stroke-width="2" stroke-linejoin="round" stroke-dasharray="10 7">
+        <path d="M398 624 C430 630 469 633 507 633 L507 704 C469 701 431 691 402 670 Z"/><path d="M398 624 C430 630 469 633 507 633 L507 704 C469 701 431 691 402 670 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="tensor_fasciae_latae" data-muscle-id="tensor_fasciae_latae" data-name-ko="대퇴근막장근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M374 700 C354 711 343 734 343 763 C345 783 355 797 368 800 C377 778 389 747 405 721 Z"/><path d="M374 700 C354 711 343 734 343 763 C345 783 355 797 368 800 C377 778 389 747 405 721 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="iliotibial_tract" data-muscle-id="iliotibial_tract" data-name-ko="장경인대 (해부학 기준점)" data-kind="anatomical_landmark" style="display:none" fill="#f59e0b" fill-opacity="0.24" stroke="#92400e" stroke-width="2" stroke-linejoin="round" stroke-dasharray="3 5">
+        <path d="M348 771 C353 787 361 798 369 801 C366 858 367 924 377 994 L359 1012 C344 930 340 847 348 771 Z"/><path d="M348 771 C353 787 361 798 369 801 C366 858 367 924 377 994 L359 1012 C344 930 340 847 348 771 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="sartorius" data-muscle-id="sartorius" data-name-ko="봉공근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M366 716 C389 750 407 793 423 843 C439 895 455 949 470 989 L455 1002 C439 954 424 904 408 855 C393 808 375 763 354 732 Z"/><path d="M366 716 C389 750 407 793 423 843 C439 895 455 949 470 989 L455 1002 C439 954 424 904 408 855 C393 808 375 763 354 732 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="adductor_longus" data-muscle-id="adductor_longus" data-name-ko="장내전근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M447 722 C468 709 490 711 504 728 C490 760 477 802 465 853 C448 836 437 798 434 754 Z"/><path d="M447 722 C468 709 490 711 504 728 C490 760 477 802 465 853 C448 836 437 798 434 754 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="gracilis" data-muscle-id="gracilis" data-name-ko="박근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M489 725 C497 722 503 725 507 732 L503 983 C495 994 487 997 479 992 C486 908 487 815 489 725 Z"/><path d="M489 725 C497 722 503 725 507 732 L503 983 C495 994 487 997 479 992 C486 908 487 815 489 725 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="adductor_magnus_deep" data-muscle-id="adductor_magnus_deep" data-name-ko="대내전근 위치 투영" data-kind="deep_projection" style="display:none" fill="url(#deepProjectionHatch)" fill-opacity="1" stroke="#991b1b" stroke-width="2" stroke-linejoin="round" stroke-dasharray="10 7">
+        <path d="M456 743 C474 733 491 737 502 751 L493 930 C479 936 464 929 451 914 C459 856 460 795 456 743 Z"/><path d="M456 743 C474 733 491 737 502 751 L493 930 C479 936 464 929 451 914 C459 856 460 795 456 743 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="rectus_femoris" data-muscle-id="rectus_femoris" data-name-ko="대퇴직근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M390 730 C405 716 426 716 440 731 C452 791 449 885 427 979 C417 995 405 995 394 979 C380 893 380 800 390 730 Z"/><path d="M390 730 C405 716 426 716 440 731 C452 791 449 885 427 979 C417 995 405 995 394 979 C380 893 380 800 390 730 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="vastus_lateralis" data-muscle-id="vastus_lateralis" data-name-ko="외측광근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M342 735 C355 718 374 713 390 725 C376 791 372 883 388 970 C378 990 365 995 354 978 C339 921 334 823 342 735 Z"/><path d="M342 735 C355 718 374 713 390 725 C376 791 372 883 388 970 C378 990 365 995 354 978 C339 921 334 823 342 735 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="vastus_medialis" data-muscle-id="vastus_medialis" data-name-ko="내측광근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M440 795 C458 811 472 850 475 904 C476 952 459 989 430 1001 C420 994 418 982 427 969 C443 920 449 854 440 795 Z"/><path d="M440 795 C458 811 472 850 475 904 C476 952 459 989 430 1001 C420 994 418 982 427 969 C443 920 449 854 440 795 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="vastus_intermedius_deep" data-muscle-id="vastus_intermedius_deep" data-name-ko="중간광근 위치 투영" data-kind="deep_projection" style="display:none" fill="url(#deepProjectionHatch)" fill-opacity="1" stroke="#991b1b" stroke-width="2" stroke-linejoin="round" stroke-dasharray="10 7">
+        <path d="M394 748 C408 738 424 739 436 750 C442 811 438 892 423 958 C414 969 404 969 396 958 C385 888 384 810 394 748 Z"/><path d="M394 748 C408 738 424 739 436 750 C442 811 438 892 423 958 C414 969 404 969 396 958 C385 888 384 810 394 748 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+      <g id="tibialis_anterior" data-muscle-id="tibialis_anterior" data-name-ko="전경골근" data-kind="anatomical" style="display:none" fill="#ef4444" fill-opacity="0.72" stroke="#991b1b" stroke-width="2" stroke-linejoin="round">
+        <path d="M365 1035 C387 1016 408 1027 417 1057 C421 1137 406 1260 387 1372 L363 1372 C349 1261 347 1120 365 1035 Z"/><path d="M365 1035 C387 1016 408 1027 417 1057 C421 1137 406 1260 387 1372 L363 1372 C349 1261 347 1120 365 1035 Z" transform="translate(1024 0) scale(-1 1)"/>
+      </g>
+    </g>
+  </svg>

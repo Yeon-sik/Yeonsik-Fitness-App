@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "exerciseId": "back_barbell_deadlift",
+  "canvas": { "width": 1536, "height": 1024 },
+  "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
+  "normalization": { "scale": 0.9, "translate": [77, 51] },
+  "equipment": ["barbell_loaded_three_quarter_v1"],
+  "lockedAnchors": {
+    "foot_left": [617, 844],
+    "foot_right": [810, 878]
+  },
+  "frames": [
+    {
+      "id": "start",
+      "file": "../final/barbell-deadlift-start.png",
+      "durationMs": 1000,
+      "joints": {
+        "hip_center": [650, 468],
+        "knee_left": [636, 640],
+        "knee_right": [802, 622],
+        "shoulder_center": [783, 286]
+      },
+      "movingEquipment": {
+        "barbell": { "center": [791, 655], "rotationDegrees": 3 }
+      }
+    },
+    {
+      "id": "lockout",
+      "file": "../final/barbell-deadlift-lockout.png",
+      "durationMs": 1000,
+      "joints": {
+        "hip_center": [731, 501],
+        "knee_left": [678, 697],
+        "knee_right": [796, 709],
+        "shoulder_center": [745, 276]
+      },
+      "movingEquipment": {
+        "barbell": { "center": [783, 569], "rotationDegrees": 3 }
+      }
+    }
+  ],
+  "renderPolicy": {
+    "locked": ["canvas", "camera", "feet", "barbell_design"],
+    "animated": ["torso", "pelvis", "legs", "arms", "barbell"]
+  }
+}

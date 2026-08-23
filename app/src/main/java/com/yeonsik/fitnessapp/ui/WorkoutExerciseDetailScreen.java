@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
+import android.graphics.drawable.AnimationDrawable;
+import android.graphics.drawable.Drawable;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
@@ -7,11 +9,13 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationCatalog;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 
@@ -20,12 +24,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 종목 세부 화면: 종목 칩 탭 + 진행 요약 + 세트 편집 그리드(이전 값 참조) + 기록 분석.
+ * 종목 세부 화면: 종목 칩 탭 + 운동 자세 이미지 + 세트 편집 그리드(이전 값 참조) + 기록 분석.
  * 세트 입력이 최우선이므로 그리드가 위, 분석(이전 기록/개인 기록/볼륨 추이)이 아래다.
  */
 public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private static final int DEFAULT_REST_SECONDS = 90;
     private static final int REST_STEP_SECONDS = 15;
+    private static final int EXERCISE_FRAME_DURATION_MS = 1_000;
 
     /** 이번 종목의 기본 휴식(초). 스탬프 시 타이머와 세트 기록에 쓰인다. */
     private final int[] defaultRestSeconds = {DEFAULT_REST_SECONDS};
@@ -83,7 +88,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         add(ui.titleView(activeExercise.name));
 
         renderExerciseTabs(exercises, activeExercise, allCompleted);
-        renderProgressSummaryCard(activeExercise, sets);
+        renderExerciseIllustration(activeExercise);
 
         section("세트 기록");
         renderExerciseSetEditorCard(recordId, activeExercise, sets, lastHistory);
@@ -103,34 +108,62 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         renderLastHistoryCard(activeExercise.recordType, lastHistory);
     }
 
-    // ── 진행 요약 ─────────────────────────────────────────────────────
+    // ── 운동 자세 이미지 ───────────────────────────────────────────────
 
-    private void renderProgressSummaryCard(FitnessRepository.SessionExerciseEntry activeExercise,
-                                           List<FitnessRepository.SessionSetEntry> sets) {
+    private void renderExerciseIllustration(FitnessRepository.SessionExerciseEntry exercise) {
+        int[] drawableIds = ExerciseIllustrationCatalog.drawablesFor(exercise.exerciseId);
+        if (drawableIds.length == 0) {
+            return;
+        }
+
         FitnessUi ui = ui();
-        LinearLayout summary = ui.card();
-        LinearLayout summaryHeader = new LinearLayout(host.activity());
-        summaryHeader.setOrientation(LinearLayout.HORIZONTAL);
-        summaryHeader.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout summaryColumn = new LinearLayout(host.activity());
-        summaryColumn.setOrientation(LinearLayout.VERTICAL);
-        summaryColumn.addView(ui.text(activeExercise.uiPart
-                        + (activeExercise.equipment.isEmpty() ? "" : " · " + activeExercise.equipment),
-                13, FitnessUi.COLOR_MUTED, false));
-        TextView summaryProgressText = ui.num(sets.isEmpty()
-                        ? "세트 없음"
-                        : WorkoutSessionState.completedSetCount(sets) + "/" + sets.size() + " 세트 완료",
-                16, FitnessUi.COLOR_TEXT, true);
-        summaryProgressText.setPadding(0, ui.dp(4), 0, 0);
-        summaryColumn.addView(summaryProgressText);
-        summaryHeader.addView(summaryColumn, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        summary.addView(summaryHeader);
-        double ratio = sets.isEmpty() ? 0 : (double) WorkoutSessionState.completedSetCount(sets) / sets.size();
-        View progress = ui.progressBar(ratio, false);
-        LinearLayout.LayoutParams progressParams = ui.fullWidthParams(ui.dp(12));
-        progressParams.height = ui.dp(6);
-        summary.addView(progress, progressParams);
-        add(summary);
+        ImageView illustration = new ImageView(host.activity());
+        setIllustrationFrames(illustration, drawableIds);
+        illustration.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        illustration.setAdjustViewBounds(false);
+        illustration.setContentDescription(
+                exercise.name + (drawableIds.length > 1 ? " 운동 자세 애니메이션" : " 운동 자세")
+        );
+        illustration.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        illustration.setPadding(ui.dp(8), ui.dp(4), ui.dp(8), ui.dp(4));
+
+        int height = ui.dp(ExerciseIllustrationCatalog.preferredHeightDp(exercise.exerciseId));
+        LinearLayout.LayoutParams imageParams = ui.fullWidthParams(ui.dp(8));
+        imageParams.height = height;
+        add(illustration, imageParams);
+    }
+
+    private void setIllustrationFrames(ImageView illustration, int[] drawableIds) {
+        if (drawableIds.length == 1) {
+            illustration.setImageResource(drawableIds[0]);
+            return;
+        }
+
+        AnimationDrawable animation = new AnimationDrawable();
+        animation.setOneShot(false);
+        for (int drawableId : drawableIds) {
+            Drawable frame = host.activity().getDrawable(drawableId);
+            if (frame != null) {
+                animation.addFrame(frame, EXERCISE_FRAME_DURATION_MS);
+            }
+        }
+        illustration.setImageDrawable(animation);
+        illustration.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View view) {
+                animation.start();
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View view) {
+                animation.stop();
+            }
+        });
+        illustration.post(() -> {
+            if (illustration.isAttachedToWindow()) {
+                animation.start();
+            }
+        });
     }
 
     // ── 종목 탭 ───────────────────────────────────────────────────────
