@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 35;
+    public static final int DATABASE_VERSION = 36;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -467,6 +467,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "basis_amount_snapshot REAL, " +
                 "basis_unit_snapshot TEXT, " +
                 "prep_state_snapshot TEXT, " +
+                "consumed_fraction REAL, " +
                 "calories REAL NOT NULL DEFAULT 0, " +
                 "protein_grams REAL NOT NULL DEFAULT 0, " +
                 "carbs_grams REAL NOT NULL DEFAULT 0, " +
@@ -978,6 +979,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 35) {
             addColumnIfMissing(db, "workout_sets", "rir", "INTEGER");
+        }
+        if (oldVersion < 36) {
+            addColumnIfMissing(db, "meal_record_item_components", "consumed_fraction", "REAL");
         }
     }
 

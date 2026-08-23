@@ -74,6 +74,8 @@ public interface ScreenHost {
 
     void startEmptyWorkout();
 
+    void showPastWorkoutDialog();
+
     void startCardioWorkout(CardioActivityType activityType);
 
     void openCardioSummary(String recordId);

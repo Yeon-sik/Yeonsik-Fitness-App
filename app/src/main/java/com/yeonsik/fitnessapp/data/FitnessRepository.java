@@ -1567,16 +1567,31 @@ public final class FitnessRepository {
             values.put("composition_template_revision", compositionTemplateRevision);
         }
         double consumedFraction = consumption == null ? 1d : consumption.consumedFraction;
-        int recordedCalories = (int) Math.round(calories * consumedFraction);
-        Double recordedProtein = hasEstimatedNutrition
+        double recordedCaloriesValue = calories * consumedFraction;
+        double recordedProteinValue = hasEstimatedNutrition
                 ? proteinGrams * consumedFraction
                 : 0d;
-        Double recordedCarbs = hasEstimatedNutrition
+        double recordedCarbsValue = hasEstimatedNutrition
                 ? carbsGrams * consumedFraction
-                : null;
-        Double recordedFat = hasEstimatedNutrition
+                : 0d;
+        double recordedFatValue = hasEstimatedNutrition
                 ? fatGrams * consumedFraction
-                : null;
+                : 0d;
+        if (consumption != null) {
+            for (DiningOutOption option : normalizedOptions) {
+                NutritionProfile consumedOption = option.consumedProfile();
+                recordedCaloriesValue += consumedOption.calories();
+                if (hasEstimatedNutrition) {
+                    recordedProteinValue += consumedOption.proteinGrams();
+                    recordedCarbsValue += consumedOption.carbsGrams();
+                    recordedFatValue += consumedOption.fatGrams();
+                }
+            }
+        }
+        int recordedCalories = (int) Math.round(recordedCaloriesValue);
+        Double recordedProtein = hasEstimatedNutrition ? recordedProteinValue : 0d;
+        Double recordedCarbs = hasEstimatedNutrition ? recordedCarbsValue : null;
+        Double recordedFat = hasEstimatedNutrition ? recordedFatValue : null;
         if (consumption == null) {
             values.putNull("nutrition_calculation_contract");
         } else {
@@ -2077,7 +2092,8 @@ public final class FitnessRepository {
                                     option.role,
                                     option.memberId
                             ),
-                    now
+                    now,
+                    option == null ? null : option.consumedFraction
             );
         }
     }
@@ -2123,6 +2139,24 @@ public final class FitnessRepository {
             MealItemSnapshot snapshot,
             String now
     ) {
+        insertMealComponentSnapshot(
+                database,
+                mealRecordId,
+                mealRecordItemId,
+                snapshot,
+                now,
+                null
+        );
+    }
+
+    private void insertMealComponentSnapshot(
+            SQLiteDatabase database,
+            String mealRecordId,
+            String mealRecordItemId,
+            MealItemSnapshot snapshot,
+            String now,
+            Double consumedFraction
+    ) {
         String componentId = newId();
         ContentValues values = snapshotValues(snapshot, now);
         values.put("id", componentId);
@@ -2132,6 +2166,7 @@ public final class FitnessRepository {
         putNullable(values, "composition_group_key_snapshot", snapshot.compositionGroupKeySnapshot);
         putNullable(values, "composition_role_snapshot", snapshot.compositionRoleSnapshot);
         putNullable(values, "composition_member_id_snapshot", snapshot.compositionMemberIdSnapshot);
+        putNullable(values, "consumed_fraction", consumedFraction);
         values.put("device_id", DEVICE_ID);
         database.insertOrThrow("meal_record_item_components", null, values);
 
@@ -2412,6 +2447,125 @@ public final class FitnessRepository {
         return entries;
     }
 
+    /** Recent active dining-out records available for local reuse. */
+    public List<MealEntry> recentDiningOutEntries(int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, 50));
+        List<String> dates = new ArrayList<>();
+        try (Cursor cursor = db().rawQuery(
+                "SELECT date FROM meal_records WHERE user_id = ? AND meal_kind = ? " +
+                        "AND deleted_at IS NULL AND scope IN ('fitness', 'both') " +
+                        "GROUP BY date ORDER BY date DESC LIMIT ?",
+                new String[]{userId, MealRecordKind.DINING_OUT, String.valueOf(safeLimit)}
+        )) {
+            while (cursor.moveToNext()) {
+                dates.add(cursor.getString(0));
+            }
+        }
+
+        List<MealEntry> entries = new ArrayList<>();
+        for (String date : dates) {
+            for (MealEntry entry : mealEntriesForDate(date)) {
+                if (entry.isDiningOut()) {
+                    entries.add(entry);
+                }
+            }
+        }
+        entries.sort((left, right) -> {
+            int dateOrder = right.date.compareTo(left.date);
+            if (dateOrder != 0) {
+                return dateOrder;
+            }
+            int createdOrder = String.valueOf(right.createdAt)
+                    .compareTo(String.valueOf(left.createdAt));
+            if (createdOrder != 0) {
+                return createdOrder;
+            }
+            return right.id.compareTo(left.id);
+        });
+        if (entries.size() > safeLimit) {
+            return new ArrayList<>(entries.subList(0, safeLimit));
+        }
+        return entries;
+    }
+
+    /** Exact PT identity saved on a local dining-out record, if present. */
+    public DiningOutIdentity diningOutIdentityForRecord(String mealRecordId) {
+        String recordId = mealRecordId == null ? "" : mealRecordId.trim();
+        if (recordId.isEmpty()) {
+            return null;
+        }
+        try (Cursor cursor = db().rawQuery(
+                "SELECT restaurant_id, store_name, restaurant_location_id, branch_name, " +
+                        "restaurant_menu_id, menu_name, catalog_product_id, metadata " +
+                        "FROM meal_records WHERE id = ? AND user_id = ? " +
+                        "AND meal_kind = ? AND deleted_at IS NULL LIMIT 1",
+                new String[]{recordId, userId, MealRecordKind.DINING_OUT}
+        )) {
+            if (!cursor.moveToFirst()) {
+                return null;
+            }
+            String metadata = cursor.getString(7);
+            String restaurantId = firstNonBlank(
+                    cursor.getString(0),
+                    metadataValue(metadata, "restaurant_id", "")
+            );
+            String restaurantName = firstNonBlank(
+                    cursor.getString(1),
+                    metadataValue(metadata, "restaurant_name", "")
+            );
+            String locationId = firstNonBlank(
+                    cursor.getString(2),
+                    metadataValue(metadata, "restaurant_location_id", "")
+            );
+            String branchName = firstNonBlank(
+                    cursor.getString(3),
+                    metadataValue(metadata, "branch_name", "")
+            );
+            String menuId = firstNonBlank(
+                    cursor.getString(4),
+                    metadataValue(metadata, "restaurant_menu_id", "")
+            );
+            String menuName = firstNonBlank(
+                    cursor.getString(5),
+                    metadataValue(metadata, "menu_name", "")
+            );
+            String productId = firstNonBlank(
+                    cursor.getString(6),
+                    metadataValue(metadata, "catalog_product_id", "")
+            );
+            if (restaurantId.isEmpty() || restaurantName.isEmpty() || locationId.isEmpty()
+                    || menuId.isEmpty() || menuName.isEmpty() || productId.isEmpty()) {
+                return null;
+            }
+            String sourceNamespace = metadataValue(
+                    metadata,
+                    "identity_namespace",
+                    DiningOutIdentity.NAMESPACE
+            );
+            if (sourceNamespace.isEmpty()) {
+                sourceNamespace = DiningOutIdentity.NAMESPACE;
+            }
+            String sourceLocationCode = emptyToNull(
+                    metadataValue(metadata, "source_location_code", "")
+            );
+            try {
+                return DiningOutIdentity.fromPriceTrace(
+                        restaurantId,
+                        restaurantName,
+                        locationId,
+                        sourceNamespace,
+                        sourceLocationCode,
+                        emptyToNull(branchName),
+                        menuId,
+                        menuName,
+                        productId
+                );
+            } catch (IllegalArgumentException ignored) {
+                return null;
+            }
+        }
+    }
+
     /** Ingredient snapshots that belonged to one consumed menu at recording time. */
     public List<MealComponentEntry> mealComponentsForItem(String mealRecordItemId) {
         List<MealComponentEntry> components = new ArrayList<>();
@@ -2421,8 +2575,8 @@ public final class FitnessRepository {
         }
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, food_name_snapshot, quantity, unit, calories, " +
-                        "protein_grams, carbs_grams, fat_grams " +
-                        ", composition_group_key_snapshot, composition_role_snapshot, " +
+                        "protein_grams, carbs_grams, fat_grams, consumed_fraction, " +
+                        "composition_group_key_snapshot, composition_role_snapshot, " +
                         "composition_member_id_snapshot " +
                         "FROM meal_record_item_components " +
                         "WHERE meal_record_item_id = ? AND user_id = ? " +
@@ -2439,9 +2593,10 @@ public final class FitnessRepository {
                         cursor.getDouble(5),
                         cursor.getDouble(6),
                         cursor.getDouble(7),
-                        cursor.isNull(8) ? null : cursor.getString(8),
                         cursor.isNull(9) ? null : cursor.getString(9),
-                        cursor.isNull(10) ? null : cursor.getString(10)
+                        cursor.isNull(10) ? null : cursor.getString(10),
+                        cursor.isNull(11) ? null : cursor.getString(11),
+                        cursor.isNull(8) ? null : cursor.getDouble(8)
                 ));
             }
         }
@@ -2545,17 +2700,22 @@ public final class FitnessRepository {
                 totals.add(consumption == null
                         ? item.profile
                         : item.profile.scaled(consumption.consumedFraction));
-                // Legacy dining-out records intentionally retain their historical root + option
-                // aggregation. New shared records have one allocation row and use root-only
-                // personal scaling, so their option snapshots must not be added again.
-                if (meal.isDiningOut() && consumption == null) {
+                if (meal.isDiningOut()) {
                     for (MealComponentEntry component : mealComponentsForItem(item.id)) {
-                        totals.add(NutritionProfile.ofMacros(
+                        if (consumption != null && !component.hasExplicitConsumedFraction()) {
+                            // Components from pre-v36 shared records have no independent
+                            // allocation. Keep their historical root-only total unchanged.
+                            continue;
+                        }
+                        NutritionProfile componentProfile = NutritionProfile.ofMacros(
                                 component.calories,
                                 component.proteinGrams,
                                 component.carbsGrams,
                                 component.fatGrams
-                        ));
+                        );
+                        totals.add(consumption == null
+                                ? componentProfile
+                                : componentProfile.scaled(component.consumedFraction()));
                     }
                 }
             }
@@ -2721,6 +2881,224 @@ public final class FitnessRepository {
         return null;
     }
 
+    /**
+     * Updates the top-level menus of a locally recorded food meal in place.
+     *
+     * <p>The meal keeps its original snapshot identity. A quantity correction scales the
+     * snapshot nutrition, micronutrient rows, and ingredient rows together, so editing a menu
+     * cannot silently make the meal total disagree with its menu details.</p>
+     */
+    public boolean updateMealMenus(String mealRecordId, List<MealMenuEdit> edits) {
+        String normalizedRecordId = mealRecordId == null ? "" : mealRecordId.trim();
+        if (normalizedRecordId.isEmpty() || edits == null || edits.isEmpty()) {
+            return false;
+        }
+
+        SQLiteDatabase database = db();
+        String metadata;
+        try (Cursor cursor = database.rawQuery(
+                "SELECT metadata, meal_kind FROM meal_records " +
+                        "WHERE id = ? AND user_id = ? AND device_id = ? " +
+                        "AND deleted_at IS NULL LIMIT 1",
+                new String[]{normalizedRecordId, userId, DEVICE_ID}
+        )) {
+            if (!cursor.moveToFirst()
+                    || MealRecordKind.isDiningOut(cursor.getString(1))) {
+                return false;
+            }
+            metadata = cursor.getString(0);
+        }
+
+        Map<String, Double> originalQuantities = new LinkedHashMap<>();
+        try (Cursor cursor = database.rawQuery(
+                "SELECT id, quantity FROM meal_record_items " +
+                        "WHERE meal_record_id = ? AND user_id = ? AND deleted_at IS NULL " +
+                        "ORDER BY order_index ASC, id ASC",
+                new String[]{normalizedRecordId, userId}
+        )) {
+            while (cursor.moveToNext()) {
+                originalQuantities.put(cursor.getString(0), cursor.getDouble(1));
+            }
+        }
+        if (originalQuantities.size() != edits.size()) {
+            return false;
+        }
+
+        List<String> seenIds = new ArrayList<>();
+        for (MealMenuEdit edit : edits) {
+            if (edit == null || !originalQuantities.containsKey(edit.id)
+                    || seenIds.contains(edit.id)) {
+                return false;
+            }
+            seenIds.add(edit.id);
+        }
+
+        String timestamp = now();
+        database.beginTransaction();
+        try {
+            for (MealMenuEdit edit : edits) {
+                double originalQuantity = originalQuantities.get(edit.id);
+                if (!Double.isFinite(originalQuantity) || originalQuantity <= 0d) {
+                    return false;
+                }
+                double ratio = edit.quantity / originalQuantity;
+                database.execSQL(
+                        "UPDATE meal_record_items SET food_name_snapshot = ?, quantity = ?, " +
+                                "calories = calories * ?, protein_grams = protein_grams * ?, " +
+                                "carbs_grams = carbs_grams * ?, fat_grams = fat_grams * ?, " +
+                                "sodium_mg = sodium_mg * ?, saturated_fat_grams = saturated_fat_grams * ?, " +
+                                "sugars_grams = sugars_grams * ?, fiber_grams = fiber_grams * ?, " +
+                                "added_sugars_grams = added_sugars_grams * ?, " +
+                                "trans_fat_grams = trans_fat_grams * ?, " +
+                                "cholesterol_mg = cholesterol_mg * ?, updated_at = ? " +
+                                "WHERE id = ? AND meal_record_id = ? AND user_id = ? " +
+                                "AND deleted_at IS NULL",
+                        new Object[]{
+                                edit.name,
+                                edit.quantity,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                timestamp,
+                                edit.id,
+                                normalizedRecordId,
+                                userId
+                        }
+                );
+                scaleMealComponentSnapshots(
+                        database,
+                        edit.id,
+                        normalizedRecordId,
+                        ratio,
+                        timestamp
+                );
+                scaleMealNutrientRows(
+                        database,
+                        "meal_record_item_nutrients",
+                        "meal_record_item_id",
+                        edit.id,
+                        normalizedRecordId,
+                        ratio,
+                        timestamp
+                );
+            }
+
+            double calories = 0d;
+            double proteinGrams = 0d;
+            double carbsGrams = 0d;
+            double fatGrams = 0d;
+            try (Cursor cursor = database.rawQuery(
+                    "SELECT COALESCE(SUM(calories), 0), COALESCE(SUM(protein_grams), 0), " +
+                            "COALESCE(SUM(carbs_grams), 0), COALESCE(SUM(fat_grams), 0) " +
+                            "FROM meal_record_items WHERE meal_record_id = ? AND user_id = ? " +
+                            "AND deleted_at IS NULL",
+                    new String[]{normalizedRecordId, userId}
+            )) {
+                if (cursor.moveToFirst()) {
+                    calories = cursor.getDouble(0);
+                    proteinGrams = cursor.getDouble(1);
+                    carbsGrams = cursor.getDouble(2);
+                    fatGrams = cursor.getDouble(3);
+                }
+            }
+
+            ContentValues recordValues = new ContentValues();
+            recordValues.put(
+                    "menu",
+                    MealEntryPolicy.previewTitle(edits.get(0).name, edits.size(), "Meal")
+            );
+            recordValues.put("calories", (int) Math.round(calories));
+            recordValues.put("protein_grams", proteinGrams);
+            recordValues.put("carbs_grams", carbsGrams);
+            recordValues.put("fat_grams", fatGrams);
+            recordValues.put("metadata", metadataWithMealItemCount(metadata, edits.size()));
+            recordValues.put("updated_at", timestamp);
+            int updated = database.update(
+                    "meal_records",
+                    recordValues,
+                    "id = ? AND user_id = ? AND device_id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedRecordId, userId, DEVICE_ID}
+            );
+            database.setTransactionSuccessful();
+            return updated > 0;
+        } finally {
+            database.endTransaction();
+        }
+    }
+
+    private void scaleMealComponentSnapshots(
+            SQLiteDatabase database,
+            String mealRecordItemId,
+            String mealRecordId,
+            double ratio,
+            String timestamp
+    ) {
+        database.execSQL(
+                "UPDATE meal_record_item_components SET quantity = quantity * ?, " +
+                        "calories = calories * ?, protein_grams = protein_grams * ?, " +
+                        "carbs_grams = carbs_grams * ?, fat_grams = fat_grams * ?, " +
+                        "sodium_mg = sodium_mg * ?, saturated_fat_grams = saturated_fat_grams * ?, " +
+                        "sugars_grams = sugars_grams * ?, fiber_grams = fiber_grams * ?, " +
+                        "added_sugars_grams = added_sugars_grams * ?, " +
+                        "trans_fat_grams = trans_fat_grams * ?, " +
+                        "cholesterol_mg = cholesterol_mg * ?, updated_at = ? " +
+                        "WHERE meal_record_item_id = ? AND meal_record_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL",
+                new Object[]{
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        timestamp,
+                        mealRecordItemId,
+                        mealRecordId,
+                        userId
+                }
+        );
+        scaleMealNutrientRows(
+                database,
+                "meal_record_item_component_nutrients",
+                "meal_record_item_id",
+                mealRecordItemId,
+                mealRecordId,
+                ratio,
+                timestamp
+        );
+    }
+
+    private void scaleMealNutrientRows(
+            SQLiteDatabase database,
+            String table,
+            String itemColumn,
+            String itemId,
+            String mealRecordId,
+            double ratio,
+            String timestamp
+    ) {
+        database.execSQL(
+                "UPDATE " + table + " SET amount = amount * ?, updated_at = ? " +
+                        "WHERE " + itemColumn + " = ? AND meal_record_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL",
+                new Object[]{ratio, timestamp, itemId, mealRecordId, userId}
+        );
+    }
+
     public boolean deleteMeal(String id) {
         String normalizedId = id == null ? "" : id.trim();
         if (normalizedId.isEmpty()) {
@@ -2865,6 +3243,53 @@ public final class FitnessRepository {
     public String createSessionFromRoutine(String date, String title, String routineId,
                                            List<RoutineExerciseInstance> routineExercises) {
         String recordId = createSession(date, title, "strength", "", now(), "");
+        populateSessionFromRoutine(recordId, routineId, routineExercises);
+        return recordId;
+    }
+
+    public String createManualPastSessionFromRoutine(
+            String date,
+            String title,
+            String routineId,
+            List<RoutineExerciseInstance> routineExercises,
+            String startedAt,
+            String endedAt
+    ) {
+        String recordDate = requireRecordDate(date);
+        Integer durationSeconds = computeDurationSeconds(recordDate, startedAt, endedAt);
+        if (durationSeconds == null || durationSeconds <= 0) {
+            throw new IllegalArgumentException("운동 시작 시각과 운동 시간을 확인하세요.");
+        }
+
+        String recordId = createSession(recordDate, title, "strength", "", startedAt, "");
+        ContentValues values = new ContentValues();
+        values.put("duration_seconds", durationSeconds);
+        values.put("is_backfilled", 1);
+        values.put("backfilled_at", now());
+        values.put("backfill_reason", "manual_entry");
+        values.put("metadata", mergedWorkoutMetadata(
+                sessionInfoMetadata(recordId),
+                "in_progress",
+                startedAt,
+                endedAt,
+                durationSeconds,
+                0d
+        ));
+        db().update(
+                "workout_records",
+                values,
+                "id = ? AND user_id = ?",
+                new String[]{recordId, userId}
+        );
+        populateSessionFromRoutine(recordId, routineId, routineExercises);
+        return recordId;
+    }
+
+    private void populateSessionFromRoutine(
+            String recordId,
+            String routineId,
+            List<RoutineExerciseInstance> routineExercises
+    ) {
         if (routineId != null && !routineId.trim().isEmpty()) {
             ContentValues metadataValues = new ContentValues();
             metadataValues.put("metadata", addMetadataValue(sessionInfoMetadata(recordId), "routine_id", routineId));
@@ -2876,7 +3301,7 @@ public final class FitnessRepository {
             );
         }
         if (routineExercises == null || routineExercises.isEmpty()) {
-            return recordId;
+            return;
         }
 
         SQLiteDatabase database = db();
@@ -2900,7 +3325,6 @@ public final class FitnessRepository {
             database.insertOrThrow("workout_exercises", null, values);
         }
         updateSharedWorkoutSummary(recordId, false);
-        return recordId;
     }
 
     public String latestCompletedWorkoutDateForRoutine(String routineId, String routineName) {
@@ -3128,7 +3552,7 @@ public final class FitnessRepository {
         SQLiteDatabase database = db();
         boolean finished = false;
         try (Cursor cursor = database.rawQuery(
-                "SELECT date, duration_seconds, metadata FROM workout_records " +
+                "SELECT date, duration_seconds, metadata, is_backfilled FROM workout_records " +
                         "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
                 new String[]{recordId, userId})) {
             if (!cursor.moveToFirst()) {
@@ -3137,9 +3561,18 @@ public final class FitnessRepository {
 
             String date = cursor.getString(0);
             String metadata = cursor.getString(2);
-            String endedAt = now();
+            boolean isBackfilled = cursor.getInt(3) == 1;
+            String updatedAt = now();
+            String endedAt = isBackfilled
+                    ? metadataValue(metadata, "ended_at", "")
+                    : updatedAt;
+            if (endedAt.isEmpty()) {
+                endedAt = updatedAt;
+            }
             String startedAt = metadataValue(metadata, "started_at", "");
-            Integer durationSeconds = computeDurationSeconds(date, startedAt, endedAt);
+            Integer durationSeconds = isBackfilled && !cursor.isNull(1)
+                    ? cursor.getInt(1)
+                    : computeDurationSeconds(date, startedAt, endedAt);
             if (durationSeconds == null || durationSeconds <= 0) {
                 durationSeconds = cursor.isNull(1) ? 0 : cursor.getInt(1);
             }
@@ -3148,7 +3581,7 @@ public final class FitnessRepository {
             ContentValues values = new ContentValues();
             values.put("duration_seconds", durationSeconds);
             values.put("total_volume_kg", metrics.totalVolumeKg);
-            values.put("updated_at", endedAt);
+            values.put("updated_at", updatedAt);
             values.put("metadata", mergedWorkoutMetadata(
                     metadata,
                     "completed",
@@ -4287,6 +4720,23 @@ public final class FitnessRepository {
         }
     }
 
+    private static String metadataWithMealItemCount(String metadata, int itemCount) {
+        try {
+            JSONObject object = metadata == null || metadata.trim().isEmpty()
+                    ? new JSONObject()
+                    : new JSONObject(metadata);
+            object.put("item_count", itemCount);
+            object.put("composition_version", "2");
+            return object.toString();
+        } catch (Exception exception) {
+            return json(
+                    "item_type", "meal",
+                    "composition_version", "2",
+                    "item_count", String.valueOf(itemCount)
+            );
+        }
+    }
+
     private static int safeInt(long value) {
         if (value <= 0) {
             return 0;
@@ -4891,11 +5341,35 @@ public final class FitnessRepository {
             return isDiningOut()
                     ? mealTime + " · 외식 · "
                     + (hasEstimatedNutrition() ? "영양 추정" : "영양 미입력")
-                    : mealTime + " · " + macroRatio;
+                    : mealTime + " · "
+                    + (compositionCount > 1 ? compositionCount + "개 메뉴 · " : "")
+                    + macroRatio;
         }
 
         public String previewAccessibilityLabel() {
             return previewTitle + ", " + mealTime + ", " + macroRatioAccessibility;
+        }
+    }
+
+    /** User corrections applied to one already recorded top-level menu. */
+    public static final class MealMenuEdit {
+        public final String id;
+        public final String name;
+        public final double quantity;
+
+        public MealMenuEdit(String id, String name, double quantity) {
+            this.id = id == null ? "" : id.trim();
+            this.name = name == null ? "" : name.trim();
+            this.quantity = quantity;
+            if (this.id.isEmpty()) {
+                throw new IllegalArgumentException("수정할 메뉴 기록이 필요합니다.");
+            }
+            if (this.name.isEmpty()) {
+                throw new IllegalArgumentException("메뉴 이름을 입력하세요.");
+            }
+            if (!Double.isFinite(quantity) || quantity <= 0d) {
+                throw new IllegalArgumentException("메뉴 섭취량은 0보다 커야 합니다.");
+            }
         }
     }
 
@@ -4969,6 +5443,8 @@ public final class FitnessRepository {
         public final double proteinGrams;
         public final double carbsGrams;
         public final double fatGrams;
+        /** Null for pre-v36 component snapshots that had no independent allocation. */
+        public final Double consumedFraction;
         public final String compositionGroupKey;
         public final String compositionRole;
         public final String compositionMemberId;
@@ -4994,6 +5470,7 @@ public final class FitnessRepository {
                     fatGrams,
                     null,
                     null,
+                    null,
                     null
             );
         }
@@ -5011,6 +5488,36 @@ public final class FitnessRepository {
                 String compositionRole,
                 String compositionMemberId
         ) {
+            this(
+                    id,
+                    foodName,
+                    quantity,
+                    unit,
+                    calories,
+                    proteinGrams,
+                    carbsGrams,
+                    fatGrams,
+                    compositionGroupKey,
+                    compositionRole,
+                    compositionMemberId,
+                    null
+            );
+        }
+
+        public MealComponentEntry(
+                String id,
+                String foodName,
+                double quantity,
+                String unit,
+                double calories,
+                double proteinGrams,
+                double carbsGrams,
+                double fatGrams,
+                String compositionGroupKey,
+                String compositionRole,
+                String compositionMemberId,
+                Double consumedFraction
+        ) {
             this.id = id;
             this.foodName = foodName;
             this.quantity = quantity;
@@ -5019,14 +5526,27 @@ public final class FitnessRepository {
             this.proteinGrams = proteinGrams;
             this.carbsGrams = carbsGrams;
             this.fatGrams = fatGrams;
+            this.consumedFraction = consumedFraction;
             this.compositionGroupKey = compositionGroupKey;
             this.compositionRole = compositionRole;
             this.compositionMemberId = compositionMemberId;
         }
 
+        public boolean hasExplicitConsumedFraction() {
+            return consumedFraction != null;
+        }
+
+        public double consumedFraction() {
+            return consumedFraction == null ? 1d : consumedFraction;
+        }
+
+        public double percentage() {
+            return consumedFraction() * 100d;
+        }
+
         public String label() {
             return foodName + " · " + NutritionCalculator.trim(quantity) + unit
-                    + " · " + Math.round(calories) + "kcal";
+                    + " · " + Math.round(calories * consumedFraction()) + "kcal";
         }
     }
 

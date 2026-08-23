@@ -15,6 +15,8 @@ public final class DiningOutOption {
     public final String groupLabel;
     public final String role;
     public final String memberId;
+    /** This user's fraction of the selected option; templates keep the default of 100%. */
+    public final double consumedFraction;
 
     private DiningOutOption(
             String name,
@@ -24,7 +26,8 @@ public final class DiningOutOption {
             String groupKey,
             String groupLabel,
             String role,
-            String memberId
+            String memberId,
+            double consumedFraction
     ) {
         String normalizedName = name == null ? "" : name.trim();
         if (normalizedName.isEmpty()) {
@@ -38,6 +41,7 @@ public final class DiningOutOption {
         this.groupLabel = normalize(groupLabel, DEFAULT_GROUP_LABEL);
         this.role = normalize(role, DEFAULT_ROLE);
         this.memberId = blankToNull(memberId);
+        this.consumedFraction = requireConsumedFraction(consumedFraction);
     }
 
     public static DiningOutOption descriptive(String name) {
@@ -49,7 +53,8 @@ public final class DiningOutOption {
                 DEFAULT_GROUP_KEY,
                 DEFAULT_GROUP_LABEL,
                 DEFAULT_ROLE,
-                null
+                null,
+                1d
         );
     }
 
@@ -62,7 +67,8 @@ public final class DiningOutOption {
                 DEFAULT_GROUP_KEY,
                 DEFAULT_GROUP_LABEL,
                 DEFAULT_ROLE,
-                null
+                null,
+                1d
         );
     }
 
@@ -78,7 +84,8 @@ public final class DiningOutOption {
                 DEFAULT_GROUP_KEY,
                 DEFAULT_GROUP_LABEL,
                 DEFAULT_ROLE,
-                null
+                null,
+                1d
         );
     }
 
@@ -93,6 +100,31 @@ public final class DiningOutOption {
             String role,
             String memberId
     ) {
+        return grouped(
+                name,
+                profile,
+                catalogFoodId,
+                sourceReference,
+                groupKey,
+                groupLabel,
+                role,
+                memberId,
+                1d
+        );
+    }
+
+    /** Creates a selected option with the user's independent consumed fraction. */
+    public static DiningOutOption grouped(
+            String name,
+            NutritionProfile profile,
+            String catalogFoodId,
+            String sourceReference,
+            String groupKey,
+            String groupLabel,
+            String role,
+            String memberId,
+            double consumedFraction
+    ) {
         return new DiningOutOption(
                 name,
                 profile,
@@ -101,8 +133,29 @@ public final class DiningOutOption {
                 groupKey,
                 groupLabel,
                 role,
-                memberId
+                memberId,
+                consumedFraction
         );
+    }
+
+    /** Returns a copy with a meal-specific consumed fraction. */
+    public DiningOutOption withConsumedFraction(double fraction) {
+        return grouped(
+                name,
+                profile,
+                catalogFoodId,
+                sourceReference,
+                groupKey,
+                groupLabel,
+                role,
+                memberId,
+                fraction
+        );
+    }
+
+    /** Returns this option's nutrition after applying its meal-specific fraction. */
+    public NutritionProfile consumedProfile() {
+        return profile.scaled(consumedFraction);
     }
 
     public boolean hasNutrition() {
@@ -126,5 +179,14 @@ public final class DiningOutOption {
     private static String blankToNull(String value) {
         String normalized = value == null ? "" : value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private static double requireConsumedFraction(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value) || value <= 0d || value > 1d) {
+            throw new IllegalArgumentException(
+                    "Option consumed fraction must be greater than 0 and at most 1."
+            );
+        }
+        return value;
     }
 }

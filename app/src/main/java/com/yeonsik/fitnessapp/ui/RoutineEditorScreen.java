@@ -12,6 +12,7 @@ import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
+import com.yeonsik.fitnessapp.exercise.ExerciseCategory;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter;
 import com.yeonsik.fitnessapp.exercise.WeightExercise;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
@@ -123,6 +124,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                         : host.currentWorkoutRecordId());
 
         BodyPart[] selectedBodyPart = new BodyPart[]{null};
+        String[] selectedSubPart = new String[]{null};
         EquipmentType[] selectedEquipment = new EquipmentType[]{null};
         List<String> selectedExerciseIds = new ArrayList<>();
         List<WeightExercise> selectedExercises = new ArrayList<>();
@@ -163,6 +165,7 @@ public final class RoutineEditorScreen extends BaseScreen {
         Button allBodyButton = ui.filterButton("전체");
         allBodyButton.setOnClickListener(v -> {
             selectedBodyPart[0] = null;
+            selectedSubPart[0] = null;
             refresh[0].run();
         });
         bodyRowTop.addView(allBodyButton, ui.pickerCellParams(true));
@@ -172,6 +175,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             Button filterButton = ui.filterButton(bodyPart.labelKo());
             filterButton.setOnClickListener(v -> {
                 selectedBodyPart[0] = bodyPart;
+                selectedSubPart[0] = null;
                 refresh[0].run();
             });
             bodyButtons.add(filterButton);
@@ -183,6 +187,11 @@ public final class RoutineEditorScreen extends BaseScreen {
         }
         add(bodyRowTop, ui.fullWidthParams(ui.dp(10)));
         add(bodyRowBottom, ui.fullWidthParams(ui.dp(6)));
+
+        LinearLayout subPartArea = new LinearLayout(host.activity());
+        subPartArea.setOrientation(LinearLayout.VERTICAL);
+        subPartArea.setVisibility(View.GONE);
+        add(subPartArea, ui.fullWidthParams(ui.dp(6)));
 
         Button equipmentButton = ui.filterButton("장비: 전체");
         equipmentButton.setOnClickListener(v ->
@@ -255,6 +264,12 @@ public final class RoutineEditorScreen extends BaseScreen {
             for (int index = 0; index < bodyButtons.size(); index++) {
                 ui.styleFilterButton(bodyButtons.get(index), bodyParts[index] == selectedBodyPart[0]);
             }
+            renderSubPartFilters(
+                    subPartArea,
+                    selectedBodyPart[0],
+                    selectedSubPart,
+                    refresh[0]
+            );
             selectedCount.setText("선택한 운동 " + selectedExercises.size() + "개");
             addButton.setText(selectedExercises.isEmpty()
                     ? addLabel
@@ -264,7 +279,12 @@ public final class RoutineEditorScreen extends BaseScreen {
             addButton.setEnabled(!selectedExercises.isEmpty());
             renderPickerList(
                     listArea,
-                    filteredWeightExercises(FitnessUi.inputText(searchInput), selectedBodyPart[0], selectedEquipment[0]),
+                    filteredWeightExercises(
+                            FitnessUi.inputText(searchInput),
+                            selectedBodyPart[0],
+                            selectedSubPart[0],
+                            selectedEquipment[0]
+                    ),
                     selectedExerciseIds,
                     selectedExercises,
                     refresh[0]
@@ -280,6 +300,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             public void onTextChanged(CharSequence s, int start, int before, int count) {
                 if (s != null && !s.toString().trim().isEmpty()) {
                     selectedBodyPart[0] = null;
+                    selectedSubPart[0] = null;
                 }
                 refresh[0].run();
             }
@@ -292,6 +313,79 @@ public final class RoutineEditorScreen extends BaseScreen {
         section("운동 목록");
         add(listArea, ui.fullWidthParams(0));
         refresh[0].run();
+    }
+
+    private void renderSubPartFilters(
+            LinearLayout area,
+            BodyPart bodyPart,
+            String[] selectedSubPart,
+            Runnable refresh
+    ) {
+        FitnessUi ui = ui();
+        area.removeAllViews();
+        if (bodyPart == null) {
+            selectedSubPart[0] = null;
+            area.setVisibility(View.GONE);
+            return;
+        }
+
+        List<ExerciseCategory.SubPart> subParts = availableSubParts(bodyPart);
+        if (subParts.isEmpty()) {
+            selectedSubPart[0] = null;
+            area.setVisibility(View.GONE);
+            return;
+        }
+
+        area.setVisibility(View.VISIBLE);
+        TextView label = ui.caption(bodyPart.labelKo() + " 세부 부위", FitnessUi.COLOR_MUTED);
+        label.setPadding(0, ui.dp(4), 0, ui.dp(6));
+        area.addView(label);
+
+        List<ExerciseCategory.SubPart> filters = new ArrayList<>();
+        filters.add(new ExerciseCategory.SubPart(null, "전체"));
+        filters.addAll(subParts);
+        for (int start = 0; start < filters.size(); start += 3) {
+            LinearLayout row = ui.pickerRow();
+            int end = Math.min(start + 3, filters.size());
+            for (int index = start; index < end; index++) {
+                ExerciseCategory.SubPart subPart = filters.get(index);
+                Button button = ui.filterButton(subPart.nameKo);
+                ui.styleFilterButton(
+                        button,
+                        subPart.id == null
+                                ? selectedSubPart[0] == null
+                                : subPart.id.equals(selectedSubPart[0])
+                );
+                button.setOnClickListener(v -> {
+                    selectedSubPart[0] = subPart.id;
+                    refresh.run();
+                });
+                row.addView(button, ui.pickerCellParams(index == start));
+            }
+            area.addView(row, ui.fullWidthParams(start == 0 ? 0 : ui.dp(6)));
+        }
+    }
+
+    private List<ExerciseCategory.SubPart> availableSubParts(BodyPart bodyPart) {
+        List<WeightExercise> exercises =
+                host.exerciseMasterRepository().getExercisesByBodyPart(bodyPart);
+        List<ExerciseCategory.SubPart> results = new ArrayList<>();
+        for (ExerciseCategory category :
+                host.exerciseMasterRepository().getExerciseCategories()) {
+            if (category.bodyPart != bodyPart) {
+                continue;
+            }
+            for (ExerciseCategory.SubPart subPart : category.subParts) {
+                for (WeightExercise exercise : exercises) {
+                    if (subPart.id.equals(exercise.primarySubPart)) {
+                        results.add(subPart);
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+        return results;
     }
 
     private void showEquipmentFilterDialog(EquipmentType[] selectedEquipment, Button equipmentButton, Runnable refresh) {
@@ -395,11 +489,20 @@ public final class RoutineEditorScreen extends BaseScreen {
         }
     }
 
-    private List<WeightExercise> filteredWeightExercises(String query, BodyPart bodyPart, EquipmentType equipmentType) {
+    private List<WeightExercise> filteredWeightExercises(
+            String query,
+            BodyPart bodyPart,
+            String primarySubPart,
+            EquipmentType equipmentType
+    ) {
         List<WeightExercise> source = host.exerciseMasterRepository().searchExercises(query);
         List<WeightExercise> results = new ArrayList<>();
         for (WeightExercise exercise : source) {
             if (bodyPart != null && exercise.bodyPart != bodyPart) {
+                continue;
+            }
+            if (primarySubPart != null
+                    && !primarySubPart.equals(exercise.primarySubPart)) {
                 continue;
             }
             if (equipmentType != null && exercise.equipmentType != equipmentType) {

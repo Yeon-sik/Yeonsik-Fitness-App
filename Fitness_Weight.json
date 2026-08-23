@@ -80,53 +80,54 @@
     "운동 상세 화면에서 바로 읽을 수 있도록 uiPartNameKo, primarySubPartNameKo, equipmentNameKo 등 한국어 라벨을 함께 넣었다.",
     "힙 어브덕션/어덕션, 슈러그, 리스트 컬, 파머스 캐리처럼 원본 인덱스에 정확히 대응되는 movementPattern이 없던 항목은 indexExtensions에 최소 확장으로 정의했다.",
     "유산소, 스트레칭-only, 재활-only 운동은 제외했다.",
-    "동일 동작이라도 바벨, 덤벨, 머신, 스미스머신, 케이블 등 장비가 다르면 별도 운동으로 분리했다."
+    "동일 동작이라도 바벨, 덤벨, 머신, 스미스머신, 케이블 등 장비가 다르면 별도 운동으로 분리했다.",
+    "2026-08 공개 운동 라이브러리(ACE, NASM, StrengthLog)를 대조해 편측 케이블·덤벨 및 단일 다리 머신 변형을 보강했다."
   ],
   "counts": {
-    "totalExercises": 313,
+    "totalExercises": 340,
     "byUiPart": {
-      "chest": 41,
-      "back": 50,
-      "legs": 81,
-      "shoulders": 45,
-      "arms": 58,
+      "chest": 46,
+      "back": 54,
+      "legs": 88,
+      "shoulders": 50,
+      "arms": 64,
       "abs": 38
     },
     "byEquipment": {
       "bodyweight": 53,
-      "machine": 53,
-      "dumbbell": 58,
-      "barbell": 53,
+      "machine": 57,
+      "dumbbell": 67,
+      "barbell": 54,
       "smith_machine": 13,
-      "cable": 41,
+      "cable": 54,
       "band": 21,
       "plate": 9,
       "kettlebell": 9,
       "other": 3
     },
     "byPrimarySubPart": {
-      "lower_chest": 8,
-      "mid_chest": 11,
-      "overall_chest": 13,
-      "upper_chest": 9,
+      "lower_chest": 9,
+      "mid_chest": 12,
+      "overall_chest": 14,
+      "upper_chest": 11,
       "erector_spinae": 7,
-      "lats": 24,
-      "mid_back": 15,
+      "lats": 27,
+      "mid_back": 16,
       "traps": 4,
       "abductors": 4,
       "adductors": 3,
-      "calves": 8,
-      "glutes": 21,
-      "hamstrings": 13,
+      "calves": 9,
+      "glutes": 22,
+      "hamstrings": 16,
       "overall_legs": 1,
-      "quads": 31,
-      "front_delts": 14,
+      "quads": 33,
+      "front_delts": 17,
       "overall_shoulders": 6,
-      "rear_delts": 12,
+      "rear_delts": 14,
       "side_delts": 13,
-      "biceps": 23,
+      "biceps": 25,
       "forearms": 11,
-      "triceps": 24,
+      "triceps": 28,
       "core_stability": 9,
       "obliques": 11,
       "rectus_abdominis": 18
@@ -384,6 +385,36 @@
       "notes": "위에서 아래로 모아 하부 가슴 비중 증가"
     },
     {
+      "id": "chest_cable_single_arm_high_to_low_fly",
+      "nameKo": "원암 케이블 하이 투 로우 플라이",
+      "nameEn": "Single-Arm Cable High-to-Low Fly",
+      "uiPart": "chest",
+      "uiPartNameKo": "가슴",
+      "primarySubPart": "lower_chest",
+      "primarySubPartNameKo": "하부 가슴",
+      "secondarySubParts": [
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체"
+      ],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "fly",
+      "movementPatternNameKo": "플라이",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "fly_motion",
+      "motionTypeNameKo": "플라이 모션",
+      "notes": "한 팔씩 위에서 아래로 모으는 하부 가슴 케이블 플라이"
+    },
+    {
       "id": "chest_bodyweight_wide_push_up",
       "nameKo": "와이드 푸쉬업",
       "nameEn": "Wide Push-Up",
@@ -576,6 +607,40 @@
       "motionType": "dumbbell_press_supine",
       "motionTypeNameKo": "누운 덤벨 프레스 모션",
       "notes": "좌우 균형 확인에 유리"
+    },
+    {
+      "id": "chest_dumbbell_single_arm_bench_press",
+      "nameKo": "원암 덤벨 벤치 프레스",
+      "nameEn": "Single-Arm Dumbbell Chest Press",
+      "uiPart": "chest",
+      "uiPartNameKo": "가슴",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipment": "dumbbell",
+      "equipmentNameKo": "덤벨",
+      "movementPattern": "horizontal_push",
+      "movementPatternNameKo": "수평 밀기",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "free_weight",
+      "resistanceTypeNameKo": "프리웨이트",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "dumbbell_press_supine",
+      "motionTypeNameKo": "누운 덤벨 프레스 모션",
+      "notes": "한 팔씩 수행하는 플랫 덤벨 체스트 프레스"
     },
     {
       "id": "chest_dumbbell_flat_fly",
@@ -929,7 +994,7 @@
     },
     {
       "id": "chest_cable_single_arm_fly",
-      "nameKo": "싱글 암 케이블 플라이",
+      "nameKo": "원암 케이블 플라이",
       "nameEn": "Single-Arm Cable Fly",
       "uiPart": "chest",
       "uiPartNameKo": "가슴",
@@ -988,6 +1053,38 @@
       "motionType": "machine_press_seated",
       "motionTypeNameKo": "앉은 머신 프레스 모션",
       "notes": "서서 수행하는 케이블 프레스"
+    },
+    {
+      "id": "chest_cable_single_arm_chest_press",
+      "nameKo": "원암 케이블 체스트 프레스",
+      "nameEn": "Single-Arm Cable Chest Press",
+      "uiPart": "chest",
+      "uiPartNameKo": "가슴",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "horizontal_push",
+      "movementPatternNameKo": "수평 밀기",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "machine_press_seated",
+      "motionTypeNameKo": "앉은 머신 프레스 모션",
+      "notes": "한 팔씩 수행하며 몸통의 회전을 제어하는 케이블 체스트 프레스"
     },
     {
       "id": "chest_cable_crossover",
@@ -1270,6 +1367,38 @@
       "notes": "상부 가슴 덤벨 프레스"
     },
     {
+      "id": "chest_dumbbell_single_arm_incline_press",
+      "nameKo": "원암 인클라인 덤벨 벤치 프레스",
+      "nameEn": "Single-Arm Incline Dumbbell Chest Press",
+      "uiPart": "chest",
+      "uiPartNameKo": "가슴",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두"
+      ],
+      "equipment": "dumbbell",
+      "equipmentNameKo": "덤벨",
+      "movementPattern": "horizontal_push",
+      "movementPatternNameKo": "수평 밀기",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "free_weight",
+      "resistanceTypeNameKo": "프리웨이트",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "dumbbell_press_supine",
+      "motionTypeNameKo": "누운 덤벨 프레스 모션",
+      "notes": "한 팔씩 수행하는 인클라인 덤벨 체스트 프레스"
+    },
+    {
       "id": "chest_dumbbell_incline_fly",
       "nameKo": "덤벨 인클라인 플라이",
       "nameEn": "Dumbbell Incline Fly",
@@ -1424,6 +1553,36 @@
       "motionType": "fly_motion",
       "motionTypeNameKo": "플라이 모션",
       "notes": "아래에서 위로 모아 상부 가슴 비중 증가"
+    },
+    {
+      "id": "chest_cable_single_arm_low_to_high_fly",
+      "nameKo": "원암 케이블 로우 투 하이 플라이",
+      "nameEn": "Single-Arm Cable Low-to-High Fly",
+      "uiPart": "chest",
+      "uiPartNameKo": "가슴",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체"
+      ],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "fly",
+      "movementPatternNameKo": "플라이",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "fly_motion",
+      "motionTypeNameKo": "플라이 모션",
+      "notes": "한 팔씩 아래에서 위로 모으는 상부 가슴 케이블 플라이"
     },
     {
       "id": "back_bodyweight_reverse_hyperextension",
@@ -2140,6 +2299,40 @@
       "notes": "편측 광배/중부등 로우"
     },
     {
+      "id": "back_dumbbell_kroc_row",
+      "nameKo": "크록 로우",
+      "nameEn": "Kroc Row",
+      "uiPart": "back",
+      "uiPartNameKo": "등",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "mid_back",
+        "biceps",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 등",
+        "이두",
+        "후면 어깨 연계"
+      ],
+      "equipment": "dumbbell",
+      "equipmentNameKo": "덤벨",
+      "movementPattern": "row",
+      "movementPatternNameKo": "로우",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "free_weight",
+      "resistanceTypeNameKo": "프리웨이트",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "horizontal_row_motion",
+      "motionTypeNameKo": "수평 로우 모션",
+      "notes": "고중량 또는 고반복으로 수행하는 원암 덤벨 로우 변형"
+    },
+    {
       "id": "back_barbell_yates_row",
       "nameKo": "예이츠 로우",
       "nameEn": "Yates Row",
@@ -2202,8 +2395,38 @@
       "notes": "팔꿈치를 거의 고정하고 광배 자극"
     },
     {
+      "id": "back_cable_single_arm_straight_arm_pulldown",
+      "nameKo": "원암 스트레이트 암 케이블 풀다운",
+      "nameEn": "Single-Arm Straight-Arm Cable Pulldown",
+      "uiPart": "back",
+      "uiPartNameKo": "등",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "overall_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "등 전체"
+      ],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "vertical_pull",
+      "movementPatternNameKo": "수직 당기기",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "vertical_pull_motion",
+      "motionTypeNameKo": "수직 당기기 모션",
+      "notes": "팔꿈치 굽힘을 최소화하고 한 팔씩 수행하는 광배근 풀다운"
+    },
+    {
       "id": "back_cable_single_arm_lat_pulldown",
-      "nameKo": "싱글 암 랫 풀다운",
+      "nameKo": "원암 랫 풀다운",
       "nameEn": "Single-Arm Lat Pulldown",
       "uiPart": "back",
       "uiPartNameKo": "등",
@@ -2233,7 +2456,7 @@
     },
     {
       "id": "back_cable_single_arm_row",
-      "nameKo": "싱글 암 케이블 로우",
+      "nameKo": "원암 케이블 로우",
       "nameEn": "Single-Arm Cable Row",
       "uiPart": "back",
       "uiPartNameKo": "등",
@@ -2324,6 +2547,38 @@
       "motionType": "horizontal_row_motion",
       "motionTypeNameKo": "수평 로우 모션",
       "notes": "위에서 아래로 당기는 케이블 로우"
+    },
+    {
+      "id": "back_cable_single_arm_high_row",
+      "nameKo": "원암 케이블 하이 로우",
+      "nameEn": "Single-Arm Cable High Row",
+      "uiPart": "back",
+      "uiPartNameKo": "등",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "upper_back",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등",
+        "중부 등"
+      ],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "row",
+      "movementPatternNameKo": "로우",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "horizontal_row_motion",
+      "motionTypeNameKo": "수평 로우 모션",
+      "notes": "높은 풀리에서 한 팔씩 당기는 케이블 로우"
     },
     {
       "id": "back_band_lat_pulldown",
@@ -2618,6 +2873,40 @@
       "motionType": "horizontal_row_motion",
       "motionTypeNameKo": "수평 로우 모션",
       "notes": "가슴 지지로 허리 부담 감소"
+    },
+    {
+      "id": "back_dumbbell_single_arm_chest_supported_row",
+      "nameKo": "원암 덤벨 체스트 서포티드 로우",
+      "nameEn": "Single-Arm Chest-Supported Dumbbell Row",
+      "uiPart": "back",
+      "uiPartNameKo": "등",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "upper_back",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "상부 등",
+        "후면 어깨 연계"
+      ],
+      "equipment": "dumbbell",
+      "equipmentNameKo": "덤벨",
+      "movementPattern": "horizontal_pull",
+      "movementPatternNameKo": "수평 당기기",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "free_weight",
+      "resistanceTypeNameKo": "프리웨이트",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "horizontal_row_motion",
+      "motionTypeNameKo": "수평 로우 모션",
+      "notes": "벤치에 가슴을 지지하고 한 팔씩 수행하는 덤벨 로우"
     },
     {
       "id": "back_dumbbell_renegade_row",
@@ -3400,6 +3689,32 @@
       "notes": "덤벨 종아리 운동"
     },
     {
+      "id": "legs_dumbbell_single_leg_calf_raise",
+      "nameKo": "원레그 덤벨 카프 레이즈",
+      "nameEn": "Single-Leg Dumbbell Calf Raise",
+      "uiPart": "legs",
+      "uiPartNameKo": "하체",
+      "primarySubPart": "calves",
+      "primarySubPartNameKo": "종아리",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipment": "dumbbell",
+      "equipmentNameKo": "덤벨",
+      "movementPattern": "calf_raise",
+      "movementPatternNameKo": "종아리 들기",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "free_weight",
+      "resistanceTypeNameKo": "프리웨이트",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "calf_raise_motion",
+      "motionTypeNameKo": "종아리 들기 모션",
+      "notes": "덤벨을 들고 한 다리씩 수행하는 스탠딩 카프 레이즈"
+    },
+    {
       "id": "legs_barbell_standing_calf_raise",
       "nameKo": "바벨 스탠딩 카프 레이즈",
       "nameEn": "Barbell Standing Calf Raise",
@@ -3664,6 +3979,36 @@
       "motionType": "hip_hinge_motion",
       "motionTypeNameKo": "힙힌지 모션",
       "notes": "덤벨 둔근 운동"
+    },
+    {
+      "id": "legs_dumbbell_single_leg_hip_thrust",
+      "nameKo": "원레그 덤벨 힙 쓰러스트",
+      "nameEn": "Single-Leg Dumbbell Hip Thrust",
+      "uiPart": "legs",
+      "uiPartNameKo": "하체",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipment": "dumbbell",
+      "equipmentNameKo": "덤벨",
+      "movementPattern": "hip_extension",
+      "movementPatternNameKo": "고관절 폄",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "free_weight",
+      "resistanceTypeNameKo": "프리웨이트",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "hip_hinge_motion",
+      "motionTypeNameKo": "힙힌지 모션",
+      "notes": "한쪽 발로 지지하며 덤벨을 골반에 올려 수행하는 힙 쓰러스트"
     },
     {
       "id": "legs_barbell_low_bar_squat",
@@ -4192,6 +4537,32 @@
       "notes": "누워서 수행하는 햄스트링 컬"
     },
     {
+      "id": "legs_machine_single_leg_lying_curl",
+      "nameKo": "원레그 라잉 레그 컬",
+      "nameEn": "Single-Leg Lying Leg Curl",
+      "uiPart": "legs",
+      "uiPartNameKo": "하체",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipment": "machine",
+      "equipmentNameKo": "머신",
+      "movementPattern": "knee_flexion",
+      "movementPatternNameKo": "무릎 굽힘",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "fixed_path",
+      "resistanceTypeNameKo": "고정 궤도",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "hip_hinge_motion",
+      "motionTypeNameKo": "힙힌지 모션",
+      "notes": "한 다리씩 수행하는 라잉 레그 컬"
+    },
+    {
       "id": "legs_machine_standing_leg_curl",
       "nameKo": "스탠딩 레그 컬",
       "nameEn": "Standing Leg Curl",
@@ -4244,6 +4615,32 @@
       "notes": "앉아서 수행하는 햄스트링 컬"
     },
     {
+      "id": "legs_machine_single_leg_seated_curl",
+      "nameKo": "원레그 시티드 레그 컬",
+      "nameEn": "Single-Leg Seated Leg Curl",
+      "uiPart": "legs",
+      "uiPartNameKo": "하체",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipment": "machine",
+      "equipmentNameKo": "머신",
+      "movementPattern": "knee_flexion",
+      "movementPatternNameKo": "무릎 굽힘",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "fixed_path",
+      "resistanceTypeNameKo": "고정 궤도",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "hip_hinge_motion",
+      "motionTypeNameKo": "힙힌지 모션",
+      "notes": "한 다리씩 수행하는 시티드 레그 컬"
+    },
+    {
       "id": "legs_dumbbell_romanian_deadlift",
       "nameKo": "덤벨 루마니안 데드리프트",
       "nameEn": "Dumbbell Romanian Deadlift",
@@ -4274,6 +4671,38 @@
       "motionType": "hip_hinge_motion",
       "motionTypeNameKo": "힙힌지 모션",
       "notes": "덤벨 햄스트링 힙힌지"
+    },
+    {
+      "id": "legs_dumbbell_single_leg_romanian_deadlift",
+      "nameKo": "원레그 덤벨 루마니안 데드리프트",
+      "nameEn": "Single-Leg Dumbbell Romanian Deadlift",
+      "uiPart": "legs",
+      "uiPartNameKo": "하체",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [
+        "glutes",
+        "erector_spinae"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "척추기립근"
+      ],
+      "equipment": "dumbbell",
+      "equipmentNameKo": "덤벨",
+      "movementPattern": "hip_hinge",
+      "movementPatternNameKo": "힙힌지 패턴",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "free_weight",
+      "resistanceTypeNameKo": "프리웨이트",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "hip_hinge_motion",
+      "motionTypeNameKo": "힙힌지 모션",
+      "notes": "한 다리로 균형을 유지하며 수행하는 덤벨 힙 힌지"
     },
     {
       "id": "legs_dumbbell_stiff_leg_deadlift",
@@ -4764,6 +5193,32 @@
       "notes": "대퇴사두 고립 운동"
     },
     {
+      "id": "legs_machine_single_leg_extension",
+      "nameKo": "원레그 레그 익스텐션",
+      "nameEn": "Single-Leg Extension",
+      "uiPart": "legs",
+      "uiPartNameKo": "하체",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipment": "machine",
+      "equipmentNameKo": "머신",
+      "movementPattern": "squat_pattern",
+      "movementPatternNameKo": "스쿼트 패턴",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "fixed_path",
+      "resistanceTypeNameKo": "고정 궤도",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "squat_motion",
+      "motionTypeNameKo": "스쿼트 모션",
+      "notes": "한 다리씩 수행하는 레그 익스텐션 머신 운동"
+    },
+    {
       "id": "legs_machine_leg_press",
       "nameKo": "레그 프레스",
       "nameEn": "Leg Press",
@@ -4794,6 +5249,38 @@
       "motionType": "squat_motion",
       "motionTypeNameKo": "스쿼트 모션",
       "notes": "대표적인 하체 머신"
+    },
+    {
+      "id": "legs_machine_single_leg_press",
+      "nameKo": "원레그 레그 프레스",
+      "nameEn": "Single-Leg Press",
+      "uiPart": "legs",
+      "uiPartNameKo": "하체",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipment": "machine",
+      "equipmentNameKo": "머신",
+      "movementPattern": "squat_pattern",
+      "movementPatternNameKo": "스쿼트 패턴",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "fixed_path",
+      "resistanceTypeNameKo": "고정 궤도",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "squat_motion",
+      "motionTypeNameKo": "스쿼트 모션",
+      "notes": "한 다리씩 수행하는 레그 프레스 머신 운동"
     },
     {
       "id": "legs_machine_belt_squat",
@@ -5614,6 +6101,40 @@
       "notes": "대표적인 덤벨 어깨 프레스"
     },
     {
+      "id": "shoulders_dumbbell_single_arm_shoulder_press",
+      "nameKo": "원암 덤벨 숄더 프레스",
+      "nameEn": "Single-Arm Dumbbell Shoulder Press",
+      "uiPart": "shoulders",
+      "uiPartNameKo": "어깨",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps",
+        "overall_shoulders"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두",
+        "어깨 전체"
+      ],
+      "equipment": "dumbbell",
+      "equipmentNameKo": "덤벨",
+      "movementPattern": "vertical_push",
+      "movementPatternNameKo": "수직 밀기",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "free_weight",
+      "resistanceTypeNameKo": "프리웨이트",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "machine_press_seated",
+      "motionTypeNameKo": "앉은 머신 프레스 모션",
+      "notes": "한 팔씩 수행하며 몸통의 측굴과 회전을 제어하는 숄더 프레스"
+    },
+    {
       "id": "shoulders_dumbbell_front_raise",
       "nameKo": "덤벨 프론트 레이즈",
       "nameEn": "Dumbbell Front Raise",
@@ -5704,6 +6225,40 @@
       "motionType": "machine_press_seated",
       "motionTypeNameKo": "앉은 머신 프레스 모션",
       "notes": "대표적인 바벨 수직 프레스"
+    },
+    {
+      "id": "shoulders_barbell_single_arm_landmine_press",
+      "nameKo": "원암 랜드마인 프레스",
+      "nameEn": "Single-Arm Landmine Press",
+      "uiPart": "shoulders",
+      "uiPartNameKo": "어깨",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps",
+        "overall_shoulders"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두",
+        "어깨 전체"
+      ],
+      "equipment": "barbell",
+      "equipmentNameKo": "바벨",
+      "movementPattern": "vertical_push",
+      "movementPatternNameKo": "수직 밀기",
+      "mechanicType": "compound",
+      "mechanicTypeNameKo": "복합 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "free_weight",
+      "resistanceTypeNameKo": "프리웨이트",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "machine_press_seated",
+      "motionTypeNameKo": "앉은 머신 프레스 모션",
+      "notes": "바벨 한쪽 끝을 고정하고 한 팔씩 대각선 위로 미는 프레스"
     },
     {
       "id": "shoulders_barbell_front_raise",
@@ -5820,6 +6375,32 @@
       "motionType": "raise_motion",
       "motionTypeNameKo": "레이즈 모션",
       "notes": "케이블 전면 어깨 운동"
+    },
+    {
+      "id": "shoulders_cable_single_arm_front_raise",
+      "nameKo": "원암 케이블 프론트 레이즈",
+      "nameEn": "Single-Arm Cable Front Raise",
+      "uiPart": "shoulders",
+      "uiPartNameKo": "어깨",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "raise",
+      "movementPatternNameKo": "레이즈",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "raise_motion",
+      "motionTypeNameKo": "레이즈 모션",
+      "notes": "한 팔씩 수행하는 전면 삼각근 케이블 레이즈"
     },
     {
       "id": "shoulders_kettlebell_press",
@@ -6324,6 +6905,36 @@
       "notes": "Y자 궤도의 후면/하부 승모 보조"
     },
     {
+      "id": "shoulders_cable_single_arm_y_raise",
+      "nameKo": "원암 케이블 Y 레이즈",
+      "nameEn": "Single-Arm Cable Y Raise",
+      "uiPart": "shoulders",
+      "uiPartNameKo": "어깨",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "traps"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근"
+      ],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "raise",
+      "movementPatternNameKo": "레이즈",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "raise_motion",
+      "motionTypeNameKo": "레이즈 모션",
+      "notes": "한 팔씩 Y자 궤도로 들어 올리는 케이블 레이즈"
+    },
+    {
       "id": "shoulders_cable_rear_delt_fly",
       "nameKo": "케이블 리어 델트 플라이",
       "nameEn": "Cable Rear Delt Fly",
@@ -6352,6 +6963,36 @@
       "motionType": "fly_motion",
       "motionTypeNameKo": "플라이 모션",
       "notes": "케이블 후면 어깨 플라이"
+    },
+    {
+      "id": "shoulders_cable_single_arm_rear_delt_fly",
+      "nameKo": "원암 케이블 리어 델트 플라이",
+      "nameEn": "Single-Arm Cable Rear Delt Fly",
+      "uiPart": "shoulders",
+      "uiPartNameKo": "어깨",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "fly",
+      "movementPatternNameKo": "플라이",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "fly_motion",
+      "motionTypeNameKo": "플라이 모션",
+      "notes": "한 팔씩 수행하는 후면 삼각근 케이블 플라이"
     },
     {
       "id": "shoulders_cable_external_rotation",
@@ -6767,8 +7408,8 @@
     },
     {
       "id": "shoulders_cable_lateral_raise",
-      "nameKo": "케이블 레터럴 레이즈",
-      "nameEn": "Cable Lateral Raise",
+      "nameKo": "원암 케이블 레터럴 레이즈",
+      "nameEn": "Single-Arm Cable Lateral Raise",
       "uiPart": "shoulders",
       "uiPartNameKo": "어깨",
       "primarySubPart": "side_delts",
@@ -6789,7 +7430,7 @@
       "recordTypeNameKo": "중량 + 횟수",
       "motionType": "raise_motion",
       "motionTypeNameKo": "레이즈 모션",
-      "notes": "장력 유지가 쉬운 측면 어깨 운동"
+      "notes": "한 팔씩 수행해 케이블 장력을 유지하는 측면 삼각근 레이즈"
     },
     {
       "id": "shoulders_cable_upright_row",
@@ -7289,7 +7930,7 @@
     },
     {
       "id": "arms_cable_single_arm_curl",
-      "nameKo": "싱글 암 케이블 컬",
+      "nameKo": "원암 케이블 컬",
       "nameEn": "Single-Arm Cable Curl",
       "uiPart": "arms",
       "uiPartNameKo": "팔",
@@ -7370,6 +8011,36 @@
       "notes": "로프 중립 그립 컬"
     },
     {
+      "id": "arms_cable_single_arm_hammer_curl",
+      "nameKo": "원암 케이블 해머 컬",
+      "nameEn": "Single-Arm Cable Hammer Curl",
+      "uiPart": "arms",
+      "uiPartNameKo": "팔",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "curl",
+      "movementPatternNameKo": "컬",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "curl_motion",
+      "motionTypeNameKo": "컬 모션",
+      "notes": "싱글 핸들과 중립 그립으로 한 팔씩 수행하는 케이블 컬"
+    },
+    {
       "id": "arms_cable_curl",
       "nameKo": "케이블 컬",
       "nameEn": "Cable Curl",
@@ -7424,6 +8095,32 @@
       "motionType": "curl_motion",
       "motionTypeNameKo": "컬 모션",
       "notes": "프리처 벤치와 케이블 조합"
+    },
+    {
+      "id": "arms_cable_single_arm_preacher_curl",
+      "nameKo": "원암 케이블 프리처 컬",
+      "nameEn": "Single-Arm Cable Preacher Curl",
+      "uiPart": "arms",
+      "uiPartNameKo": "팔",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "curl",
+      "movementPatternNameKo": "컬",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "curl_motion",
+      "motionTypeNameKo": "컬 모션",
+      "notes": "프리처 패드에서 한 팔씩 수행하는 케이블 컬"
     },
     {
       "id": "arms_band_curl",
@@ -8040,6 +8737,32 @@
       "notes": "덤벨 누운 삼두 익스텐션"
     },
     {
+      "id": "arms_dumbbell_single_arm_skull_crusher",
+      "nameKo": "원암 덤벨 스컬 크러셔",
+      "nameEn": "Single-Arm Dumbbell Skull Crusher",
+      "uiPart": "arms",
+      "uiPartNameKo": "팔",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipment": "dumbbell",
+      "equipmentNameKo": "덤벨",
+      "movementPattern": "triceps_extension",
+      "movementPatternNameKo": "삼두 폄",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "free_weight",
+      "resistanceTypeNameKo": "프리웨이트",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "triceps_extension_motion",
+      "motionTypeNameKo": "삼두 폄 모션",
+      "notes": "누운 자세에서 한 팔씩 수행하는 덤벨 삼두 익스텐션"
+    },
+    {
       "id": "arms_dumbbell_overhead_triceps_extension",
       "nameKo": "덤벨 오버헤드 트라이셉스 익스텐션",
       "nameEn": "Dumbbell Overhead Triceps Extension",
@@ -8259,7 +8982,7 @@
     },
     {
       "id": "arms_cable_single_arm_pushdown",
-      "nameKo": "싱글 암 케이블 푸쉬다운",
+      "nameKo": "원암 케이블 푸쉬다운",
       "nameEn": "Single-Arm Cable Pushdown",
       "uiPart": "arms",
       "uiPartNameKo": "팔",
@@ -8282,6 +9005,32 @@
       "motionType": "triceps_extension_motion",
       "motionTypeNameKo": "삼두 폄 모션",
       "notes": "편측 케이블 삼두"
+    },
+    {
+      "id": "arms_cable_crossbody_triceps_extension",
+      "nameKo": "크로스바디 케이블 트라이셉스 익스텐션",
+      "nameEn": "Cross-Body Cable Triceps Extension",
+      "uiPart": "arms",
+      "uiPartNameKo": "팔",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "triceps_extension",
+      "movementPatternNameKo": "삼두 폄",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "triceps_extension_motion",
+      "motionTypeNameKo": "삼두 폄 모션",
+      "notes": "반대쪽 어깨 앞에서 몸 바깥쪽으로 펴는 편측 케이블 삼두 운동"
     },
     {
       "id": "arms_cable_rope_pushdown",
@@ -8340,6 +9089,36 @@
       "notes": "언더그립 삼두 푸쉬다운"
     },
     {
+      "id": "arms_cable_single_arm_reverse_grip_pushdown",
+      "nameKo": "원암 케이블 리버스 그립 푸쉬다운",
+      "nameEn": "Single-Arm Reverse-Grip Cable Pushdown",
+      "uiPart": "arms",
+      "uiPartNameKo": "팔",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "triceps_extension",
+      "movementPatternNameKo": "삼두 폄",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "triceps_extension_motion",
+      "motionTypeNameKo": "삼두 폄 모션",
+      "notes": "한 팔씩 언더핸드 그립으로 수행하는 케이블 푸쉬다운"
+    },
+    {
       "id": "arms_cable_triceps_pushdown_straight_bar",
       "nameKo": "케이블 스트레이트바 푸쉬다운",
       "nameEn": "Cable Straight-Bar Pushdown",
@@ -8390,6 +9169,32 @@
       "motionType": "triceps_extension_motion",
       "motionTypeNameKo": "삼두 폄 모션",
       "notes": "케이블 장두 중심 삼두"
+    },
+    {
+      "id": "arms_cable_single_arm_overhead_triceps_extension",
+      "nameKo": "원암 케이블 오버헤드 트라이셉스 익스텐션",
+      "nameEn": "Single-Arm Cable Overhead Triceps Extension",
+      "uiPart": "arms",
+      "uiPartNameKo": "팔",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipment": "cable",
+      "equipmentNameKo": "케이블",
+      "movementPattern": "triceps_extension",
+      "movementPatternNameKo": "삼두 폄",
+      "mechanicType": "isolation",
+      "mechanicTypeNameKo": "고립 운동",
+      "laterality": "unilateral",
+      "lateralityNameKo": "편측",
+      "resistanceType": "cable_resistance",
+      "resistanceTypeNameKo": "케이블 저항",
+      "recordType": "weight_reps",
+      "recordTypeNameKo": "중량 + 횟수",
+      "motionType": "triceps_extension_motion",
+      "motionTypeNameKo": "삼두 폄 모션",
+      "notes": "한 팔씩 머리 위에서 수행하는 케이블 삼두 익스텐션"
     },
     {
       "id": "arms_cable_triceps_kickback",
