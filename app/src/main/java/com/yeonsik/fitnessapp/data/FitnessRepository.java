@@ -2840,6 +2840,224 @@ public final class FitnessRepository {
         return null;
     }
 
+    /**
+     * Updates the top-level menus of a locally recorded food meal in place.
+     *
+     * <p>The meal keeps its original snapshot identity. A quantity correction scales the
+     * snapshot nutrition, micronutrient rows, and ingredient rows together, so editing a menu
+     * cannot silently make the meal total disagree with its menu details.</p>
+     */
+    public boolean updateMealMenus(String mealRecordId, List<MealMenuEdit> edits) {
+        String normalizedRecordId = mealRecordId == null ? "" : mealRecordId.trim();
+        if (normalizedRecordId.isEmpty() || edits == null || edits.isEmpty()) {
+            return false;
+        }
+
+        SQLiteDatabase database = db();
+        String metadata;
+        try (Cursor cursor = database.rawQuery(
+                "SELECT metadata, meal_kind FROM meal_records " +
+                        "WHERE id = ? AND user_id = ? AND device_id = ? " +
+                        "AND deleted_at IS NULL LIMIT 1",
+                new String[]{normalizedRecordId, userId, DEVICE_ID}
+        )) {
+            if (!cursor.moveToFirst()
+                    || MealRecordKind.isDiningOut(cursor.getString(1))) {
+                return false;
+            }
+            metadata = cursor.getString(0);
+        }
+
+        Map<String, Double> originalQuantities = new LinkedHashMap<>();
+        try (Cursor cursor = database.rawQuery(
+                "SELECT id, quantity FROM meal_record_items " +
+                        "WHERE meal_record_id = ? AND user_id = ? AND deleted_at IS NULL " +
+                        "ORDER BY order_index ASC, id ASC",
+                new String[]{normalizedRecordId, userId}
+        )) {
+            while (cursor.moveToNext()) {
+                originalQuantities.put(cursor.getString(0), cursor.getDouble(1));
+            }
+        }
+        if (originalQuantities.size() != edits.size()) {
+            return false;
+        }
+
+        List<String> seenIds = new ArrayList<>();
+        for (MealMenuEdit edit : edits) {
+            if (edit == null || !originalQuantities.containsKey(edit.id)
+                    || seenIds.contains(edit.id)) {
+                return false;
+            }
+            seenIds.add(edit.id);
+        }
+
+        String timestamp = now();
+        database.beginTransaction();
+        try {
+            for (MealMenuEdit edit : edits) {
+                double originalQuantity = originalQuantities.get(edit.id);
+                if (!Double.isFinite(originalQuantity) || originalQuantity <= 0d) {
+                    return false;
+                }
+                double ratio = edit.quantity / originalQuantity;
+                database.execSQL(
+                        "UPDATE meal_record_items SET food_name_snapshot = ?, quantity = ?, " +
+                                "calories = calories * ?, protein_grams = protein_grams * ?, " +
+                                "carbs_grams = carbs_grams * ?, fat_grams = fat_grams * ?, " +
+                                "sodium_mg = sodium_mg * ?, saturated_fat_grams = saturated_fat_grams * ?, " +
+                                "sugars_grams = sugars_grams * ?, fiber_grams = fiber_grams * ?, " +
+                                "added_sugars_grams = added_sugars_grams * ?, " +
+                                "trans_fat_grams = trans_fat_grams * ?, " +
+                                "cholesterol_mg = cholesterol_mg * ?, updated_at = ? " +
+                                "WHERE id = ? AND meal_record_id = ? AND user_id = ? " +
+                                "AND deleted_at IS NULL",
+                        new Object[]{
+                                edit.name,
+                                edit.quantity,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                ratio,
+                                timestamp,
+                                edit.id,
+                                normalizedRecordId,
+                                userId
+                        }
+                );
+                scaleMealComponentSnapshots(
+                        database,
+                        edit.id,
+                        normalizedRecordId,
+                        ratio,
+                        timestamp
+                );
+                scaleMealNutrientRows(
+                        database,
+                        "meal_record_item_nutrients",
+                        "meal_record_item_id",
+                        edit.id,
+                        normalizedRecordId,
+                        ratio,
+                        timestamp
+                );
+            }
+
+            double calories = 0d;
+            double proteinGrams = 0d;
+            double carbsGrams = 0d;
+            double fatGrams = 0d;
+            try (Cursor cursor = database.rawQuery(
+                    "SELECT COALESCE(SUM(calories), 0), COALESCE(SUM(protein_grams), 0), " +
+                            "COALESCE(SUM(carbs_grams), 0), COALESCE(SUM(fat_grams), 0) " +
+                            "FROM meal_record_items WHERE meal_record_id = ? AND user_id = ? " +
+                            "AND deleted_at IS NULL",
+                    new String[]{normalizedRecordId, userId}
+            )) {
+                if (cursor.moveToFirst()) {
+                    calories = cursor.getDouble(0);
+                    proteinGrams = cursor.getDouble(1);
+                    carbsGrams = cursor.getDouble(2);
+                    fatGrams = cursor.getDouble(3);
+                }
+            }
+
+            ContentValues recordValues = new ContentValues();
+            recordValues.put(
+                    "menu",
+                    MealEntryPolicy.previewTitle(edits.get(0).name, edits.size(), "Meal")
+            );
+            recordValues.put("calories", (int) Math.round(calories));
+            recordValues.put("protein_grams", proteinGrams);
+            recordValues.put("carbs_grams", carbsGrams);
+            recordValues.put("fat_grams", fatGrams);
+            recordValues.put("metadata", metadataWithMealItemCount(metadata, edits.size()));
+            recordValues.put("updated_at", timestamp);
+            int updated = database.update(
+                    "meal_records",
+                    recordValues,
+                    "id = ? AND user_id = ? AND device_id = ? AND deleted_at IS NULL",
+                    new String[]{normalizedRecordId, userId, DEVICE_ID}
+            );
+            database.setTransactionSuccessful();
+            return updated > 0;
+        } finally {
+            database.endTransaction();
+        }
+    }
+
+    private void scaleMealComponentSnapshots(
+            SQLiteDatabase database,
+            String mealRecordItemId,
+            String mealRecordId,
+            double ratio,
+            String timestamp
+    ) {
+        database.execSQL(
+                "UPDATE meal_record_item_components SET quantity = quantity * ?, " +
+                        "calories = calories * ?, protein_grams = protein_grams * ?, " +
+                        "carbs_grams = carbs_grams * ?, fat_grams = fat_grams * ?, " +
+                        "sodium_mg = sodium_mg * ?, saturated_fat_grams = saturated_fat_grams * ?, " +
+                        "sugars_grams = sugars_grams * ?, fiber_grams = fiber_grams * ?, " +
+                        "added_sugars_grams = added_sugars_grams * ?, " +
+                        "trans_fat_grams = trans_fat_grams * ?, " +
+                        "cholesterol_mg = cholesterol_mg * ?, updated_at = ? " +
+                        "WHERE meal_record_item_id = ? AND meal_record_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL",
+                new Object[]{
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        ratio,
+                        timestamp,
+                        mealRecordItemId,
+                        mealRecordId,
+                        userId
+                }
+        );
+        scaleMealNutrientRows(
+                database,
+                "meal_record_item_component_nutrients",
+                "meal_record_item_id",
+                mealRecordItemId,
+                mealRecordId,
+                ratio,
+                timestamp
+        );
+    }
+
+    private void scaleMealNutrientRows(
+            SQLiteDatabase database,
+            String table,
+            String itemColumn,
+            String itemId,
+            String mealRecordId,
+            double ratio,
+            String timestamp
+    ) {
+        database.execSQL(
+                "UPDATE " + table + " SET amount = amount * ?, updated_at = ? " +
+                        "WHERE " + itemColumn + " = ? AND meal_record_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL",
+                new Object[]{ratio, timestamp, itemId, mealRecordId, userId}
+        );
+    }
+
     public boolean deleteMeal(String id) {
         String normalizedId = id == null ? "" : id.trim();
         if (normalizedId.isEmpty()) {
@@ -4461,6 +4679,23 @@ public final class FitnessRepository {
         }
     }
 
+    private static String metadataWithMealItemCount(String metadata, int itemCount) {
+        try {
+            JSONObject object = metadata == null || metadata.trim().isEmpty()
+                    ? new JSONObject()
+                    : new JSONObject(metadata);
+            object.put("item_count", itemCount);
+            object.put("composition_version", "2");
+            return object.toString();
+        } catch (Exception exception) {
+            return json(
+                    "item_type", "meal",
+                    "composition_version", "2",
+                    "item_count", String.valueOf(itemCount)
+            );
+        }
+    }
+
     private static int safeInt(long value) {
         if (value <= 0) {
             return 0;
@@ -5065,11 +5300,35 @@ public final class FitnessRepository {
             return isDiningOut()
                     ? mealTime + " · 외식 · "
                     + (hasEstimatedNutrition() ? "영양 추정" : "영양 미입력")
-                    : mealTime + " · " + macroRatio;
+                    : mealTime + " · "
+                    + (compositionCount > 1 ? compositionCount + "개 메뉴 · " : "")
+                    + macroRatio;
         }
 
         public String previewAccessibilityLabel() {
             return previewTitle + ", " + mealTime + ", " + macroRatioAccessibility;
+        }
+    }
+
+    /** User corrections applied to one already recorded top-level menu. */
+    public static final class MealMenuEdit {
+        public final String id;
+        public final String name;
+        public final double quantity;
+
+        public MealMenuEdit(String id, String name, double quantity) {
+            this.id = id == null ? "" : id.trim();
+            this.name = name == null ? "" : name.trim();
+            this.quantity = quantity;
+            if (this.id.isEmpty()) {
+                throw new IllegalArgumentException("수정할 메뉴 기록이 필요합니다.");
+            }
+            if (this.name.isEmpty()) {
+                throw new IllegalArgumentException("메뉴 이름을 입력하세요.");
+            }
+            if (!Double.isFinite(quantity) || quantity <= 0d) {
+                throw new IllegalArgumentException("메뉴 섭취량은 0보다 커야 합니다.");
+            }
         }
     }
 

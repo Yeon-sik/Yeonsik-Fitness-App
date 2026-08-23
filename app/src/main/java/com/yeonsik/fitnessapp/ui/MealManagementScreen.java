@@ -1117,6 +1117,10 @@ public final class MealManagementScreen extends BaseScreen {
         actions.setOrientation(LinearLayout.HORIZONTAL);
         actions.addView(ui.textAction("상세", FitnessUi.COLOR_TERTIARY,
                 () -> showRecordedMealDetails(entry)));
+        if (!entry.isDiningOut()) {
+            actions.addView(ui.textAction("수정", FitnessUi.COLOR_TERTIARY,
+                    () -> showMealMenuEditDialog(entry)));
+        }
         actions.addView(ui.textAction("삭제", FitnessUi.COLOR_NEGATIVE,
                 () -> confirmDeleteMeal(entry)));
         row.addView(actions);
@@ -1233,6 +1237,8 @@ public final class MealManagementScreen extends BaseScreen {
                         false
                 ), ui.fullWidthParams(ui.dp(12)));
             } else {
+                body.addView(ui.caption("먹은 메뉴 " + menus.size() + "개", FitnessUi.COLOR_TERTIARY),
+                        ui.fullWidthParams(ui.dp(10)));
                 for (FitnessRepository.MealItemEntry menu : menus) {
                     LinearLayout menuCard = new LinearLayout(host.activity());
                     menuCard.setOrientation(LinearLayout.VERTICAL);
@@ -1282,7 +1288,107 @@ public final class MealManagementScreen extends BaseScreen {
             builder.setNeutralButton("시간 수정", (dialog, which) ->
                     showRecordedMealTimePicker(entry));
         }
+        if (!entry.isDiningOut() && !repository().mealItemsForRecord(entry.id).isEmpty()) {
+            builder.setPositiveButton("메뉴 수정", (dialog, which) ->
+                    showMealMenuEditDialog(entry));
+        }
         builder.show();
+    }
+
+    /** Allows a recorded meal's top-level menu names and quantities to be corrected in place. */
+    private void showMealMenuEditDialog(FitnessRepository.MealEntry entry) {
+        List<FitnessRepository.MealItemEntry> menus = repository().mealItemsForRecord(entry.id);
+        if (menus.isEmpty()) {
+            host.toast("이전 형식의 기록이라 수정할 메뉴가 없습니다.");
+            return;
+        }
+
+        FitnessUi ui = ui();
+        LinearLayout body = ui.form();
+        List<EditText> nameInputs = new ArrayList<>();
+        List<EditText> quantityInputs = new ArrayList<>();
+        for (int index = 0; index < menus.size(); index++) {
+            FitnessRepository.MealItemEntry menu = menus.get(index);
+            body.addView(ui.caption("메뉴 " + (index + 1), FitnessUi.COLOR_TERTIARY),
+                    ui.fullWidthParams(ui.dp(6)));
+            EditText nameInput = ui.input("메뉴명", menu.foodName);
+            nameInput.setSingleLine(true);
+            nameInput.setContentDescription("메뉴 " + (index + 1) + " 이름");
+            nameInputs.add(nameInput);
+            body.addView(ui.labeledFieldColumn("메뉴명", nameInput),
+                    ui.fullWidthParams(ui.dp(4)));
+
+            EditText quantityInput = ui.decimalInput(
+                    menu.unit,
+                    NutritionCalculator.trim(menu.quantity)
+            );
+            quantityInput.setContentDescription("메뉴 " + (index + 1) + " 섭취량");
+            quantityInputs.add(quantityInput);
+            body.addView(ui.labeledFieldColumn("섭취량 (" + menu.unit + ")", quantityInput),
+                    ui.fullWidthParams(ui.dp(8)));
+        }
+        body.addView(ui.text(
+                "메뉴명과 섭취량을 수정하면 기록 당시 영양 스냅샷도 섭취량에 맞춰 갱신됩니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ), ui.fullWidthParams(ui.dp(8)));
+
+        ScrollView scroll = new ScrollView(host.activity());
+        scroll.setFillViewport(true);
+        scroll.addView(body, new ScrollView.LayoutParams(
+                ScrollView.LayoutParams.MATCH_PARENT,
+                ScrollView.LayoutParams.WRAP_CONTENT
+        ));
+        AlertDialog dialog = new AlertDialog.Builder(host.activity())
+                .setTitle("끼니 메뉴 수정")
+                .setView(scroll)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("저장", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    List<FitnessRepository.MealMenuEdit> edits = new ArrayList<>();
+                    try {
+                        for (int index = 0; index < menus.size(); index++) {
+                            String name = FitnessUi.inputText(nameInputs.get(index)).trim();
+                            if (name.isEmpty()) {
+                                throw new IllegalArgumentException(
+                                        "메뉴 " + (index + 1) + "의 이름을 입력하세요."
+                                );
+                            }
+                            String quantityText = FitnessUi.inputText(quantityInputs.get(index)).trim();
+                            double quantity;
+                            try {
+                                quantity = Double.parseDouble(quantityText);
+                            } catch (NumberFormatException error) {
+                                throw new IllegalArgumentException(
+                                        "메뉴 " + (index + 1) + "의 섭취량을 숫자로 입력하세요."
+                                );
+                            }
+                            if (!Double.isFinite(quantity) || quantity <= 0d) {
+                                throw new IllegalArgumentException(
+                                        "메뉴 " + (index + 1) + "의 섭취량은 0보다 커야 합니다."
+                                );
+                            }
+                            edits.add(new FitnessRepository.MealMenuEdit(
+                                    menus.get(index).id,
+                                    name,
+                                    quantity
+                            ));
+                        }
+                        if (!repository().updateMealMenus(entry.id, edits)) {
+                            host.toast("끼니 메뉴를 수정하지 못했습니다.");
+                            return;
+                        }
+                        dialog.dismiss();
+                        host.toast("끼니 메뉴를 수정했습니다.");
+                        host.rerender();
+                    } catch (IllegalArgumentException error) {
+                        host.toast(error.getMessage());
+                    }
+                }));
+        dialog.show();
     }
 
     private View mealWorkspace() {
@@ -2334,17 +2440,17 @@ public final class MealManagementScreen extends BaseScreen {
             row.addView(input, ui.fullWidthParams(ui.dp(2)));
             LinearLayout nutritionRow = ui.tileRow();
             EditText calories = ui.decimalInput("kcal", draft.calories);
-            EditText protein = ui.decimalInput("g", draft.protein);
             EditText carbs = ui.decimalInput("g", draft.carbs);
+            EditText protein = ui.decimalInput("g", draft.protein);
             EditText fat = ui.decimalInput("g", draft.fat);
             diningOutOptionCaloriesInputs.add(calories);
             diningOutOptionProteinInputs.add(protein);
             diningOutOptionCarbsInputs.add(carbs);
             diningOutOptionFatInputs.add(fat);
-            nutritionRow.addView(ui.labeledFieldColumn("kcal", calories), ui.fieldCellParams(true));
-            nutritionRow.addView(ui.labeledFieldColumn("P (g)", protein), ui.fieldCellParams(false));
-            nutritionRow.addView(ui.labeledFieldColumn("C (g)", carbs), ui.fieldCellParams(false));
-            nutritionRow.addView(ui.labeledFieldColumn("F (g)", fat), ui.fieldCellParams(false));
+            nutritionRow.addView(ui.labeledFieldColumn("칼로리 (kcal)", calories), ui.fieldCellParams(true));
+            nutritionRow.addView(ui.labeledFieldColumn("탄수화물 (g)", carbs), ui.fieldCellParams(false));
+            nutritionRow.addView(ui.labeledFieldColumn("단백질 (g)", protein), ui.fieldCellParams(false));
+            nutritionRow.addView(ui.labeledFieldColumn("지방 (g)", fat), ui.fieldCellParams(false));
             row.addView(nutritionRow, ui.fullWidthParams(ui.dp(2)));
             LinearLayout actions = new LinearLayout(host.activity());
             actions.setOrientation(LinearLayout.HORIZONTAL);
