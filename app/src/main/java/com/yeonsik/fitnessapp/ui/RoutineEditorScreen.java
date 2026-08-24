@@ -462,17 +462,22 @@ public final class RoutineEditorScreen extends BaseScreen {
             card.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
             ImageView preview = exerciseIllustrationPreview.create(exercise.id);
-            if (preview != null) {
-                card.addView(preview, exercisePreviewParams(ui));
+            if (preview == null) {
+                preview = emptyExercisePreview();
             }
+            card.addView(preview, exercisePreviewParams(ui));
 
-            if (selected) {
-                TextView check = ui.text("✓", 16, FitnessUi.COLOR_INVERSE_TEXT, true);
-                check.setGravity(Gravity.CENTER);
-                check.setBackground(ui.borderDrawable(ui.chipOnAccent(),
-                        ui.chipOnAccent(), ui.dp(999)));
-                card.addView(check, new LinearLayout.LayoutParams(ui.dp(28), ui.dp(28)));
-            }
+            TextView check = ui.text(
+                    selected ? "✓" : "",
+                    16,
+                    selected ? FitnessUi.COLOR_INVERSE_TEXT : ui.inkMuted(),
+                    true
+            );
+            check.setGravity(Gravity.CENTER);
+            check.setBackground(selected
+                    ? ui.borderDrawable(ui.chipOnAccent(), ui.chipOnAccent(), ui.dp(999))
+                    : ui.borderDrawable(ui.surface(), ui.border(), ui.dp(999)));
+            card.addView(check, exerciseCheckParams(ui));
 
             card.setClickable(true);
             card.setFocusable(true);
@@ -489,6 +494,21 @@ public final class RoutineEditorScreen extends BaseScreen {
             LinearLayout.LayoutParams cardParams = ui.fullWidthParams(listArea.getChildCount() == 0 ? 0 : ui.dp(8));
             listArea.addView(card, cardParams);
         }
+    }
+
+    private ImageView emptyExercisePreview() {
+        ImageView preview = new ImageView(host.activity());
+        preview.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        preview.setAdjustViewBounds(false);
+        preview.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        preview.setFocusable(false);
+        return preview;
+    }
+
+    private LinearLayout.LayoutParams exerciseCheckParams(FitnessUi ui) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ui.dp(28), ui.dp(28));
+        params.setMargins(ui.dp(8), 0, 0, 0);
+        return params;
     }
 
     private LinearLayout.LayoutParams exercisePreviewParams(FitnessUi ui) {
