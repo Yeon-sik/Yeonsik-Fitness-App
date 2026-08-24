@@ -66,6 +66,19 @@ public final class ExerciseIllustrationCatalogTest {
     }
 
     @Test
+    public void readsFrameDurationsFromSceneCatalog() {
+        assertArrayEquals(
+                new int[]{1000, 1000},
+                ExerciseIllustrationCatalog.frameDurationsMsFor(
+                        ExerciseIllustrationCatalog.BARBELL_FLAT_BENCH_PRESS_ID
+                )
+        );
+        assertArrayEquals(
+                new int[0],
+                ExerciseIllustrationCatalog.frameDurationsMsFor("unsupported_exercise")
+        );
+    }
+    @Test
     public void reservesMoreHeightForFullBodyIllustrations() {
         assertEquals(
                 220,

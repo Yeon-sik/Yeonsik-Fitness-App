@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "exerciseId": "legs_barbell_back_squat",
+  "preferredHeightDp": 280,
   "canvas": { "width": 1536, "height": 1024 },
   "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
   "normalization": { "scale": 0.9, "translate": [77, 51] },

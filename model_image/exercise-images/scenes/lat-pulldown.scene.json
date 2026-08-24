@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "exerciseId": "back_machine_lat_pulldown",
+  "preferredHeightDp": 280,
   "canvas": { "width": 1536, "height": 1024 },
   "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
   "normalization": { "scale": 0.9, "translate": [77, 51] },

@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "exerciseId": "chest_barbell_flat_bench_press",
+  "preferredHeightDp": 220,
   "canvas": { "width": 1536, "height": 1024 },
   "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
   "normalization": {

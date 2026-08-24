@@ -7,6 +7,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -27,9 +28,11 @@ import java.util.List;
  * 두 픽커는 대상만 다르고 검색/필터/선택 UI가 같아 하나의 렌더러를 공유한다.
  */
 public final class RoutineEditorScreen extends BaseScreen {
+    private final ExerciseIllustrationPreview exerciseIllustrationPreview;
 
     public RoutineEditorScreen(ScreenHost host) {
         super(host);
+        exerciseIllustrationPreview = new ExerciseIllustrationPreview(host.activity(), host.ui());
     }
 
     @Override
@@ -109,7 +112,12 @@ public final class RoutineEditorScreen extends BaseScreen {
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
         TextView recordType = ui.text(exercise.recordType, 12, FitnessUi.COLOR_TERTIARY, false);
+        recordType.setPadding(ui.dp(8), 0, 0, 0);
         row.addView(recordType);
+        ImageView preview = exerciseIllustrationPreview.create(exercise.exerciseId);
+        if (preview != null) {
+            row.addView(preview, exercisePreviewParams(ui));
+        }
         return row;
     }
 
@@ -453,6 +461,11 @@ public final class RoutineEditorScreen extends BaseScreen {
             column.addView(meta);
             card.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
+            ImageView preview = exerciseIllustrationPreview.create(exercise.id);
+            if (preview != null) {
+                card.addView(preview, exercisePreviewParams(ui));
+            }
+
             if (selected) {
                 TextView check = ui.text("✓", 16, FitnessUi.COLOR_INVERSE_TEXT, true);
                 check.setGravity(Gravity.CENTER);
@@ -476,6 +489,15 @@ public final class RoutineEditorScreen extends BaseScreen {
             LinearLayout.LayoutParams cardParams = ui.fullWidthParams(listArea.getChildCount() == 0 ? 0 : ui.dp(8));
             listArea.addView(card, cardParams);
         }
+    }
+
+    private LinearLayout.LayoutParams exercisePreviewParams(FitnessUi ui) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ui.dp(ExerciseIllustrationPreview.SIZE_DP),
+                ui.dp(ExerciseIllustrationPreview.SIZE_DP)
+        );
+        params.setMargins(ui.dp(8), 0, 0, 0);
+        return params;
     }
 
     private void removeSelectedExercise(String exerciseId, List<String> selectedExerciseIds,
