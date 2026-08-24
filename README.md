@@ -55,7 +55,12 @@ SUPABASE_URL=https://your-shared-project-ref.supabase.co
 SUPABASE_ANON_KEY=your-shared-publishable-or-anon-key
 NUTRITION_SUPABASE_URL=https://your-nutrition-project-ref.supabase.co
 NUTRITION_SUPABASE_ANON_KEY=your-nutrition-publishable-or-anon-key
+MAPS_API_KEY=your-google-maps-android-key
 ```
+
+`MAPS_API_KEY` is read from ignored `local.properties` or the build environment.
+Restrict the Google Maps Android key to this package and the signing certificate
+used by the build variant; keep the key out of Git.
 
 `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `ORIGINAL_DB_URL`, and
 `ORIGINAL_DB_ANON` remain aliases for the shared connection. `NUTRITION_DB_URL`

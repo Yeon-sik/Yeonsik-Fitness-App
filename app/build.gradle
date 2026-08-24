@@ -43,6 +43,8 @@ def localOrEnvironment = { String propertyName, String environmentName ->
             ?: ""
 }
 
+def mapsApiKey = localOrEnvironment("MAPS_API_KEY", "MAPS_API_KEY").trim()
+
 // The QA keystore is intentionally supplied outside the repository. Keep one
 // per application and move it between trusted build machines when needed.
 def defaultQaStorePath = new File(
@@ -123,6 +125,8 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         versionCode 1
         versionName "1.0.0"
+        manifestPlaceholders = [MAPS_API_KEY: mapsApiKey]
+        buildConfigField "boolean", "MAPS_API_KEY_CONFIGURED", mapsApiKey ? "true" : "false"
         buildConfigField "String", "SUPABASE_URL", buildConfigString(supabaseUrl)
         buildConfigField "String", "SUPABASE_ANON_KEY", buildConfigString(supabaseAnonKey)
         buildConfigField "String", "NUTRITION_SUPABASE_URL", buildConfigString(nutritionSupabaseUrl)
@@ -265,6 +269,7 @@ tasks.register("installQaWithEnvSession") {
 
 dependencies {
     implementation "com.google.android.gms:play-services-location:21.4.0"
+    implementation "com.google.android.gms:play-services-maps:20.0.0"
     testImplementation "junit:junit:4.13.2"
     androidTestImplementation "androidx.test:core:1.7.0"
     androidTestImplementation "androidx.test.ext:junit:1.3.0"

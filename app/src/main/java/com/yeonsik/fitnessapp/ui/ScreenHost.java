@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.widget.LinearLayout;
 
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
+import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
 import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
@@ -79,6 +80,8 @@ public interface ScreenHost {
     void startCardioWorkout(CardioActivityType activityType);
 
     void openCardioSummary(String recordId);
+
+    void loadCardioRoute(String recordId, CardioRouteCallback callback);
 
     void pauseCardioWorkout();
 
@@ -211,6 +214,12 @@ public interface ScreenHost {
     String syncDetail();
 
     String repositoryUserLabel();
+
+    interface CardioRouteCallback {
+        void onComplete(CardioRouteProjection projection);
+
+        void onError(Exception error);
+    }
 
     interface ProductSearchCallback {
         void onComplete(List<ProductReadV1> products);
