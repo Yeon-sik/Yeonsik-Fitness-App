@@ -17,9 +17,15 @@ import java.util.List;
  * 운동 세션 화면: 경과시간 히어로 + 메트릭 스트립 + 종목 진행 카드.
  */
 public final class WorkoutSessionScreen extends BaseScreen {
+    private final ExerciseCardRenderer exerciseCardRenderer;
 
     public WorkoutSessionScreen(ScreenHost host) {
         super(host);
+        exerciseCardRenderer = new ExerciseCardRenderer(
+                host.activity(),
+                host.ui(),
+                new ExerciseIllustrationPreview(host.activity(), host.ui())
+        );
     }
 
     @Override
@@ -131,16 +137,12 @@ public final class WorkoutSessionScreen extends BaseScreen {
         LinearLayout headerRow = new LinearLayout(host.activity());
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
-        headerRow.addView(ui.compactOrderBadge(exercise.orderIndex));
-        LinearLayout titleColumn = new LinearLayout(host.activity());
-        titleColumn.setOrientation(LinearLayout.VERTICAL);
-        titleColumn.setPadding(ui.dp(8), 0, 0, 0);
-        titleColumn.addView(ui.text(exercise.name, 13, FitnessUi.COLOR_TEXT, true));
-        TextView meta = ui.text(exercise.uiPart + (exercise.equipment.isEmpty() ? "" : " · " + exercise.equipment),
-                10, FitnessUi.COLOR_MUTED, false);
-        meta.setPadding(0, ui.dp(2), 0, 0);
-        titleColumn.addView(meta);
-        headerRow.addView(titleColumn, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        ExerciseCardRenderer.Content content =
+                ExerciseCardRenderer.Content.fromSessionExercise(
+                        exercise,
+                        host.exerciseMasterRepository().getExerciseById(exercise.exerciseId)
+                );
+        exerciseCardRenderer.addContent(headerRow, content, false, false);
         TextView chevron = ui.text("›", 16, FitnessUi.COLOR_TERTIARY, false);
         headerRow.addView(chevron);
         card.addView(headerRow);

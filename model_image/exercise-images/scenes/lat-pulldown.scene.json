@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "exerciseId": "back_machine_lat_pulldown",
+  "preferredHeightDp": 280,
+  "canvas": { "width": 1536, "height": 1024 },
+  "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
+  "normalization": { "scale": 0.9, "translate": [77, 51] },
+  "equipment": ["lat_pulldown_machine_rear_three_quarter_v1"],
+  "lockedAnchors": {
+    "machine_top_left": [671, 66],
+    "machine_top_right": [1030, 74],
+    "seat_center": [672, 676],
+    "pelvis_center": [672, 578],
+    "thigh_pad_center": [640, 594],
+    "machine_base_center": [767, 882]
+  },
+  "frames": [
+    {
+      "id": "contracted",
+      "file": "../final/lat-pulldown-contracted.png",
+      "durationMs": 1000,
+      "joints": {
+        "elbow_left": [581, 421],
+        "elbow_right": [886, 424],
+        "hand_left": [559, 348],
+        "hand_right": [929, 357]
+      },
+      "movingEquipment": {
+        "pulldown_bar": { "center": [750, 356], "rotationDegrees": 3 }
+      }
+    },
+    {
+      "id": "extended",
+      "file": "../final/lat-pulldown-extended.png",
+      "durationMs": 1000,
+      "joints": {
+        "elbow_left": [616, 247],
+        "elbow_right": [879, 258],
+        "hand_left": [559, 143],
+        "hand_right": [939, 151]
+      },
+      "movingEquipment": {
+        "pulldown_bar": { "center": [751, 151], "rotationDegrees": 3 }
+      }
+    }
+  ],
+  "renderPolicy": {
+    "locked": ["canvas", "camera", "machine_frame", "seat", "thigh_pads", "pelvis", "legs", "torso"],
+    "animated": ["shoulders", "upper_arms", "forearms", "hands", "pulldown_bar", "cable", "weight_stack"]
+  }
+}

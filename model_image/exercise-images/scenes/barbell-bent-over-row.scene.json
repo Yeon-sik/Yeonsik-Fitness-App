@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "exerciseId": "back_barbell_bent_over_row",
+  "preferredHeightDp": 280,
+  "canvas": { "width": 1536, "height": 1024 },
+  "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
+  "normalization": { "scale": 0.9, "translate": [77, 51] },
+  "equipment": ["barbell_loaded_three_quarter_v1"],
+  "lockedAnchors": {
+    "foot_left": [572, 851],
+    "foot_right": [759, 875],
+    "hip_center": [604, 438],
+    "shoulder_center": [821, 205]
+  },
+  "frames": [
+    {
+      "id": "bottom",
+      "file": "../final/barbell-bent-over-row-bottom.png",
+      "durationMs": 1000,
+      "joints": {
+        "elbow_left": [830, 450],
+        "elbow_right": [925, 476],
+        "hand_center": [897, 621]
+      },
+      "movingEquipment": {
+        "barbell": { "center": [882, 626], "rotationDegrees": 2 }
+      }
+    },
+    {
+      "id": "contracted",
+      "file": "../final/barbell-bent-over-row-contracted.png",
+      "durationMs": 1000,
+      "joints": {
+        "elbow_left": [617, 290],
+        "elbow_right": [839, 358],
+        "hand_center": [884, 414]
+      },
+      "movingEquipment": {
+        "barbell": { "center": [794, 414], "rotationDegrees": 2 }
+      }
+    }
+  ],
+  "renderPolicy": {
+    "locked": ["canvas", "camera", "feet", "legs", "pelvis", "torso", "barbell_design"],
+    "animated": ["scapulae", "upper_arms", "forearms", "hands", "barbell"]
+  }
+}

@@ -1,4 +1,5 @@
 apply plugin: "com.android.application"
+apply from: rootProject.file("gradle/exercise-illustration-assets.gradle")
 
 def localProperties = new Properties()
 def localPropertiesFile = rootProject.file("local.properties")

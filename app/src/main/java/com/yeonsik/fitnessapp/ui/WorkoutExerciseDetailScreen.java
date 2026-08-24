@@ -1,5 +1,11 @@
 package com.yeonsik.fitnessapp.ui;
 
+import android.animation.ValueAnimator;
+import android.graphics.Bitmap;
+import android.graphics.Rect;
+import android.graphics.drawable.AnimationDrawable;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.Gravity;
@@ -7,11 +13,13 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationCatalog;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 
@@ -20,12 +28,13 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 종목 세부 화면: 종목 칩 탭 + 진행 요약 + 세트 편집 그리드(이전 값 참조) + 기록 분석.
+ * 종목 세부 화면: 종목 칩 탭 + 운동 자세 이미지 + 세트 편집 그리드(이전 값 참조) + 기록 분석.
  * 세트 입력이 최우선이므로 그리드가 위, 분석(이전 기록/개인 기록/볼륨 추이)이 아래다.
  */
 public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private static final int DEFAULT_REST_SECONDS = 90;
     private static final int REST_STEP_SECONDS = 15;
+    private static final int ILLUSTRATION_DISPLAY_SCALE_PERCENT = 120;
 
     /** 이번 종목의 기본 휴식(초). 스탬프 시 타이머와 세트 기록에 쓰인다. */
     private final int[] defaultRestSeconds = {DEFAULT_REST_SECONDS};
@@ -83,7 +92,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         add(ui.titleView(activeExercise.name));
 
         renderExerciseTabs(exercises, activeExercise, allCompleted);
-        renderProgressSummaryCard(activeExercise, sets);
+        renderExerciseIllustration(activeExercise);
 
         section("세트 기록");
         renderExerciseSetEditorCard(recordId, activeExercise, sets, lastHistory);
@@ -103,34 +112,208 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         renderLastHistoryCard(activeExercise.recordType, lastHistory);
     }
 
-    // ── 진행 요약 ─────────────────────────────────────────────────────
+    // ── 운동 자세 이미지 ───────────────────────────────────────────────
 
-    private void renderProgressSummaryCard(FitnessRepository.SessionExerciseEntry activeExercise,
-                                           List<FitnessRepository.SessionSetEntry> sets) {
+    private void renderExerciseIllustration(FitnessRepository.SessionExerciseEntry exercise) {
+        int[] drawableIds = ExerciseIllustrationCatalog.drawablesFor(exercise.exerciseId);
+        if (drawableIds.length == 0) {
+            return;
+        }
+
         FitnessUi ui = ui();
-        LinearLayout summary = ui.card();
-        LinearLayout summaryHeader = new LinearLayout(host.activity());
-        summaryHeader.setOrientation(LinearLayout.HORIZONTAL);
-        summaryHeader.setGravity(Gravity.CENTER_VERTICAL);
-        LinearLayout summaryColumn = new LinearLayout(host.activity());
-        summaryColumn.setOrientation(LinearLayout.VERTICAL);
-        summaryColumn.addView(ui.text(activeExercise.uiPart
-                        + (activeExercise.equipment.isEmpty() ? "" : " · " + activeExercise.equipment),
-                13, FitnessUi.COLOR_MUTED, false));
-        TextView summaryProgressText = ui.num(sets.isEmpty()
-                        ? "세트 없음"
-                        : WorkoutSessionState.completedSetCount(sets) + "/" + sets.size() + " 세트 완료",
-                16, FitnessUi.COLOR_TEXT, true);
-        summaryProgressText.setPadding(0, ui.dp(4), 0, 0);
-        summaryColumn.addView(summaryProgressText);
-        summaryHeader.addView(summaryColumn, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        summary.addView(summaryHeader);
-        double ratio = sets.isEmpty() ? 0 : (double) WorkoutSessionState.completedSetCount(sets) / sets.size();
-        View progress = ui.progressBar(ratio, false);
-        LinearLayout.LayoutParams progressParams = ui.fullWidthParams(ui.dp(12));
-        progressParams.height = ui.dp(6);
-        summary.addView(progress, progressParams);
-        add(summary);
+        ImageView illustration = new ImageView(host.activity());
+        int[] durationsMs = ExerciseIllustrationCatalog.frameDurationsMsFor(exercise.exerciseId);
+        String illustrationDescription = exercise.name
+                + (drawableIds.length > 1 ? " 운동 자세 애니메이션" : " 운동 자세");
+        illustration.setContentDescription(illustrationDescription);
+        setIllustrationFrames(illustration, drawableIds, durationsMs, illustrationDescription);
+        illustration.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        illustration.setAdjustViewBounds(false);
+        illustration.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        illustration.setPadding(0, ui.dp(4), 0, ui.dp(4));
+
+        int preferredHeightDp = ExerciseIllustrationCatalog.preferredHeightDp(exercise.exerciseId);
+        int height = ui.dp(Math.round(preferredHeightDp * ILLUSTRATION_DISPLAY_SCALE_PERCENT / 100f));
+
+        LinearLayout.LayoutParams imageParams = ui.fullWidthParams(ui.dp(8));
+        imageParams.height = height;
+        add(illustration, imageParams);
+    }
+
+    private void setIllustrationFrames(
+            ImageView illustration,
+            int[] drawableIds,
+            int[] durationsMs,
+            String baseContentDescription
+    ) {
+        if (drawableIds.length != durationsMs.length) {
+            throw new IllegalArgumentException("운동 자세 프레임과 duration 수가 일치하지 않습니다.");
+        }
+
+        Drawable[] frames = displayFramesWithoutTransparentMargins(drawableIds);
+        if (frames.length == 1) {
+            illustration.setImageDrawable(frames[0]);
+            return;
+        }
+
+        AnimationDrawable animation = new AnimationDrawable();
+        animation.setOneShot(false);
+        final boolean[] pausedByUser = {!ValueAnimator.areAnimatorsEnabled()};
+        for (int index = 0; index < frames.length; index++) {
+            Drawable frame = frames[index];
+            if (frame != null) {
+                animation.addFrame(frame, durationsMs[index]);
+            }
+        }
+        illustration.setImageDrawable(animation);
+        illustration.setClickable(true);
+        illustration.setFocusable(true);
+        illustration.setContentDescription(
+                ValueAnimator.areAnimatorsEnabled()
+                        ? baseContentDescription + " 탭하여 일시정지하거나 재생할 수 있습니다."
+                        : baseContentDescription + " 시스템 애니메이션이 꺼져 있어 정지되어 있습니다."
+        );
+        illustration.setOnClickListener(view -> {
+            if (!ValueAnimator.areAnimatorsEnabled()) {
+                pausedByUser[0] = true;
+                animation.stop();
+                illustration.setContentDescription(
+                        baseContentDescription + " 시스템 애니메이션이 꺼져 있어 정지되어 있습니다."
+                );
+                return;
+            }
+            pausedByUser[0] = !pausedByUser[0];
+            if (pausedByUser[0]) {
+                animation.stop();
+                illustration.setContentDescription(
+                        baseContentDescription + " 일시정지되었습니다. 탭하여 재생할 수 있습니다."
+                );
+            } else {
+                animation.start();
+                illustration.setContentDescription(
+                        baseContentDescription + " 재생 중입니다. 탭하여 일시정지할 수 있습니다."
+                );
+            }
+        });
+        illustration.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View view) {
+                if (ValueAnimator.areAnimatorsEnabled() && !pausedByUser[0]) {
+                    animation.start();
+                }
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View view) {
+                animation.stop();
+            }
+        });
+        illustration.post(() -> {
+            if (illustration.isAttachedToWindow()
+                    && ValueAnimator.areAnimatorsEnabled()
+                    && !pausedByUser[0]) {
+                animation.start();
+            }
+        });
+    }
+
+    /**
+     * 배포 PNG의 투명 캔버스는 그대로 보존하되, 화면 표시 시 실제 그림 영역만 사용한다.
+     * Bitmap을 재인코딩하거나 리사이즈하지 않으므로 APK 용량과 원본 픽셀은 변하지 않는다.
+     */
+    private Drawable[] displayFramesWithoutTransparentMargins(int[] drawableIds) {
+        Drawable[] sourceFrames = new Drawable[drawableIds.length];
+        Rect union = null;
+        for (int index = 0; index < drawableIds.length; index++) {
+            Drawable frame = host.activity().getDrawable(drawableIds[index]);
+            sourceFrames[index] = frame;
+            Rect frameBounds = alphaBounds(frame);
+            if (frameBounds == null) {
+                return sourceFrames;
+            }
+            if (union == null) {
+                union = new Rect(frameBounds);
+            } else {
+                union.union(frameBounds);
+            }
+        }
+        if (union == null) {
+            return sourceFrames;
+        }
+
+        for (int index = 0; index < sourceFrames.length; index++) {
+            Drawable frame = sourceFrames[index];
+            if (!(frame instanceof BitmapDrawable)) {
+                return sourceFrames;
+            }
+            Bitmap bitmap = ((BitmapDrawable) frame).getBitmap();
+            Rect frameCrop = new Rect(
+                    Math.max(0, union.left),
+                    Math.max(0, union.top),
+                    Math.min(bitmap.getWidth(), union.right),
+                    Math.min(bitmap.getHeight(), union.bottom)
+            );
+            if (frameCrop.width() <= 0 || frameCrop.height() <= 0) {
+                return sourceFrames;
+            }
+            sourceFrames[index] = cropBitmapDrawable((BitmapDrawable) frame, frameCrop);
+        }
+        return sourceFrames;
+    }
+
+    private Rect alphaBounds(Drawable drawable) {
+        if (!(drawable instanceof BitmapDrawable)) {
+            return null;
+        }
+        Bitmap bitmap = ((BitmapDrawable) drawable).getBitmap();
+        int width = bitmap.getWidth();
+        int height = bitmap.getHeight();
+        int minX = width;
+        int minY = height;
+        int maxX = -1;
+        int maxY = -1;
+        int[] row = new int[width];
+        for (int y = 0; y < height; y++) {
+            bitmap.getPixels(row, 0, width, 0, y, width, 1);
+            for (int x = 0; x < width; x++) {
+                if ((row[x] >>> 24) == 0) {
+                    continue;
+                }
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = y;
+            }
+        }
+        return maxX < 0
+                ? null
+                : new Rect(minX, minY, maxX + 1, maxY + 1);
+    }
+
+    private Drawable cropBitmapDrawable(BitmapDrawable source, Rect crop) {
+        Bitmap sourceBitmap = source.getBitmap();
+        if (crop.left == 0 && crop.top == 0
+                && crop.right == sourceBitmap.getWidth()
+                && crop.bottom == sourceBitmap.getHeight()) {
+            return source;
+        }
+        Bitmap croppedBitmap;
+        try {
+            croppedBitmap = Bitmap.createBitmap(
+                    sourceBitmap,
+                    crop.left,
+                    crop.top,
+                    crop.width(),
+                    crop.height()
+            );
+        } catch (IllegalArgumentException exception) {
+            return source;
+        }
+        croppedBitmap.setDensity(sourceBitmap.getDensity());
+        BitmapDrawable cropped = new BitmapDrawable(host.activity().getResources(), croppedBitmap);
+        cropped.setFilterBitmap(true);
+        cropped.setDither(true);
+        return cropped;
     }
 
     // ── 종목 탭 ───────────────────────────────────────────────────────

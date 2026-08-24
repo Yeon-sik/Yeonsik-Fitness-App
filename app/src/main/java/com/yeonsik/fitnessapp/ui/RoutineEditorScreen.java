@@ -7,6 +7,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -27,9 +28,17 @@ import java.util.List;
  * 두 픽커는 대상만 다르고 검색/필터/선택 UI가 같아 하나의 렌더러를 공유한다.
  */
 public final class RoutineEditorScreen extends BaseScreen {
+    private final ExerciseIllustrationPreview exerciseIllustrationPreview;
+    private final ExerciseCardRenderer exerciseCardRenderer;
 
     public RoutineEditorScreen(ScreenHost host) {
         super(host);
+        exerciseIllustrationPreview = new ExerciseIllustrationPreview(host.activity(), host.ui());
+        exerciseCardRenderer = new ExerciseCardRenderer(
+                host.activity(),
+                host.ui(),
+                exerciseIllustrationPreview
+        );
     }
 
     @Override
@@ -109,7 +118,12 @@ public final class RoutineEditorScreen extends BaseScreen {
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
         TextView recordType = ui.text(exercise.recordType, 12, FitnessUi.COLOR_TERTIARY, false);
+        recordType.setPadding(ui.dp(8), 0, 0, 0);
         row.addView(recordType);
+        ImageView preview = exerciseIllustrationPreview.create(exercise.exerciseId);
+        if (preview != null) {
+            row.addView(preview, exercisePreviewParams(ui));
+        }
         return row;
     }
 
@@ -256,6 +270,14 @@ public final class RoutineEditorScreen extends BaseScreen {
         addButton.setEnabled(false);
         add(addButton, ui.fullWidthParams(ui.dp(10)));
 
+        Runnable updateSelectionSummary = () -> setSelectionSummary(
+                selectedCount,
+                addButton,
+                addLabel,
+                routineMode,
+                selectedExercises
+        );
+
         LinearLayout listArea = new LinearLayout(host.activity());
         listArea.setOrientation(LinearLayout.VERTICAL);
 
@@ -270,13 +292,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                     selectedSubPart,
                     refresh[0]
             );
-            selectedCount.setText("선택한 운동 " + selectedExercises.size() + "개");
-            addButton.setText(selectedExercises.isEmpty()
-                    ? addLabel
-                    : (routineMode
-                            ? "선택한 운동 " + selectedExercises.size() + "개 추가"
-                            : "선택한 종목 " + selectedExercises.size() + "개 추가"));
-            addButton.setEnabled(!selectedExercises.isEmpty());
+            updateSelectionSummary.run();
             renderPickerList(
                     listArea,
                     filteredWeightExercises(
@@ -287,7 +303,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                     ),
                     selectedExerciseIds,
                     selectedExercises,
-                    refresh[0]
+                    updateSelectionSummary
             );
         };
 
@@ -411,7 +427,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             List<WeightExercise> exercises,
             List<String> selectedExerciseIds,
             List<WeightExercise> selectedExercises,
-            Runnable refresh
+            Runnable onSelectionChanged
     ) {
         FitnessUi ui = ui();
         listArea.removeAllViews();
@@ -428,54 +444,56 @@ public final class RoutineEditorScreen extends BaseScreen {
             card.setOrientation(LinearLayout.HORIZONTAL);
             card.setGravity(Gravity.CENTER_VERTICAL);
             card.setPadding(ui.dp(16), ui.dp(14), ui.dp(16), ui.dp(14));
-            String cardSeed = "exercise-" + exercise.displayName();
-            card.setBackground(selected
-                    ? ui.vibrantRippleDrawable(cardSeed, ui.dp(16))
-                    : ui.flatSurfaceRippleDrawable(ui.dp(16)));
-            ui.applyDepth(card, selected ? 7 : 4);
-            card.setSelected(selected);
-            card.setContentDescription(
-                    exercise.displayName() + ", " + exercise.primarySubPartNameKo
-                            + ", " + exercise.equipmentNameKo
-                            + ", " + displayRecordType(exercise)
-                            + (selected ? ", 선택됨" : ", 선택 안 됨")
-            );
 
-            LinearLayout column = new LinearLayout(host.activity());
-            column.setOrientation(LinearLayout.VERTICAL);
-            TextView name = ui.text(exercise.displayName(), 15,
-                    selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
-            TextView meta = ui.text(exercise.primarySubPartNameKo + " · " + exercise.equipmentNameKo
-                            + " · " + displayRecordType(exercise),
-                    12, selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED, false);
-            meta.setPadding(0, ui.dp(4), 0, 0);
-            column.addView(name);
-            column.addView(meta);
-            card.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-            if (selected) {
-                TextView check = ui.text("✓", 16, FitnessUi.COLOR_INVERSE_TEXT, true);
-                check.setGravity(Gravity.CENTER);
-                check.setBackground(ui.borderDrawable(ui.chipOnAccent(),
-                        ui.chipOnAccent(), ui.dp(999)));
-                card.addView(check, new LinearLayout.LayoutParams(ui.dp(28), ui.dp(28)));
-            }
+            ExerciseCardRenderer.Content content =
+                    ExerciseCardRenderer.Content.fromWeightExercise(exercise);
+            ExerciseCardRenderer.Binding cardBinding =
+                    exerciseCardRenderer.addContent(card, content, true, selected);
 
             card.setClickable(true);
             card.setFocusable(true);
             ui.pressFeedback(card);
             card.setOnClickListener(v -> {
+                boolean selectedNow;
                 if (selectedExerciseIds.contains(exercise.id)) {
                     removeSelectedExercise(exercise.id, selectedExerciseIds, selectedExercises);
+                    selectedNow = false;
                 } else {
                     selectedExerciseIds.add(exercise.id);
                     selectedExercises.add(exercise);
+                    selectedNow = true;
                 }
-                refresh.run();
+                cardBinding.applySelection(selectedNow);
+                onSelectionChanged.run();
             });
             LinearLayout.LayoutParams cardParams = ui.fullWidthParams(listArea.getChildCount() == 0 ? 0 : ui.dp(8));
             listArea.addView(card, cardParams);
         }
+    }
+
+    private void setSelectionSummary(
+            TextView selectedCount,
+            Button addButton,
+            String addLabel,
+            boolean routineMode,
+            List<WeightExercise> selectedExercises
+    ) {
+        selectedCount.setText("선택한 운동 " + selectedExercises.size() + "개");
+        addButton.setText(selectedExercises.isEmpty()
+                ? addLabel
+                : (routineMode
+                        ? "선택한 운동 " + selectedExercises.size() + "개 추가"
+                        : "선택한 종목 " + selectedExercises.size() + "개 추가"));
+        addButton.setEnabled(!selectedExercises.isEmpty());
+    }
+
+    private LinearLayout.LayoutParams exercisePreviewParams(FitnessUi ui) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ui.dp(ExerciseIllustrationPreview.SIZE_DP),
+                ui.dp(ExerciseIllustrationPreview.SIZE_DP)
+        );
+        params.setMargins(ui.dp(8), 0, 0, 0);
+        return params;
     }
 
     private void removeSelectedExercise(String exerciseId, List<String> selectedExerciseIds,
@@ -513,10 +531,4 @@ public final class RoutineEditorScreen extends BaseScreen {
         return results;
     }
 
-    private String displayRecordType(WeightExercise exercise) {
-        if (exercise.recordTypeNameKo != null && !exercise.recordTypeNameKo.isEmpty()) {
-            return exercise.recordTypeNameKo;
-        }
-        return exercise.recordType == null || exercise.recordType.isEmpty() ? "기록 방식 없음" : exercise.recordType;
-    }
 }

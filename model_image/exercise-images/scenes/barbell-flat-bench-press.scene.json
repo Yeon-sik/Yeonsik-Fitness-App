@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "exerciseId": "chest_barbell_flat_bench_press",
+  "preferredHeightDp": 220,
+  "canvas": { "width": 1536, "height": 1024 },
+  "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
+  "normalization": {
+    "scale": 0.9,
+    "translate": [77, 51]
+  },
+  "equipment": [
+    "flat_bench_three_quarter_v1",
+    "barbell_loaded_three_quarter_v1"
+  ],
+  "lockedAnchors": {
+    "head_center": [642, 269],
+    "pelvis_center": [844, 550],
+    "bench_rear_foot": [590, 599],
+    "bench_front_foot": [919, 810]
+  },
+  "frames": [
+    {
+      "id": "bottom",
+      "file": "../final/barbell-flat-bench-press.png",
+      "durationMs": 1000,
+      "joints": {
+        "hand_left": [518, 307],
+        "hand_right": [920, 245],
+        "elbow_left": [520, 445],
+        "elbow_right": [936, 380]
+      },
+      "barbell": {
+        "center": [719, 276],
+        "rotationDegrees": -8.8
+      }
+    },
+    {
+      "id": "mid_concentric",
+      "file": "../final/barbell-flat-bench-press-mid.png",
+      "durationMs": 1000,
+      "joints": {
+        "hand_left": [516, 221],
+        "hand_right": [910, 168],
+        "elbow_left": [510, 373],
+        "elbow_right": [915, 321]
+      },
+      "barbell": {
+        "center": [713, 195],
+        "rotationDegrees": -8.8
+      }
+    }
+  ],
+  "renderPolicy": {
+    "locked": [
+      "canvas",
+      "camera",
+      "head",
+      "torso",
+      "pelvis",
+      "legs",
+      "flat_bench"
+    ],
+    "animated": [
+      "upper_arms",
+      "forearms",
+      "hands",
+      "barbell"
+    ]
+  }
+}

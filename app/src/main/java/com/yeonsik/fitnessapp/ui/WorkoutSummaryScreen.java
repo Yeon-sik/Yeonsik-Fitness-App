@@ -20,9 +20,15 @@ import java.util.ArrayList;
  */
 public final class WorkoutSummaryScreen extends BaseScreen {
     private static final int SETS_PER_ROW = 6;
+    private final ExerciseCardRenderer exerciseCardRenderer;
 
     public WorkoutSummaryScreen(ScreenHost host) {
         super(host);
+        exerciseCardRenderer = new ExerciseCardRenderer(
+                host.activity(),
+                host.ui(),
+                new ExerciseIllustrationPreview(host.activity(), host.ui())
+        );
     }
 
     @Override
@@ -131,21 +137,15 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                                List<FitnessRepository.SessionSetEntry> sets, int cellWidth) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
-
-        LinearLayout header = new LinearLayout(host.activity());
-        header.setOrientation(LinearLayout.HORIZONTAL);
-        header.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(ui.orderBadge(exercise.orderIndex, false));
-        LinearLayout titleColumn = new LinearLayout(host.activity());
-        titleColumn.setOrientation(LinearLayout.VERTICAL);
-        titleColumn.setPadding(ui.dp(12), 0, 0, 0);
-        titleColumn.addView(ui.text(exercise.name, 16, FitnessUi.COLOR_TEXT, true));
-        String metaText = exercise.uiPart + (exercise.equipment.isEmpty() ? "" : " · " + exercise.equipment);
-        TextView meta = ui.text(metaText, 12, FitnessUi.COLOR_MUTED, false);
-        meta.setPadding(0, ui.dp(2), 0, 0);
-        titleColumn.addView(meta);
-        header.addView(titleColumn, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        card.addView(header);
+        card.setGravity(Gravity.CENTER_HORIZONTAL);
+        ExerciseCardRenderer.Content content =
+                ExerciseCardRenderer.Content.fromSessionExercise(
+                        exercise,
+                        host.exerciseMasterRepository().getExerciseById(exercise.exerciseId)
+                );
+        exerciseCardRenderer.addPreviewOnly(card, content);
+        card.addView(ui.text("수행 횟수", 12, FitnessUi.COLOR_MUTED, true),
+                ui.fullWidthParams(ui.dp(12)));
 
         for (int start = 0; start < sets.size(); start += SETS_PER_ROW) {
             int end = Math.min(start + SETS_PER_ROW, sets.size());

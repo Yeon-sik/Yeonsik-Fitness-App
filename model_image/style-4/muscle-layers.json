@@ -1,0 +1,460 @@
+{
+  "version": 2,
+  "canvas": {
+    "width": 1024,
+    "height": 1536
+  },
+  "highlight": {
+    "color": "#ef4444",
+    "opacity": 0.72,
+    "stroke": "#991b1b",
+    "styles": {
+      "surface": {
+        "fill": "#ef4444",
+        "opacity": 0.72,
+        "stroke": "#991b1b"
+      },
+      "functional": {
+        "fill": "#f97316",
+        "opacity": 0.58,
+        "stroke": "#9a3412",
+        "dash": "5 4"
+      },
+      "deep": {
+        "fill": "#ef4444",
+        "opacity": 0.3,
+        "stroke": "#991b1b",
+        "dash": "10 7",
+        "hatch": true
+      },
+      "landmark": {
+        "fill": "#f59e0b",
+        "opacity": 0.24,
+        "stroke": "#92400e",
+        "dash": "3 5"
+      }
+    }
+  },
+  "layers": [
+    {
+      "id": "pectoralis_major_clavicular",
+      "view": "front",
+      "nameKo": "대흉근 쇄골부",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M507 303 C468 294 420 296 374 312 C406 319 455 333 507 351 Z"]
+    },
+    {
+      "id": "pectoralis_major_sternocostal_upper",
+      "view": "front",
+      "nameKo": "대흉근 흉늑부 상부 (기능 구획)",
+      "kind": "functional_region",
+      "mirror": true,
+      "paths": ["M507 351 C454 331 401 319 370 337 C351 354 348 386 362 413 C399 433 451 438 507 423 Z"]
+    },
+    {
+      "id": "pectoralis_major_sternocostal_lower",
+      "view": "front",
+      "nameKo": "대흉근 흉늑부 하부 (기능 구획)",
+      "kind": "functional_region",
+      "mirror": true,
+      "paths": ["M362 413 C397 439 451 447 507 423 L507 451 C452 461 398 451 370 432 Z"]
+    },
+    {
+      "id": "deltoid_anterior",
+      "view": "front",
+      "nameKo": "전면 삼각근",
+      "kind": "anatomical_region",
+      "mirror": true,
+      "paths": ["M373 306 C345 284 317 282 294 302 C321 304 344 319 361 345 L382 318 Z"]
+    },
+    {
+      "id": "deltoid_lateral",
+      "view": "front",
+      "nameKo": "측면 삼각근",
+      "kind": "anatomical_region",
+      "mirror": true,
+      "paths": ["M294 302 C274 322 270 359 279 389 C284 407 294 421 305 430 C302 382 316 337 361 345 C345 319 321 304 294 302 Z"]
+    },
+    {
+      "id": "biceps_brachii_long_head",
+      "view": "front",
+      "nameKo": "상완이두근 장두",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M304 401 C286 424 282 461 293 492 C302 509 313 508 322 492 C333 468 336 430 326 407 C319 400 311 398 304 401 Z"]
+    },
+    {
+      "id": "biceps_brachii_short_head",
+      "view": "front",
+      "nameKo": "상완이두근 단두",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M326 407 C336 401 344 408 349 423 C354 449 346 479 329 501 C321 508 313 507 306 501 C324 473 331 439 326 407 Z"]
+    },
+    {
+      "id": "brachialis",
+      "view": "front",
+      "nameKo": "상완근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M282 414 C263 439 260 477 275 508 L296 497 C281 462 285 427 306 400 Z"]
+    },
+    {
+      "id": "forearm_flexors",
+      "view": "front",
+      "nameKo": "전완 굴곡근군",
+      "kind": "anatomical_group",
+      "mirror": true,
+      "paths": ["M293 502 C272 520 246 555 221 603 C198 648 181 686 169 724 L197 716 C221 681 246 642 268 601 C289 562 302 527 306 505 Z"]
+    },
+    {
+      "id": "brachioradialis",
+      "view": "front",
+      "nameKo": "상완요골근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M276 505 C251 527 222 570 196 623 C178 660 163 691 145 716 L169 724 C190 699 211 664 232 624 C256 579 278 540 293 519 Z"]
+    },
+    {
+      "id": "serratus_anterior",
+      "view": "front",
+      "nameKo": "전거근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": [
+        "M370 422 C388 428 404 438 416 450 L397 458 C386 448 377 438 370 422 Z",
+        "M367 447 C386 453 402 463 416 476 L396 483 C385 472 375 460 367 447 Z",
+        "M367 473 C385 480 401 490 414 503 L393 509 C382 497 373 486 367 473 Z"
+      ]
+    },
+    {
+      "id": "rectus_abdominis",
+      "view": "front",
+      "nameKo": "복직근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M445 438 C462 432 486 433 507 440 L507 770 C486 760 462 756 445 743 C434 677 435 505 445 438 Z"]
+    },
+    {
+      "id": "external_oblique",
+      "view": "front",
+      "nameKo": "외복사근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M378 441 C401 451 422 482 435 527 L445 743 C420 717 393 684 381 646 C369 575 364 500 378 441 Z"]
+    },
+    {
+      "id": "internal_oblique_deep",
+      "view": "front",
+      "nameKo": "내복사근 위치 투영",
+      "kind": "deep_projection",
+      "mirror": true,
+      "paths": ["M394 557 C414 567 431 585 443 611 L441 698 C421 678 406 653 397 624 Z"]
+    },
+    {
+      "id": "transverse_abdominis_deep",
+      "view": "front",
+      "nameKo": "복횡근 위치 투영",
+      "kind": "deep_projection",
+      "mirror": true,
+      "paths": ["M398 624 C430 630 469 633 507 633 L507 704 C469 701 431 691 402 670 Z"]
+    },
+    {
+      "id": "tensor_fasciae_latae",
+      "view": "front",
+      "nameKo": "대퇴근막장근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M374 700 C354 711 343 734 343 763 C345 783 355 797 368 800 C377 778 389 747 405 721 Z"]
+    },
+    {
+      "id": "iliotibial_tract",
+      "view": "front",
+      "nameKo": "장경인대 (해부학 기준점)",
+      "kind": "anatomical_landmark",
+      "mirror": true,
+      "paths": ["M348 771 C353 787 361 798 369 801 C366 858 367 924 377 994 L359 1012 C344 930 340 847 348 771 Z"]
+    },
+    {
+      "id": "sartorius",
+      "view": "front",
+      "nameKo": "봉공근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M366 716 C389 750 407 793 423 843 C439 895 455 949 470 989 L455 1002 C439 954 424 904 408 855 C393 808 375 763 354 732 Z"]
+    },
+    {
+      "id": "adductor_longus",
+      "view": "front",
+      "nameKo": "장내전근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M447 722 C468 709 490 711 504 728 C490 760 477 802 465 853 C448 836 437 798 434 754 Z"]
+    },
+    {
+      "id": "gracilis",
+      "view": "front",
+      "nameKo": "박근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M489 725 C497 722 503 725 507 732 L503 983 C495 994 487 997 479 992 C486 908 487 815 489 725 Z"]
+    },
+    {
+      "id": "adductor_magnus_deep",
+      "view": "front",
+      "nameKo": "대내전근 위치 투영",
+      "kind": "deep_projection",
+      "mirror": true,
+      "paths": ["M456 743 C474 733 491 737 502 751 L493 930 C479 936 464 929 451 914 C459 856 460 795 456 743 Z"]
+    },
+    {
+      "id": "rectus_femoris",
+      "view": "front",
+      "nameKo": "대퇴직근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M390 730 C405 716 426 716 440 731 C452 791 449 885 427 979 C417 995 405 995 394 979 C380 893 380 800 390 730 Z"]
+    },
+    {
+      "id": "vastus_lateralis",
+      "view": "front",
+      "nameKo": "외측광근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M342 735 C355 718 374 713 390 725 C376 791 372 883 388 970 C378 990 365 995 354 978 C339 921 334 823 342 735 Z"]
+    },
+    {
+      "id": "vastus_medialis",
+      "view": "front",
+      "nameKo": "내측광근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M440 795 C458 811 472 850 475 904 C476 952 459 989 430 1001 C420 994 418 982 427 969 C443 920 449 854 440 795 Z"]
+    },
+    {
+      "id": "vastus_intermedius_deep",
+      "view": "front",
+      "nameKo": "중간광근 위치 투영",
+      "kind": "deep_projection",
+      "mirror": true,
+      "paths": ["M394 748 C408 738 424 739 436 750 C442 811 438 892 423 958 C414 969 404 969 396 958 C385 888 384 810 394 748 Z"]
+    },
+    {
+      "id": "tibialis_anterior",
+      "view": "front",
+      "nameKo": "전경골근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M365 1035 C387 1016 408 1027 417 1057 C421 1137 406 1260 387 1372 L363 1372 C349 1261 347 1120 365 1035 Z"]
+    },
+    {
+      "id": "trapezius_upper",
+      "view": "back",
+      "nameKo": "상부 승모근",
+      "kind": "anatomical_region",
+      "mirror": true,
+      "paths": ["M512 145 C490 164 473 196 462 235 C429 252 386 271 342 286 C397 286 445 300 486 330 L512 311 Z"]
+    },
+    {
+      "id": "trapezius_middle",
+      "view": "back",
+      "nameKo": "중부 승모근",
+      "kind": "anatomical_region",
+      "mirror": true,
+      "paths": ["M342 286 C390 291 438 306 480 329 L512 349 L512 386 C470 366 426 347 382 334 Z"]
+    },
+    {
+      "id": "trapezius_lower",
+      "view": "back",
+      "nameKo": "하부 승모근",
+      "kind": "anatomical_region",
+      "mirror": true,
+      "paths": ["M382 334 C426 347 470 366 512 386 L512 578 C490 532 466 481 441 428 C421 387 401 355 382 334 Z"]
+    },
+    {
+      "id": "deltoid_posterior",
+      "view": "back",
+      "nameKo": "후면 삼각근",
+      "kind": "anatomical_region",
+      "mirror": true,
+      "paths": ["M342 284 C307 277 278 299 269 337 C264 367 277 397 300 414 C302 373 320 328 370 313 Z"]
+    },
+    {
+      "id": "infraspinatus",
+      "view": "back",
+      "nameKo": "극하근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M369 318 C402 321 432 339 454 365 C433 380 404 390 369 392 C351 374 352 339 369 318 Z"]
+    },
+    {
+      "id": "teres_minor",
+      "view": "back",
+      "nameKo": "소원근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M368 390 C399 388 428 379 454 365 C448 382 439 396 427 407 C405 411 385 405 368 390 Z"]
+    },
+    {
+      "id": "teres_major",
+      "view": "back",
+      "nameKo": "대원근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M365 408 C389 411 410 408 427 401 C444 395 455 388 462 379 C450 413 430 439 401 451 C381 445 368 430 365 408 Z"]
+    },
+    {
+      "id": "rhomboid_minor_deep",
+      "view": "back",
+      "nameKo": "소능형근 위치 투영",
+      "kind": "deep_projection",
+      "mirror": true,
+      "paths": ["M421 316 C452 317 484 329 512 350 L512 374 C479 356 448 344 416 340 Z"]
+    },
+    {
+      "id": "rhomboid_major_deep",
+      "view": "back",
+      "nameKo": "대능형근 위치 투영",
+      "kind": "deep_projection",
+      "mirror": true,
+      "paths": ["M416 340 C449 346 481 359 512 379 L512 438 C481 416 447 397 410 383 Z"]
+    },
+    {
+      "id": "latissimus_dorsi",
+      "view": "back",
+      "nameKo": "광배근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M360 400 C349 432 347 486 355 545 C363 600 381 650 405 684 C427 678 451 672 480 664 C488 612 482 557 468 512 C453 467 429 431 401 410 C384 407 371 404 360 400 Z"]
+    },
+    {
+      "id": "triceps_brachii",
+      "view": "back",
+      "nameKo": "상완삼두근",
+      "kind": "anatomical_group",
+      "mirror": true,
+      "paths": ["M300 409 C323 397 344 405 353 431 C355 472 340 514 315 535 C293 523 279 489 281 451 Z"]
+    },
+    {
+      "id": "forearm_extensors",
+      "view": "back",
+      "nameKo": "전완 신전근군",
+      "kind": "anatomical_group",
+      "mirror": true,
+      "paths": ["M280 520 C250 540 211 596 169 687 L133 718 L172 731 C214 690 247 642 272 596 C293 559 307 531 315 535 Z"]
+    },
+    {
+      "id": "erector_spinae",
+      "view": "back",
+      "nameKo": "척추기립근",
+      "kind": "deep_projection",
+      "mirror": true,
+      "paths": ["M482 468 C469 506 462 550 462 599 C463 642 469 680 478 711 L500 700 L500 478 C494 470 488 467 482 468 Z"]
+    },
+    {
+      "id": "gluteus_medius",
+      "view": "back",
+      "nameKo": "중둔근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M384 681 C407 668 437 665 466 680 C441 690 414 707 393 728 C381 716 377 697 384 681 Z"]
+    },
+    {
+      "id": "gluteus_maximus",
+      "view": "back",
+      "nameKo": "대둔근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M397 742 C432 712 471 695 505 695 L505 832 C474 851 431 849 397 823 C376 798 378 766 397 742 Z"]
+    },
+    {
+      "id": "biceps_femoris",
+      "view": "back",
+      "nameKo": "대퇴이두근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M346 835 C365 822 388 824 405 843 C409 908 399 996 381 1058 C358 1051 342 1012 339 954 Z"]
+    },
+    {
+      "id": "semitendinosus",
+      "view": "back",
+      "nameKo": "반건양근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M408 839 C428 830 449 834 461 851 C462 916 452 994 431 1053 C414 1039 405 1007 403 961 Z"]
+    },
+    {
+      "id": "semimembranosus",
+      "view": "back",
+      "nameKo": "반막양근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": ["M457 846 C473 835 489 838 499 853 L498 1053 C480 1043 461 1019 447 986 C456 936 461 888 457 846 Z"]
+    },
+    {
+      "id": "gastrocnemius",
+      "view": "back",
+      "nameKo": "비복근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": [
+        "M356 1073 C375 1054 396 1057 407 1087 C412 1145 402 1206 385 1239 C365 1234 351 1197 348 1152 Z",
+        "M407 1087 C420 1058 443 1060 454 1092 C455 1151 440 1215 416 1246 C400 1235 399 1172 407 1087 Z"
+      ]
+    },
+    {
+      "id": "soleus",
+      "view": "back",
+      "nameKo": "가자미근",
+      "kind": "anatomical",
+      "mirror": true,
+      "paths": [
+        "M351 1188 C358 1221 372 1248 387 1258 C384 1284 378 1307 369 1325 C354 1291 348 1247 351 1188 Z",
+        "M418 1248 C431 1233 443 1212 451 1188 C454 1234 449 1282 435 1323 C426 1304 420 1278 418 1248 Z"
+      ]
+    },
+    {
+      "id": "achilles_tendon",
+      "view": "back",
+      "nameKo": "아킬레스건 (해부학 기준점)",
+      "kind": "anatomical_landmark",
+      "mirror": true,
+      "paths": ["M384 1260 C395 1252 407 1252 418 1260 C414 1314 411 1362 408 1409 C402 1423 394 1423 388 1409 C387 1358 386 1309 384 1260 Z"]
+    }
+  ],
+  "exerciseGroups": {
+    "upper_chest": ["pectoralis_major_clavicular"],
+    "mid_chest": ["pectoralis_major_sternocostal_upper"],
+    "lower_chest": ["pectoralis_major_sternocostal_lower"],
+    "overall_chest": ["pectoralis_major_clavicular", "pectoralis_major_sternocostal_upper", "pectoralis_major_sternocostal_lower"],
+    "front_delts": ["deltoid_anterior"],
+    "side_delts": ["deltoid_lateral"],
+    "rear_delts": ["deltoid_posterior"],
+    "rear_delt_linked": ["deltoid_posterior"],
+    "external_rotation": ["infraspinatus", "teres_minor"],
+    "overall_shoulders": ["deltoid_anterior", "deltoid_lateral", "deltoid_posterior"],
+    "biceps": ["biceps_brachii_long_head", "biceps_brachii_short_head", "brachialis"],
+    "triceps": ["triceps_brachii"],
+    "forearms": ["forearm_flexors", "forearm_extensors", "brachioradialis"],
+    "rectus_abdominis": ["rectus_abdominis"],
+    "obliques": ["external_oblique", "internal_oblique_deep"],
+    "transverse_abdominis": ["transverse_abdominis_deep"],
+    "core_stability": ["rectus_abdominis", "external_oblique", "internal_oblique_deep", "transverse_abdominis_deep", "erector_spinae"],
+    "overall_abs": ["rectus_abdominis", "external_oblique", "internal_oblique_deep", "transverse_abdominis_deep"],
+    "lats": ["latissimus_dorsi"],
+    "traps": ["trapezius_upper", "trapezius_middle", "trapezius_lower"],
+    "mid_back": ["trapezius_middle", "trapezius_lower", "infraspinatus", "teres_minor", "teres_major", "rhomboid_minor_deep", "rhomboid_major_deep"],
+    "upper_back": ["trapezius_upper", "trapezius_middle", "deltoid_posterior", "infraspinatus", "teres_minor", "teres_major", "rhomboid_minor_deep", "rhomboid_major_deep"],
+    "scapular_retraction": ["trapezius_middle", "rhomboid_minor_deep", "rhomboid_major_deep"],
+    "erector_spinae": ["erector_spinae"],
+    "overall_back": ["trapezius_upper", "trapezius_middle", "trapezius_lower", "latissimus_dorsi", "erector_spinae", "infraspinatus", "teres_minor", "teres_major", "rhomboid_minor_deep", "rhomboid_major_deep"],
+    "glutes": ["gluteus_maximus", "gluteus_medius"],
+    "abductors": ["tensor_fasciae_latae", "gluteus_medius"],
+    "adductors": ["adductor_longus", "gracilis", "adductor_magnus_deep"],
+    "quads": ["rectus_femoris", "vastus_lateralis", "vastus_medialis", "vastus_intermedius_deep"],
+    "hamstrings": ["biceps_femoris", "semitendinosus", "semimembranosus"],
+    "calves": ["gastrocnemius", "soleus"],
+    "overall_legs": ["tensor_fasciae_latae", "sartorius", "adductor_longus", "gracilis", "adductor_magnus_deep", "rectus_femoris", "vastus_lateralis", "vastus_medialis", "vastus_intermedius_deep", "gluteus_maximus", "gluteus_medius", "biceps_femoris", "semitendinosus", "semimembranosus", "gastrocnemius", "soleus", "tibialis_anterior"]
+  }
+}

@@ -1,0 +1,438 @@
+import groovy.json.JsonSlurper
+import java.awt.RenderingHints
+import java.awt.image.BufferedImage
+import java.awt.image.IndexColorModel
+import javax.imageio.ImageIO
+
+class ExerciseIllustrationColorBin {
+    int key
+    int count
+    int redSum
+    int greenSum
+    int blueSum
+    int alphaSum
+
+    int red() {
+        redSum.intdiv(count)
+    }
+
+    int green() {
+        greenSum.intdiv(count)
+    }
+
+    int blue() {
+        blueSum.intdiv(count)
+    }
+
+    int alpha() {
+        alphaSum.intdiv(count)
+    }
+
+    int channel(String name) {
+        switch (name) {
+            case "red":
+                return red()
+            case "green":
+                return green()
+            case "blue":
+                return blue()
+            default:
+                return alpha()
+        }
+    }
+}
+
+class ExerciseIllustrationColorBox {
+    List<ExerciseIllustrationColorBin> bins
+
+    int range(String channel) {
+        if (bins.isEmpty()) {
+            return 0
+        }
+        List<Integer> values = bins.collect { it.channel(channel) }
+        values.max() - values.min()
+    }
+
+    String widestChannel() {
+        ["red", "green", "blue", "alpha"].max { range(it) }
+    }
+    int widestRange() {
+        ["red", "green", "blue", "alpha"].collect { range(it) }.max()
+    }
+
+    int totalPixels() {
+        bins.sum { it.count } as int
+    }
+}
+
+def exerciseIllustrationSourceDir = rootProject.file("model_image/exercise-images")
+def exerciseIllustrationScenesDir = new File(exerciseIllustrationSourceDir, "scenes")
+def exerciseIllustrationGeneratedResDir = file("$buildDir/generated/exercise-illustration/res")
+def exerciseIllustrationGeneratedJavaDir = file("$buildDir/generated/exercise-illustration/src/main/java")
+def exerciseIllustrationGeneratedPackageDir = new File(
+        exerciseIllustrationGeneratedJavaDir,
+        "com/yeonsik/fitnessapp/exercise"
+)
+def exerciseIllustrationMaxDimension = 768
+def exerciseIllustrationPaletteSize = 256
+
+def toExerciseResourceName = { String value ->
+    String normalized = value
+            .replaceAll("[^A-Za-z0-9]+", "_")
+            .toLowerCase(Locale.ROOT)
+    normalized.startsWith("exercise_") ? normalized : "exercise_${normalized}"
+}
+
+def toExerciseIdConstantName = { String value ->
+    String normalized = value
+            .replaceAll("[^A-Za-z0-9]+", "_")
+            .toUpperCase(Locale.ROOT)
+    if (!normalized || Character.isDigit(normalized.charAt(0))) {
+        normalized = "EXERCISE_${normalized}"
+    }
+    "${normalized}_ID"
+}
+
+def javaStringLiteral = { String value ->
+    '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+}
+def quantizedColorKey = { int argb ->
+    int alpha = (argb >>> 24) & 0xff
+    if (alpha == 0) {
+        return -1
+    }
+    int red = (argb >>> 16) & 0xff
+    int green = (argb >>> 8) & 0xff
+    int blue = argb & 0xff
+    ((alpha >>> 6) << 12) | ((red >>> 4) << 8) | ((green >>> 4) << 4) | (blue >>> 4)
+}
+
+def buildIndexedExerciseIllustration = { BufferedImage source, int paletteSize ->
+    int width = source.width
+    int height = source.height
+    int[] pixels = source.getRGB(0, 0, width, height, null, 0, width)
+    int[] counts = new int[1 << 14]
+    int[] redSums = new int[1 << 14]
+    int[] greenSums = new int[1 << 14]
+    int[] blueSums = new int[1 << 14]
+    int[] alphaSums = new int[1 << 14]
+
+    pixels.each { int argb ->
+        int key = quantizedColorKey(argb)
+        if (key < 0) {
+            return
+        }
+        counts[key]++
+        redSums[key] += (argb >>> 16) & 0xff
+        greenSums[key] += (argb >>> 8) & 0xff
+        blueSums[key] += argb & 0xff
+        alphaSums[key] += (argb >>> 24) & 0xff
+    }
+
+    List<ExerciseIllustrationColorBin> bins = []
+    counts.eachWithIndex { int count, int key ->
+        if (count > 0) {
+            bins << new ExerciseIllustrationColorBin(
+                    key: key,
+                    count: count,
+                    redSum: redSums[key],
+                    greenSum: greenSums[key],
+                    blueSum: blueSums[key],
+                    alphaSum: alphaSums[key]
+            )
+        }
+    }
+
+    int opaquePaletteCapacity = Math.max(1, paletteSize - 1)
+    List<ExerciseIllustrationColorBox> boxes = bins.isEmpty()
+            ? []
+            : [new ExerciseIllustrationColorBox(bins: bins)]
+    while (boxes.size() < opaquePaletteCapacity) {
+        ExerciseIllustrationColorBox box = boxes
+                .findAll { it.bins.size() > 1 }
+                .max { it.widestRange() }
+        if (box == null) {
+            break
+        }
+
+        String channel = box.widestChannel()
+        box.bins.sort { left, right -> left.channel(channel) <=> right.channel(channel) }
+        int midpoint = Math.max(1, box.totalPixels().intdiv(2))
+        int running = 0
+        int splitIndex = 1
+        for (int index = 0; index < box.bins.size() - 1; index++) {
+            running += box.bins[index].count
+            if (running >= midpoint) {
+                splitIndex = index + 1
+                break
+            }
+        }
+
+        List<ExerciseIllustrationColorBin> leftBins = new ArrayList<>(box.bins.subList(0, splitIndex))
+        List<ExerciseIllustrationColorBin> rightBins = new ArrayList<>(box.bins.subList(splitIndex, box.bins.size()))
+        boxes.remove(box)
+        boxes << new ExerciseIllustrationColorBox(bins: leftBins)
+        boxes << new ExerciseIllustrationColorBox(bins: rightBins)
+    }
+
+    int actualPaletteSize = Math.min(paletteSize, Math.max(1, boxes.size() + 1))
+    byte[] reds = new byte[actualPaletteSize]
+    byte[] greens = new byte[actualPaletteSize]
+    byte[] blues = new byte[actualPaletteSize]
+    byte[] alphas = new byte[actualPaletteSize]
+    alphas[0] = 0
+
+    int[] binToPalette = new int[1 << 14]
+    int paletteIndex = 1
+    boxes.take(actualPaletteSize - 1).each { ExerciseIllustrationColorBox box ->
+        int total = box.totalPixels()
+        int red = box.bins.sum { it.redSum }.intdiv(total)
+        int green = box.bins.sum { it.greenSum }.intdiv(total)
+        int blue = box.bins.sum { it.blueSum }.intdiv(total)
+        int alpha = box.bins.sum { it.alphaSum }.intdiv(total)
+        reds[paletteIndex] = (byte) red
+        greens[paletteIndex] = (byte) green
+        blues[paletteIndex] = (byte) blue
+        alphas[paletteIndex] = (byte) alpha
+        box.bins.each { ExerciseIllustrationColorBin bin ->
+            binToPalette[bin.key] = paletteIndex
+        }
+        paletteIndex++
+    }
+
+    IndexColorModel colorModel = new IndexColorModel(
+            8,
+            actualPaletteSize,
+            reds,
+            greens,
+            blues,
+            alphas
+    )
+    BufferedImage indexed = new BufferedImage(width, height, BufferedImage.TYPE_BYTE_INDEXED, colorModel)
+    byte[] indexedPixels = new byte[pixels.length]
+    pixels.eachWithIndex { int argb, int index ->
+        int key = quantizedColorKey(argb)
+        indexedPixels[index] = (byte) (key < 0 ? 0 : binToPalette[key])
+    }
+    indexed.raster.setDataElements(0, 0, width, height, indexedPixels)
+    indexed
+}
+
+
+def downscaleExerciseIllustration = { File inputFile, File outputFile, int maxDimension ->
+    BufferedImage source = ImageIO.read(inputFile)
+    if (source == null) {
+        throw new GradleException("Unable to decode exercise illustration: ${inputFile}")
+    }
+
+    int sourceWidth = source.width
+    int sourceHeight = source.height
+    double scale = Math.min(1.0d, maxDimension / (double) Math.max(sourceWidth, sourceHeight))
+    int targetWidth = Math.max(1, (int) Math.round(sourceWidth * scale))
+    int targetHeight = Math.max(1, (int) Math.round(sourceHeight * scale))
+
+    BufferedImage resized = new BufferedImage(targetWidth, targetHeight, BufferedImage.TYPE_INT_ARGB)
+    java.awt.Graphics2D graphics = resized.createGraphics()
+    graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC)
+    graphics.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY)
+    graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON)
+    graphics.drawImage(source, 0, 0, targetWidth, targetHeight, null)
+    graphics.dispose()
+
+    BufferedImage indexed = buildIndexedExerciseIllustration(
+            resized,
+            exerciseIllustrationPaletteSize
+    )
+    outputFile.parentFile.mkdirs()
+    if (!ImageIO.write(indexed, "png", outputFile)) {
+        throw new GradleException("Unable to encode generated exercise illustration: ${outputFile}")
+    }
+}
+
+tasks.register("generateExerciseIllustrationAssets") {
+    inputs.files(fileTree(exerciseIllustrationScenesDir) { include("*.scene.json") })
+    inputs.dir(exerciseIllustrationSourceDir)
+    outputs.dir(exerciseIllustrationGeneratedResDir)
+    outputs.dir(exerciseIllustrationGeneratedJavaDir)
+
+    doLast {
+        List<File> sceneFiles = fileTree(exerciseIllustrationScenesDir)
+                .matching { include("*.scene.json") }
+                .files
+                .sort { it.name }
+        if (sceneFiles.isEmpty()) {
+            throw new GradleException("No exercise scene manifests found in ${exerciseIllustrationScenesDir}")
+        }
+
+        project.delete(exerciseIllustrationGeneratedResDir, exerciseIllustrationGeneratedJavaDir)
+        exerciseIllustrationGeneratedResDir.mkdirs()
+        exerciseIllustrationGeneratedPackageDir.mkdirs()
+
+        Set<String> exerciseIds = [] as Set
+        Set<String> constantNames = [] as Set
+        Set<String> resourceNames = [] as Set
+        List<Map> scenes = []
+
+        sceneFiles.each { File sceneFile ->
+            Map scene = (Map) new JsonSlurper().parse(sceneFile)
+            String exerciseId = scene.exerciseId as String
+            if (!exerciseId || !exerciseIds.add(exerciseId)) {
+                throw new GradleException("Missing or duplicate exerciseId in ${sceneFile.name}: ${exerciseId}")
+            }
+            if (scene.schemaVersion != 1) {
+                throw new GradleException("Unsupported scene schemaVersion in ${sceneFile.name}: ${scene.schemaVersion}")
+            }
+            if (!(scene.frames instanceof List) || scene.frames.isEmpty()) {
+                throw new GradleException("Scene has no frames: ${sceneFile.name}")
+            }
+
+            String sceneBaseName = sceneFile.name.replaceFirst(/\.scene\.json$/, "")
+            String resourceBaseName = toExerciseResourceName(sceneBaseName)
+            String constantName = toExerciseIdConstantName(sceneBaseName)
+            if (!constantNames.add(constantName)) {
+                throw new GradleException("Exercise IDs produce the same Java constant: ${constantName}")
+            }
+
+            List<Map> frames = []
+            Set<String> frameIds = [] as Set
+            scene.frames.eachWithIndex { Map frame, int index ->
+                String frameId = frame.id as String
+                String relativeFile = frame.file as String
+                if (!frameId || !frameIds.add(frameId)) {
+                    throw new GradleException("Missing or duplicate frame id in ${sceneFile.name}: ${frameId}")
+                }
+                if (!relativeFile) {
+                    throw new GradleException("Missing frame file in ${sceneFile.name}: ${frameId}")
+                }
+                if (!(frame.durationMs instanceof Number) || frame.durationMs <= 0) {
+                    throw new GradleException("Invalid durationMs in ${sceneFile.name}: ${frameId}")
+                }
+
+                File sourceFile = new File(sceneFile.parentFile, relativeFile).canonicalFile
+                if (!sourceFile.isFile()
+                        || !sourceFile.path.startsWith(exerciseIllustrationSourceDir.canonicalPath + File.separator)) {
+                    throw new GradleException("Frame file is outside the exercise asset directory or missing: ${sourceFile}")
+                }
+
+                String resourceName = index == 0
+                        ? resourceBaseName
+                        : "${resourceBaseName}_frame_${index + 1}"
+                if (!resourceNames.add(resourceName)) {
+                    throw new GradleException("Duplicate generated drawable resource: ${resourceName}")
+                }
+                frames << [
+                        id: frameId,
+                        sourceFile: sourceFile,
+                        resourceName: resourceName,
+                        durationMs: frame.durationMs as int
+                ]
+            }
+
+            int preferredHeightDp = scene.preferredHeightDp instanceof Number
+                    ? scene.preferredHeightDp as int
+                    : 280
+            if (preferredHeightDp <= 0) {
+                throw new GradleException("preferredHeightDp must be positive in ${sceneFile.name}")
+            }
+
+            scenes << [
+                    exerciseId: exerciseId,
+                    constantName: constantName,
+                    preferredHeightDp: preferredHeightDp,
+                    frames: frames
+            ]
+        }
+
+        scenes.each { Map scene ->
+            scene.frames.each { Map frame ->
+                File outputFile = new File(
+                        exerciseIllustrationGeneratedResDir,
+                        "drawable-nodpi/${frame.resourceName}.png"
+                )
+                downscaleExerciseIllustration(
+                        frame.sourceFile as File,
+                        outputFile,
+                        exerciseIllustrationMaxDimension
+                )
+                BufferedImage generated = ImageIO.read(outputFile)
+                if (generated == null
+                        || generated.width > exerciseIllustrationMaxDimension
+                        || generated.height > exerciseIllustrationMaxDimension) {
+                    throw new GradleException("Generated drawable exceeds ${exerciseIllustrationMaxDimension}px: ${outputFile}")
+                }
+            }
+        }
+
+        StringBuilder javaSource = new StringBuilder()
+        javaSource.append("package com.yeonsik.fitnessapp.exercise;\n\n")
+        javaSource.append("import com.yeonsik.fitnessapp.R;\n\n")
+        javaSource.append("/** Generated from model_image/exercise-images/scenes/*.scene.json. Do not edit. */\n")
+        javaSource.append("public final class ExerciseIllustrationCatalog {\n")
+        scenes.each { Map scene ->
+            javaSource.append("    public static final String ${scene.constantName} = ${javaStringLiteral(scene.exerciseId as String)};\n")
+        }
+        javaSource.append("\n    private ExerciseIllustrationCatalog() {\n    }\n\n")
+
+        javaSource.append("    public static int[] drawablesFor(String exerciseId) {\n")
+        scenes.each { Map scene ->
+            javaSource.append("        if (${scene.constantName}.equals(exerciseId)) {\n")
+            javaSource.append("            return new int[]{\n")
+            scene.frames.eachWithIndex { Map frame, int index ->
+                String comma = index + 1 == scene.frames.size() ? "" : ","
+                javaSource.append("                    R.drawable.${frame.resourceName}${comma}\n")
+            }
+            javaSource.append("            };\n        }\n")
+        }
+        javaSource.append("        return new int[0];\n    }\n\n")
+
+        javaSource.append("    public static int[] frameDurationsMsFor(String exerciseId) {\n")
+        scenes.each { Map scene ->
+            javaSource.append("        if (${scene.constantName}.equals(exerciseId)) {\n")
+            javaSource.append("            return new int[]{")
+            scene.frames.eachWithIndex { Map frame, int index ->
+                if (index > 0) {
+                    javaSource.append(", ")
+                }
+                javaSource.append(frame.durationMs)
+            }
+            javaSource.append("};\n        }\n")
+        }
+        javaSource.append("        return new int[0];\n    }\n\n")
+
+        javaSource.append("    public static int preferredHeightDp(String exerciseId) {\n")
+        scenes.each { Map scene ->
+            javaSource.append("        if (${scene.constantName}.equals(exerciseId)) {\n")
+            javaSource.append("            return ${scene.preferredHeightDp};\n        }\n")
+        }
+        javaSource.append("        return 280;\n    }\n")
+        javaSource.append("}\n")
+
+        new File(exerciseIllustrationGeneratedPackageDir, "ExerciseIllustrationCatalog.java")
+                .setText(javaSource.toString(), "UTF-8")
+        logger.lifecycle(
+                "Generated ${scenes.size()} exercise illustration catalogs and "
+                        + "${resourceNames.size()} indexed deployment PNGs "
+                        + "(max dimension ${exerciseIllustrationMaxDimension}px, "
+                        + "palette ${exerciseIllustrationPaletteSize} colors)."
+        )
+    }
+}
+
+android {
+    sourceSets {
+        main {
+            res.srcDir(exerciseIllustrationGeneratedResDir)
+            java.srcDir(exerciseIllustrationGeneratedJavaDir)
+        }
+    }
+}
+
+tasks.matching {
+    it.name == "preBuild" || (it.name.startsWith("pre") && it.name.endsWith("Build"))
+}.configureEach {
+    dependsOn("generateExerciseIllustrationAssets")
+}
+
+tasks.matching { it.name.contains("UnitTest") }.configureEach {
+    dependsOn("generateExerciseIllustrationAssets")
+}
