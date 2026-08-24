@@ -163,10 +163,7 @@ public final class ExerciseCardRenderer {
                 1f
         ));
 
-        ImageView preview = illustrationPreview.create(content.exerciseId);
-        if (preview == null) {
-            preview = emptyPreview();
-        }
+        ImageView preview = createPreview(content.exerciseId);
         row.addView(preview, previewParams());
 
         TextView check = null;
@@ -179,6 +176,24 @@ public final class ExerciseCardRenderer {
         Binding binding = new Binding(row, name, meta, check, content, ui, selectable);
         binding.applySelection(selected);
         return binding;
+    }
+
+    /**
+     * 요약 화면처럼 이미지와 수행 내역만 보여주는 운동 박스를 생성한다.
+     * 이름과 순번은 표시하지 않고, 대표 이미지의 접근성 설명만 유지한다.
+     */
+    public void addPreviewOnly(LinearLayout row, Content content) {
+        ImageView preview = createPreview(content.exerciseId);
+        preview.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
+        preview.setContentDescription(content.name);
+        LinearLayout.LayoutParams params = previewParams();
+        params.gravity = Gravity.CENTER_HORIZONTAL;
+        row.addView(preview, params);
+    }
+
+    private ImageView createPreview(String exerciseId) {
+        ImageView preview = illustrationPreview.create(exerciseId);
+        return preview == null ? emptyPreview() : preview;
     }
 
     private ImageView emptyPreview() {

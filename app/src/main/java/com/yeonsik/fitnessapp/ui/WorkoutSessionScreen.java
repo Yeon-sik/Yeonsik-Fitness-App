@@ -137,13 +137,6 @@ public final class WorkoutSessionScreen extends BaseScreen {
         LinearLayout headerRow = new LinearLayout(host.activity());
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
-        View orderBadge = ui.compactOrderBadge(exercise.orderIndex);
-        LinearLayout.LayoutParams orderBadgeParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        );
-        orderBadgeParams.setMargins(0, 0, ui.dp(8), 0);
-        headerRow.addView(orderBadge, orderBadgeParams);
         ExerciseCardRenderer.Content content =
                 ExerciseCardRenderer.Content.fromSessionExercise(
                         exercise,
