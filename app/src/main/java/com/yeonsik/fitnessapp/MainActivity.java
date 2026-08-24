@@ -28,6 +28,7 @@ import android.widget.Toast;
 
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
+import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
 import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
@@ -369,6 +370,10 @@ public final class MainActivity extends Activity implements ScreenHost {
         if (currentScreen == FitnessScreen.CARDIO_SESSION) {
             render();
         }
+        BaseScreen activeScreen = screens.get(currentScreen);
+        if (activeScreen != null) {
+            activeScreen.onResume();
+        }
     }
 
     @Override
@@ -419,7 +424,29 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    protected void onPause() {
+        BaseScreen activeScreen = screens.get(currentScreen);
+        if (activeScreen != null) {
+            activeScreen.onPause();
+        }
+        super.onPause();
+    }
+
+    @Override
+    public void onLowMemory() {
+        super.onLowMemory();
+        BaseScreen activeScreen = screens.get(currentScreen);
+        if (activeScreen != null) {
+            activeScreen.onLowMemory();
+        }
+    }
+
+    @Override
     protected void onDestroy() {
+        BaseScreen activeScreen = screens.get(currentScreen);
+        if (activeScreen != null) {
+            activeScreen.onDestroy();
+        }
         executor.shutdownNow();
         super.onDestroy();
     }
@@ -892,9 +919,15 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     private void render() {
         sessionState.nextGeneration();
+        boolean screenChanged = currentScreen != lastRenderedScreen;
+        if (screenChanged && lastRenderedScreen != null) {
+            BaseScreen previousScreen = screens.get(lastRenderedScreen);
+            if (previousScreen != null) {
+                previousScreen.onHidden();
+            }
+        }
         content.removeAllViews();
         refreshNavState();
-        boolean screenChanged = currentScreen != lastRenderedScreen;
         lastRenderedScreen = currentScreen;
         boolean sessionScreen = currentScreen == FitnessScreen.WORKOUT_SESSION;
         if (sessionScreen) {
@@ -925,6 +958,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         BaseScreen screen = screens.get(currentScreen);
         if (screen != null) {
             screen.render();
+            screen.onVisible();
             if (screenChanged) {
                 ui.screenEnter(content);
             }
@@ -1259,6 +1293,18 @@ public final class MainActivity extends Activity implements ScreenHost {
         sessionState.setActiveRecordId(recordId);
         sessionState.setActiveExerciseId(null);
         navigate(FitnessScreen.CARDIO_SUMMARY);
+    }
+
+    @Override
+    public void loadCardioRoute(String recordId, CardioRouteCallback callback) {
+        executor.execute(() -> {
+            try {
+                CardioRouteProjection projection = cardioRepository.routeProjection(recordId);
+                runOnUiThread(() -> callback.onComplete(projection));
+            } catch (Exception error) {
+                runOnUiThread(() -> callback.onError(error));
+            }
+        });
     }
 
     @Override

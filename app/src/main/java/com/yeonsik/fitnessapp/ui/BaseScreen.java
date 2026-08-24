@@ -81,4 +81,28 @@ public abstract class BaseScreen {
 
     /** 현재 화면 상태에 맞춰 content에 뷰를 그린다. content는 이미 비워져 있다. */
     public abstract void render();
+
+    /** 화면이 현재 content에 연결된 직후 호출된다. */
+    public void onVisible() {
+    }
+
+    /** 다른 화면으로 전환되기 직전에 호출된다. */
+    public void onHidden() {
+    }
+
+    /** Activity가 재개될 때 호출된다. */
+    public void onResume() {
+    }
+
+    /** Activity가 일시정지될 때 호출된다. */
+    public void onPause() {
+    }
+
+    /** Activity가 파괴될 때 호출된다. */
+    public void onDestroy() {
+    }
+
+    /** 시스템 메모리 부족 알림을 전달한다. */
+    public void onLowMemory() {
+    }
 }
