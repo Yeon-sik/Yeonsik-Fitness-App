@@ -44,6 +44,25 @@ public final class CardioRouteProjectionTest {
     }
 
     @Test
+    public void keepsDisplayPointAndSegmentCountsBoundedAcrossManyGaps() {
+        CardioRouteProjection.Builder builder =
+                CardioRouteProjection.builder(100, 4);
+        for (int index = 0; index < 100; index++) {
+            builder.add(
+                    index * (CardioRouteProjection.SEGMENT_GAP_MILLIS + 1L),
+                    37.0 + index,
+                    127.0 + index
+            );
+        }
+
+        CardioRouteProjection projection = builder.build();
+
+        assertEquals(100, projection.rawPointCount());
+        assertEquals(4, projection.displayPointCount());
+        assertTrue(projection.segments().size() <= 4);
+    }
+
+    @Test
     public void emptyProjectionHasNoRenderablePath() {
         CardioRouteProjection projection = CardioRouteProjection.empty();
 

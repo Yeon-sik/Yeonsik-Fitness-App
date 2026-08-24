@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
 import android.graphics.Color;
+import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.LinearLayout;
@@ -8,7 +9,6 @@ import android.widget.LinearLayout;
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
 import com.google.android.gms.maps.MapView;
-import com.google.android.gms.maps.OnMapReadyCallback;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.PolylineOptions;
@@ -20,7 +20,7 @@ import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 /** 완료된 GPS 유산소의 로컬 거리·시간·측정 품질과 이동 경로 요약. */
-public final class CardioSummaryScreen extends BaseScreen implements OnMapReadyCallback {
+public final class CardioSummaryScreen extends BaseScreen {
     private static final int MAP_HEIGHT_DP = 280;
     private static final int ROUTE_COLOR = Color.rgb(0, 122, 255);
 
@@ -33,6 +33,8 @@ public final class CardioSummaryScreen extends BaseScreen implements OnMapReadyC
     private boolean routeLoadError;
     private CardioRouteProjection routeProjection;
     private CardioRouteProjection renderedProjection;
+    private View.OnLayoutChangeListener cameraLayoutListener;
+    private MapView cameraLayoutMapView;
 
     public CardioSummaryScreen(ScreenHost host) {
         super(host);
@@ -45,7 +47,7 @@ public final class CardioSummaryScreen extends BaseScreen implements OnMapReadyC
 
         screenHeader("완료 기록", snapshot == null ? "유산소 요약" : snapshot.activityType.labelKo());
         if (snapshot == null) {
-            releaseMap();
+            resetRouteState();
             emptyState("이 기기에서 GPS 세부 기록을 찾지 못했습니다.",
                     "공유된 운동 요약은 일반 운동 기록에서 확인할 수 있습니다.");
             add(ui().button("기록으로 돌아가기", false,
@@ -126,12 +128,11 @@ public final class CardioSummaryScreen extends BaseScreen implements OnMapReadyC
         if (recordId.equals(routeRecordId)) {
             return;
         }
-        releaseMap();
+        resetRouteState();
         routeRecordId = recordId;
         routeLoading = false;
         routeLoadError = false;
         routeProjection = null;
-        renderedProjection = null;
     }
 
     private void renderRoute(String recordId) {
@@ -227,14 +228,26 @@ public final class CardioSummaryScreen extends BaseScreen implements OnMapReadyC
         if (mapView != null) {
             return true;
         }
+        MapView candidate = null;
         try {
-            mapView = new MapView(host.activity());
-            mapView.onCreate(null);
-            mapView.getMapAsync(this);
+            candidate = new MapView(host.activity());
+            candidate.onCreate(null);
+            mapView = candidate;
+            final MapView callbackMapView = candidate;
+            callbackMapView.getMapAsync(map -> onMapReady(callbackMapView, map));
             return true;
         } catch (RuntimeException error) {
-            mapView = null;
+            if (candidate != null && mapView == candidate) {
+                mapView = null;
+            }
             googleMap = null;
+            if (candidate != null) {
+                try {
+                    candidate.onDestroy();
+                } catch (RuntimeException ignored) {
+                    // MapView가 onCreate 전에 실패한 경우에는 정리할 상태가 없다.
+                }
+            }
             return false;
         }
     }
@@ -249,12 +262,11 @@ public final class CardioSummaryScreen extends BaseScreen implements OnMapReadyC
         }
     }
 
-    @Override
-    public void onMapReady(GoogleMap map) {
-        googleMap = map;
-        if (mapView == null) {
+    private void onMapReady(MapView targetMapView, GoogleMap map) {
+        if (targetMapView != mapView || map == null) {
             return;
         }
+        googleMap = map;
         googleMap.getUiSettings().setMapToolbarEnabled(false);
         googleMap.getUiSettings().setCompassEnabled(false);
         googleMap.getUiSettings().setMyLocationButtonEnabled(false);
@@ -262,17 +274,20 @@ public final class CardioSummaryScreen extends BaseScreen implements OnMapReadyC
     }
 
     private void renderProjectionOnMap() {
-        if (googleMap == null || mapView == null || routeProjection == null
-                || routeProjection == renderedProjection) {
+        GoogleMap targetMap = googleMap;
+        MapView targetMapView = mapView;
+        CardioRouteProjection projection = routeProjection;
+        if (targetMap == null || targetMapView == null || projection == null
+                || projection == renderedProjection) {
             return;
         }
 
-        googleMap.clear();
+        targetMap.clear();
         LatLngBounds.Builder boundsBuilder = LatLngBounds.builder();
         LatLng firstPoint = null;
         int pointCount = 0;
         for (java.util.List<CardioRouteProjection.RoutePoint> segment
-                : routeProjection.segments()) {
+                : projection.segments()) {
             PolylineOptions line = new PolylineOptions()
                     .color(ROUTE_COLOR)
                     .width(7f)
@@ -287,26 +302,85 @@ public final class CardioSummaryScreen extends BaseScreen implements OnMapReadyC
                 pointCount++;
             }
             if (segment.size() >= 2) {
-                googleMap.addPolyline(line);
+                targetMap.addPolyline(line);
             }
         }
-        renderedProjection = routeProjection;
+        renderedProjection = projection;
+        if (pointCount == 0) {
+            return;
+        }
         LatLng finalFirstPoint = firstPoint;
-        int renderedPointCount = pointCount;
         LatLngBounds bounds = boundsBuilder.build();
-        mapView.post(() -> {
-            if (mapView == null || mapView.getWidth() <= 0 || mapView.getHeight() <= 0) {
-                return;
+        moveCameraWhenReady(targetMapView, targetMap, bounds, finalFirstPoint, pointCount);
+    }
+
+    private void moveCameraWhenReady(
+            MapView targetMapView,
+            GoogleMap targetMap,
+            LatLngBounds bounds,
+            LatLng firstPoint,
+            int pointCount
+    ) {
+        clearCameraLayoutListener();
+        if (targetMapView.getWidth() > 0 && targetMapView.getHeight() > 0) {
+            targetMapView.post(() -> applyCamera(
+                    targetMapView,
+                    targetMap,
+                    bounds,
+                    firstPoint,
+                    pointCount
+            ));
+            return;
+        }
+
+        View.OnLayoutChangeListener listener = new View.OnLayoutChangeListener() {
+            @Override
+            public void onLayoutChange(
+                    View view,
+                    int left,
+                    int top,
+                    int right,
+                    int bottom,
+                    int oldLeft,
+                    int oldTop,
+                    int oldRight,
+                    int oldBottom
+            ) {
+                if (view.getWidth() <= 0 || view.getHeight() <= 0) {
+                    return;
+                }
+                view.removeOnLayoutChangeListener(this);
+                if (cameraLayoutListener == this) {
+                    cameraLayoutListener = null;
+                    cameraLayoutMapView = null;
+                }
+                applyCamera(targetMapView, targetMap, bounds, firstPoint, pointCount);
             }
-            if (renderedPointCount == 1 && finalFirstPoint != null) {
-                googleMap.moveCamera(CameraUpdateFactory.newLatLngZoom(finalFirstPoint, 16f));
-            } else {
-                googleMap.moveCamera(CameraUpdateFactory.newLatLngBounds(
-                        bounds,
-                        ui().dp(24)
-                ));
-            }
-        });
+        };
+        cameraLayoutListener = listener;
+        cameraLayoutMapView = targetMapView;
+        targetMapView.addOnLayoutChangeListener(listener);
+    }
+
+    private void applyCamera(
+            MapView targetMapView,
+            GoogleMap targetMap,
+            LatLngBounds bounds,
+            LatLng firstPoint,
+            int pointCount
+    ) {
+        if (targetMapView != mapView || targetMap != googleMap
+                || targetMapView.getWidth() <= 0 || targetMapView.getHeight() <= 0) {
+            return;
+        }
+        if (pointCount == 1 && firstPoint != null) {
+            targetMap.moveCamera(CameraUpdateFactory.newLatLngZoom(firstPoint, 16f));
+        } else {
+            targetMap.moveCamera(CameraUpdateFactory.newLatLngBounds(
+                    bounds,
+                    ui().dp(24)
+            ));
+        }
     }
 
     @Override
@@ -328,16 +402,12 @@ public final class CardioSummaryScreen extends BaseScreen implements OnMapReadyC
 
     @Override
     public void onHidden() {
-        releaseMap();
-        routeRecordId = null;
-        routeLoading = false;
-        routeProjection = null;
-        renderedProjection = null;
+        resetRouteState();
     }
 
     @Override
     public void onDestroy() {
-        releaseMap();
+        resetRouteState();
     }
 
     @Override
@@ -361,13 +431,32 @@ public final class CardioSummaryScreen extends BaseScreen implements OnMapReadyC
         }
     }
 
+    private void resetRouteState() {
+        releaseMap();
+        routeRecordId = null;
+        routeLoading = false;
+        routeLoadError = false;
+        routeProjection = null;
+        renderedProjection = null;
+    }
+
+    private void clearCameraLayoutListener() {
+        if (cameraLayoutListener != null && cameraLayoutMapView != null) {
+            cameraLayoutMapView.removeOnLayoutChangeListener(cameraLayoutListener);
+        }
+        cameraLayoutListener = null;
+        cameraLayoutMapView = null;
+    }
+
     private void releaseMap() {
+        clearCameraLayoutListener();
         pauseMapIfNeeded();
         if (mapView != null) {
             mapView.onDestroy();
         }
         mapView = null;
         googleMap = null;
+        mapResumed = false;
         renderedProjection = null;
     }
 }

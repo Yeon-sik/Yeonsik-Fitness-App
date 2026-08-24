@@ -65,23 +65,22 @@ public final class CardioRouteProjection {
 
     public static final class Builder {
         private final int expectedRawPointCount;
-        private final int stride;
+        private final int maxDisplayPoints;
+        private final int targetDisplayPointCount;
         private final List<List<RoutePoint>> segments = new ArrayList<>();
         private List<RoutePoint> currentSegment;
         private long previousCapturedAtMillis;
         private boolean hasPrevious;
         private int rawPointCount;
         private int displayPointCount;
+        private int nextSampleOrdinal;
 
         private Builder(int rawPointCount, int maxDisplayPoints) {
             expectedRawPointCount = Math.max(0, rawPointCount);
-            int safeMaxDisplayPoints = Math.max(1, maxDisplayPoints);
-            stride = expectedRawPointCount == 0
-                    ? 1
-                    : Math.max(
-                    1,
-                    (expectedRawPointCount + safeMaxDisplayPoints - 1)
-                            / safeMaxDisplayPoints
+            this.maxDisplayPoints = Math.max(1, maxDisplayPoints);
+            targetDisplayPointCount = Math.min(
+                    expectedRawPointCount,
+                    this.maxDisplayPoints
             );
         }
 
@@ -92,16 +91,15 @@ public final class CardioRouteProjection {
         ) {
             boolean gap = hasPrevious
                     && capturedAtMillis - previousCapturedAtMillis > SEGMENT_GAP_MILLIS;
-            if (currentSegment == null || gap) {
-                currentSegment = new ArrayList<>();
-                segments.add(currentSegment);
+            if (gap) {
+                currentSegment = null;
             }
 
-            boolean first = rawPointCount == 0;
-            boolean last = expectedRawPointCount > 0
-                    && rawPointCount == expectedRawPointCount - 1;
-            boolean sampled = rawPointCount % stride == 0;
-            if (first || last || sampled || gap) {
+            if (displayPointCount < maxDisplayPoints && shouldSample(rawPointCount)) {
+                if (currentSegment == null) {
+                    currentSegment = new ArrayList<>();
+                    segments.add(currentSegment);
+                }
                 currentSegment.add(new RoutePoint(
                         capturedAtMillis,
                         latitude,
@@ -114,6 +112,42 @@ public final class CardioRouteProjection {
             hasPrevious = true;
             rawPointCount++;
             return this;
+        }
+
+        private boolean shouldSample(int inputIndex) {
+            if (targetDisplayPointCount == 0) {
+                return false;
+            }
+            if (expectedRawPointCount <= maxDisplayPoints) {
+                return true;
+            }
+            if (targetDisplayPointCount == 1) {
+                return inputIndex == expectedRawPointCount - 1;
+            }
+            if (nextSampleOrdinal >= targetDisplayPointCount) {
+                return false;
+            }
+
+            int targetIndex = sampleIndex(nextSampleOrdinal);
+            while (nextSampleOrdinal < targetDisplayPointCount
+                    && inputIndex >= targetIndex) {
+                nextSampleOrdinal++;
+                if (inputIndex == targetIndex) {
+                    return true;
+                }
+                if (nextSampleOrdinal >= targetDisplayPointCount) {
+                    return false;
+                }
+                targetIndex = sampleIndex(nextSampleOrdinal);
+            }
+            return false;
+        }
+
+        private int sampleIndex(int ordinal) {
+            return (int) Math.round(
+                    (double) ordinal * (expectedRawPointCount - 1)
+                            / (targetDisplayPointCount - 1)
+            );
         }
 
         public CardioRouteProjection build() {

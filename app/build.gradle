@@ -43,7 +43,7 @@ def localOrEnvironment = { String propertyName, String environmentName ->
             ?: ""
 }
 
-def mapsApiKey = localOrEnvironment("MAPS_API_KEY", "MAPS_API_KEY")
+def mapsApiKey = localOrEnvironment("MAPS_API_KEY", "MAPS_API_KEY").trim()
 
 // The QA keystore is intentionally supplied outside the repository. Keep one
 // per application and move it between trusted build machines when needed.

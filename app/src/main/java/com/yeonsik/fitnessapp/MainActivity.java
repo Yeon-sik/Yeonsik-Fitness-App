@@ -365,7 +365,6 @@ public final class MainActivity extends Activity implements ScreenHost {
         if (waitingForLocationSettings && locationServicesEnabled()) {
             waitingForLocationSettings = false;
             continuePendingCardioAction();
-            return;
         }
         if (currentScreen == FitnessScreen.CARDIO_SESSION) {
             render();
@@ -1297,13 +1296,25 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     public void loadCardioRoute(String recordId, CardioRouteCallback callback) {
+        if (callback == null || isFinishing() || isDestroyed()) {
+            return;
+        }
         executor.execute(() -> {
             try {
                 CardioRouteProjection projection = cardioRepository.routeProjection(recordId);
-                runOnUiThread(() -> callback.onComplete(projection));
+                dispatchCardioRouteCallback(() -> callback.onComplete(projection));
             } catch (Exception error) {
-                runOnUiThread(() -> callback.onError(error));
+                dispatchCardioRouteCallback(() -> callback.onError(error));
             }
+        });
+    }
+
+    private void dispatchCardioRouteCallback(Runnable callback) {
+        runOnUiThread(() -> {
+            if (isFinishing() || isDestroyed()) {
+                return;
+            }
+            callback.run();
         });
     }
 
