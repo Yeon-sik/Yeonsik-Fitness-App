@@ -121,6 +121,60 @@ public final class CardioRepository {
         }
     }
 
+    /**
+     * 완료 화면에서 사용할 경로만 백그라운드에서 읽고 표시용 좌표로 줄인다.
+     * 원본 좌표는 SQLite에 남으며 이 메서드는 제한된 투영본만 메모리에 만든다.
+     */
+    public CardioRouteProjection routeProjection(String recordId) {
+        return routeProjection(
+                recordId,
+                CardioRouteProjection.DEFAULT_MAX_DISPLAY_POINTS
+        );
+    }
+
+    public CardioRouteProjection routeProjection(
+            String recordId,
+            int maxDisplayPoints
+    ) {
+        if (recordId == null || recordId.trim().isEmpty()) {
+            return CardioRouteProjection.empty();
+        }
+
+        int rawPointCount;
+        try (Cursor countCursor = db().rawQuery(
+                "SELECT COUNT(*) FROM cardio_route_points "
+                        + "WHERE record_id = ? AND user_id = ?",
+                new String[]{recordId, userId()})) {
+            if (!countCursor.moveToFirst()) {
+                return CardioRouteProjection.empty();
+            }
+            rawPointCount = countCursor.getInt(0);
+        }
+        if (rawPointCount == 0) {
+            return CardioRouteProjection.empty();
+        }
+
+        CardioRouteProjection.Builder builder = CardioRouteProjection.builder(
+                rawPointCount,
+                maxDisplayPoints
+        );
+        try (Cursor cursor = db().rawQuery(
+                "SELECT captured_at_epoch_ms, latitude, longitude "
+                        + "FROM cardio_route_points "
+                        + "WHERE record_id = ? AND user_id = ? "
+                        + "ORDER BY captured_at_epoch_ms ASC, id ASC",
+                new String[]{recordId, userId()})) {
+            while (cursor.moveToNext()) {
+                builder.add(
+                        cursor.getLong(0),
+                        cursor.getDouble(1),
+                        cursor.getDouble(2)
+                );
+            }
+        }
+        return builder.build();
+    }
+
     public boolean pause(String recordId) {
         SessionSnapshot snapshot = session(recordId);
         if (snapshot == null || !STATUS_TRACKING.equals(snapshot.status)) {
