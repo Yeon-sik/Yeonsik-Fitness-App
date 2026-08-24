@@ -4,16 +4,22 @@
   "preferredHeightDp": 280,
   "canvas": { "width": 1024, "height": 1536 },
   "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
+  "equipment": [],
+  "lockedAnchors": {},
   "frames": [
     {
       "id": "bottom",
       "file": "../final/pull-up-bottom.png",
-      "durationMs": 1000
+      "durationMs": 1000,
+      "joints": {},
+      "movingEquipment": {}
     },
     {
       "id": "top",
       "file": "../final/pull-up.png",
-      "durationMs": 1000
+      "durationMs": 1000,
+      "joints": {},
+      "movingEquipment": {}
     }
   ]
 }
