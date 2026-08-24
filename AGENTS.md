@@ -15,6 +15,14 @@
 - 상세 운동·종목·세트는 Fitness App이 소유하고 Personal OS에는 완료 요약만 공유한다.
 - `.understand-anything/`와 생성 그래프 산출물은 제품 코드 근거에서 제외한다.
 
+## 운동 해부학 이미지
+
+- `model_image/` 아래의 이미지·레이어·장면을 생성하거나 수정하기 전에 반드시 `model_image/AGENTS.md`와 `model_image/IMAGE_GENERATION_STANDARD.md`를 읽는다.
+- 운동 이미지의 제품 소스는 `model_image/exercise-images/scenes/*.scene.json`과 그 manifest가 참조하는 `final/` PNG다. 생성된 Android drawable 또는 생성 Java 카탈로그를 직접 편집하지 않는다.
+- 새 장면을 만들기 전에 `model_image/equipment/equipment-catalog.json`과 `model_image/style-4/muscle-layers.json`을 조회한다. 이미 있는 기구·시점·근육 ID를 새로 그리거나 새 이름으로 복제하지 않는다.
+- 2프레임 이상에서 고정 기구·카메라·인체 비율이 흔들리면 애니메이션으로 승인하지 않는다. 일관성을 확보할 수 없으면 검수된 정적 1프레임을 우선한다.
+- 근육 활성 부위는 `Fitness_Weight.json`의 운동 분류를 제품 기준으로 삼고, 실제 위치·형태·동작 기여도는 복수의 해부학·운동역학 자료로 교차 검증한다.
+
 ## 검증
 
 기능 변경 후 최소 검증은 다음과 같다.
