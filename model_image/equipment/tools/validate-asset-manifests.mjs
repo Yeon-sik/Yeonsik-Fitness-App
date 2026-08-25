@@ -42,12 +42,12 @@ for (const asset of catalog.assets) {
 let frameCount = 0;
 for (const scenePath of scenePaths) {
   const scene = JSON.parse(await fs.readFile(scenePath, "utf8"));
-  for (const equipmentId of scene.equipment) {
+  for (const equipmentId of scene.equipment ?? []) {
     if (!equipmentIds.has(equipmentId)) {
       throw new Error(`${scene.exerciseId} references unknown equipment: ${equipmentId}`);
     }
   }
-  for (const [anchorName, point] of Object.entries(scene.lockedAnchors)) {
+  for (const [anchorName, point] of Object.entries(scene.lockedAnchors ?? {})) {
     assertPoint(anchorName, point, scene.canvas.width, scene.canvas.height, false);
   }
   for (const frame of scene.frames) {
@@ -56,7 +56,7 @@ for (const scenePath of scenePaths) {
     if (metadata.width !== scene.canvas.width || metadata.height !== scene.canvas.height) {
       throw new Error(`Frame canvas mismatch: ${frame.file}`);
     }
-    for (const [jointName, point] of Object.entries(frame.joints)) {
+    for (const [jointName, point] of Object.entries(frame.joints ?? {})) {
       assertPoint(jointName, point, scene.canvas.width, scene.canvas.height, false);
     }
     if (frame.barbell?.center) {
