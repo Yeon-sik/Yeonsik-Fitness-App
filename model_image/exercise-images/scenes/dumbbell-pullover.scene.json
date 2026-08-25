@@ -4,7 +4,7 @@
   "nameKo": "덤벨 풀오버",
   "nameEn": "Dumbbell Pullover",
   "catalogArchetypeId": "press.supine_bench.free_weight.bilateral.elevated_front_three_quarter",
-  "variantTags": ["dumbbell", "pullover", "shoulder_extension_arc", "flat_bench", "two_hand_grip"],
+  "variantTags": ["dumbbell", "pullover", "shoulder_extension_arc", "flat_bench", "two_hand_plate_grip"],
   "preferredHeightDp": 220,
   "canvas": {"width": 1536, "height": 1024, "background": "transparent"},
   "coordinateSystem": "top-left-origin-pixels",
@@ -27,28 +27,32 @@
       "file": "../final/dumbbell-pullover-top.png",
       "durationMs": 1000,
       "joints": {
-        "hand_left": [615, 105],
-        "hand_right": [680, 105],
-        "elbow_left": [570, 270],
-        "elbow_right": [730, 270]
+        "hand_left": [659, 80],
+        "hand_right": [735, 82],
+        "elbow_left": [610, 245],
+        "elbow_right": [780, 230]
       },
-      "movingEquipment": {"dumbbell": {"center": [650, 105], "rotationDegrees": 0}}
+      "movingEquipment": {
+        "dumbbell": {"center": [724, 144], "rotationDegrees": 90}
+      }
     },
     {
       "id": "bottom",
       "file": "../final/dumbbell-pullover-bottom.png",
       "durationMs": 1000,
       "joints": {
-        "hand_left": [305, 435],
-        "hand_right": [365, 435],
-        "elbow_left": [405, 390],
-        "elbow_right": [455, 390]
+        "hand_left": [386, 181],
+        "hand_right": [428, 194],
+        "elbow_left": [478, 267],
+        "elbow_right": [600, 185]
       },
-      "movingEquipment": {"dumbbell": {"center": [335, 435], "rotationDegrees": 0}}
+      "movingEquipment": {
+        "dumbbell": {"center": [434, 262], "rotationDegrees": 90}
+      }
     }
   ],
   "renderPolicy": {
-    "locked": ["canvas", "camera", "head", "torso", "pelvis", "legs", "feet", "flat_bench", "dumbbell_design"],
+    "locked": ["canvas", "camera", "head", "torso", "pelvis", "legs", "feet", "flat_bench", "dumbbell_design", "dumbbell_scale", "dumbbell_rotation"],
     "animated": ["upper_arms", "forearms", "hands", "dumbbell_position"]
   },
   "visualContract": {
@@ -68,14 +72,14 @@
         "reason": "The approved elevated front three-quarter view does not expose the back surface; do not fake a lateral red highlight."
       }
     ],
+    "forbiddenHighlights": [],
     "poseRules": [
-      "supine on flat bench",
-      "one dumbbell held with both hands",
+      "supine lengthwise on the flat bench",
+      "one vertical dumbbell supported by both hands around the same upper plate",
       "elbows stay slightly bent",
       "shoulders move through a controlled arc behind the head",
       "head, torso, pelvis, legs, feet, bench, and camera remain fixed"
-    ],
-    "omissionNotes": "The product source classifies latissimus dorsi as secondary, but the approved elevated front three-quarter view does not expose the back surface. Do not fake a lateral red patch to display it; retain the secondary contract in metadata and show the chest activation clearly."
+    ]
   },
   "generationContract": {
     "baseFrame": "top",
@@ -87,13 +91,18 @@
     },
     "referenceAssets": {
       "anatomyMaster": "../../style-4/source/front-master.png",
-      "approvedStyle": "../final/barbell-flat-bench-press.png",
+      "approvedStyle": "../final/barbell-flat-bench-press-mid.png",
       "flatBench": "../../equipment/final/flat_bench_three_quarter.png",
       "dumbbell": "../../equipment/final/dumbbell_adjustable_three_quarter.png"
     },
+    "sourceNormalization": {
+      "top": {"resize": [1536, 1024]},
+      "bottom": {"scale": 0.97, "translate": [27, 23]}
+    },
     "deterministicComposite": {
-      "tool": "../tools/compose-approved-equipment.mjs",
+      "tool": "../tools/compose-anchored-equipment.mjs",
       "placements": "dumbbell-pullover.composite.json",
+      "placementSets": {"top": "top", "bottom": "bottom"},
       "equipmentBehindFigure": true
     }
   },
@@ -102,29 +111,13 @@
     "classificationSource": "Fitness_Weight.json",
     "primary": "overall_chest",
     "secondary": ["lats"],
-    "motion": "A supine pullover lowers the dumbbell behind the head through shoulder extension and returns it above the chest; the elbows stay softly flexed and the grip remains bilateral.",
+    "motion": "The arms move from above the sternum to behind the head in a bilateral shoulder arc while one dumbbell remains supported by both hands.",
     "sources": [
-      {
-        "title": "Shoulder Muscles - StatPearls",
-        "url": "https://www.ncbi.nlm.nih.gov/books/NBK546633/",
-        "supports": "shoulder flexion/extension and the contribution of pectoralis major and latissimus dorsi"
-      },
-      {
-        "title": "Pectoralis Major - StatPearls",
-        "url": "https://www.ncbi.nlm.nih.gov/books/NBK525991/",
-        "supports": "pectoralis major anatomy and shoulder flexion/adduction/extension contribution"
-      },
-      {
-        "title": "Electromyographic analysis of muscle activation during pull-over exercise",
-        "url": "https://pubmed.ncbi.nlm.nih.gov/21975179/",
-        "supports": "published pull-over muscle-activation evidence; supporting evidence only"
-      },
-      {
-        "title": "Dumbbell Pullover - StrengthLog",
-        "url": "https://www.strengthlog.com/dumbbell-pullover/",
-        "supports": "supine bench, dumbbell above chest, controlled arc behind head, slight elbow bend"
-      }
+      {"title": "Shoulder Muscles - StatPearls", "url": "https://www.ncbi.nlm.nih.gov/books/NBK546633/"},
+      {"title": "Pectoralis Major - StatPearls", "url": "https://www.ncbi.nlm.nih.gov/books/NBK525991/"},
+      {"title": "Electromyographic analysis of muscle activation during pull-over exercise", "url": "https://pubmed.ncbi.nlm.nih.gov/21975179/"},
+      {"title": "Dumbbell Pullover - StrengthLog", "url": "https://www.strengthlog.com/dumbbell-pullover/"}
     ],
-    "reviewNotes": "The exact product classification remains chest_dumbbell_pullover / overall_chest primary / lats secondary. External anatomy and technique references constrain the shoulder-extension arc and bilateral grip; they do not override Fitness_Weight.json."
+    "reviewNotes": "The product classification remains overall_chest primary and lats secondary. The front three-quarter view shows the pectoralis highlight and records the non-visible latissimus layer as omitted."
   }
 }
