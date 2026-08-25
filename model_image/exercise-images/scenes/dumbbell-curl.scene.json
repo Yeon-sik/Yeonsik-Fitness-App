@@ -1,6 +1,8 @@
 {
   "schemaVersion": 1,
   "exerciseId": "arms_dumbbell_curl",
+  "catalogArchetypeId": "curl.standing.upright.free_weight.bilateral.near_frontal",
+  "variantTags": ["dumbbell", "supinated_grip", "unsupported"],
   "preferredHeightDp": 280,
   "canvas": { "width": 1536, "height": 1024 },
   "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
@@ -64,6 +66,7 @@
   },
   "visualContract": {
     "viewId": "near_frontal_slight_elevated",
+    "workingSide": "both",
     "primaryGroups": ["biceps"],
     "primaryLayers": [
       "biceps_brachii_long_head",
@@ -74,6 +77,12 @@
     "secondaryLayers": [
       "forearm_flexors",
       "brachioradialis"
+    ],
+    "omittedLayers": [
+      {
+        "id": "forearm_extensors",
+        "reason": "Back-facing layer is not visible in the near-frontal canonical view."
+      }
     ],
     "forbiddenHighlights": ["overall_shoulders", "overall_chest", "triceps"],
     "poseRules": [
