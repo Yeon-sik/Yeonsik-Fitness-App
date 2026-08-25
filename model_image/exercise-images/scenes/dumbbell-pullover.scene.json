@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "exerciseId": "chest_dumbbell_pullover",
+  "nameKo": "덤벨 풀오버",
+  "nameEn": "Dumbbell Pullover",
+  "catalogArchetypeId": "press.supine_bench.free_weight.bilateral.elevated_front_three_quarter",
+  "variantTags": ["dumbbell", "pullover", "shoulder_extension_arc", "flat_bench", "two_hand_grip"],
+  "preferredHeightDp": 220,
+  "canvas": {"width": 1536, "height": 1024, "background": "transparent"},
+  "coordinateSystem": "top-left-origin-pixels",
+  "normalization": {
+    "lockedCanvas": true,
+    "lockedCamera": true,
+    "lockedBodyScale": true,
+    "referenceScene": "barbell-flat-bench-press"
+  },
+  "equipment": ["flat_bench_three_quarter_v1", "dumbbell_adjustable_three_quarter_v1"],
+  "lockedAnchors": {
+    "head_center": [642, 269],
+    "pelvis_center": [844, 550],
+    "bench_rear_foot": [590, 599],
+    "bench_front_foot": [919, 810]
+  },
+  "frames": [
+    {
+      "id": "top",
+      "file": "../final/dumbbell-pullover-top.png",
+      "durationMs": 1000,
+      "joints": {
+        "hand_left": [615, 105],
+        "hand_right": [680, 105],
+        "elbow_left": [570, 270],
+        "elbow_right": [730, 270]
+      },
+      "movingEquipment": {"dumbbell": {"center": [650, 105], "rotationDegrees": 0}}
+    },
+    {
+      "id": "bottom",
+      "file": "../final/dumbbell-pullover-bottom.png",
+      "durationMs": 1000,
+      "joints": {
+        "hand_left": [305, 435],
+        "hand_right": [365, 435],
+        "elbow_left": [405, 390],
+        "elbow_right": [455, 390]
+      },
+      "movingEquipment": {"dumbbell": {"center": [335, 435], "rotationDegrees": 0}}
+    }
+  ],
+  "renderPolicy": {
+    "locked": ["canvas", "camera", "head", "torso", "pelvis", "legs", "feet", "flat_bench", "dumbbell_design"],
+    "animated": ["upper_arms", "forearms", "hands", "dumbbell_position"]
+  },
+  "visualContract": {
+    "viewId": "elevated_front_three_quarter",
+    "workingSide": "both",
+    "primaryGroups": ["overall_chest"],
+    "primaryLayers": [
+      "pectoralis_major_clavicular",
+      "pectoralis_major_sternocostal_upper",
+      "pectoralis_major_sternocostal_lower"
+    ],
+    "secondaryGroups": ["lats"],
+    "secondaryLayers": ["latissimus_dorsi"],
+    "omittedLayers": [
+      {
+        "id": "latissimus_dorsi",
+        "reason": "The approved elevated front three-quarter view does not expose the back surface; do not fake a lateral red highlight."
+      }
+    ],
+    "poseRules": [
+      "supine on flat bench",
+      "one dumbbell held with both hands",
+      "elbows stay slightly bent",
+      "shoulders move through a controlled arc behind the head",
+      "head, torso, pelvis, legs, feet, bench, and camera remain fixed"
+    ],
+    "omissionNotes": "The product source classifies latissimus dorsi as secondary, but the approved elevated front three-quarter view does not expose the back surface. Do not fake a lateral red patch to display it; retain the secondary contract in metadata and show the chest activation clearly."
+  },
+  "generationContract": {
+    "baseFrame": "top",
+    "derivedFrames": {"bottom": "edit_from_top"},
+    "promptSpec": "dumbbell-pullover.prompt.md",
+    "sourceFiles": {
+      "top": "../source/dumbbell-pullover-top-generated.png",
+      "bottom": "../source/dumbbell-pullover-bottom-generated.png"
+    },
+    "referenceAssets": {
+      "anatomyMaster": "../../style-4/source/front-master.png",
+      "approvedStyle": "../final/barbell-flat-bench-press.png",
+      "flatBench": "../../equipment/final/flat_bench_three_quarter.png",
+      "dumbbell": "../../equipment/final/dumbbell_adjustable_three_quarter.png"
+    },
+    "deterministicComposite": {
+      "tool": "../tools/compose-approved-equipment.mjs",
+      "placements": "dumbbell-pullover.composite.json",
+      "equipmentBehindFigure": true
+    }
+  },
+  "anatomyReview": {
+    "reviewedAt": "2026-08-25",
+    "classificationSource": "Fitness_Weight.json",
+    "primary": "overall_chest",
+    "secondary": ["lats"],
+    "motion": "A supine pullover lowers the dumbbell behind the head through shoulder extension and returns it above the chest; the elbows stay softly flexed and the grip remains bilateral.",
+    "sources": [
+      {
+        "title": "Shoulder Muscles - StatPearls",
+        "url": "https://www.ncbi.nlm.nih.gov/books/NBK546633/",
+        "supports": "shoulder flexion/extension and the contribution of pectoralis major and latissimus dorsi"
+      },
+      {
+        "title": "Pectoralis Major - StatPearls",
+        "url": "https://www.ncbi.nlm.nih.gov/books/NBK525991/",
+        "supports": "pectoralis major anatomy and shoulder flexion/adduction/extension contribution"
+      },
+      {
+        "title": "Electromyographic analysis of muscle activation during pull-over exercise",
+        "url": "https://pubmed.ncbi.nlm.nih.gov/21975179/",
+        "supports": "published pull-over muscle-activation evidence; supporting evidence only"
+      },
+      {
+        "title": "Dumbbell Pullover - StrengthLog",
+        "url": "https://www.strengthlog.com/dumbbell-pullover/",
+        "supports": "supine bench, dumbbell above chest, controlled arc behind head, slight elbow bend"
+      }
+    ],
+    "reviewNotes": "The exact product classification remains chest_dumbbell_pullover / overall_chest primary / lats secondary. External anatomy and technique references constrain the shoulder-extension arc and bilateral grip; they do not override Fitness_Weight.json."
+  }
+}

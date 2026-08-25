@@ -1,0 +1,13 @@
+[
+  {
+    "equipmentId": "flat_bench_three_quarter_v1",
+    "mode": "canvas"
+  },
+  {
+    "equipmentId": "dumbbell_adjustable_three_quarter_v1",
+    "anchor": "grip_center",
+    "center": [650, 105],
+    "scale": 0.22,
+    "rotationDegrees": 0
+  }
+]
