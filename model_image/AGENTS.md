@@ -1,6 +1,6 @@
 # Model image agent rules
 
-이 지침은 `model_image/` 전체에 적용된다. 이미지 생성·편집을 시작하기 전에 [IMAGE_GENERATION_STANDARD.md](IMAGE_GENERATION_STANDARD.md)를 끝까지 읽는다.
+이 지침은 `model_image/` 전체에 적용된다. 이미지 생성·편집을 시작하기 전에 [IMAGE_GENERATION_STANDARD.md](IMAGE_GENERATION_STANDARD.md)를 끝까지 읽는다. 운동을 여러 개 만들거나 전체 커버리지·우선순위·재사용 여부를 판단할 때는 [EXERCISE_IMAGE_CATALOG_STANDARD.md](EXERCISE_IMAGE_CATALOG_STANDARD.md)도 끝까지 읽는다.
 
 ## 필수 순서
 
@@ -9,8 +9,10 @@
 3. 해부학 위치와 운동 동작은 서로 독립적인 신뢰 가능한 외부 자료로 교차 검증한다. 한 장의 참고 이미지나 생성 모델의 기억만 사용하지 않는다.
 4. `equipment/equipment-catalog.json`에서 같은 기구와 `viewId`가 있는지 확인한다.
 5. 가장 가까운 승인 자산을 시각 레퍼런스로 사용해 첫 프레임을 만든다.
-6. 추가 프레임은 첫 프레임을 편집 대상으로 만들고 `lockedAnchors`와 `renderPolicy.locked`를 유지한다.
-7. 최종 PNG, scene manifest, 자산 검증, Android 빌드를 함께 완료한다.
+6. 첫 프레임 승인 직후 머리·흉골·골반·발과 운동별 고정 관절의 픽셀 좌표를 scene의 `lockedAnchors`에 먼저 기록한다.
+7. 추가 프레임은 첫 프레임을 첫 번째 편집 대상으로 만들고 프롬프트에 고정 좌표를 수치로 반복한다. 두 프레임을 독립 생성하지 않는다.
+8. 후속 프레임에서 고정 관절이 8px 이상 이동하거나 상완·대퇴처럼 고정할 분절 길이가 달라지면 승인하지 않고 한 항목만 교정한다.
+9. 최종 PNG, scene manifest, 자산 검증, Android 빌드를 함께 완료한다.
 
 ## 작업 위치와 이식성
 
