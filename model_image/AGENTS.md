@@ -1,6 +1,6 @@
 # Model image agent rules
 
-이 지침은 `model_image/` 전체에 적용된다. 이미지 생성·편집을 시작하기 전에 [IMAGE_GENERATION_STANDARD.md](IMAGE_GENERATION_STANDARD.md)를 끝까지 읽는다.
+이 지침은 `model_image/` 전체에 적용된다. 이미지 생성·편집을 시작하기 전에 [IMAGE_GENERATION_STANDARD.md](IMAGE_GENERATION_STANDARD.md)를 끝까지 읽는다. 운동을 여러 개 만들거나 전체 커버리지·우선순위·재사용 여부를 판단할 때는 [EXERCISE_IMAGE_CATALOG_STANDARD.md](EXERCISE_IMAGE_CATALOG_STANDARD.md)도 끝까지 읽는다.
 
 ## 필수 순서
 

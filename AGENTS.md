@@ -17,7 +17,7 @@
 
 ## 운동 해부학 이미지
 
-- `model_image/` 아래의 이미지·레이어·장면을 생성하거나 수정하기 전에 반드시 `model_image/AGENTS.md`와 `model_image/IMAGE_GENERATION_STANDARD.md`를 읽는다.
+- `model_image/` 아래의 이미지·레이어·장면을 생성하거나 수정하기 전에 반드시 `model_image/AGENTS.md`와 `model_image/IMAGE_GENERATION_STANDARD.md`를 읽는다. 여러 운동의 카탈로그·재사용·커버리지를 다루면 `model_image/EXERCISE_IMAGE_CATALOG_STANDARD.md`도 읽는다.
 - 운동 이미지의 제품 소스는 `model_image/exercise-images/scenes/*.scene.json`과 그 manifest가 참조하는 `final/` PNG다. 생성된 Android drawable 또는 생성 Java 카탈로그를 직접 편집하지 않는다.
 - 새 장면을 만들기 전에 `model_image/equipment/equipment-catalog.json`과 `model_image/style-4/muscle-layers.json`을 조회한다. 이미 있는 기구·시점·근육 ID를 새로 그리거나 새 이름으로 복제하지 않는다.
 - 2프레임 이상에서 고정 기구·카메라·인체 비율이 흔들리면 애니메이션으로 승인하지 않는다. 일관성을 확보할 수 없으면 검수된 정적 1프레임을 우선한다.
