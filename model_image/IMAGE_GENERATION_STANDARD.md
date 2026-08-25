@@ -262,6 +262,28 @@ Use a transparent background and a stable [CANVAS] canvas.
 This is a canonical reusable asset, not an exercise scene.
 ```
 
+### 8.5 골든 프레임과 좌표 락
+
+스타일 문장만으로는 같은 결과를 재현할 수 없다. 신규 운동은 다음 순서를 하나의 생성 계약으로 사용한다.
+
+1. `Fitness_Weight.json`과 `muscle-layers.json`에서 주·보조 레이어를 확정한다.
+2. anatomy master, 가장 가까운 승인 운동 이미지, 정확한 기구 PNG의 세 레퍼런스만 사용해 첫 프레임을 만든다.
+3. 첫 프레임을 승인한 즉시 머리·흉골·골반·양발과 운동 중 움직이면 안 되는 관절을 픽셀 좌표로 측정해 `lockedAnchors`에 기록한다.
+4. 후속 프레임의 첫 번째 입력은 반드시 승인 첫 프레임이다. 별도의 텍스트 생성이나 병렬 생성 결과를 후속 프레임으로 사용하지 않는다.
+5. 후속 편집 프롬프트에 고정 좌표와 허용 오차를 숫자로 다시 적는다. `같은 자세`, `고정` 같은 추상 표현만 사용하지 않는다.
+6. 한 번에 하나의 문제만 수정한다. 예를 들어 팔꿈치가 이동했다면 카메라·색·기구·다른 관절을 동시에 다시 요청하지 않는다.
+
+scene에는 선택적으로 `visualContract`와 `generationContract`를 기록한다.
+
+- `visualContract`: 시점, 주·보조 레이어, 금지 강조 부위, 자세 규칙
+- `generationContract.baseFrame`: 골든 첫 프레임 ID
+- `generationContract.derivedFrames`: 각 후속 프레임이 어느 승인 프레임의 편집인지 기록
+- `generationContract.promptSpec`: 승인된 레퍼런스 순서·좌표·프롬프트를 기록한 저장소 상대 경로
+- `generationContract.referenceAssets`: anatomy, 승인 스타일, 기구 레퍼런스의 저장소 상대 경로
+- `generationContract.sourceFiles`: 재검수할 수 있는 생성 원본 경로
+
+후속 프레임에서 고정 앵커가 8px 이상 이동하거나 고정 분절 길이·머리 크기·몸통 폭이 달라지면 실패다. 프롬프트가 규칙을 언급했는지는 합격 근거가 아니며 실제 출력 좌표와 육안 전환을 검수한다.
+
 ## 9. 후처리와 scene manifest
 
 ### 9.1 후처리
