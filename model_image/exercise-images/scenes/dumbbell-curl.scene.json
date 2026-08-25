@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "exerciseId": "arms_dumbbell_curl",
+  "preferredHeightDp": 280,
+  "canvas": { "width": 1536, "height": 1024 },
+  "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
+  "normalization": { "scale": 0.9, "translate": [77, 51] },
+  "equipment": ["dumbbell_adjustable_three_quarter_v1"],
+  "lockedAnchors": {
+    "head_center": [756, 85],
+    "sternum_center": [768, 253],
+    "pelvis_center": [768, 486],
+    "foot_left": [670, 944],
+    "foot_right": [834, 944],
+    "elbow_left": [628, 395],
+    "elbow_right": [884, 395]
+  },
+  "frames": [
+    {
+      "id": "bottom",
+      "file": "../final/dumbbell-curl-bottom.png",
+      "durationMs": 1000,
+      "joints": {
+        "elbow_left": [628, 395],
+        "elbow_right": [884, 395],
+        "wrist_left": [588, 520],
+        "wrist_right": [932, 520]
+      },
+      "movingEquipment": {
+        "dumbbell_left": { "center": [580, 527], "rotationDegrees": 0 },
+        "dumbbell_right": { "center": [940, 527], "rotationDegrees": 0 }
+      }
+    },
+    {
+      "id": "contracted",
+      "file": "../final/dumbbell-curl-contracted.png",
+      "durationMs": 1000,
+      "joints": {
+        "elbow_left": [628, 395],
+        "elbow_right": [884, 395],
+        "wrist_left": [610, 275],
+        "wrist_right": [908, 275]
+      },
+      "movingEquipment": {
+        "dumbbell_left": { "center": [585, 263], "rotationDegrees": 0 },
+        "dumbbell_right": { "center": [935, 263], "rotationDegrees": 0 }
+      }
+    }
+  ],
+  "renderPolicy": {
+    "locked": [
+      "canvas",
+      "camera",
+      "head",
+      "torso",
+      "pelvis",
+      "legs",
+      "feet",
+      "upper_arms",
+      "elbows",
+      "dumbbell_design"
+    ],
+    "animated": ["forearms", "hands", "dumbbells"]
+  },
+  "visualContract": {
+    "viewId": "near_frontal_slight_elevated",
+    "primaryGroups": ["biceps"],
+    "primaryLayers": [
+      "biceps_brachii_long_head",
+      "biceps_brachii_short_head",
+      "brachialis"
+    ],
+    "secondaryGroups": ["forearms"],
+    "secondaryLayers": [
+      "forearm_flexors",
+      "brachioradialis"
+    ],
+    "forbiddenHighlights": ["overall_shoulders", "overall_chest", "triceps"],
+    "poseRules": [
+      "upright torso without swing",
+      "upper arms vertical beside rib cage",
+      "elbow centers fixed across frames",
+      "supinated forearms and neutral wrists"
+    ]
+  },
+  "generationContract": {
+    "baseFrame": "bottom",
+    "promptSpec": "dumbbell-curl.prompt.md",
+    "derivedFrames": {
+      "contracted": "edit_from_bottom"
+    },
+    "referenceAssets": {
+      "anatomy": "../../style-4/source/front-master.png",
+      "approvedStyle": "../final/dumbbell-shoulder-press-bottom.png",
+      "equipment": "../../equipment/final/dumbbell_adjustable_three_quarter.png"
+    },
+    "sourceFiles": {
+      "bottom": "../source/dumbbell-curl-bottom-generated.png",
+      "contracted": "../source/dumbbell-curl-contracted-generated.png"
+    }
+  },
+  "anatomyReview": {
+    "reviewedAt": "2026-08-25",
+    "primaryGroups": ["biceps"],
+    "secondaryGroups": ["forearms"],
+    "sources": [
+      {
+        "title": "Anatomy, Shoulder and Upper Limb, Elbow Joint - StatPearls",
+        "url": "https://www.ncbi.nlm.nih.gov/books/NBK532948/"
+      },
+      {
+        "title": "Video: Biceps curl with dumbbell - Mayo Clinic",
+        "url": "https://www.mayoclinic.org/healthy-lifestyle/fitness/multimedia/biceps-curl/vid-20084675"
+      }
+    ],
+    "notes": "Bilateral elbow flexion with supinated forearms; upper arms and torso remain fixed, wrists remain neutral."
+  }
+}
