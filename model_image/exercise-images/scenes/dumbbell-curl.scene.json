@@ -19,8 +19,8 @@
   },
   "frames": [
     {
-      "id": "bottom",
-      "file": "../final/dumbbell-curl-bottom.png",
+      "id": "A",
+      "file": "../final/dumbbell-curl-a.png",
       "durationMs": 1000,
       "joints": {
         "elbow_left": [628, 395],
@@ -34,8 +34,8 @@
       }
     },
     {
-      "id": "contracted",
-      "file": "../final/dumbbell-curl-contracted.png",
+      "id": "B",
+      "file": "../final/dumbbell-curl-b.png",
       "durationMs": 1000,
       "joints": {
         "elbow_left": [628, 395],
@@ -93,19 +93,19 @@
     ]
   },
   "generationContract": {
-    "baseFrame": "bottom",
+    "baseFrame": "A",
     "promptSpec": "dumbbell-curl.prompt.md",
     "derivedFrames": {
-      "contracted": "edit_from_bottom"
+      "B": "edit_from_A"
     },
     "referenceAssets": {
       "anatomy": "../../style-4/source/front-master.png",
-      "approvedStyle": "../final/dumbbell-shoulder-press-bottom.png",
+      "approvedStyle": "../final/dumbbell-shoulder-press-a.png",
       "equipment": "../../equipment/final/dumbbell_adjustable_three_quarter.png"
     },
     "sourceFiles": {
-      "bottom": "../source/dumbbell-curl-bottom-generated.png",
-      "contracted": "../source/dumbbell-curl-contracted-generated.png"
+      "A": "../source/dumbbell-curl-bottom-generated.png",
+      "B": "../source/dumbbell-curl-contracted-generated.png"
     }
   },
   "anatomyReview": {

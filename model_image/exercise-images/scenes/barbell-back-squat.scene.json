@@ -12,8 +12,8 @@
   },
   "frames": [
     {
-      "id": "bottom",
-      "file": "../final/barbell-back-squat-bottom.png",
+      "id": "A",
+      "file": "../final/barbell-back-squat-a.png",
       "durationMs": 1000,
       "joints": {
         "hip_center": [686, 570],
@@ -25,8 +25,8 @@
       }
     },
     {
-      "id": "lockout",
-      "file": "../final/barbell-back-squat-lockout.png",
+      "id": "B",
+      "file": "../final/barbell-back-squat-b.png",
       "durationMs": 1000,
       "joints": {
         "hip_center": [693, 485],

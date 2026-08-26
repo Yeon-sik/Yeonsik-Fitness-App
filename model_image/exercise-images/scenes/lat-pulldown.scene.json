@@ -16,8 +16,8 @@
   },
   "frames": [
     {
-      "id": "contracted",
-      "file": "../final/lat-pulldown-contracted.png",
+      "id": "A",
+      "file": "../final/lat-pulldown-a.png",
       "durationMs": 1000,
       "joints": {
         "elbow_left": [581, 421],
@@ -30,8 +30,8 @@
       }
     },
     {
-      "id": "extended",
-      "file": "../final/lat-pulldown-extended.png",
+      "id": "B",
+      "file": "../final/lat-pulldown-b.png",
       "durationMs": 1000,
       "joints": {
         "elbow_left": [616, 247],

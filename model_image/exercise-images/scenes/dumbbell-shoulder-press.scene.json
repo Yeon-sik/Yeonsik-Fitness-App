@@ -14,8 +14,8 @@
   },
   "frames": [
     {
-      "id": "bottom",
-      "file": "../final/dumbbell-shoulder-press-bottom.png",
+      "id": "A",
+      "file": "../final/dumbbell-shoulder-press-a.png",
       "durationMs": 1000,
       "joints": {
         "elbow_left": [606, 260],
@@ -29,8 +29,8 @@
       }
     },
     {
-      "id": "lockout",
-      "file": "../final/dumbbell-shoulder-press-lockout.png",
+      "id": "B",
+      "file": "../final/dumbbell-shoulder-press-b.png",
       "durationMs": 1000,
       "joints": {
         "elbow_left": [650, 218],

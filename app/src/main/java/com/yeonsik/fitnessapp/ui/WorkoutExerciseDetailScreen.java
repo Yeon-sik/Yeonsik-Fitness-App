@@ -115,7 +115,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     // ── 운동 자세 이미지 ───────────────────────────────────────────────
 
     private void renderExerciseIllustration(FitnessRepository.SessionExerciseEntry exercise) {
-        int[] drawableIds = ExerciseIllustrationCatalog.drawablesFor(exercise.exerciseId);
+        int[] drawableIds = ExerciseIllustrationCatalog.detailDrawablesFor(exercise.exerciseId);
         if (drawableIds.length == 0) {
             return;
         }

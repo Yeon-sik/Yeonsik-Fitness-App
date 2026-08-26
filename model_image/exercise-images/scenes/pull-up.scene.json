@@ -8,15 +8,15 @@
   "lockedAnchors": {},
   "frames": [
     {
-      "id": "bottom",
-      "file": "../final/pull-up-bottom.png",
+      "id": "A",
+      "file": "../final/pull-up-a.png",
       "durationMs": 1000,
       "joints": {},
       "movingEquipment": {}
     },
     {
-      "id": "top",
-      "file": "../final/pull-up.png",
+      "id": "B",
+      "file": "../final/pull-up-b.png",
       "durationMs": 1000,
       "joints": {},
       "movingEquipment": {}

@@ -14,8 +14,8 @@
   },
   "frames": [
     {
-      "id": "bottom",
-      "file": "../final/barbell-bent-over-row-bottom.png",
+      "id": "A",
+      "file": "../final/barbell-bent-over-row-a.png",
       "durationMs": 1000,
       "joints": {
         "elbow_left": [830, 450],
@@ -27,8 +27,8 @@
       }
     },
     {
-      "id": "contracted",
-      "file": "../final/barbell-bent-over-row-contracted.png",
+      "id": "B",
+      "file": "../final/barbell-bent-over-row-b.png",
       "durationMs": 1000,
       "joints": {
         "elbow_left": [617, 290],
