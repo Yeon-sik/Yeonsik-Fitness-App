@@ -68,6 +68,7 @@ for (const sceneName of sceneNames) {
   }
 
   const frameIds = new Set();
+  validateFixedImageSlots(sceneName, scene.frames, errors);
   for (const frame of scene.frames) {
     frameCount += 1;
     if (!frame.id || frameIds.has(frame.id)) {
@@ -226,6 +227,21 @@ function coverageRows(exercises, coveredIds, field) {
   return [...rows.values()]
     .map((row) => ({ ...row, missing: row.total - row.covered }))
     .sort((left, right) => right.total - left.total || left.id.localeCompare(right.id));
+}
+
+function validateFixedImageSlots(sceneName, frames, errorList) {
+  const requiredSlots = ["A", "B"];
+  if (frames.length !== requiredSlots.length) {
+    errorList.push(`${sceneName} must contain exactly A and B image slots`);
+    return;
+  }
+  for (const [index, requiredSlot] of requiredSlots.entries()) {
+    if (frames[index]?.id !== requiredSlot) {
+      errorList.push(
+        `${sceneName} image slots must be ordered A then B: ${frames[index]?.id ?? "<missing>"}`,
+      );
+    }
+  }
 }
 
 function validateVisualContract(

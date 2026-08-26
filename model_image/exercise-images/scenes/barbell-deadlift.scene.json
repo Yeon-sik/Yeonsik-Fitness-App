@@ -12,8 +12,8 @@
   },
   "frames": [
     {
-      "id": "start",
-      "file": "../final/barbell-deadlift-start.png",
+      "id": "A",
+      "file": "../final/barbell-deadlift-a.png",
       "durationMs": 1000,
       "joints": {
         "hip_center": [650, 468],
@@ -26,8 +26,8 @@
       }
     },
     {
-      "id": "lockout",
-      "file": "../final/barbell-deadlift-lockout.png",
+      "id": "B",
+      "file": "../final/barbell-deadlift-b.png",
       "durationMs": 1000,
       "joints": {
         "hip_center": [731, 501],

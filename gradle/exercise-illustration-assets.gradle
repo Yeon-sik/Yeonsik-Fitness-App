@@ -282,8 +282,9 @@ tasks.register("generateExerciseIllustrationAssets") {
             if (scene.schemaVersion != 1) {
                 throw new GradleException("Unsupported scene schemaVersion in ${sceneFile.name}: ${scene.schemaVersion}")
             }
-            if (!(scene.frames instanceof List) || scene.frames.isEmpty()) {
-                throw new GradleException("Scene has no frames: ${sceneFile.name}")
+            List<String> requiredFrameIds = ["A", "B"]
+            if (!(scene.frames instanceof List) || scene.frames.size() != requiredFrameIds.size()) {
+                throw new GradleException("Scene must contain exactly A and B image slots: ${sceneFile.name}")
             }
 
             String sceneBaseName = sceneFile.name.replaceFirst(/\.scene\.json$/, "")
@@ -298,6 +299,11 @@ tasks.register("generateExerciseIllustrationAssets") {
             scene.frames.eachWithIndex { Map frame, int index ->
                 String frameId = frame.id as String
                 String relativeFile = frame.file as String
+                String expectedFrameId = requiredFrameIds[index]
+                if (!expectedFrameId.equals(frameId)) {
+                    throw new GradleException(
+                            "Scene frames must be ordered A then B in ${sceneFile.name}: ${frameId}")
+                }
                 if (!frameId || !frameIds.add(frameId)) {
                     throw new GradleException("Missing or duplicate frame id in ${sceneFile.name}: ${frameId}")
                 }
@@ -314,9 +320,7 @@ tasks.register("generateExerciseIllustrationAssets") {
                     throw new GradleException("Frame file is outside the exercise asset directory or missing: ${sourceFile}")
                 }
 
-                String resourceName = index == 0
-                        ? resourceBaseName
-                        : "${resourceBaseName}_frame_${index + 1}"
+                String resourceName = "${resourceBaseName}_${frameId.toLowerCase(Locale.ROOT)}"
                 if (!resourceNames.add(resourceName)) {
                     throw new GradleException("Duplicate generated drawable resource: ${resourceName}")
                 }
@@ -373,7 +377,16 @@ tasks.register("generateExerciseIllustrationAssets") {
         }
         javaSource.append("\n    private ExerciseIllustrationCatalog() {\n    }\n\n")
 
-        javaSource.append("    public static int[] drawablesFor(String exerciseId) {\n")
+        javaSource.append("    /** Returns the fixed A slot used by all exercise lists. */\n")
+        javaSource.append("    public static int listPreviewDrawableFor(String exerciseId) {\n")
+        scenes.each { Map scene ->
+            javaSource.append("        if (${scene.constantName}.equals(exerciseId)) {\n")
+            javaSource.append("            return R.drawable.${scene.frames[0].resourceName};\n        }\n")
+        }
+        javaSource.append("        return 0;\n    }\n\n")
+
+        javaSource.append("    /** Returns the fixed A then B slots used by exercise detail. */\n")
+        javaSource.append("    public static int[] detailDrawablesFor(String exerciseId) {\n")
         scenes.each { Map scene ->
             javaSource.append("        if (${scene.constantName}.equals(exerciseId)) {\n")
             javaSource.append("            return new int[]{\n")
@@ -383,8 +396,8 @@ tasks.register("generateExerciseIllustrationAssets") {
             }
             javaSource.append("            };\n        }\n")
         }
-        javaSource.append("        return new int[0];\n    }\n\n")
 
+        javaSource.append("        return new int[0];\n    }\n\n")
         javaSource.append("    public static int[] frameDurationsMsFor(String exerciseId) {\n")
         scenes.each { Map scene ->
             javaSource.append("        if (${scene.constantName}.equals(exerciseId)) {\n")

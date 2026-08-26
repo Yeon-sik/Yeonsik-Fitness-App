@@ -1,0 +1,1381 @@
+{
+  "schemaVersion": 1,
+  "coordinateSystem": {
+    "origin": "top_left",
+    "unit": "normalized_0_to_1"
+  },
+  "assets": [
+    {
+      "id": "flat_bench_three_quarter_v1",
+      "type": "flat_bench",
+      "viewId": "elevated_front_three_quarter",
+      "file": "final/flat_bench_three_quarter.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "pad_head": [
+          0.3,
+          0.16
+        ],
+        "pad_shoulders": [
+          0.43,
+          0.23
+        ],
+        "pad_pelvis": [
+          0.7,
+          0.4
+        ],
+        "rear_floor": [
+          0.25,
+          0.51
+        ],
+        "front_floor": [
+          0.68,
+          0.84
+        ]
+      }
+    },
+    {
+      "id": "barbell_loaded_three_quarter_v1",
+      "type": "barbell",
+      "viewId": "slight_rising_three_quarter",
+      "file": "final/barbell_loaded_three_quarter.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.493
+        ],
+        "grip_left": [
+          0.36,
+          0.516
+        ],
+        "grip_right": [
+          0.65,
+          0.47
+        ],
+        "sleeve_left": [
+          0.19,
+          0.55
+        ],
+        "sleeve_right": [
+          0.82,
+          0.43
+        ]
+      }
+    },
+    {
+      "id": "dumbbell_adjustable_three_quarter_v1",
+      "type": "dumbbell",
+      "viewId": "elevated_front_three_quarter",
+      "file": "final/dumbbell_adjustable_three_quarter.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "grip_center": [
+          0.524,
+          0.439
+        ],
+        "grip_left": [
+          0.43,
+          0.49
+        ],
+        "grip_right": [
+          0.62,
+          0.39
+        ],
+        "mass_left": [
+          0.31,
+          0.56
+        ],
+        "mass_right": [
+          0.72,
+          0.32
+        ]
+      }
+    },
+    {
+      "id": "kettlebell_competition_front_v1",
+      "type": "kettlebell",
+      "viewId": "front",
+      "file": "final/kettlebell_competition_front.png",
+      "canvas": {
+        "width": 1254,
+        "height": 1254
+      },
+      "anchors": {
+        "grip_center": [
+          0.493,
+          0.196
+        ],
+        "grip_left": [
+          0.339,
+          0.205
+        ],
+        "grip_right": [
+          0.649,
+          0.205
+        ],
+        "mass_center": [
+          0.493,
+          0.61
+        ],
+        "base_center": [
+          0.493,
+          0.845
+        ]
+      }
+    },
+    {
+      "id": "lat_pulldown_machine_rear_three_quarter_v1",
+      "type": "lat_pulldown_machine",
+      "viewId": "rear_three_quarter",
+      "file": "final/lat_pulldown_machine_rear_three_quarter.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "overhead_pulley": [
+          0.5,
+          0.1
+        ],
+        "bar_center": [
+          0.48,
+          0.3
+        ],
+        "thigh_pad_center": [
+          0.47,
+          0.61
+        ],
+        "seat_center": [
+          0.45,
+          0.72
+        ],
+        "weight_stack_center": [
+          0.61,
+          0.55
+        ],
+        "base_center": [
+          0.49,
+          0.88
+        ]
+      }
+    },
+    {
+      "id": "adjustable_bench_front_three_quarter_v1",
+      "type": "adjustable_bench",
+      "viewId": "elevated_front_three_quarter",
+      "file": "source/01_adjustable_bench.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "back_pad_head": [
+          0.36,
+          0.17
+        ],
+        "back_pad_shoulders": [
+          0.42,
+          0.3
+        ],
+        "back_pad_hip": [
+          0.52,
+          0.52
+        ],
+        "seat_center": [
+          0.66,
+          0.57
+        ],
+        "rear_floor": [
+          0.31,
+          0.89
+        ],
+        "front_floor": [
+          0.77,
+          0.89
+        ]
+      }
+    },
+    {
+      "id": "functional_trainer_front_three_quarter_v1",
+      "type": "functional_trainer",
+      "viewId": "front_three_quarter",
+      "file": "source/02_functional_trainer.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.51
+        ],
+        "pulley_left": [
+          0.37,
+          0.34
+        ],
+        "pulley_right": [
+          0.63,
+          0.34
+        ],
+        "attachment_left": [
+          0.36,
+          0.46
+        ],
+        "attachment_right": [
+          0.64,
+          0.46
+        ],
+        "base_left": [
+          0.29,
+          0.91
+        ],
+        "base_right": [
+          0.72,
+          0.91
+        ]
+      }
+    },
+    {
+      "id": "smith_machine_front_three_quarter_v1",
+      "type": "smith_machine",
+      "viewId": "front_three_quarter",
+      "file": "source/03_smith_machine.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "bar_center": [
+          0.5,
+          0.39
+        ],
+        "bar_grip_left": [
+          0.4,
+          0.39
+        ],
+        "bar_grip_right": [
+          0.6,
+          0.39
+        ],
+        "rail_left": [
+          0.35,
+          0.48
+        ],
+        "rail_right": [
+          0.65,
+          0.48
+        ],
+        "base_left": [
+          0.3,
+          0.91
+        ],
+        "base_right": [
+          0.71,
+          0.91
+        ]
+      }
+    },
+    {
+      "id": "power_rack_front_three_quarter_v1",
+      "type": "power_rack",
+      "viewId": "front_three_quarter",
+      "file": "source/04_power_rack.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "pullup_bar_center": [
+          0.5,
+          0.1
+        ],
+        "j_hook_left": [
+          0.38,
+          0.42
+        ],
+        "j_hook_right": [
+          0.62,
+          0.42
+        ],
+        "rack_center": [
+          0.5,
+          0.49
+        ],
+        "base_left": [
+          0.32,
+          0.91
+        ],
+        "base_right": [
+          0.69,
+          0.91
+        ]
+      }
+    },
+    {
+      "id": "pullup_dip_station_front_three_quarter_v1",
+      "type": "pullup_dip_station",
+      "viewId": "front_three_quarter",
+      "file": "source/05_pullup_dip_station.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "pullup_bar_center": [
+          0.5,
+          0.13
+        ],
+        "pullup_grip_left": [
+          0.43,
+          0.13
+        ],
+        "pullup_grip_right": [
+          0.57,
+          0.13
+        ],
+        "dip_grip_left": [
+          0.41,
+          0.5
+        ],
+        "dip_grip_right": [
+          0.59,
+          0.5
+        ],
+        "back_pad_center": [
+          0.5,
+          0.39
+        ],
+        "base_center": [
+          0.5,
+          0.88
+        ]
+      }
+    },
+    {
+      "id": "resistance_band_loop_front_v1",
+      "type": "resistance_band",
+      "viewId": "front",
+      "file": "source/06_resistance_band.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "loop_top": [
+          0.5,
+          0.1
+        ],
+        "loop_bottom": [
+          0.5,
+          0.88
+        ],
+        "left_mid": [
+          0.43,
+          0.5
+        ],
+        "right_mid": [
+          0.57,
+          0.5
+        ]
+      }
+    },
+    {
+      "id": "weight_plate_set_three_quarter_v1",
+      "type": "weight_plate",
+      "viewId": "front_three_quarter_set",
+      "file": "source/07_weight_plate.png",
+      "canvas": {
+        "width": 490,
+        "height": 490
+      },
+      "anchors": {
+        "center": [
+          0.48,
+          0.5
+        ],
+        "largest_plate_center": [
+          0.25,
+          0.5
+        ],
+        "middle_plate_center": [
+          0.49,
+          0.55
+        ],
+        "small_plate_center": [
+          0.73,
+          0.61
+        ]
+      }
+    },
+    {
+      "id": "ez_curl_bar_three_quarter_v1",
+      "type": "ez_curl_bar",
+      "viewId": "slight_rising_three_quarter",
+      "file": "source/08_ez_curl_bar.png",
+      "canvas": {
+        "width": 485,
+        "height": 490
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.49
+        ],
+        "grip_left": [
+          0.4,
+          0.51
+        ],
+        "grip_right": [
+          0.6,
+          0.47
+        ],
+        "sleeve_left": [
+          0.1,
+          0.59
+        ],
+        "sleeve_right": [
+          0.9,
+          0.39
+        ]
+      }
+    },
+    {
+      "id": "cable_attachment_set_front_v1",
+      "type": "cable_attachment_set",
+      "viewId": "front_set",
+      "file": "source/09_cable_attachment_set.png",
+      "canvas": {
+        "width": 493,
+        "height": 490
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "upper_center": [
+          0.5,
+          0.23
+        ],
+        "middle_center": [
+          0.5,
+          0.5
+        ],
+        "lower_center": [
+          0.5,
+          0.76
+        ]
+      }
+    },
+    {
+      "id": "plyo_box_front_three_quarter_v1",
+      "type": "plyo_box",
+      "viewId": "front_three_quarter",
+      "file": "source/10_plyo_box.png",
+      "canvas": {
+        "width": 490,
+        "height": 495
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.53
+        ],
+        "top_center": [
+          0.5,
+          0.33
+        ],
+        "front_face_center": [
+          0.55,
+          0.55
+        ],
+        "floor_center": [
+          0.5,
+          0.83
+        ]
+      }
+    },
+    {
+      "id": "landmine_base_front_three_quarter_v1",
+      "type": "landmine_base",
+      "viewId": "front_three_quarter",
+      "file": "source/11_landmine_base.png",
+      "canvas": {
+        "width": 485,
+        "height": 495
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.6
+        ],
+        "pivot_center": [
+          0.48,
+          0.61
+        ],
+        "bar_socket": [
+          0.36,
+          0.34
+        ],
+        "base_center": [
+          0.5,
+          0.76
+        ]
+      }
+    },
+    {
+      "id": "preacher_bench_front_three_quarter_v1",
+      "type": "preacher_bench",
+      "viewId": "front_three_quarter",
+      "file": "source/12_preacher_bench.png",
+      "canvas": {
+        "width": 493,
+        "height": 495
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.54
+        ],
+        "preacher_pad_top": [
+          0.48,
+          0.22
+        ],
+        "preacher_pad_center": [
+          0.48,
+          0.34
+        ],
+        "seat_center": [
+          0.68,
+          0.5
+        ],
+        "base_center": [
+          0.53,
+          0.82
+        ]
+      }
+    },
+    {
+      "id": "captains_chair_front_three_quarter_v1",
+      "type": "captains_chair",
+      "viewId": "front_three_quarter",
+      "file": "source/13_captains_chair.png",
+      "canvas": {
+        "width": 366,
+        "height": 348
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "back_pad_center": [
+          0.5,
+          0.35
+        ],
+        "arm_pad_left": [
+          0.38,
+          0.36
+        ],
+        "arm_pad_right": [
+          0.62,
+          0.36
+        ],
+        "grip_left": [
+          0.31,
+          0.38
+        ],
+        "grip_right": [
+          0.69,
+          0.38
+        ],
+        "base_center": [
+          0.5,
+          0.84
+        ]
+      }
+    },
+    {
+      "id": "roman_chair_side_three_quarter_v1",
+      "type": "roman_chair",
+      "viewId": "side_three_quarter",
+      "file": "source/14_roman_chair.png",
+      "canvas": {
+        "width": 366,
+        "height": 348
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "hip_pad_center": [
+          0.46,
+          0.34
+        ],
+        "ankle_pad_center": [
+          0.7,
+          0.55
+        ],
+        "foot_support_center": [
+          0.73,
+          0.63
+        ],
+        "base_center": [
+          0.5,
+          0.82
+        ]
+      }
+    },
+    {
+      "id": "ghd_nordic_support_side_three_quarter_v1",
+      "type": "ghd_nordic_support",
+      "viewId": "side_three_quarter",
+      "file": "source/15_ghd_nordic_support.png",
+      "canvas": {
+        "width": 392,
+        "height": 348
+      },
+      "anchors": {
+        "center": [
+          0.51,
+          0.52
+        ],
+        "hip_pad_center": [
+          0.43,
+          0.36
+        ],
+        "ankle_pad_center": [
+          0.7,
+          0.34
+        ],
+        "footplate_center": [
+          0.73,
+          0.57
+        ],
+        "base_center": [
+          0.51,
+          0.82
+        ]
+      }
+    },
+    {
+      "id": "leg_press_side_three_quarter_v1",
+      "type": "leg_press",
+      "viewId": "side_three_quarter",
+      "file": "source/16_leg_press.png",
+      "canvas": {
+        "width": 374,
+        "height": 348
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "seat_center": [
+          0.31,
+          0.58
+        ],
+        "back_pad_center": [
+          0.38,
+          0.43
+        ],
+        "footplate_center": [
+          0.63,
+          0.33
+        ],
+        "sled_center": [
+          0.67,
+          0.36
+        ],
+        "base_center": [
+          0.51,
+          0.84
+        ]
+      }
+    },
+    {
+      "id": "leg_extension_front_side_three_quarter_v1",
+      "type": "leg_extension",
+      "viewId": "front_side_three_quarter",
+      "file": "source/17_leg_extension.png",
+      "canvas": {
+        "width": 366,
+        "height": 312
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.53
+        ],
+        "seat_center": [
+          0.56,
+          0.51
+        ],
+        "back_pad_center": [
+          0.64,
+          0.34
+        ],
+        "knee_axis": [
+          0.43,
+          0.57
+        ],
+        "ankle_roller_center": [
+          0.3,
+          0.65
+        ],
+        "base_center": [
+          0.5,
+          0.84
+        ]
+      }
+    },
+    {
+      "id": "seated_leg_curl_front_side_three_quarter_v1",
+      "type": "seated_leg_curl",
+      "viewId": "front_side_three_quarter",
+      "file": "source/18_seated_leg_curl.png",
+      "canvas": {
+        "width": 366,
+        "height": 312
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.53
+        ],
+        "seat_center": [
+          0.56,
+          0.52
+        ],
+        "back_pad_center": [
+          0.64,
+          0.34
+        ],
+        "thigh_pad_center": [
+          0.43,
+          0.54
+        ],
+        "knee_axis": [
+          0.43,
+          0.58
+        ],
+        "ankle_roller_center": [
+          0.31,
+          0.68
+        ],
+        "base_center": [
+          0.5,
+          0.84
+        ]
+      }
+    },
+    {
+      "id": "lying_leg_curl_side_three_quarter_v1",
+      "type": "lying_leg_curl",
+      "viewId": "side_three_quarter",
+      "file": "source/19_lying_leg_curl.png",
+      "canvas": {
+        "width": 392,
+        "height": 312
+      },
+      "anchors": {
+        "center": [
+          0.51,
+          0.52
+        ],
+        "bench_center": [
+          0.42,
+          0.45
+        ],
+        "hip_position": [
+          0.52,
+          0.45
+        ],
+        "knee_position": [
+          0.63,
+          0.47
+        ],
+        "ankle_roller_center": [
+          0.76,
+          0.45
+        ],
+        "base_center": [
+          0.51,
+          0.83
+        ]
+      }
+    },
+    {
+      "id": "pec_deck_front_v1",
+      "type": "pec_deck",
+      "viewId": "front",
+      "file": "source/20_pec_deck.png",
+      "canvas": {
+        "width": 374,
+        "height": 312
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "seat_center": [
+          0.5,
+          0.68
+        ],
+        "back_pad_center": [
+          0.5,
+          0.5
+        ],
+        "grip_left": [
+          0.25,
+          0.42
+        ],
+        "grip_right": [
+          0.75,
+          0.42
+        ],
+        "pivot_left": [
+          0.25,
+          0.25
+        ],
+        "pivot_right": [
+          0.75,
+          0.25
+        ]
+      }
+    },
+    {
+      "id": "assisted_pullup_dip_machine_front_three_quarter_v1",
+      "type": "assisted_pullup_dip_machine",
+      "viewId": "front_three_quarter",
+      "file": "source/21_assisted_pullup_dip_machine.png",
+      "canvas": {
+        "width": 366,
+        "height": 332
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "pullup_bar_center": [
+          0.5,
+          0.14
+        ],
+        "pullup_grip_left": [
+          0.42,
+          0.15
+        ],
+        "pullup_grip_right": [
+          0.58,
+          0.15
+        ],
+        "dip_grip_left": [
+          0.39,
+          0.43
+        ],
+        "dip_grip_right": [
+          0.61,
+          0.43
+        ],
+        "assist_pad_center": [
+          0.5,
+          0.62
+        ],
+        "base_center": [
+          0.5,
+          0.84
+        ]
+      }
+    },
+    {
+      "id": "seated_row_machine_front_side_three_quarter_v1",
+      "type": "seated_row_machine",
+      "viewId": "front_side_three_quarter",
+      "file": "source/22_seated_row_machine.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "seat_center": [
+          0.35,
+          0.65
+        ],
+        "chest_pad_center": [
+          0.42,
+          0.52
+        ],
+        "grip_left": [
+          0.47,
+          0.42
+        ],
+        "grip_right": [
+          0.64,
+          0.44
+        ],
+        "footplate_left": [
+          0.51,
+          0.78
+        ],
+        "footplate_right": [
+          0.6,
+          0.8
+        ],
+        "weight_stack_center": [
+          0.6,
+          0.65
+        ],
+        "base_center": [
+          0.53,
+          0.88
+        ]
+      }
+    },
+    {
+      "id": "hip_abduction_adduction_machine_front_three_quarter_v1",
+      "type": "hip_abduction_adduction_machine",
+      "viewId": "front_three_quarter",
+      "file": "source/23_hip_abduction_adduction_machine.png",
+      "canvas": {
+        "width": 392,
+        "height": 332
+      },
+      "anchors": {
+        "center": [
+          0.51,
+          0.52
+        ],
+        "seat_center": [
+          0.58,
+          0.56
+        ],
+        "back_pad_center": [
+          0.62,
+          0.39
+        ],
+        "thigh_pad_left": [
+          0.44,
+          0.55
+        ],
+        "thigh_pad_right": [
+          0.68,
+          0.55
+        ],
+        "footrest_left": [
+          0.42,
+          0.72
+        ],
+        "footrest_right": [
+          0.68,
+          0.72
+        ],
+        "base_center": [
+          0.51,
+          0.84
+        ]
+      }
+    },
+    {
+      "id": "standing_calf_raise_machine_front_three_quarter_v1",
+      "type": "standing_calf_raise_machine",
+      "viewId": "front_three_quarter",
+      "file": "source/24_standing_calf_raise_machine.png",
+      "canvas": {
+        "width": 497,
+        "height": 499
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "shoulder_pad_left": [
+          0.43,
+          0.29
+        ],
+        "shoulder_pad_right": [
+          0.57,
+          0.29
+        ],
+        "grip_left": [
+          0.38,
+          0.31
+        ],
+        "grip_right": [
+          0.62,
+          0.31
+        ],
+        "footplate_center": [
+          0.5,
+          0.72
+        ],
+        "base_center": [
+          0.5,
+          0.84
+        ]
+      }
+    },
+    {
+      "id": "seated_calf_raise_machine_side_three_quarter_v1",
+      "type": "seated_calf_raise_machine",
+      "viewId": "side_three_quarter",
+      "file": "source/25_seated_calf_raise_machine.png",
+      "canvas": {
+        "width": 1536,
+        "height": 1024
+      },
+      "anchors": {
+        "center": [
+          0.53,
+          0.51
+        ],
+        "seat_center": [
+          0.29,
+          0.5
+        ],
+        "knee_pad_center": [
+          0.4,
+          0.25
+        ],
+        "grip_left": [
+          0.36,
+          0.13
+        ],
+        "grip_right": [
+          0.46,
+          0.17
+        ],
+        "footplate_center": [
+          0.54,
+          0.64
+        ],
+        "loading_sleeve_center": [
+          0.86,
+          0.44
+        ],
+        "pivot_center": [
+          0.56,
+          0.48
+        ],
+        "base_center": [
+          0.52,
+          0.84
+        ]
+      }
+    },
+    {
+      "id": "ab_wheel_side_three_quarter_v1",
+      "type": "ab_wheel",
+      "viewId": "side_three_quarter",
+      "file": "source/26_ab_wheel.png",
+      "canvas": {
+        "width": 499,
+        "height": 499
+      },
+      "anchors": {
+        "center": [
+          0.43,
+          0.39
+        ],
+        "axle_center": [
+          0.44,
+          0.39
+        ],
+        "grip_left": [
+          0.23,
+          0.39
+        ],
+        "grip_right": [
+          0.66,
+          0.39
+        ],
+        "wheel_center": [
+          0.44,
+          0.39
+        ]
+      }
+    },
+    {
+      "id": "hand_gripper_front_three_quarter_v1",
+      "type": "hand_gripper",
+      "viewId": "front_three_quarter",
+      "file": "source/27_hand_gripper.png",
+      "canvas": {
+        "width": 497,
+        "height": 498
+      },
+      "anchors": {
+        "center": [
+          0.36,
+          0.39
+        ],
+        "spring_center": [
+          0.36,
+          0.22
+        ],
+        "grip_left_center": [
+          0.31,
+          0.46
+        ],
+        "grip_right_center": [
+          0.43,
+          0.46
+        ]
+      }
+    },
+    {
+      "id": "plate_loaded_press_frame_front_three_quarter_v1",
+      "type": "plate_loaded_press_frame",
+      "viewId": "front_three_quarter",
+      "file": "source/28_plate_loaded_press_frame.png",
+      "canvas": {
+        "width": 500,
+        "height": 498
+      },
+      "anchors": {
+        "center": [
+          0.45,
+          0.52
+        ],
+        "seat_center": [
+          0.47,
+          0.62
+        ],
+        "back_pad_center": [
+          0.48,
+          0.45
+        ],
+        "grip_left": [
+          0.29,
+          0.34
+        ],
+        "grip_right": [
+          0.65,
+          0.34
+        ],
+        "loading_sleeve_left": [
+          0.21,
+          0.49
+        ],
+        "loading_sleeve_right": [
+          0.78,
+          0.49
+        ],
+        "base_center": [
+          0.46,
+          0.84
+        ]
+      }
+    },
+    {
+      "id": "single_d_handle_front_v1",
+      "type": "single_d_handle",
+      "viewId": "front",
+      "file": "source/cable_attachments/A_single_d_handle.png",
+      "canvas": {
+        "width": 497,
+        "height": 420
+      },
+      "anchors": {
+        "center": [
+          0.48,
+          0.48
+        ],
+        "cable_eye": [
+          0.48,
+          0.16
+        ],
+        "grip_center": [
+          0.48,
+          0.62
+        ]
+      }
+    },
+    {
+      "id": "rope_attachment_front_v1",
+      "type": "rope_attachment",
+      "viewId": "front",
+      "file": "source/cable_attachments/B_rope_attachment.png",
+      "canvas": {
+        "width": 500,
+        "height": 420
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.49
+        ],
+        "cable_eye": [
+          0.5,
+          0.12
+        ],
+        "grip_left": [
+          0.4,
+          0.73
+        ],
+        "grip_right": [
+          0.6,
+          0.73
+        ]
+      }
+    },
+    {
+      "id": "straight_bar_attachment_front_three_quarter_v1",
+      "type": "straight_bar",
+      "viewId": "front_three_quarter",
+      "file": "source/cable_attachments/C_straight_bar.png",
+      "canvas": {
+        "width": 499,
+        "height": 420
+      },
+      "anchors": {
+        "center": [
+          0.51,
+          0.5
+        ],
+        "cable_eye": [
+          0.51,
+          0.27
+        ],
+        "grip_left": [
+          0.37,
+          0.57
+        ],
+        "grip_right": [
+          0.65,
+          0.46
+        ],
+        "bar_left": [
+          0.17,
+          0.65
+        ],
+        "bar_right": [
+          0.86,
+          0.35
+        ]
+      }
+    },
+    {
+      "id": "wide_lat_bar_front_v1",
+      "type": "wide_lat_bar",
+      "viewId": "front",
+      "file": "source/cable_attachments/D_wide_lat_bar.png",
+      "canvas": {
+        "width": 497,
+        "height": 416
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.39
+        ],
+        "cable_eye": [
+          0.5,
+          0.21
+        ],
+        "grip_left": [
+          0.17,
+          0.46
+        ],
+        "grip_right": [
+          0.83,
+          0.46
+        ],
+        "bar_center": [
+          0.5,
+          0.4
+        ]
+      }
+    },
+    {
+      "id": "neutral_v_handle_front_v1",
+      "type": "neutral_v_handle",
+      "viewId": "front",
+      "file": "source/cable_attachments/E_neutral_v_handle.png",
+      "canvas": {
+        "width": 500,
+        "height": 416
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "cable_eye": [
+          0.5,
+          0.19
+        ],
+        "grip_left": [
+          0.42,
+          0.63
+        ],
+        "grip_right": [
+          0.58,
+          0.63
+        ]
+      }
+    },
+    {
+      "id": "ankle_cuff_front_v1",
+      "type": "ankle_cuff",
+      "viewId": "front",
+      "file": "source/cable_attachments/F_ankle_cuff.png",
+      "canvas": {
+        "width": 499,
+        "height": 416
+      },
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "cable_ring": [
+          0.77,
+          0.48
+        ],
+        "cuff_center": [
+          0.43,
+          0.5
+        ]
+      }
+    }
+  ]
+}

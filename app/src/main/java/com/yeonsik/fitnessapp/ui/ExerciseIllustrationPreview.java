@@ -36,13 +36,13 @@ public final class ExerciseIllustrationPreview {
 
     /** 이미지가 등록된 운동이면 대표 프레임 ImageView를, 아니면 null을 반환한다. */
     public ImageView create(String exerciseId) {
-        int[] drawableIds = ExerciseIllustrationCatalog.drawablesFor(exerciseId);
-        if (drawableIds.length == 0) {
+        int drawableId = ExerciseIllustrationCatalog.listPreviewDrawableFor(exerciseId);
+        if (drawableId == 0) {
             return null;
         }
 
         int targetPx = ui.dp(SIZE_DP);
-        Bitmap bitmap = previewBitmap(drawableIds[0], targetPx);
+        Bitmap bitmap = previewBitmap(drawableId, targetPx);
         if (bitmap == null) {
             return null;
         }
