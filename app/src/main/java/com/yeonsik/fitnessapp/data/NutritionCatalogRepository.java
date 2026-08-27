@@ -976,7 +976,6 @@ public final class NutritionCatalogRepository {
             reference.put("contract_version", "dining-out-option.v1");
             reference.put("composition_contract", CompositionTemplate.CONTRACT_VERSION);
             reference.put("restaurant_name", storeName);
-            reference.put("menu_name", menuName);
             reference.put("composition_group_key", option.groupKey);
             reference.put("composition_group_type", option.groupType);
             reference.put("composition_group_label", option.groupLabel);
