@@ -431,6 +431,23 @@ async function directWriteChecks(owner, canonicalResult) {
       }
     );
   }
+  await expectRejected(
+    'direct canonical nutrition_foods update is denied',
+    `/rest/v1/nutrition_foods?id=eq.${encodeURIComponent(canonicalResult.nutrition_food_id)}`,
+    {
+      method: 'PATCH',
+      headers: { ...rpcHeaders(owner), Prefer: 'return=minimal' },
+      body: JSON.stringify({ calories_kcal: 9999 })
+    }
+  );
+  await expectRejected(
+    'direct canonical nutrition_foods delete is denied',
+    `/rest/v1/nutrition_foods?id=eq.${encodeURIComponent(canonicalResult.nutrition_food_id)}`,
+    {
+      method: 'DELETE',
+      headers: { ...rpcHeaders(owner), Prefer: 'return=minimal' }
+    }
+  );
 
   const manualFoodId = crypto.randomUUID();
   const manualBody = await expectOk(
