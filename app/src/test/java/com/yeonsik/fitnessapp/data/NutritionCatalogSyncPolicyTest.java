@@ -3,6 +3,7 @@ package com.yeonsik.fitnessapp.data;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
 public final class NutritionCatalogSyncPolicyTest {
@@ -24,8 +25,12 @@ public final class NutritionCatalogSyncPolicyTest {
 
     @Test
     public void ordinarySyncNeverPushesPublishedNutritionRows() {
-        assertTrue(NutritionCatalogRepository.publicationSafePushWhere("nutrition_foods")
-                .contains("visibility = 'private'"));
+        String foodWhere = NutritionCatalogRepository.publicationSafePushWhere("nutrition_foods");
+        assertTrue(foodWhere.contains("visibility = 'private'"));
+        assertTrue(foodWhere.contains("'manual_estimate'"));
+        assertFalse(foodWhere.contains("'food_image_estimate'"));
+        assertFalse(foodWhere.contains("'product_label_ocr'"));
+        assertTrue(foodWhere.contains("fitness-nutrition-verified-import.v1"));
         assertTrue(NutritionCatalogRepository.publicationSafePushWhere(
                 "nutrition_food_nutrients"
         ).contains("parent.visibility = 'private'"));

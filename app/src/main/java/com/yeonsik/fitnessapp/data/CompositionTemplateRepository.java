@@ -84,6 +84,7 @@ public final class CompositionTemplateRepository {
                 groupValues.put("user_id", userId);
                 groupValues.put("template_id", template.id);
                 groupValues.put("group_key", group.key);
+                groupValues.put("group_type", group.groupType);
                 groupValues.put("label", group.label);
                 groupValues.put("selection_mode", group.selectionMode);
                 groupValues.put("min_selected", group.minSelected);
@@ -200,8 +201,8 @@ public final class CompositionTemplateRepository {
         try (Cursor groupCursor = database.query(
                 "composition_groups",
                 new String[]{
-                        "id", "group_key", "label", "selection_mode", "min_selected",
-                        "max_selected", "order_index"
+                        "id", "group_key", "group_type", "label", "selection_mode",
+                        "min_selected", "max_selected", "order_index"
                 },
                 "template_id = ? AND user_id = ? AND deleted_at IS NULL",
                 new String[]{templateId, userId},
@@ -246,9 +247,10 @@ public final class CompositionTemplateRepository {
                         groupCursor.getString(1),
                         groupCursor.getString(2),
                         groupCursor.getString(3),
-                        groupCursor.getInt(4),
+                        groupCursor.getString(4),
                         groupCursor.getInt(5),
                         groupCursor.getInt(6),
+                        groupCursor.getInt(7),
                         members
                 ));
             }

@@ -85,6 +85,11 @@ public final class FitnessDatabaseMigrationTest {
             assertTrue(hasColumn(
                     upgraded,
                     "meal_record_item_components",
+                    "composition_group_type_snapshot"
+            ));
+            assertTrue(hasColumn(
+                    upgraded,
+                    "meal_record_item_components",
                     "composition_role_snapshot"
             ));
             assertTrue(hasColumn(
@@ -92,6 +97,7 @@ public final class FitnessDatabaseMigrationTest {
                     "meal_record_item_components",
                     "composition_member_id_snapshot"
             ));
+            assertTrue(hasColumn(upgraded, "composition_groups", "group_type"));
             assertTrue(hasColumn(
                     upgraded,
                     "meal_record_item_components",
@@ -134,6 +140,10 @@ public final class FitnessDatabaseMigrationTest {
             assertEquals("legacy_options", scalar(
                     upgraded,
                     "SELECT group_key FROM composition_groups LIMIT 1"
+            ));
+            assertEquals("other", scalar(
+                    upgraded,
+                    "SELECT group_type FROM composition_groups LIMIT 1"
             ));
         } finally {
             if (helper != null) {

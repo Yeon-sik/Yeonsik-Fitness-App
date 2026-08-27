@@ -20,6 +20,7 @@ import com.yeonsik.fitnessapp.data.AthleteDailyCheckIn;
 import com.yeonsik.fitnessapp.data.AthleteNutritionGoal;
 import com.yeonsik.fitnessapp.data.AthleteNutritionPolicy;
 import com.yeonsik.fitnessapp.data.CompositionGroup;
+import com.yeonsik.fitnessapp.data.CompositionGroupType;
 import com.yeonsik.fitnessapp.data.CompositionMember;
 import com.yeonsik.fitnessapp.data.CompositionTemplate;
 import com.yeonsik.fitnessapp.data.CompositionTemplateRepository;
@@ -73,7 +74,6 @@ public final class MealManagementScreen extends BaseScreen {
     private static final String VERIFIED_SINGLE_FOOD_RESULTS_TAG =
             "verified-single-food-results";
     private static final int SAVED_DINING_OUT_OPTION_RESULT_LIMIT = 20;
-    private static final int SAVED_DINING_OUT_MENU_RESULT_LIMIT = 20;
 
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN);
@@ -119,7 +119,7 @@ public final class MealManagementScreen extends BaseScreen {
     private EditText diningOutConsumedPercentInput;
     private LinearLayout diningOutOptionsContainer;
     private final List<EditText> diningOutOptionInputs = new ArrayList<>();
-    private final List<EditText> diningOutOptionGroupInputs = new ArrayList<>();
+    private final List<Button> diningOutOptionGroupInputs = new ArrayList<>();
     private final List<EditText> diningOutOptionCaloriesInputs = new ArrayList<>();
     private final List<EditText> diningOutOptionProteinInputs = new ArrayList<>();
     private final List<EditText> diningOutOptionCarbsInputs = new ArrayList<>();
@@ -1519,11 +1519,11 @@ public final class MealManagementScreen extends BaseScreen {
                 ui.fullWidthParams(ui.dp(6))
         );
         Button reuseDiningOut = ui.button(
-                "내 저장·최근 외식 불러오기",
+                "내 저장 외식 메뉴 불러오기",
                 false,
                 v -> showSavedDiningOutPicker()
         );
-        reuseDiningOut.setContentDescription("내 저장·최근 외식 불러오기");
+        reuseDiningOut.setContentDescription("내 저장 외식 메뉴 불러오기");
         form.addView(reuseDiningOut, ui.fullWidthParams(ui.dp(6)));
 
         diningOutStoreInput = ui.input("가게 명", draftDiningOutStoreName);
@@ -1665,7 +1665,7 @@ public final class MealManagementScreen extends BaseScreen {
         section.addView(header);
 
         section.addView(ui.text(
-                "옵션마다 구성 그룹과 내 섭취 비율을 지정할 수 있습니다(예: 사이드, 음료). 옵션 비율은 기본 100%이며, 함께 나눠 먹은 옵션은 직접 수정하세요.",
+                "옵션마다 고정 구성 그룹과 내 섭취 비율을 지정할 수 있습니다. 옵션 비율은 기본 100%이며, 함께 나눠 먹은 옵션은 직접 수정하세요.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
@@ -1720,7 +1720,8 @@ public final class MealManagementScreen extends BaseScreen {
         ), ui.fullWidthParams(ui.dp(8)));
         for (CompositionGroup group : template.groups) {
             panel.addView(ui.text(
-                    group.label + " · " + group.selectionMode,
+                    group.label + " (" + group.groupType + ", " + group.key + ") · "
+                            + group.selectionMode,
                     13,
                     FitnessUi.COLOR_TEXT,
                     true
@@ -1791,10 +1792,14 @@ public final class MealManagementScreen extends BaseScreen {
         if (rootFood != null) {
             draftDiningOutStoreName = rootFood.brand == null ? "" : rootFood.brand;
             draftDiningOutMenuName = rootFood.name;
+            applyDiningOutNutrition(rootFood.profile);
         } else {
             String[] parts = template.name.split(" · ", 2);
             draftDiningOutStoreName = parts.length > 1 ? parts[0] : template.name;
             draftDiningOutMenuName = parts.length > 1 ? parts[1] : template.name;
+            // A legacy template without a root catalog row has no trusted base profile.
+            // Do not carry a previous meal's entered nutrition into this new selection.
+            applyDiningOutNutrition(NutritionProfile.empty());
         }
         String identitySourceReference = rootFood == null
                 ? template.sourceReference
@@ -1808,7 +1813,8 @@ public final class MealManagementScreen extends BaseScreen {
             }
             for (CompositionMember member : selected) {
                 DiningOutOptionDraft draft = new DiningOutOptionDraft();
-                draft.groupLabel = group.label;
+                draft.groupType = group.groupType;
+                draft.groupKey = group.key;
                 draft.name = member.name;
                 draft.catalogFoodId = member.nutritionFoodId == null
                         ? "" : member.nutritionFoodId;
@@ -1897,10 +1903,8 @@ public final class MealManagementScreen extends BaseScreen {
         FitnessUi ui = ui();
         List<NutritionFood> savedMenus = host.nutritionCatalogRepository()
                 .savedDiningOutMenus();
-        List<FitnessRepository.MealEntry> recentEntries = repository()
-                .recentDiningOutEntries(SAVED_DINING_OUT_MENU_RESULT_LIMIT);
-        if (savedMenus.isEmpty() && recentEntries.isEmpty()) {
-            host.toast("저장된 외식 메뉴나 최근 외식 기록이 없습니다.");
+        if (savedMenus.isEmpty()) {
+            host.toast("저장된 외식 메뉴가 없습니다. 메뉴를 저장한 뒤 다시 시도하세요.");
             return;
         }
 
@@ -1908,7 +1912,7 @@ public final class MealManagementScreen extends BaseScreen {
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(ui.dp(16), ui.dp(4), ui.dp(16), ui.dp(8));
         panel.addView(ui.text(
-                "저장 메뉴는 영양값과 PT 연결을, 최근 기록은 입력 당시 스냅샷을 불러옵니다.",
+                "저장 메뉴의 NutritionFood.profile을 이번 기록의 기본 영양성분으로 사용합니다. 이번에 선택한 옵션만 별도로 합산됩니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
@@ -1934,27 +1938,6 @@ public final class MealManagementScreen extends BaseScreen {
             }
         }
 
-        if (!recentEntries.isEmpty()) {
-            panel.addView(ui.text("최근 외식 기록", 14, FitnessUi.COLOR_TEXT, true),
-                    ui.fullWidthParams(ui.dp(8)));
-            for (FitnessRepository.MealEntry entry : recentEntries) {
-                Button entryButton = ui.button(
-                        recentDiningOutEntryLabel(entry),
-                        false,
-                        ignored -> {
-                            applyRecentDiningOutEntry(entry);
-                            if (dialogHolder[0] != null) {
-                                dialogHolder[0].dismiss();
-                            }
-                        }
-                );
-                entryButton.setContentDescription(
-                        entry.previewTitle + " 최근 외식 기록 불러오기"
-                );
-                panel.addView(entryButton, ui.fullWidthParams(ui.dp(4)));
-            }
-        }
-
         ScrollView scroll = new ScrollView(host.activity());
         scroll.setFillViewport(true);
         scroll.addView(panel, new ScrollView.LayoutParams(
@@ -1975,13 +1958,6 @@ public final class MealManagementScreen extends BaseScreen {
         return storeName + " · " + menu.name + "\n" + menu.nutritionLabel();
     }
 
-    private String recentDiningOutEntryLabel(FitnessRepository.MealEntry entry) {
-        String nutrition = entry.hasEstimatedNutrition()
-                ? "영양값 있음"
-                : "영양값 미입력";
-        return entry.date + " · " + entry.previewTitle + " · " + nutrition;
-    }
-
     private void applySavedDiningOutMenu(NutritionFood menu) {
         draftDiningOutStoreName = menu.brand == null ? "" : menu.brand;
         draftDiningOutMenuName = menu.name;
@@ -1992,39 +1968,6 @@ public final class MealManagementScreen extends BaseScreen {
         updateDiningOutInputViews();
         updateDiningOutSelectionSummary();
         host.toast("저장한 외식 메뉴를 불러왔습니다. 섭취량을 확인한 뒤 기록하세요.");
-        host.rerender();
-    }
-
-    private void applyRecentDiningOutEntry(FitnessRepository.MealEntry entry) {
-        draftDiningOutStoreName = entry.storeName;
-        draftDiningOutBranchName = entry.branchName;
-        draftDiningOutMenuName = entry.menuName;
-        DiningOutIdentity identity = repository().diningOutIdentityForRecord(entry.id);
-        clearDiningOutPriceTraceIdentity();
-        if (identity != null) {
-            applyDiningOutTemplateIdentity(identity.metadataJson());
-        }
-        draftDiningOutOptions.clear();
-        List<FitnessRepository.MealItemEntry> items = repository().mealItemsForRecord(entry.id);
-        NutritionProfile snapshot = items.isEmpty() ? null : items.get(0).profile;
-        applyDiningOutNutrition(snapshot);
-        if (entry.hasEstimatedNutrition()) {
-            if (draftDiningOutCalories.isEmpty()) {
-                draftDiningOutCalories = String.valueOf(entry.calories);
-            }
-            if (draftDiningOutProtein.isEmpty()) {
-                draftDiningOutProtein = NutritionCalculator.trim(entry.proteinGrams);
-            }
-            if (draftDiningOutCarbs.isEmpty()) {
-                draftDiningOutCarbs = NutritionCalculator.trim(entry.carbsGrams);
-            }
-            if (draftDiningOutFat.isEmpty()) {
-                draftDiningOutFat = NutritionCalculator.trim(entry.fatGrams);
-            }
-        }
-        updateDiningOutInputViews();
-        updateDiningOutSelectionSummary();
-        host.toast("최근 외식 기록을 불러왔습니다. 이번 섭취량을 확인하세요.");
         host.rerender();
     }
 
@@ -2169,7 +2112,8 @@ public final class MealManagementScreen extends BaseScreen {
             AlertDialog dialog
     ) {
         DiningOutOptionDraft selectedDraft = new DiningOutOptionDraft();
-        selectedDraft.groupLabel = savedDiningOutOptionGroupLabel(food.sourceReference);
+        selectedDraft.groupType = savedDiningOutOptionGroupType(food.sourceReference);
+        selectedDraft.groupKey = savedDiningOutOptionGroupKey(food.sourceReference);
         selectedDraft.name = food.name;
         selectedDraft.catalogFoodId = food.id;
         selectedDraft.sourceReference = food.sourceReference;
@@ -2186,16 +2130,31 @@ public final class MealManagementScreen extends BaseScreen {
         host.rerender();
     }
 
-    private String savedDiningOutOptionGroupLabel(String sourceReference) {
+    private String savedDiningOutOptionGroupType(String sourceReference) {
         if (sourceReference == null || sourceReference.trim().isEmpty()) {
-            return DiningOutOption.DEFAULT_GROUP_LABEL;
+            return CompositionGroupType.OTHER.value();
         }
         try {
             JSONObject source = new JSONObject(sourceReference);
-            String label = jsonValue(source, "composition_group_label");
-            return label.isEmpty() ? DiningOutOption.DEFAULT_GROUP_LABEL : label;
+            String type = jsonValue(source, "composition_group_type");
+            if (!type.isEmpty()) {
+                return CompositionGroupType.normalize(type);
+            }
+            return CompositionGroupType.normalize(jsonValue(source, "composition_group_label"));
         } catch (Exception ignored) {
-            return DiningOutOption.DEFAULT_GROUP_LABEL;
+            return CompositionGroupType.OTHER.value();
+        }
+    }
+
+    private String savedDiningOutOptionGroupKey(String sourceReference) {
+        if (sourceReference == null || sourceReference.trim().isEmpty()) {
+            return "";
+        }
+        try {
+            JSONObject source = new JSONObject(sourceReference);
+            return jsonValue(source, "composition_group_key");
+        } catch (Exception ignored) {
+            return "";
         }
     }
 
@@ -2429,11 +2388,11 @@ public final class MealManagementScreen extends BaseScreen {
             LinearLayout row = new LinearLayout(host.activity());
             row.setOrientation(LinearLayout.VERTICAL);
             row.setGravity(Gravity.CENTER_VERTICAL);
-            EditText group = ui.input(
-                    "구성 그룹 (예: 사이드, 음료)",
-                    draft.groupLabel
+            Button group = ui.button(
+                    "구성 그룹: " + CompositionGroupType.labelOf(draft.groupType),
+                    false,
+                    ignored -> showDiningOutGroupTypePicker(optionIndex)
             );
-            group.setSingleLine(true);
             group.setContentDescription("외식 옵션 그룹 " + (index + 1));
             diningOutOptionGroupInputs.add(group);
             row.addView(group, ui.fullWidthParams(ui.dp(2)));
@@ -2484,8 +2443,33 @@ public final class MealManagementScreen extends BaseScreen {
         }
     }
 
+    private void showDiningOutGroupTypePicker(int optionIndex) {
+        syncDraftFromViews();
+        if (optionIndex < 0 || optionIndex >= draftDiningOutOptions.size()) {
+            return;
+        }
+        CompositionGroupType[] types = CompositionGroupType.values();
+        String[] labels = CompositionGroupType.labels();
+        new AlertDialog.Builder(host.activity())
+                .setTitle("외식 구성 그룹")
+                .setItems(labels, (dialog, which) -> {
+                    if (which >= 0 && which < types.length
+                            && optionIndex < draftDiningOutOptions.size()) {
+                        DiningOutOptionDraft draft = draftDiningOutOptions.get(optionIndex);
+                        draft.groupType = types[which].value();
+                        // A changed type starts a new generated group key. Template-provided
+                        // keys remain intact when a member is merely reloaded.
+                        draft.groupKey = "";
+                        host.rerender();
+                    }
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
     private List<DiningOutOption> parsedDiningOutOptions() {
         List<DiningOutOption> options = new ArrayList<>();
+        Map<String, String> generatedGroupKeys = new LinkedHashMap<>();
         for (DiningOutOptionDraft draft : draftDiningOutOptions) {
             String name = draft.name == null ? "" : draft.name.trim();
             if (name.isEmpty()) {
@@ -2497,8 +2481,16 @@ public final class MealManagementScreen extends BaseScreen {
             Double fat = MealEntryPolicy.optionalDiningOutMacro(draft.fat, "옵션 지방");
             double consumedFraction = diningOutOptionConsumedFractionValue(draft.consumedPercent);
             boolean hasNutrition = calories != null || protein != null || carbs != null || fat != null;
-            String groupLabel = normalizeDiningOutGroupLabel(draft.groupLabel);
-            String groupKey = diningOutGroupKey(groupLabel);
+            String groupType = CompositionGroupType.normalize(draft.groupType);
+            String groupLabel = CompositionGroupType.labelOf(groupType);
+            String groupKey = emptyToNull(draft.groupKey);
+            if (groupKey == null) {
+                groupKey = generatedGroupKeys.get(groupType);
+                if (groupKey == null) {
+                    groupKey = groupType + "_1";
+                    generatedGroupKeys.put(groupType, groupKey);
+                }
+            }
             if (!hasNutrition) {
                 options.add(DiningOutOption.grouped(
                         name,
@@ -2506,6 +2498,7 @@ public final class MealManagementScreen extends BaseScreen {
                         emptyToNull(draft.catalogFoodId),
                         emptyToNull(draft.sourceReference),
                         groupKey,
+                        groupType,
                         groupLabel,
                         DiningOutOption.DEFAULT_ROLE,
                         emptyToNull(draft.memberId),
@@ -2527,6 +2520,7 @@ public final class MealManagementScreen extends BaseScreen {
                     emptyToNull(draft.catalogFoodId),
                     emptyToNull(draft.sourceReference),
                     groupKey,
+                    groupType,
                     groupLabel,
                     DiningOutOption.DEFAULT_ROLE,
                     emptyToNull(draft.memberId),
@@ -2562,6 +2556,7 @@ public final class MealManagementScreen extends BaseScreen {
                     food.id,
                     food.sourceReference,
                     option.groupKey,
+                    option.groupType,
                     option.groupLabel,
                     option.role,
                     option.memberId,
@@ -2583,6 +2578,7 @@ public final class MealManagementScreen extends BaseScreen {
         String templateId = "dining-out-template:" + savedMenu.id;
         Map<String, List<DiningOutOption>> optionsByGroup = new LinkedHashMap<>();
         Map<String, String> groupLabels = new LinkedHashMap<>();
+        Map<String, String> groupTypes = new LinkedHashMap<>();
         if (options != null) {
             for (DiningOutOption option : options) {
                 List<DiningOutOption> group = optionsByGroup.get(option.groupKey);
@@ -2592,6 +2588,7 @@ public final class MealManagementScreen extends BaseScreen {
                 }
                 group.add(option);
                 groupLabels.put(option.groupKey, option.groupLabel);
+                groupTypes.put(option.groupKey, option.groupType);
             }
         }
 
@@ -2620,6 +2617,7 @@ public final class MealManagementScreen extends BaseScreen {
             groups.add(CompositionGroup.optionalMany(
                     CompositionTemplateRepository.newId(),
                     entry.getKey(),
+                    groupTypes.get(entry.getKey()),
                     groupLabels.get(entry.getKey()),
                     groupIndex++,
                     members
@@ -2641,17 +2639,6 @@ public final class MealManagementScreen extends BaseScreen {
                 1,
                 groups
         ));
-    }
-
-    private String normalizeDiningOutGroupLabel(String value) {
-        String normalized = value == null ? "" : value.trim();
-        return normalized.isEmpty() ? DiningOutOption.DEFAULT_GROUP_LABEL : normalized;
-    }
-
-    private String diningOutGroupKey(String label) {
-        String normalized = normalizeDiningOutGroupLabel(label).toLowerCase(Locale.ROOT);
-        normalized = normalized.replaceAll("\\s+", "_");
-        return normalized.isEmpty() ? DiningOutOption.DEFAULT_GROUP_KEY : normalized;
     }
 
     private String emptyToNull(String value) {
@@ -4247,9 +4234,6 @@ public final class MealManagementScreen extends BaseScreen {
                         ? pendingOptions.get(index)
                         : null;
                 DiningOutOptionDraft draft = new DiningOutOptionDraft();
-                draft.groupLabel = FitnessUi.inputText(
-                        diningOutOptionGroupInputs.get(index)
-                ).trim();
                 draft.name = FitnessUi.inputText(diningOutOptionInputs.get(index)).trim();
                 draft.calories = FitnessUi.inputText(diningOutOptionCaloriesInputs.get(index));
                 draft.protein = FitnessUi.inputText(diningOutOptionProteinInputs.get(index));
@@ -4259,6 +4243,8 @@ public final class MealManagementScreen extends BaseScreen {
                         diningOutOptionConsumedPercentInputs.get(index)
                 );
                 if (previous != null) {
+                    draft.groupType = previous.groupType;
+                    draft.groupKey = previous.groupKey;
                     draft.catalogFoodId = previous.catalogFoodId;
                     draft.sourceReference = previous.sourceReference;
                     draft.memberId = previous.memberId;
@@ -4575,7 +4561,8 @@ public final class MealManagementScreen extends BaseScreen {
     }
 
     private static final class DiningOutOptionDraft {
-        private String groupLabel = DiningOutOption.DEFAULT_GROUP_LABEL;
+        private String groupType = CompositionGroupType.OTHER.value();
+        private String groupKey = "";
         private String name = "";
         private String calories = "";
         private String protein = "";

@@ -50,6 +50,27 @@ public final class CompositionTemplateTest {
         assertTrue(!drinks.isSatisfiedBy(Collections.emptyList()));
     }
 
+    @Test
+    public void groupTypeIsFixedAndIndependentFromKeyAndSelectionMode() {
+        CompositionGroup sides = new CompositionGroup(
+                "sides-group",
+                "side_1",
+                CompositionGroupType.SIDE.value(),
+                CompositionGroupType.SIDE.label(),
+                CompositionGroup.MODE_ZERO_OR_ONE,
+                0,
+                1,
+                0,
+                Collections.emptyList()
+        );
+
+        assertEquals("side_1", sides.key);
+        assertEquals("side", sides.groupType);
+        assertEquals("사이드", sides.label);
+        assertEquals(CompositionGroup.MODE_ZERO_OR_ONE, sides.selectionMode);
+        assertEquals("사이드", sides.groupTypeLabel());
+    }
+
     private static CompositionMember member(String id, double calories) {
         return new CompositionMember(
                 id,

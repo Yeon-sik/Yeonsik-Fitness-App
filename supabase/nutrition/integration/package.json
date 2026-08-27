@@ -1,0 +1,11 @@
+{
+  "name": "fitness-app-nutrition-integration-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node canonical-import.integration.mjs"
+  },
+  "devDependencies": {
+    "dotenv": "^16.4.7"
+  }
+}

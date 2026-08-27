@@ -5,6 +5,7 @@ public final class DiningOutOption {
     /** Backward-compatible group for options entered before group-aware templates existed. */
     public static final String DEFAULT_GROUP_KEY = "legacy_options";
     public static final String DEFAULT_GROUP_LABEL = "기존 외식 옵션";
+    public static final String DEFAULT_GROUP_TYPE = "other";
     public static final String DEFAULT_ROLE = "optional";
 
     public final String name;
@@ -12,6 +13,7 @@ public final class DiningOutOption {
     public final String catalogFoodId;
     public final String sourceReference;
     public final String groupKey;
+    public final String groupType;
     public final String groupLabel;
     public final String role;
     public final String memberId;
@@ -24,6 +26,7 @@ public final class DiningOutOption {
             String catalogFoodId,
             String sourceReference,
             String groupKey,
+            String groupType,
             String groupLabel,
             String role,
             String memberId,
@@ -38,6 +41,9 @@ public final class DiningOutOption {
         this.catalogFoodId = catalogFoodId;
         this.sourceReference = sourceReference;
         this.groupKey = normalize(groupKey, DEFAULT_GROUP_KEY);
+        this.groupType = CompositionGroupType.normalize(
+                groupType == null || groupType.trim().isEmpty() ? groupLabel : groupType
+        );
         this.groupLabel = normalize(groupLabel, DEFAULT_GROUP_LABEL);
         this.role = normalize(role, DEFAULT_ROLE);
         this.memberId = blankToNull(memberId);
@@ -106,6 +112,7 @@ public final class DiningOutOption {
                 catalogFoodId,
                 sourceReference,
                 groupKey,
+                null,
                 groupLabel,
                 role,
                 memberId,
@@ -131,6 +138,60 @@ public final class DiningOutOption {
                 catalogFoodId,
                 sourceReference,
                 groupKey,
+                null,
+                groupLabel,
+                role,
+                memberId,
+                consumedFraction
+        );
+    }
+
+    /** Creates a reusable option with an explicit fixed group type. */
+    public static DiningOutOption grouped(
+            String name,
+            NutritionProfile profile,
+            String catalogFoodId,
+            String sourceReference,
+            String groupKey,
+            String groupType,
+            String groupLabel,
+            String role,
+            String memberId
+    ) {
+        return grouped(
+                name,
+                profile,
+                catalogFoodId,
+                sourceReference,
+                groupKey,
+                groupType,
+                groupLabel,
+                role,
+                memberId,
+                1d
+        );
+    }
+
+    /** Creates a selected option with a fixed group type and independent consumed fraction. */
+    public static DiningOutOption grouped(
+            String name,
+            NutritionProfile profile,
+            String catalogFoodId,
+            String sourceReference,
+            String groupKey,
+            String groupType,
+            String groupLabel,
+            String role,
+            String memberId,
+            double consumedFraction
+    ) {
+        return new DiningOutOption(
+                name,
+                profile,
+                catalogFoodId,
+                sourceReference,
+                groupKey,
+                groupType,
                 groupLabel,
                 role,
                 memberId,
@@ -146,6 +207,7 @@ public final class DiningOutOption {
                 catalogFoodId,
                 sourceReference,
                 groupKey,
+                groupType,
                 groupLabel,
                 role,
                 memberId,

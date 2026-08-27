@@ -68,6 +68,7 @@ public final class CompositionTemplateRepositoryTest {
             CompositionTemplate loaded = repository.compositionTemplates().find(template.id);
             assertNotNull(loaded);
             assertEquals("drink", loaded.groups.get(0).key);
+            assertEquals(CompositionGroupType.BEVERAGE.value(), loaded.groups.get(0).groupType);
             assertEquals("member-drink", loaded.groups.get(0).members.get(0).id);
 
             DiningOutOption selected = DiningOutOption.grouped(
@@ -101,6 +102,9 @@ public final class CompositionTemplateRepositoryTest {
                             recordId + "'"));
             assertEquals("drink", scalar(database,
                     "SELECT composition_group_key_snapshot FROM meal_record_item_components " +
+                            "WHERE meal_record_id = '" + recordId + "'"));
+            assertEquals("beverage", scalar(database,
+                    "SELECT composition_group_type_snapshot FROM meal_record_item_components " +
                             "WHERE meal_record_id = '" + recordId + "'"));
             assertEquals("optional", scalar(database,
                     "SELECT composition_role_snapshot FROM meal_record_item_components " +
