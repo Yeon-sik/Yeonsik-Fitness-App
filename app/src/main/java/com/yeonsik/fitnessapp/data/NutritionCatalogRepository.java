@@ -2101,7 +2101,12 @@ public final class NutritionCatalogRepository {
     /** Public rows are immutable through ordinary sync; publication RPCs own that transition. */
     static String publicationSafePushWhere(String table) {
         if ("nutrition_foods".equals(table)) {
-            return " WHERE owner_id = ? AND visibility = 'private'";
+            return " WHERE owner_id = ? AND visibility = 'private'" +
+                    " AND lower(COALESCE(source_type, '')) IN " +
+                    "('manual', 'manual_estimate', 'manual_option', 'manual_recipe', " +
+                    "'pricetrace_manual', 'pricetrace_standard')" +
+                    " AND (lower(COALESCE(source_type, '')) <> 'manual_estimate'" +
+                    " OR COALESCE(source_reference, '') NOT LIKE '%fitness-nutrition-verified-import.v1%')";
         }
         if ("nutrition_food_nutrients".equals(table)) {
             return " WHERE owner_id = ? AND EXISTS (" +
