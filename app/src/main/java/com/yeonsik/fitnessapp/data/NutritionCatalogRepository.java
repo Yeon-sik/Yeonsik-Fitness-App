@@ -107,6 +107,7 @@ public final class NutritionCatalogRepository {
     private static final String VERIFIED_FOOD_SOURCE_REFERENCE_PREFIX =
             VerifiedFoodCatalogSeed.SOURCE_REFERENCE_PREFIX + "%";
     private static final String DINING_OUT_MENU_SOURCE_TYPE = "manual_estimate";
+    private static final String OCR_DINING_OUT_MENU_SOURCE_TYPE = "food_image_estimate";
     private static final String DINING_OUT_OPTION_SOURCE_TYPE = "manual_option";
     private static final int SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX = 50;
 
@@ -334,11 +335,12 @@ public final class NutritionCatalogRepository {
     /** Private dining-out menus saved by the current Nutrition owner for reuse in meal entry. */
     public List<NutritionFood> savedDiningOutMenus() {
         return readFoods(
-                "owner_id = ? AND kind = ? AND source_type = ?",
+                "owner_id = ? AND kind = ? AND source_type IN (?, ?)",
                 new String[]{
                         userId,
                         NutritionFood.KIND_EXTERNAL_MENU,
-                        DINING_OUT_MENU_SOURCE_TYPE
+                        DINING_OUT_MENU_SOURCE_TYPE,
+                        OCR_DINING_OUT_MENU_SOURCE_TYPE
                 },
                 "updated_at DESC, brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC",
                 null

@@ -258,7 +258,13 @@ public final class NutritionFood {
     /** Dining-out menu rows are Fitness-owned external menus, not ordinary packaged products. */
     public boolean isDiningOutMenu() {
         return KIND_EXTERNAL_MENU.equals(normalizeKind(kind))
-                && "manual_estimate".equalsIgnoreCase(sourceType);
+                && isDiningOutSourceType(sourceType);
+    }
+
+    /** Legacy manual estimates and canonical OCR food-image estimates share the dining-out UI path. */
+    public static boolean isDiningOutSourceType(String sourceType) {
+        return "manual_estimate".equalsIgnoreCase(sourceType)
+                || "food_image_estimate".equalsIgnoreCase(sourceType);
     }
 
     public static String normalizeCategory(String category) {
