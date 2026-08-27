@@ -549,6 +549,8 @@ public final class LocalDataBackupService {
             required.remove("composition_templates");
             required.remove("composition_groups");
             required.remove("composition_members");
+        }
+        if (databaseVersion < 38) {
             required.remove("dining_out_menu_add_on_links");
         }
         if (databaseVersion < 34) {

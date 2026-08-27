@@ -1386,7 +1386,6 @@ public final class FitnessRepository {
         if (menus.isEmpty()) {
             throw new IllegalArgumentException("외식 메뉴를 하나 이상 추가하세요.");
         }
-        NutritionTotals totals = NutritionTotals.builder().build();
         NutritionTotals.Builder totalBuilder = NutritionTotals.builder();
         for (MealMenuSelection menu : menus) {
             if (menu == null) {
@@ -1394,7 +1393,7 @@ public final class FitnessRepository {
             }
             totalBuilder.add(menu.menu.profile);
         }
-        totals = totalBuilder.build();
+        NutritionTotals totals = totalBuilder.build();
         Double protein = totals.total(NutritionProfile.PROTEIN_GRAMS).completeValue();
         Double carbs = totals.total(NutritionProfile.CARBS_GRAMS).completeValue();
         Double fat = totals.total(NutritionProfile.FAT_GRAMS).completeValue();

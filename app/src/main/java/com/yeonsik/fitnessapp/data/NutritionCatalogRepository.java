@@ -338,7 +338,8 @@ public final class NutritionCatalogRepository {
         String menuId = requiredId(menuFoodId, "외식 메뉴");
         String addOnId = requiredId(addOnFoodId, "추가 구성");
         SQLiteDatabase database = dbHelper.getWritableDatabase();
-        if (!ownedActiveFood(database, menuId) || !ownedActiveFood(database, addOnId)) {
+        if (!ownedActiveFood(database, menuId, NutritionFood.KIND_EXTERNAL_MENU)
+                || !ownedActiveFood(database, addOnId, NutritionFood.KIND_EXTERNAL_MENU)) {
             throw new IllegalArgumentException("현재 계정의 외식 메뉴·추가 구성만 연결할 수 있습니다.");
         }
         List<NutritionFood> addOnRows = readFoods(
@@ -407,11 +408,15 @@ public final class NutritionCatalogRepository {
         );
     }
 
-    private boolean ownedActiveFood(SQLiteDatabase database, String foodId) {
+    private boolean ownedActiveFood(
+            SQLiteDatabase database,
+            String foodId,
+            String expectedKind
+    ) {
         try (Cursor cursor = database.rawQuery(
                 "SELECT 1 FROM nutrition_foods WHERE id = ? AND owner_id = ? " +
-                        "AND deleted_at IS NULL",
-                new String[]{foodId, userId}
+                        "AND kind = ? AND deleted_at IS NULL",
+                new String[]{foodId, userId, expectedKind}
         )) {
             return cursor.moveToFirst();
         }

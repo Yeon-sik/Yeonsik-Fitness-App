@@ -2781,81 +2781,6 @@ public final class MealManagementScreen extends BaseScreen {
         return saved;
     }
 
-    /** Saves the current dining-out definition as a generic root menu + grouped members. */
-    private void saveDiningOutCompositionTemplate(
-            NutritionFood savedMenu,
-            List<DiningOutOption> options,
-            DiningOutIdentity identity
-    ) {
-        if (savedMenu == null) {
-            return;
-        }
-        String templateId = "dining-out-template:" + savedMenu.id;
-        Map<String, List<DiningOutOption>> optionsByGroup = new LinkedHashMap<>();
-        Map<String, String> groupLabels = new LinkedHashMap<>();
-        Map<String, String> groupTypes = new LinkedHashMap<>();
-        if (options != null) {
-            for (DiningOutOption option : options) {
-                List<DiningOutOption> group = optionsByGroup.get(option.groupKey);
-                if (group == null) {
-                    group = new ArrayList<>();
-                    optionsByGroup.put(option.groupKey, group);
-                }
-                group.add(option);
-                groupLabels.put(option.groupKey, option.groupLabel);
-                groupTypes.put(option.groupKey, option.groupType);
-            }
-        }
-
-        List<CompositionGroup> groups = new ArrayList<>();
-        int groupIndex = 0;
-        for (Map.Entry<String, List<DiningOutOption>> entry : optionsByGroup.entrySet()) {
-            List<CompositionMember> members = new ArrayList<>();
-            int memberIndex = 0;
-            for (DiningOutOption option : entry.getValue()) {
-                String memberId = option.memberId == null
-                        ? CompositionTemplateRepository.newId()
-                        : option.memberId;
-                members.add(new CompositionMember(
-                        memberId,
-                        option.catalogFoodId,
-                        option.name,
-                        savedMenu.brand,
-                        1,
-                        NutritionUnit.SERVING,
-                        false,
-                        memberIndex++,
-                        option.sourceReference,
-                        option.profile
-                ));
-            }
-            groups.add(CompositionGroup.optionalMany(
-                    CompositionTemplateRepository.newId(),
-                    entry.getKey(),
-                    groupTypes.get(entry.getKey()),
-                    groupLabels.get(entry.getKey()),
-                    groupIndex++,
-                    members
-            ));
-        }
-
-        String sourceReference = identity == null
-                ? "{\"schema_version\":\"composition-template.v1\",\"source\":\"fitnessapp\"}"
-                : identity.metadataJson();
-        repository().compositionTemplates().save(new CompositionTemplate(
-                templateId,
-                repository().currentUserId(),
-                savedMenu.brand == null
-                        ? savedMenu.name
-                        : savedMenu.brand + " · " + savedMenu.name,
-                CompositionTemplate.KIND_DINING_OUT,
-                savedMenu.id,
-                sourceReference,
-                1,
-                groups
-        ));
-    }
-
     private String emptyToNull(String value) {
         String normalized = value == null ? "" : value.trim();
         return normalized.isEmpty() ? null : normalized;
@@ -4235,13 +4160,6 @@ public final class MealManagementScreen extends BaseScreen {
                                     diningOutIdentity
                             )
                             : null;
-                }
-                if (saveDiningOutMenu && savedMenu != null) {
-                    saveDiningOutCompositionTemplate(
-                            savedMenu,
-                            optionSnapshots,
-                            diningOutIdentity
-                    );
                 }
                 List<MealMenuSelection> diningOutMenus = new ArrayList<>();
                 diningOutMenus.add(diningOutMenuSelection(
