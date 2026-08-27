@@ -82,6 +82,23 @@ public final class MealItemSnapshotTest {
     }
 
     @Test
+    public void keepsCompositionGroupTypeAlongsideItsKey() {
+        MealItemSnapshot snapshot = MealItemSnapshot.of(
+                MealCompositionItem.from(NutritionCalculatorTest.fullyMeasuredChicken(), 100),
+                0,
+                "side_1",
+                CompositionGroupType.SIDE.value(),
+                DiningOutOption.DEFAULT_ROLE,
+                "member-side"
+        );
+
+        assertEquals("side_1", snapshot.compositionGroupKeySnapshot);
+        assertEquals("side", snapshot.compositionGroupTypeSnapshot);
+        assertEquals(DiningOutOption.DEFAULT_ROLE, snapshot.compositionRoleSnapshot);
+        assertEquals("member-side", snapshot.compositionMemberIdSnapshot);
+    }
+
+    @Test
     public void writesOnlyMeasuredMicronutrientRows() {
         List<MealItemSnapshot.MicronutrientRow> rows = MealItemSnapshot
                 .of(MealCompositionItem.from(NutritionCalculatorTest.fullyMeasuredChicken(), 100), 0)

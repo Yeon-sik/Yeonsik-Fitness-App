@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 36;
+    public static final int DATABASE_VERSION = 37;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -456,6 +456,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "meal_record_id TEXT NOT NULL, " +
                 "meal_record_item_id TEXT NOT NULL, " +
                 "composition_group_key_snapshot TEXT, " +
+                "composition_group_type_snapshot TEXT, " +
                 "composition_role_snapshot TEXT, " +
                 "composition_member_id_snapshot TEXT, " +
                 "food_id TEXT, " +
@@ -527,6 +528,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "user_id TEXT NOT NULL, " +
                 "template_id TEXT NOT NULL, " +
                 "group_key TEXT NOT NULL, " +
+                "group_type TEXT NOT NULL DEFAULT 'other', " +
                 "label TEXT NOT NULL, " +
                 "selection_mode TEXT NOT NULL, " +
                 "min_selected INTEGER NOT NULL DEFAULT 0, " +
@@ -982,6 +984,57 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 36) {
             addColumnIfMissing(db, "meal_record_item_components", "consumed_fraction", "REAL");
+        }
+        if (oldVersion < 37) {
+            upgradeCompositionGroupTypeSchema(db);
+        }
+    }
+
+    private void upgradeCompositionGroupTypeSchema(SQLiteDatabase db) {
+        addColumnIfMissing(db, "composition_groups", "group_type", "TEXT NOT NULL DEFAULT 'other'");
+        addColumnIfMissing(
+                db,
+                "meal_record_item_components",
+                "composition_group_type_snapshot",
+                "TEXT"
+        );
+
+        // Existing rows came from free-form labels or the legacy catch-all group. Normalize
+        // known labels to the fixed domain and keep unknown historical labels as "other".
+        if (tableExists(db, "composition_groups")) {
+            try (Cursor cursor = db.query(
+                    "composition_groups",
+                    new String[]{"id", "group_type", "label"},
+                    null,
+                    null,
+                    null,
+                    null,
+                    null
+            )) {
+                while (cursor.moveToNext()) {
+                    String storedType = cursor.isNull(1) ? null : cursor.getString(1);
+                    String label = cursor.isNull(2) ? null : cursor.getString(2);
+                    String normalizedType = CompositionGroupType.normalize(storedType);
+                    if (CompositionGroupType.OTHER.value().equals(normalizedType)) {
+                        normalizedType = CompositionGroupType.normalize(label);
+                    }
+                    ContentValues values = new ContentValues();
+                    values.put("group_type", normalizedType);
+                    db.update(
+                            "composition_groups",
+                            values,
+                            "id = ?",
+                            new String[]{cursor.getString(0)}
+                    );
+                }
+            }
+        }
+        if (tableExists(db, "meal_record_item_components")) {
+            db.execSQL("UPDATE meal_record_item_components SET " +
+                    "composition_group_type_snapshot = 'other' " +
+                    "WHERE composition_group_key_snapshot IS NOT NULL " +
+                    "AND (composition_group_type_snapshot IS NULL " +
+                    "OR trim(composition_group_type_snapshot) = '')");
         }
     }
 

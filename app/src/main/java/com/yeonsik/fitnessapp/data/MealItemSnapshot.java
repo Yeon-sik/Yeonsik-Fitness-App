@@ -33,6 +33,7 @@ public final class MealItemSnapshot {
     public final String sourceVersionSnapshot;
     public final int foodDataVersionSnapshot;
     public final String compositionGroupKeySnapshot;
+    public final String compositionGroupTypeSnapshot;
     public final String compositionRoleSnapshot;
     public final String compositionMemberIdSnapshot;
     public final NutritionProfile profile;
@@ -42,6 +43,7 @@ public final class MealItemSnapshot {
             MealCompositionItem item,
             int orderIndex,
             String compositionGroupKeySnapshot,
+            String compositionGroupTypeSnapshot,
             String compositionRoleSnapshot,
             String compositionMemberIdSnapshot
     ) {
@@ -60,6 +62,7 @@ public final class MealItemSnapshot {
         this.sourceVersionSnapshot = food.sourceVersion;
         this.foodDataVersionSnapshot = food.dataVersion;
         this.compositionGroupKeySnapshot = blankToNull(compositionGroupKeySnapshot);
+        this.compositionGroupTypeSnapshot = normalizeGroupType(compositionGroupTypeSnapshot);
         this.compositionRoleSnapshot = blankToNull(compositionRoleSnapshot);
         this.compositionMemberIdSnapshot = blankToNull(compositionMemberIdSnapshot);
         this.profile = item.profile;
@@ -67,7 +70,7 @@ public final class MealItemSnapshot {
     }
 
     public static MealItemSnapshot of(MealCompositionItem item, int orderIndex) {
-        return of(item, orderIndex, null, null, null);
+        return of(item, orderIndex, null, null, null, null);
     }
 
     /** Creates a snapshot with the generic composition role used by variable menu members. */
@@ -75,6 +78,24 @@ public final class MealItemSnapshot {
             MealCompositionItem item,
             int orderIndex,
             String compositionGroupKeySnapshot,
+            String compositionRoleSnapshot,
+            String compositionMemberIdSnapshot
+    ) {
+        return of(
+                item,
+                orderIndex,
+                compositionGroupKeySnapshot,
+                null,
+                compositionRoleSnapshot,
+                compositionMemberIdSnapshot
+        );
+    }
+
+    public static MealItemSnapshot of(
+            MealCompositionItem item,
+            int orderIndex,
+            String compositionGroupKeySnapshot,
+            String compositionGroupTypeSnapshot,
             String compositionRoleSnapshot,
             String compositionMemberIdSnapshot
     ) {
@@ -88,6 +109,7 @@ public final class MealItemSnapshot {
                 item,
                 orderIndex,
                 compositionGroupKeySnapshot,
+                compositionGroupTypeSnapshot,
                 compositionRoleSnapshot,
                 compositionMemberIdSnapshot
         );
@@ -139,6 +161,11 @@ public final class MealItemSnapshot {
     private static String blankToNull(String value) {
         String normalized = value == null ? "" : value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private static String normalizeGroupType(String value) {
+        String normalized = blankToNull(value);
+        return normalized == null ? null : CompositionGroupType.normalize(normalized);
     }
 
     public static final class MicronutrientRow {

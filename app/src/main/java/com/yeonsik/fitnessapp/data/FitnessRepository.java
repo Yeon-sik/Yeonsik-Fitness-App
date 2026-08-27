@@ -1883,6 +1883,7 @@ public final class FitnessRepository {
                     : new JSONObject(option.sourceReference);
             source.put("composition_contract", CompositionTemplate.CONTRACT_VERSION);
             source.put("composition_group_key", option.groupKey);
+            source.put("composition_group_type", option.groupType);
             source.put("composition_group_label", option.groupLabel);
             source.put("composition_role", option.role);
             if (option.memberId == null) {
@@ -2089,6 +2090,7 @@ public final class FitnessRepository {
                                     menu.components.get(componentIndex),
                                     componentIndex,
                                     option.groupKey,
+                                    option.groupType,
                                     option.role,
                                     option.memberId
                             ),
@@ -2164,6 +2166,7 @@ public final class FitnessRepository {
         values.put("meal_record_id", mealRecordId);
         values.put("meal_record_item_id", mealRecordItemId);
         putNullable(values, "composition_group_key_snapshot", snapshot.compositionGroupKeySnapshot);
+        putNullable(values, "composition_group_type_snapshot", snapshot.compositionGroupTypeSnapshot);
         putNullable(values, "composition_role_snapshot", snapshot.compositionRoleSnapshot);
         putNullable(values, "composition_member_id_snapshot", snapshot.compositionMemberIdSnapshot);
         putNullable(values, "consumed_fraction", consumedFraction);
@@ -2574,10 +2577,10 @@ public final class FitnessRepository {
             return components;
         }
         try (Cursor cursor = db().rawQuery(
-                "SELECT id, food_name_snapshot, quantity, unit, calories, " +
+                        "SELECT id, food_name_snapshot, quantity, unit, calories, " +
                         "protein_grams, carbs_grams, fat_grams, consumed_fraction, " +
-                        "composition_group_key_snapshot, composition_role_snapshot, " +
-                        "composition_member_id_snapshot " +
+                        "composition_group_key_snapshot, composition_group_type_snapshot, " +
+                        "composition_role_snapshot, composition_member_id_snapshot " +
                         "FROM meal_record_item_components " +
                         "WHERE meal_record_item_id = ? AND user_id = ? " +
                         "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC",
@@ -2596,6 +2599,7 @@ public final class FitnessRepository {
                         cursor.isNull(9) ? null : cursor.getString(9),
                         cursor.isNull(10) ? null : cursor.getString(10),
                         cursor.isNull(11) ? null : cursor.getString(11),
+                        cursor.isNull(12) ? null : cursor.getString(12),
                         cursor.isNull(8) ? null : cursor.getDouble(8)
                 ));
             }
@@ -5446,6 +5450,7 @@ public final class FitnessRepository {
         /** Null for pre-v36 component snapshots that had no independent allocation. */
         public final Double consumedFraction;
         public final String compositionGroupKey;
+        public final String compositionGroupType;
         public final String compositionRole;
         public final String compositionMemberId;
 
@@ -5468,6 +5473,7 @@ public final class FitnessRepository {
                     proteinGrams,
                     carbsGrams,
                     fatGrams,
+                    null,
                     null,
                     null,
                     null,
@@ -5498,6 +5504,7 @@ public final class FitnessRepository {
                     carbsGrams,
                     fatGrams,
                     compositionGroupKey,
+                    null,
                     compositionRole,
                     compositionMemberId,
                     null
@@ -5514,6 +5521,7 @@ public final class FitnessRepository {
                 double carbsGrams,
                 double fatGrams,
                 String compositionGroupKey,
+                String compositionGroupType,
                 String compositionRole,
                 String compositionMemberId,
                 Double consumedFraction
@@ -5528,6 +5536,7 @@ public final class FitnessRepository {
             this.fatGrams = fatGrams;
             this.consumedFraction = consumedFraction;
             this.compositionGroupKey = compositionGroupKey;
+            this.compositionGroupType = compositionGroupType;
             this.compositionRole = compositionRole;
             this.compositionMemberId = compositionMemberId;
         }
