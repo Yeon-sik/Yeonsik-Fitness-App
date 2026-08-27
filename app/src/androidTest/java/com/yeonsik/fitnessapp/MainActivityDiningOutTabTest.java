@@ -67,6 +67,27 @@ public final class MainActivityDiningOutTabTest {
         }
     }
 
+    @Test
+    public void diningOutMenuAddCreatesAnotherTopLevelMenu() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+                clickText(root, "메뉴 추가");
+
+                findEditTextWithContentDescription(root, "추가 메뉴 이름").setText("생연어 2P");
+                findEditTextWithContentDescription(root, "추가 메뉴 탄수화물").setText("2");
+                findEditTextWithContentDescription(root, "추가 메뉴 단백질").setText("25");
+                findEditTextWithContentDescription(root, "추가 메뉴 지방").setText("10");
+                clickText(root, "추가");
+
+                assertNotNull(findTextContaining(root, "메뉴 2 · 생연어 2P"));
+            });
+        }
+    }
+
     private static void clickText(View root, String text) {
         TextView target = findText(root, text);
         assertNotNull(target);

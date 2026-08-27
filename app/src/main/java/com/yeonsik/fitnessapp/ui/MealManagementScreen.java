@@ -96,7 +96,9 @@ public final class MealManagementScreen extends BaseScreen {
     private String draftDiningOutSourceLocationCode = "";
     private String draftDiningOutRestaurantMenuId = "";
     private String draftDiningOutCatalogProductId = "";
+    private String draftDiningOutMenuCatalogFoodId = "";
     private final List<DiningOutOptionDraft> draftDiningOutOptions = new ArrayList<>();
+    private final List<DiningOutMenuDraft> draftDiningOutAdditionalMenus = new ArrayList<>();
     private String draftDiningOutCarbs = "";
     private String draftDiningOutProtein = "";
     private String draftDiningOutFat = "";
@@ -118,6 +120,7 @@ public final class MealManagementScreen extends BaseScreen {
     private EditText diningOutDinerCountInput;
     private EditText diningOutConsumedPercentInput;
     private LinearLayout diningOutOptionsContainer;
+    private LinearLayout diningOutAdditionalMenusContainer;
     private final List<EditText> diningOutOptionInputs = new ArrayList<>();
     private final List<Button> diningOutOptionGroupInputs = new ArrayList<>();
     private final List<EditText> diningOutOptionCaloriesInputs = new ArrayList<>();
@@ -1509,6 +1512,7 @@ public final class MealManagementScreen extends BaseScreen {
                 v -> {
                     syncDraftFromViews();
                     clearDiningOutPriceTraceIdentity();
+                    draftDiningOutMenuCatalogFoodId = "";
                     host.toast("식당·지점·메뉴를 직접 입력하세요.");
                     host.rerender();
                 }
@@ -1543,6 +1547,14 @@ public final class MealManagementScreen extends BaseScreen {
         );
         form.addView(restaurantFields, ui.fullWidthParams(ui.dp(8)));
 
+        LinearLayout menuHeader = new LinearLayout(host.activity());
+        menuHeader.setOrientation(LinearLayout.HORIZONTAL);
+        menuHeader.setGravity(Gravity.CENTER_VERTICAL);
+        menuHeader.addView(ui.caption("메뉴", FitnessUi.COLOR_MUTED),
+                new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        menuHeader.addView(ui.textAction("메뉴 추가", FitnessUi.COLOR_TERTIARY,
+                this::showDiningOutAdditionalMenuDialog));
+        form.addView(menuHeader, ui.fullWidthParams(ui.dp(4)));
         diningOutMenuInput = ui.input("먹은 메뉴", draftDiningOutMenuName);
         diningOutMenuInput.setSingleLine(true);
         diningOutMenuInput.setContentDescription("먹은 메뉴");
@@ -1550,6 +1562,10 @@ public final class MealManagementScreen extends BaseScreen {
                 ui.labeledFieldColumn("먹은 메뉴", diningOutMenuInput),
                 ui.fullWidthParams(ui.dp(8))
         );
+        diningOutAdditionalMenusContainer = new LinearLayout(host.activity());
+        diningOutAdditionalMenusContainer.setOrientation(LinearLayout.VERTICAL);
+        renderDiningOutAdditionalMenuRows();
+        form.addView(diningOutAdditionalMenusContainer, ui.fullWidthParams(ui.dp(6)));
 
         diningOutNominalServingsInput = ui.decimalInput(
                 "인분",
@@ -1644,6 +1660,164 @@ public final class MealManagementScreen extends BaseScreen {
         form.addView(ui.buttonRow(recordDiningOut, saveMenuAndRecord),
                 ui.fullWidthParams(ui.dp(14)));
         return form;
+    }
+
+    private void showDiningOutAdditionalMenuDialog() {
+        syncDraftFromViews();
+        FitnessUi ui = ui();
+        LinearLayout panel = ui.form();
+        EditText name = ui.input("추가 메뉴 이름", "");
+        name.setSingleLine(true);
+        name.setContentDescription("추가 메뉴 이름");
+        EditText calories = ui.numberInput("kcal", "");
+        calories.setContentDescription("추가 메뉴 칼로리");
+        EditText carbs = ui.decimalInput("g", "");
+        carbs.setContentDescription("추가 메뉴 탄수화물");
+        EditText protein = ui.decimalInput("g", "");
+        protein.setContentDescription("추가 메뉴 단백질");
+        EditText fat = ui.decimalInput("g", "");
+        fat.setContentDescription("추가 메뉴 지방");
+        panel.addView(ui.labeledFieldColumn("메뉴 이름 *", name), ui.fullWidthParams(ui.dp(6)));
+        panel.addView(pairedFields("칼로리 (선택)", calories, "탄수화물 (g) *", carbs),
+                ui.fullWidthParams(ui.dp(6)));
+        panel.addView(pairedFields("단백질 (g) *", protein, "지방 (g) *", fat),
+                ui.fullWidthParams(ui.dp(6)));
+        panel.addView(ui.text(
+                "독립적으로 주문·섭취한 음식은 별도 메뉴로 추가합니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ), ui.fullWidthParams(ui.dp(4)));
+
+        AlertDialog dialog = new AlertDialog.Builder(host.activity())
+                .setTitle("외식 메뉴 추가")
+                .setView(panel)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("추가", null)
+                .create();
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+                .setOnClickListener(v -> {
+                    try {
+                        String menuName = FitnessUi.inputText(name).trim();
+                        if (menuName.isEmpty()) {
+                            throw new IllegalArgumentException("추가 메뉴 이름을 입력하세요.");
+                        }
+                        Double carbsValue = MealEntryPolicy.requireDiningOutMacro(
+                                FitnessUi.inputText(carbs), "추가 메뉴 탄수화물");
+                        Double proteinValue = MealEntryPolicy.requireDiningOutMacro(
+                                FitnessUi.inputText(protein), "추가 메뉴 단백질");
+                        Double fatValue = MealEntryPolicy.requireDiningOutMacro(
+                                FitnessUi.inputText(fat), "추가 메뉴 지방");
+                        draftDiningOutAdditionalMenus.add(new DiningOutMenuDraft(
+                                menuName,
+                                FitnessUi.inputText(calories),
+                                FitnessUi.inputText(carbs),
+                                FitnessUi.inputText(protein),
+                                FitnessUi.inputText(fat)
+                        ));
+                        dialog.dismiss();
+                        host.rerender();
+                    } catch (IllegalArgumentException error) {
+                        host.toast(error.getMessage());
+                    }
+                }));
+        dialog.show();
+    }
+
+    private void renderDiningOutAdditionalMenuRows() {
+        if (diningOutAdditionalMenusContainer == null) {
+            return;
+        }
+        FitnessUi ui = ui();
+        diningOutAdditionalMenusContainer.removeAllViews();
+        for (int index = 0; index < draftDiningOutAdditionalMenus.size(); index++) {
+            final int menuIndex = index;
+            DiningOutMenuDraft menu = draftDiningOutAdditionalMenus.get(index);
+            LinearLayout row = new LinearLayout(host.activity());
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.addView(ui.text(
+                    "메뉴 " + (index + 2) + " · " + menu.name + " · " + menu.macroLabel(),
+                    12,
+                    FitnessUi.COLOR_TEXT,
+                    true
+            ), new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            row.addView(ui.textAction("삭제", FitnessUi.COLOR_NEGATIVE, () -> {
+                syncDraftFromViews();
+                draftDiningOutAdditionalMenus.remove(menuIndex);
+                host.rerender();
+            }));
+            diningOutAdditionalMenusContainer.addView(row, ui.fullWidthParams(ui.dp(4)));
+        }
+    }
+
+    private MealMenuSelection diningOutMenuSelection(
+            NutritionFood savedMenu,
+            String menuName,
+            Integer calories,
+            Double protein,
+            Double carbs,
+            Double fat,
+            Double sodium,
+            Double sugars,
+            Double saturatedFat,
+            List<DiningOutOption> options
+    ) {
+        NutritionFood menuFood = savedMenu == null
+                ? manualDiningOutMenuFood(
+                        menuName,
+                        calories,
+                        protein,
+                        carbs,
+                        fat,
+                        sodium,
+                        sugars,
+                        saturatedFat
+                )
+                : savedMenu;
+        return MealMenuSelection.diningOut(
+                MealCompositionItem.from(menuFood, menuFood.basisAmount),
+                repository().currentUserId(),
+                draftDiningOutStoreName,
+                options
+        );
+    }
+
+    private NutritionFood manualDiningOutMenuFood(
+            String menuName,
+            Integer calories,
+            Double protein,
+            Double carbs,
+            Double fat,
+            Double sodium,
+            Double sugars,
+            Double saturatedFat
+    ) {
+        int resolvedCalories = calories == null
+                ? MealEntryPolicy.estimatedDiningOutCalories(carbs, protein, fat)
+                : calories;
+        NutritionProfile profile = NutritionProfile.builder()
+                .value(NutritionProfile.CALORIES_KCAL, (double) resolvedCalories)
+                .value(NutritionProfile.PROTEIN_GRAMS, protein)
+                .value(NutritionProfile.CARBS_GRAMS, carbs)
+                .value(NutritionProfile.FAT_GRAMS, fat)
+                .value(NutritionProfile.SODIUM_MG, sodium)
+                .value(NutritionProfile.SUGARS_GRAMS, sugars)
+                .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFat)
+                .build();
+        return NutritionFood.builder()
+                .id(null)
+                .ownerId(repository().currentUserId())
+                .name(MealEntryPolicy.requireDiningOutMenuName(menuName))
+                .brand(draftDiningOutStoreName)
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .category(NutritionFood.CATEGORY_OTHER)
+                .basis(1.0, NutritionUnit.SERVING)
+                .prepState(NutritionFood.PREP_AS_SERVED)
+                .profile(profile)
+                .source("manual_estimate", "dining_out")
+                .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
+                .build();
     }
 
     private View diningOutOptionsSection() {
@@ -1961,6 +2135,7 @@ public final class MealManagementScreen extends BaseScreen {
     private void applySavedDiningOutMenu(NutritionFood menu) {
         draftDiningOutStoreName = menu.brand == null ? "" : menu.brand;
         draftDiningOutMenuName = menu.name;
+        draftDiningOutMenuCatalogFoodId = menu.id == null ? "" : menu.id;
         clearDiningOutPriceTraceIdentity();
         applyDiningOutTemplateIdentity(menu.sourceReference);
         draftDiningOutOptions.clear();
@@ -1987,6 +2162,12 @@ public final class MealManagementScreen extends BaseScreen {
     private void showDiningOutOptionPicker(int replacementIndex) {
         syncDraftFromViews();
         FitnessUi ui = ui();
+        String selectedGroupType = replacementIndex >= 0
+                && replacementIndex < draftDiningOutOptions.size()
+                ? CompositionGroupType.normalize(
+                        draftDiningOutOptions.get(replacementIndex).groupType
+                )
+                : null;
         LinearLayout panel = new LinearLayout(host.activity());
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(ui.dp(16), ui.dp(4), ui.dp(16), ui.dp(8));
@@ -2026,7 +2207,9 @@ public final class MealManagementScreen extends BaseScreen {
         panel.addView(resultScroll, ui.fullWidthParams(ui.dp(220)));
 
         AlertDialog dialog = new AlertDialog.Builder(host.activity())
-                .setTitle(replacementIndex >= 0 ? "외식 옵션 변경" : "외식 옵션 추가")
+                .setTitle(replacementIndex >= 0
+                        ? "외식 옵션 변경 · " + CompositionGroupType.labelOf(selectedGroupType)
+                        : "외식 옵션 추가")
                 .setView(panel)
                 .setNegativeButton("취소", null)
                 .create();
@@ -2070,6 +2253,29 @@ public final class MealManagementScreen extends BaseScreen {
                                 FitnessUi.inputText(query),
                                 SAVED_DINING_OUT_OPTION_RESULT_LIMIT
                         );
+                if (selectedGroupType != null) {
+                    List<NutritionFood> filtered = new ArrayList<>();
+                    for (NutritionFood option : options) {
+                        if (selectedGroupType.equals(savedDiningOutOptionGroupType(
+                                option.sourceReference))) {
+                            filtered.add(option);
+                        }
+                    }
+                    options = filtered;
+                }
+                if (selectedGroupType != null
+                        && CompositionGroupType.ADD_ON.value().equals(selectedGroupType)
+                        && !draftDiningOutMenuCatalogFoodId.trim().isEmpty()) {
+                    List<NutritionFood> linked = host.nutritionCatalogRepository()
+                            .diningOutAddOnsForMenu(draftDiningOutMenuCatalogFoodId);
+                    List<NutritionFood> prioritized = new ArrayList<>(linked);
+                    for (NutritionFood option : options) {
+                        if (!containsFood(prioritized, option.id)) {
+                            prioritized.add(option);
+                        }
+                    }
+                    options = prioritized;
+                }
                 if (options.isEmpty()) {
                     status.setText("일치하는 저장 옵션이 없습니다. 직접 입력할 수 있습니다.");
                     return;
@@ -2128,6 +2334,15 @@ public final class MealManagementScreen extends BaseScreen {
         }
         dialog.dismiss();
         host.rerender();
+    }
+
+    private boolean containsFood(List<NutritionFood> foods, String foodId) {
+        for (NutritionFood food : foods) {
+            if (food != null && food.id != null && food.id.equals(foodId)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private String savedDiningOutOptionGroupType(String sourceReference) {
@@ -4028,11 +4243,9 @@ public final class MealManagementScreen extends BaseScreen {
                             diningOutIdentity
                     );
                 }
-                repository().addDiningOutMealAtTimeWithConsumption(
-                        selectedDate,
-                        recordedMealTime,
-                        draftDiningOutStoreName,
-                        draftDiningOutBranchName,
+                List<MealMenuSelection> diningOutMenus = new ArrayList<>();
+                diningOutMenus.add(diningOutMenuSelection(
+                        savedMenu,
                         draftDiningOutMenuName,
                         calories,
                         proteinGrams,
@@ -4041,14 +4254,79 @@ public final class MealManagementScreen extends BaseScreen {
                         sodiumMg,
                         sugarsGrams,
                         saturatedFatGrams,
+                        optionSnapshots
+                ));
+                String relationshipMenuId = savedMenu == null
+                        ? draftDiningOutMenuCatalogFoodId
+                        : savedMenu.id;
+                if (relationshipMenuId != null && !relationshipMenuId.trim().isEmpty()) {
+                    for (DiningOutOption option : optionSnapshots) {
+                        if (CompositionGroupType.ADD_ON.value().equals(option.groupType)
+                                && option.catalogFoodId != null) {
+                            host.nutritionCatalogRepository().linkDiningOutAddOnToMenu(
+                                    relationshipMenuId,
+                                    option.catalogFoodId
+                            );
+                        }
+                    }
+                }
+                for (DiningOutMenuDraft additional : draftDiningOutAdditionalMenus) {
+                    Double additionalCarbs = MealEntryPolicy.requireDiningOutMacro(
+                            additional.carbs, "추가 메뉴 탄수화물");
+                    Double additionalProtein = MealEntryPolicy.requireDiningOutMacro(
+                            additional.protein, "추가 메뉴 단백질");
+                    Double additionalFat = MealEntryPolicy.requireDiningOutMacro(
+                            additional.fat, "추가 메뉴 지방");
+                    Integer additionalCalories = MealEntryPolicy.optionalDiningOutCalories(
+                            additional.calories);
+                    NutritionFood savedAdditional = null;
+                    if (saveDiningOutMenu) {
+                        savedAdditional = additionalCalories == null
+                                ? host.nutritionCatalogRepository().saveDiningOutMenu(
+                                        draftDiningOutStoreName,
+                                        additional.name,
+                                        additionalCarbs,
+                                        additionalProtein,
+                                        additionalFat,
+                                        draftDiningOutBranchName,
+                                        null
+                                )
+                                : host.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                                        draftDiningOutStoreName,
+                                        additional.name,
+                                        additionalCalories,
+                                        additionalProtein,
+                                        additionalCarbs,
+                                        additionalFat,
+                                        null,
+                                        null,
+                                        null,
+                                        draftDiningOutBranchName,
+                                        null
+                                );
+                    }
+                    diningOutMenus.add(diningOutMenuSelection(
+                            savedAdditional,
+                            additional.name,
+                            additionalCalories,
+                            additionalProtein,
+                            additionalCarbs,
+                            additionalFat,
+                            null,
+                            null,
+                            null,
+                            java.util.Collections.emptyList()
+                    ));
+                }
+                repository().addDiningOutMealAtTimeWithMenusAndConsumption(
+                        selectedDate,
+                        recordedMealTime,
+                        draftDiningOutStoreName,
+                        draftDiningOutBranchName,
                         diningOutIdentity,
-                        savedMenu == null
-                                ? null
-                                : MealCompositionItem.from(savedMenu, savedMenu.basisAmount),
-                        optionSnapshots,
+                        diningOutMenus,
                         nominalServings,
-                        consumption,
-                        hasExtendedNutrition
+                        consumption
                 );
                 if (saveDiningOutMenu) {
                     syncCatalog(false);
@@ -4069,7 +4347,9 @@ public final class MealManagementScreen extends BaseScreen {
             draftDiningOutSourceLocationCode = "";
             draftDiningOutRestaurantMenuId = "";
             draftDiningOutCatalogProductId = "";
+            draftDiningOutMenuCatalogFoodId = "";
             draftDiningOutOptions.clear();
+            draftDiningOutAdditionalMenus.clear();
             draftDiningOutCarbs = "";
             draftDiningOutProtein = "";
             draftDiningOutFat = "";
@@ -4136,7 +4416,9 @@ public final class MealManagementScreen extends BaseScreen {
         draftDiningOutSourceLocationCode = "";
         draftDiningOutRestaurantMenuId = "";
         draftDiningOutCatalogProductId = "";
+        draftDiningOutMenuCatalogFoodId = "";
         draftDiningOutOptions.clear();
+        draftDiningOutAdditionalMenus.clear();
         draftDiningOutCarbs = "";
         draftDiningOutProtein = "";
         draftDiningOutFat = "";
@@ -4155,6 +4437,7 @@ public final class MealManagementScreen extends BaseScreen {
         diningOutDinerCountInput = null;
         diningOutConsumedPercentInput = null;
         diningOutOptionsContainer = null;
+        diningOutAdditionalMenusContainer = null;
         diningOutOptionInputs.clear();
         diningOutOptionGroupInputs.clear();
         diningOutOptionConsumedPercentInputs.clear();
@@ -4328,6 +4611,7 @@ public final class MealManagementScreen extends BaseScreen {
         draftDiningOutBranchName = nextBranchName;
         draftDiningOutMenuName = nextMenuName;
         if (searchedValueChanged) {
+            draftDiningOutMenuCatalogFoodId = "";
             if (hasSelectedIdentity) {
                 // A manually changed name is no longer guaranteed to describe the selected
                 // PriceTrace location/menu. Keep the local entry, but remove the cross-app link.
@@ -4558,6 +4842,32 @@ public final class MealManagementScreen extends BaseScreen {
             throw new IllegalArgumentException(label + "은 0보다 커야 합니다.");
         }
         return parsed;
+    }
+
+    private static final class DiningOutMenuDraft {
+        private final String name;
+        private final String calories;
+        private final String carbs;
+        private final String protein;
+        private final String fat;
+
+        private DiningOutMenuDraft(
+                String name,
+                String calories,
+                String carbs,
+                String protein,
+                String fat
+        ) {
+            this.name = name;
+            this.calories = calories;
+            this.carbs = carbs;
+            this.protein = protein;
+            this.fat = fat;
+        }
+
+        private String macroLabel() {
+            return "C " + carbs + "g · P " + protein + "g · F " + fat + "g";
+        }
     }
 
     private static final class DiningOutOptionDraft {
