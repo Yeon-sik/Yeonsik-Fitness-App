@@ -334,7 +334,7 @@ public final class NutritionCatalogRepository {
     }
     /** Private dining-out menus saved by the current Nutrition owner for reuse in meal entry. */
     public List<NutritionFood> savedDiningOutMenus() {
-        return readFoods(
+        List<NutritionFood> candidates = readFoods(
                 "owner_id = ? AND kind = ? AND source_type IN (?, ?)",
                 new String[]{
                         userId,
@@ -345,6 +345,34 @@ public final class NutritionCatalogRepository {
                 "updated_at DESC, brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC",
                 null
         );
+        Map<String, NutritionFood> canonicalMenus = new LinkedHashMap<>();
+        for (NutritionFood candidate : candidates) {
+            String identityKey = canonicalDiningOutMenuKey(candidate);
+            if (!canonicalMenus.containsKey(identityKey)) {
+                canonicalMenus.put(identityKey, candidate);
+            }
+        }
+        return new ArrayList<>(canonicalMenus.values());
+    }
+
+    /** Canonical identity used by the saved dining-out menu list and menu upsert. */
+    static String canonicalDiningOutMenuKey(
+            String storeName,
+            String menuName,
+            String sourceReference
+    ) {
+        return DiningOutMenuCanonicalIdentity.from(
+                storeName,
+                menuName,
+                sourceReference
+        ).key();
+    }
+
+    static String canonicalDiningOutMenuKey(NutritionFood food) {
+        if (food == null) {
+            return "unresolved|menu";
+        }
+        return canonicalDiningOutMenuKey(food.brand, food.name, food.sourceReference);
     }
     private boolean matchesDiningOutOptionIdentity(
             NutritionFood food,
@@ -836,6 +864,7 @@ public final class NutritionCatalogRepository {
             reference.put("restaurant_name", storeName);
             reference.put("menu_name", menuName);
             reference.put("composition_group_key", option.groupKey);
+            reference.put("composition_group_type", option.groupType);
             reference.put("composition_group_label", option.groupLabel);
             reference.put("composition_role", option.role);
             if (option.sourceReference != null && !option.sourceReference.trim().isEmpty()) {
@@ -958,24 +987,37 @@ public final class NutritionCatalogRepository {
         SQLiteDatabase database = dbHelper.getWritableDatabase();
         String existingId = null;
         String existingCreatedAt = null;
-        try (Cursor cursor = database.rawQuery(
-                "SELECT id, created_at FROM nutrition_foods " +
-                        "WHERE owner_id = ? AND kind = ? AND name = ? COLLATE NOCASE " +
-                        "AND brand = ? COLLATE NOCASE AND source_type = ? " +
-                        "AND source_reference = ? " +
-                        "AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1",
-                new String[]{
-                        userId,
-                        NutritionFood.KIND_EXTERNAL_MENU,
-                        normalizedFoodName,
-                        normalizedStoreName,
-                        sourceType,
-                        sourceReference
+        if (isDiningOutMenuSourceType(sourceType)) {
+            ExistingCatalogRow existing = findCanonicalDiningOutMenu(
+                    database,
+                    normalizedStoreName,
+                    normalizedMenuName,
+                    sourceReference
+            );
+            if (existing != null) {
+                existingId = existing.id;
+                existingCreatedAt = existing.createdAt;
+            }
+        } else {
+            try (Cursor cursor = database.rawQuery(
+                    "SELECT id, created_at FROM nutrition_foods " +
+                            "WHERE owner_id = ? AND kind = ? AND name = ? COLLATE NOCASE " +
+                            "AND brand = ? COLLATE NOCASE AND source_type = ? " +
+                            "AND source_reference = ? " +
+                            "AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1",
+                    new String[]{
+                            userId,
+                            NutritionFood.KIND_EXTERNAL_MENU,
+                            normalizedFoodName,
+                            normalizedStoreName,
+                            sourceType,
+                            sourceReference
+                    }
+            )) {
+                if (cursor.moveToFirst()) {
+                    existingId = cursor.getString(0);
+                    existingCreatedAt = cursor.getString(1);
                 }
-        )) {
-            if (cursor.moveToFirst()) {
-                existingId = cursor.getString(0);
-                existingCreatedAt = cursor.getString(1);
             }
         }
 
@@ -1016,6 +1058,52 @@ public final class NutritionCatalogRepository {
             database.endTransaction();
         }
         return food;
+    }
+
+    private ExistingCatalogRow findCanonicalDiningOutMenu(
+            SQLiteDatabase database,
+            String storeName,
+            String menuName,
+            String sourceReference
+    ) {
+        DiningOutMenuCanonicalIdentity requested = DiningOutMenuCanonicalIdentity.from(
+                storeName,
+                menuName,
+                sourceReference
+        );
+        try (Cursor cursor = database.rawQuery(
+                "SELECT id, created_at, brand, name, source_reference " +
+                        "FROM nutrition_foods " +
+                        "WHERE owner_id = ? AND kind = ? AND source_type IN (?, ?) " +
+                        "AND deleted_at IS NULL " +
+                        "ORDER BY updated_at DESC, id ASC",
+                new String[]{
+                        userId,
+                        NutritionFood.KIND_EXTERNAL_MENU,
+                        DINING_OUT_MENU_SOURCE_TYPE,
+                        OCR_DINING_OUT_MENU_SOURCE_TYPE
+                }
+        )) {
+            while (cursor.moveToNext()) {
+                DiningOutMenuCanonicalIdentity candidate = DiningOutMenuCanonicalIdentity.from(
+                        cursor.getString(2),
+                        cursor.getString(3),
+                        cursor.isNull(4) ? null : cursor.getString(4)
+                );
+                if (requested.matches(candidate)) {
+                    return new ExistingCatalogRow(
+                            cursor.getString(0),
+                            cursor.isNull(1) ? null : cursor.getString(1)
+                    );
+                }
+            }
+        }
+        return null;
+    }
+
+    private static boolean isDiningOutMenuSourceType(String sourceType) {
+        return DINING_OUT_MENU_SOURCE_TYPE.equalsIgnoreCase(sourceType)
+                || OCR_DINING_OUT_MENU_SOURCE_TYPE.equalsIgnoreCase(sourceType);
     }
 
     /**
@@ -3037,6 +3125,138 @@ public final class NutritionCatalogRepository {
 
     private static String emptyToNull(String value) {
         return value == null || value.trim().isEmpty() ? null : value.trim();
+    }
+
+    private static final class ExistingCatalogRow {
+        private final String id;
+        private final String createdAt;
+
+        private ExistingCatalogRow(String id, String createdAt) {
+            this.id = id;
+            this.createdAt = createdAt;
+        }
+    }
+
+    /**
+     * Identity projection for an external menu. It intentionally ignores branch, date,
+     * record IDs, and composition selections so those values cannot create menu duplicates.
+     */
+    private static final class DiningOutMenuCanonicalIdentity {
+        private final String restaurantMenuId;
+        private final String restaurantId;
+        private final String normalizedStoreName;
+        private final String normalizedMenuName;
+
+        private DiningOutMenuCanonicalIdentity(
+                String restaurantMenuId,
+                String restaurantId,
+                String normalizedStoreName,
+                String normalizedMenuName
+        ) {
+            this.restaurantMenuId = restaurantMenuId;
+            this.restaurantId = restaurantId;
+            this.normalizedStoreName = normalizedStoreName;
+            this.normalizedMenuName = normalizedMenuName;
+        }
+
+        private static DiningOutMenuCanonicalIdentity from(
+                String storeName,
+                String menuName,
+                String sourceReference
+        ) {
+            JSONObject source = null;
+            if (sourceReference != null && !sourceReference.trim().isEmpty()) {
+                try {
+                    source = new JSONObject(sourceReference);
+                } catch (JSONException ignored) {
+                    // The catalog row still has its name/brand fallback identity.
+                }
+            }
+            String sourceStoreName = source == null
+                    ? null
+                    : firstNonBlank(
+                            nullableString(source, "normalized_store_name"),
+                            nullableString(source, "restaurant_name")
+                    );
+            String sourceMenuName = source == null
+                    ? null
+                    : firstNonBlank(
+                            nullableString(source, "normalized_menu_name"),
+                            nullableString(source, "menu_name")
+                    );
+            String sourceRestaurantId = source == null
+                    ? null
+                    : nullableString(source, "restaurant_id");
+            String sourceRestaurantMenuId = source == null
+                    ? null
+                    : nullableString(source, "restaurant_menu_id");
+            return new DiningOutMenuCanonicalIdentity(
+                    normalizeIdentityToken(sourceRestaurantMenuId),
+                    normalizeIdentityToken(sourceRestaurantId),
+                    normalizeDiningOutIdentityText(firstNonBlank(storeName, sourceStoreName)),
+                    normalizeDiningOutIdentityText(firstNonBlank(menuName, sourceMenuName))
+            );
+        }
+
+        private String key() {
+            if (!restaurantMenuId.isEmpty()) {
+                return "restaurant_menu_id|" + restaurantMenuId;
+            }
+            if (!restaurantId.isEmpty()) {
+                return "restaurant_id|" + restaurantId + "|menu|" + normalizedMenuName;
+            }
+            return "store|" + normalizedStoreName + "|menu|" + normalizedMenuName;
+        }
+
+        private boolean matches(DiningOutMenuCanonicalIdentity candidate) {
+            if (!restaurantMenuId.isEmpty()) {
+                if (!candidate.restaurantMenuId.isEmpty()) {
+                    return restaurantMenuId.equals(candidate.restaurantMenuId);
+                }
+                return !restaurantId.isEmpty()
+                        && restaurantId.equals(candidate.restaurantId)
+                        && normalizedMenuName.equals(candidate.normalizedMenuName);
+            }
+            if (!candidate.restaurantMenuId.isEmpty()) {
+                return false;
+            }
+            if (!restaurantId.isEmpty()) {
+                if (!candidate.restaurantId.isEmpty()) {
+                    return restaurantId.equals(candidate.restaurantId)
+                            && normalizedMenuName.equals(candidate.normalizedMenuName);
+                }
+                return normalizedStoreName.equals(candidate.normalizedStoreName)
+                        && normalizedMenuName.equals(candidate.normalizedMenuName);
+            }
+            if (!candidate.restaurantId.isEmpty()) {
+                return false;
+            }
+            return normalizedStoreName.equals(candidate.normalizedStoreName)
+                    && normalizedMenuName.equals(candidate.normalizedMenuName);
+        }
+
+        private static String firstNonBlank(String primary, String fallback) {
+            String normalizedPrimary = normalizeNullableText(primary);
+            return normalizedPrimary == null ? fallback : normalizedPrimary;
+        }
+
+        private static String normalizeIdentityToken(String value) {
+            String normalized = normalizeNullableText(value);
+            if (normalized == null || "null".equalsIgnoreCase(normalized)) {
+                return "";
+            }
+            return normalized.toLowerCase(Locale.ROOT);
+        }
+
+        private static String normalizeDiningOutIdentityText(String value) {
+            String normalized = value == null ? "" : value.trim();
+            return normalized.replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+        }
+
+        private static String normalizeNullableText(String value) {
+            String normalized = value == null ? "" : value.trim();
+            return normalized.isEmpty() ? null : normalized;
+        }
     }
 
     private static boolean isKnownLinkStatus(String value) {
