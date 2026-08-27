@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 37;
+    public static final int DATABASE_VERSION = 38;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -38,6 +38,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createMealMenuPresetTable(db);
         createNutritionTables(db);
         createCompositionTables(db);
+        createDiningOutAddOnLinkTable(db);
         createDiningOutConsumptionTables(db);
         createNutritionIndexes(db);
         createProductNutritionLinkTables(db);
@@ -566,6 +567,24 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON composition_members(user_id, nutrition_food_id)");
     }
 
+    /** Permanent menu-to-add-on definitions; non-add-on components never enter this table. */
+    private void createDiningOutAddOnLinkTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS dining_out_menu_add_on_links (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "menu_food_id TEXT NOT NULL, " +
+                "add_on_food_id TEXT NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, " +
+                "UNIQUE(user_id, menu_food_id, add_on_food_id))");
+        db.execSQL("CREATE INDEX IF NOT EXISTS dining_out_menu_add_on_links_menu_idx " +
+                "ON dining_out_menu_add_on_links(user_id, menu_food_id, deleted_at)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS dining_out_menu_add_on_links_add_on_idx " +
+                "ON dining_out_menu_add_on_links(user_id, add_on_food_id, deleted_at)");
+    }
+
     private void createNutritionIndexes(SQLiteDatabase db) {
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_name_idx " +
                 "ON nutrition_foods(owner_id, name COLLATE NOCASE)");
@@ -988,6 +1007,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 37) {
             upgradeCompositionGroupTypeSchema(db);
         }
+        if (oldVersion < 38) {
+            createDiningOutAddOnLinkTable(db);
+        }
     }
 
     private void upgradeCompositionGroupTypeSchema(SQLiteDatabase db) {
@@ -1030,11 +1052,30 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
             }
         }
         if (tableExists(db, "meal_record_item_components")) {
-            db.execSQL("UPDATE meal_record_item_components SET " +
-                    "composition_group_type_snapshot = 'other' " +
-                    "WHERE composition_group_key_snapshot IS NOT NULL " +
-                    "AND (composition_group_type_snapshot IS NULL " +
-                    "OR trim(composition_group_type_snapshot) = '')");
+            try (Cursor cursor = db.query(
+                    "meal_record_item_components",
+                    new String[]{"id", "composition_group_type_snapshot"},
+                    "composition_group_key_snapshot IS NOT NULL",
+                    null,
+                    null,
+                    null,
+                    null
+            )) {
+                while (cursor.moveToNext()) {
+                    String storedType = cursor.isNull(1) ? null : cursor.getString(1);
+                    ContentValues values = new ContentValues();
+                    values.put(
+                            "composition_group_type_snapshot",
+                            CompositionGroupType.normalize(storedType)
+                    );
+                    db.update(
+                            "meal_record_item_components",
+                            values,
+                            "id = ?",
+                            new String[]{cursor.getString(0)}
+                    );
+                }
+            }
         }
     }
 

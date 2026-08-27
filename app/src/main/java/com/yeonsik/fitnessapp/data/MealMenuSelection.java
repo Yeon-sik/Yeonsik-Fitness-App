@@ -14,10 +14,13 @@ import java.util.List;
 public final class MealMenuSelection {
     public final MealCompositionItem menu;
     public final List<MealCompositionItem> components;
+    /** Selected dining-out options that describe the component snapshots for this menu item. */
+    public final List<DiningOutOption> diningOutOptions;
 
     private MealMenuSelection(
             MealCompositionItem menu,
-            List<MealCompositionItem> components
+            List<MealCompositionItem> components,
+            List<DiningOutOption> diningOutOptions
     ) {
         if (menu == null || menu.food == null) {
             throw new IllegalArgumentException("Menu is required.");
@@ -33,11 +36,26 @@ public final class MealMenuSelection {
             }
         }
         this.components = Collections.unmodifiableList(copied);
+        List<DiningOutOption> copiedOptions = new ArrayList<>();
+        if (diningOutOptions != null) {
+            for (DiningOutOption option : diningOutOptions) {
+                if (option == null) {
+                    throw new IllegalArgumentException("Dining-out menu contains an empty option.");
+                }
+                copiedOptions.add(option);
+            }
+        }
+        if (!copiedOptions.isEmpty() && copiedOptions.size() != copied.size()) {
+            throw new IllegalArgumentException(
+                    "Dining-out options must match the menu component count."
+            );
+        }
+        this.diningOutOptions = Collections.unmodifiableList(copiedOptions);
     }
 
     /** Treats a catalog food as one menu in this meal, regardless of its catalog classification. */
     public static MealMenuSelection standalone(MealCompositionItem menu) {
-        return new MealMenuSelection(menu, Collections.emptyList());
+        return new MealMenuSelection(menu, Collections.emptyList(), Collections.emptyList());
     }
 
     /** Creates a homemade or saved recipe menu with its ingredient-level snapshot source. */
@@ -48,7 +66,26 @@ public final class MealMenuSelection {
         if (components == null || components.isEmpty()) {
             throw new IllegalArgumentException("A composed menu needs at least one ingredient.");
         }
-        return new MealMenuSelection(menu, components);
+        return new MealMenuSelection(menu, components, Collections.emptyList());
+    }
+
+    /** Creates one dining-out menu and keeps each selected option's group metadata. */
+    public static MealMenuSelection diningOut(
+            MealCompositionItem menu,
+            String ownerId,
+            String restaurantName,
+            List<DiningOutOption> options
+    ) {
+        List<MealCompositionItem> components = new ArrayList<>();
+        if (options != null) {
+            for (DiningOutOption option : options) {
+                if (option == null) {
+                    throw new IllegalArgumentException("Dining-out menu contains an empty option.");
+                }
+                components.add(option.asMealCompositionItem(ownerId, restaurantName));
+            }
+        }
+        return new MealMenuSelection(menu, components, options);
     }
 
     /** Returns the same menu at another quantity and scales every ingredient by the same ratio. */
@@ -65,7 +102,9 @@ public final class MealMenuSelection {
                     component.quantity * scale
             ));
         }
-        return composed(resizedMenu, resizedComponents);
+        return diningOutOptions.isEmpty()
+                ? composed(resizedMenu, resizedComponents)
+                : new MealMenuSelection(resizedMenu, resizedComponents, diningOutOptions);
     }
 
     public static List<MealCompositionItem> menuItems(List<MealMenuSelection> menus) {

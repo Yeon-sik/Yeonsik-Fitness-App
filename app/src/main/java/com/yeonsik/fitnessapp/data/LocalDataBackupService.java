@@ -549,6 +549,7 @@ public final class LocalDataBackupService {
             required.remove("composition_templates");
             required.remove("composition_groups");
             required.remove("composition_members");
+            required.remove("dining_out_menu_add_on_links");
         }
         if (databaseVersion < 34) {
             required.remove("meal_record_item_consumptions");
@@ -1004,6 +1005,7 @@ public final class LocalDataBackupService {
         tables.add("composition_templates");
         tables.add("composition_groups");
         tables.add("composition_members");
+        tables.add("dining_out_menu_add_on_links");
         tables.add("nutrition_foods");
         tables.add("nutrition_food_nutrients");
         tables.add("nutrition_food_components");

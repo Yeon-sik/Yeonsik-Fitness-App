@@ -332,6 +332,113 @@ public final class NutritionCatalogRepository {
         }
         return results;
     }
+
+    /** Persists the only reusable menu-specific relationship: one add-on may serve many menus. */
+    public void linkDiningOutAddOnToMenu(String menuFoodId, String addOnFoodId) {
+        String menuId = requiredId(menuFoodId, "외식 메뉴");
+        String addOnId = requiredId(addOnFoodId, "추가 구성");
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        if (!ownedActiveFood(database, menuId) || !ownedActiveFood(database, addOnId)) {
+            throw new IllegalArgumentException("현재 계정의 외식 메뉴·추가 구성만 연결할 수 있습니다.");
+        }
+        List<NutritionFood> addOnRows = readFoods(
+                "id = ? AND owner_id = ?",
+                new String[]{addOnId, userId},
+                "updated_at DESC",
+                "1"
+        );
+        NutritionFood addOn = addOnRows.isEmpty() ? null : addOnRows.get(0);
+        if (addOn == null || !CompositionGroupType.ADD_ON.value().equals(
+                optionGroupType(addOn.sourceReference))) {
+            throw new IllegalArgumentException("추가 구성 그룹만 메뉴에 영구 연결할 수 있습니다.");
+        }
+        String now = OffsetDateTime.now().toString();
+        ContentValues values = new ContentValues();
+        values.put("id", UUID.randomUUID().toString());
+        values.put("user_id", userId);
+        values.put("menu_food_id", menuId);
+        values.put("add_on_food_id", addOnId);
+        values.put("created_at", now);
+        values.put("updated_at", now);
+        values.putNull("deleted_at");
+        values.put("device_id", "android-local");
+        database.insertWithOnConflict(
+                "dining_out_menu_add_on_links",
+                null,
+                values,
+                SQLiteDatabase.CONFLICT_IGNORE
+        );
+    }
+
+    /** Returns add-ons permanently linked to one saved menu, preserving restaurant scope. */
+    public List<NutritionFood> diningOutAddOnsForMenu(String menuFoodId) {
+        String menuId = menuFoodId == null ? "" : menuFoodId.trim();
+        if (menuId.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<String> ids = new ArrayList<>();
+        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        try (Cursor cursor = database.rawQuery(
+                "SELECT add_on_food_id FROM dining_out_menu_add_on_links " +
+                        "WHERE user_id = ? AND menu_food_id = ? AND deleted_at IS NULL " +
+                        "ORDER BY created_at ASC, id ASC",
+                new String[]{userId, menuId}
+        )) {
+            while (cursor.moveToNext()) {
+                ids.add(cursor.getString(0));
+            }
+        }
+        if (ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+        StringBuilder placeholders = new StringBuilder();
+        for (String id : ids) {
+            placeholders.append(placeholders.length() == 0 ? "?" : ", ?");
+        }
+        List<String> foodArgs = new ArrayList<>();
+        foodArgs.add(userId);
+        foodArgs.add(NutritionFood.KIND_EXTERNAL_MENU);
+        foodArgs.addAll(ids);
+        return readFoods(
+                "owner_id = ? AND kind = ? AND id IN (" + placeholders + ")",
+                foodArgs.toArray(new String[0]),
+                "updated_at DESC, name COLLATE NOCASE ASC",
+                null
+        );
+    }
+
+    private boolean ownedActiveFood(SQLiteDatabase database, String foodId) {
+        try (Cursor cursor = database.rawQuery(
+                "SELECT 1 FROM nutrition_foods WHERE id = ? AND owner_id = ? " +
+                        "AND deleted_at IS NULL",
+                new String[]{foodId, userId}
+        )) {
+            return cursor.moveToFirst();
+        }
+    }
+
+    private String optionGroupType(String sourceReference) {
+        if (sourceReference == null || sourceReference.trim().isEmpty()) {
+            return CompositionGroupType.OTHER.value();
+        }
+        try {
+            JSONObject source = new JSONObject(sourceReference);
+            return CompositionGroupType.normalize(source.optString(
+                    "composition_group_type",
+                    source.optString("composition_group_label", "")
+            ));
+        } catch (JSONException error) {
+            return CompositionGroupType.OTHER.value();
+        }
+    }
+
+    private static String requiredId(String value, String label) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(label + " ID가 필요합니다.");
+        }
+        return normalized;
+    }
     /** Private dining-out menus saved by the current Nutrition owner for reuse in meal entry. */
     public List<NutritionFood> savedDiningOutMenus() {
         List<NutritionFood> candidates = readFoods(
@@ -387,13 +494,15 @@ public final class NutritionCatalogRepository {
             JSONObject reference = new JSONObject(food.sourceReference);
             String restaurantId = nullableString(reference, "restaurant_id");
             String locationId = nullableString(reference, "restaurant_location_id");
-            // Options saved before exact PriceTrace identity was selected remain reusable
-            // through the restaurant-name fallback above.
+            // Options are reusable at restaurant scope, not menu scope. Keep the location
+            // fallback only for historical rows that never stored a restaurant ID.
             if (restaurantId == null && locationId == null) {
                 return true;
             }
-            return identity.restaurantId.equals(restaurantId)
-                    && identity.restaurantLocationId.equals(locationId);
+            if (restaurantId != null) {
+                return identity.restaurantId.equals(restaurantId);
+            }
+            return identity.restaurantLocationId.equals(locationId);
         } catch (JSONException error) {
             return false;
         }

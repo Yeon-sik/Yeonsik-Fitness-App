@@ -114,6 +114,7 @@ public final class FitnessDatabaseMigrationTest {
             assertTrue(tableExists(upgraded, "composition_templates"));
             assertTrue(tableExists(upgraded, "composition_groups"));
             assertTrue(tableExists(upgraded, "composition_members"));
+            assertTrue(tableExists(upgraded, "dining_out_menu_add_on_links"));
             assertTrue(indexExists(upgraded, "composition_templates_user_kind_updated_idx"));
             assertEquals("local-user", scalar(
                     upgraded,

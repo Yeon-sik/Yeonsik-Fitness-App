@@ -233,6 +233,26 @@ public final class DiningOutOption {
                 && profile.isKnown(NutritionProfile.FAT_GRAMS);
     }
 
+    /** Builds the existing meal-component input used to create an immutable snapshot. */
+    public MealCompositionItem asMealCompositionItem(String ownerId, String restaurantName) {
+        NutritionFood food = NutritionFood.builder()
+                .id(catalogFoodId)
+                .ownerId(ownerId)
+                .name(name)
+                .brand(restaurantName)
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .category(NutritionFood.CATEGORY_OTHER)
+                .basis(1.0, NutritionUnit.SERVING)
+                .prepState(NutritionFood.PREP_AS_SERVED)
+                .profile(profile)
+                .source("manual_option", sourceReference)
+                .dataVersion(hasNutrition()
+                        ? NutritionFood.DATA_VERSION_MACROS_ONLY
+                        : NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
+                .build();
+        return MealCompositionItem.from(food, food.basisAmount);
+    }
+
     private static String normalize(String value, String fallback) {
         String normalized = value == null ? "" : value.trim();
         return normalized.isEmpty() ? fallback : normalized;
