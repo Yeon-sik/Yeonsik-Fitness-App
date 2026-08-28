@@ -1403,8 +1403,9 @@ public final class FitnessRepository {
         Double sodium = totals.total(NutritionProfile.SODIUM_MG).completeValue();
         Double sugars = totals.total(NutritionProfile.SUGARS_GRAMS).completeValue();
         Double saturatedFat = totals.total(NutritionProfile.SATURATED_FAT_GRAMS).completeValue();
-        boolean hasCompleteNutrition = totals.total(NutritionProfile.CALORIES_KCAL).isComplete()
-                && sodium != null && sugars != null && saturatedFat != null;
+        Integer calories = totals.total(NutritionProfile.CALORIES_KCAL).completeValue() == null
+                ? null
+                : (int) Math.round(totals.calories());
         // The parent row is only a legacy representative. Avoid duplicating the restaurant
         // brand that is already held in store_name/branch_name.
         String firstMenuName = menus.get(0).menu.food.name;
@@ -1413,7 +1414,7 @@ public final class FitnessRepository {
                 mealTime,
                 storeName,
                 firstMenuName,
-                (int) Math.round(totals.calories()),
+                calories,
                 protein,
                 carbs,
                 fat,
@@ -1424,7 +1425,7 @@ public final class FitnessRepository {
                 identity,
                 null,
                 Collections.emptyList(),
-                !hasCompleteNutrition,
+                false,
                 consumption,
                 nominalServings,
                 menus
@@ -1563,11 +1564,33 @@ public final class FitnessRepository {
                     proteinGrams,
                     fatGrams
             );
-            calories = MealEntryPolicy.estimatedDiningOutCalories(
+            calories = caloriesInput == null
+                    ? MealEntryPolicy.estimatedDiningOutCalories(
+                    carbsGrams,
+                    proteinGrams,
+                    fatGrams
+            )
+                    : caloriesInput;
+        } else if (MealEntryPolicy.hasDiningOutEstimatedMacros(
+                carbsGrams,
+                proteinGrams,
+                fatGrams
+        )) {
+            // A multi-menu entry may have calories and all extended nutrients partially
+            // known. Macros remain the validation floor; NULL extended values stay unknown.
+            MealEntryPolicy.requireDiningOutEstimatedMacros(
                     carbsGrams,
                     proteinGrams,
                     fatGrams
             );
+            hasEstimatedNutrition = true;
+            calories = caloriesInput == null
+                    ? MealEntryPolicy.estimatedDiningOutCalories(
+                    carbsGrams,
+                    proteinGrams,
+                    fatGrams
+            )
+                    : caloriesInput;
         } else {
             MealEntryPolicy.requireDiningOutEstimatedNutrition(
                     caloriesInput,
@@ -2652,8 +2675,9 @@ public final class FitnessRepository {
             return components;
         }
         try (Cursor cursor = db().rawQuery(
-                        "SELECT id, food_name_snapshot, quantity, unit, calories, " +
-                        "protein_grams, carbs_grams, fat_grams, consumed_fraction, " +
+                "SELECT id, food_name_snapshot, quantity, unit, calories, " +
+                        "protein_grams, carbs_grams, fat_grams, sodium_mg, " +
+                        "saturated_fat_grams, sugars_grams, consumed_fraction, " +
                         "composition_group_key_snapshot, composition_group_type_snapshot, " +
                         "composition_role_snapshot, composition_member_id_snapshot " +
                         "FROM meal_record_item_components " +
@@ -2667,15 +2691,18 @@ public final class FitnessRepository {
                         cursor.getString(1),
                         cursor.getDouble(2),
                         cursor.getString(3),
-                        cursor.getDouble(4),
-                        cursor.getDouble(5),
-                        cursor.getDouble(6),
-                        cursor.getDouble(7),
-                        cursor.isNull(9) ? null : cursor.getString(9),
-                        cursor.isNull(10) ? null : cursor.getString(10),
-                        cursor.isNull(11) ? null : cursor.getString(11),
+                        nullableDouble(cursor, 4),
+                        nullableDouble(cursor, 5),
+                        nullableDouble(cursor, 6),
+                        nullableDouble(cursor, 7),
+                        nullableDouble(cursor, 8),
+                        nullableDouble(cursor, 9),
+                        nullableDouble(cursor, 10),
                         cursor.isNull(12) ? null : cursor.getString(12),
-                        cursor.isNull(8) ? null : cursor.getDouble(8)
+                        cursor.isNull(13) ? null : cursor.getString(13),
+                        cursor.isNull(14) ? null : cursor.getString(14),
+                        cursor.isNull(15) ? null : cursor.getString(15),
+                        cursor.isNull(11) ? null : cursor.getDouble(11)
                 ));
             }
         }
@@ -2786,12 +2813,7 @@ public final class FitnessRepository {
                             // allocation. Keep their historical root-only total unchanged.
                             continue;
                         }
-                        NutritionProfile componentProfile = NutritionProfile.ofMacros(
-                                component.calories,
-                                component.proteinGrams,
-                                component.carbsGrams,
-                                component.fatGrams
-                        );
+                        NutritionProfile componentProfile = component.profile;
                         totals.add(consumption == null
                                 ? componentProfile
                                 : componentProfile.scaled(component.consumedFraction()));
@@ -5519,10 +5541,11 @@ public final class FitnessRepository {
         public final String foodName;
         public final double quantity;
         public final String unit;
-        public final double calories;
-        public final double proteinGrams;
-        public final double carbsGrams;
-        public final double fatGrams;
+        public final Double calories;
+        public final Double proteinGrams;
+        public final Double carbsGrams;
+        public final Double fatGrams;
+        public final NutritionProfile profile;
         /** Null for pre-v36 component snapshots that had no independent allocation. */
         public final Double consumedFraction;
         public final String compositionGroupKey;
@@ -5602,6 +5625,44 @@ public final class FitnessRepository {
                 String compositionMemberId,
                 Double consumedFraction
         ) {
+            this(
+                    id,
+                    foodName,
+                    quantity,
+                    unit,
+                    calories,
+                    proteinGrams,
+                    carbsGrams,
+                    fatGrams,
+                    null,
+                    null,
+                    null,
+                    compositionGroupKey,
+                    compositionGroupType,
+                    compositionRole,
+                    compositionMemberId,
+                    consumedFraction
+            );
+        }
+
+        public MealComponentEntry(
+                String id,
+                String foodName,
+                double quantity,
+                String unit,
+                Double calories,
+                Double proteinGrams,
+                Double carbsGrams,
+                Double fatGrams,
+                Double sodiumMg,
+                Double saturatedFatGrams,
+                Double sugarsGrams,
+                String compositionGroupKey,
+                String compositionGroupType,
+                String compositionRole,
+                String compositionMemberId,
+                Double consumedFraction
+        ) {
             this.id = id;
             this.foodName = foodName;
             this.quantity = quantity;
@@ -5610,6 +5671,15 @@ public final class FitnessRepository {
             this.proteinGrams = proteinGrams;
             this.carbsGrams = carbsGrams;
             this.fatGrams = fatGrams;
+            this.profile = NutritionProfile.builder()
+                    .value(NutritionProfile.CALORIES_KCAL, calories)
+                    .value(NutritionProfile.PROTEIN_GRAMS, proteinGrams)
+                    .value(NutritionProfile.CARBS_GRAMS, carbsGrams)
+                    .value(NutritionProfile.FAT_GRAMS, fatGrams)
+                    .value(NutritionProfile.SODIUM_MG, sodiumMg)
+                    .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFatGrams)
+                    .value(NutritionProfile.SUGARS_GRAMS, sugarsGrams)
+                    .build();
             this.consumedFraction = consumedFraction;
             this.compositionGroupKey = compositionGroupKey;
             this.compositionGroupType = compositionGroupType;
@@ -5630,8 +5700,12 @@ public final class FitnessRepository {
         }
 
         public String label() {
+            Double consumedCalories = profile.value(NutritionProfile.CALORIES_KCAL);
+            if (consumedCalories != null) {
+                consumedCalories *= consumedFraction();
+            }
             return foodName + " · " + NutritionCalculator.trim(quantity) + unit
-                    + " · " + Math.round(calories * consumedFraction()) + "kcal";
+                    + " · " + NutritionCalculator.trimNullable(consumedCalories) + "kcal";
         }
     }
 

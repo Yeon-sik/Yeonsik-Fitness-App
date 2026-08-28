@@ -107,9 +107,7 @@ public final class DiningOutIdentity {
     public boolean hasSameRestaurantLocation(DiningOutIdentity other) {
         return other != null
                 && restaurantId.equals(other.restaurantId)
-                && restaurantLocationId.equals(other.restaurantLocationId)
-                && sourceNamespace.equals(other.sourceNamespace)
-                && java.util.Objects.equals(sourceLocationCode, other.sourceLocationCode);
+                && restaurantLocationId.equals(other.restaurantLocationId);
     }
 
     private static String requireUuid(String value, String label) {

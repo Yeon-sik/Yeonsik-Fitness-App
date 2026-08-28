@@ -829,7 +829,7 @@ public final class NutritionCatalogRepository {
         );
     }
 
-    /** Saves a complete user-estimated dining-out nutrition profile for reuse. */
+    /** Saves a user-estimated dining-out nutrition profile for reuse. */
     public NutritionFood saveDiningOutMenuWithNutrition(
             String storeName,
             String menuName,
@@ -856,7 +856,7 @@ public final class NutritionCatalogRepository {
         );
     }
 
-    /** Saves a complete menu estimate with an explicitly selected PriceTrace identity. */
+    /** Saves a menu estimate with an explicitly selected PriceTrace identity. */
     public NutritionFood saveDiningOutMenuWithNutrition(
             String storeName,
             String menuName,
@@ -900,31 +900,25 @@ public final class NutritionCatalogRepository {
     ) {
         String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
         String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
-        MealEntryPolicy.requireDiningOutEstimatedNutrition(
-                calories,
-                proteinGrams,
-                carbsGrams,
-                fatGrams,
-                sodiumMg,
-                sugarsGrams,
-                saturatedFatGrams
-        );
-        if (!MealEntryPolicy.hasDiningOutEstimatedNutrition(
-                calories,
-                proteinGrams,
-                carbsGrams,
-                fatGrams,
-                sodiumMg,
-                sugarsGrams,
-                saturatedFatGrams
-        )) {
+        MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
+        if (!MealEntryPolicy.hasDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams)) {
             throw new IllegalArgumentException(
-                    "메뉴로 저장하려면 외식 영양성분을 입력하세요."
+                    "메뉴로 저장하려면 추정 탄수화물·단백질·지방을 입력하세요."
             );
         }
+        if (calories != null && calories < 0) {
+            throw new IllegalArgumentException("칼로리는 0 이상인 숫자로 입력하세요.");
+        }
+        double resolvedCalories = calories == null
+                ? MealEntryPolicy.estimatedDiningOutCalories(
+                carbsGrams,
+                proteinGrams,
+                fatGrams
+        )
+                : calories.doubleValue();
 
         NutritionProfile profile = NutritionProfile.builder()
-                .value(NutritionProfile.CALORIES_KCAL, calories.doubleValue())
+                .value(NutritionProfile.CALORIES_KCAL, resolvedCalories)
                 .value(NutritionProfile.PROTEIN_GRAMS, proteinGrams)
                 .value(NutritionProfile.CARBS_GRAMS, carbsGrams)
                 .value(NutritionProfile.FAT_GRAMS, fatGrams)
@@ -936,7 +930,9 @@ public final class NutritionCatalogRepository {
                 normalizedStoreName,
                 normalizedMenuName,
                 profile,
-                NutritionFood.DATA_VERSION_REQUIRED_SEVEN,
+                profile.hasAllRequired()
+                        ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
+                        : NutritionFood.DATA_VERSION_MACROS_ONLY,
                 diningOutMenuSourceReference(
                         normalizedStoreName,
                         normalizedMenuName,

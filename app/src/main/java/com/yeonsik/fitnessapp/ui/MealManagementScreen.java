@@ -1213,25 +1213,48 @@ public final class MealManagementScreen extends BaseScreen {
             }
             if (entry.hasEstimatedNutrition()) {
                 NutritionTotals.Builder totalsBuilder = NutritionTotals.builder();
+                if (menuItems.isEmpty()) {
+                    totalsBuilder.add(NutritionProfile.ofMacros(
+                            entry.calories,
+                            entry.proteinGrams,
+                            entry.carbsGrams,
+                            entry.fatGrams
+                    ));
+                }
                 for (FitnessRepository.MealItemEntry nutritionItem : menuItems) {
-                    totalsBuilder.add(nutritionItem.profile);
+                    totalsBuilder.add(consumption == null
+                            ? nutritionItem.profile
+                            : nutritionItem.profile.scaled(consumption.consumedFraction));
+                    if (consumption != null) {
+                        for (FitnessRepository.MealComponentEntry component :
+                                repository().mealComponentsForItem(nutritionItem.id)) {
+                            if (!component.hasExplicitConsumedFraction()) {
+                                continue;
+                            }
+                            totalsBuilder.add(component.profile.scaled(component.consumedFraction()));
+                        }
+                    } else {
+                        for (FitnessRepository.MealComponentEntry component :
+                                repository().mealComponentsForItem(nutritionItem.id)) {
+                            totalsBuilder.add(component.profile);
+                        }
+                    }
                 }
                 NutritionTotals totals = totalsBuilder.build();
-                double fraction = consumption == null ? 1d : consumption.consumedFraction;
                 Double calories = scaledCompleteNutrition(
-                        totals, NutritionProfile.CALORIES_KCAL, fraction);
+                        totals, NutritionProfile.CALORIES_KCAL);
                 Double carbs = scaledCompleteNutrition(
-                        totals, NutritionProfile.CARBS_GRAMS, fraction);
+                        totals, NutritionProfile.CARBS_GRAMS);
                 Double protein = scaledCompleteNutrition(
-                        totals, NutritionProfile.PROTEIN_GRAMS, fraction);
+                        totals, NutritionProfile.PROTEIN_GRAMS);
                 Double fat = scaledCompleteNutrition(
-                        totals, NutritionProfile.FAT_GRAMS, fraction);
+                        totals, NutritionProfile.FAT_GRAMS);
                 Double sodium = scaledCompleteNutrition(
-                        totals, NutritionProfile.SODIUM_MG, fraction);
+                        totals, NutritionProfile.SODIUM_MG);
                 Double sugars = scaledCompleteNutrition(
-                        totals, NutritionProfile.SUGARS_GRAMS, fraction);
+                        totals, NutritionProfile.SUGARS_GRAMS);
                 Double saturatedFat = scaledCompleteNutrition(
-                        totals, NutritionProfile.SATURATED_FAT_GRAMS, fraction);
+                        totals, NutritionProfile.SATURATED_FAT_GRAMS);
                 body.addView(ui.text(
                         "칼로리 " + NutritionCalculator.trimNullable(calories) + "kcal · "
                                 + "탄수화물 " + NutritionCalculator.trimNullable(carbs) + "g · "
@@ -1507,8 +1530,15 @@ public final class MealManagementScreen extends BaseScreen {
         tab.setOnClickListener(v -> {
             syncDraftFromViews();
             if (mealEntryMode != mode) {
+                boolean leavingOrEnteringDiningOut =
+                        mealEntryMode == MEAL_ENTRY_MODE_DINING_OUT
+                                || mode == MEAL_ENTRY_MODE_DINING_OUT;
                 mealEntryMode = mode;
-                host.rerender();
+                if (leavingOrEnteringDiningOut) {
+                    rerenderDiningOutFromDraft();
+                } else {
+                    host.rerender();
+                }
             }
         });
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -1545,7 +1575,7 @@ public final class MealManagementScreen extends BaseScreen {
                     clearDiningOutPriceTraceIdentity();
                     activeDiningOutMenu().catalogFoodId = "";
                     host.toast("식당·지점·메뉴를 직접 입력하세요.");
-                    host.rerender();
+                    rerenderDiningOutFromDraft();
                 }
         );
         directDiningOut.setContentDescription("외식 직접 등록");
@@ -1654,9 +1684,8 @@ public final class MealManagementScreen extends BaseScreen {
         return form;
     }
 
-    private Double scaledCompleteNutrition(NutritionTotals totals, String key, double fraction) {
-        Double total = totals.total(key).completeValue();
-        return total == null ? null : total * fraction;
+    private Double scaledCompleteNutrition(NutritionTotals totals, String key) {
+        return totals.total(key).completeValue();
     }
 
     private void addDiningOutMenuDraft() {
@@ -1795,7 +1824,7 @@ public final class MealManagementScreen extends BaseScreen {
                 () -> {
                     syncDraftFromViews();
                     activeDiningOutMenuIndex = index;
-                    host.rerender();
+                    rerenderDiningOutFromDraft();
                 }
         ), ui.fullWidthParams(ui.dp(4)));
         return card;
@@ -1908,7 +1937,7 @@ public final class MealManagementScreen extends BaseScreen {
             menuButton.setOnClickListener(ignored -> {
                 syncDraftFromViews();
                 activeDiningOutMenuIndex = menuIndex;
-                host.rerender();
+                rerenderDiningOutFromDraft();
             });
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                     0,
@@ -2088,7 +2117,7 @@ public final class MealManagementScreen extends BaseScreen {
             }
         }
         updateDiningOutSelectionSummary();
-        host.rerender();
+        rerenderDiningOutFromDraft();
         host.toast("템플릿 선택 결과를 외식 입력에 적용했습니다.");
     }
 
@@ -2657,6 +2686,9 @@ public final class MealManagementScreen extends BaseScreen {
                                     menu.catalogProductId
                             );
                             for (DiningOutMenuDraft existing : draftDiningOutMenus) {
+                                if (existing == selectedMenu || !existing.hasExactIdentity()) {
+                                    continue;
+                                }
                                 DiningOutIdentity existingIdentity = selectedDiningOutIdentity(existing);
                                 if (existingIdentity != null
                                         && !existingIdentity.hasSameRestaurantLocation(selectedIdentity)) {
@@ -2771,13 +2803,15 @@ public final class MealManagementScreen extends BaseScreen {
                 syncDraftFromViews();
                 showDiningOutOptionPicker(optionIndex);
             }));
-            actions.addView(ui.textAction("삭제", FitnessUi.COLOR_NEGATIVE, () -> {
+            TextView deleteOption = ui.textAction("삭제", FitnessUi.COLOR_NEGATIVE, () -> {
                 syncDraftFromViews();
                 if (optionIndex < activeDiningOutMenu().options.size()) {
                     activeDiningOutMenu().options.remove(optionIndex);
                 }
-                host.rerender();
-            }));
+                rerenderDiningOutFromDraft();
+            });
+            deleteOption.setContentDescription("외식 옵션 " + (optionIndex + 1) + " 삭제");
+            actions.addView(deleteOption);
             row.addView(actions, ui.fullWidthParams(ui.dp(2)));
             diningOutOptionsContainer.addView(row, ui.fullWidthParams(ui.dp(6)));
         }
@@ -2801,7 +2835,7 @@ public final class MealManagementScreen extends BaseScreen {
                         // A changed type starts a new generated group key. Template-provided
                         // keys remain intact when a member is merely reloaded.
                         draft.groupKey = "";
-                        host.rerender();
+                        rerenderDiningOutFromDraft();
                     }
                 })
                 .setNegativeButton("취소", null)
