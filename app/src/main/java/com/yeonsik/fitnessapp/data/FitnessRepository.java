@@ -2223,7 +2223,7 @@ public final class FitnessRepository {
             Double consumedFraction
     ) {
         String componentId = newId();
-        ContentValues values = snapshotValues(snapshot, now);
+        ContentValues values = snapshotValues(snapshot, now, false);
         values.put("id", componentId);
         values.put("user_id", userId);
         values.put("meal_record_id", mealRecordId);
@@ -2248,6 +2248,14 @@ public final class FitnessRepository {
     }
 
     private ContentValues snapshotValues(MealItemSnapshot snapshot, String now) {
+        return snapshotValues(snapshot, now, true);
+    }
+
+    private ContentValues snapshotValues(
+            MealItemSnapshot snapshot,
+            String now,
+            boolean zeroMissingRequiredNutrition
+    ) {
         ContentValues values = new ContentValues();
         putNullable(values, "food_id", snapshot.foodId);
         values.put("food_name_snapshot", snapshot.foodNameSnapshot);
@@ -2261,7 +2269,7 @@ public final class FitnessRepository {
         for (Map.Entry<String, Double> column : snapshot.typedNutritionColumns().entrySet()) {
             String name = mealItemColumnName(column.getKey());
             if (column.getValue() == null) {
-                if (isRequiredSnapshotNutrition(column.getKey())) {
+                if (zeroMissingRequiredNutrition && isRequiredSnapshotNutrition(column.getKey())) {
                     values.put(name, 0d);
                 } else {
                     values.putNull(name);
