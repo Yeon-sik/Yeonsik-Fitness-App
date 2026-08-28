@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 41;
+    public static final int DATABASE_VERSION = 42;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -38,7 +38,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createMealMenuPresetTable(db);
         createNutritionTables(db);
         createCompositionTables(db);
-        createDiningOutAddOnLinkTable(db);
+        createDiningOutComponentLinkTable(db);
         createDiningOutConsumptionTables(db);
         createNutritionIndexes(db);
         createProductNutritionLinkTables(db);
@@ -458,6 +458,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "meal_record_item_id TEXT NOT NULL, " +
                 "composition_group_key_snapshot TEXT, " +
                 "composition_group_type_snapshot TEXT, " +
+                "provision_type_snapshot TEXT, " +
                 "composition_role_snapshot TEXT, " +
                 "composition_member_id_snapshot TEXT, " +
                 "food_id TEXT, " +
@@ -567,7 +568,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON composition_members(user_id, nutrition_food_id)");
     }
 
-    /** Permanent menu-to-add-on definitions; non-add-on components never enter this table. */
+    /** Legacy v38 table retained so old backups and migrations remain readable. */
     private void createDiningOutAddOnLinkTable(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS dining_out_menu_add_on_links (" +
                 "id TEXT PRIMARY KEY, " +
@@ -583,6 +584,25 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON dining_out_menu_add_on_links(user_id, menu_food_id, deleted_at)");
         db.execSQL("CREATE INDEX IF NOT EXISTS dining_out_menu_add_on_links_add_on_idx " +
                 "ON dining_out_menu_add_on_links(user_id, add_on_food_id, deleted_at)");
+    }
+
+    /** Permanent menu-to-component definitions for every fixed composition group type. */
+    private void createDiningOutComponentLinkTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS dining_out_menu_component_links (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "menu_food_id TEXT NOT NULL, " +
+                "component_food_id TEXT NOT NULL, " +
+                "group_type TEXT NOT NULL DEFAULT 'other', " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, " +
+                "UNIQUE(user_id, menu_food_id, component_food_id, group_type))");
+        db.execSQL("CREATE INDEX IF NOT EXISTS dining_out_menu_component_links_menu_idx " +
+                "ON dining_out_menu_component_links(user_id, menu_food_id, group_type, deleted_at)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS dining_out_menu_component_links_component_idx " +
+                "ON dining_out_menu_component_links(user_id, component_food_id, group_type, deleted_at)");
     }
 
     private void createNutritionIndexes(SQLiteDatabase db) {
@@ -1021,6 +1041,29 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
             // fresh installs on the same schema and is intentionally a no-op for data.
             upgradeMealComponentNutritionNullability(db);
         }
+        if (oldVersion < 42) {
+            upgradeDiningOutComponentSchema(db);
+        }
+    }
+
+    /** Generalizes the v38 add-on relationship and adds the actual-meal provision snapshot. */
+    private void upgradeDiningOutComponentSchema(SQLiteDatabase db) {
+        addColumnIfMissing(
+                db,
+                "meal_record_item_components",
+                "provision_type_snapshot",
+                "TEXT"
+        );
+        createDiningOutComponentLinkTable(db);
+        if (!tableExists(db, "dining_out_menu_add_on_links")) {
+            return;
+        }
+        db.execSQL("INSERT OR IGNORE INTO dining_out_menu_component_links (" +
+                "id, user_id, menu_food_id, component_food_id, group_type, " +
+                "created_at, updated_at, deleted_at, device_id) " +
+                "SELECT id, user_id, menu_food_id, add_on_food_id, 'add_on', " +
+                "created_at, updated_at, deleted_at, device_id " +
+                "FROM dining_out_menu_add_on_links");
     }
 
     /** Allows reusable options without nutrition to retain NULL rather than a fake zero. */

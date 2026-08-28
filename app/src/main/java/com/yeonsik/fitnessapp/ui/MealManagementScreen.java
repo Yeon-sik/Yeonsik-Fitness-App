@@ -25,6 +25,7 @@ import com.yeonsik.fitnessapp.data.CompositionMember;
 import com.yeonsik.fitnessapp.data.CompositionTemplate;
 import com.yeonsik.fitnessapp.data.CompositionTemplateRepository;
 import com.yeonsik.fitnessapp.data.DiningOutConsumption;
+import com.yeonsik.fitnessapp.data.DiningOutProvisionType;
 import com.yeonsik.fitnessapp.data.DiningOutIdentity;
 import com.yeonsik.fitnessapp.data.DiningOutOption;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
@@ -114,6 +115,7 @@ public final class MealManagementScreen extends BaseScreen {
     private final List<EditText> diningOutMenuSugarsInputs = new ArrayList<>();
     private final List<EditText> diningOutMenuSaturatedFatInputs = new ArrayList<>();
     private final List<EditText> diningOutOptionInputs = new ArrayList<>();
+    private final List<Button> diningOutOptionProvisionInputs = new ArrayList<>();
     private final List<Button> diningOutOptionGroupInputs = new ArrayList<>();
     private final List<EditText> diningOutOptionCaloriesInputs = new ArrayList<>();
     private final List<EditText> diningOutOptionProteinInputs = new ArrayList<>();
@@ -1933,6 +1935,9 @@ public final class MealManagementScreen extends BaseScreen {
         header.addView(ui.textAction("템플릿 불러오기", FitnessUi.COLOR_TERTIARY, () -> {
             showDiningOutTemplatePicker();
         }));
+        header.addView(ui.textAction("구성 추가", FitnessUi.COLOR_TERTIARY, () -> {
+            showDiningOutOptionGroupPicker();
+        }));
         header.addView(ui.textAction("옵션 추가", FitnessUi.COLOR_TERTIARY, () -> {
             showDiningOutOptionGroupPicker();
         }));
@@ -1960,7 +1965,7 @@ public final class MealManagementScreen extends BaseScreen {
         section.addView(menuSelector, ui.fullWidthParams(ui.dp(4)));
 
         section.addView(ui.text(
-                "옵션마다 고정 구성 그룹과 내 섭취 비율을 지정할 수 있습니다. 옵션 비율은 기본 100%이며, 함께 나눠 먹은 옵션은 직접 수정하세요.",
+                "구성품마다 종류·제공 방식과 내 섭취 비율을 지정할 수 있습니다. 제공 방식은 이번 기록에만 적용됩니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
@@ -2145,6 +2150,9 @@ public final class MealManagementScreen extends BaseScreen {
             }
             for (CompositionMember member : selected) {
                 DiningOutOptionDraft draft = new DiningOutOptionDraft();
+                draft.profile = member.profile == null
+                        ? NutritionProfile.empty()
+                        : member.profile;
                 draft.groupType = group.groupType;
                 draft.groupKey = group.key;
                 draft.name = member.name;
@@ -2159,6 +2167,13 @@ public final class MealManagementScreen extends BaseScreen {
                 draft.protein = knownNumber(member.profile, NutritionProfile.PROTEIN_GRAMS);
                 draft.carbs = knownNumber(member.profile, NutritionProfile.CARBS_GRAMS);
                 draft.fat = knownNumber(member.profile, NutritionProfile.FAT_GRAMS);
+                draft.provisionType = DiningOutProvisionType.INCLUDED.value();
+                draft.sodium = knownNumber(member.profile, NutritionProfile.SODIUM_MG);
+                draft.sugars = knownNumber(member.profile, NutritionProfile.SUGARS_GRAMS);
+                draft.saturatedFat = knownNumber(
+                        member.profile,
+                        NutritionProfile.SATURATED_FAT_GRAMS
+                );
                 menu.options.add(draft);
             }
         }
@@ -2471,7 +2486,7 @@ public final class MealManagementScreen extends BaseScreen {
             labels[index] = CompositionGroupType.labelOf(types[index].value());
         }
         new AlertDialog.Builder(host.activity())
-                .setTitle("구성 그룹 선택")
+                .setTitle("종류 선택")
                 .setItems(labels, (dialog, which) -> {
                     if (which >= 0 && which < types.length) {
                         showDiningOutOptionPicker(-1, types[which].value());
@@ -2559,6 +2574,10 @@ public final class MealManagementScreen extends BaseScreen {
             rerenderDiningOutFromDraft();
         });
         panel.addView(manualInput, ui.fullWidthParams(ui.dp(6)));
+        Button directInputAlias = ui.button("직접 입력", false, v -> manualInput.performClick());
+        directInputAlias.setContentDescription("직접 입력");
+        panel.addView(directInputAlias, ui.fullWidthParams(ui.dp(6)));
+
 
         search.setOnClickListener(v -> {
             results.removeAllViews();
@@ -2576,36 +2595,34 @@ public final class MealManagementScreen extends BaseScreen {
                 return;
             }
             try {
-                List<NutritionFood> options = host.nutritionCatalogRepository()
-                        .savedDiningOutOptions(
+                String normalizedQuery = FitnessUi.inputText(query).trim().toLowerCase(Locale.ROOT);
+                List<NutritionFood> options = new ArrayList<>();
+                if (!menu.catalogFoodId.trim().isEmpty()) {
+                    List<NutritionFood> linked = host.nutritionCatalogRepository()
+                            .diningOutComponentsForMenu(menu.catalogFoodId, selectedGroupType);
+                    for (NutritionFood option : linked) {
+                        if (matchesDiningOutComponentQuery(option, normalizedQuery)
+                                && !containsFood(options, option.id)) {
+                            options.add(option);
+                        }
+                    }
+                }
+                List<NutritionFood> saved = host.nutritionCatalogRepository()
+                        .savedDiningOutComponents(
                                 currentStoreName,
                                 identity,
-                                FitnessUi.inputText(query),
+                                normalizedQuery,
                                 SAVED_DINING_OUT_OPTION_RESULT_LIMIT
                         );
-                if (selectedGroupType != null) {
-                    List<NutritionFood> filtered = new ArrayList<>();
-                    for (NutritionFood option : options) {
-                        if (selectedGroupType.equals(savedDiningOutOptionGroupType(
-                                option.sourceReference))) {
-                            filtered.add(option);
-                        }
+                for (NutritionFood option : saved) {
+                    if (selectedGroupType.equals(savedDiningOutOptionGroupType(option.sourceReference))
+                            && !containsFood(options, option.id)) {
+                        options.add(option);
                     }
-                    options = filtered;
                 }
-                if (selectedGroupType != null
-                        && CompositionGroupType.ADD_ON.value().equals(selectedGroupType)
-                        && !menu.catalogFoodId.trim().isEmpty()) {
-                    List<NutritionFood> linked = host.nutritionCatalogRepository()
-                            .diningOutAddOnsForMenu(menu.catalogFoodId);
-                    List<NutritionFood> prioritized = new ArrayList<>(linked);
-                    for (NutritionFood option : options) {
-                        if (!containsFood(prioritized, option.id)) {
-                            prioritized.add(option);
-                        }
-                    }
-                    options = prioritized;
-                }
+
+                // A saved review-event component is reusable nutrition data, not a future
+                // selection instruction. selectDiningOutOption resets provision to INCLUDED.
                 if (options.isEmpty()) {
                     status.setText("일치하는 저장 옵션이 없습니다. 직접 입력할 수 있습니다.");
                     return;
@@ -2649,6 +2666,7 @@ public final class MealManagementScreen extends BaseScreen {
     ) {
         DiningOutMenuDraft menu = activeDiningOutMenu();
         DiningOutOptionDraft selectedDraft = new DiningOutOptionDraft();
+        selectedDraft.profile = food.profile;
         selectedDraft.groupType = savedDiningOutOptionGroupType(food.sourceReference);
         selectedDraft.groupKey = savedDiningOutOptionGroupKey(food.sourceReference);
         selectedDraft.name = food.name;
@@ -2662,6 +2680,15 @@ public final class MealManagementScreen extends BaseScreen {
                 ? NutritionCalculator.trim(food.carbsGrams) : "";
         selectedDraft.fat = food.profile.isKnown(NutritionProfile.FAT_GRAMS)
                 ? NutritionCalculator.trim(food.fatGrams) : "";
+        // A saved component is reusable nutrition data. A prior review-event selection must not
+        // become the default provision type for this new meal.
+        selectedDraft.provisionType = DiningOutProvisionType.INCLUDED.value();
+        selectedDraft.sodium = knownNumber(food.profile, NutritionProfile.SODIUM_MG);
+        selectedDraft.sugars = knownNumber(food.profile, NutritionProfile.SUGARS_GRAMS);
+        selectedDraft.saturatedFat = knownNumber(
+                food.profile,
+                NutritionProfile.SATURATED_FAT_GRAMS
+        );
         if (replacementIndex >= 0 && replacementIndex < menu.options.size()) {
             menu.options.set(replacementIndex, selectedDraft);
         } else {
@@ -2669,6 +2696,15 @@ public final class MealManagementScreen extends BaseScreen {
         }
         dialog.dismiss();
         rerenderDiningOutFromDraft();
+    }
+
+    private boolean matchesDiningOutComponentQuery(NutritionFood food, String normalizedQuery) {
+        if (food == null || food.name == null) {
+            return false;
+        }
+        return normalizedQuery == null
+                || normalizedQuery.isEmpty()
+                || food.name.toLowerCase(Locale.ROOT).contains(normalizedQuery);
     }
 
     private boolean containsFood(List<NutritionFood> foods, String foodId) {
@@ -2925,6 +2961,7 @@ public final class MealManagementScreen extends BaseScreen {
         diningOutOptionCarbsInputs.clear();
         diningOutOptionFatInputs.clear();
         diningOutOptionConsumedPercentInputs.clear();
+        diningOutOptionProvisionInputs.clear();
         if (options.isEmpty()) {
             diningOutOptionsContainer.addView(ui.text(
                     "추가 옵션 없음",
@@ -2949,6 +2986,15 @@ public final class MealManagementScreen extends BaseScreen {
             group.setContentDescription("외식 옵션 그룹 " + (index + 1));
             diningOutOptionGroupInputs.add(group);
             row.addView(group, ui.fullWidthParams(ui.dp(2)));
+            Button provision = ui.button(
+                    "제공 방식: " + DiningOutProvisionType.labelOf(draft.provisionType),
+                    false,
+                    ignored -> showDiningOutProvisionTypePicker(optionIndex)
+            );
+            provision.setContentDescription("외식 구성품 제공 방식 " + (index + 1));
+            diningOutOptionProvisionInputs.add(provision);
+            row.addView(provision, ui.fullWidthParams(ui.dp(2)));
+
             EditText input = ui.input(
                     "옵션명 (예: 면 추가)",
                     draft.name
@@ -3022,6 +3068,28 @@ public final class MealManagementScreen extends BaseScreen {
                 .setNegativeButton("취소", null)
                 .show();
     }
+    private void showDiningOutProvisionTypePicker(int optionIndex) {
+        syncDraftFromViews();
+        List<DiningOutOptionDraft> options = activeDiningOutMenu().options;
+        if (optionIndex < 0 || optionIndex >= options.size()) {
+            return;
+        }
+        DiningOutProvisionType[] types = DiningOutProvisionType.values();
+        String[] labels = DiningOutProvisionType.labels();
+        new AlertDialog.Builder(host.activity())
+                .setTitle("제공 방식 선택")
+                .setItems(labels, (dialog, which) -> {
+                    if (which >= 0 && which < types.length
+                            && optionIndex < activeDiningOutMenu().options.size()) {
+                        activeDiningOutMenu().options.get(optionIndex).provisionType =
+                                types[which].value();
+                        rerenderDiningOutFromDraft();
+                    }
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
 
     private List<DiningOutOption> parsedDiningOutOptions() {
         return parsedDiningOutOptions(activeDiningOutMenu());
@@ -3039,6 +3107,23 @@ public final class MealManagementScreen extends BaseScreen {
             Double protein = MealEntryPolicy.optionalDiningOutMacro(draft.protein, "옵션 단백질");
             Double carbs = MealEntryPolicy.optionalDiningOutMacro(draft.carbs, "옵션 탄수화물");
             Double fat = MealEntryPolicy.optionalDiningOutMacro(draft.fat, "옵션 지방");
+            Double sodium = MealEntryPolicy.optionalDiningOutMacro(draft.sodium, "옵션 나트륨");
+            Double sugars = MealEntryPolicy.optionalDiningOutMacro(draft.sugars, "옵션 당류");
+            Double saturatedFat = MealEntryPolicy.optionalDiningOutMacro(
+                    draft.saturatedFat,
+                    "옵션 포화지방"
+            );
+            Double caloriesValue = calories == null ? null : calories.doubleValue();
+            NutritionProfile enteredProfile = NutritionProfile.builder()
+                    .from(draft.profile)
+                    .value(NutritionProfile.CALORIES_KCAL, caloriesValue)
+                    .value(NutritionProfile.PROTEIN_GRAMS, protein)
+                    .value(NutritionProfile.CARBS_GRAMS, carbs)
+                    .value(NutritionProfile.FAT_GRAMS, fat)
+                    .value(NutritionProfile.SODIUM_MG, sodium)
+                    .value(NutritionProfile.SUGARS_GRAMS, sugars)
+                    .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFat)
+                    .build();
             double consumedFraction = diningOutOptionConsumedFractionValue(draft.consumedPercent);
             boolean hasNutrition = calories != null || protein != null || carbs != null || fat != null;
             String groupType = CompositionGroupType.normalize(draft.groupType);
@@ -3054,7 +3139,7 @@ public final class MealManagementScreen extends BaseScreen {
             if (!hasNutrition) {
                 options.add(DiningOutOption.grouped(
                         name,
-                        NutritionProfile.empty(),
+                        enteredProfile,
                         emptyToNull(draft.catalogFoodId),
                         emptyToNull(draft.sourceReference),
                         groupKey,
@@ -3062,6 +3147,7 @@ public final class MealManagementScreen extends BaseScreen {
                         groupLabel,
                         DiningOutOption.DEFAULT_ROLE,
                         emptyToNull(draft.memberId),
+                        DiningOutProvisionType.normalize(draft.provisionType),
                         consumedFraction
                 ));
                 continue;
@@ -3076,7 +3162,13 @@ public final class MealManagementScreen extends BaseScreen {
                     : calories;
             options.add(DiningOutOption.grouped(
                     name,
-                    NutritionProfile.ofMacros(resolvedCalories, protein, carbs, fat),
+                    NutritionProfile.builder()
+                            .from(enteredProfile)
+                            .value(NutritionProfile.CALORIES_KCAL, (double) resolvedCalories)
+                            .value(NutritionProfile.PROTEIN_GRAMS, protein)
+                            .value(NutritionProfile.CARBS_GRAMS, carbs)
+                            .value(NutritionProfile.FAT_GRAMS, fat)
+                            .build(),
                     emptyToNull(draft.catalogFoodId),
                     emptyToNull(draft.sourceReference),
                     groupKey,
@@ -3084,6 +3176,7 @@ public final class MealManagementScreen extends BaseScreen {
                     groupLabel,
                     DiningOutOption.DEFAULT_ROLE,
                     emptyToNull(draft.memberId),
+                    DiningOutProvisionType.normalize(draft.provisionType),
                     consumedFraction
             ));
         }
@@ -3101,11 +3194,11 @@ public final class MealManagementScreen extends BaseScreen {
         }
         List<DiningOutOption> saved = new ArrayList<>();
         for (DiningOutOption option : options) {
-            NutritionFood food = host.nutritionCatalogRepository().saveDiningOutOption(
+            NutritionFood food = host.nutritionCatalogRepository().saveDiningOutComponent(
                     draftDiningOutStoreName,
                     menu.name,
                     identity,
-                    option
+                    option.asComponent()
             );
             saved.add(DiningOutOption.grouped(
                     food.name,
@@ -3117,6 +3210,7 @@ public final class MealManagementScreen extends BaseScreen {
                     option.groupLabel,
                     option.role,
                     option.memberId,
+                    option.provisionType,
                     option.consumedFraction
             ));
         }
@@ -4518,11 +4612,11 @@ public final class MealManagementScreen extends BaseScreen {
                             : savedMenu.id;
                     if (relationshipMenuId != null && !relationshipMenuId.trim().isEmpty()) {
                         for (DiningOutOption option : optionSnapshots) {
-                            if (CompositionGroupType.ADD_ON.value().equals(option.groupType)
-                                    && option.catalogFoodId != null) {
-                                host.nutritionCatalogRepository().linkDiningOutAddOnToMenu(
+                            if (option.catalogFoodId != null) {
+                                host.nutritionCatalogRepository().linkDiningOutComponentToMenu(
                                         relationshipMenuId,
-                                        option.catalogFoodId
+                                        option.catalogFoodId,
+                                        option.groupType
                                 );
                             }
                         }
@@ -4561,6 +4655,7 @@ public final class MealManagementScreen extends BaseScreen {
             diningOutOptionsContainer = null;
             diningOutOptionInputs.clear();
             diningOutOptionGroupInputs.clear();
+            diningOutOptionProvisionInputs.clear();
             diningOutOptionConsumedPercentInputs.clear();
             mealEntryMode = MEAL_ENTRY_MODE_FOOD;
             draftMealTime = currentMealTime();
@@ -4603,6 +4698,7 @@ public final class MealManagementScreen extends BaseScreen {
         diningOutConsumedPercentInput = null;
         diningOutOptionsContainer = null;
         diningOutOptionInputs.clear();
+        diningOutOptionProvisionInputs.clear();
         diningOutOptionGroupInputs.clear();
         diningOutOptionConsumedPercentInputs.clear();
         mealEntryMode = MEAL_ENTRY_MODE_FOOD;
@@ -4651,6 +4747,7 @@ public final class MealManagementScreen extends BaseScreen {
         diningOutMenuSodiumInputs.clear();
         diningOutMenuSugarsInputs.clear();
         diningOutMenuSaturatedFatInputs.clear();
+        diningOutOptionProvisionInputs.clear();
         diningOutOptionInputs.clear();
         diningOutOptionGroupInputs.clear();
         diningOutOptionCaloriesInputs.clear();
@@ -4680,6 +4777,7 @@ public final class MealManagementScreen extends BaseScreen {
         diningOutMenuFatInputs.clear();
         diningOutMenuSodiumInputs.clear();
         diningOutMenuSugarsInputs.clear();
+        diningOutOptionProvisionInputs.clear();
         diningOutMenuSaturatedFatInputs.clear();
         diningOutOptionInputs.clear();
         diningOutOptionGroupInputs.clear();
@@ -4759,6 +4857,9 @@ public final class MealManagementScreen extends BaseScreen {
                 draft.protein = FitnessUi.inputText(diningOutOptionProteinInputs.get(index));
                 draft.carbs = FitnessUi.inputText(diningOutOptionCarbsInputs.get(index));
                 draft.fat = FitnessUi.inputText(diningOutOptionFatInputs.get(index));
+                draft.profile = previous == null || previous.profile == null
+                        ? NutritionProfile.empty()
+                        : previous.profile;
                 draft.consumedPercent = FitnessUi.inputText(
                         diningOutOptionConsumedPercentInputs.get(index)
                 );
@@ -4768,6 +4869,10 @@ public final class MealManagementScreen extends BaseScreen {
                     draft.catalogFoodId = previous.catalogFoodId;
                     draft.sourceReference = previous.sourceReference;
                     draft.memberId = previous.memberId;
+                    draft.provisionType = previous.provisionType;
+                    draft.sodium = previous.sodium;
+                    draft.sugars = previous.sugars;
+                    draft.saturatedFat = previous.saturatedFat;
                 }
                 menu.options.add(draft);
             }
@@ -5119,12 +5224,17 @@ public final class MealManagementScreen extends BaseScreen {
 
     private static final class DiningOutOptionDraft {
         private String groupType = CompositionGroupType.OTHER.value();
+        private String provisionType = DiningOutProvisionType.INCLUDED.value();
+        private NutritionProfile profile = NutritionProfile.empty();
         private String groupKey = "";
         private String name = "";
         private String calories = "";
         private String protein = "";
         private String carbs = "";
         private String fat = "";
+        private String sodium = "";
+        private String sugars = "";
+        private String saturatedFat = "";
         private String consumedPercent = "100";
         private String catalogFoodId = "";
         private String sourceReference = "";

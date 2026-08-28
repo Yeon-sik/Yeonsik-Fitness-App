@@ -333,82 +333,152 @@ public final class NutritionCatalogRepository {
         }
         return results;
     }
+    /** Canonical component-named alias retained beside the old option API. */
+    public List<NutritionFood> savedDiningOutComponents(
+            String storeName,
+            DiningOutIdentity identity,
+            String query,
+            int limit
+    ) {
+        return savedDiningOutOptions(storeName, identity, query, limit);
+    }
 
-    /** Persists the only reusable menu-specific relationship: one add-on may serve many menus. */
+
+    /** Source-compatible ADD_ON API backed by the generic component relationship. */
     public void linkDiningOutAddOnToMenu(String menuFoodId, String addOnFoodId) {
         String menuId = requiredId(menuFoodId, "외식 메뉴");
-        String addOnId = requiredId(addOnFoodId, "추가 구성");
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
-        if (!ownedActiveFood(database, menuId, NutritionFood.KIND_EXTERNAL_MENU)
-                || !ownedActiveFood(database, addOnId, NutritionFood.KIND_EXTERNAL_MENU)) {
-            throw new IllegalArgumentException("현재 계정의 외식 메뉴·추가 구성만 연결할 수 있습니다.");
-        }
-        List<NutritionFood> addOnRows = readFoods(
-                "id = ? AND owner_id = ?",
-                new String[]{addOnId, userId},
-                "updated_at DESC",
-                "1"
-        );
-        NutritionFood addOn = addOnRows.isEmpty() ? null : addOnRows.get(0);
-        if (addOn == null || !CompositionGroupType.ADD_ON.value().equals(
-                optionGroupType(addOn.sourceReference))) {
+        String componentId = requiredId(addOnFoodId, "추가 구성");
+        NutritionFood component = diningOutComponent(componentId);
+        if (component == null || !CompositionGroupType.ADD_ON.value().equals(
+                optionGroupType(component.sourceReference))) {
             throw new IllegalArgumentException("추가 구성 그룹만 메뉴에 영구 연결할 수 있습니다.");
         }
+        linkDiningOutComponentToMenu(menuId, componentId, CompositionGroupType.ADD_ON.value());
+    }
+
+    /** Links one saved component as a possible component of a saved menu. */
+    public void linkDiningOutComponentToMenu(String menuFoodId, String componentFoodId) {
+        String componentId = requiredId(componentFoodId, "외식 구성품");
+        NutritionFood component = diningOutComponent(componentId);
+        if (component == null) {
+            throw new IllegalArgumentException("현재 계정의 외식 구성품만 연결할 수 있습니다.");
+        }
+        linkDiningOutComponentToMenu(
+                menuFoodId,
+                componentId,
+                optionGroupType(component.sourceReference)
+        );
+    }
+
+    /** Links one saved component with an explicit fixed composition group type. */
+    public void linkDiningOutComponentToMenu(
+            String menuFoodId,
+            String componentFoodId,
+            String groupType
+    ) {
+        String menuId = requiredId(menuFoodId, "외식 메뉴");
+        String componentId = requiredId(componentFoodId, "외식 구성품");
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        if (!ownedActiveFood(database, menuId, NutritionFood.KIND_EXTERNAL_MENU)
+                || !ownedActiveFood(database, componentId, NutritionFood.KIND_EXTERNAL_MENU)) {
+            throw new IllegalArgumentException("현재 계정의 외식 메뉴·구성품만 연결할 수 있습니다.");
+        }
+        String normalizedGroupType = normalizeLinkGroupType(groupType);
         String now = OffsetDateTime.now().toString();
         ContentValues values = new ContentValues();
         values.put("id", UUID.randomUUID().toString());
         values.put("user_id", userId);
         values.put("menu_food_id", menuId);
-        values.put("add_on_food_id", addOnId);
+        values.put("component_food_id", componentId);
+        values.put("group_type", normalizedGroupType);
         values.put("created_at", now);
         values.put("updated_at", now);
         values.putNull("deleted_at");
         values.put("device_id", "android-local");
         database.insertWithOnConflict(
-                "dining_out_menu_add_on_links",
+                "dining_out_menu_component_links",
                 null,
                 values,
                 SQLiteDatabase.CONFLICT_IGNORE
         );
     }
 
-    /** Returns add-ons permanently linked to one saved menu, preserving restaurant scope. */
-    public List<NutritionFood> diningOutAddOnsForMenu(String menuFoodId) {
+    /** Returns every possible component linked to one saved menu. */
+    public List<NutritionFood> diningOutComponentsForMenu(String menuFoodId) {
+        return diningOutComponentsForMenu(menuFoodId, null);
+    }
+
+    /** Returns possible components for one menu and one fixed group type. */
+    public List<NutritionFood> diningOutComponentsForMenu(
+            String menuFoodId,
+            String groupType
+    ) {
         String menuId = menuFoodId == null ? "" : menuFoodId.trim();
         if (menuId.isEmpty()) {
             return new ArrayList<>();
         }
+        String normalizedGroupType = groupType == null || groupType.trim().isEmpty()
+                ? null
+                : normalizeLinkGroupType(groupType);
         List<String> ids = new ArrayList<>();
+        List<String> linkArgs = new ArrayList<>();
+        linkArgs.add(userId);
+        linkArgs.add(menuId);
+        String groupClause = "";
+        if (normalizedGroupType != null) {
+            groupClause = " AND group_type = ?";
+            linkArgs.add(normalizedGroupType);
+        }
         SQLiteDatabase database = dbHelper.getReadableDatabase();
         try (Cursor cursor = database.rawQuery(
-                "SELECT add_on_food_id FROM dining_out_menu_add_on_links " +
-                        "WHERE user_id = ? AND menu_food_id = ? AND deleted_at IS NULL " +
-                        "ORDER BY created_at ASC, id ASC",
-                new String[]{userId, menuId}
+                "SELECT component_food_id FROM dining_out_menu_component_links " +
+                        "WHERE user_id = ? AND menu_food_id = ? AND deleted_at IS NULL" +
+                        groupClause + " ORDER BY created_at ASC, id ASC",
+                linkArgs.toArray(new String[0])
         )) {
             while (cursor.moveToNext()) {
                 ids.add(cursor.getString(0));
             }
         }
-        if (ids.isEmpty()) {
+        return readDiningOutComponentsInLinkOrder(ids);
+    }
+
+    /** Backward-compatible ADD_ON read API. */
+    public List<NutritionFood> diningOutAddOnsForMenu(String menuFoodId) {
+        return diningOutComponentsForMenu(menuFoodId, CompositionGroupType.ADD_ON.value());
+    }
+
+    private List<NutritionFood> readDiningOutComponentsInLinkOrder(List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
             return new ArrayList<>();
         }
         StringBuilder placeholders = new StringBuilder();
-        for (String id : ids) {
+        for (String ignored : ids) {
             placeholders.append(placeholders.length() == 0 ? "?" : ", ?");
         }
         List<String> foodArgs = new ArrayList<>();
         foodArgs.add(userId);
         foodArgs.add(NutritionFood.KIND_EXTERNAL_MENU);
         foodArgs.addAll(ids);
-        return readFoods(
+        List<NutritionFood> foods = readFoods(
                 "owner_id = ? AND kind = ? AND id IN (" + placeholders + ")",
                 foodArgs.toArray(new String[0]),
                 "updated_at DESC, name COLLATE NOCASE ASC",
                 null
         );
+        Map<String, NutritionFood> byId = new LinkedHashMap<>();
+        for (NutritionFood food : foods) {
+            byId.put(food.id, food);
+        }
+        List<NutritionFood> ordered = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (String id : ids) {
+            if (seen.add(id) && byId.containsKey(id)) {
+                ordered.add(byId.get(id));
+            }
+        }
+        return ordered;
     }
-
     private boolean ownedActiveFood(
             SQLiteDatabase database,
             String foodId,
@@ -423,7 +493,28 @@ public final class NutritionCatalogRepository {
         }
     }
 
+    private NutritionFood diningOutComponent(String componentId) {
+        List<NutritionFood> rows = readFoods(
+                "owner_id = ? AND kind = ? AND id = ?",
+                new String[]{userId, NutritionFood.KIND_EXTERNAL_MENU, componentId},
+                "updated_at DESC",
+                "1"
+        );
+        return rows.isEmpty() ? null : rows.get(0);
+    }
+
+    private String normalizeLinkGroupType(String groupType) {
+        String normalized = groupType == null ? "" : groupType.trim();
+        if ("review_event".equalsIgnoreCase(normalized)) {
+            throw new IllegalArgumentException(
+                    "review_event는 구성 종류가 아니라 제공 방식으로 저장해야 합니다."
+            );
+        }
+        return CompositionGroupType.normalize(normalized);
+    }
+
     private String optionGroupType(String sourceReference) {
+
         if (sourceReference == null || sourceReference.trim().isEmpty()) {
             return CompositionGroupType.OTHER.value();
         }
@@ -942,7 +1033,7 @@ public final class NutritionCatalogRepository {
         );
     }
 
-    /** Saves one menu option as a separate reusable Nutrition catalog row. */
+    /** Saves one component through the source-compatible option API. */
     public NutritionFood saveDiningOutOption(
             String storeName,
             String menuName,
@@ -958,53 +1049,78 @@ public final class NutritionCatalogRepository {
             DiningOutIdentity identity,
             DiningOutOption option
     ) {
-        String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
-        String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
         if (option == null) {
             throw new IllegalArgumentException("외식 옵션이 필요합니다.");
         }
-        if (!option.hasNutrition()) {
+        return saveDiningOutComponent(
+                storeName,
+                menuName,
+                identity,
+                DiningOutComponent.fromOption(option)
+        );
+    }
+
+    public NutritionFood saveDiningOutComponent(
+            String storeName,
+            String menuName,
+            DiningOutComponent component
+    ) {
+        return saveDiningOutComponent(storeName, menuName, null, component);
+    }
+
+    /** Saves a reusable component without storing its actual-meal provision type in the link source. */
+    public NutritionFood saveDiningOutComponent(
+            String storeName,
+            String menuName,
+            DiningOutIdentity identity,
+            DiningOutComponent component
+    ) {
+        String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
+        String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
+        if (component == null) {
+            throw new IllegalArgumentException("외식 구성품이 필요합니다.");
+        }
+        NutritionProfile profile = component.profile;
+        if (!component.hasNutrition()) {
             return saveDiningOutOptionCatalogRow(
                     normalizedStoreName,
                     normalizedMenuName,
-                    option.name,
-                    NutritionProfile.empty(),
+                    component.name,
+                    profile,
                     diningOutOptionSourceReference(
                             normalizedStoreName,
                             normalizedMenuName,
                             identity,
-                            option
+                            component
                     )
             );
         }
-        if (!option.hasCompleteMacros()) {
+        if (!component.hasCompleteMacros()) {
             throw new IllegalArgumentException(
-                    "옵션 영양성분은 칼로리와 탄수화물·단백질·지방을 모두 입력해야 합니다."
+                    "구성품 영양성분은 칼로리와 탄수화물·단백질·지방을 모두 입력해야 합니다."
             );
         }
-        Double protein = option.profile.value(NutritionProfile.PROTEIN_GRAMS);
-        Double carbs = option.profile.value(NutritionProfile.CARBS_GRAMS);
-        Double fat = option.profile.value(NutritionProfile.FAT_GRAMS);
+        Double protein = profile.value(NutritionProfile.PROTEIN_GRAMS);
+        Double carbs = profile.value(NutritionProfile.CARBS_GRAMS);
+        Double fat = profile.value(NutritionProfile.FAT_GRAMS);
         MealEntryPolicy.requireDiningOutEstimatedMacros(carbs, protein, fat);
-        double calories = option.profile.isKnown(NutritionProfile.CALORIES_KCAL)
-                ? option.profile.calories()
+        double calories = profile.isKnown(NutritionProfile.CALORIES_KCAL)
+                ? profile.calories()
                 : MealEntryPolicy.estimatedDiningOutCalories(carbs, protein, fat);
-        NutritionProfile profile = NutritionProfile.builder()
+        profile = NutritionProfile.builder()
+                .from(profile)
                 .value(NutritionProfile.CALORIES_KCAL, calories)
-                .value(NutritionProfile.PROTEIN_GRAMS, protein)
-                .value(NutritionProfile.CARBS_GRAMS, carbs)
-                .value(NutritionProfile.FAT_GRAMS, fat)
                 .build();
         return saveDiningOutOptionCatalogRow(
                 normalizedStoreName,
                 normalizedMenuName,
-                option.name,
+                component.name,
                 profile,
                 diningOutOptionSourceReference(
                         normalizedStoreName,
                         normalizedMenuName,
                         identity,
-                        option
+                        component
                 )
         );
     }
@@ -1017,7 +1133,7 @@ public final class NutritionCatalogRepository {
     ) {
         JSONObject reference = new JSONObject();
         try {
-            reference.put("contract_version", "dining-out-option.v1");
+            reference.put("contract_version", "dining-out-component.v1");
             reference.put("composition_contract", CompositionTemplate.CONTRACT_VERSION);
             reference.put("restaurant_name", storeName);
             reference.put("composition_group_key", option.groupKey);
@@ -1124,7 +1240,9 @@ public final class NutritionCatalogRepository {
                 normalizedOptionName,
                 normalizedMenuName,
                 profile,
-                NutritionFood.DATA_VERSION_MACROS_ONLY,
+                profile.hasAllRequired()
+                        ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
+                        : NutritionFood.DATA_VERSION_MACROS_ONLY,
                 DINING_OUT_OPTION_SOURCE_TYPE,
                 sourceReference
         );
