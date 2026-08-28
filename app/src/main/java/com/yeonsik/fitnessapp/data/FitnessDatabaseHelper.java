@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 40;
+    public static final int DATABASE_VERSION = 41;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -470,10 +470,10 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "basis_unit_snapshot TEXT, " +
                 "prep_state_snapshot TEXT, " +
                 "consumed_fraction REAL, " +
-                "calories REAL NOT NULL DEFAULT 0, " +
-                "protein_grams REAL NOT NULL DEFAULT 0, " +
-                "carbs_grams REAL NOT NULL DEFAULT 0, " +
-                "fat_grams REAL NOT NULL DEFAULT 0, " +
+                "calories REAL, " +
+                "protein_grams REAL, " +
+                "carbs_grams REAL, " +
+                "fat_grams REAL, " +
                 "sodium_mg REAL, " +
                 "saturated_fat_grams REAL, " +
                 "sugars_grams REAL, " +
@@ -1015,6 +1015,11 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 40) {
             upgradeNutritionFoodRequiredNutritionNullability(db);
+        }
+        if (oldVersion < 41) {
+            // v39 already made existing component snapshots nullable. This revision keeps
+            // fresh installs on the same schema and is intentionally a no-op for data.
+            upgradeMealComponentNutritionNullability(db);
         }
     }
 

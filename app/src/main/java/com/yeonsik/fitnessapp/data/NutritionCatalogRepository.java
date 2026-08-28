@@ -2469,10 +2469,10 @@ public final class NutritionCatalogRepository {
                         row.optString("prep_state", NutritionFood.PREP_UNSPECIFIED)));
                 values.put("cooking_method", NutritionFood.normalizeCookingMethod(
                         row.optString("cooking_method", NutritionFood.COOKING_METHOD_UNSPECIFIED)));
-                values.put("calories_kcal", row.optDouble("calories_kcal", 0));
-                values.put("protein_grams", row.optDouble("protein_grams", 0));
-                values.put("carbs_grams", row.optDouble("carbs_grams", 0));
-                values.put("fat_grams", row.optDouble("fat_grams", 0));
+                putNullableDouble(values, "calories_kcal", nullableDouble(row, "calories_kcal"));
+                putNullableDouble(values, "protein_grams", nullableDouble(row, "protein_grams"));
+                putNullableDouble(values, "carbs_grams", nullableDouble(row, "carbs_grams"));
+                putNullableDouble(values, "fat_grams", nullableDouble(row, "fat_grams"));
                 // 원격에 값이 없으면 0이 아니라 NULL로 남겨 "모름"을 보존한다.
                 for (String key : nullableTypedKeys()) {
                     putNullableDouble(values, key, nullableDouble(row, key));
