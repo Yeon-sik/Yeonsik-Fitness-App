@@ -246,9 +246,9 @@ public final class DiningOutOption {
                 .prepState(NutritionFood.PREP_AS_SERVED)
                 .profile(profile)
                 .source("manual_option", sourceReference)
-                .dataVersion(hasNutrition()
-                        ? NutritionFood.DATA_VERSION_MACROS_ONLY
-                        : NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
+                .dataVersion(profile.hasAllRequired()
+                        ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
+                        : NutritionFood.DATA_VERSION_MACROS_ONLY)
                 .build();
         return MealCompositionItem.from(food, food.basisAmount);
     }

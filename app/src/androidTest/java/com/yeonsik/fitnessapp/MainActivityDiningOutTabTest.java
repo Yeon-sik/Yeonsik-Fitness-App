@@ -12,6 +12,7 @@ import com.yeonsik.fitnessapp.data.CompositionGroup;
 import com.yeonsik.fitnessapp.data.CompositionGroupType;
 import com.yeonsik.fitnessapp.data.CompositionMember;
 import com.yeonsik.fitnessapp.data.CompositionTemplate;
+import com.yeonsik.fitnessapp.data.DiningOutIdentity;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionUnit;
 
@@ -216,8 +217,202 @@ public final class MainActivityDiningOutTabTest {
         }
     }
 
+    @Test
+    public void identityLessSavedMenuDoesNotOverrideExistingRestaurantScope() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                DiningOutIdentity firstIdentity = identity(
+                        "71111111-1111-4111-8111-111111111111",
+                        "범위 식당 A",
+                        "72222222-2222-4222-8222-222222222222",
+                        "A 본점",
+                        "73333333-3333-4333-8333-333333333333",
+                        "범위 메뉴 A",
+                        "74444444-4444-4444-8444-444444444444"
+                );
+                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                        "범위 식당 A", "범위 메뉴 A", 500, 20d, 50d, 15d,
+                        800d, 10d, 5d, firstIdentity
+                );
+                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                        "범위 식당 B", "범위 메뉴 B", 450, 18d, 45d, 14d,
+                        700d, 9d, 4d
+                );
+
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+                clickText(root, "저장 메뉴 불러오기");
+                clickContentDescription(root, "범위 식당 A · 범위 메뉴 A 저장 외식 메뉴 불러오기");
+                clickText(root, "메뉴 추가");
+                clickContentDescription(root, "범위 식당 B · 범위 메뉴 B 저장 외식 메뉴 불러오기");
+
+                assertEquals(
+                        "범위 식당 A",
+                        findEditTextWithContentDescription(root, "가게 명")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "A 본점",
+                        findEditTextWithContentDescription(root, "지점")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "범위 메뉴 B",
+                        findEditTextWithContentDescription(root, "외식 메뉴 2 이름")
+                                .getText().toString()
+                );
+            });
+        }
+    }
+
+    @Test
+    public void identityLessLegacyTemplateDoesNotOverrideExistingRestaurantScope() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                DiningOutIdentity firstIdentity = identity(
+                        "75111111-1111-4111-8111-111111111111",
+                        "템플릿 범위 식당 A",
+                        "75222222-2222-4222-8222-222222222222",
+                        "A 본점",
+                        "75333333-3333-4333-8333-333333333333",
+                        "템플릿 범위 메뉴 A",
+                        "75444444-4444-4444-8444-444444444444"
+                );
+                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                        "템플릿 범위 식당 A", "템플릿 범위 메뉴 A", 500, 20d, 50d, 15d,
+                        800d, 10d, 5d, firstIdentity
+                );
+                CompositionTemplate template = new CompositionTemplate(
+                        "identity-less-legacy-scope-template",
+                        activity.repository().currentUserId(),
+                        "템플릿 범위 식당 B · 템플릿 범위 메뉴 B",
+                        CompositionTemplate.KIND_DINING_OUT,
+                        null,
+                        null,
+                        1,
+                        Collections.emptyList()
+                );
+                activity.repository().compositionTemplates().save(template);
+
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+                clickText(root, "저장 메뉴 불러오기");
+                clickContentDescription(
+                        root,
+                        "템플릿 범위 식당 A · 템플릿 범위 메뉴 A 저장 외식 메뉴 불러오기"
+                );
+                clickText(root, "메뉴 추가");
+                clickText(root, "템플릿 불러오기");
+                clickText(root, "템플릿 범위 식당 B · 템플릿 범위 메뉴 B · 그룹 0");
+                clickText(root, "적용");
+
+                assertEquals(
+                        "템플릿 범위 식당 A",
+                        findEditTextWithContentDescription(root, "가게 명")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "A 본점",
+                        findEditTextWithContentDescription(root, "지점")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "템플릿 범위 메뉴 B",
+                        findEditTextWithContentDescription(root, "외식 메뉴 2 이름")
+                                .getText().toString()
+                );
+            });
+        }
+    }
+
+    @Test
+    public void differentPriceTraceRestaurantCannotBeLoadedIntoTheSameRecord() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                DiningOutIdentity firstIdentity = identity(
+                        "76111111-1111-4111-8111-111111111111",
+                        "혼합 차단 식당 A",
+                        "76222222-2222-4222-8222-222222222222",
+                        "A 본점",
+                        "76333333-3333-4333-8333-333333333333",
+                        "혼합 메뉴 A",
+                        "76444444-4444-4444-8444-444444444444"
+                );
+                DiningOutIdentity otherIdentity = identity(
+                        "77111111-1111-4111-8111-111111111111",
+                        "혼합 차단 식당 B",
+                        "77222222-2222-4222-8222-222222222222",
+                        "B 본점",
+                        "77333333-3333-4333-8333-333333333333",
+                        "혼합 메뉴 B",
+                        "77444444-4444-4444-8444-444444444444"
+                );
+                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                        "혼합 차단 식당 A", "혼합 메뉴 A", 500, 20d, 50d, 15d,
+                        800d, 10d, 5d, firstIdentity
+                );
+                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                        "혼합 차단 식당 B", "혼합 메뉴 B", 450, 18d, 45d, 14d,
+                        700d, 9d, 4d, otherIdentity
+                );
+
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+                clickText(root, "저장 메뉴 불러오기");
+                clickContentDescription(root, "혼합 차단 식당 A · 혼합 메뉴 A 저장 외식 메뉴 불러오기");
+                clickText(root, "메뉴 추가");
+                clickContentDescription(root, "혼합 차단 식당 B · 혼합 메뉴 B 저장 외식 메뉴 불러오기");
+
+                assertEquals(
+                        "혼합 차단 식당 A",
+                        findEditTextWithContentDescription(root, "가게 명")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "",
+                        findEditTextWithContentDescription(root, "외식 메뉴 2 이름")
+                                .getText().toString()
+                );
+            });
+        }
+    }
+
+    private static DiningOutIdentity identity(
+            String restaurantId,
+            String restaurantName,
+            String locationId,
+            String branchName,
+            String menuId,
+            String menuName,
+            String catalogProductId
+    ) {
+        return DiningOutIdentity.fromPriceTrace(
+                restaurantId,
+                restaurantName,
+                locationId,
+                branchName,
+                menuId,
+                menuName,
+                catalogProductId
+        );
+    }
+
     private static void clickText(View root, String text) {
         TextView target = findText(root, text);
+        assertNotNull(target);
+        View clickable = clickableSelfOrAncestor(target);
+        assertNotNull(clickable);
+        clickable.performClick();
+    }
+
+    private static void clickContentDescription(View root, String description) {
+        View target = findViewWithContentDescription(root, description);
         assertNotNull(target);
         View clickable = clickableSelfOrAncestor(target);
         assertNotNull(clickable);

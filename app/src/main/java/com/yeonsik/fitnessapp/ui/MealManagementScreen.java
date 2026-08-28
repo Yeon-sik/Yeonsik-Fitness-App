@@ -1757,7 +1757,7 @@ public final class MealManagementScreen extends BaseScreen {
 
         LinearLayout identityActions = new LinearLayout(host.activity());
         identityActions.setOrientation(LinearLayout.HORIZONTAL);
-        identityActions.addView(ui.textAction(
+        TextView priceTraceAction = ui.textAction(
                 "PT 메뉴 선택",
                 FitnessUi.COLOR_TERTIARY,
                 () -> {
@@ -1765,8 +1765,12 @@ public final class MealManagementScreen extends BaseScreen {
                     activeDiningOutMenuIndex = index;
                     showPriceTraceDiningOutPicker();
                 }
-        ));
-        identityActions.addView(ui.textAction(
+        );
+        priceTraceAction.setContentDescription(
+                "외식 메뉴 " + (index + 1) + " PT 메뉴 선택"
+        );
+        identityActions.addView(priceTraceAction);
+        TextView savedMenuAction = ui.textAction(
                 "저장 메뉴 불러오기",
                 FitnessUi.COLOR_TERTIARY,
                 () -> {
@@ -1774,7 +1778,11 @@ public final class MealManagementScreen extends BaseScreen {
                     activeDiningOutMenuIndex = index;
                     showSavedDiningOutPicker();
                 }
-        ));
+        );
+        savedMenuAction.setContentDescription(
+                "외식 메뉴 " + (index + 1) + " 저장 메뉴 불러오기"
+        );
+        identityActions.addView(savedMenuAction);
         card.addView(identityActions, ui.fullWidthParams(ui.dp(4)));
         if (menu.hasExactIdentity()) {
             card.addView(ui.text(
@@ -1901,7 +1909,9 @@ public final class MealManagementScreen extends BaseScreen {
                         "manual_estimate",
                         identity == null ? "dining_out" : identity.metadataJson()
                 )
-                .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
+                .dataVersion(profile.hasAllRequired()
+                        ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
+                        : NutritionFood.DATA_VERSION_MACROS_ONLY)
                 .build();
     }
 
@@ -2075,22 +2085,58 @@ public final class MealManagementScreen extends BaseScreen {
         NutritionFood rootFood = template.rootFoodId == null
                 ? null
                 : host.nutritionCatalogRepository().findFoodById(template.rootFoodId);
+        String templateStoreName;
+        String templateMenuName;
+        NutritionProfile templateProfile;
         if (rootFood != null) {
-            draftDiningOutStoreName = rootFood.brand == null ? "" : rootFood.brand;
-            menu.name = rootFood.name;
-            applyDiningOutNutrition(menu, rootFood.profile);
+            templateStoreName = rootFood.brand == null ? "" : rootFood.brand;
+            templateMenuName = rootFood.name;
+            templateProfile = rootFood.profile;
         } else {
             String[] parts = template.name.split(" · ", 2);
-            draftDiningOutStoreName = parts.length > 1 ? parts[0] : template.name;
-            menu.name = parts.length > 1 ? parts[1] : template.name;
-            // A legacy template without a root catalog row has no trusted base profile.
-            // Do not carry a previous meal's entered nutrition into this new selection.
-            applyDiningOutNutrition(menu, NutritionProfile.empty());
+            templateStoreName = parts.length > 1 ? parts[0] : template.name;
+            templateMenuName = parts.length > 1 ? parts[1] : template.name;
+            templateProfile = NutritionProfile.empty();
         }
         String identitySourceReference = rootFood == null
                 ? template.sourceReference
                 : rootFood.sourceReference;
-        applyDiningOutTemplateIdentity(menu, identitySourceReference);
+        String candidateStoreName = diningOutSourceValue(
+                identitySourceReference,
+                "restaurant_name",
+                templateStoreName
+        );
+        String candidateBranchName = diningOutSourceValue(
+                identitySourceReference,
+                "branch_name",
+                ""
+        );
+        DiningOutIdentity templateIdentity;
+        try {
+            templateIdentity = diningOutIdentityFromSourceReference(
+                    identitySourceReference,
+                    candidateStoreName,
+                    candidateBranchName,
+                    templateMenuName
+            );
+        } catch (IllegalArgumentException error) {
+            host.toast(error.getMessage());
+            return;
+        }
+        try {
+            applyDiningOutRestaurantScope(
+                    menu,
+                    templateIdentity,
+                    candidateStoreName,
+                    candidateBranchName
+            );
+        } catch (IllegalArgumentException error) {
+            host.toast(error.getMessage());
+            return;
+        }
+        menu.name = templateMenuName;
+        applyDiningOutNutrition(menu, templateProfile);
+        applyDiningOutIdentity(menu, templateIdentity);
         menu.options.clear();
         for (CompositionGroup group : template.groups) {
             List<CompositionMember> selected = selectedByGroup.get(group.key);
@@ -2140,13 +2186,14 @@ public final class MealManagementScreen extends BaseScreen {
         }
     }
 
-    private void applyDiningOutTemplateIdentity(
-            DiningOutMenuDraft menu,
-            String sourceReference
+    private DiningOutIdentity diningOutIdentityFromSourceReference(
+            String sourceReference,
+            String fallbackStoreName,
+            String fallbackBranchName,
+            String fallbackMenuName
     ) {
         if (sourceReference == null || sourceReference.trim().isEmpty()) {
-            clearDiningOutPriceTraceIdentity(menu);
-            return;
+            return null;
         }
         try {
             JSONObject source = new JSONObject(sourceReference);
@@ -2154,24 +2201,133 @@ public final class MealManagementScreen extends BaseScreen {
             String locationId = jsonValue(source, "restaurant_location_id");
             String menuId = jsonValue(source, "restaurant_menu_id");
             String productId = jsonValue(source, "catalog_product_id");
-            draftDiningOutBranchName = jsonValue(source, "branch_name");
-            if (restaurantId.isEmpty() || locationId.isEmpty()
-                    || menuId.isEmpty() || productId.isEmpty()) {
-                clearDiningOutPriceTraceIdentity(menu);
-                return;
+            boolean hasAnyIdentity = !restaurantId.isEmpty()
+                    || !locationId.isEmpty()
+                    || !menuId.isEmpty()
+                    || !productId.isEmpty();
+            boolean hasCompleteIdentity = !restaurantId.isEmpty()
+                    && !locationId.isEmpty()
+                    && !menuId.isEmpty()
+                    && !productId.isEmpty();
+            if (!hasAnyIdentity) {
+                return null;
             }
-            menu.restaurantId = restaurantId;
-            menu.restaurantLocationId = locationId;
-            menu.sourceNamespace = jsonValue(source, "namespace");
-            if (menu.sourceNamespace.isEmpty()) {
-                menu.sourceNamespace = jsonValue(source, "source_namespace");
+            if (!hasCompleteIdentity) {
+                throw new IllegalArgumentException(
+                        "저장된 외식 메뉴의 PriceTrace identity가 일부만 있습니다."
+                );
             }
-            menu.sourceLocationCode = jsonValue(source, "source_location_code");
-            menu.restaurantMenuId = menuId;
-            menu.catalogProductId = productId;
-        } catch (Exception ignored) {
-            clearDiningOutPriceTraceIdentity(menu);
+            String sourceNamespace = jsonValue(source, "namespace");
+            if (sourceNamespace.isEmpty()) {
+                sourceNamespace = jsonValue(source, "source_namespace");
+            }
+            if (sourceNamespace.isEmpty()) {
+                sourceNamespace = DiningOutIdentity.NAMESPACE;
+            }
+            return DiningOutIdentity.fromPriceTrace(
+                    restaurantId,
+                    diningOutSourceValue(source, "restaurant_name", fallbackStoreName),
+                    locationId,
+                    sourceNamespace,
+                    jsonValue(source, "source_location_code"),
+                    diningOutSourceValue(source, "branch_name", fallbackBranchName),
+                    menuId,
+                    diningOutSourceValue(source, "menu_name", fallbackMenuName),
+                    productId
+            );
+        } catch (org.json.JSONException ignored) {
+            // Legacy or malformed references are local, identity-less selections.
+            return null;
         }
+    }
+
+    private String diningOutSourceValue(
+            String sourceReference,
+            String key,
+            String fallback
+    ) {
+        if (sourceReference == null || sourceReference.trim().isEmpty()) {
+            return fallback == null ? "" : fallback.trim();
+        }
+        try {
+            return diningOutSourceValue(
+                    new JSONObject(sourceReference),
+                    key,
+                    fallback
+            );
+        } catch (Exception ignored) {
+            return fallback == null ? "" : fallback.trim();
+        }
+    }
+
+    private String diningOutSourceValue(
+            JSONObject source,
+            String key,
+            String fallback
+    ) {
+        String value = jsonValue(source, key);
+        return value.isEmpty() ? (fallback == null ? "" : fallback.trim()) : value;
+    }
+
+    private void applyDiningOutIdentity(
+            DiningOutMenuDraft menu,
+            DiningOutIdentity identity
+    ) {
+        clearDiningOutPriceTraceIdentity(menu);
+        if (identity == null) {
+            return;
+        }
+        menu.restaurantId = identity.restaurantId;
+        menu.restaurantLocationId = identity.restaurantLocationId;
+        menu.sourceNamespace = identity.sourceNamespace == null
+                ? "" : identity.sourceNamespace;
+        menu.sourceLocationCode = identity.sourceLocationCode == null
+                ? "" : identity.sourceLocationCode;
+        menu.restaurantMenuId = identity.restaurantMenuId;
+        menu.catalogProductId = identity.catalogProductId;
+    }
+
+    private void applyDiningOutRestaurantScope(
+            DiningOutMenuDraft target,
+            DiningOutIdentity candidate,
+            String candidateStoreName,
+            String candidateBranchName
+    ) {
+        DiningOutIdentity existingScope = diningOutRestaurantScopeExcluding(target);
+        validateDiningOutIdentityScope(existingScope, candidate);
+        if (existingScope != null) {
+            return;
+        }
+        if (candidate != null) {
+            draftDiningOutStoreName = candidate.restaurantName;
+            draftDiningOutBranchName = candidate.branchName == null
+                    ? "" : candidate.branchName;
+        } else {
+            draftDiningOutStoreName = candidateStoreName == null
+                    ? "" : candidateStoreName.trim();
+            draftDiningOutBranchName = candidateBranchName == null
+                    ? "" : candidateBranchName.trim();
+        }
+    }
+
+    private DiningOutIdentity diningOutRestaurantScopeExcluding(
+            DiningOutMenuDraft excludedMenu
+    ) {
+        DiningOutIdentity scope = null;
+        for (DiningOutMenuDraft existing : draftDiningOutMenus) {
+            if (existing == excludedMenu || !existing.hasAnyIdentity()) {
+                continue;
+            }
+            DiningOutIdentity identity = selectedDiningOutIdentity(existing);
+            if (identity == null) {
+                continue;
+            }
+            validateDiningOutIdentityScope(scope, identity);
+            if (scope == null) {
+                scope = identity;
+            }
+        }
+        return scope;
     }
 
     private String jsonValue(JSONObject object, String key) {
@@ -2248,16 +2404,41 @@ public final class MealManagementScreen extends BaseScreen {
 
     private void applySavedDiningOutMenu(NutritionFood menu) {
         DiningOutMenuDraft draft = activeDiningOutMenu();
-        DiningOutIdentity savedIdentity = null;
-        applyDiningOutTemplateIdentity(draft, menu.sourceReference);
-        savedIdentity = selectedDiningOutIdentity(draft);
-        for (DiningOutMenuDraft existing : draftDiningOutMenus) {
-            if (existing == draft) {
-                continue;
-            }
-            validateDiningOutIdentityScope(selectedDiningOutIdentity(existing), savedIdentity);
+        String fallbackStoreName = menu.brand == null ? "" : menu.brand;
+        String candidateStoreName = diningOutSourceValue(
+                menu.sourceReference,
+                "restaurant_name",
+                fallbackStoreName
+        );
+        String candidateBranchName = diningOutSourceValue(
+                menu.sourceReference,
+                "branch_name",
+                ""
+        );
+        DiningOutIdentity savedIdentity;
+        try {
+            savedIdentity = diningOutIdentityFromSourceReference(
+                    menu.sourceReference,
+                    candidateStoreName,
+                    candidateBranchName,
+                    menu.name
+            );
+        } catch (IllegalArgumentException error) {
+            host.toast(error.getMessage());
+            return;
         }
-        draftDiningOutStoreName = menu.brand == null ? "" : menu.brand;
+        try {
+            applyDiningOutRestaurantScope(
+                    draft,
+                    savedIdentity,
+                    candidateStoreName,
+                    candidateBranchName
+            );
+        } catch (IllegalArgumentException error) {
+            host.toast(error.getMessage());
+            return;
+        }
+        applyDiningOutIdentity(draft, savedIdentity);
         draft.name = menu.name;
         draft.catalogFoodId = menu.id == null ? "" : menu.id;
         draft.options.clear();
