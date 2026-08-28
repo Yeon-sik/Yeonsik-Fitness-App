@@ -1403,7 +1403,11 @@ public final class FitnessRepository {
         Double sodium = totals.total(NutritionProfile.SODIUM_MG).completeValue();
         Double sugars = totals.total(NutritionProfile.SUGARS_GRAMS).completeValue();
         Double saturatedFat = totals.total(NutritionProfile.SATURATED_FAT_GRAMS).completeValue();
-        String firstMenuName = menus.get(0).menu.food.displayName();
+        boolean hasCompleteNutrition = totals.total(NutritionProfile.CALORIES_KCAL).isComplete()
+                && sodium != null && sugars != null && saturatedFat != null;
+        // The parent row is only a legacy representative. Avoid duplicating the restaurant
+        // brand that is already held in store_name/branch_name.
+        String firstMenuName = menus.get(0).menu.food.name;
         return insertDiningOutMeal(
                 date,
                 mealTime,
@@ -1420,7 +1424,7 @@ public final class FitnessRepository {
                 identity,
                 null,
                 Collections.emptyList(),
-                false,
+                !hasCompleteNutrition,
                 consumption,
                 nominalServings,
                 menus

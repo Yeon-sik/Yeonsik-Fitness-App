@@ -1212,30 +1212,42 @@ public final class MealManagementScreen extends BaseScreen {
                 }
             }
             if (entry.hasEstimatedNutrition()) {
-                List<FitnessRepository.MealItemEntry> nutritionItems =
-                        repository().mealItemsForRecord(entry.id);
-                NutritionProfile nutrition = nutritionItems.isEmpty()
-                        ? null
-                        : nutritionItems.get(0).profile;
-                if (consumption != null && nutrition != null) {
-                    nutrition = nutrition.scaled(consumption.consumedFraction);
+                NutritionTotals.Builder totalsBuilder = NutritionTotals.builder();
+                for (FitnessRepository.MealItemEntry nutritionItem : menuItems) {
+                    totalsBuilder.add(nutritionItem.profile);
                 }
+                NutritionTotals totals = totalsBuilder.build();
+                double fraction = consumption == null ? 1d : consumption.consumedFraction;
+                Double calories = scaledCompleteNutrition(
+                        totals, NutritionProfile.CALORIES_KCAL, fraction);
+                Double carbs = scaledCompleteNutrition(
+                        totals, NutritionProfile.CARBS_GRAMS, fraction);
+                Double protein = scaledCompleteNutrition(
+                        totals, NutritionProfile.PROTEIN_GRAMS, fraction);
+                Double fat = scaledCompleteNutrition(
+                        totals, NutritionProfile.FAT_GRAMS, fraction);
+                Double sodium = scaledCompleteNutrition(
+                        totals, NutritionProfile.SODIUM_MG, fraction);
+                Double sugars = scaledCompleteNutrition(
+                        totals, NutritionProfile.SUGARS_GRAMS, fraction);
+                Double saturatedFat = scaledCompleteNutrition(
+                        totals, NutritionProfile.SATURATED_FAT_GRAMS, fraction);
                 body.addView(ui.text(
-                        "칼로리 " + entry.calories + "kcal · "
-                                + "탄수화물 " + NutritionCalculator.trim(entry.carbsGrams) + "g · "
-                                + "단백질 " + NutritionCalculator.trim(entry.proteinGrams) + "g · "
-                                + "지방 " + NutritionCalculator.trim(entry.fatGrams) + "g",
+                        "칼로리 " + NutritionCalculator.trimNullable(calories) + "kcal · "
+                                + "탄수화물 " + NutritionCalculator.trimNullable(carbs) + "g · "
+                                + "단백질 " + NutritionCalculator.trimNullable(protein) + "g · "
+                                + "지방 " + NutritionCalculator.trimNullable(fat) + "g",
                         14,
                         FitnessUi.COLOR_TEXT,
                         true
                 ), ui.fullWidthParams(ui.dp(12)));
                 body.addView(ui.text(
                         "나트륨 " + NutritionCalculator.trimNullable(
-                                nutrition == null ? null : nutrition.sodiumMg()
+                                sodium
                         ) + "mg · 당류 " + NutritionCalculator.trimNullable(
-                                nutrition == null ? null : nutrition.sugarsGrams()
+                                sugars
                         ) + "g · 포화지방 " + NutritionCalculator.trimNullable(
-                                nutrition == null ? null : nutrition.saturatedFatGrams()
+                                saturatedFat
                         ) + "g",
                         13,
                         FitnessUi.COLOR_TEXT,
@@ -1642,11 +1654,16 @@ public final class MealManagementScreen extends BaseScreen {
         return form;
     }
 
+    private Double scaledCompleteNutrition(NutritionTotals totals, String key, double fraction) {
+        Double total = totals.total(key).completeValue();
+        return total == null ? null : total * fraction;
+    }
+
     private void addDiningOutMenuDraft() {
         syncDraftFromViews();
         draftDiningOutMenus.add(new DiningOutMenuDraft());
         activeDiningOutMenuIndex = draftDiningOutMenus.size() - 1;
-        host.rerender();
+        rerenderDiningOutFromDraft();
     }
 
     private void renderDiningOutMenuCards() {
@@ -1698,7 +1715,7 @@ public final class MealManagementScreen extends BaseScreen {
                         activeDiningOutMenuIndex,
                         Math.max(0, draftDiningOutMenus.size() - 1)
                 );
-                host.rerender();
+                rerenderDiningOutFromDraft();
             }));
         }
         card.addView(header, ui.fullWidthParams(ui.dp(4)));
@@ -1878,7 +1895,7 @@ public final class MealManagementScreen extends BaseScreen {
             showDiningOutTemplatePicker();
         }));
         header.addView(ui.textAction("옵션 추가", FitnessUi.COLOR_TERTIARY, () -> {
-            showDiningOutOptionPicker(-1);
+            showDiningOutOptionGroupPicker();
         }));
         section.addView(header);
 
@@ -2202,16 +2219,23 @@ public final class MealManagementScreen extends BaseScreen {
 
     private void applySavedDiningOutMenu(NutritionFood menu) {
         DiningOutMenuDraft draft = activeDiningOutMenu();
+        DiningOutIdentity savedIdentity = null;
+        applyDiningOutTemplateIdentity(draft, menu.sourceReference);
+        savedIdentity = selectedDiningOutIdentity(draft);
+        for (DiningOutMenuDraft existing : draftDiningOutMenus) {
+            if (existing == draft) {
+                continue;
+            }
+            validateDiningOutIdentityScope(selectedDiningOutIdentity(existing), savedIdentity);
+        }
         draftDiningOutStoreName = menu.brand == null ? "" : menu.brand;
         draft.name = menu.name;
         draft.catalogFoodId = menu.id == null ? "" : menu.id;
-        clearDiningOutPriceTraceIdentity(draft);
-        applyDiningOutTemplateIdentity(draft, menu.sourceReference);
         draft.options.clear();
         applyDiningOutNutrition(draft, menu.profile);
         updateDiningOutSelectionSummary();
         host.toast("저장한 외식 메뉴를 불러왔습니다. 섭취량을 확인한 뒤 기록하세요.");
-        host.rerender();
+        rerenderDiningOutFromDraft();
     }
 
     private void applyDiningOutNutrition(
@@ -2230,7 +2254,30 @@ public final class MealManagementScreen extends BaseScreen {
         );
     }
 
+    private void showDiningOutOptionGroupPicker() {
+        final CompositionGroupType[] types = CompositionGroupType.values();
+        final String[] labels = new String[types.length];
+        for (int index = 0; index < types.length; index++) {
+            labels[index] = CompositionGroupType.labelOf(types[index].value());
+        }
+        new AlertDialog.Builder(host.activity())
+                .setTitle("구성 그룹 선택")
+                .setItems(labels, (dialog, which) -> {
+                    if (which >= 0 && which < types.length) {
+                        showDiningOutOptionPicker(-1, types[which].value());
+                    }
+                })
+                .show();
+    }
+
     private void showDiningOutOptionPicker(int replacementIndex) {
+        DiningOutMenuDraft menu = activeDiningOutMenu();
+        String groupType = replacementIndex >= 0 && replacementIndex < menu.options.size()
+                ? menu.options.get(replacementIndex).groupType : CompositionGroupType.OTHER.value();
+        showDiningOutOptionPicker(replacementIndex, groupType);
+    }
+
+    private void showDiningOutOptionPicker(int replacementIndex, String requestedGroupType) {
         syncDraftFromViews();
         FitnessUi ui = ui();
         DiningOutMenuDraft menu = activeDiningOutMenu();
@@ -2239,7 +2286,7 @@ public final class MealManagementScreen extends BaseScreen {
                 ? CompositionGroupType.normalize(
                         menu.options.get(replacementIndex).groupType
                 )
-                : null;
+                : CompositionGroupType.normalize(requestedGroupType);
         LinearLayout panel = new LinearLayout(host.activity());
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(ui.dp(16), ui.dp(4), ui.dp(16), ui.dp(8));
@@ -2292,13 +2339,14 @@ public final class MealManagementScreen extends BaseScreen {
         );
         manualInput.setOnClickListener(v -> {
             DiningOutOptionDraft manualDraft = new DiningOutOptionDraft();
+            manualDraft.groupType = selectedGroupType;
             if (replacementIndex >= 0 && replacementIndex < menu.options.size()) {
                 menu.options.set(replacementIndex, manualDraft);
             } else {
                 menu.options.add(manualDraft);
             }
             dialog.dismiss();
-            host.rerender();
+            rerenderDiningOutFromDraft();
         });
         panel.addView(manualInput, ui.fullWidthParams(ui.dp(6)));
 
@@ -2378,7 +2426,7 @@ public final class MealManagementScreen extends BaseScreen {
                         WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
                 );
             }
-            // Search is the default mode and an empty query lists this store's saved options.
+            // The group was selected before this dialog, so an empty query lists only that group.
             search.performClick();
         });
         dialog.show();
@@ -2410,7 +2458,7 @@ public final class MealManagementScreen extends BaseScreen {
             menu.options.add(selectedDraft);
         }
         dialog.dismiss();
-        host.rerender();
+        rerenderDiningOutFromDraft();
     }
 
     private boolean containsFood(List<NutritionFood> foods, String foodId) {
@@ -2596,6 +2644,26 @@ public final class MealManagementScreen extends BaseScreen {
                                 return;
                             }
                             DiningOutMenuDraft selectedMenu = activeDiningOutMenu();
+                            DiningOutIdentity selectedIdentity = DiningOutIdentity.fromPriceTrace(
+                                    value.restaurantId,
+                                    value.restaurantName,
+                                    location.restaurantLocationId,
+                                    location.sourceNamespace == null ? DiningOutIdentity.NAMESPACE
+                                            : location.sourceNamespace,
+                                    location.sourceLocationCode,
+                                    location.branchName,
+                                    menu.restaurantMenuId,
+                                    menu.menuName,
+                                    menu.catalogProductId
+                            );
+                            for (DiningOutMenuDraft existing : draftDiningOutMenus) {
+                                DiningOutIdentity existingIdentity = selectedDiningOutIdentity(existing);
+                                if (existingIdentity != null
+                                        && !existingIdentity.hasSameRestaurantLocation(selectedIdentity)) {
+                                    host.toast("한 외식 기록에는 같은 식당·지점의 메뉴만 추가할 수 있습니다.");
+                                    return;
+                                }
+                            }
                             draftDiningOutStoreName = value.restaurantName;
                             draftDiningOutBranchName = location.branchName == null
                                     ? "" : location.branchName;
@@ -2611,7 +2679,7 @@ public final class MealManagementScreen extends BaseScreen {
                             updateDiningOutSelectionSummary();
                             host.toast("PriceTrace 식당·지점·메뉴를 정확히 연결했습니다.");
                             dialog.dismiss();
-                            host.rerender();
+                            rerenderDiningOutFromDraft();
                         });
                         menuButton.setContentDescription(menuLabel + " 선택");
                         menuButtons.add(menuButton);
@@ -4163,6 +4231,7 @@ public final class MealManagementScreen extends BaseScreen {
                 );
                 List<MealMenuSelection> diningOutMenus = new ArrayList<>();
                 DiningOutIdentity firstIdentity = null;
+                DiningOutIdentity restaurantScopeIdentity = null;
                 for (DiningOutMenuDraft menu : draftDiningOutMenus) {
                     String menuName = MealEntryPolicy.requireDiningOutMenuName(menu.name);
                     Double carbsGrams = MealEntryPolicy.requireDiningOutMacro(
@@ -4179,6 +4248,10 @@ public final class MealManagementScreen extends BaseScreen {
                     DiningOutIdentity identity = selectedDiningOutIdentity(menu);
                     if (diningOutMenus.isEmpty()) {
                         firstIdentity = identity;
+                    }
+                    validateDiningOutIdentityScope(restaurantScopeIdentity, identity);
+                    if (restaurantScopeIdentity == null && identity != null) {
+                        restaurantScopeIdentity = identity;
                     }
                     List<DiningOutOption> optionSnapshots = saveDiningOutOptions(
                             menu, saveDiningOutMenu, identity);
@@ -4336,6 +4409,13 @@ public final class MealManagementScreen extends BaseScreen {
         return draftDiningOutMenus.get(activeDiningOutMenuIndex);
     }
 
+    private void validateDiningOutIdentityScope(DiningOutIdentity expected, DiningOutIdentity candidate) {
+        if (expected != null && candidate != null
+                && !expected.hasSameRestaurantLocation(candidate)) {
+            throw new IllegalArgumentException("한 외식 기록에는 같은 식당·지점의 메뉴만 저장할 수 있습니다.");
+        }
+    }
+
     private void resetDiningOutEditor() {
         draftDiningOutStoreName = "";
         draftDiningOutBranchName = "";
@@ -4363,6 +4443,37 @@ public final class MealManagementScreen extends BaseScreen {
         diningOutOptionCarbsInputs.clear();
         diningOutOptionFatInputs.clear();
         diningOutOptionConsumedPercentInputs.clear();
+    }
+
+    /**
+     * The rendered controls are a one-way projection of the draft.  Any action that changes
+     * the draft directly must discard those controls before rerendering, otherwise a later
+     * syncDraftFromViews() could write old EditText values back over a PT/saved selection.
+     */
+    private void rerenderDiningOutFromDraft() {
+        diningOutStoreInput = null;
+        diningOutBranchInput = null;
+        diningOutNominalServingsInput = null;
+        diningOutDinerCountInput = null;
+        diningOutConsumedPercentInput = null;
+        diningOutMenusContainer = null;
+        diningOutOptionsContainer = null;
+        diningOutMenuNameInputs.clear();
+        diningOutMenuCaloriesInputs.clear();
+        diningOutMenuProteinInputs.clear();
+        diningOutMenuCarbsInputs.clear();
+        diningOutMenuFatInputs.clear();
+        diningOutMenuSodiumInputs.clear();
+        diningOutMenuSugarsInputs.clear();
+        diningOutMenuSaturatedFatInputs.clear();
+        diningOutOptionInputs.clear();
+        diningOutOptionGroupInputs.clear();
+        diningOutOptionCaloriesInputs.clear();
+        diningOutOptionProteinInputs.clear();
+        diningOutOptionCarbsInputs.clear();
+        diningOutOptionFatInputs.clear();
+        diningOutOptionConsumedPercentInputs.clear();
+        host.rerender();
     }
 
     private void syncCatalog(boolean userInitiated) {
