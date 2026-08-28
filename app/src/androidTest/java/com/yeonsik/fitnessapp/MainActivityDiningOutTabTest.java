@@ -8,8 +8,17 @@ import android.widget.TextView;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.yeonsik.fitnessapp.data.CompositionGroup;
+import com.yeonsik.fitnessapp.data.CompositionGroupType;
+import com.yeonsik.fitnessapp.data.CompositionMember;
+import com.yeonsik.fitnessapp.data.CompositionTemplate;
+import com.yeonsik.fitnessapp.data.NutritionProfile;
+import com.yeonsik.fitnessapp.data.NutritionUnit;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -85,6 +94,128 @@ public final class MainActivityDiningOutTabTest {
         }
     }
 
+    @Test
+    public void switchingDiningOutMenusKeepsOptionsIsolatedAfterRerender() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+
+                clickText(root, "옵션 추가");
+                clickText(root, "반찬");
+                clickText(root, "저장 옵션 없이 직접 입력");
+                findEditTextWithContentDescription(root, "외식 옵션 1").setText("첫 메뉴 반찬");
+
+                clickText(root, "메뉴 추가");
+                clickText(root, "옵션 추가");
+                clickText(root, "반찬");
+                clickText(root, "저장 옵션 없이 직접 입력");
+                findEditTextWithContentDescription(root, "외식 옵션 1").setText("둘째 메뉴 반찬");
+
+                clickButtonText(root, "메뉴 1");
+                assertEquals(
+                        "첫 메뉴 반찬",
+                        findEditTextWithContentDescription(root, "외식 옵션 1")
+                                .getText().toString()
+                );
+                clickButtonText(root, "메뉴 2");
+                assertEquals(
+                        "둘째 메뉴 반찬",
+                        findEditTextWithContentDescription(root, "외식 옵션 1")
+                                .getText().toString()
+                );
+            });
+        }
+    }
+
+    @Test
+    public void deletingDiningOutOptionDoesNotResurrectAfterRerender() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+                clickText(root, "옵션 추가");
+                clickText(root, "반찬");
+                clickText(root, "저장 옵션 없이 직접 입력");
+
+                View delete = findViewWithContentDescription(root, "외식 옵션 1 삭제");
+                assertNotNull(delete);
+                delete.performClick();
+                assertEquals(null, findEditTextWithContentDescription(root, "외식 옵션 1"));
+                assertNotNull(findText(root, "추가 옵션 없음"));
+            });
+        }
+    }
+
+    @Test
+    public void applyingDiningOutTemplateKeepsTheAppliedDraftAfterRerender() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                String userId = activity.repository().currentUserId();
+                CompositionMember member = new CompositionMember(
+                        "template-member",
+                        null,
+                        "김치",
+                        "템플릿 식당",
+                        1d,
+                        NutritionUnit.SERVING,
+                        true,
+                        0,
+                        null,
+                        NutritionProfile.empty()
+                );
+                CompositionTemplate template = new CompositionTemplate(
+                        "dining-out-rerender-template",
+                        userId,
+                        "템플릿 식당 · 템플릿 메뉴",
+                        CompositionTemplate.KIND_DINING_OUT,
+                        null,
+                        null,
+                        1,
+                        Collections.singletonList(new CompositionGroup(
+                                "template-banchan",
+                                "template-banchan",
+                                CompositionGroupType.BANCHAN.label(),
+                                CompositionGroup.MODE_EXACTLY_ONE,
+                                1,
+                                1,
+                                0,
+                                Collections.singletonList(member)
+                        ))
+                );
+                activity.repository().compositionTemplates().save(template);
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+                clickText(root, "템플릿 불러오기");
+                clickText(root, "템플릿 식당 · 템플릿 메뉴 · 그룹 1");
+                clickText(root, "김치 · 0kcal");
+                clickText(root, "적용");
+
+                assertEquals(
+                        "템플릿 식당",
+                        findEditTextWithContentDescription(root, "가게 명")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "템플릿 메뉴",
+                        findEditTextWithContentDescription(root, "외식 메뉴 1 이름")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "김치",
+                        findEditTextWithContentDescription(root, "외식 옵션 1")
+                                .getText().toString()
+                );
+            });
+        }
+    }
+
     private static void clickText(View root, String text) {
         TextView target = findText(root, text);
         assertNotNull(target);
@@ -122,6 +253,45 @@ public final class MainActivityDiningOutTabTest {
                 return null;
             }
             current = (View) current.getParent();
+        }
+        return null;
+    }
+
+    private static void clickButtonText(View root, String text) {
+        View target = findButtonWithText(root, text);
+        assertNotNull(target);
+        target.performClick();
+    }
+
+    private static View findButtonWithText(View view, String text) {
+        if (view instanceof android.widget.Button
+                && text.contentEquals(((android.widget.Button) view).getText())) {
+            return view;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                View match = findButtonWithText(group.getChildAt(index), text);
+                if (match != null) {
+                    return match;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static View findViewWithContentDescription(View view, String description) {
+        if (description.contentEquals(view.getContentDescription())) {
+            return view;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                View match = findViewWithContentDescription(group.getChildAt(index), description);
+                if (match != null) {
+                    return match;
+                }
+            }
         }
         return null;
     }

@@ -20,7 +20,10 @@ import java.util.Arrays;
 import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(AndroidJUnit4.class)
 public final class DiningOutMultiMenuTest {
@@ -107,6 +110,12 @@ public final class DiningOutMultiMenuTest {
                             "AND food_name_snapshot = '김치' " +
                             "AND calories IS NULL AND protein_grams IS NULL " +
                             "AND carbs_grams IS NULL AND fat_grams IS NULL"));
+            FitnessRepository.MealComponentEntry unknown =
+                    repository.mealComponentsForItem(
+                            repository.mealItemsForRecord(recordId).get(2).id
+                    ).get(0);
+            assertNull(unknown.calories);
+            assertFalse(unknown.profile.isKnown(NutritionProfile.CALORIES_KCAL));
         } finally {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
@@ -242,6 +251,180 @@ public final class DiningOutMultiMenuTest {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
+    }
+
+    @Test
+    public void partialNutritionKeepsEnteredCaloriesWhenExtendedValuesAreUnknown() {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            NutritionFood menuFood = food("partial-menu", "칼로리 입력 메뉴", 999);
+            String date = LocalDate.now().minusDays(2).toString();
+            String recordId = repository.addDiningOutMealAtTimeWithMenusAndConsumption(
+                    date,
+                    "12:00",
+                    "식당",
+                    "본점",
+                    null,
+                    Collections.singletonList(MealMenuSelection.standalone(
+                            MealCompositionItem.from(menuFood, 1)
+                    )),
+                    1d,
+                    DiningOutConsumption.equalByDiners(1)
+            );
+
+            FitnessRepository.MealEntry entry = repository.mealEntriesForDate(date).get(0);
+            assertEquals(recordId, entry.id);
+            assertEquals(999, entry.calories);
+            assertEquals(999d, repository.mealItemsForRecord(recordId).get(0)
+                    .profile.value(NutritionProfile.CALORIES_KCAL), 0.001d);
+            assertFalse(repository.mealItemsForRecord(recordId).get(0).profile
+                    .isKnown(NutritionProfile.SODIUM_MG));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void partialNutritionCanBeSavedAsReusableMenuWithoutFillingUnknownExtendedValues() {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            NutritionCatalogRepository catalog = new NutritionCatalogRepository(
+                    helper, USER_ID, SupabaseConfig.empty()
+            );
+            NutritionFood saved = catalog.saveDiningOutMenuWithNutrition(
+                    "식당",
+                    "부분 영양 메뉴",
+                    999,
+                    20d,
+                    50d,
+                    15d,
+                    null,
+                    null,
+                    null
+            );
+
+            assertEquals(NutritionFood.DATA_VERSION_MACROS_ONLY, saved.dataVersion);
+            assertEquals(999d, saved.profile.value(NutritionProfile.CALORIES_KCAL), 0.001d);
+            assertFalse(saved.profile.isKnown(NutritionProfile.SODIUM_MG));
+            try (Cursor cursor = helper.getReadableDatabase().rawQuery(
+                    "SELECT calories_kcal, sodium_mg, sugars_grams, saturated_fat_grams " +
+                            "FROM nutrition_foods WHERE id = ?",
+                    new String[]{saved.id}
+            )) {
+                assertTrue(cursor.moveToFirst());
+                assertEquals(999d, cursor.getDouble(0), 0.001d);
+                assertTrue(cursor.isNull(1));
+                assertTrue(cursor.isNull(2));
+                assertTrue(cursor.isNull(3));
+            }
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void detailedTotalsIncludeMenuAndNutritionBearingAddOnWithIndependentFractions() {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            NutritionProfile menuProfile = NutritionProfile.builder()
+                    .value(NutritionProfile.CALORIES_KCAL, 500d)
+                    .value(NutritionProfile.PROTEIN_GRAMS, 30d)
+                    .value(NutritionProfile.CARBS_GRAMS, 50d)
+                    .value(NutritionProfile.FAT_GRAMS, 20d)
+                    .value(NutritionProfile.SODIUM_MG, 700d)
+                    .value(NutritionProfile.SUGARS_GRAMS, 10d)
+                    .value(NutritionProfile.SATURATED_FAT_GRAMS, 8d)
+                    .build();
+            NutritionProfile addOnProfile = NutritionProfile.builder()
+                    .value(NutritionProfile.CALORIES_KCAL, 80d)
+                    .value(NutritionProfile.PROTEIN_GRAMS, 3d)
+                    .value(NutritionProfile.CARBS_GRAMS, 4d)
+                    .value(NutritionProfile.FAT_GRAMS, 5d)
+                    .value(NutritionProfile.SODIUM_MG, 100d)
+                    .value(NutritionProfile.SUGARS_GRAMS, 2d)
+                    .value(NutritionProfile.SATURATED_FAT_GRAMS, 3d)
+                    .build();
+            DiningOutOption addOn = DiningOutOption.grouped(
+                    "날치알 추가",
+                    addOnProfile,
+                    "add-on",
+                    null,
+                    "add_on",
+                    CompositionGroupType.ADD_ON.value(),
+                    CompositionGroupType.ADD_ON.label(),
+                    DiningOutOption.DEFAULT_ROLE,
+                    null,
+                    0.5d
+            );
+            String date = LocalDate.now().minusDays(3).toString();
+            String recordId = repository.addDiningOutMealAtTimeWithMenusAndConsumption(
+                    date,
+                    "12:00",
+                    "식당",
+                    "본점",
+                    null,
+                    Collections.singletonList(MealMenuSelection.diningOut(
+                            MealCompositionItem.from(foodWithProfile(
+                                    "complete-menu", "메뉴", menuProfile
+                            ), 1),
+                            USER_ID,
+                            "식당",
+                            Collections.singletonList(addOn)
+                    )),
+                    1d,
+                    DiningOutConsumption.equalByDiners(2)
+            );
+
+            NutritionTotals totals = repository.mealNutritionTotalsForDate(date);
+            assertEquals(recordId, repository.mealEntriesForDate(date).get(0).id);
+            assertEquals(290d, totals.total(NutritionProfile.CALORIES_KCAL).completeValue(), 0.001d);
+            assertEquals(16.5d, totals.total(NutritionProfile.PROTEIN_GRAMS).completeValue(), 0.001d);
+            assertEquals(27d, totals.total(NutritionProfile.CARBS_GRAMS).completeValue(), 0.001d);
+            assertEquals(12.5d, totals.total(NutritionProfile.FAT_GRAMS).completeValue(), 0.001d);
+            assertEquals(400d, totals.total(NutritionProfile.SODIUM_MG).completeValue(), 0.001d);
+            assertEquals(6d, totals.total(NutritionProfile.SUGARS_GRAMS).completeValue(), 0.001d);
+            assertEquals(5.5d, totals.total(
+                    NutritionProfile.SATURATED_FAT_GRAMS).completeValue(), 0.001d);
+            assertTrue(repository.mealComponentsForItem(
+                    repository.mealItemsForRecord(recordId).get(0).id
+            ).get(0).profile.isKnown(NutritionProfile.SODIUM_MG));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    private static NutritionFood foodWithProfile(
+            String id,
+            String name,
+            NutritionProfile profile
+    ) {
+        return NutritionFood.builder()
+                .id(id)
+                .ownerId(USER_ID)
+                .name(name)
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .category(NutritionFood.CATEGORY_OTHER)
+                .basis(1, NutritionUnit.SERVING)
+                .profile(profile)
+                .source("manual_estimate", null)
+                .build();
     }
 
     private static NutritionFood food(String id, String name, double calories) {
