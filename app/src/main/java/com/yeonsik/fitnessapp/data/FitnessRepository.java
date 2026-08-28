@@ -1361,7 +1361,74 @@ public final class FitnessRepository {
                 options,
                 !hasCompleteNutrition,
                 consumption,
-                nominalServings
+                nominalServings,
+                null
+        );
+    }
+
+    /** Records one dining-out meal containing multiple top-level menus. */
+    public String addDiningOutMealAtTimeWithMenusAndConsumption(
+            String date,
+            String mealTime,
+            String storeName,
+            String branchName,
+            DiningOutIdentity identity,
+            List<MealMenuSelection> menuSelections,
+            double nominalServings,
+            DiningOutConsumption consumption
+    ) {
+        if (consumption == null) {
+            throw new IllegalArgumentException("공유 외식 섭취 정보가 필요합니다.");
+        }
+        List<MealMenuSelection> menus = menuSelections == null
+                ? Collections.emptyList()
+                : menuSelections;
+        if (menus.isEmpty()) {
+            throw new IllegalArgumentException("외식 메뉴를 하나 이상 추가하세요.");
+        }
+        NutritionTotals.Builder totalBuilder = NutritionTotals.builder();
+        for (MealMenuSelection menu : menus) {
+            if (menu == null) {
+                throw new IllegalArgumentException("외식 메뉴에 빈 항목이 있습니다.");
+            }
+            totalBuilder.add(menu.menu.profile);
+        }
+        NutritionTotals totals = totalBuilder.build();
+        Double protein = totals.total(NutritionProfile.PROTEIN_GRAMS).completeValue();
+        Double carbs = totals.total(NutritionProfile.CARBS_GRAMS).completeValue();
+        Double fat = totals.total(NutritionProfile.FAT_GRAMS).completeValue();
+        if (protein == null || carbs == null || fat == null) {
+            throw new IllegalArgumentException("외식 메뉴의 탄수화물·단백질·지방을 모두 입력하세요.");
+        }
+        Double sodium = totals.total(NutritionProfile.SODIUM_MG).completeValue();
+        Double sugars = totals.total(NutritionProfile.SUGARS_GRAMS).completeValue();
+        Double saturatedFat = totals.total(NutritionProfile.SATURATED_FAT_GRAMS).completeValue();
+        Integer calories = totals.total(NutritionProfile.CALORIES_KCAL).completeValue() == null
+                ? null
+                : (int) Math.round(totals.calories());
+        // The parent row is only a legacy representative. Avoid duplicating the restaurant
+        // brand that is already held in store_name/branch_name.
+        String firstMenuName = menus.get(0).menu.food.name;
+        return insertDiningOutMeal(
+                date,
+                mealTime,
+                storeName,
+                firstMenuName,
+                calories,
+                protein,
+                carbs,
+                fat,
+                sodium,
+                sugars,
+                saturatedFat,
+                branchName,
+                identity,
+                null,
+                Collections.emptyList(),
+                false,
+                consumption,
+                nominalServings,
+                menus
         );
     }
     private String insertDiningOutMeal(
@@ -1437,6 +1504,7 @@ public final class FitnessRepository {
                 optionNames,
                 legacyMacroEstimate,
                 null,
+                null,
                 null
         );
     }
@@ -1459,7 +1527,8 @@ public final class FitnessRepository {
             List<?> optionNames,
             boolean legacyMacroEstimate,
             DiningOutConsumption consumption,
-            Double nominalServings
+            Double nominalServings,
+            List<MealMenuSelection> suppliedMenuSelections
     ) {
         String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
         String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
@@ -1467,6 +1536,20 @@ public final class FitnessRepository {
                 ? optionalDiningOutBranchName(normalizedStoreName, branchName)
                 : identity.branchName;
         List<DiningOutOption> normalizedOptions = normalizeDiningOutOptions(optionNames);
+        List<MealMenuSelection> menuSelections = suppliedMenuSelections == null
+                ? new ArrayList<>()
+                : new ArrayList<>(suppliedMenuSelections);
+        if (menuSelections.isEmpty() && menuSnapshot != null) {
+            MealMenuSelection menuSelection = normalizedOptions.isEmpty()
+                    ? MealMenuSelection.standalone(menuSnapshot)
+                    : MealMenuSelection.diningOut(
+                            menuSnapshot,
+                            userId,
+                            normalizedStoreName,
+                            normalizedOptions
+                    );
+            menuSelections.add(menuSelection);
+        }
         String compositionTemplateId = compositionTemplateId(normalizedOptions);
         Integer compositionTemplateRevision = compositionTemplateRevision(normalizedOptions);
         double normalizedNominalServings = consumption == null
@@ -1481,11 +1564,33 @@ public final class FitnessRepository {
                     proteinGrams,
                     fatGrams
             );
-            calories = MealEntryPolicy.estimatedDiningOutCalories(
+            calories = caloriesInput == null
+                    ? MealEntryPolicy.estimatedDiningOutCalories(
+                    carbsGrams,
+                    proteinGrams,
+                    fatGrams
+            )
+                    : caloriesInput;
+        } else if (MealEntryPolicy.hasDiningOutEstimatedMacros(
+                carbsGrams,
+                proteinGrams,
+                fatGrams
+        )) {
+            // A multi-menu entry may have calories and all extended nutrients partially
+            // known. Macros remain the validation floor; NULL extended values stay unknown.
+            MealEntryPolicy.requireDiningOutEstimatedMacros(
                     carbsGrams,
                     proteinGrams,
                     fatGrams
             );
+            hasEstimatedNutrition = true;
+            calories = caloriesInput == null
+                    ? MealEntryPolicy.estimatedDiningOutCalories(
+                    carbsGrams,
+                    proteinGrams,
+                    fatGrams
+            )
+                    : caloriesInput;
         } else {
             MealEntryPolicy.requireDiningOutEstimatedNutrition(
                     caloriesInput,
@@ -1512,7 +1617,7 @@ public final class FitnessRepository {
                     "공유 외식 기록에는 계산할 영양값을 입력하세요."
             );
         }
-        if (menuSnapshot == null
+        if (menuSelections.isEmpty() && menuSnapshot == null
                 && (!normalizedOptions.isEmpty()
                 || (!legacyMacroEstimate && hasEstimatedNutrition)
                 || (consumption != null && hasEstimatedNutrition))) {
@@ -1527,8 +1632,29 @@ public final class FitnessRepository {
                     sugarsGrams,
                     saturatedFatGrams
             );
+            menuSelections.add(normalizedOptions.isEmpty()
+                    ? MealMenuSelection.standalone(menuSnapshot)
+                    : MealMenuSelection.diningOut(
+                            menuSnapshot,
+                            userId,
+                            normalizedStoreName,
+                            normalizedOptions
+                    ));
         }
-        int itemCount = menuSnapshot == null ? 0 : 1;
+        List<DiningOutOption> allOptions = new ArrayList<>();
+        for (MealMenuSelection menuSelection : menuSelections) {
+            allOptions.addAll(menuSelection.diningOutOptions);
+        }
+        if (allOptions.isEmpty()) {
+            allOptions.addAll(normalizedOptions);
+        }
+        if (compositionTemplateId == null) {
+            compositionTemplateId = compositionTemplateId(allOptions);
+        }
+        if (compositionTemplateRevision == null) {
+            compositionTemplateRevision = compositionTemplateRevision(allOptions);
+        }
+        int itemCount = menuSelections.size();
         LocalDate today = LocalDate.now();
         LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, today);
         String eatenAt = MealEntryPolicy.eatenAt(recordDate, mealTime, ZoneId.systemDefault());
@@ -1578,7 +1704,7 @@ public final class FitnessRepository {
                 ? fatGrams * consumedFraction
                 : 0d;
         if (consumption != null) {
-            for (DiningOutOption option : normalizedOptions) {
+            for (DiningOutOption option : allOptions) {
                 NutritionProfile consumedOption = option.consumedProfile();
                 recordedCaloriesValue += consumedOption.calories();
                 if (hasEstimatedNutrition) {
@@ -1628,11 +1754,11 @@ public final class FitnessRepository {
                 "estimated", hasEstimatedNutrition ? "true" : "false",
                 "composition_version", "3",
                 "composition_contract", CompositionTemplate.CONTRACT_VERSION,
-                "composition_kind", normalizedOptions.isEmpty()
+                "composition_kind", allOptions.isEmpty()
                         ? "standalone"
                         : "ad_hoc_selection",
                 "item_count", String.valueOf(itemCount),
-                "option_count", String.valueOf(normalizedOptions.size())
+                "option_count", String.valueOf(allOptions.size())
         );
         if (identity != null) {
             try {
@@ -1688,52 +1814,49 @@ public final class FitnessRepository {
         database.beginTransaction();
         try {
             database.insertOrThrow("meal_records", null, values);
-            String menuItemId = null;
-            if (menuSnapshot != null) {
-                MealMenuSelection menuSelection = MealMenuSelection.standalone(menuSnapshot);
-                if (!normalizedOptions.isEmpty()) {
-                    List<MealCompositionItem> optionSnapshots = new ArrayList<>();
-                    for (DiningOutOption option : normalizedOptions) {
-                        optionSnapshots.add(diningOutOptionSnapshot(normalizedStoreName, option));
-                    }
-                    menuSelection = MealMenuSelection.composed(menuSnapshot, optionSnapshots);
-                }
+            List<String> menuItemIds = new ArrayList<>();
+            for (int menuIndex = 0; menuIndex < menuSelections.size(); menuIndex++) {
                 insertMealMenuSnapshot(
                         database,
                         id,
-                        menuSelection,
-                        0,
+                        menuSelections.get(menuIndex),
+                        menuIndex,
                         now,
-                        normalizedOptions,
+                        null,
                         compositionTemplateId,
                         compositionTemplateRevision
                 );
-                menuItemId = firstMealItemId(database, id);
+                String menuItemId = mealItemIdAtOrder(database, id, menuIndex);
+                if (menuItemId != null) {
+                    menuItemIds.add(menuItemId);
+                }
             }
             if (consumption != null) {
-                if (menuItemId == null) {
+                if (menuItemIds.isEmpty()) {
                     throw new IllegalStateException("공유 외식 root 메뉴 스냅샷을 만들지 못했습니다.");
                 }
-                ContentValues itemValues = new ContentValues();
-                itemValues.put("portion_basis_snapshot", "whole_menu");
-                itemValues.put("nominal_servings_snapshot", normalizedNominalServings);
-                int updatedItems = database.update(
-                        "meal_record_items",
-                        itemValues,
-                        "id = ? AND meal_record_id = ? AND user_id = ? "
-                                + "AND deleted_at IS NULL",
-                        new String[]{menuItemId, id, userId}
-                );
-                if (updatedItems != 1) {
-                    throw new IllegalStateException("공유 외식 root 메뉴 스냅샷을 갱신하지 못했습니다.");
+                for (String menuItemId : menuItemIds) {
+                    ContentValues itemValues = new ContentValues();
+                    itemValues.put("portion_basis_snapshot", "whole_menu");
+                    itemValues.put("nominal_servings_snapshot", normalizedNominalServings);
+                    int updatedItems = database.update(
+                            "meal_record_items",
+                            itemValues,
+                            "id = ? AND meal_record_id = ? AND user_id = ? "
+                                    + "AND deleted_at IS NULL",
+                            new String[]{menuItemId, id, userId}
+                    );
+                    if (updatedItems != 1) {
+                        throw new IllegalStateException("공유 외식 메뉴 스냅샷을 갱신하지 못했습니다.");
+                    }
+                    insertDiningOutConsumption(
+                            database,
+                            id,
+                            menuItemId,
+                            consumption,
+                            now
+                    );
                 }
-                insertDiningOutConsumption(
-                        database,
-                        id,
-                        menuItemId,
-                        consumption,
-                        now
-                );
             }
             database.setTransactionSuccessful();
         } finally {
@@ -1742,12 +1865,16 @@ public final class FitnessRepository {
         return id;
     }
 
-    private String firstMealItemId(SQLiteDatabase database, String mealRecordId) {
+    private String mealItemIdAtOrder(
+            SQLiteDatabase database,
+            String mealRecordId,
+            int orderIndex
+    ) {
         try (Cursor cursor = database.rawQuery(
                 "SELECT id FROM meal_record_items "
                         + "WHERE meal_record_id = ? AND user_id = ? "
-                        + "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC LIMIT 1",
-                new String[]{mealRecordId, userId}
+                        + "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC LIMIT 1 OFFSET ?",
+                new String[]{mealRecordId, userId, String.valueOf(orderIndex)}
         )) {
             return cursor.moveToFirst() ? cursor.getString(0) : null;
         }
@@ -1855,46 +1982,6 @@ public final class FitnessRepository {
             }
         }
         return null;
-    }
-
-    private MealCompositionItem diningOutOptionSnapshot(String storeName, DiningOutOption option) {
-        NutritionFood food = NutritionFood.builder()
-                .id(option.catalogFoodId)
-                .ownerId(userId)
-                .name(option.name)
-                .brand(storeName)
-                .kind(NutritionFood.KIND_EXTERNAL_MENU)
-                .category(NutritionFood.CATEGORY_OTHER)
-                .basis(1.0, NutritionUnit.SERVING)
-                .prepState(NutritionFood.PREP_AS_SERVED)
-                .profile(option.profile)
-                .source("manual_option", diningOutOptionSourceReference(option))
-                .dataVersion(option.hasNutrition()
-                        ? NutritionFood.DATA_VERSION_MACROS_ONLY
-                        : NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
-                .build();
-        return MealCompositionItem.from(food, food.basisAmount);
-    }
-
-    private String diningOutOptionSourceReference(DiningOutOption option) {
-        try {
-            JSONObject source = option.sourceReference == null
-                    ? new JSONObject()
-                    : new JSONObject(option.sourceReference);
-            source.put("composition_contract", CompositionTemplate.CONTRACT_VERSION);
-            source.put("composition_group_key", option.groupKey);
-            source.put("composition_group_type", option.groupType);
-            source.put("composition_group_label", option.groupLabel);
-            source.put("composition_role", option.role);
-            if (option.memberId == null) {
-                source.put("composition_member_id", JSONObject.NULL);
-            } else {
-                source.put("composition_member_id", option.memberId);
-            }
-            return source.toString();
-        } catch (Exception ignored) {
-            return option.sourceReference == null ? "dining_out" : option.sourceReference;
-        }
     }
 
     private MealCompositionItem diningOutNutritionSnapshot(
@@ -2067,6 +2154,9 @@ public final class FitnessRepository {
             String compositionTemplateId,
             Integer compositionTemplateRevision
     ) {
+        List<DiningOutOption> effectiveOptions = menu.diningOutOptions.isEmpty()
+                ? diningOutOptions
+                : menu.diningOutOptions;
         String menuItemId = insertMealItemSnapshot(
                 database,
                 mealRecordId,
@@ -2076,10 +2166,10 @@ public final class FitnessRepository {
                 compositionTemplateRevision
         );
         for (int componentIndex = 0; componentIndex < menu.components.size(); componentIndex++) {
-            DiningOutOption option = diningOutOptions == null
-                    || componentIndex >= diningOutOptions.size()
+            DiningOutOption option = effectiveOptions == null
+                    || componentIndex >= effectiveOptions.size()
                     ? null
-                    : diningOutOptions.get(componentIndex);
+                    : effectiveOptions.get(componentIndex);
             insertMealComponentSnapshot(
                     database,
                     mealRecordId,
@@ -2160,7 +2250,7 @@ public final class FitnessRepository {
             Double consumedFraction
     ) {
         String componentId = newId();
-        ContentValues values = snapshotValues(snapshot, now);
+        ContentValues values = snapshotValues(snapshot, now, false);
         values.put("id", componentId);
         values.put("user_id", userId);
         values.put("meal_record_id", mealRecordId);
@@ -2185,6 +2275,14 @@ public final class FitnessRepository {
     }
 
     private ContentValues snapshotValues(MealItemSnapshot snapshot, String now) {
+        return snapshotValues(snapshot, now, true);
+    }
+
+    private ContentValues snapshotValues(
+            MealItemSnapshot snapshot,
+            String now,
+            boolean zeroMissingRequiredNutrition
+    ) {
         ContentValues values = new ContentValues();
         putNullable(values, "food_id", snapshot.foodId);
         values.put("food_name_snapshot", snapshot.foodNameSnapshot);
@@ -2198,7 +2296,7 @@ public final class FitnessRepository {
         for (Map.Entry<String, Double> column : snapshot.typedNutritionColumns().entrySet()) {
             String name = mealItemColumnName(column.getKey());
             if (column.getValue() == null) {
-                if (isRequiredSnapshotNutrition(column.getKey())) {
+                if (zeroMissingRequiredNutrition && isRequiredSnapshotNutrition(column.getKey())) {
                     values.put(name, 0d);
                 } else {
                     values.putNull(name);
@@ -2577,8 +2675,9 @@ public final class FitnessRepository {
             return components;
         }
         try (Cursor cursor = db().rawQuery(
-                        "SELECT id, food_name_snapshot, quantity, unit, calories, " +
-                        "protein_grams, carbs_grams, fat_grams, consumed_fraction, " +
+                "SELECT id, food_name_snapshot, quantity, unit, calories, " +
+                        "protein_grams, carbs_grams, fat_grams, sodium_mg, " +
+                        "saturated_fat_grams, sugars_grams, consumed_fraction, " +
                         "composition_group_key_snapshot, composition_group_type_snapshot, " +
                         "composition_role_snapshot, composition_member_id_snapshot " +
                         "FROM meal_record_item_components " +
@@ -2592,15 +2691,18 @@ public final class FitnessRepository {
                         cursor.getString(1),
                         cursor.getDouble(2),
                         cursor.getString(3),
-                        cursor.getDouble(4),
-                        cursor.getDouble(5),
-                        cursor.getDouble(6),
-                        cursor.getDouble(7),
-                        cursor.isNull(9) ? null : cursor.getString(9),
-                        cursor.isNull(10) ? null : cursor.getString(10),
-                        cursor.isNull(11) ? null : cursor.getString(11),
+                        nullableDouble(cursor, 4),
+                        nullableDouble(cursor, 5),
+                        nullableDouble(cursor, 6),
+                        nullableDouble(cursor, 7),
+                        nullableDouble(cursor, 8),
+                        nullableDouble(cursor, 9),
+                        nullableDouble(cursor, 10),
                         cursor.isNull(12) ? null : cursor.getString(12),
-                        cursor.isNull(8) ? null : cursor.getDouble(8)
+                        cursor.isNull(13) ? null : cursor.getString(13),
+                        cursor.isNull(14) ? null : cursor.getString(14),
+                        cursor.isNull(15) ? null : cursor.getString(15),
+                        cursor.isNull(11) ? null : cursor.getDouble(11)
                 ));
             }
         }
@@ -2711,12 +2813,7 @@ public final class FitnessRepository {
                             // allocation. Keep their historical root-only total unchanged.
                             continue;
                         }
-                        NutritionProfile componentProfile = NutritionProfile.ofMacros(
-                                component.calories,
-                                component.proteinGrams,
-                                component.carbsGrams,
-                                component.fatGrams
-                        );
+                        NutritionProfile componentProfile = component.profile;
                         totals.add(consumption == null
                                 ? componentProfile
                                 : componentProfile.scaled(component.consumedFraction()));
@@ -4321,6 +4418,7 @@ public final class FitnessRepository {
         tables.add("meal_record_item_components");
         tables.add("meal_record_item_component_nutrients");
         tables.add("meal_record_item_consumptions");
+        tables.add("dining_out_menu_add_on_links");
         tables.add("weight_records");
         tables.add("cardio_sessions");
         tables.add("cardio_route_points");
@@ -5443,10 +5541,11 @@ public final class FitnessRepository {
         public final String foodName;
         public final double quantity;
         public final String unit;
-        public final double calories;
-        public final double proteinGrams;
-        public final double carbsGrams;
-        public final double fatGrams;
+        public final Double calories;
+        public final Double proteinGrams;
+        public final Double carbsGrams;
+        public final Double fatGrams;
+        public final NutritionProfile profile;
         /** Null for pre-v36 component snapshots that had no independent allocation. */
         public final Double consumedFraction;
         public final String compositionGroupKey;
@@ -5526,6 +5625,44 @@ public final class FitnessRepository {
                 String compositionMemberId,
                 Double consumedFraction
         ) {
+            this(
+                    id,
+                    foodName,
+                    quantity,
+                    unit,
+                    calories,
+                    proteinGrams,
+                    carbsGrams,
+                    fatGrams,
+                    null,
+                    null,
+                    null,
+                    compositionGroupKey,
+                    compositionGroupType,
+                    compositionRole,
+                    compositionMemberId,
+                    consumedFraction
+            );
+        }
+
+        public MealComponentEntry(
+                String id,
+                String foodName,
+                double quantity,
+                String unit,
+                Double calories,
+                Double proteinGrams,
+                Double carbsGrams,
+                Double fatGrams,
+                Double sodiumMg,
+                Double saturatedFatGrams,
+                Double sugarsGrams,
+                String compositionGroupKey,
+                String compositionGroupType,
+                String compositionRole,
+                String compositionMemberId,
+                Double consumedFraction
+        ) {
             this.id = id;
             this.foodName = foodName;
             this.quantity = quantity;
@@ -5534,6 +5671,15 @@ public final class FitnessRepository {
             this.proteinGrams = proteinGrams;
             this.carbsGrams = carbsGrams;
             this.fatGrams = fatGrams;
+            this.profile = NutritionProfile.builder()
+                    .value(NutritionProfile.CALORIES_KCAL, calories)
+                    .value(NutritionProfile.PROTEIN_GRAMS, proteinGrams)
+                    .value(NutritionProfile.CARBS_GRAMS, carbsGrams)
+                    .value(NutritionProfile.FAT_GRAMS, fatGrams)
+                    .value(NutritionProfile.SODIUM_MG, sodiumMg)
+                    .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFatGrams)
+                    .value(NutritionProfile.SUGARS_GRAMS, sugarsGrams)
+                    .build();
             this.consumedFraction = consumedFraction;
             this.compositionGroupKey = compositionGroupKey;
             this.compositionGroupType = compositionGroupType;
@@ -5554,8 +5700,12 @@ public final class FitnessRepository {
         }
 
         public String label() {
+            Double consumedCalories = profile.value(NutritionProfile.CALORIES_KCAL);
+            if (consumedCalories != null) {
+                consumedCalories *= consumedFraction();
+            }
             return foodName + " · " + NutritionCalculator.trim(quantity) + unit
-                    + " · " + Math.round(calories * consumedFraction()) + "kcal";
+                    + " · " + NutritionCalculator.trimNullable(consumedCalories) + "kcal";
         }
     }
 

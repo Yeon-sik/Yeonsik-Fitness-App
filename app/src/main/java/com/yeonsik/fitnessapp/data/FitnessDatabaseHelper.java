@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 37;
+    public static final int DATABASE_VERSION = 41;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -38,6 +38,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createMealMenuPresetTable(db);
         createNutritionTables(db);
         createCompositionTables(db);
+        createDiningOutAddOnLinkTable(db);
         createDiningOutConsumptionTables(db);
         createNutritionIndexes(db);
         createProductNutritionLinkTables(db);
@@ -358,10 +359,10 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "basis_unit TEXT NOT NULL, " +
                 "prep_state TEXT NOT NULL DEFAULT 'unspecified', " +
                 "cooking_method TEXT NOT NULL DEFAULT 'unspecified', " +
-                "calories_kcal REAL NOT NULL DEFAULT 0, " +
-                "protein_grams REAL NOT NULL DEFAULT 0, " +
-                "carbs_grams REAL NOT NULL DEFAULT 0, " +
-                "fat_grams REAL NOT NULL DEFAULT 0, " +
+                "calories_kcal REAL, " +
+                "protein_grams REAL, " +
+                "carbs_grams REAL, " +
+                "fat_grams REAL, " +
                 "sodium_mg REAL, " +
                 "saturated_fat_grams REAL, " +
                 "sugars_grams REAL, " +
@@ -469,10 +470,10 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "basis_unit_snapshot TEXT, " +
                 "prep_state_snapshot TEXT, " +
                 "consumed_fraction REAL, " +
-                "calories REAL NOT NULL DEFAULT 0, " +
-                "protein_grams REAL NOT NULL DEFAULT 0, " +
-                "carbs_grams REAL NOT NULL DEFAULT 0, " +
-                "fat_grams REAL NOT NULL DEFAULT 0, " +
+                "calories REAL, " +
+                "protein_grams REAL, " +
+                "carbs_grams REAL, " +
+                "fat_grams REAL, " +
                 "sodium_mg REAL, " +
                 "saturated_fat_grams REAL, " +
                 "sugars_grams REAL, " +
@@ -564,6 +565,24 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON composition_members(group_id, order_index)");
         db.execSQL("CREATE INDEX IF NOT EXISTS composition_members_food_idx " +
                 "ON composition_members(user_id, nutrition_food_id)");
+    }
+
+    /** Permanent menu-to-add-on definitions; non-add-on components never enter this table. */
+    private void createDiningOutAddOnLinkTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS dining_out_menu_add_on_links (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "menu_food_id TEXT NOT NULL, " +
+                "add_on_food_id TEXT NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL, " +
+                "UNIQUE(user_id, menu_food_id, add_on_food_id))");
+        db.execSQL("CREATE INDEX IF NOT EXISTS dining_out_menu_add_on_links_menu_idx " +
+                "ON dining_out_menu_add_on_links(user_id, menu_food_id, deleted_at)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS dining_out_menu_add_on_links_add_on_idx " +
+                "ON dining_out_menu_add_on_links(user_id, add_on_food_id, deleted_at)");
     }
 
     private void createNutritionIndexes(SQLiteDatabase db) {
@@ -988,6 +1007,133 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 37) {
             upgradeCompositionGroupTypeSchema(db);
         }
+        if (oldVersion < 38) {
+            createDiningOutAddOnLinkTable(db);
+        }
+        if (oldVersion < 39) {
+            upgradeMealComponentNutritionNullability(db);
+        }
+        if (oldVersion < 40) {
+            upgradeNutritionFoodRequiredNutritionNullability(db);
+        }
+        if (oldVersion < 41) {
+            // v39 already made existing component snapshots nullable. This revision keeps
+            // fresh installs on the same schema and is intentionally a no-op for data.
+            upgradeMealComponentNutritionNullability(db);
+        }
+    }
+
+    /** Allows reusable options without nutrition to retain NULL rather than a fake zero. */
+    private void upgradeNutritionFoodRequiredNutritionNullability(SQLiteDatabase db) {
+        if (!tableExists(db, "nutrition_foods")) {
+            return;
+        }
+        db.execSQL("DROP TABLE IF EXISTS nutrition_foods_v40");
+        db.execSQL("CREATE TABLE nutrition_foods_v40 (" +
+                "id TEXT PRIMARY KEY, owner_id TEXT, name TEXT NOT NULL, brand TEXT, " +
+                "kind TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'other', " +
+                "basis_amount REAL NOT NULL, basis_unit TEXT NOT NULL, " +
+                "prep_state TEXT NOT NULL DEFAULT 'unspecified', " +
+                "cooking_method TEXT NOT NULL DEFAULT 'unspecified', " +
+                "calories_kcal REAL, protein_grams REAL, carbs_grams REAL, fat_grams REAL, " +
+                "sodium_mg REAL, saturated_fat_grams REAL, sugars_grams REAL, " +
+                "fiber_grams REAL, added_sugars_grams REAL, trans_fat_grams REAL, " +
+                "cholesterol_mg REAL, source_type TEXT NOT NULL, source_reference TEXT, " +
+                "source_version TEXT, data_version INTEGER NOT NULL DEFAULT 1, " +
+                "revision INTEGER NOT NULL DEFAULT 1, visibility TEXT NOT NULL DEFAULT 'private', " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT)");
+        db.execSQL("INSERT INTO nutrition_foods_v40 (" +
+                "id, owner_id, name, brand, kind, category, basis_amount, basis_unit, " +
+                "prep_state, cooking_method, calories_kcal, protein_grams, carbs_grams, " +
+                "fat_grams, sodium_mg, saturated_fat_grams, sugars_grams, fiber_grams, " +
+                "added_sugars_grams, trans_fat_grams, cholesterol_mg, source_type, " +
+                "source_reference, source_version, data_version, revision, visibility, " +
+                "created_at, updated_at, deleted_at) " +
+                "SELECT id, owner_id, name, brand, kind, category, basis_amount, basis_unit, " +
+                "prep_state, cooking_method, calories_kcal, protein_grams, carbs_grams, " +
+                "fat_grams, sodium_mg, saturated_fat_grams, sugars_grams, fiber_grams, " +
+                "added_sugars_grams, trans_fat_grams, cholesterol_mg, source_type, " +
+                "source_reference, source_version, data_version, revision, visibility, " +
+                "created_at, updated_at, deleted_at FROM nutrition_foods");
+        db.execSQL("DROP TABLE nutrition_foods");
+        db.execSQL("ALTER TABLE nutrition_foods_v40 RENAME TO nutrition_foods");
+        createNutritionIndexes(db);
+    }
+
+    /** Allows an option snapshot to retain unknown nutrition as NULL instead of inventing zero. */
+    private void upgradeMealComponentNutritionNullability(SQLiteDatabase db) {
+        if (!tableExists(db, "meal_record_item_components")) {
+            return;
+        }
+        db.execSQL("DROP TABLE IF EXISTS meal_record_item_components_v39");
+        db.execSQL("CREATE TABLE meal_record_item_components_v39 (" +
+                "id TEXT PRIMARY KEY, " +
+                "user_id TEXT NOT NULL, " +
+                "meal_record_id TEXT NOT NULL, " +
+                "meal_record_item_id TEXT NOT NULL, " +
+                "composition_group_key_snapshot TEXT, " +
+                "composition_group_type_snapshot TEXT, " +
+                "composition_role_snapshot TEXT, " +
+                "composition_member_id_snapshot TEXT, " +
+                "food_id TEXT, " +
+                "food_name_snapshot TEXT NOT NULL, " +
+                "brand_snapshot TEXT, " +
+                "food_kind_snapshot TEXT, " +
+                "quantity REAL NOT NULL, " +
+                "unit TEXT NOT NULL, " +
+                "basis_amount_snapshot REAL, " +
+                "basis_unit_snapshot TEXT, " +
+                "prep_state_snapshot TEXT, " +
+                "consumed_fraction REAL, " +
+                "calories REAL, " +
+                "protein_grams REAL, " +
+                "carbs_grams REAL, " +
+                "fat_grams REAL, " +
+                "sodium_mg REAL, " +
+                "saturated_fat_grams REAL, " +
+                "sugars_grams REAL, " +
+                "fiber_grams REAL, " +
+                "added_sugars_grams REAL, " +
+                "trans_fat_grams REAL, " +
+                "cholesterol_mg REAL, " +
+                "source_type_snapshot TEXT, " +
+                "source_reference_snapshot TEXT, " +
+                "source_version_snapshot TEXT, " +
+                "food_data_version_snapshot INTEGER, " +
+                "order_index INTEGER NOT NULL, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT, " +
+                "device_id TEXT NOT NULL)");
+        db.execSQL("INSERT INTO meal_record_item_components_v39 (" +
+                "id, user_id, meal_record_id, meal_record_item_id, " +
+                "composition_group_key_snapshot, composition_group_type_snapshot, " +
+                "composition_role_snapshot, composition_member_id_snapshot, food_id, " +
+                "food_name_snapshot, brand_snapshot, food_kind_snapshot, quantity, unit, " +
+                "basis_amount_snapshot, basis_unit_snapshot, prep_state_snapshot, " +
+                "consumed_fraction, calories, protein_grams, carbs_grams, fat_grams, " +
+                "sodium_mg, saturated_fat_grams, sugars_grams, fiber_grams, " +
+                "added_sugars_grams, trans_fat_grams, cholesterol_mg, source_type_snapshot, " +
+                "source_reference_snapshot, source_version_snapshot, food_data_version_snapshot, " +
+                "order_index, created_at, updated_at, deleted_at, device_id) " +
+                "SELECT id, user_id, meal_record_id, meal_record_item_id, " +
+                "composition_group_key_snapshot, composition_group_type_snapshot, " +
+                "composition_role_snapshot, composition_member_id_snapshot, food_id, " +
+                "food_name_snapshot, brand_snapshot, food_kind_snapshot, quantity, unit, " +
+                "basis_amount_snapshot, basis_unit_snapshot, prep_state_snapshot, " +
+                "consumed_fraction, calories, protein_grams, carbs_grams, fat_grams, " +
+                "sodium_mg, saturated_fat_grams, sugars_grams, fiber_grams, " +
+                "added_sugars_grams, trans_fat_grams, cholesterol_mg, source_type_snapshot, " +
+                "source_reference_snapshot, source_version_snapshot, food_data_version_snapshot, " +
+                "order_index, created_at, updated_at, deleted_at, device_id " +
+                "FROM meal_record_item_components");
+        db.execSQL("DROP TABLE meal_record_item_components");
+        db.execSQL("ALTER TABLE meal_record_item_components_v39 " +
+                "RENAME TO meal_record_item_components");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_components_parent_order_idx " +
+                "ON meal_record_item_components(meal_record_item_id, order_index)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_components_meal_idx " +
+                "ON meal_record_item_components(meal_record_id, user_id, deleted_at)");
     }
 
     private void upgradeCompositionGroupTypeSchema(SQLiteDatabase db) {
@@ -1030,11 +1176,30 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
             }
         }
         if (tableExists(db, "meal_record_item_components")) {
-            db.execSQL("UPDATE meal_record_item_components SET " +
-                    "composition_group_type_snapshot = 'other' " +
-                    "WHERE composition_group_key_snapshot IS NOT NULL " +
-                    "AND (composition_group_type_snapshot IS NULL " +
-                    "OR trim(composition_group_type_snapshot) = '')");
+            try (Cursor cursor = db.query(
+                    "meal_record_item_components",
+                    new String[]{"id", "composition_group_type_snapshot"},
+                    "composition_group_key_snapshot IS NOT NULL",
+                    null,
+                    null,
+                    null,
+                    null
+            )) {
+                while (cursor.moveToNext()) {
+                    String storedType = cursor.isNull(1) ? null : cursor.getString(1);
+                    ContentValues values = new ContentValues();
+                    values.put(
+                            "composition_group_type_snapshot",
+                            CompositionGroupType.normalize(storedType)
+                    );
+                    db.update(
+                            "meal_record_item_components",
+                            values,
+                            "id = ?",
+                            new String[]{cursor.getString(0)}
+                    );
+                }
+            }
         }
     }
 

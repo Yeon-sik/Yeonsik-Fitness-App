@@ -322,7 +322,8 @@ public final class NutritionCatalogRepository {
             String normalizedName = candidate.name == null
                     ? ""
                     : candidate.name.trim().toLowerCase(Locale.ROOT);
-            if (normalizedName.isEmpty() || !names.add(normalizedName)) {
+            String optionKey = optionGroupType(candidate.sourceReference) + "\u0000" + normalizedName;
+            if (normalizedName.isEmpty() || !names.add(optionKey)) {
                 continue;
             }
             results.add(candidate);
@@ -331,6 +332,118 @@ public final class NutritionCatalogRepository {
             }
         }
         return results;
+    }
+
+    /** Persists the only reusable menu-specific relationship: one add-on may serve many menus. */
+    public void linkDiningOutAddOnToMenu(String menuFoodId, String addOnFoodId) {
+        String menuId = requiredId(menuFoodId, "외식 메뉴");
+        String addOnId = requiredId(addOnFoodId, "추가 구성");
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        if (!ownedActiveFood(database, menuId, NutritionFood.KIND_EXTERNAL_MENU)
+                || !ownedActiveFood(database, addOnId, NutritionFood.KIND_EXTERNAL_MENU)) {
+            throw new IllegalArgumentException("현재 계정의 외식 메뉴·추가 구성만 연결할 수 있습니다.");
+        }
+        List<NutritionFood> addOnRows = readFoods(
+                "id = ? AND owner_id = ?",
+                new String[]{addOnId, userId},
+                "updated_at DESC",
+                "1"
+        );
+        NutritionFood addOn = addOnRows.isEmpty() ? null : addOnRows.get(0);
+        if (addOn == null || !CompositionGroupType.ADD_ON.value().equals(
+                optionGroupType(addOn.sourceReference))) {
+            throw new IllegalArgumentException("추가 구성 그룹만 메뉴에 영구 연결할 수 있습니다.");
+        }
+        String now = OffsetDateTime.now().toString();
+        ContentValues values = new ContentValues();
+        values.put("id", UUID.randomUUID().toString());
+        values.put("user_id", userId);
+        values.put("menu_food_id", menuId);
+        values.put("add_on_food_id", addOnId);
+        values.put("created_at", now);
+        values.put("updated_at", now);
+        values.putNull("deleted_at");
+        values.put("device_id", "android-local");
+        database.insertWithOnConflict(
+                "dining_out_menu_add_on_links",
+                null,
+                values,
+                SQLiteDatabase.CONFLICT_IGNORE
+        );
+    }
+
+    /** Returns add-ons permanently linked to one saved menu, preserving restaurant scope. */
+    public List<NutritionFood> diningOutAddOnsForMenu(String menuFoodId) {
+        String menuId = menuFoodId == null ? "" : menuFoodId.trim();
+        if (menuId.isEmpty()) {
+            return new ArrayList<>();
+        }
+        List<String> ids = new ArrayList<>();
+        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        try (Cursor cursor = database.rawQuery(
+                "SELECT add_on_food_id FROM dining_out_menu_add_on_links " +
+                        "WHERE user_id = ? AND menu_food_id = ? AND deleted_at IS NULL " +
+                        "ORDER BY created_at ASC, id ASC",
+                new String[]{userId, menuId}
+        )) {
+            while (cursor.moveToNext()) {
+                ids.add(cursor.getString(0));
+            }
+        }
+        if (ids.isEmpty()) {
+            return new ArrayList<>();
+        }
+        StringBuilder placeholders = new StringBuilder();
+        for (String id : ids) {
+            placeholders.append(placeholders.length() == 0 ? "?" : ", ?");
+        }
+        List<String> foodArgs = new ArrayList<>();
+        foodArgs.add(userId);
+        foodArgs.add(NutritionFood.KIND_EXTERNAL_MENU);
+        foodArgs.addAll(ids);
+        return readFoods(
+                "owner_id = ? AND kind = ? AND id IN (" + placeholders + ")",
+                foodArgs.toArray(new String[0]),
+                "updated_at DESC, name COLLATE NOCASE ASC",
+                null
+        );
+    }
+
+    private boolean ownedActiveFood(
+            SQLiteDatabase database,
+            String foodId,
+            String expectedKind
+    ) {
+        try (Cursor cursor = database.rawQuery(
+                "SELECT 1 FROM nutrition_foods WHERE id = ? AND owner_id = ? " +
+                        "AND kind = ? AND deleted_at IS NULL",
+                new String[]{foodId, userId, expectedKind}
+        )) {
+            return cursor.moveToFirst();
+        }
+    }
+
+    private String optionGroupType(String sourceReference) {
+        if (sourceReference == null || sourceReference.trim().isEmpty()) {
+            return CompositionGroupType.OTHER.value();
+        }
+        try {
+            JSONObject source = new JSONObject(sourceReference);
+            return CompositionGroupType.normalize(source.optString(
+                    "composition_group_type",
+                    source.optString("composition_group_label", "")
+            ));
+        } catch (JSONException error) {
+            return CompositionGroupType.OTHER.value();
+        }
+    }
+
+    private static String requiredId(String value, String label) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(label + " ID가 필요합니다.");
+        }
+        return normalized;
     }
     /** Private dining-out menus saved by the current Nutrition owner for reuse in meal entry. */
     public List<NutritionFood> savedDiningOutMenus() {
@@ -387,13 +500,45 @@ public final class NutritionCatalogRepository {
             JSONObject reference = new JSONObject(food.sourceReference);
             String restaurantId = nullableString(reference, "restaurant_id");
             String locationId = nullableString(reference, "restaurant_location_id");
-            // Options saved before exact PriceTrace identity was selected remain reusable
-            // through the restaurant-name fallback above.
+            // Options are reusable at restaurant scope, not menu scope. Keep the location
+            // fallback only for historical rows that never stored a restaurant ID.
             if (restaurantId == null && locationId == null) {
                 return true;
             }
-            return identity.restaurantId.equals(restaurantId)
-                    && identity.restaurantLocationId.equals(locationId);
+            if (restaurantId != null) {
+                return identity.restaurantId.equals(restaurantId);
+            }
+            return identity.restaurantLocationId.equals(locationId);
+        } catch (JSONException error) {
+            return false;
+        }
+    }
+
+    private boolean sameDiningOutRestaurantScope(
+            String leftSourceReference,
+            String rightSourceReference
+    ) {
+        try {
+            JSONObject left = new JSONObject(
+                    leftSourceReference == null ? "{}" : leftSourceReference
+            );
+            JSONObject right = new JSONObject(
+                    rightSourceReference == null ? "{}" : rightSourceReference
+            );
+            String leftRestaurantId = nullableString(left, "restaurant_id");
+            String rightRestaurantId = nullableString(right, "restaurant_id");
+            String leftRestaurantName = nullableString(left, "restaurant_name");
+            String rightRestaurantName = nullableString(right, "restaurant_name");
+            if (leftRestaurantId != null && rightRestaurantId != null) {
+                return leftRestaurantId.equals(rightRestaurantId);
+            }
+            if (leftRestaurantId != null || rightRestaurantId != null) {
+                return leftRestaurantName != null
+                        && leftRestaurantName.equalsIgnoreCase(rightRestaurantName);
+            }
+            return leftRestaurantName == null
+                    ? rightRestaurantName == null
+                    : leftRestaurantName.equalsIgnoreCase(rightRestaurantName);
         } catch (JSONException error) {
             return false;
         }
@@ -684,7 +829,7 @@ public final class NutritionCatalogRepository {
         );
     }
 
-    /** Saves a complete user-estimated dining-out nutrition profile for reuse. */
+    /** Saves a user-estimated dining-out nutrition profile for reuse. */
     public NutritionFood saveDiningOutMenuWithNutrition(
             String storeName,
             String menuName,
@@ -711,7 +856,7 @@ public final class NutritionCatalogRepository {
         );
     }
 
-    /** Saves a complete menu estimate with an explicitly selected PriceTrace identity. */
+    /** Saves a menu estimate with an explicitly selected PriceTrace identity. */
     public NutritionFood saveDiningOutMenuWithNutrition(
             String storeName,
             String menuName,
@@ -755,31 +900,25 @@ public final class NutritionCatalogRepository {
     ) {
         String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
         String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
-        MealEntryPolicy.requireDiningOutEstimatedNutrition(
-                calories,
-                proteinGrams,
-                carbsGrams,
-                fatGrams,
-                sodiumMg,
-                sugarsGrams,
-                saturatedFatGrams
-        );
-        if (!MealEntryPolicy.hasDiningOutEstimatedNutrition(
-                calories,
-                proteinGrams,
-                carbsGrams,
-                fatGrams,
-                sodiumMg,
-                sugarsGrams,
-                saturatedFatGrams
-        )) {
+        MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
+        if (!MealEntryPolicy.hasDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams)) {
             throw new IllegalArgumentException(
-                    "메뉴로 저장하려면 외식 영양성분을 입력하세요."
+                    "메뉴로 저장하려면 추정 탄수화물·단백질·지방을 입력하세요."
             );
         }
+        if (calories != null && calories < 0) {
+            throw new IllegalArgumentException("칼로리는 0 이상인 숫자로 입력하세요.");
+        }
+        double resolvedCalories = calories == null
+                ? MealEntryPolicy.estimatedDiningOutCalories(
+                carbsGrams,
+                proteinGrams,
+                fatGrams
+        )
+                : calories.doubleValue();
 
         NutritionProfile profile = NutritionProfile.builder()
-                .value(NutritionProfile.CALORIES_KCAL, calories.doubleValue())
+                .value(NutritionProfile.CALORIES_KCAL, resolvedCalories)
                 .value(NutritionProfile.PROTEIN_GRAMS, proteinGrams)
                 .value(NutritionProfile.CARBS_GRAMS, carbsGrams)
                 .value(NutritionProfile.FAT_GRAMS, fatGrams)
@@ -791,7 +930,9 @@ public final class NutritionCatalogRepository {
                 normalizedStoreName,
                 normalizedMenuName,
                 profile,
-                NutritionFood.DATA_VERSION_REQUIRED_SEVEN,
+                profile.hasAllRequired()
+                        ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
+                        : NutritionFood.DATA_VERSION_MACROS_ONLY,
                 diningOutMenuSourceReference(
                         normalizedStoreName,
                         normalizedMenuName,
@@ -819,7 +960,24 @@ public final class NutritionCatalogRepository {
     ) {
         String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
         String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
-        if (option == null || !option.hasNutrition() || !option.hasCompleteMacros()) {
+        if (option == null) {
+            throw new IllegalArgumentException("외식 옵션이 필요합니다.");
+        }
+        if (!option.hasNutrition()) {
+            return saveDiningOutOptionCatalogRow(
+                    normalizedStoreName,
+                    normalizedMenuName,
+                    option.name,
+                    NutritionProfile.empty(),
+                    diningOutOptionSourceReference(
+                            normalizedStoreName,
+                            normalizedMenuName,
+                            identity,
+                            option
+                    )
+            );
+        }
+        if (!option.hasCompleteMacros()) {
             throw new IllegalArgumentException(
                     "옵션 영양성분은 칼로리와 탄수화물·단백질·지방을 모두 입력해야 합니다."
             );
@@ -862,7 +1020,6 @@ public final class NutritionCatalogRepository {
             reference.put("contract_version", "dining-out-option.v1");
             reference.put("composition_contract", CompositionTemplate.CONTRACT_VERSION);
             reference.put("restaurant_name", storeName);
-            reference.put("menu_name", menuName);
             reference.put("composition_group_key", option.groupKey);
             reference.put("composition_group_type", option.groupType);
             reference.put("composition_group_label", option.groupLabel);
@@ -900,7 +1057,6 @@ public final class NutritionCatalogRepository {
             } else {
                 reference.put("restaurant_id", identity.restaurantId);
                 reference.put("restaurant_location_id", identity.restaurantLocationId);
-                reference.put("restaurant_menu_id", identity.restaurantMenuId);
             }
             return reference.toString();
         } catch (JSONException error) {
@@ -999,25 +1155,30 @@ public final class NutritionCatalogRepository {
                 existingCreatedAt = existing.createdAt;
             }
         } else {
-            try (Cursor cursor = database.rawQuery(
-                    "SELECT id, created_at FROM nutrition_foods " +
-                            "WHERE owner_id = ? AND kind = ? AND name = ? COLLATE NOCASE " +
-                            "AND brand = ? COLLATE NOCASE AND source_type = ? " +
-                            "AND source_reference = ? " +
-                            "AND deleted_at IS NULL ORDER BY updated_at DESC LIMIT 1",
+            List<NutritionFood> candidates = readFoods(
+                    "owner_id = ? AND kind = ? AND name = ? COLLATE NOCASE " +
+                            "AND brand = ? COLLATE NOCASE AND source_type = ?",
                     new String[]{
                             userId,
                             NutritionFood.KIND_EXTERNAL_MENU,
                             normalizedFoodName,
                             normalizedStoreName,
-                            sourceType,
-                            sourceReference
-                    }
-            )) {
-                if (cursor.moveToFirst()) {
-                    existingId = cursor.getString(0);
-                    existingCreatedAt = cursor.getString(1);
+                            sourceType
+                    },
+                    "updated_at DESC, id ASC",
+                    null
+            );
+            String requestedGroup = optionGroupType(sourceReference);
+            for (NutritionFood candidate : candidates) {
+                if (!requestedGroup.equals(optionGroupType(candidate.sourceReference))
+                        || !sameDiningOutRestaurantScope(
+                        sourceReference,
+                        candidate.sourceReference
+                )) {
+                    continue;
                 }
+                existingId = candidate.id;
+                break;
             }
         }
 
@@ -2304,10 +2465,10 @@ public final class NutritionCatalogRepository {
                         row.optString("prep_state", NutritionFood.PREP_UNSPECIFIED)));
                 values.put("cooking_method", NutritionFood.normalizeCookingMethod(
                         row.optString("cooking_method", NutritionFood.COOKING_METHOD_UNSPECIFIED)));
-                values.put("calories_kcal", row.optDouble("calories_kcal", 0));
-                values.put("protein_grams", row.optDouble("protein_grams", 0));
-                values.put("carbs_grams", row.optDouble("carbs_grams", 0));
-                values.put("fat_grams", row.optDouble("fat_grams", 0));
+                putNullableDouble(values, "calories_kcal", nullableDouble(row, "calories_kcal"));
+                putNullableDouble(values, "protein_grams", nullableDouble(row, "protein_grams"));
+                putNullableDouble(values, "carbs_grams", nullableDouble(row, "carbs_grams"));
+                putNullableDouble(values, "fat_grams", nullableDouble(row, "fat_grams"));
                 // 원격에 값이 없으면 0이 아니라 NULL로 남겨 "모름"을 보존한다.
                 for (String key : nullableTypedKeys()) {
                     putNullableDouble(values, key, nullableDouble(row, key));
@@ -2549,10 +2710,10 @@ public final class NutritionCatalogRepository {
         values.put("basis_unit", food.basisUnit);
         values.put("prep_state", food.prepState);
         values.put("cooking_method", food.cookingMethod);
-        values.put("calories_kcal", food.profile.calories());
-        values.put("protein_grams", food.profile.proteinGrams());
-        values.put("carbs_grams", food.profile.carbsGrams());
-        values.put("fat_grams", food.profile.fatGrams());
+        putNullableDouble(values, "calories_kcal", food.profile.value(NutritionProfile.CALORIES_KCAL));
+        putNullableDouble(values, "protein_grams", food.profile.value(NutritionProfile.PROTEIN_GRAMS));
+        putNullableDouble(values, "carbs_grams", food.profile.value(NutritionProfile.CARBS_GRAMS));
+        putNullableDouble(values, "fat_grams", food.profile.value(NutritionProfile.FAT_GRAMS));
         for (String key : nullableTypedKeys()) {
             putNullableDouble(values, key, food.profile.value(key));
         }

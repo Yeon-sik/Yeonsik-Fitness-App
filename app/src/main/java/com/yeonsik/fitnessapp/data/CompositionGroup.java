@@ -11,10 +11,8 @@ public final class CompositionGroup {
     public static final String GROUP_TYPE_BANCHAN = CompositionGroupType.BANCHAN.value();
     public static final String GROUP_TYPE_SIDE = CompositionGroupType.SIDE.value();
     public static final String GROUP_TYPE_ADD_ON = CompositionGroupType.ADD_ON.value();
-    public static final String GROUP_TYPE_ADDITIONAL_MENU = CompositionGroupType.ADDITIONAL_MENU.value();
     public static final String GROUP_TYPE_BEVERAGE = CompositionGroupType.BEVERAGE.value();
     public static final String GROUP_TYPE_SAUCE = CompositionGroupType.SAUCE.value();
-    public static final String GROUP_TYPE_SUBSTITUTION = CompositionGroupType.SUBSTITUTION.value();
     public static final String GROUP_TYPE_OTHER = CompositionGroupType.OTHER.value();
 
     public static final String MODE_EXACTLY_ONE = "exactly_one";

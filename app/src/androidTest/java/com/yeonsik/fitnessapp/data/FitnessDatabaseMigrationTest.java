@@ -58,6 +58,10 @@ public final class FitnessDatabaseMigrationTest {
             assertTrue(hasColumn(upgraded, "nutrition_foods", "brand"));
             assertTrue(hasColumn(upgraded, "nutrition_foods", "category"));
             assertTrue(hasColumn(upgraded, "nutrition_foods", "cooking_method"));
+            assertTrue(isNullableColumn(upgraded, "nutrition_foods", "calories_kcal"));
+            assertTrue(isNullableColumn(upgraded, "nutrition_foods", "protein_grams"));
+            assertTrue(isNullableColumn(upgraded, "nutrition_foods", "carbs_grams"));
+            assertTrue(isNullableColumn(upgraded, "nutrition_foods", "fat_grams"));
             assertTrue(hasColumn(upgraded, "meal_records", "meal_kind"));
             assertTrue(hasColumn(upgraded, "meal_records", "store_name"));
             assertTrue(hasColumn(upgraded, "meal_records", "branch_name"));
@@ -114,6 +118,7 @@ public final class FitnessDatabaseMigrationTest {
             assertTrue(tableExists(upgraded, "composition_templates"));
             assertTrue(tableExists(upgraded, "composition_groups"));
             assertTrue(tableExists(upgraded, "composition_members"));
+            assertTrue(tableExists(upgraded, "dining_out_menu_add_on_links"));
             assertTrue(indexExists(upgraded, "composition_templates_user_kind_updated_idx"));
             assertEquals("local-user", scalar(
                     upgraded,
@@ -347,6 +352,17 @@ public final class FitnessDatabaseMigrationTest {
             while (cursor.moveToNext()) {
                 if (column.equals(cursor.getString(cursor.getColumnIndexOrThrow("name")))) {
                     return cursor.getInt(cursor.getColumnIndexOrThrow("pk")) > 0;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean isNullableColumn(SQLiteDatabase db, String table, String column) {
+        try (Cursor cursor = db.rawQuery("PRAGMA table_info(" + table + ")", null)) {
+            while (cursor.moveToNext()) {
+                if (column.equals(cursor.getString(cursor.getColumnIndexOrThrow("name")))) {
+                    return cursor.getInt(cursor.getColumnIndexOrThrow("notnull")) == 0;
                 }
             }
         }

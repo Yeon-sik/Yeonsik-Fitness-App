@@ -103,6 +103,13 @@ public final class DiningOutIdentity {
                 + "}";
     }
 
+    /** Restaurant and location belong to one dining-out record; menu IDs are per item. */
+    public boolean hasSameRestaurantLocation(DiningOutIdentity other) {
+        return other != null
+                && restaurantId.equals(other.restaurantId)
+                && restaurantLocationId.equals(other.restaurantLocationId);
+    }
+
     private static String requireUuid(String value, String label) {
         String normalized = requireText(value, label);
         try {

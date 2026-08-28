@@ -199,10 +199,14 @@ public final class NutritionFood {
     }
 
     public String nutritionLabel() {
-        return Math.round(calories) + "kcal · "
-                + NutritionCalculator.trim(proteinGrams) + "g P · "
-                + NutritionCalculator.trim(carbsGrams) + "g C · "
-                + NutritionCalculator.trim(fatGrams) + "g F";
+        return NutritionCalculator.trimNullable(profile.value(NutritionProfile.CALORIES_KCAL))
+                + "kcal · "
+                + NutritionCalculator.trimNullable(profile.value(NutritionProfile.PROTEIN_GRAMS))
+                + "g P · "
+                + NutritionCalculator.trimNullable(profile.value(NutritionProfile.CARBS_GRAMS))
+                + "g C · "
+                + NutritionCalculator.trimNullable(profile.value(NutritionProfile.FAT_GRAMS))
+                + "g F";
     }
 
     /** 나트륨·포화지방·당류까지 포함한 확장 라벨. 모르는 값은 "?"로 표시한다. */

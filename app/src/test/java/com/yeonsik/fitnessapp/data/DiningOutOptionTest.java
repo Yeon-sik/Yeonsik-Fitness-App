@@ -15,6 +15,10 @@ public final class DiningOutOptionTest {
         assertFalse(option.hasNutrition());
         assertFalse(option.hasCompleteMacros());
         assertFalse(option.profile.isKnown(NutritionProfile.CALORIES_KCAL));
+        assertEquals(
+                NutritionFood.DATA_VERSION_MACROS_ONLY,
+                option.asMealCompositionItem("user", "식당").food.dataVersion
+        );
     }
 
     @Test

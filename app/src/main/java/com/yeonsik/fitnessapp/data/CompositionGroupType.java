@@ -7,10 +7,8 @@ public enum CompositionGroupType {
     BANCHAN("banchan", "반찬"),
     SIDE("side", "사이드"),
     ADD_ON("add_on", "추가 구성"),
-    ADDITIONAL_MENU("additional_menu", "메뉴 추가"),
     BEVERAGE("beverage", "음료"),
     SAUCE("sauce", "소스·양념"),
-    SUBSTITUTION("substitution", "변경·대체"),
     OTHER("other", "기타");
 
     private final String value;
