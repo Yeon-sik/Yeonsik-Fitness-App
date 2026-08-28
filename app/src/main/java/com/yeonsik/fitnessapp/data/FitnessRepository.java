@@ -5762,6 +5762,16 @@ public final class FitnessRepository {
             return foodName + " · " + NutritionCalculator.trim(quantity) + unit
                     + " · " + NutritionCalculator.trimNullable(consumedCalories) + "kcal";
         }
+
+        /** Human-readable group and non-default provision metadata for a recorded component. */
+        public String provisionDisplayLabel() {
+            if (provisionType == null
+                    || DiningOutProvisionType.INCLUDED.value().equals(provisionType)) {
+                return "";
+            }
+            return CompositionGroupType.labelOf(compositionGroupType)
+                    + " · " + DiningOutProvisionType.labelOf(provisionType);
+        }
     }
 
     public static final class MealNutritionSummary {

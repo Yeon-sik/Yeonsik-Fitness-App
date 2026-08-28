@@ -1118,6 +1118,20 @@ public final class MealManagementScreen extends BaseScreen {
         return row;
     }
 
+    static String diningOutComponentDisplayLabel(
+            FitnessRepository.MealComponentEntry component
+    ) {
+        String label = "· " + component.label();
+        if (component.hasExplicitConsumedFraction()) {
+            label += " · 내 섭취 " + Math.round(component.percentage()) + "%";
+        }
+        String provisionLabel = component.provisionDisplayLabel();
+        if (!provisionLabel.isEmpty()) {
+            label += " · " + provisionLabel;
+        }
+        return label;
+    }
+
     private void showRecordedMealDetails(FitnessRepository.MealEntry entry) {
         FitnessUi ui = ui();
         LinearLayout body = ui.form();
@@ -1197,11 +1211,7 @@ public final class MealManagementScreen extends BaseScreen {
                                 FitnessUi.COLOR_TERTIARY
                         ), ui.fullWidthParams(ui.dp(8)));
                         for (FitnessRepository.MealComponentEntry component : components) {
-                            String componentLabel = "· " + component.label();
-                            if (component.hasExplicitConsumedFraction()) {
-                                componentLabel += " · 내 섭취 "
-                                        + Math.round(component.percentage()) + "%";
-                            }
+                            String componentLabel = diningOutComponentDisplayLabel(component);
                             menuCard.addView(ui.text(
                                     componentLabel,
                                     12,
@@ -2611,12 +2621,12 @@ public final class MealManagementScreen extends BaseScreen {
                         .savedDiningOutComponents(
                                 currentStoreName,
                                 identity,
+                                selectedGroupType,
                                 normalizedQuery,
                                 SAVED_DINING_OUT_OPTION_RESULT_LIMIT
                         );
                 for (NutritionFood option : saved) {
-                    if (selectedGroupType.equals(savedDiningOutOptionGroupType(option.sourceReference))
-                            && !containsFood(options, option.id)) {
+                    if (!containsFood(options, option.id)) {
                         options.add(option);
                     }
                 }

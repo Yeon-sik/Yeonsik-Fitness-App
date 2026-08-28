@@ -294,12 +294,27 @@ public final class NutritionCatalogRepository {
             String query,
             int limit
     ) {
+        return savedDiningOutComponents(storeName, identity, null, query, limit);
+    }
+
+    /**
+     * Searches reusable components for the current restaurant and one composition group.
+     * Group filtering happens before repository deduplication and result limiting.
+     */
+    public List<NutritionFood> savedDiningOutComponents(
+            String storeName,
+            DiningOutIdentity identity,
+            String groupType,
+            String query,
+            int limit
+    ) {
         String normalizedStoreName = storeName == null ? "" : storeName.trim();
         if (normalizedStoreName.isEmpty()) {
             return new ArrayList<>();
         }
         int safeLimit = Math.max(1, Math.min(limit, SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX));
         String normalizedQuery = query == null ? "" : query.trim();
+        String normalizedGroupType = optionalDiningOutComponentGroupType(groupType);
         List<NutritionFood> candidates = readFoods(
                 "owner_id = ? AND kind = ? AND brand = ? COLLATE NOCASE "
                         + "AND source_type = ? AND name LIKE ? COLLATE NOCASE",
@@ -316,6 +331,10 @@ public final class NutritionCatalogRepository {
         List<NutritionFood> results = new ArrayList<>();
         Set<String> names = new LinkedHashSet<>();
         for (NutritionFood candidate : candidates) {
+            if (normalizedGroupType != null
+                    && !normalizedGroupType.equals(optionGroupType(candidate.sourceReference))) {
+                continue;
+            }
             if (!matchesDiningOutOptionIdentity(candidate, identity)) {
                 continue;
             }
@@ -333,14 +352,15 @@ public final class NutritionCatalogRepository {
         }
         return results;
     }
-    /** Canonical component-named alias retained beside the old option API. */
+
+    /** Source-compatible all-group component search. */
     public List<NutritionFood> savedDiningOutComponents(
             String storeName,
             DiningOutIdentity identity,
             String query,
             int limit
     ) {
-        return savedDiningOutOptions(storeName, identity, query, limit);
+        return savedDiningOutComponents(storeName, identity, null, query, limit);
     }
 
 
@@ -380,7 +400,7 @@ public final class NutritionCatalogRepository {
         String componentId = requiredId(componentFoodId, "외식 구성품");
         SQLiteDatabase database = dbHelper.getWritableDatabase();
         if (!ownedActiveFood(database, menuId, NutritionFood.KIND_EXTERNAL_MENU)
-                || !ownedActiveFood(database, componentId, NutritionFood.KIND_EXTERNAL_MENU)) {
+                || diningOutComponent(componentId) == null) {
             throw new IllegalArgumentException("현재 계정의 외식 메뉴·구성품만 연결할 수 있습니다.");
         }
         String normalizedGroupType = normalizeLinkGroupType(groupType);
@@ -459,9 +479,10 @@ public final class NutritionCatalogRepository {
         List<String> foodArgs = new ArrayList<>();
         foodArgs.add(userId);
         foodArgs.add(NutritionFood.KIND_EXTERNAL_MENU);
+        foodArgs.add(DINING_OUT_OPTION_SOURCE_TYPE);
         foodArgs.addAll(ids);
         List<NutritionFood> foods = readFoods(
-                "owner_id = ? AND kind = ? AND id IN (" + placeholders + ")",
+                "owner_id = ? AND kind = ? AND source_type = ? AND id IN (" + placeholders + ")",
                 foodArgs.toArray(new String[0]),
                 "updated_at DESC, name COLLATE NOCASE ASC",
                 null
@@ -495,8 +516,9 @@ public final class NutritionCatalogRepository {
 
     private NutritionFood diningOutComponent(String componentId) {
         List<NutritionFood> rows = readFoods(
-                "owner_id = ? AND kind = ? AND id = ?",
-                new String[]{userId, NutritionFood.KIND_EXTERNAL_MENU, componentId},
+                "owner_id = ? AND kind = ? AND source_type = ? AND id = ?",
+                new String[]{userId, NutritionFood.KIND_EXTERNAL_MENU,
+                        DINING_OUT_OPTION_SOURCE_TYPE, componentId},
                 "updated_at DESC",
                 "1"
         );
@@ -512,6 +534,13 @@ public final class NutritionCatalogRepository {
         }
         return CompositionGroupType.normalize(normalized);
     }
+    private String optionalDiningOutComponentGroupType(String groupType) {
+        if (groupType == null || groupType.trim().isEmpty()) {
+            return null;
+        }
+        return normalizeLinkGroupType(groupType);
+    }
+
 
     private String optionGroupType(String sourceReference) {
 
