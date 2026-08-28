@@ -70,6 +70,12 @@ public final class DiningOutMultiMenuTest {
                     "테스트 식당",
                     Collections.singletonList(side)
             );
+            MealMenuSelection third = MealMenuSelection.diningOut(
+                    MealCompositionItem.from(food("menu-3", "김치찌개", 400), 1),
+                    USER_ID,
+                    "테스트 식당",
+                    Collections.singletonList(DiningOutOption.descriptive("김치"))
+            );
 
             String recordId = repository.addDiningOutMealAtTimeWithMenusAndConsumption(
                     LocalDate.now().minusDays(1).toString(),
@@ -77,24 +83,30 @@ public final class DiningOutMultiMenuTest {
                     "테스트 식당",
                     "영등포점",
                     null,
-                    Arrays.asList(first, second),
+                    Arrays.asList(first, second, third),
                     1d,
                     DiningOutConsumption.equalByDiners(1)
             );
             SQLiteDatabase database = helper.getReadableDatabase();
-            assertEquals(2, count(database,
+            assertEquals(3, count(database,
                     "SELECT COUNT(*) FROM meal_record_items WHERE meal_record_id = '" +
                             recordId + "'"));
-            assertEquals(2, count(database,
+            assertEquals(3, count(database,
                     "SELECT COUNT(*) FROM meal_record_item_components WHERE meal_record_id = '" +
                             recordId + "'"));
             assertEquals(1, count(database,
                     "SELECT COUNT(*) FROM meal_record_item_components " +
                             "WHERE meal_record_id = '" + recordId + "' " +
                             "AND composition_group_type_snapshot = 'add_on'"));
-            assertEquals(2, count(database,
+            assertEquals(3, count(database,
                     "SELECT COUNT(*) FROM meal_record_item_consumptions WHERE meal_record_id = '" +
                             recordId + "'"));
+            assertEquals(1, count(database,
+                    "SELECT COUNT(*) FROM meal_record_item_components " +
+                            "WHERE meal_record_id = '" + recordId + "' " +
+                            "AND food_name_snapshot = '김치' " +
+                            "AND calories IS NULL AND protein_grams IS NULL " +
+                            "AND carbs_grams IS NULL AND fat_grams IS NULL"));
         } finally {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
@@ -137,6 +149,95 @@ public final class DiningOutMultiMenuTest {
             assertEquals(1, catalog.diningOutAddOnsForMenu(menuB.id).size());
             assertThrows(IllegalArgumentException.class,
                     () -> catalog.linkDiningOutAddOnToMenu(menuA.id, side.id));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void unknownRestaurantOptionIsReusableWithoutZeroNutritionOrMenuDuplicate() {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            NutritionCatalogRepository catalog = new NutritionCatalogRepository(
+                    helper, USER_ID, SupabaseConfig.empty()
+            );
+            DiningOutIdentity menuAIdentity = DiningOutIdentity.fromPriceTrace(
+                    "11111111-1111-4111-8111-111111111111",
+                    "식당",
+                    "22222222-2222-4222-8222-222222222222",
+                    "본점",
+                    "33333333-3333-4333-8333-333333333333",
+                    "메뉴 A",
+                    "44444444-4444-4444-8444-444444444444"
+            );
+            DiningOutIdentity menuBIdentity = DiningOutIdentity.fromPriceTrace(
+                    "11111111-1111-4111-8111-111111111111",
+                    "식당",
+                    "22222222-2222-4222-8222-222222222222",
+                    "본점",
+                    "55555555-5555-4555-8555-555555555555",
+                    "메뉴 B",
+                    "66666666-6666-4666-8666-666666666666"
+            );
+            NutritionFood first = catalog.saveDiningOutOption(
+                    "식당", "메뉴 A", menuAIdentity, DiningOutOption.descriptive("김치")
+            );
+            NutritionFood second = catalog.saveDiningOutOption(
+                    "식당", "메뉴 B", menuBIdentity, DiningOutOption.descriptive("김치")
+            );
+
+            assertEquals(first.id, second.id);
+            assertEquals(1, catalog.savedDiningOutOptions(
+                    "식당", null, "김치", 20
+            ).size());
+            assertEquals(false, second.profile.isKnown(NutritionProfile.CALORIES_KCAL));
+            assertEquals(0, count(helper.getReadableDatabase(),
+                    "SELECT COUNT(*) FROM nutrition_foods WHERE id = '" + first.id +
+                            "' AND (calories_kcal = 0 OR protein_grams = 0 OR " +
+                            "carbs_grams = 0 OR fat_grams = 0)"));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void legacySingleMenuWriterStillStoresOneTopLevelItem() {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String recordId = repository.addDiningOutMealAtTimeWithConsumption(
+                    LocalDate.now().toString(),
+                    "18:00",
+                    "식당",
+                    "본점",
+                    "메뉴",
+                    500,
+                    20d,
+                    50d,
+                    15d,
+                    null,
+                    null,
+                    null,
+                    null,
+                    MealCompositionItem.from(food("legacy-menu", "메뉴", 500), 1),
+                    Collections.emptyList(),
+                    1d,
+                    DiningOutConsumption.equalByDiners(1),
+                    true
+            );
+            assertEquals(1, count(helper.getReadableDatabase(),
+                    "SELECT COUNT(*) FROM meal_record_items WHERE meal_record_id = '" +
+                            recordId + "'"));
         } finally {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);

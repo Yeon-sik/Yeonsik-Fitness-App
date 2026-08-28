@@ -28,14 +28,14 @@ public final class MainActivityDiningOutTabTest {
 
                 EditText store = findEditTextWithContentDescription(root, "가게 명");
                 EditText branch = findEditTextWithContentDescription(root, "지점");
-                EditText menu = findEditTextWithContentDescription(root, "먹은 메뉴");
-                EditText carbs = findEditTextWithContentDescription(root, "탄수화물");
-                EditText protein = findEditTextWithContentDescription(root, "단백질");
-                EditText fat = findEditTextWithContentDescription(root, "지방");
-                EditText calories = findEditTextWithContentDescription(root, "칼로리");
-                EditText sodium = findEditTextWithContentDescription(root, "나트륨");
-                EditText sugars = findEditTextWithContentDescription(root, "당류");
-                EditText saturatedFat = findEditTextWithContentDescription(root, "포화지방");
+                EditText menu = findEditTextWithContentDescription(root, "외식 메뉴 1 이름");
+                EditText carbs = findEditTextWithContentDescription(root, "외식 메뉴 1 탄수화물");
+                EditText protein = findEditTextWithContentDescription(root, "외식 메뉴 1 단백질");
+                EditText fat = findEditTextWithContentDescription(root, "외식 메뉴 1 지방");
+                EditText calories = findEditTextWithContentDescription(root, "외식 메뉴 1 칼로리");
+                EditText sodium = findEditTextWithContentDescription(root, "외식 메뉴 1 나트륨");
+                EditText sugars = findEditTextWithContentDescription(root, "외식 메뉴 1 당류");
+                EditText saturatedFat = findEditTextWithContentDescription(root, "외식 메뉴 1 포화지방");
                 assertNotNull(store);
                 assertNotNull(branch);
                 assertNotNull(menu);
@@ -76,14 +76,11 @@ public final class MainActivityDiningOutTabTest {
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
                 clickText(root, "메뉴 추가");
-
-                findEditTextWithContentDescription(root, "추가 메뉴 이름").setText("생연어 2P");
-                findEditTextWithContentDescription(root, "추가 메뉴 탄수화물").setText("2");
-                findEditTextWithContentDescription(root, "추가 메뉴 단백질").setText("25");
-                findEditTextWithContentDescription(root, "추가 메뉴 지방").setText("10");
-                clickText(root, "추가");
-
-                assertNotNull(findTextContaining(root, "메뉴 2 · 생연어 2P"));
+                assertNotNull(findText(root, "메뉴 2"));
+                assertNotNull(findEditTextWithContentDescription(root, "외식 메뉴 2 이름"));
+                clickText(root, "메뉴 추가");
+                assertNotNull(findText(root, "메뉴 3"));
+                assertNotNull(findEditTextWithContentDescription(root, "외식 메뉴 3 이름"));
             });
         }
     }
