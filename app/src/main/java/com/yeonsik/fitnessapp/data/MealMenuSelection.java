@@ -14,13 +14,15 @@ import java.util.List;
 public final class MealMenuSelection {
     public final MealCompositionItem menu;
     public final List<MealCompositionItem> components;
-    /** Selected dining-out options that describe the component snapshots for this menu item. */
+    /** Source-compatible alias for selected dining-out components. */
     public final List<DiningOutOption> diningOutOptions;
+    /** Canonical component view of the same selected values. */
+    public final List<DiningOutComponent> diningOutComponents;
 
     private MealMenuSelection(
             MealCompositionItem menu,
             List<MealCompositionItem> components,
-            List<DiningOutOption> diningOutOptions
+            List<? extends DiningOutOption> diningOutOptions
     ) {
         if (menu == null || menu.food == null) {
             throw new IllegalArgumentException("Menu is required.");
@@ -36,13 +38,16 @@ public final class MealMenuSelection {
             }
         }
         this.components = Collections.unmodifiableList(copied);
+        List<DiningOutComponent> copiedComponents = new ArrayList<>();
         List<DiningOutOption> copiedOptions = new ArrayList<>();
         if (diningOutOptions != null) {
             for (DiningOutOption option : diningOutOptions) {
                 if (option == null) {
                     throw new IllegalArgumentException("Dining-out menu contains an empty option.");
                 }
-                copiedOptions.add(option);
+                DiningOutComponent component = DiningOutComponent.fromOption(option);
+                copiedOptions.add(component);
+                copiedComponents.add(component);
             }
         }
         if (!copiedOptions.isEmpty() && copiedOptions.size() != copied.size()) {
@@ -51,6 +56,7 @@ public final class MealMenuSelection {
             );
         }
         this.diningOutOptions = Collections.unmodifiableList(copiedOptions);
+        this.diningOutComponents = Collections.unmodifiableList(copiedComponents);
     }
 
     /** Treats a catalog food as one menu in this meal, regardless of its catalog classification. */
@@ -74,7 +80,7 @@ public final class MealMenuSelection {
             MealCompositionItem menu,
             String ownerId,
             String restaurantName,
-            List<DiningOutOption> options
+            List<? extends DiningOutOption> options
     ) {
         List<MealCompositionItem> components = new ArrayList<>();
         if (options != null) {

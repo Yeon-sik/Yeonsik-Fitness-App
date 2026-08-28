@@ -1,11 +1,12 @@
 package com.yeonsik.fitnessapp.data;
 
-/** One optional add-on attached to a dining-out menu. */
-public final class DiningOutOption {
+/** Backward-compatible option name; new code should use DiningOutComponent. */
+public class DiningOutOption {
     /** Backward-compatible group for options entered before group-aware templates existed. */
     public static final String DEFAULT_GROUP_KEY = "legacy_options";
     public static final String DEFAULT_GROUP_LABEL = "기존 외식 옵션";
     public static final String DEFAULT_GROUP_TYPE = "other";
+    public static final String DEFAULT_PROVISION_TYPE = DiningOutProvisionType.INCLUDED.value();
     public static final String DEFAULT_ROLE = "optional";
 
     public final String name;
@@ -16,11 +17,13 @@ public final class DiningOutOption {
     public final String groupType;
     public final String groupLabel;
     public final String role;
+    /** How this component was provided in the actual meal; links do not store this value. */
+    public final String provisionType;
     public final String memberId;
     /** This user's fraction of the selected option; templates keep the default of 100%. */
     public final double consumedFraction;
 
-    private DiningOutOption(
+    protected DiningOutOption(
             String name,
             NutritionProfile profile,
             String catalogFoodId,
@@ -30,6 +33,34 @@ public final class DiningOutOption {
             String groupLabel,
             String role,
             String memberId,
+            double consumedFraction
+    ) {
+        this(
+                name,
+                profile,
+                catalogFoodId,
+                sourceReference,
+                groupKey,
+                groupType,
+                groupLabel,
+                role,
+                memberId,
+                DEFAULT_PROVISION_TYPE,
+                consumedFraction
+        );
+    }
+
+    protected DiningOutOption(
+            String name,
+            NutritionProfile profile,
+            String catalogFoodId,
+            String sourceReference,
+            String groupKey,
+            String groupType,
+            String groupLabel,
+            String role,
+            String memberId,
+            String provisionType,
             double consumedFraction
     ) {
         String normalizedName = name == null ? "" : name.trim();
@@ -47,6 +78,7 @@ public final class DiningOutOption {
         this.groupLabel = normalize(groupLabel, DEFAULT_GROUP_LABEL);
         this.role = normalize(role, DEFAULT_ROLE);
         this.memberId = blankToNull(memberId);
+        this.provisionType = DiningOutProvisionType.normalize(provisionType);
         this.consumedFraction = requireConsumedFraction(consumedFraction);
     }
 
@@ -60,6 +92,23 @@ public final class DiningOutOption {
                 DEFAULT_GROUP_LABEL,
                 DEFAULT_ROLE,
                 null,
+                1d
+        );
+    }
+
+    /** Creates a descriptive component with an explicit actual-meal provision type. */
+    public static DiningOutOption descriptive(String name, String provisionType) {
+        return new DiningOutOption(
+                name,
+                NutritionProfile.empty(),
+                null,
+                null,
+                DEFAULT_GROUP_KEY,
+                DEFAULT_GROUP_TYPE,
+                DEFAULT_GROUP_LABEL,
+                DEFAULT_ROLE,
+                null,
+                provisionType,
                 1d
         );
     }
@@ -78,6 +127,26 @@ public final class DiningOutOption {
         );
     }
 
+    public static DiningOutOption withProfile(
+            String name,
+            NutritionProfile profile,
+            String provisionType
+    ) {
+        return new DiningOutOption(
+                name,
+                profile,
+                null,
+                null,
+                DEFAULT_GROUP_KEY,
+                DEFAULT_GROUP_TYPE,
+                DEFAULT_GROUP_LABEL,
+                DEFAULT_ROLE,
+                null,
+                provisionType,
+                1d
+        );
+    }
+
     public static DiningOutOption fromFood(NutritionFood food) {
         if (food == null) {
             throw new IllegalArgumentException("Option food is required.");
@@ -91,6 +160,25 @@ public final class DiningOutOption {
                 DEFAULT_GROUP_LABEL,
                 DEFAULT_ROLE,
                 null,
+                1d
+        );
+    }
+
+    public static DiningOutOption fromFood(NutritionFood food, String provisionType) {
+        if (food == null) {
+            throw new IllegalArgumentException("Component food is required.");
+        }
+        return new DiningOutOption(
+                food.name,
+                food.profile,
+                food.id,
+                food.sourceReference,
+                DEFAULT_GROUP_KEY,
+                DEFAULT_GROUP_TYPE,
+                DEFAULT_GROUP_LABEL,
+                DEFAULT_ROLE,
+                null,
+                provisionType,
                 1d
         );
     }
@@ -142,6 +230,7 @@ public final class DiningOutOption {
                 groupLabel,
                 role,
                 memberId,
+                DEFAULT_PROVISION_TYPE,
                 consumedFraction
         );
     }
@@ -195,12 +284,24 @@ public final class DiningOutOption {
                 groupLabel,
                 role,
                 memberId,
+                DEFAULT_PROVISION_TYPE,
                 consumedFraction
         );
     }
 
-    /** Returns a copy with a meal-specific consumed fraction. */
-    public DiningOutOption withConsumedFraction(double fraction) {
+    /** Creates a component with fixed group and actual-meal provision metadata. */
+    public static DiningOutOption grouped(
+            String name,
+            NutritionProfile profile,
+            String catalogFoodId,
+            String sourceReference,
+            String groupKey,
+            String groupType,
+            String groupLabel,
+            String role,
+            String memberId,
+            String provisionType
+    ) {
         return grouped(
                 name,
                 profile,
@@ -211,8 +312,76 @@ public final class DiningOutOption {
                 groupLabel,
                 role,
                 memberId,
+                provisionType,
+                1d
+        );
+    }
+
+    public static DiningOutOption grouped(
+            String name,
+            NutritionProfile profile,
+            String catalogFoodId,
+            String sourceReference,
+            String groupKey,
+            String groupType,
+            String groupLabel,
+            String role,
+            String memberId,
+            String provisionType,
+            double consumedFraction
+    ) {
+        return new DiningOutOption(
+                name,
+                profile,
+                catalogFoodId,
+                sourceReference,
+                groupKey,
+                groupType,
+                groupLabel,
+                role,
+                memberId,
+                provisionType,
+                consumedFraction
+        );
+    }
+
+    /** Returns a copy with a meal-specific consumed fraction. */
+    public DiningOutOption withConsumedFraction(double fraction) {
+        return new DiningOutOption(
+                name,
+                profile,
+                catalogFoodId,
+                sourceReference,
+                groupKey,
+                groupType,
+                groupLabel,
+                role,
+                memberId,
+                provisionType,
                 fraction
         );
+    }
+
+    /** Returns a copy with a meal-specific provision type and the same consumed fraction. */
+    public DiningOutOption withProvisionType(String type) {
+        return new DiningOutOption(
+                name,
+                profile,
+                catalogFoodId,
+                sourceReference,
+                groupKey,
+                groupType,
+                groupLabel,
+                role,
+                memberId,
+                type,
+                consumedFraction
+        );
+    }
+
+    /** Promotes a compatibility option to the canonical component type. */
+    public DiningOutComponent asComponent() {
+        return DiningOutComponent.fromOption(this);
     }
 
     /** Returns this option's nutrition after applying its meal-specific fraction. */

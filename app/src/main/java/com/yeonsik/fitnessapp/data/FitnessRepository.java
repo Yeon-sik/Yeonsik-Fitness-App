@@ -1069,7 +1069,7 @@ public final class FitnessRepository {
             Double sugarsGrams,
             Double saturatedFatGrams,
             MealCompositionItem menuSnapshot,
-            List<DiningOutOption> options
+            List<? extends DiningOutOption> options
     ) {
         return insertDiningOutMeal(
                 date,
@@ -1105,7 +1105,7 @@ public final class FitnessRepository {
             Double sugarsGrams,
             Double saturatedFatGrams,
             MealCompositionItem menuSnapshot,
-            List<DiningOutOption> options
+            List<? extends DiningOutOption> options
     ) {
         return insertDiningOutMeal(
                 date,
@@ -1137,7 +1137,7 @@ public final class FitnessRepository {
             Double proteinGrams,
             Double fatGrams,
             MealCompositionItem menuSnapshot,
-            List<DiningOutOption> options
+            List<? extends DiningOutOption> options
     ) {
         return insertDiningOutMeal(
                 date,
@@ -1169,7 +1169,7 @@ public final class FitnessRepository {
             Double proteinGrams,
             Double fatGrams,
             MealCompositionItem menuSnapshot,
-            List<DiningOutOption> options
+            List<? extends DiningOutOption> options
     ) {
         return insertDiningOutMeal(
                 date,
@@ -1204,7 +1204,7 @@ public final class FitnessRepository {
             Double sugarsGrams,
             Double saturatedFatGrams,
             MealCompositionItem menuSnapshot,
-            List<DiningOutOption> options
+            List<? extends DiningOutOption> options
     ) {
         return insertDiningOutMeal(
                 date,
@@ -1234,7 +1234,7 @@ public final class FitnessRepository {
             Double proteinGrams,
             Double fatGrams,
             MealCompositionItem menuSnapshot,
-            List<DiningOutOption> options
+            List<? extends DiningOutOption> options
     ) {
         return insertDiningOutMeal(
                 date,
@@ -1335,7 +1335,7 @@ public final class FitnessRepository {
             Double saturatedFatGrams,
             DiningOutIdentity identity,
             MealCompositionItem menuSnapshot,
-            List<DiningOutOption> options,
+            List<? extends DiningOutOption> options,
             double nominalServings,
             DiningOutConsumption consumption,
             boolean hasCompleteNutrition
@@ -1643,7 +1643,7 @@ public final class FitnessRepository {
         }
         List<DiningOutOption> allOptions = new ArrayList<>();
         for (MealMenuSelection menuSelection : menuSelections) {
-            allOptions.addAll(menuSelection.diningOutOptions);
+            allOptions.addAll(menuSelection.diningOutComponents);
         }
         if (allOptions.isEmpty()) {
             allOptions.addAll(normalizedOptions);
@@ -2185,7 +2185,8 @@ public final class FitnessRepository {
                                     option.memberId
                             ),
                     now,
-                    option == null ? null : option.consumedFraction
+                    option == null ? null : option.consumedFraction,
+                    option == null ? null : option.provisionType
             );
         }
     }
@@ -2237,6 +2238,7 @@ public final class FitnessRepository {
                 mealRecordItemId,
                 snapshot,
                 now,
+                null,
                 null
         );
     }
@@ -2247,7 +2249,8 @@ public final class FitnessRepository {
             String mealRecordItemId,
             MealItemSnapshot snapshot,
             String now,
-            Double consumedFraction
+            Double consumedFraction,
+            String provisionType
     ) {
         String componentId = newId();
         ContentValues values = snapshotValues(snapshot, now, false);
@@ -2260,6 +2263,7 @@ public final class FitnessRepository {
         putNullable(values, "composition_role_snapshot", snapshot.compositionRoleSnapshot);
         putNullable(values, "composition_member_id_snapshot", snapshot.compositionMemberIdSnapshot);
         putNullable(values, "consumed_fraction", consumedFraction);
+        putNullable(values, "provision_type_snapshot", provisionType);
         values.put("device_id", DEVICE_ID);
         database.insertOrThrow("meal_record_item_components", null, values);
 
@@ -2679,7 +2683,8 @@ public final class FitnessRepository {
                         "protein_grams, carbs_grams, fat_grams, sodium_mg, " +
                         "saturated_fat_grams, sugars_grams, consumed_fraction, " +
                         "composition_group_key_snapshot, composition_group_type_snapshot, " +
-                        "composition_role_snapshot, composition_member_id_snapshot " +
+                        "composition_role_snapshot, composition_member_id_snapshot, " +
+                        "provision_type_snapshot " +
                         "FROM meal_record_item_components " +
                         "WHERE meal_record_item_id = ? AND user_id = ? " +
                         "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC",
@@ -2702,7 +2707,8 @@ public final class FitnessRepository {
                         cursor.isNull(13) ? null : cursor.getString(13),
                         cursor.isNull(14) ? null : cursor.getString(14),
                         cursor.isNull(15) ? null : cursor.getString(15),
-                        cursor.isNull(11) ? null : cursor.getDouble(11)
+                        cursor.isNull(11) ? null : cursor.getDouble(11),
+                        cursor.isNull(16) ? null : cursor.getString(16)
                 ));
             }
         }
@@ -4413,12 +4419,12 @@ public final class FitnessRepository {
         tables.add("workout_exercises");
         tables.add("workout_sets");
         tables.add("meal_records");
+        tables.add("dining_out_menu_component_links");
         tables.add("meal_record_items");
         tables.add("meal_record_item_nutrients");
         tables.add("meal_record_item_components");
         tables.add("meal_record_item_component_nutrients");
         tables.add("meal_record_item_consumptions");
-        tables.add("dining_out_menu_add_on_links");
         tables.add("weight_records");
         tables.add("cardio_sessions");
         tables.add("cardio_route_points");
@@ -5552,6 +5558,7 @@ public final class FitnessRepository {
         public final String compositionGroupType;
         public final String compositionRole;
         public final String compositionMemberId;
+        public final String provisionType;
 
         public MealComponentEntry(
                 String id,
@@ -5663,6 +5670,46 @@ public final class FitnessRepository {
                 String compositionMemberId,
                 Double consumedFraction
         ) {
+            this(
+                    id,
+                    foodName,
+                    quantity,
+                    unit,
+                    calories,
+                    proteinGrams,
+                    carbsGrams,
+                    fatGrams,
+                    sodiumMg,
+                    saturatedFatGrams,
+                    sugarsGrams,
+                    compositionGroupKey,
+                    compositionGroupType,
+                    compositionRole,
+                    compositionMemberId,
+                    consumedFraction,
+                    null
+            );
+        }
+
+        public MealComponentEntry(
+                String id,
+                String foodName,
+                double quantity,
+                String unit,
+                Double calories,
+                Double proteinGrams,
+                Double carbsGrams,
+                Double fatGrams,
+                Double sodiumMg,
+                Double saturatedFatGrams,
+                Double sugarsGrams,
+                String compositionGroupKey,
+                String compositionGroupType,
+                String compositionRole,
+                String compositionMemberId,
+                Double consumedFraction,
+                String provisionType
+        ) {
             this.id = id;
             this.foodName = foodName;
             this.quantity = quantity;
@@ -5681,10 +5728,18 @@ public final class FitnessRepository {
                     .value(NutritionProfile.SUGARS_GRAMS, sugarsGrams)
                     .build();
             this.consumedFraction = consumedFraction;
+            this.provisionType = normalizeProvisionType(provisionType);
             this.compositionGroupKey = compositionGroupKey;
             this.compositionGroupType = compositionGroupType;
             this.compositionRole = compositionRole;
             this.compositionMemberId = compositionMemberId;
+        }
+
+        private static String normalizeProvisionType(String value) {
+            if (value == null || value.trim().isEmpty()) {
+                return null;
+            }
+            return DiningOutProvisionType.normalize(value);
         }
 
         public boolean hasExplicitConsumedFraction() {
@@ -5706,6 +5761,16 @@ public final class FitnessRepository {
             }
             return foodName + " · " + NutritionCalculator.trim(quantity) + unit
                     + " · " + NutritionCalculator.trimNullable(consumedCalories) + "kcal";
+        }
+
+        /** Human-readable group and non-default provision metadata for a recorded component. */
+        public String provisionDisplayLabel() {
+            if (provisionType == null
+                    || DiningOutProvisionType.INCLUDED.value().equals(provisionType)) {
+                return "";
+            }
+            return CompositionGroupType.labelOf(compositionGroupType)
+                    + " · " + DiningOutProvisionType.labelOf(provisionType);
         }
     }
 

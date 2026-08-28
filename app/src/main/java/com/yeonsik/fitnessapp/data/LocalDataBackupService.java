@@ -497,6 +497,7 @@ public final class LocalDataBackupService {
             }
 
             JSONObject tablesObject = root.getJSONObject("tables");
+            normalizeLegacyDiningOutComponentLinks(tablesObject, databaseVersion);
             validateCompatibleTables(tablesObject, databaseVersion);
 
             Map<String, JSONArray> tables = new LinkedHashMap<>();
@@ -519,6 +520,63 @@ public final class LocalDataBackupService {
         } catch (JSONException e) {
             throw new IllegalArgumentException("Backup JSON shape is invalid.", e);
         }
+    }
+
+    /** Converts v38-v41 add-on backup rows into the generic component-link contract. */
+    private void normalizeLegacyDiningOutComponentLinks(
+            JSONObject tablesObject,
+            int databaseVersion
+    ) throws JSONException {
+        String legacyTable = "dining_out_menu_add_on_links";
+        String componentTable = "dining_out_menu_component_links";
+        boolean hasLegacy = tablesObject.has(legacyTable);
+        boolean hasComponent = tablesObject.has(componentTable);
+        if (databaseVersion < 38) {
+            removeEmptyUnsupportedLinkTable(tablesObject, legacyTable);
+            removeEmptyUnsupportedLinkTable(tablesObject, componentTable);
+            return;
+        }
+        if (hasLegacy && hasComponent) {
+            throw new IllegalArgumentException(
+                    "Backup contains both legacy and generic dining-out link tables."
+            );
+        }
+        if (!hasLegacy) {
+            return;
+        }
+        JSONArray legacyRows = tablesObject.getJSONArray(legacyTable);
+        JSONArray componentRows = new JSONArray();
+        for (int index = 0; index < legacyRows.length(); index++) {
+            JSONObject legacyRow = legacyRows.getJSONObject(index);
+            JSONObject componentRow = new JSONObject(legacyRow.toString());
+            if (componentRow.has("add_on_food_id")) {
+                componentRow.put(
+                        "component_food_id",
+                        componentRow.optString("add_on_food_id", "")
+                );
+                componentRow.remove("add_on_food_id");
+            }
+            componentRow.put("group_type", CompositionGroupType.ADD_ON.value());
+            componentRows.put(componentRow);
+        }
+        tablesObject.put(componentTable, componentRows);
+        tablesObject.remove(legacyTable);
+    }
+
+    private void removeEmptyUnsupportedLinkTable(
+            JSONObject tablesObject,
+            String tableName
+    ) throws JSONException {
+        if (!tablesObject.has(tableName)) {
+            return;
+        }
+        JSONArray rows = tablesObject.getJSONArray(tableName);
+        if (rows.length() > 0) {
+            throw new IllegalArgumentException(
+                    "Backup contains dining-out links newer than its database version."
+            );
+        }
+        tablesObject.remove(tableName);
     }
 
     private void validateCompatibleTables(JSONObject tablesObject, int databaseVersion) {
@@ -551,7 +609,7 @@ public final class LocalDataBackupService {
             required.remove("composition_members");
         }
         if (databaseVersion < 38) {
-            required.remove("dining_out_menu_add_on_links");
+            required.remove("dining_out_menu_component_links");
         }
         if (databaseVersion < 34) {
             required.remove("meal_record_item_consumptions");
@@ -1007,7 +1065,7 @@ public final class LocalDataBackupService {
         tables.add("composition_templates");
         tables.add("composition_groups");
         tables.add("composition_members");
-        tables.add("dining_out_menu_add_on_links");
+        tables.add("dining_out_menu_component_links");
         tables.add("nutrition_foods");
         tables.add("nutrition_food_nutrients");
         tables.add("nutrition_food_components");
