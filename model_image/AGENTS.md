@@ -32,6 +32,14 @@
 - 카메라·캔버스·고정 접점이 흔들리는 2프레임은 정적 1프레임보다 나쁘다. 실패한 동적 이미지는 앱에 연결하지 않는다.
 - `app/src/main/res/`에 운동 이미지를 수동 복사하지 않는다. scene manifest에서 Gradle 생성 파이프라인으로 배포 자산을 만든다.
 
+## 자동 생성 Fail-Closed 규칙
+
+- 운동 메타데이터, 근육 매핑, archetype, 카메라, A/B 자세, 기준 scene, 기구 view, anchor 또는 placement를 임의로 추측하거나 기본값으로 채우지 않는다.
+- 필수 정보가 없으면 해당 단계에서 중단하고 `MISSING_*` 오류와 누락 필드를 출력한다. 미완성 scene, prompt 또는 이미지를 READY로 취급하지 않는다.
+- 합성에는 `equipment/final/` 아래의 `status === "approved"` canonical PNG만 사용한다. `source/`, draft, deprecated 자산은 생성 입력이나 합성 입력이 아니다.
+- 이미지 생성 모델은 anatomical mannequin pose만 생성한다. canonical 장비를 다시 그리지 않으며, 장비는 asset-local anchor와 명시적 transform으로 compositor가 합성한다.
+- B는 승인된 A를 첫 편집 입력으로 사용하고 animated joint만 변경한다. locked joint, camera, body proportions와 canonical equipment identity는 유지한다.
+
 ## 에이전트 작업 보고
 
 - 사용한 운동 ID와 주·보조 근육 그룹

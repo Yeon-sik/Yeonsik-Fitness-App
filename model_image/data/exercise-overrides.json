@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "description": "User-reviewed exercise-specific rendering decisions. Empty values are never inferred by tools.",
+  "exercises": {}
+}

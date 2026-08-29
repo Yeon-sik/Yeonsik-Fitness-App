@@ -1,0 +1,169 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "exercise-orchestration.schema.json",
+  "title": "Fail-closed exercise image orchestration contract",
+  "type": "object",
+  "required": [
+    "contractType",
+    "schemaVersion",
+    "exerciseId",
+    "nameKo",
+    "slug",
+    "archetypeId",
+    "renderClass",
+    "canvas",
+    "camera",
+    "exerciseMetadata",
+    "muscleMapping",
+    "equipment",
+    "frames",
+    "renderPolicy",
+    "generationContract"
+  ],
+  "properties": {
+    "contractType": { "const": "exercise-image-orchestration.v1" },
+    "schemaVersion": { "const": 1 },
+    "exerciseId": { "type": "string", "minLength": 1 },
+    "nameKo": { "type": "string", "minLength": 1 },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "archetypeId": { "type": "string", "minLength": 1 },
+    "renderClass": {
+      "enum": ["bodyweight", "movable_free_weight", "fixed_support", "fixed_machine", "cable_machine"]
+    },
+    "canvas": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "camera": { "type": "object", "minProperties": 1 },
+    "exerciseMetadata": {
+      "type": "object",
+      "required": [
+        "movementPattern",
+        "motionType",
+        "supportMode",
+        "bodyOrientation",
+        "equipmentKinematics",
+        "laterality",
+        "gripVariant",
+        "canonicalView",
+        "equipmentType"
+      ],
+      "properties": {
+        "movementPattern": { "type": "string", "minLength": 1 },
+        "motionType": { "type": "string", "minLength": 1 },
+        "supportMode": { "type": "string", "minLength": 1 },
+        "bodyOrientation": { "type": "string", "minLength": 1 },
+        "equipmentKinematics": { "type": "string", "minLength": 1 },
+        "laterality": { "type": "string", "minLength": 1 },
+        "gripVariant": { "type": "string", "minLength": 1 },
+        "canonicalView": { "type": "string", "minLength": 1 },
+        "equipmentType": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "muscleMapping": {
+      "type": "object",
+      "required": ["primaryGroup", "primaryLayers", "secondaryGroups", "secondaryLayers"],
+      "properties": {
+        "primaryGroup": { "type": "string" },
+        "primaryLayers": { "type": "array", "items": { "type": "string" } },
+        "secondaryGroups": { "type": "array", "items": { "type": "string" } },
+        "secondaryLayers": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "equipment": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "frames": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        { "$ref": "#/$defs/frameA" },
+        { "$ref": "#/$defs/frameB" }
+      ]
+    },
+    "renderPolicy": {
+      "type": "object",
+      "required": ["lockedJoints", "animatedJoints", "lockedAnchors", "anchorTolerancePixels"],
+      "properties": {
+        "lockedJoints": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "animatedJoints": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "lockedAnchors": { "type": "object" },
+        "anchorTolerancePixels": { "type": "number", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "generationContract": {
+      "type": "object",
+      "required": ["baseFrame", "derivedFrames", "referenceScene", "equipmentAnchorStrategy", "prompts", "renderSteps"],
+      "properties": {
+        "baseFrame": { "const": "A" },
+        "derivedFrames": {
+          "type": "object",
+          "required": ["B"],
+          "properties": { "B": { "const": "edit_from_A" } },
+          "additionalProperties": false
+        },
+        "referenceScene": { "type": "string", "minLength": 1 },
+        "equipmentAnchorStrategy": { "type": "object", "minProperties": 1 },
+        "prompts": {
+          "type": "object",
+          "required": ["A", "B"],
+          "properties": { "A": { "type": "string" }, "B": { "type": "string" } },
+          "additionalProperties": false
+        },
+        "renderSteps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "placement": {
+      "type": "object",
+      "required": ["equipmentId", "viewId", "anchor", "target", "scale", "rotationDegrees", "z"],
+      "properties": {
+        "equipmentId": { "type": "string" },
+        "viewId": { "type": "string" },
+        "anchor": { "type": "string" },
+        "target": {
+          "type": "array",
+          "prefixItems": [{ "type": "number" }, { "type": "number" }],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "scale": { "type": "number", "exclusiveMinimum": 0 },
+        "rotationDegrees": { "type": "number" },
+        "z": { "type": "number" },
+        "instanceId": { "type": "string", "minLength": 1 },
+        "locked": { "type": "boolean" },
+        "includeFrontOccluder": { "type": "boolean" },
+        "frontZ": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "frame": {
+      "type": "object",
+      "required": ["id", "file", "mannequinFile", "pose", "equipmentPlacements"],
+      "properties": {
+        "id": { "enum": ["A", "B"] },
+        "file": { "type": "string" },
+        "mannequinFile": { "type": "string" },
+        "pose": { "type": "object", "minProperties": 1 },
+        "equipmentPlacements": { "type": "array", "items": { "$ref": "#/$defs/placement" } }
+      },
+      "additionalProperties": false
+    },
+    "frameA": { "allOf": [{ "$ref": "#/$defs/frame" }, { "properties": { "id": { "const": "A" } } }] },
+    "frameB": { "allOf": [{ "$ref": "#/$defs/frame" }, { "properties": { "id": { "const": "B" } } }] }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,5 @@
+{
+  "schemaVersion": 1,
+  "description": "Only user-reviewed archetypes belong here. The compiler never derives camera or A/B pose definitions.",
+  "archetypes": {}
+}
