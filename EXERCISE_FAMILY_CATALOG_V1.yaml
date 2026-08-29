@@ -1,0 +1,1992 @@
+contractVersion: 1
+status: APPROVED_FOR_IMPLEMENTATION
+sourceBaseline:
+  repository: Yeon-sik/Yeonsik-Fitness-App
+  branch: feat/fitness-image-3d-pipeline
+  baselineCatalog: Fitness_Weight.json
+  baselineExerciseCount: 340
+  note: This contract defines exercise identity boundaries. Codex must implement it, not redesign it.
+authority:
+  normative: true
+  rules:
+  - Family assignment and approved additions in this file are product decisions.
+  - Codex MUST NOT merge, split, rename, add, delete, or reassign families/presets on its own.
+  - Every existing Fitness_Weight.json exercise ID must match exactly one legacy family rule.
+  - If any legacy ID matches zero or more than one family, STOP and report the exact IDs. Do not infer.
+  - Unknown variant details remain null/legacy metadata; do not guess from anatomy or exercise-name semantics beyond deterministic
+    token rules below.
+identityModel:
+  family: Exploration/category/family-statistics identity.
+  preset: User-facing selectable detailed exercise name. Search aliases may point to the same preset.
+  variant: Structured configuration behind a preset; family + variant identifies the performed exercise form.
+  loadState: Set-level resistance state. Never part of family identity.
+  set: Actual reps/time/weight/assistance values.
+  displayRule: Routine/workout/history rows display the detailed preset name, not only the family name.
+loadStates:
+- bodyweight
+- external_load
+- added_weight
+- assisted
+- band_assisted
+- band_resisted
+loadStateRules:
+  bodyweightAddedWeightZeroAllowed: true
+  derivationForLegacyRows:
+  - whenExactId: back_machine_assisted_pull_up
+    loadState: assisted
+  - whenExactId: arms_machine_assisted_dip
+    loadState: assisted
+  - whenExactId: back_band_assisted_pull_up
+    loadState: band_assisted
+  - whenExactId: chest_bodyweight_weighted_push_up
+    loadState: added_weight
+  - whenEquipment: band
+    loadState: band_resisted
+  - whenEquipment: bodyweight
+    loadState: bodyweight
+  - otherwise: external_load
+  notes:
+  - Do not convert band assistance/resistance into a fake constant kg value.
+  - For bodyweight-capable exercises, a set may change load state between sets.
+metricProfiles:
+- reps
+- weight_reps
+- time
+- weight_time
+performanceStats:
+  familyStats:
+  - frequency
+  - sets
+  - reps
+  - preset_or_variant_distribution
+  - lastPerformedAt
+  prRule: PR/e1RM/weight comparison only within a comparable performance key; never blindly compare barbell vs dumbbell vs
+    machine variants.
+  performanceKey: familyId + canonicalVariantKey + relevantLoadSemantics
+imageIdentity:
+  target: familyId + visualVariantKey -> illustrationKey -> A/B images
+  fallbackOrder:
+  - exact_visual_variant
+  - family_default
+  - placeholder
+  rule: Load-state changes such as +10kg vs +20kg do not create separate illustration identity.
+variantTokenRules:
+  principle: These are deterministic normalization tokens, not family-boundary rules.
+  tokens:
+    flat:
+      angle: flat
+    incline:
+      angle: incline
+    decline:
+      angle: decline
+    wide_grip:
+      gripWidth: wide
+    neutral_grip:
+      gripOrientation: neutral
+    reverse_grip:
+      gripOrientation: supinated
+    close_grip:
+      gripWidth: narrow
+    single_arm:
+      laterality: unilateral
+    one_arm:
+      laterality: unilateral
+    single_leg:
+      laterality: unilateral
+    seated:
+      position: seated
+    standing:
+      position: standing
+    lying:
+      position: lying
+    prone:
+      position: prone
+    kneeling:
+      position: kneeling
+    chest_supported:
+      support: chest_supported
+    high_bar:
+      barPosition: high_bar
+    low_bar:
+      barPosition: low_bar
+    front_squat:
+      barPosition: front
+    zercher:
+      barPosition: zercher
+    sumo:
+      stance: sumo
+    walking_lunge:
+      travelMode: walking
+    reverse_lunge:
+      direction: reverse
+    bulgarian:
+      rearFootElevation: elevated
+    pause:
+      technique: pause
+    pendlay:
+      technique: pendlay
+    yates:
+      technique: yates
+    kroc:
+      technique: kroc
+    arnold:
+      technique: arnold
+    bradford:
+      technique: bradford
+    behind_neck:
+      technique: behind_neck
+    bottoms_up:
+      technique: bottoms_up
+legacyPresetPolicy:
+  default: Each legacy exercise row becomes one preset inside its assigned family, preserving its current Korean/English detailed
+    name.
+  canonicalPresetId: Use the existing legacy exercise ID as migration key; a separate stable presetId may be introduced, but
+    legacyExerciseId must remain addressable.
+  doNotFlattenDisplay: true
+canonicalAliasMerges:
+- canonicalPresetId: dumbbell_pullover
+  legacyIds:
+  - chest_dumbbell_pullover
+  - back_dumbbell_pullover
+  nameKo: 덤벨 풀오버
+  familyId: pullover
+  reason: Same physical exercise duplicated by body-part ownership.
+- canonicalPresetId: machine_chest_fly
+  legacyIds:
+  - chest_machine_pec_deck_fly
+  - chest_machine_chest_fly
+  nameKo: 머신 체스트 플라이
+  familyId: chest_fly
+  aliases:
+  - 펙덱 플라이
+  reason: Treat naming difference as alias, not separate identity.
+- canonicalPresetId: machine_rear_delt_fly
+  legacyIds:
+  - shoulders_machine_reverse_pec_deck
+  - shoulders_machine_rear_delt_fly
+  nameKo: 머신 리어 델트 플라이
+  familyId: rear_delt_fly
+  aliases:
+  - 리버스 펙덱
+  reason: Same reverse-fly machine task.
+- canonicalPresetId: dumbbell_rear_delt_fly
+  legacyIds:
+  - shoulders_dumbbell_rear_delt_fly
+  - shoulders_dumbbell_bent_over_lateral_raise
+  nameKo: 덤벨 리어 델트 플라이
+  familyId: rear_delt_fly
+  aliases:
+  - 벤트오버 덤벨 레터럴 레이즈
+  reason: Same rear-delt fly task; alternate familiar name remains searchable.
+searchPresetAliases:
+- alias: 중량 푸쉬업
+  familyId: push_up
+  targetPreset: chest_bodyweight_push_up
+  defaultLoadState: added_weight
+  legacyId: chest_bodyweight_weighted_push_up
+  rule: Alias/preset shortcut only; not a distinct exercise identity.
+- alias: 중량 풀업
+  familyId: pull_up
+  targetPreset: back_bodyweight_pull_up
+  defaultLoadState: added_weight
+  rule: Search shortcut; not a distinct exercise identity.
+- alias: 중량 친업
+  familyId: pull_up
+  targetPreset: back_bodyweight_chin_up
+  defaultLoadState: added_weight
+families:
+  push_up:
+    nameKo: 푸쉬업
+    nameEn: Push-Up
+    defaultUiPart: chest
+    legacyMatch:
+      regex:
+      - ^chest_(?:bodyweight|band)_(?:.+_)?push_up$
+      - ^arms_bodyweight_(?:diamond|close_grip)_push_up$
+    allowedVariantDimensions:
+    - support
+    - handWidth
+    - bodyAngle
+    - equipment
+    - laterality
+    - technique
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+    - band_resisted
+    notes: Weighted push-up is not a separate identity; added weight is set-level load state.
+  dip:
+    nameKo: 딥스
+    nameEn: Dip
+    defaultUiPart: chest
+    legacyMatch:
+      exact:
+      - chest_bodyweight_chest_dip
+      - arms_bodyweight_dip
+      - arms_machine_assisted_dip
+    allowedVariantDimensions:
+    - equipment
+    - support
+    - torsoAngle
+    - emphasis
+    - assistanceMethod
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+    - assisted
+    - band_assisted
+    notes: Parallel-bar chest/triceps emphasis stays inside one family. Bench dip stays separate.
+  bench_press:
+    nameKo: 벤치 프레스
+    nameEn: Bench Press
+    defaultUiPart: chest
+    legacyMatch:
+      exact:
+      - arms_barbell_close_grip_bench_press
+      regex:
+      - ^chest_(?:dumbbell|barbell|smith)_(?:bench_press|.+_bench_press|neutral_grip_press|single_arm_incline_press|floor_press|guillotine_press)$
+    allowedVariantDimensions:
+    - equipment
+    - angle
+    - gripOrientation
+    - gripWidth
+    - laterality
+    - technique
+    - support
+    allowedLoadStates:
+    - external_load
+    notes: Free-weight/Smith supine bench-press lineage. Machine/cable/band chest press is a separate chest_press family.
+  chest_press:
+    nameKo: 체스트 프레스
+    nameEn: Chest Press
+    defaultUiPart: chest
+    legacyMatch:
+      exact:
+      - chest_machine_chest_press
+      - chest_band_chest_press
+      regex:
+      - ^chest_machine_.+(?:chest_press|incline_press)$
+      - ^chest_cable_.+chest_press$
+    allowedVariantDimensions:
+    - equipment
+    - angle
+    - laterality
+    - support
+    - machineType
+    - handle
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  chest_fly:
+    nameKo: 체스트 플라이
+    nameEn: Chest Fly
+    defaultUiPart: chest
+    legacyMatch:
+      regex:
+      - ^chest_(?:dumbbell|machine|cable|band)_.+(?:fly|crossover)$
+    allowedVariantDimensions:
+    - equipment
+    - angle
+    - direction
+    - laterality
+    - support
+    - handle
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  squeeze_press:
+    nameKo: 스퀴즈 프레스
+    nameEn: Squeeze Press
+    defaultUiPart: chest
+    legacyMatch:
+      exact:
+      - chest_dumbbell_squeeze_press
+      - chest_plate_squeeze_press
+    allowedVariantDimensions:
+    - equipment
+    - angle
+    - laterality
+    allowedLoadStates:
+    - external_load
+  pullover:
+    nameKo: 풀오버
+    nameEn: Pullover
+    defaultUiPart: back
+    legacyMatch:
+      exact:
+      - chest_dumbbell_pullover
+      - back_dumbbell_pullover
+      - back_machine_pullover
+      - back_cable_kneeling_pullover
+    allowedVariantDimensions:
+    - equipment
+    - position
+    - support
+    - laterality
+    allowedLoadStates:
+    - external_load
+    notes: Body-part ownership must not duplicate identity; chest/back dumbbell pullover are one canonical preset.
+  pull_up:
+    nameKo: 풀업
+    nameEn: Pull-Up
+    defaultUiPart: back
+    legacyMatch:
+      exact:
+      - back_bodyweight_neutral_grip_pull_up
+      - back_bodyweight_wide_grip_pull_up
+      - back_bodyweight_chin_up
+      - back_bodyweight_pull_up
+      - back_machine_assisted_pull_up
+      - back_band_assisted_pull_up
+    allowedVariantDimensions:
+    - equipment
+    - gripOrientation
+    - gripWidth
+    - support
+    - assistanceMethod
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+    - assisted
+    - band_assisted
+    notes: Bodyweight/weighted/assisted/band-assisted are one family. Added weight is recorded per set.
+  scapular_pull_up:
+    nameKo: 스캐풀라 풀업
+    nameEn: Scapular Pull-Up
+    defaultUiPart: back
+    legacyMatch:
+      exact:
+      - back_bodyweight_scapular_pull_up
+    allowedVariantDimensions:
+    - equipment
+    - gripWidth
+    - gripOrientation
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  lat_pulldown:
+    nameKo: 랫 풀다운
+    nameEn: Lat Pulldown
+    defaultUiPart: back
+    legacyMatch:
+      regex:
+      - ^back_(?:machine|cable|band)_(?:.+_)?lat_pulldown$
+    allowedVariantDimensions:
+    - equipment
+    - gripOrientation
+    - gripWidth
+    - handle
+    - laterality
+    - position
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  straight_arm_pulldown:
+    nameKo: 스트레이트 암 풀다운
+    nameEn: Straight-Arm Pulldown
+    defaultUiPart: back
+    legacyMatch:
+      regex:
+      - ^back_cable_(?:single_arm_)?straight_arm_pulldown$
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - handle
+    - position
+    allowedLoadStates:
+    - external_load
+  row:
+    nameKo: 로우
+    nameEn: Row
+    defaultUiPart: back
+    legacyMatch:
+      regex:
+      - ^back_(?!(?:bodyweight_inverted_row|dumbbell_renegade_row)$).+row$
+    allowedVariantDimensions:
+    - equipment
+    - support
+    - torsoAngle
+    - pullDirection
+    - gripOrientation
+    - gripWidth
+    - handle
+    - laterality
+    - technique
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+    notes: Open-chain rows share a family; inverted row and renegade row remain separate.
+  inverted_row:
+    nameKo: 인버티드 로우
+    nameEn: Inverted Row
+    defaultUiPart: back
+    legacyMatch:
+      exact:
+      - back_bodyweight_inverted_row
+    allowedVariantDimensions:
+    - equipment
+    - support
+    - bodyAngle
+    - gripOrientation
+    - gripWidth
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  renegade_row:
+    nameKo: 레니게이드 로우
+    nameEn: Renegade Row
+    defaultUiPart: back
+    legacyMatch:
+      exact:
+      - back_dumbbell_renegade_row
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - stance
+    allowedLoadStates:
+    - external_load
+  shrug:
+    nameKo: 슈러그
+    nameEn: Shrug
+    defaultUiPart: back
+    legacyMatch:
+      regex:
+      - ^back_.+shrug$
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - position
+    allowedLoadStates:
+    - external_load
+  back_extension:
+    nameKo: 백 익스텐션
+    nameEn: Back Extension
+    defaultUiPart: back
+    legacyMatch:
+      regex:
+      - ^back_(?:bodyweight|machine)_back_extension$
+    allowedVariantDimensions:
+    - equipment
+    - support
+    - rangeOfMotion
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+    - added_weight
+  reverse_hyperextension:
+    nameKo: 리버스 하이퍼익스텐션
+    nameEn: Reverse Hyperextension
+    defaultUiPart: back
+    legacyMatch:
+      regex:
+      - ^back_(?:bodyweight|machine)_reverse_hyperextension$
+    allowedVariantDimensions:
+    - equipment
+    - support
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+  deadlift:
+    nameKo: 데드리프트
+    nameEn: Deadlift
+    defaultUiPart: back
+    legacyMatch:
+      exact:
+      - back_barbell_deadlift
+      - back_barbell_snatch_grip_deadlift
+      - back_barbell_rack_pull
+      - legs_barbell_sumo_deadlift
+      - legs_kettlebell_sumo_deadlift
+    allowedVariantDimensions:
+    - equipment
+    - stance
+    - gripWidth
+    - rangeOfMotion
+    - handleHeight
+    - technique
+    allowedLoadStates:
+    - external_load
+  romanian_deadlift:
+    nameKo: 루마니안 데드리프트
+    nameEn: Romanian Deadlift
+    defaultUiPart: legs
+    legacyMatch:
+      regex:
+      - ^legs_(?:dumbbell|barbell|smith)_(?:single_leg_)?romanian_deadlift$
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - stance
+    allowedLoadStates:
+    - external_load
+  stiff_leg_deadlift:
+    nameKo: 스티프 레그 데드리프트
+    nameEn: Stiff-Leg Deadlift
+    defaultUiPart: legs
+    legacyMatch:
+      regex:
+      - ^legs_(?:dumbbell|barbell)_stiff_leg_deadlift$
+    allowedVariantDimensions:
+    - equipment
+    - stance
+    allowedLoadStates:
+    - external_load
+  hip_abduction:
+    nameKo: 힙 어브덕션
+    nameEn: Hip Abduction
+    defaultUiPart: legs
+    legacyMatch:
+      regex:
+      - ^legs_(?:machine|cable|band)_hip_abduction$
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - position
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  hip_adduction:
+    nameKo: 힙 어덕션
+    nameEn: Hip Adduction
+    defaultUiPart: legs
+    legacyMatch:
+      regex:
+      - ^legs_(?:machine|cable)_hip_adduction$
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - position
+    allowedLoadStates:
+    - external_load
+  lateral_band_walk:
+    nameKo: 밴드 레터럴 워크
+    nameEn: Lateral Band Walk
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_band_lateral_walk
+    allowedVariantDimensions:
+    - bandPosition
+    - stance
+    allowedLoadStates:
+    - band_resisted
+  calf_raise:
+    nameKo: 카프 레이즈
+    nameEn: Calf Raise
+    defaultUiPart: legs
+    legacyMatch:
+      regex:
+      - ^legs_.+calf_raise$
+    allowedVariantDimensions:
+    - equipment
+    - position
+    - laterality
+    - support
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+    - added_weight
+  glute_bridge:
+    nameKo: 글루트 브릿지
+    nameEn: Glute Bridge
+    defaultUiPart: legs
+    legacyMatch:
+      regex:
+      - ^legs_.+glute_bridge$
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - bandPosition
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+    - band_resisted
+  glute_kickback:
+    nameKo: 글루트 킥백
+    nameEn: Glute Kickback
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_machine_glute_kickback
+      - legs_cable_glute_kickback
+      - legs_band_kickback
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - support
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  hip_thrust:
+    nameKo: 힙 쓰러스트
+    nameEn: Hip Thrust
+    defaultUiPart: legs
+    legacyMatch:
+      regex:
+      - ^legs_.+hip_thrust$
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - support
+    - bandPosition
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  cable_pull_through:
+    nameKo: 케이블 풀 스루
+    nameEn: Cable Pull-Through
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_cable_pull_through
+    allowedVariantDimensions:
+    - equipment
+    - stance
+    - handle
+    allowedLoadStates:
+    - external_load
+  kettlebell_swing:
+    nameKo: 케틀벨 스윙
+    nameEn: Kettlebell Swing
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_kettlebell_swing
+    allowedVariantDimensions:
+    - equipment
+    - technique
+    - stance
+    allowedLoadStates:
+    - external_load
+  nordic_curl:
+    nameKo: 노르딕 햄스트링 컬
+    nameEn: Nordic Hamstring Curl
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_bodyweight_nordic_hamstring_curl
+    allowedVariantDimensions:
+    - assistanceMethod
+    - rangeOfMotion
+    allowedLoadStates:
+    - bodyweight
+    - assisted
+    - band_assisted
+    - added_weight
+  glute_ham_raise:
+    nameKo: 글루트 햄 레이즈
+    nameEn: Glute-Ham Raise
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_machine_glute_ham_raise
+    allowedVariantDimensions:
+    - equipment
+    - support
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  leg_curl:
+    nameKo: 레그 컬
+    nameEn: Leg Curl
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_machine_lying_leg_curl
+      - legs_machine_single_leg_lying_curl
+      - legs_machine_standing_leg_curl
+      - legs_machine_seated_leg_curl
+      - legs_machine_single_leg_seated_curl
+      - legs_cable_leg_curl
+      - legs_band_leg_curl
+    allowedVariantDimensions:
+    - equipment
+    - position
+    - laterality
+    - support
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  good_morning:
+    nameKo: 굿모닝
+    nameEn: Good Morning
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_barbell_good_morning
+    allowedVariantDimensions:
+    - equipment
+    - stance
+    allowedLoadStates:
+    - external_load
+  squat:
+    nameKo: 스쿼트
+    nameEn: Squat
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_bodyweight_squat
+      - legs_dumbbell_sumo_squat
+      - legs_dumbbell_goblet_squat
+      - legs_dumbbell_squat
+      - legs_barbell_back_squat
+      - legs_barbell_front_squat
+      - legs_barbell_zercher_squat
+      - legs_barbell_high_bar_squat
+      - legs_barbell_low_bar_squat
+      - legs_barbell_box_squat
+      - legs_smith_squat
+      - legs_smith_front_squat
+      - legs_kettlebell_goblet_squat
+      - legs_plate_goblet_squat
+    allowedVariantDimensions:
+    - equipment
+    - barPosition
+    - stance
+    - support
+    - technique
+    - rangeOfMotion
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+    - added_weight
+  machine_squat:
+    nameKo: 머신 스쿼트
+    nameEn: Machine Squat
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_machine_belt_squat
+      - legs_machine_v_squat
+      - legs_machine_pendulum_squat
+      - legs_machine_hack_squat
+    allowedVariantDimensions:
+    - machineType
+    - stance
+    - footPosition
+    allowedLoadStates:
+    - external_load
+  pistol_squat:
+    nameKo: 피스톨 스쿼트
+    nameEn: Pistol Squat
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_bodyweight_pistol_squat
+    allowedVariantDimensions:
+    - laterality
+    - assistanceMethod
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+    - assisted
+  sissy_squat:
+    nameKo: 시시 스쿼트
+    nameEn: Sissy Squat
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_bodyweight_sissy_squat
+    allowedVariantDimensions:
+    - support
+    - assistanceMethod
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  jump_squat:
+    nameKo: 점프 스쿼트
+    nameEn: Jump Squat
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_bodyweight_jump_squat
+    allowedVariantDimensions:
+    - equipment
+    - stance
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  lunge:
+    nameKo: 런지
+    nameEn: Lunge
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_bodyweight_lunge
+      - legs_bodyweight_reverse_lunge
+      - legs_dumbbell_lunge
+      - legs_dumbbell_reverse_lunge
+      - legs_dumbbell_walking_lunge
+      - legs_barbell_reverse_lunge
+      - legs_barbell_walking_lunge
+    allowedVariantDimensions:
+    - equipment
+    - direction
+    - travelMode
+    - laterality
+    - stance
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+  split_squat:
+    nameKo: 스플릿 스쿼트
+    nameEn: Split Squat
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_bodyweight_bulgarian_split_squat
+      - legs_dumbbell_bulgarian_split_squat
+      - legs_barbell_bulgarian_split_squat
+      - legs_smith_bulgarian_split_squat
+      - legs_smith_split_squat
+    allowedVariantDimensions:
+    - equipment
+    - rearFootElevation
+    - laterality
+    - stance
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+  step_up:
+    nameKo: 스텝업
+    nameEn: Step-Up
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_bodyweight_step_up
+      - legs_dumbbell_step_up
+    allowedVariantDimensions:
+    - equipment
+    - boxHeight
+    - laterality
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+  leg_press:
+    nameKo: 레그 프레스
+    nameEn: Leg Press
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_machine_leg_press
+      - legs_machine_single_leg_press
+    allowedVariantDimensions:
+    - machineType
+    - laterality
+    - footPosition
+    - stance
+    allowedLoadStates:
+    - external_load
+  leg_extension:
+    nameKo: 레그 익스텐션
+    nameEn: Leg Extension
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_machine_leg_extension
+      - legs_machine_single_leg_extension
+    allowedVariantDimensions:
+    - machineType
+    - laterality
+    allowedLoadStates:
+    - external_load
+  pike_push_up:
+    nameKo: 파이크 푸쉬업
+    nameEn: Pike Push-Up
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_bodyweight_pike_push_up
+    allowedVariantDimensions:
+    - support
+    - bodyAngle
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  handstand_push_up:
+    nameKo: 핸드스탠드 푸쉬업
+    nameEn: Handstand Push-Up
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_bodyweight_wall_handstand_push_up
+      - shoulders_bodyweight_handstand_push_up
+    allowedVariantDimensions:
+    - support
+    - rangeOfMotion
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  overhead_press:
+    nameKo: 오버헤드 프레스
+    nameEn: Overhead Press
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_machine_shoulder_press
+      - shoulders_machine_plate_loaded_shoulder_press
+      - shoulders_dumbbell_shoulder_press
+      - shoulders_dumbbell_single_arm_shoulder_press
+      - shoulders_dumbbell_seated_shoulder_press
+      - shoulders_dumbbell_arnold_press
+      - shoulders_barbell_overhead_press
+      - shoulders_barbell_seated_overhead_press
+      - shoulders_barbell_bradford_press
+      - shoulders_barbell_behind_neck_press
+      - shoulders_smith_shoulder_press
+      - shoulders_smith_behind_neck_press
+      - shoulders_kettlebell_press
+      - shoulders_kettlebell_bottoms_up_press
+      - shoulders_plate_overhead_press
+    allowedVariantDimensions:
+    - equipment
+    - position
+    - laterality
+    - gripOrientation
+    - technique
+    - support
+    allowedLoadStates:
+    - external_load
+  push_press:
+    nameKo: 푸쉬 프레스
+    nameEn: Push Press
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_barbell_push_press
+    allowedVariantDimensions:
+    - equipment
+    - stance
+    - technique
+    allowedLoadStates:
+    - external_load
+  landmine_press:
+    nameKo: 랜드마인 프레스
+    nameEn: Landmine Press
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_barbell_single_arm_landmine_press
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - stance
+    - position
+    allowedLoadStates:
+    - external_load
+  front_raise:
+    nameKo: 프론트 레이즈
+    nameEn: Front Raise
+    defaultUiPart: shoulders
+    legacyMatch:
+      regex:
+      - ^shoulders_.+front_raise$
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - position
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  rear_delt_fly:
+    nameKo: 리어 델트 플라이
+    nameEn: Rear Delt Fly
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_machine_reverse_pec_deck
+      - shoulders_machine_rear_delt_fly
+      - shoulders_dumbbell_rear_delt_fly
+      - shoulders_dumbbell_bent_over_lateral_raise
+      - shoulders_cable_rear_delt_fly
+      - shoulders_cable_single_arm_rear_delt_fly
+    allowedVariantDimensions:
+    - equipment
+    - position
+    - support
+    - laterality
+    - handle
+    allowedLoadStates:
+    - external_load
+  y_raise:
+    nameKo: Y 레이즈
+    nameEn: Y Raise
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_bodyweight_prone_y_raise
+      - shoulders_cable_y_raise
+      - shoulders_cable_single_arm_y_raise
+    allowedVariantDimensions:
+    - equipment
+    - position
+    - support
+    - laterality
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+  face_pull:
+    nameKo: 페이스 풀
+    nameEn: Face Pull
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_cable_face_pull
+      - shoulders_band_face_pull
+    allowedVariantDimensions:
+    - equipment
+    - handle
+    - position
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  external_rotation:
+    nameKo: 익스터널 로테이션
+    nameEn: External Rotation
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_cable_external_rotation
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - position
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  band_pull_apart:
+    nameKo: 밴드 풀 어파트
+    nameEn: Band Pull-Apart
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_band_pull_apart
+    allowedVariantDimensions:
+    - gripWidth
+    - bandLevel
+    allowedLoadStates:
+    - band_resisted
+  lateral_raise:
+    nameKo: 레터럴 레이즈
+    nameEn: Lateral Raise
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_machine_lateral_raise
+      - shoulders_dumbbell_lateral_raise
+      - shoulders_dumbbell_leaning_lateral_raise
+      - shoulders_dumbbell_single_arm_lateral_raise
+      - shoulders_dumbbell_incline_lateral_raise
+      - shoulders_cable_lateral_raise
+      - shoulders_band_lateral_raise
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - position
+    - support
+    - bodyAngle
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  upright_row:
+    nameKo: 업라이트 로우
+    nameEn: Upright Row
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_barbell_upright_row
+      - shoulders_smith_upright_row
+      - shoulders_cable_upright_row
+    allowedVariantDimensions:
+    - equipment
+    - gripWidth
+    - handle
+    allowedLoadStates:
+    - external_load
+  cuban_press:
+    nameKo: 쿠반 프레스
+    nameEn: Cuban Press
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_dumbbell_cuban_press
+    allowedVariantDimensions:
+    - equipment
+    - position
+    allowedLoadStates:
+    - external_load
+  high_pull:
+    nameKo: 하이 풀
+    nameEn: High Pull
+    defaultUiPart: shoulders
+    legacyMatch:
+      exact:
+      - shoulders_dumbbell_high_pull
+    allowedVariantDimensions:
+    - equipment
+    - stance
+    - technique
+    allowedLoadStates:
+    - external_load
+  biceps_curl:
+    nameKo: 바이셉스 컬
+    nameEn: Biceps Curl
+    defaultUiPart: arms
+    legacyMatch:
+      regex:
+      - ^arms_(?!(?:dumbbell|barbell)_reverse_wrist_curl$)(?!(?:dumbbell|barbell)_wrist_curl$).+curl$
+    allowedVariantDimensions:
+    - equipment
+    - gripOrientation
+    - armPosition
+    - support
+    - laterality
+    - technique
+    - handle
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  wrist_flexion:
+    nameKo: 리스트 컬
+    nameEn: Wrist Flexion
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_dumbbell_wrist_curl
+      - arms_barbell_wrist_curl
+    allowedVariantDimensions:
+    - equipment
+    - support
+    - laterality
+    allowedLoadStates:
+    - external_load
+  wrist_extension:
+    nameKo: 리버스 리스트 컬
+    nameEn: Wrist Extension
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_dumbbell_reverse_wrist_curl
+      - arms_barbell_reverse_wrist_curl
+    allowedVariantDimensions:
+    - equipment
+    - support
+    - laterality
+    allowedLoadStates:
+    - external_load
+  dead_hang:
+    nameKo: 데드 행
+    nameEn: Dead Hang
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_bodyweight_dead_hang
+    allowedVariantDimensions:
+    - gripOrientation
+    - gripWidth
+    - support
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  loaded_carry:
+    nameKo: 로드 캐리
+    nameEn: Loaded Carry
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_dumbbell_farmer_carry
+      - arms_kettlebell_farmer_carry
+    allowedVariantDimensions:
+    - equipment
+    - carryStyle
+    - laterality
+    - distanceMode
+    allowedLoadStates:
+    - external_load
+  pinch_hold:
+    nameKo: 핀치 홀드
+    nameEn: Pinch Hold
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_plate_pinch_hold
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    allowedLoadStates:
+    - external_load
+  gripper:
+    nameKo: 핸드 그리퍼
+    nameEn: Hand Gripper
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_other_gripper
+    allowedVariantDimensions:
+    - laterality
+    - gripperLevel
+    allowedLoadStates:
+    - external_load
+  bench_dip:
+    nameKo: 벤치 딥스
+    nameEn: Bench Dip
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_bodyweight_bench_dip
+    allowedVariantDimensions:
+    - support
+    - legPosition
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  machine_dip_press:
+    nameKo: 머신 딥 프레스
+    nameEn: Machine Dip Press
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_machine_dip_press
+    allowedVariantDimensions:
+    - machineType
+    - handle
+    allowedLoadStates:
+    - external_load
+  machine_triceps_extension:
+    nameKo: 머신 트라이셉스 익스텐션
+    nameEn: Machine Triceps Extension
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_machine_triceps_extension
+    allowedVariantDimensions:
+    - machineType
+    - armPosition
+    allowedLoadStates:
+    - external_load
+  lying_triceps_extension:
+    nameKo: 라잉 트라이셉스 익스텐션
+    nameEn: Lying Triceps Extension
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_dumbbell_skull_crusher
+      - arms_dumbbell_single_arm_skull_crusher
+      - arms_barbell_skull_crusher
+      - arms_barbell_ez_skull_crusher
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - barType
+    - angle
+    allowedLoadStates:
+    - external_load
+  overhead_triceps_extension:
+    nameKo: 오버헤드 트라이셉스 익스텐션
+    nameEn: Overhead Triceps Extension
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_dumbbell_overhead_triceps_extension
+      - arms_dumbbell_single_arm_overhead_extension
+      - arms_barbell_overhead_triceps_extension
+      - arms_cable_overhead_triceps_extension
+      - arms_cable_single_arm_overhead_triceps_extension
+      - arms_band_overhead_triceps_extension
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - handle
+    - position
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  triceps_kickback:
+    nameKo: 트라이셉스 킥백
+    nameEn: Triceps Kickback
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_dumbbell_kickback
+      - arms_cable_triceps_kickback
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - support
+    allowedLoadStates:
+    - external_load
+  jm_press:
+    nameKo: JM 프레스
+    nameEn: JM Press
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_barbell_jm_press
+    allowedVariantDimensions:
+    - equipment
+    - gripWidth
+    - technique
+    allowedLoadStates:
+    - external_load
+  triceps_pushdown:
+    nameKo: 트라이셉스 푸쉬다운
+    nameEn: Triceps Pushdown
+    defaultUiPart: arms
+    legacyMatch:
+      regex:
+      - ^arms_cable_.+pushdown$
+      - ^arms_band_triceps_pushdown$
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - gripOrientation
+    - handle
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  crossbody_triceps_extension:
+    nameKo: 크로스바디 트라이셉스 익스텐션
+    nameEn: Cross-Body Triceps Extension
+    defaultUiPart: arms
+    legacyMatch:
+      exact:
+      - arms_cable_crossbody_triceps_extension
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - handle
+    - armPath
+    allowedLoadStates:
+    - external_load
+  dead_bug:
+    nameKo: 데드 버그
+    nameEn: Dead Bug
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_bodyweight_dead_bug
+    allowedVariantDimensions:
+    - laterality
+    - limbPattern
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  plank:
+    nameKo: 플랭크
+    nameEn: Plank
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_bodyweight_plank
+      - abs_bodyweight_plank_shoulder_tap
+      - abs_bodyweight_side_plank
+    allowedVariantDimensions:
+    - orientation
+    - support
+    - laterality
+    - technique
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  hollow_hold:
+    nameKo: 할로우 바디 홀드
+    nameEn: Hollow Body Hold
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_bodyweight_hollow_hold
+    allowedVariantDimensions:
+    - limbPosition
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  rollout:
+    nameKo: 롤아웃
+    nameEn: Rollout
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_barbell_rollout
+      - abs_other_ab_wheel_rollout
+    allowedVariantDimensions:
+    - equipment
+    - startPosition
+    - rangeOfMotion
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+  pallof_press:
+    nameKo: 팔로프 프레스
+    nameEn: Pallof Press
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_cable_pallof_press
+      - abs_band_pallof_press
+    allowedVariantDimensions:
+    - equipment
+    - position
+    - laterality
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  turkish_get_up:
+    nameKo: 터키시 겟업
+    nameEn: Turkish Get-Up
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_kettlebell_turkish_get_up
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    allowedLoadStates:
+    - external_load
+  russian_twist:
+    nameKo: 러시안 트위스트
+    nameEn: Russian Twist
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_bodyweight_russian_twist
+      - abs_dumbbell_russian_twist
+      - abs_plate_russian_twist
+    allowedVariantDimensions:
+    - equipment
+    - footSupport
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+  bicycle_crunch:
+    nameKo: 바이시클 크런치
+    nameEn: Bicycle Crunch
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_bodyweight_bicycle_crunch
+    allowedVariantDimensions:
+    - tempo
+    allowedLoadStates:
+    - bodyweight
+  torso_rotation:
+    nameKo: 토르소 로테이션
+    nameEn: Torso Rotation
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_machine_torso_rotation
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    - machineType
+    allowedLoadStates:
+    - external_load
+  side_bend:
+    nameKo: 사이드 벤드
+    nameEn: Side Bend
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_dumbbell_side_bend
+      - abs_plate_side_bend
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    allowedLoadStates:
+    - external_load
+  landmine_rotation:
+    nameKo: 랜드마인 로테이션
+    nameEn: Landmine Rotation
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_barbell_landmine_rotation
+    allowedVariantDimensions:
+    - equipment
+    - stance
+    allowedLoadStates:
+    - external_load
+  woodchop:
+    nameKo: 우드찹
+    nameEn: Woodchop
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_cable_woodchop
+    allowedVariantDimensions:
+    - equipment
+    - direction
+    - laterality
+    allowedLoadStates:
+    - external_load
+    - band_resisted
+  windmill:
+    nameKo: 윈드밀
+    nameEn: Windmill
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_kettlebell_windmill
+    allowedVariantDimensions:
+    - equipment
+    - laterality
+    allowedLoadStates:
+    - external_load
+  leg_raise:
+    nameKo: 레그 레이즈
+    nameEn: Leg Raise
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_bodyweight_leg_raise
+      - abs_bodyweight_hanging_knee_raise
+      - abs_bodyweight_hanging_leg_raise
+      - abs_bodyweight_captains_chair_knee_raise
+      - abs_machine_captains_chair
+    allowedVariantDimensions:
+    - support
+    - kneePosition
+    - rangeOfMotion
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  reverse_crunch:
+    nameKo: 리버스 크런치
+    nameEn: Reverse Crunch
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_bodyweight_reverse_crunch
+      - abs_cable_reverse_crunch
+    allowedVariantDimensions:
+    - equipment
+    - support
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+  v_up:
+    nameKo: 브이업
+    nameEn: V-Up
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_bodyweight_v_up
+    allowedVariantDimensions:
+    - limbPosition
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+  sit_up:
+    nameKo: 싯업
+    nameEn: Sit-Up
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_bodyweight_sit_up
+      - abs_dumbbell_weighted_sit_up
+      - abs_other_roman_chair_sit_up
+    allowedVariantDimensions:
+    - equipment
+    - support
+    - angle
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+    - added_weight
+  crunch:
+    nameKo: 크런치
+    nameEn: Crunch
+    defaultUiPart: abs
+    legacyMatch:
+      exact:
+      - abs_bodyweight_crunch
+      - abs_bodyweight_toe_touch
+      - abs_machine_ab_crunch
+      - abs_cable_standing_crunch
+      - abs_cable_crunch
+      - abs_band_crunch
+      - abs_plate_weighted_crunch
+    allowedVariantDimensions:
+    - equipment
+    - position
+    - technique
+    - support
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+    - band_resisted
+  tibialis_raise:
+    nameKo: 티비얼리스 레이즈
+    nameEn: Tibialis Raise
+    defaultUiPart: legs
+    allowedVariantDimensions:
+    - equipment
+    - support
+    - laterality
+    allowedLoadStates:
+    - bodyweight
+    - external_load
+    notes: Approved addition.
+  bird_dog:
+    nameKo: 버드독
+    nameEn: Bird Dog
+    defaultUiPart: abs
+    allowedVariantDimensions:
+    - laterality
+    - limbPattern
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+    notes: Approved addition; core-strength exercise, not treated as rehab-only.
+  reverse_nordic_curl:
+    nameKo: 리버스 노르딕 컬
+    nameEn: Reverse Nordic Curl
+    defaultUiPart: legs
+    allowedVariantDimensions:
+    - rangeOfMotion
+    - assistanceMethod
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+    - assisted
+    notes: Approved addition; separate from hamstring Nordic curl.
+  box_jump:
+    nameKo: 박스 점프
+    nameEn: Box Jump
+    defaultUiPart: legs
+    allowedVariantDimensions:
+    - boxHeight
+    - stance
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+    notes: Approved power exercise.
+  muscle_up:
+    nameKo: 머슬업
+    nameEn: Muscle-Up
+    defaultUiPart: back
+    allowedVariantDimensions:
+    - equipment
+    - gripOrientation
+    - technique
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+    - band_assisted
+    notes: Approved addition; separate family because transition/technical task differs from pull-up.
+  dragon_flag:
+    nameKo: 드래곤 플래그
+    nameEn: Dragon Flag
+    defaultUiPart: abs
+    allowedVariantDimensions:
+    - support
+    - rangeOfMotion
+    allowedLoadStates:
+    - bodyweight
+    notes: Approved addition.
+  l_sit:
+    nameKo: L-싯
+    nameEn: L-Sit
+    defaultUiPart: abs
+    allowedVariantDimensions:
+    - support
+    - legPosition
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+    notes: Approved addition.
+  windshield_wiper:
+    nameKo: 윈드실드 와이퍼
+    nameEn: Windshield Wiper
+    defaultUiPart: abs
+    allowedVariantDimensions:
+    - support
+    - kneePosition
+    - rangeOfMotion
+    allowedLoadStates:
+    - bodyweight
+    notes: Approved addition.
+  clean:
+    nameKo: 클린
+    nameEn: Clean
+    defaultUiPart: legs
+    allowedVariantDimensions:
+    - equipment
+    - technique
+    - startPosition
+    allowedLoadStates:
+    - external_load
+    notes: Approved Olympic-lift family.
+  snatch:
+    nameKo: 스내치
+    nameEn: Snatch
+    defaultUiPart: legs
+    allowedVariantDimensions:
+    - equipment
+    - technique
+    - startPosition
+    allowedLoadStates:
+    - external_load
+    notes: Approved Olympic-lift family.
+approvedNewPresets:
+- presetId: knee_push_up
+  familyId: push_up
+  nameKo: 니 푸쉬업
+  nameEn: Knee Push-Up
+  variant:
+    equipment: bodyweight
+    support: knees
+  defaultLoadState: bodyweight
+  aliases:
+  - 무릎 푸쉬업
+  - Kneeling Push-Up
+- presetId: trap_bar_deadlift_high_handles
+  familyId: deadlift
+  nameKo: 트랩바 데드리프트 - 하이 핸들
+  nameEn: Trap-Bar Deadlift - High Handles
+  variant:
+    equipment: trap_bar
+    handleHeight: high
+    stance: standard
+  defaultLoadState: external_load
+- presetId: trap_bar_deadlift_low_handles
+  familyId: deadlift
+  nameKo: 트랩바 데드리프트 - 로우 핸들
+  nameEn: Trap-Bar Deadlift - Low Handles
+  variant:
+    equipment: trap_bar
+    handleHeight: low
+    stance: standard
+  defaultLoadState: external_load
+- presetId: lateral_lunge
+  familyId: lunge
+  nameKo: 라테랄 런지
+  nameEn: Lateral Lunge
+  variant:
+    equipment: bodyweight
+    direction: lateral
+    travelMode: stationary
+  defaultLoadState: bodyweight
+  aliases:
+  - 사이드 런지
+- presetId: cossack_squat
+  familyId: squat
+  nameKo: 코사크 스쿼트
+  nameEn: Cossack Squat
+  variant:
+    equipment: bodyweight
+    stance: cossack
+    technique: lateral_shift
+  defaultLoadState: bodyweight
+- presetId: wall_tibialis_raise
+  familyId: tibialis_raise
+  nameKo: 월 티비얼리스 레이즈
+  nameEn: Wall Tibialis Raise
+  variant:
+    equipment: bodyweight
+    support: wall
+    laterality: bilateral
+  defaultLoadState: bodyweight
+- presetId: machine_tibialis_raise
+  familyId: tibialis_raise
+  nameKo: 티비얼리스 레이즈 머신
+  nameEn: Tibialis Raise Machine
+  variant:
+    equipment: machine
+    support: machine
+    laterality: bilateral
+  defaultLoadState: external_load
+- presetId: bird_dog
+  familyId: bird_dog
+  nameKo: 버드독
+  nameEn: Bird Dog
+  variant:
+    equipment: bodyweight
+    laterality: contralateral
+    limbPattern: opposite_arm_leg
+  defaultLoadState: bodyweight
+- presetId: copenhagen_plank
+  familyId: plank
+  nameKo: 코펜하겐 플랭크
+  nameEn: Copenhagen Plank
+  variant:
+    orientation: side
+    support: elevated_leg
+    laterality: unilateral
+    technique: copenhagen
+  defaultLoadState: bodyweight
+- presetId: barbell_seal_row
+  familyId: row
+  nameKo: 바벨 씰 로우
+  nameEn: Barbell Seal Row
+  variant:
+    equipment: barbell
+    support: prone_bench
+    torsoAngle: horizontal
+    laterality: bilateral
+  defaultLoadState: external_load
+- presetId: ring_row
+  familyId: inverted_row
+  nameKo: 링 로우
+  nameEn: Ring Row
+  variant:
+    equipment: gymnastic_rings
+    support: rings
+    bodyAngle: inclined
+  defaultLoadState: bodyweight
+- presetId: ring_pull_up
+  familyId: pull_up
+  nameKo: 링 풀업
+  nameEn: Ring Pull-Up
+  variant:
+    equipment: gymnastic_rings
+    gripOrientation: dynamic
+    gripWidth: standard
+  defaultLoadState: bodyweight
+- presetId: ring_dip
+  familyId: dip
+  nameKo: 링 딥스
+  nameEn: Ring Dip
+  variant:
+    equipment: gymnastic_rings
+    support: rings
+    emphasis: general
+  defaultLoadState: bodyweight
+- presetId: dumbbell_suitcase_carry
+  familyId: loaded_carry
+  nameKo: 덤벨 수트케이스 캐리
+  nameEn: Dumbbell Suitcase Carry
+  variant:
+    equipment: dumbbell
+    carryStyle: suitcase
+    laterality: unilateral
+  defaultLoadState: external_load
+- presetId: kettlebell_suitcase_carry
+  familyId: loaded_carry
+  nameKo: 케틀벨 수트케이스 캐리
+  nameEn: Kettlebell Suitcase Carry
+  variant:
+    equipment: kettlebell
+    carryStyle: suitcase
+    laterality: unilateral
+  defaultLoadState: external_load
+- presetId: reverse_nordic_curl
+  familyId: reverse_nordic_curl
+  nameKo: 리버스 노르딕 컬
+  nameEn: Reverse Nordic Curl
+  variant:
+    equipment: bodyweight
+    rangeOfMotion: standard
+  defaultLoadState: bodyweight
+- presetId: box_jump
+  familyId: box_jump
+  nameKo: 박스 점프
+  nameEn: Box Jump
+  variant:
+    equipment: bodyweight
+    stance: bilateral
+  defaultLoadState: bodyweight
+- presetId: bar_muscle_up
+  familyId: muscle_up
+  nameKo: 바 머슬업
+  nameEn: Bar Muscle-Up
+  variant:
+    equipment: bodyweight
+    support: pull_up_bar
+    technique: bar
+  defaultLoadState: bodyweight
+- presetId: ring_muscle_up
+  familyId: muscle_up
+  nameKo: 링 머슬업
+  nameEn: Ring Muscle-Up
+  variant:
+    equipment: gymnastic_rings
+    support: rings
+    technique: rings
+  defaultLoadState: bodyweight
+- presetId: dragon_flag
+  familyId: dragon_flag
+  nameKo: 드래곤 플래그
+  nameEn: Dragon Flag
+  variant:
+    equipment: bodyweight
+    support: bench
+  defaultLoadState: bodyweight
+- presetId: parallel_bar_l_sit
+  familyId: l_sit
+  nameKo: 패러럴바 L-싯
+  nameEn: Parallel-Bar L-Sit
+  variant:
+    equipment: bodyweight
+    support: parallel_bars
+    legPosition: straight
+  defaultLoadState: bodyweight
+- presetId: floor_l_sit
+  familyId: l_sit
+  nameKo: 플로어 L-싯
+  nameEn: Floor L-Sit
+  variant:
+    equipment: bodyweight
+    support: floor
+    legPosition: straight
+  defaultLoadState: bodyweight
+- presetId: hanging_windshield_wiper
+  familyId: windshield_wiper
+  nameKo: 행잉 윈드실드 와이퍼
+  nameEn: Hanging Windshield Wiper
+  variant:
+    equipment: bodyweight
+    support: pull_up_bar
+    kneePosition: straight
+  defaultLoadState: bodyweight
+- presetId: barbell_clean
+  familyId: clean
+  nameKo: 바벨 클린
+  nameEn: Barbell Clean
+  variant:
+    equipment: barbell
+    technique: clean
+    startPosition: floor
+  defaultLoadState: external_load
+- presetId: barbell_power_clean
+  familyId: clean
+  nameKo: 바벨 파워 클린
+  nameEn: Barbell Power Clean
+  variant:
+    equipment: barbell
+    technique: power_clean
+    startPosition: floor
+  defaultLoadState: external_load
+- presetId: barbell_snatch
+  familyId: snatch
+  nameKo: 바벨 스내치
+  nameEn: Barbell Snatch
+  variant:
+    equipment: barbell
+    technique: snatch
+    startPosition: floor
+  defaultLoadState: external_load
+- presetId: barbell_power_snatch
+  familyId: snatch
+  nameKo: 바벨 파워 스내치
+  nameEn: Barbell Power Snatch
+  variant:
+    equipment: barbell
+    technique: power_snatch
+    startPosition: floor
+  defaultLoadState: external_load
+deferredOutOfV1Scope:
+- items:
+  - Sled Push
+  - Sled Pull
+  - Battle Rope
+  - Medicine-Ball Slam
+  reason: Conditioning/functional scope requires distance/time/conditioning metric contract before inclusion.
+requiredValidation:
+  legacyExerciseCountExpected: 340
+  mustMapExactlyOnce: true
+  mustPreserveLegacyIds: true
+  mustRejectFamilyInference: true
+  mustValidateAliasTargets: true
+  mustValidateNewPresetFamilyExists: true
+  mustValidateImageFallback: true
