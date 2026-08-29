@@ -47,6 +47,7 @@ function parseScalar(raw, lineNumber) {
   if (value === 'true') return true;
   if (value === 'false') return false;
   if (value === 'null') return null;
+  if (value === '[]') return [];
   if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(value)) return Number(value);
   if (/^["']/.test(value)) fail(lineNumber, 'quoted scalars are not supported');
   if (value.startsWith('[') || value.startsWith('{')) fail(lineNumber, 'inline collections are not supported');
@@ -408,6 +409,7 @@ const TOKEN_FIELD_ORDER = [
   'direction',
   'gripOrientation',
   'gripWidth',
+  'handle',
   'laterality',
   'position',
   'rearFootElevation',
@@ -465,13 +467,15 @@ function normalizeVariantTokens(contract, legacyId) {
   };
 }
 
-export function normalizeLegacyVariant(contract, exercise) {
+export function normalizeLegacyVariant(contract, exercise, { canonicalAliasId = null } = {}) {
   const tokenResult = normalizeVariantTokens(contract, exercise.id);
   const variant = {
     equipment: exercise.equipment ?? null,
     laterality: exercise.laterality ?? null,
     ...tokenResult.variant,
-    legacyTokens: tokenResult.residualTokens,
+    // An explicit contract alias is the only permitted reason to collapse
+    // otherwise different legacy IDs into one visual/performance variant.
+    ...(canonicalAliasId ? { canonicalAlias: canonicalAliasId, legacyTokens: [] } : { legacyTokens: tokenResult.residualTokens }),
   };
   return {
     variant,
@@ -522,7 +526,9 @@ export function mapLegacyExercise(contract, exercise) {
       error: `canonical alias ${alias.canonicalPresetId} declares family ${alias.familyId}, but legacy rules select ${familyId}`,
     };
   }
-  const variant = normalizeLegacyVariant(contract, exercise);
+  const variant = normalizeLegacyVariant(contract, exercise, {
+    canonicalAliasId: alias?.canonicalPresetId ?? null,
+  });
   return {
     status: 'mapped',
     legacyExerciseId: exercise.id,
@@ -575,7 +581,7 @@ export function buildLegacyExerciseMapping(contract, legacyExercises) {
   };
 }
 
-export function buildFamilyCatalogDocument(contract, legacyExercises, mapping) {
+export function buildFamilyCatalogDocument(contract, legacyExercises, mapping, imageIdentityRegistry = {}) {
   const families = Object.fromEntries(Object.entries(contract.families).map(([familyId, family]) => [familyId, {
     familyId,
     nameKo: family.nameKo,
@@ -598,7 +604,11 @@ export function buildFamilyCatalogDocument(contract, legacyExercises, mapping) {
     loadStates: contract.loadStates,
     loadStateRules: contract.loadStateRules,
     performance: contract.performanceStats,
-    imageIdentity: contract.imageIdentity,
+    imageIdentity: {
+      ...contract.imageIdentity,
+      imageVariants: imageIdentityRegistry.imageVariants ?? [],
+      familyDefaults: imageIdentityRegistry.familyDefaults ?? [],
+    },
     families,
     legacyExercises: mapping.entries,
     approvedPresets,

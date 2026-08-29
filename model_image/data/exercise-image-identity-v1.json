@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "fallbackOrder": [
+    "exact_visual_variant",
+    "family_default",
+    "placeholder"
+  ],
+  "imageVariants": [],
+  "familyDefaults": []
+}

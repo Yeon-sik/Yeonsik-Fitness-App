@@ -8,6 +8,7 @@ public final class RoutineExercise {
     public final EquipmentType equipmentType;
     public final String primarySubPart;
     public final String recordType;
+    public final ExerciseFamilyIdentity familyIdentity;
 
     public RoutineExercise(
             String masterExerciseId,
@@ -18,6 +19,28 @@ public final class RoutineExercise {
             String primarySubPart,
             String recordType
     ) {
+        this(
+                masterExerciseId,
+                nameKo,
+                nameEn,
+                bodyPart,
+                equipmentType,
+                primarySubPart,
+                recordType,
+                null
+        );
+    }
+
+    public RoutineExercise(
+            String masterExerciseId,
+            String nameKo,
+            String nameEn,
+            BodyPart bodyPart,
+            EquipmentType equipmentType,
+            String primarySubPart,
+            String recordType,
+            ExerciseFamilyIdentity familyIdentity
+    ) {
         this.masterExerciseId = masterExerciseId;
         this.nameKo = nameKo;
         this.nameEn = nameEn;
@@ -25,5 +48,6 @@ public final class RoutineExercise {
         this.equipmentType = equipmentType;
         this.primarySubPart = primarySubPart;
         this.recordType = recordType;
+        this.familyIdentity = familyIdentity;
     }
 }

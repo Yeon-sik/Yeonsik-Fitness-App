@@ -87,6 +87,8 @@ variantTokenRules:
       gripOrientation: supinated
     close_grip:
       gripWidth: narrow
+    straight_bar:
+      handle: straight_bar
     single_arm:
       laterality: unilateral
     one_arm:
@@ -282,6 +284,8 @@ families:
     nameEn: Chest Fly
     defaultUiPart: chest
     legacyMatch:
+      exact:
+      - chest_cable_crossover
       regex:
       - ^chest_(?:dumbbell|machine|cable|band)_.+(?:fly|crossover)$
     allowedVariantDimensions:
@@ -750,6 +754,18 @@ families:
     - bodyweight
     - external_load
     - added_weight
+  wall_sit:
+    nameKo: 월 싯
+    nameEn: Wall Sit
+    defaultUiPart: legs
+    legacyMatch:
+      exact:
+      - legs_bodyweight_wall_sit
+    allowedVariantDimensions: []
+    allowedLoadStates:
+    - bodyweight
+    - added_weight
+    notes: Static time-record exercise; preserve the legacy time-record semantics.
   machine_squat:
     nameKo: 머신 스쿼트
     nameEn: Machine Squat
@@ -1333,6 +1349,8 @@ families:
     nameEn: Triceps Pushdown
     defaultUiPart: arms
     legacyMatch:
+      exact:
+      - arms_cable_triceps_pushdown_straight_bar
       regex:
       - ^arms_cable_.+pushdown$
       - ^arms_band_triceps_pushdown$

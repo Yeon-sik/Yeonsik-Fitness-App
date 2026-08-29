@@ -16,25 +16,40 @@ const legacyPath = path.join(repositoryRoot, 'Fitness_Weight.json');
 test('normative exercise family contract validates without taxonomy edits', () => {
   const contract = loadExerciseFamilyContract(contractPath);
   assert.deepEqual(validateExerciseFamilyContract(contract), []);
-  assert.equal(Object.keys(contract.families).length, 102);
+  assert.equal(Object.keys(contract.families).length, 103);
   assert.equal(contract.approvedNewPresets.length, 27);
   assert.equal(contract.canonicalAliasMerges.length, 4);
 });
 
-test('legacy audit fails closed for every contract-unmapped ID', async () => {
+test('the three resolved legacy IDs match exactly one intended family', () => {
+  const contract = loadExerciseFamilyContract(contractPath);
+  assert.deepEqual(matchLegacyFamilyRules(contract, 'chest_cable_crossover'), ['chest_fly']);
+  assert.deepEqual(matchLegacyFamilyRules(contract, 'arms_cable_triceps_pushdown_straight_bar'), ['triceps_pushdown']);
+  assert.deepEqual(matchLegacyFamilyRules(contract, 'legs_bodyweight_wall_sit'), ['wall_sit']);
+  assert.equal(contract.variantTokenRules.tokens.straight_bar.handle, 'straight_bar');
+});
+
+test('legacy audit maps the complete catalog and preserves wall-sit time semantics', async () => {
   const result = await auditLegacyExerciseMapping({ contractPath, legacyPath, noWrite: true });
   assert.equal(result.report.total, 340);
-  assert.equal(result.report.mapped, 337);
-  assert.equal(result.report.unmappedCount, 3);
+  assert.equal(result.report.mapped, 340);
+  assert.equal(result.report.unmappedCount, 0);
   assert.equal(result.report.ambiguousCount, 0);
-  assert.equal(result.report.stopped, true);
-  assert.deepEqual(
-    result.report.unmapped.map((entry) => entry.legacyExerciseId),
-    [
-      'chest_cable_crossover',
-      'legs_bodyweight_wall_sit',
-      'arms_cable_triceps_pushdown_straight_bar',
-    ],
+  assert.equal(result.report.stopped, false);
+  const wallSit = result.document.legacyExercises.find((entry) => entry.legacyExerciseId === 'legs_bodyweight_wall_sit');
+  assert.equal(wallSit.familyId, 'wall_sit');
+  assert.equal(wallSit.legacyRecordType, 'time');
+  assert.equal(wallSit.defaultLoadState, 'bodyweight');
+  const wallSitFamily = Object.values(result.document.families).find((family) => family.familyId === 'wall_sit');
+  assert.deepEqual(wallSitFamily.allowedLoadStates, ['bodyweight', 'added_weight']);
+  const straightBar = result.document.legacyExercises.find(
+    (entry) => entry.legacyExerciseId === 'arms_cable_triceps_pushdown_straight_bar',
   );
-  assert.deepEqual(matchLegacyFamilyRules(loadExerciseFamilyContract(contractPath), 'legs_bodyweight_wall_sit'), []);
+  assert.equal(straightBar.variant.handle, 'straight_bar');
+  for (const merge of loadExerciseFamilyContract(contractPath).canonicalAliasMerges) {
+    const mergedEntries = merge.legacyIds.map((legacyId) => result.document.legacyExercises.find(
+      (entry) => entry.legacyExerciseId === legacyId,
+    ));
+    assert.ok(mergedEntries.every((entry) => entry?.canonicalVariantKey === mergedEntries[0]?.canonicalVariantKey));
+  }
 });

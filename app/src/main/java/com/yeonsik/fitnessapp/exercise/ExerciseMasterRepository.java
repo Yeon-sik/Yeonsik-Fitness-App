@@ -21,6 +21,7 @@ public final class ExerciseMasterRepository {
 
     private final Context appContext;
     private ExerciseMasterCatalog cachedCatalog;
+    private ExerciseFamilyCatalog cachedFamilyCatalog;
 
     public ExerciseMasterRepository(Context context) {
         this.appContext = context.getApplicationContext();
@@ -85,6 +86,13 @@ public final class ExerciseMasterRepository {
         return ExerciseMasterAdapter.toRoutineExercise(getExerciseById(exerciseId));
     }
 
+    public synchronized ExerciseFamilyCatalog familyCatalog() {
+        if (cachedFamilyCatalog == null) {
+            cachedFamilyCatalog = ExerciseFamilyCatalog.load(appContext);
+        }
+        return cachedFamilyCatalog;
+    }
+
     private ExerciseMasterCatalog catalog() {
         if (cachedCatalog == null) {
             cachedCatalog = loadCatalog();
@@ -98,7 +106,10 @@ public final class ExerciseMasterRepository {
             JSONObject weightJson = new JSONObject(readAsset(WEIGHT_FILE_NAME));
 
             List<ExerciseCategory> categories = parseCategories(indexJson.optJSONArray("uiParts"));
-            List<WeightExercise> exercises = parseExercises(weightJson.optJSONArray("exercises"));
+            List<WeightExercise> exercises = parseExercises(
+                    weightJson.optJSONArray("exercises"),
+                    familyCatalog()
+            );
             Map<String, WeightExercise> byId = new LinkedHashMap<>();
             for (WeightExercise exercise : exercises) {
                 byId.put(exercise.id, exercise);
@@ -152,7 +163,10 @@ public final class ExerciseMasterRepository {
         return categories;
     }
 
-    private List<WeightExercise> parseExercises(JSONArray exercisesJson) {
+    private List<WeightExercise> parseExercises(
+            JSONArray exercisesJson,
+            ExerciseFamilyCatalog familyCatalog
+    ) {
         List<WeightExercise> exercises = new ArrayList<>();
         if (exercisesJson == null) {
             return exercises;
@@ -193,7 +207,8 @@ public final class ExerciseMasterRepository {
                     item.optString("recordTypeNameKo"),
                     item.optString("motionType"),
                     item.optString("motionTypeNameKo"),
-                    item.optString("notes")
+                    item.optString("notes"),
+                    familyCatalog.identityForLegacyId(item.optString("id"))
             ));
         }
         return exercises;

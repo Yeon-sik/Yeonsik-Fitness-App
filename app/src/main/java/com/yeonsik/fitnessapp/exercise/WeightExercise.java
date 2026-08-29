@@ -27,6 +27,7 @@ public final class WeightExercise {
     public final String motionType;
     public final String motionTypeNameKo;
     public final String notes;
+    public final ExerciseFamilyIdentity familyIdentity;
 
     public WeightExercise(
             String id,
@@ -53,6 +54,60 @@ public final class WeightExercise {
             String motionTypeNameKo,
             String notes
     ) {
+        this(
+                id,
+                nameKo,
+                nameEn,
+                bodyPart,
+                primarySubPart,
+                primarySubPartNameKo,
+                secondarySubParts,
+                secondarySubPartNamesKo,
+                equipmentType,
+                equipmentNameKo,
+                movementPattern,
+                movementPatternNameKo,
+                mechanicType,
+                mechanicTypeNameKo,
+                laterality,
+                lateralityNameKo,
+                resistanceType,
+                resistanceTypeNameKo,
+                recordType,
+                recordTypeNameKo,
+                motionType,
+                motionTypeNameKo,
+                notes,
+                null
+        );
+    }
+
+    public WeightExercise(
+            String id,
+            String nameKo,
+            String nameEn,
+            BodyPart bodyPart,
+            String primarySubPart,
+            String primarySubPartNameKo,
+            List<String> secondarySubParts,
+            List<String> secondarySubPartNamesKo,
+            EquipmentType equipmentType,
+            String equipmentNameKo,
+            String movementPattern,
+            String movementPatternNameKo,
+            String mechanicType,
+            String mechanicTypeNameKo,
+            String laterality,
+            String lateralityNameKo,
+            String resistanceType,
+            String resistanceTypeNameKo,
+            String recordType,
+            String recordTypeNameKo,
+            String motionType,
+            String motionTypeNameKo,
+            String notes,
+            ExerciseFamilyIdentity familyIdentity
+    ) {
         this.id = id;
         this.nameKo = nameKo;
         this.nameEn = nameEn;
@@ -76,6 +131,7 @@ public final class WeightExercise {
         this.motionType = motionType;
         this.motionTypeNameKo = motionTypeNameKo;
         this.notes = notes;
+        this.familyIdentity = familyIdentity;
     }
 
     public String displayName() {

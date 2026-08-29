@@ -17,6 +17,7 @@ function parseArguments(argv, repositoryRoot) {
     contractPath: path.join(repositoryRoot, 'EXERCISE_FAMILY_CATALOG_V1.yaml'),
     legacyPath: path.join(repositoryRoot, 'Fitness_Weight.json'),
     outputPath: path.join(repositoryRoot, 'model_image', 'family', 'data', 'exercise-family-mapping-v1.json'),
+    imageIdentityPath: path.join(repositoryRoot, 'model_image', 'data', 'exercise-image-identity-v1.json'),
     noWrite: false,
     json: false,
   };
@@ -25,6 +26,7 @@ function parseArguments(argv, repositoryRoot) {
     if (argument === '--contract') options.contractPath = path.resolve(argv[++index]);
     else if (argument === '--legacy') options.legacyPath = path.resolve(argv[++index]);
     else if (argument === '--output') options.outputPath = path.resolve(argv[++index]);
+    else if (argument === '--image-identity') options.imageIdentityPath = path.resolve(argv[++index]);
     else if (argument === '--no-write') options.noWrite = true;
     else if (argument === '--json') options.json = true;
     else throw new Error(`Unexpected argument: ${argument}`);
@@ -70,9 +72,49 @@ function validateAliasTargets(contract, exercises, mapping) {
   return errors;
 }
 
-export async function auditLegacyExerciseMapping({ contractPath, legacyPath, outputPath, noWrite = false }) {
+function validateImageIdentityRegistry(contract, registry) {
+  const errors = [];
+  if (!registry || registry.schemaVersion !== 1) {
+    return ['image identity registry schemaVersion must be 1'];
+  }
+  const expectedFallback = contract.imageIdentity?.fallbackOrder ?? [];
+  if (JSON.stringify(registry.fallbackOrder ?? []) !== JSON.stringify(expectedFallback)) {
+    errors.push('image identity registry fallbackOrder must match the normative contract');
+  }
+  if (!Array.isArray(registry.imageVariants)) errors.push('image identity registry imageVariants must be an array');
+  if (!Array.isArray(registry.familyDefaults)) errors.push('image identity registry familyDefaults must be an array');
+  const familyIds = new Set(Object.keys(contract.families ?? {}));
+  const seenVariants = new Set();
+  for (const [index, item] of (Array.isArray(registry.imageVariants) ? registry.imageVariants : []).entries()) {
+    if (!item || !familyIds.has(item.familyId) || typeof item.visualVariantKey !== 'string'
+      || !item.visualVariantKey.trim() || typeof item.illustrationKey !== 'string'
+      || !item.illustrationKey.trim()) {
+      errors.push(`imageVariants[${index}] must declare an existing familyId, visualVariantKey, and illustrationKey`);
+      continue;
+    }
+    const key = `${item.familyId}\n${item.visualVariantKey}`;
+    if (seenVariants.has(key)) errors.push(`imageVariants duplicates ${item.familyId}/${item.visualVariantKey}`);
+    seenVariants.add(key);
+  }
+  const seenDefaults = new Set();
+  for (const [index, item] of (Array.isArray(registry.familyDefaults) ? registry.familyDefaults : []).entries()) {
+    if (!item || !familyIds.has(item.familyId) || typeof item.illustrationKey !== 'string'
+      || !item.illustrationKey.trim()) {
+      errors.push(`familyDefaults[${index}] must declare an existing familyId and illustrationKey`);
+      continue;
+    }
+    if (seenDefaults.has(item.familyId)) errors.push(`familyDefaults duplicates ${item.familyId}`);
+    seenDefaults.add(item.familyId);
+  }
+  return errors;
+}
+
+export async function auditLegacyExerciseMapping({ contractPath, legacyPath, outputPath, imageIdentityPath, noWrite = false }) {
   const contract = assertValidExerciseFamilyContract(loadExerciseFamilyContract(contractPath));
   const legacyDocument = JSON.parse(await fs.readFile(legacyPath, 'utf8'));
+  const resolvedImageIdentityPath = imageIdentityPath
+    ?? path.join(path.dirname(contractPath), 'model_image', 'data', 'exercise-image-identity-v1.json');
+  const imageIdentityRegistry = JSON.parse(await fs.readFile(resolvedImageIdentityPath, 'utf8'));
   const exercises = legacyDocument.exercises;
   if (!Array.isArray(exercises)) throw new Error('Fitness_Weight.json must contain an exercises list.');
 
@@ -80,6 +122,7 @@ export async function auditLegacyExerciseMapping({ contractPath, legacyPath, out
   const duplicateIds = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
   const mapping = buildLegacyExerciseMapping(contract, exercises);
   const aliasErrors = validateAliasTargets(contract, exercises, mapping);
+  const imageIdentityErrors = validateImageIdentityRegistry(contract, imageIdentityRegistry);
   const expectedCount = contract.requiredValidation?.legacyExerciseCountExpected ?? contract.sourceBaseline?.baselineExerciseCount;
   const report = {
     contractVersion: contract.contractVersion,
@@ -95,6 +138,8 @@ export async function auditLegacyExerciseMapping({ contractPath, legacyPath, out
     duplicateLegacyIds: duplicateIds,
     aliasTargetErrorCount: aliasErrors.length,
     aliasTargetErrors: aliasErrors,
+    imageIdentityErrorCount: imageIdentityErrors.length,
+    imageIdentityErrors,
     unmapped: summarizeEntries(mapping.unmapped),
     ambiguous: summarizeEntries(mapping.ambiguous),
     stopped: false,
@@ -107,13 +152,14 @@ export async function auditLegacyExerciseMapping({ contractPath, legacyPath, out
   if (mapping.unmapped.length > 0) blockingErrors.push(`unmapped legacy IDs: ${mapping.unmapped.map((entry) => entry.exercise.id).join(', ')}`);
   if (mapping.ambiguous.length > 0) blockingErrors.push(`ambiguous legacy IDs: ${mapping.ambiguous.map((entry) => entry.exercise.id).join(', ')}`);
   blockingErrors.push(...aliasErrors);
+  blockingErrors.push(...imageIdentityErrors);
   if (blockingErrors.length > 0) {
     report.stopped = true;
     report.blockingErrors = blockingErrors;
     return { report, document: null };
   }
 
-  const document = buildFamilyCatalogDocument(contract, exercises, mapping);
+  const document = buildFamilyCatalogDocument(contract, exercises, mapping, imageIdentityRegistry);
   if (!noWrite) {
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
     await fs.writeFile(outputPath, `${JSON.stringify(document, null, 2)}\n`, 'utf8');
