@@ -72,7 +72,7 @@ function validateAliasTargets(contract, exercises, mapping) {
   return errors;
 }
 
-function validateImageIdentityRegistry(contract, registry) {
+async function validateImageIdentityRegistry(contract, registry, registryPath) {
   const errors = [];
   if (!registry || registry.schemaVersion !== 1) {
     return ['image identity registry schemaVersion must be 1'];
@@ -84,25 +84,67 @@ function validateImageIdentityRegistry(contract, registry) {
   if (!Array.isArray(registry.imageVariants)) errors.push('image identity registry imageVariants must be an array');
   if (!Array.isArray(registry.familyDefaults)) errors.push('image identity registry familyDefaults must be an array');
   const familyIds = new Set(Object.keys(contract.families ?? {}));
+  const registryRoot = path.resolve(path.dirname(registryPath), '..');
+  const validateAssetReference = async (reference, label, expectedBasename = null) => {
+    if (typeof reference !== 'string' || reference.trim().length === 0 || path.isAbsolute(reference)) {
+      errors.push(`${label} must be a non-empty relative path`);
+      return;
+    }
+    const resolved = path.resolve(path.dirname(registryPath), reference);
+    const relativeToRoot = path.relative(registryRoot, resolved);
+    if (!relativeToRoot || relativeToRoot.startsWith('..') || path.isAbsolute(relativeToRoot)) {
+      errors.push(`${label} must remain inside model_image: ${reference}`);
+      return;
+    }
+    if (expectedBasename && path.basename(resolved) !== expectedBasename) {
+      errors.push(`${label} must use ${expectedBasename}`);
+    }
+    try {
+      const stat = await fs.stat(resolved);
+      if (!stat.isFile()) errors.push(`${label} does not reference a file: ${reference}`);
+    } catch {
+      errors.push(`${label} references a missing file: ${reference}`);
+    }
+  };
+  const validateIdentityEntry = async (item, label, requireVisualVariant) => {
+    if (!item || !familyIds.has(item.familyId)
+      || (requireVisualVariant && (typeof item.visualVariantKey !== 'string' || !item.visualVariantKey.trim()))
+      || typeof item.illustrationKey !== 'string' || !item.illustrationKey.trim()) {
+      errors.push(`${label} must declare an existing familyId${requireVisualVariant ? ', visualVariantKey' : ''}, and illustrationKey`);
+      return;
+    }
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(item.illustrationKey)) {
+      errors.push(`${label}.illustrationKey must be kebab-case`);
+    }
+    await validateAssetReference(item.sceneFile, `${label}.sceneFile`);
+    if (!item.frameFiles || typeof item.frameFiles !== 'object' || Array.isArray(item.frameFiles)) {
+      errors.push(`${label}.frameFiles must declare A and B`);
+    } else {
+      for (const frameId of ['A', 'B']) {
+        await validateAssetReference(
+          item.frameFiles[frameId],
+          `${label}.frameFiles.${frameId}`,
+          `${item.illustrationKey}-${frameId.toLowerCase()}.png`,
+        );
+      }
+    }
+    if (item.equipmentViews !== undefined
+      && (!item.equipmentViews || typeof item.equipmentViews !== 'object' || Array.isArray(item.equipmentViews))) {
+      errors.push(`${label}.equipmentViews must be a map when present`);
+    }
+  };
   const seenVariants = new Set();
   for (const [index, item] of (Array.isArray(registry.imageVariants) ? registry.imageVariants : []).entries()) {
-    if (!item || !familyIds.has(item.familyId) || typeof item.visualVariantKey !== 'string'
-      || !item.visualVariantKey.trim() || typeof item.illustrationKey !== 'string'
-      || !item.illustrationKey.trim()) {
-      errors.push(`imageVariants[${index}] must declare an existing familyId, visualVariantKey, and illustrationKey`);
-      continue;
-    }
+    await validateIdentityEntry(item, `imageVariants[${index}]`, true);
+    if (!item || !familyIds.has(item.familyId) || typeof item.visualVariantKey !== 'string' || !item.visualVariantKey.trim()) continue;
     const key = `${item.familyId}\n${item.visualVariantKey}`;
     if (seenVariants.has(key)) errors.push(`imageVariants duplicates ${item.familyId}/${item.visualVariantKey}`);
     seenVariants.add(key);
   }
   const seenDefaults = new Set();
   for (const [index, item] of (Array.isArray(registry.familyDefaults) ? registry.familyDefaults : []).entries()) {
-    if (!item || !familyIds.has(item.familyId) || typeof item.illustrationKey !== 'string'
-      || !item.illustrationKey.trim()) {
-      errors.push(`familyDefaults[${index}] must declare an existing familyId and illustrationKey`);
-      continue;
-    }
+    await validateIdentityEntry(item, `familyDefaults[${index}]`, false);
+    if (!item || !familyIds.has(item.familyId) || typeof item.illustrationKey !== 'string' || !item.illustrationKey.trim()) continue;
     if (seenDefaults.has(item.familyId)) errors.push(`familyDefaults duplicates ${item.familyId}`);
     seenDefaults.add(item.familyId);
   }
@@ -122,7 +164,7 @@ export async function auditLegacyExerciseMapping({ contractPath, legacyPath, out
   const duplicateIds = [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))];
   const mapping = buildLegacyExerciseMapping(contract, exercises);
   const aliasErrors = validateAliasTargets(contract, exercises, mapping);
-  const imageIdentityErrors = validateImageIdentityRegistry(contract, imageIdentityRegistry);
+  const imageIdentityErrors = await validateImageIdentityRegistry(contract, imageIdentityRegistry, resolvedImageIdentityPath);
   const expectedCount = contract.requiredValidation?.legacyExerciseCountExpected ?? contract.sourceBaseline?.baselineExerciseCount;
   const report = {
     contractVersion: contract.contractVersion,

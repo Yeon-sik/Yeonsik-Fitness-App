@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   loadExerciseFamilyContract,
   matchLegacyFamilyRules,
+  resolveImageIdentity,
   validateExerciseFamilyContract,
 } from '../lib/exercise-family-contract.mjs';
 import { auditLegacyExerciseMapping } from '../family/tools/audit-legacy-exercise-mapping.mjs';
@@ -52,4 +54,29 @@ test('legacy audit maps the complete catalog and preserves wall-sit time semanti
     ));
     assert.ok(mergedEntries.every((entry) => entry?.canonicalVariantKey === mergedEntries[0]?.canonicalVariantKey));
   }
+});
+
+test('image identity fallback is exact variant, family default, then placeholder', async () => {
+  const registry = JSON.parse(await fs.readFile(
+    path.join(repositoryRoot, 'model_image', 'data', 'exercise-image-identity-v1.json'),
+    'utf8',
+  ));
+  const exact = resolveImageIdentity(registry, {
+    familyId: 'biceps_curl',
+    visualVariantKey: '{"equipment":"dumbbell","laterality":"bilateral","legacyTokens":["arms","dumbbell","curl"]}',
+  });
+  assert.equal(exact.source, 'exact_visual_variant');
+  assert.equal(exact.illustrationKey, 'dumbbell-curl');
+  const familyDefault = resolveImageIdentity(registry, {
+    familyId: 'biceps_curl',
+    visualVariantKey: '{"equipment":"barbell","laterality":"bilateral"}',
+  });
+  assert.equal(familyDefault.source, 'family_default');
+  assert.equal(familyDefault.illustrationKey, 'dumbbell-curl');
+  const placeholder = resolveImageIdentity(registry, {
+    familyId: 'deadlift',
+    visualVariantKey: '{"equipment":"barbell"}',
+  });
+  assert.equal(placeholder.source, 'placeholder');
+  assert.equal(placeholder.illustrationKey, 'placeholder');
 });

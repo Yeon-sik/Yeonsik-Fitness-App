@@ -5,8 +5,9 @@ import android.content.Context;
 /**
  * Family-aware illustration lookup with legacy exerciseId compatibility.
  *
- * <p>The lookup order is exact visual variant, existing legacy exerciseId compatibility for an
- * exact mapped variant, family default, then placeholder. No image is generated here.</p>
+ * <p>The normative lookup order is exact visual variant, family default, then placeholder.
+ * Existing exerciseId lookup is retained as an explicit compatibility projection for legacy
+ * callers. No image is generated here.</p>
  */
 public final class ExerciseIllustrationLookup {
     private static volatile ExerciseFamilyCatalog cachedFamilyCatalog;
@@ -63,15 +64,6 @@ public final class ExerciseIllustrationLookup {
             return defaultResolution;
         }
 
-        // Existing generated scenes remain a compatibility projection until the new image
-        // registry has an exact variant or family default entry.
-        IllustrationResolution legacy = legacyResolution(
-                identity.legacyExerciseId,
-                "legacy_exercise_id_compatibility"
-        );
-        if (!legacy.isPlaceholder()) {
-            return legacy;
-        }
         return IllustrationResolution.placeholder(identity.legacyExerciseId);
     }
 
@@ -105,9 +97,9 @@ public final class ExerciseIllustrationLookup {
         if (ref == null) {
             return null;
         }
-        String lookupKey = ref.legacyExerciseId;
+        String lookupKey = ref.illustrationKey;
         if (lookupKey == null || lookupKey.trim().isEmpty()) {
-            lookupKey = ref.illustrationKey;
+            lookupKey = ref.legacyExerciseId;
         }
         if (lookupKey == null || lookupKey.trim().isEmpty()) {
             return null;

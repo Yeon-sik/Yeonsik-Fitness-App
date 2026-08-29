@@ -7,9 +7,12 @@ import { createRequire } from "node:module";
 import {
   EXERCISE_SCENE_CONTRACT_TYPE,
   EXERCISE_SCENE_SCHEMA_VERSION,
+  IMAGE_IDENTITY_SOURCES,
   SCENE_FRAME_IDS,
   finalFrameFilename,
+  isIllustrationKey,
   isFinalFrameReference,
+  sceneImageSlug,
 } from "../../lib/scene-contract.mjs";
 
 const require = createRequire(import.meta.url);
@@ -93,12 +96,24 @@ export async function validateAssetManifests({ sharpModulePath, catalogPath, sce
     }
     if (!Array.isArray(scene.equipment)) failIf(true, "MISSING_SCENE_EQUIPMENT", sceneLabel);
     if (new Set(scene.equipment).size !== scene.equipment.length) failIf(true, "DUPLICATE_SCENE_EQUIPMENT", sceneLabel);
+    if (!scene.equipmentViews || typeof scene.equipmentViews !== "object" || Array.isArray(scene.equipmentViews)) {
+      failIf(true, "MISSING_SCENE_EQUIPMENT_VIEWS", sceneLabel);
+    }
     for (const equipmentId of scene.equipment) {
       const asset = equipmentById.get(equipmentId);
       if (!asset) failIf(true, "MISSING_EQUIPMENT", `${sceneLabel}:${equipmentId}`);
       if (asset.status !== "approved") failIf(true, "UNAPPROVED_EQUIPMENT", `${sceneLabel}:${equipmentId}`);
       const expectedView = scene.equipmentViews?.[equipmentId];
-      if (expectedView !== undefined && expectedView !== asset.viewId) failIf(true, "INVALID_EQUIPMENT_VIEW", `${sceneLabel}:${equipmentId}`);
+      if (typeof expectedView !== "string" || expectedView.length === 0) failIf(true, "MISSING_EQUIPMENT_VIEW", `${sceneLabel}:${equipmentId}`);
+      if (expectedView !== asset.viewId) failIf(true, "INVALID_EQUIPMENT_VIEW", `${sceneLabel}:${equipmentId}`);
+      const identityView = scene.imageIdentity.equipmentViews?.[equipmentId]
+        ?? scene.imageIdentity.equipmentViews?.[asset.type];
+      if (identityView !== undefined && identityView !== expectedView) {
+        failIf(true, "MISSING_VIEW", `${sceneLabel}:${equipmentId}:${identityView} != ${expectedView}`);
+      }
+      if (!isEquipmentRenderClassCompatible(scene.renderClass, asset.renderClass)) {
+        failIf(true, "INVALID_EQUIPMENT_RENDER_CLASS", `${sceneLabel}:${equipmentId}:${asset.renderClass}`);
+      }
     }
 
     const renderPolicy = scene.renderPolicy;
@@ -124,13 +139,22 @@ export async function validateAssetManifests({ sharpModulePath, catalogPath, sce
     }
     const slug = scene.slug ?? path.basename(scenePath, ".scene.json");
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) failIf(true, "INVALID_SCENE_SLUG", slug);
+    const imageSlug = sceneImageSlug(scene);
+    if (!isIllustrationKey(imageSlug)) failIf(true, "INVALID_IMAGE_ILLUSTRATION_KEY", imageSlug);
     const placementsByFrame = [];
     const identities = [];
 
     for (const frame of scene.frames) {
-      const expectedName = finalFrameFilename(slug, frame.id);
+      if (frame.id === "B" && frame.derivedFrom !== "A") {
+        failIf(true, "INVALID_AB_DERIVATION", `${sceneLabel}:B must be edited from A`);
+      }
+      const expectedName = finalFrameFilename(imageSlug, frame.id);
       if (!isFinalFrameFile(frame.file, expectedName)) {
         failIf(true, "INVALID_FRAME_FILENAME", `${sceneLabel}:${frame.file}; expected ${expectedName} under final/`);
+      }
+      if (scene.imageIdentity.source !== "placeholder"
+        && path.basename(scene.imageIdentity.frameFiles[frame.id] ?? "") !== expectedName) {
+        failIf(true, "IMAGE_IDENTITY_FRAME_MISMATCH", `${sceneLabel}:${frame.id}`);
       }
       const imagePath = path.resolve(path.dirname(scenePath), frame.file);
       await assertTransparentPng(imagePath, `${sceneLabel}.${frame.id}`, scene.canvas.width, scene.canvas.height, null, true, sharp);
@@ -174,6 +198,22 @@ export async function validateAssetManifests({ sharpModulePath, catalogPath, sce
         if (Math.abs(placementA.rotationDegrees - placementB.rotationDegrees) > 0.5) failIf(true, "LOCKED_EQUIPMENT_ROTATION_DRIFT", `${sceneLabel}:${lockedId}`);
       }
     }
+
+    const lockedKeys = new Set(renderPolicy.lockedEquipment);
+    const placementsA = placementsByFrame[0];
+    const placementsB = placementsByFrame[1];
+    for (const placementA of placementsA) {
+      const placementB = placementsB.find((candidate) => candidate.instanceId === placementA.instanceId);
+      if (!placementB) continue;
+      const asset = equipmentById.get(placementA.equipmentId);
+      const isLocked = lockedKeys.has(placementA.instanceId) || lockedKeys.has(placementA.equipmentId);
+      if (asset.renderClass !== "movable_free_weight" && !isLocked) {
+        failIf(true, "UNLOCKED_FIXED_EQUIPMENT", `${sceneLabel}:${placementA.instanceId}`);
+      }
+      if (Math.abs(placementA.scale - placementB.scale) / placementA.scale > 0.01) {
+        failIf(true, "NON_RIGID_EQUIPMENT_SCALE_DRIFT", `${sceneLabel}:${placementA.instanceId}`);
+      }
+    }
   }
 
   return { valid: true, equipmentAssets: equipmentById.size, scenes: scenePaths.length, frames: frameCount, placements: placementCount };
@@ -185,6 +225,16 @@ function failIf(condition, code, detail = "") {
 
 function assertToken(code, value) {
   failIf(typeof value !== "string" || !/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(value), code, String(value));
+}
+
+function isEquipmentRenderClassCompatible(sceneRenderClass, equipmentRenderClass) {
+  if (sceneRenderClass === "cable_machine") {
+    return ["cable_machine", "fixed_machine", "canonical_attachment"].includes(equipmentRenderClass);
+  }
+  if (sceneRenderClass === "movable_free_weight") {
+    return ["movable_free_weight", "fixed_support"].includes(equipmentRenderClass);
+  }
+  return sceneRenderClass === equipmentRenderClass;
 }
 
 function isPoint(value) {
@@ -212,7 +262,7 @@ function validateSceneRoot(scene, sceneLabel) {
   failIf(scene.schemaVersion !== EXERCISE_SCENE_SCHEMA_VERSION, "INVALID_SCENE_SCHEMA_VERSION", sceneLabel);
   for (const field of [
     "exerciseId", "nameKo", "slug", "archetypeId", "renderClass", "canvas", "camera",
-    "exerciseMetadata", "metadataResolution", "muscleMapping", "equipment", "frames",
+    "exerciseMetadata", "metadataResolution", "imageIdentity", "muscleMapping", "equipment", "equipmentViews", "frames",
     "renderPolicy", "generationContract",
   ]) {
     failIf(scene[field] === undefined || scene[field] === null, "MISSING_SCENE_FIELD", `${sceneLabel}:${field}`);
@@ -238,10 +288,45 @@ function validateSceneRoot(scene, sceneLabel) {
     && metadataResolution.canonicalViewSource === "archetype_camera") {
     failIf(metadata.canonicalView !== undefined, "DUPLICATE_CANONICAL_VIEW_SOURCE", sceneLabel);
   }
+  const cameraView = scene.camera?.viewId ?? scene.camera?.canonicalView ?? scene.camera?.view;
+  failIf(typeof cameraView !== "string" || cameraView.length === 0, "MISSING_CAMERA_VIEW", sceneLabel);
+
+  const imageIdentity = scene.imageIdentity;
+  failIf(!IMAGE_IDENTITY_SOURCES.includes(imageIdentity.source), "INVALID_IMAGE_IDENTITY_SOURCE", sceneLabel);
+  failIf(imageIdentity.familyId !== null && typeof imageIdentity.familyId !== "string", "INVALID_IMAGE_IDENTITY", `${sceneLabel}:familyId`);
+  failIf(imageIdentity.visualVariantKey !== null && typeof imageIdentity.visualVariantKey !== "string", "INVALID_IMAGE_IDENTITY", `${sceneLabel}:visualVariantKey`);
+  failIf(imageIdentity.illustrationKey !== null && !isIllustrationKey(imageIdentity.illustrationKey),
+  "INVALID_IMAGE_IDENTITY", `${sceneLabel}:illustrationKey`);
+  failIf(!imageIdentity.frameFiles || typeof imageIdentity.frameFiles !== "object" || Array.isArray(imageIdentity.frameFiles), "INVALID_IMAGE_IDENTITY", `${sceneLabel}:frameFiles`);
+  failIf(!imageIdentity.equipmentViews || typeof imageIdentity.equipmentViews !== "object" || Array.isArray(imageIdentity.equipmentViews), "INVALID_IMAGE_IDENTITY", `${sceneLabel}:equipmentViews`);
+  if (imageIdentity.source === "placeholder") {
+    failIf(imageIdentity.illustrationKey !== null, "INVALID_PLACEHOLDER_IDENTITY", sceneLabel);
+  } else {
+    failIf(typeof imageIdentity.familyId !== "string" || typeof imageIdentity.visualVariantKey !== "string"
+      || typeof imageIdentity.illustrationKey !== "string" || typeof imageIdentity.sceneFile !== "string",
+    "MISSING_IMAGE_IDENTITY", sceneLabel);
+    for (const frameId of SCENE_FRAME_IDS) {
+      failIf(typeof imageIdentity.frameFiles[frameId] !== "string", "MISSING_IMAGE_IDENTITY_FRAME", `${sceneLabel}:${frameId}`);
+      failIf(path.basename(imageIdentity.frameFiles[frameId] ?? "") !== finalFrameFilename(imageIdentity.illustrationKey, frameId), "IMAGE_IDENTITY_FRAME_MISMATCH", `${sceneLabel}:${frameId}`);
+    }
+  }
   const generation = scene.generationContract;
   failIf(generation.baseFrame !== "A" || generation.derivedFrames?.B !== "edit_from_A", "INVALID_GENERATION_CONTRACT", sceneLabel);
   failIf(!generation.equipmentAnchorStrategy || !generation.prompts?.A || !generation.prompts?.B
     || !Array.isArray(generation.renderSteps), "INVALID_GENERATION_CONTRACT", sceneLabel);
+  failIf(generation.mannequin?.contract !== "mannequin-generation.v1"
+    || generation.mannequin.baseFrame !== "A"
+    || generation.mannequin.derivedFrame !== "B"
+    || generation.mannequin.camera !== "scene.camera"
+    || generation.mannequin.canvas !== "scene.canvas"
+    || generation.mannequin.proportions !== "preserve_from_A"
+    || generation.mannequin.lockedAnchors !== "scene.renderPolicy.lockedAnchors",
+  "INVALID_MANNEQUIN_GENERATION_CONTRACT", sceneLabel);
+  failIf(generation.equipmentComposition?.source !== "canonical_equipment_catalog_v2"
+    || generation.equipmentComposition.frameA !== "compose_approved_equipment"
+    || generation.equipmentComposition.frameB !== "reuse_A_equipment_identity"
+    || generation.equipmentComposition.movingEquipment !== "rigid_transform_only",
+  "INVALID_EQUIPMENT_COMPOSITION_CONTRACT", sceneLabel);
 }
 
 function validateInvisibleGripTargets(scene, frame, sceneLabel) {
@@ -309,9 +394,9 @@ function validatePlacement(scene, frame, placement, index, equipmentById) {
 
 function placementIdentity(asset, placement, index) {
   const key = placement.instanceId ?? `${asset.id}#${index}`;
-  const values = [`${key}|${asset.id}|${asset.file}|${asset.sha256}|primary`];
+  const values = [`${key}|${asset.id}|${asset.viewId}|${asset.file}|${asset.sha256}|primary`];
   if (placement.includeFrontOccluder === true) {
-    values.push(`${key}|${asset.id}|${asset.frontOccluder?.file}|${asset.frontOccluder?.sha256}|frontOccluder`);
+    values.push(`${key}|${asset.id}|${asset.viewId}|${asset.frontOccluder?.file}|${asset.frontOccluder?.sha256}|frontOccluder`);
   }
   return values;
 }

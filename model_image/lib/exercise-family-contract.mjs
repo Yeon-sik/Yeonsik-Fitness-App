@@ -582,6 +582,7 @@ export function buildLegacyExerciseMapping(contract, legacyExercises) {
 }
 
 export function buildFamilyCatalogDocument(contract, legacyExercises, mapping, imageIdentityRegistry = {}) {
+  const imageIdentity = imageIdentityRegistry ?? {};
   const families = Object.fromEntries(Object.entries(contract.families).map(([familyId, family]) => [familyId, {
     familyId,
     nameKo: family.nameKo,
@@ -590,12 +591,33 @@ export function buildFamilyCatalogDocument(contract, legacyExercises, mapping, i
     allowedVariantDimensions: family.allowedVariantDimensions,
     allowedLoadStates: family.allowedLoadStates,
   }]));
-  const approvedPresets = (contract.approvedNewPresets ?? []).map((preset) => ({
-    ...preset,
-    canonicalVariantKey: stableJson(preset.variant ?? {}),
-    visualVariantKey: stableJson(preset.variant ?? {}),
-    illustrationKey: null,
-  }));
+  const approvedPresets = (contract.approvedNewPresets ?? []).map((preset) => {
+    const visualVariantKey = stableJson(preset.variant ?? {});
+    const identity = resolveImageIdentity(imageIdentity, {
+      familyId: preset.familyId,
+      visualVariantKey,
+    });
+    return {
+      ...preset,
+      canonicalVariantKey: visualVariantKey,
+      visualVariantKey,
+      illustrationKey: identity.illustrationKey === 'placeholder' ? null : identity.illustrationKey,
+      imageIdentitySource: identity.source,
+    };
+  });
+  const legacyExercisesWithImageIdentity = mapping.entries.map((entry) => {
+    if (entry.status !== 'mapped') return entry;
+    const identity = resolveImageIdentity(imageIdentity, {
+      familyId: entry.familyId,
+      visualVariantKey: entry.visualVariantKey,
+      legacyExerciseId: entry.legacyExerciseId,
+    });
+    return {
+      ...entry,
+      illustrationKey: identity.illustrationKey === 'placeholder' ? null : identity.illustrationKey,
+      imageIdentitySource: identity.source,
+    };
+  });
   return {
     schemaVersion: 1,
     contractVersion: contract.contractVersion,
@@ -605,12 +627,12 @@ export function buildFamilyCatalogDocument(contract, legacyExercises, mapping, i
     loadStateRules: contract.loadStateRules,
     performance: contract.performanceStats,
     imageIdentity: {
-      ...contract.imageIdentity,
-      imageVariants: imageIdentityRegistry.imageVariants ?? [],
-      familyDefaults: imageIdentityRegistry.familyDefaults ?? [],
+      ...imageIdentity,
+      imageVariants: imageIdentity.imageVariants ?? [],
+      familyDefaults: imageIdentity.familyDefaults ?? [],
     },
     families,
-    legacyExercises: mapping.entries,
+    legacyExercises: legacyExercisesWithImageIdentity,
     approvedPresets,
     canonicalAliasMerges: contract.canonicalAliasMerges,
     searchPresetAliases: contract.searchPresetAliases,
@@ -620,13 +642,18 @@ export function buildFamilyCatalogDocument(contract, legacyExercises, mapping, i
 }
 
 export function resolveImageIdentity(catalog, { familyId, visualVariantKey, legacyExerciseId } = {}) {
-  const fallbackOrder = catalog?.imageIdentity?.fallbackOrder ?? EXPECTED_FALLBACK_ORDER;
-  const exact = (catalog?.imageVariants ?? []).find((item) => item.familyId === familyId && item.visualVariantKey === visualVariantKey);
-  const familyDefault = (catalog?.familyDefaults ?? []).find((item) => item.familyId === familyId);
+  const registry = isObject(catalog?.imageIdentity) ? catalog.imageIdentity : catalog;
+  const fallbackOrder = registry?.fallbackOrder ?? EXPECTED_FALLBACK_ORDER;
+  const exact = (registry?.imageVariants ?? []).find((item) => item.familyId === familyId && item.visualVariantKey === visualVariantKey);
+  const familyDefault = (registry?.familyDefaults ?? []).find((item) => item.familyId === familyId);
   for (const step of fallbackOrder) {
-    if (step === 'exact_visual_variant' && exact) return { ...exact, source: step };
-    if (step === 'family_default' && familyDefault) return { ...familyDefault, source: step };
-    if (step === 'placeholder') return { illustrationKey: 'placeholder', frames: [], source: step, legacyExerciseId: legacyExerciseId ?? null };
+    if (step === 'exact_visual_variant' && exact) {
+      return { ...exact, frames: exact.frameFiles ?? exact.frames ?? [], source: step, legacyExerciseId: legacyExerciseId ?? exact.legacyExerciseId ?? null };
+    }
+    if (step === 'family_default' && familyDefault) {
+      return { ...familyDefault, frames: familyDefault.frameFiles ?? familyDefault.frames ?? [], source: step, legacyExerciseId: legacyExerciseId ?? familyDefault.legacyExerciseId ?? null };
+    }
+    if (step === 'placeholder') return { illustrationKey: 'placeholder', frames: [], frameFiles: {}, source: step, legacyExerciseId: legacyExerciseId ?? null };
   }
   throw new ExerciseFamilyContractError('Image fallback order did not resolve a placeholder.');
 }

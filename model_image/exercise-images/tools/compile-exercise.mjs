@@ -26,7 +26,9 @@ import {
   EXERCISE_SCENE_CONTRACT_TYPE,
   EXERCISE_SCENE_SCHEMA_VERSION,
   finalFrameReference,
+  isIllustrationKey,
 } from "../../lib/scene-contract.mjs";
+import { resolveImageIdentity } from "../../lib/exercise-family-contract.mjs";
 
 const REQUIRED_METADATA_FIELDS = [
   "id", "nameKo", "slug", "movementPattern", "motionType", "equipmentKinematics",
@@ -34,6 +36,9 @@ const REQUIRED_METADATA_FIELDS = [
 ];
 const RENDER_CLASSES = new Set([
   "bodyweight", "movable_free_weight", "fixed_support", "fixed_machine", "cable_machine",
+]);
+const EQUIPMENT_RENDER_CLASSES = new Set([
+  "movable_free_weight", "fixed_support", "fixed_machine", "cable_machine", "canonical_attachment",
 ]);
 
 export function defaultCompilePaths(repositoryRoot) {
@@ -44,6 +49,8 @@ export function defaultCompilePaths(repositoryRoot) {
     overrides: path.join(modelImage, "data", "exercise-overrides.json"),
     archetypes: path.join(modelImage, "archetypes", "archetype-registry.json"),
     deterministicMapping: path.join(modelImage, "archetypes", "deterministic-mapping.json"),
+    familyMapping: path.join(modelImage, "family", "data", "exercise-family-mapping-v1.json"),
+    imageIdentity: path.join(modelImage, "data", "exercise-image-identity-v1.json"),
     equipmentCatalog: path.join(modelImage, "equipment", "equipment-catalog.json"),
     muscleLayers: path.join(modelImage, "style-4", "muscle-layers.json"),
     templateA: path.join(modelImage, "exercise-images", "templates", "mannequin-a.prompt.md"),
@@ -64,6 +71,12 @@ export async function loadCompileContext(paths) {
   const deterministicMapping = paths.deterministicMapping && await pathExists(paths.deterministicMapping)
     ? await readJson(paths.deterministicMapping, ERROR_CODES.MISSING_DETERMINISTIC_MAPPING)
     : { schemaVersion: 1, candidateKeyFields: [], rules: [] };
+  const familyMapping = paths.familyMapping && await pathExists(paths.familyMapping)
+    ? await readJson(paths.familyMapping, ERROR_CODES.INVALID_CONTRACT)
+    : null;
+  const imageIdentity = paths.imageIdentity && await pathExists(paths.imageIdentity)
+    ? await readJson(paths.imageIdentity, ERROR_CODES.INVALID_CONTRACT)
+    : null;
   if (!(await pathExists(paths.equipmentCatalog))) {
     fail(ERROR_CODES.MISSING_EQUIPMENT_CATALOG, "Canonical equipment catalog is missing", {
       expected: paths.equipmentCatalog,
@@ -71,7 +84,18 @@ export async function loadCompileContext(paths) {
     });
   }
   const equipmentCatalog = await readJson(paths.equipmentCatalog, ERROR_CODES.MISSING_EQUIPMENT_CATALOG);
-  return { exerciseCatalog, nameIndex, overrides, archetypes, deterministicMapping, equipmentCatalog, muscleLayers, paths };
+  return {
+    exerciseCatalog,
+    nameIndex,
+    overrides,
+    archetypes,
+    deterministicMapping,
+    familyMapping,
+    imageIdentity,
+    equipmentCatalog,
+    muscleLayers,
+    paths,
+  };
 }
 
 export function resolveExerciseId(exerciseName, nameIndex) {
@@ -118,12 +142,23 @@ export async function inspectExerciseReadiness(exerciseId, context) {
     });
   }
 
+  const imageIdentity = resolveExerciseImageIdentity(exercise, context);
+  const imageIdentityIssue = await validateImageIdentityReadiness(imageIdentity, context);
+  if (imageIdentityIssue) return issue(imageIdentityIssue.code, {
+    exerciseId,
+    ...imageIdentityIssue.details,
+  });
+
   const missingArchetype = missingFields(archetype, [
     "camera", "poses", "lockedJoints", "animatedJoints", "renderClass",
     "canonicalReferenceScene", "equipmentAnchorStrategy", "canvas",
   ]);
   if (missingArchetype.length > 0 || !archetype.poses?.A || !archetype.poses?.B || !RENDER_CLASSES.has(archetype.renderClass)) {
     return issue(ERROR_CODES.MISSING_ARCHETYPE, { exerciseId, archetypeId, fields: missingArchetype });
+  }
+  const cameraViewId = archetype.camera?.viewId ?? archetype.camera?.canonicalView ?? archetype.camera?.view;
+  if (typeof cameraViewId !== "string" || cameraViewId.length === 0) {
+    return issue(ERROR_CODES.MISSING_VIEW, { exerciseId, archetypeId, field: "camera.viewId" });
   }
   const referencePath = path.resolve(path.dirname(context.paths.archetypes), archetype.canonicalReferenceScene);
   if (!(await pathExists(referencePath))) {
@@ -151,12 +186,21 @@ export async function inspectExerciseReadiness(exerciseId, context) {
     });
   }
   const equipmentById = new Map((context.equipmentCatalog.assets ?? []).map((asset) => [asset.id, asset]));
+  const requiredEquipmentViews = resolveEquipmentViewRequirements(archetype, imageIdentity);
+  const equipmentViewConflicts = findEquipmentViewConflicts(archetype, imageIdentity);
+  if (equipmentViewConflicts.length > 0) {
+    return issue(ERROR_CODES.MISSING_VIEW, {
+      exerciseId,
+      conflicts: equipmentViewConflicts,
+    });
+  }
   const normalizedPlacements = { A: [], B: [] };
   for (const frameId of ["A", "B"]) {
     for (const [placementIndex, placement] of placementResolution.frames[frameId].entries()) {
       const asset = equipmentById.get(placement.equipmentId);
-      if (!asset || asset.status !== "approved" || !asset.renderClass
-        || !String(asset.file ?? "").replaceAll("\\", "/").startsWith("final/")) {
+      if (!asset || asset.status !== "approved" || !EQUIPMENT_RENDER_CLASSES.has(asset.renderClass)
+        || typeof asset.viewId !== "string" || !isFinalEquipmentFile(asset.file)
+        || !isRenderClassCompatible(archetype.renderClass, asset.renderClass)) {
         return issue(ERROR_CODES.MISSING_EQUIPMENT, {
           exerciseId,
           frameId,
@@ -164,12 +208,38 @@ export async function inspectExerciseReadiness(exerciseId, context) {
           equipmentId: placement.equipmentId,
           status: asset?.status ?? null,
           renderClass: asset?.renderClass ?? null,
+          sceneRenderClass: archetype.renderClass,
         });
       }
+      if (context.paths.equipmentCatalog && !(await pathExists(path.resolve(path.dirname(context.paths.equipmentCatalog), asset.file)))) {
+        return issue(ERROR_CODES.MISSING_EQUIPMENT, {
+          exerciseId,
+          frameId,
+          placementIndex,
+          equipmentId: placement.equipmentId,
+          file: asset.file,
+          reason: "MISSING_FINAL_ASSET",
+        });
+      }
+      const requiredView = requiredEquipmentView(asset, requiredEquipmentViews);
       if (placement.viewId !== undefined && asset.viewId !== placement.viewId) {
         return issue(ERROR_CODES.MISSING_EQUIPMENT_VIEW, {
           exerciseId, frameId, placementIndex, equipmentId: placement.equipmentId,
           requested: placement.viewId, available: asset.viewId ?? null,
+          reason: ERROR_CODES.MISSING_VIEW,
+        });
+      }
+      if (requiredView !== undefined && asset.viewId !== requiredView) {
+        return issue(ERROR_CODES.MISSING_VIEW, {
+          exerciseId,
+          frameId,
+          placementIndex,
+          equipmentId: placement.equipmentId,
+          requested: requiredView,
+          available: asset.viewId ?? null,
+          cameraViewId: archetype.camera?.viewId ?? archetype.camera?.canonicalView ?? null,
+          reason: ERROR_CODES.MISSING_VIEW,
+          source: requiredEquipmentViews.sources?.[asset.id] ?? requiredEquipmentViews.sources?.[asset.type] ?? null,
         });
       }
       if (!placement.anchor || !Array.isArray(asset.anchors?.[placement.anchor])) {
@@ -203,7 +273,7 @@ export async function inspectExerciseReadiness(exerciseId, context) {
   if (exercise.equipmentType !== "bodyweight" && normalizedPlacements.A.length === 0) {
     return issue(ERROR_CODES.MISSING_PLACEMENT, { exerciseId, field: "equipmentPlacements.A/B" });
   }
-  if (!sameEquipmentIdentity(normalizedPlacements.A, normalizedPlacements.B)) {
+  if (!sameEquipmentIdentity(normalizedPlacements.A, normalizedPlacements.B, equipmentById)) {
     return issue(ERROR_CODES.MISSING_PLACEMENT, { exerciseId, field: "A/B equipment identity" });
   }
 
@@ -238,6 +308,16 @@ export async function inspectExerciseReadiness(exerciseId, context) {
   if (!Array.isArray(lockedEquipment)) {
     return issue(ERROR_CODES.MISSING_LOCKED_EQUIPMENT, { exerciseId, archetypeId });
   }
+  const placementInstances = new Set(normalizedPlacements.A.map((placement) => placement.instanceId));
+  const placementEquipment = new Set(normalizedPlacements.A.map((placement) => placement.equipmentId));
+  if (lockedEquipment.some((item) => !placementInstances.has(item) && !placementEquipment.has(item))) {
+    return issue(ERROR_CODES.MISSING_LOCKED_EQUIPMENT, {
+      exerciseId,
+      archetypeId,
+      lockedEquipment,
+      availableInstances: [...placementInstances],
+    });
+  }
   return {
     ready: true,
     code: "READY",
@@ -252,6 +332,8 @@ export async function inspectExerciseReadiness(exerciseId, context) {
     tolerance,
     equipmentIds,
     lockedEquipment,
+    imageIdentity,
+    requiredEquipmentViews,
     referencePath,
   };
 }
@@ -271,12 +353,15 @@ export async function compileExercise({ exerciseName, context, outputDirectory }
     tolerance,
     equipmentIds,
     lockedEquipment,
+    imageIdentity,
+    requiredEquipmentViews,
     referencePath,
   } = readiness;
   const muscleMapping = buildMuscleMapping(exercise, context.muscleLayers.exerciseGroups);
   const output = outputDirectory ?? path.join(context.paths.outputRoot, exercise.slug);
   const finalDirectory = context.paths.finalDirectory
     ?? path.resolve(context.paths.outputRoot, "..", "final");
+  const imageSlug = imageIdentity.illustrationKey ?? exercise.slug;
   const invisibleGripTargets = {
     A: buildInvisibleGripTargets(normalizedPlacements.A, archetype),
     B: buildInvisibleGripTargets(normalizedPlacements.B, archetype),
@@ -322,6 +407,15 @@ export async function compileExercise({ exerciseName, context, outputDirectory }
     exerciseId,
     nameKo: exercise.nameKo,
     slug: exercise.slug,
+    imageIdentity: {
+      familyId: imageIdentity.familyId,
+      visualVariantKey: imageIdentity.visualVariantKey,
+      illustrationKey: imageIdentity.illustrationKey,
+      source: imageIdentity.source,
+      sceneFile: imageIdentity.sceneFile ?? null,
+      frameFiles: imageIdentity.frameFiles ?? {},
+      equipmentViews: imageIdentity.equipmentViews ?? {},
+    },
     archetypeId: resolveArchetypeId({ exercise, override, deterministic }),
     renderClass: archetype.renderClass,
     canvas: archetype.canvas,
@@ -334,9 +428,13 @@ export async function compileExercise({ exerciseName, context, outputDirectory }
     },
     muscleMapping,
     equipment: equipmentIds,
+    equipmentViews: Object.fromEntries(equipmentIds.map((equipmentId) => [
+      equipmentId,
+      normalizedPlacements.A.find((placement) => placement.equipmentId === equipmentId)?.viewId,
+    ])),
     frames: [
-      frameContract("A", exercise.slug, archetype.poses.A, normalizedPlacements.A, invisibleGripTargets.A, output, finalDirectory),
-      frameContract("B", exercise.slug, archetype.poses.B, normalizedPlacements.B, invisibleGripTargets.B, output, finalDirectory),
+      frameContract("A", imageSlug, archetype.poses.A, normalizedPlacements.A, invisibleGripTargets.A, output, finalDirectory),
+      frameContract("B", imageSlug, archetype.poses.B, normalizedPlacements.B, invisibleGripTargets.B, output, finalDirectory),
     ],
     renderPolicy: {
       lockedJoints: archetype.lockedJoints,
@@ -353,6 +451,21 @@ export async function compileExercise({ exerciseName, context, outputDirectory }
       prompts: { A: "prompt-a.md", B: "prompt-b-edit.md" },
       invisibleGripTargets,
       renderSteps: renderSteps(archetype.renderClass),
+      mannequin: {
+        contract: "mannequin-generation.v1",
+        baseFrame: "A",
+        derivedFrame: "B",
+        camera: "scene.camera",
+        canvas: "scene.canvas",
+        proportions: "preserve_from_A",
+        lockedAnchors: "scene.renderPolicy.lockedAnchors",
+      },
+      equipmentComposition: {
+        source: "canonical_equipment_catalog_v2",
+        frameA: "compose_approved_equipment",
+        frameB: "reuse_A_equipment_identity",
+        movingEquipment: "rigid_transform_only",
+      },
     },
   };
   await fs.mkdir(output, { recursive: true });
@@ -368,6 +481,151 @@ export async function compileExercise({ exerciseName, context, outputDirectory }
 
 function issue(code, details) {
   return { ready: false, code, details };
+}
+
+function mappingEntryForExercise(exercise, context) {
+  return context.familyMapping?.legacyExercises?.find(
+    (entry) => entry.status === "mapped" && entry.legacyExerciseId === exercise.id,
+  ) ?? null;
+}
+
+function resolveExerciseImageIdentity(exercise, context) {
+  const mapping = mappingEntryForExercise(exercise, context);
+  const familyId = mapping?.familyId ?? exercise.familyId ?? null;
+  const visualVariantKey = mapping?.visualVariantKey ?? exercise.visualVariantKey ?? null;
+  const registry = context.imageIdentity ?? context.familyMapping?.imageIdentity ?? null;
+  if (!registry || !familyId || !visualVariantKey) {
+    return {
+      familyId,
+      visualVariantKey,
+      illustrationKey: null,
+      sceneFile: null,
+      frameFiles: {},
+      equipmentViews: {},
+      source: "placeholder",
+    };
+  }
+  const resolved = resolveImageIdentity(registry, {
+    familyId,
+    visualVariantKey,
+    legacyExerciseId: exercise.id,
+  });
+  return {
+    ...resolved,
+    familyId,
+    visualVariantKey,
+    illustrationKey: resolved.illustrationKey === "placeholder" ? null : resolved.illustrationKey,
+    frameFiles: resolved.frameFiles ?? resolved.frames ?? {},
+    equipmentViews: resolved.equipmentViews ?? {},
+  };
+}
+
+async function validateImageIdentityReadiness(identity, context) {
+  if (identity.source === "placeholder") return null;
+  if (!["exact_visual_variant", "family_default"].includes(identity.source)) {
+    return { code: ERROR_CODES.INVALID_IMAGE_IDENTITY, details: { source: identity.source } };
+  }
+  if (typeof identity.familyId !== "string" || typeof identity.visualVariantKey !== "string"
+    || typeof identity.illustrationKey !== "string"
+    || !isIllustrationKey(identity.illustrationKey)
+    || typeof identity.sceneFile !== "string") {
+    return { code: ERROR_CODES.MISSING_IMAGE_IDENTITY, details: { source: identity.source } };
+  }
+  if (!identity.frameFiles || typeof identity.frameFiles !== "object" || Array.isArray(identity.frameFiles)) {
+    return { code: ERROR_CODES.MISSING_IMAGE_ASSET, details: { illustrationKey: identity.illustrationKey, field: "frameFiles" } };
+  }
+  const references = [["sceneFile", identity.sceneFile]];
+  for (const frameId of ["A", "B"]) references.push([`frameFiles.${frameId}`, identity.frameFiles[frameId]]);
+  for (const [field, reference] of references) {
+    if (typeof reference !== "string" || path.isAbsolute(reference) || reference.trim().length === 0) {
+      return { code: ERROR_CODES.INVALID_IMAGE_IDENTITY, details: { illustrationKey: identity.illustrationKey, field } };
+    }
+    if (field.startsWith("frameFiles.")) {
+      const frameId = field.endsWith(".A") ? "a" : "b";
+      if (path.basename(reference) !== `${identity.illustrationKey}-${frameId}.png`) {
+        return { code: ERROR_CODES.INVALID_IMAGE_IDENTITY, details: { illustrationKey: identity.illustrationKey, field, reference } };
+      }
+    }
+    if (context.paths.imageIdentity) {
+      const resolved = path.resolve(path.dirname(context.paths.imageIdentity), reference);
+      if (!(await pathExists(resolved))) {
+        return { code: ERROR_CODES.MISSING_IMAGE_ASSET, details: { illustrationKey: identity.illustrationKey, field, reference: resolved } };
+      }
+    }
+  }
+  if (identity.equipmentViews !== undefined
+    && (!identity.equipmentViews || typeof identity.equipmentViews !== "object" || Array.isArray(identity.equipmentViews)
+      || Object.entries(identity.equipmentViews).some(([key, value]) => !key || typeof value !== "string" || !value))) {
+    return { code: ERROR_CODES.INVALID_IMAGE_IDENTITY, details: { illustrationKey: identity.illustrationKey, field: "equipmentViews" } };
+  }
+  return null;
+}
+
+function viewRequirementsFrom(source, sourceName) {
+  if (!source || typeof source !== "object" || Array.isArray(source)) return { map: {}, sources: {} };
+  return {
+    map: Object.fromEntries(Object.entries(source).filter(([, value]) => value !== null && value !== undefined)),
+    sources: Object.fromEntries(Object.keys(source).map((key) => [key, sourceName])),
+  };
+}
+
+function resolveEquipmentViewRequirements(archetype, imageIdentity) {
+  const sources = [
+    viewRequirementsFrom(archetype?.equipmentViews, "archetype.equipmentViews"),
+    viewRequirementsFrom(archetype?.requiredEquipmentViews, "archetype.requiredEquipmentViews"),
+    viewRequirementsFrom(imageIdentity?.equipmentViews, `image_identity.${imageIdentity?.source ?? "unknown"}`),
+  ];
+  const map = {};
+  const sourceMap = {};
+  for (const source of sources) {
+    for (const [key, value] of Object.entries(source.map)) {
+      if (map[key] === undefined) {
+        map[key] = value;
+        sourceMap[key] = source.sources[key];
+      }
+    }
+  }
+  return { map, sources: sourceMap };
+}
+
+function findEquipmentViewConflicts(archetype, imageIdentity) {
+  const sources = [
+    viewRequirementsFrom(archetype?.equipmentViews, "archetype.equipmentViews"),
+    viewRequirementsFrom(archetype?.requiredEquipmentViews, "archetype.requiredEquipmentViews"),
+    viewRequirementsFrom(imageIdentity?.equipmentViews, `image_identity.${imageIdentity?.source ?? "unknown"}`),
+  ];
+  const conflicts = [];
+  const values = new Map();
+  for (const source of sources) {
+    for (const [key, value] of Object.entries(source.map)) {
+      const previous = values.get(key);
+      if (previous && previous.value !== value) {
+        conflicts.push({ key, values: [previous.value, value], sources: [previous.source, source.sources[key]] });
+      } else if (!previous) {
+        values.set(key, { value, source: source.sources[key] });
+      }
+    }
+  }
+  return conflicts;
+}
+
+function requiredEquipmentView(asset, requirements) {
+  return requirements.map[asset.id] ?? requirements.map[asset.type];
+}
+
+function isFinalEquipmentFile(file) {
+  return typeof file === "string"
+    && /^final\/[a-z0-9]+(?:[-_][a-z0-9]+)*\.png$/.test(file.replaceAll("\\", "/"));
+}
+
+function isRenderClassCompatible(sceneRenderClass, equipmentRenderClass) {
+  if (sceneRenderClass === "cable_machine") {
+    return ["cable_machine", "fixed_machine", "canonical_attachment"].includes(equipmentRenderClass);
+  }
+  if (sceneRenderClass === "movable_free_weight") {
+    return ["movable_free_weight", "fixed_support"].includes(equipmentRenderClass);
+  }
+  return sceneRenderClass === equipmentRenderClass;
 }
 
 function own(object, key) {
@@ -403,9 +661,21 @@ function buildMuscleMapping(exercise, groups) {
   };
 }
 
-function sameEquipmentIdentity(left, right) {
+function sameEquipmentIdentity(left, right, equipmentById = new Map()) {
   const ids = (placements) => placements
-    .map((item) => `${item.instanceId}|${item.equipmentId}|${item.viewId}`)
+    .map((item) => {
+      const asset = equipmentById.get(item.equipmentId);
+      return [
+        item.instanceId,
+        item.equipmentId,
+        item.viewId,
+        asset?.file ?? null,
+        asset?.sha256 ?? null,
+        item.includeFrontOccluder === true,
+        item.includeFrontOccluder === true ? asset?.frontOccluder?.file ?? null : null,
+        item.includeFrontOccluder === true ? asset?.frontOccluder?.sha256 ?? null : null,
+      ].join("|");
+    })
     .sort();
   return JSON.stringify(ids(left)) === JSON.stringify(ids(right));
 }
@@ -434,6 +704,7 @@ function frameContract(id, slug, pose, equipmentPlacements, invisibleGripTargets
     id,
     file: finalFrameReference(outputDirectory, finalDirectory, slug, id),
     mannequinFile: `${slug}-${lower}-mannequin.png`,
+    ...(id === "B" ? { derivedFrom: "A" } : {}),
     pose,
     equipmentPlacements,
     invisibleGripTargets,
@@ -457,6 +728,7 @@ function parseArguments(argv, defaults) {
     "--exercise-catalog": "exerciseCatalog", "--name-index": "nameIndex",
     "--overrides": "overrides", "--archetypes": "archetypes",
     "--deterministic-mapping": "deterministicMapping",
+    "--family-mapping": "familyMapping", "--image-identity": "imageIdentity",
     "--equipment-catalog": "equipmentCatalog", "--muscle-layers": "muscleLayers",
     "--template-a": "templateA", "--template-b": "templateB", "--output-root": "outputRoot",
     "--final-directory": "finalDirectory",

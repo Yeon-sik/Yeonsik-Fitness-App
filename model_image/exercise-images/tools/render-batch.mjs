@@ -18,7 +18,15 @@ export async function compileBatch({ exerciseNames, context, outputDirectory }) 
   for (const exerciseName of exerciseNames) {
     try {
       const result = await compileExercise({ exerciseName, context, outputDirectory: null });
-      items.push({ exerciseName, exerciseId: result.scene.exerciseId, slug: result.scene.slug, status: "COMPILED", directory: result.outputDirectory });
+      items.push({
+        exerciseName,
+        exerciseId: result.scene.exerciseId,
+        slug: result.scene.slug,
+        illustrationKey: result.scene.imageIdentity.illustrationKey ?? result.scene.slug,
+        imageIdentitySource: result.scene.imageIdentity.source,
+        status: "COMPILED",
+        directory: result.outputDirectory,
+      });
     } catch (error) {
       items.push({
         exerciseName,
@@ -34,7 +42,7 @@ export async function compileBatch({ exerciseNames, context, outputDirectory }) 
     generationApi: null,
     status: items.every((item) => item.status === "COMPILED") ? "COMPILED" : "BLOCKED",
     zipStatus: "NOT_CREATED",
-    zipPolicy: "ZIP is created only after every item has validated <slug>-a.png and <slug>-b.png outputs",
+    zipPolicy: "ZIP is created only after every item has validated <illustrationKey>-a.png and <illustrationKey>-b.png outputs",
     items,
   };
   await writeJson(path.join(outputDirectory, "batch-manifest.json"), manifest);
@@ -53,6 +61,8 @@ async function main() {
     const argument = process.argv[index];
     if (argument === "--equipment-catalog") paths.equipmentCatalog = path.resolve(process.argv[++index]);
     else if (argument === "--deterministic-mapping") paths.deterministicMapping = path.resolve(process.argv[++index]);
+    else if (argument === "--family-mapping") paths.familyMapping = path.resolve(process.argv[++index]);
+    else if (argument === "--image-identity") paths.imageIdentity = path.resolve(process.argv[++index]);
     else if (argument === "--final-directory") paths.finalDirectory = path.resolve(process.argv[++index]);
     else if (argument === "--out") outputDirectory = path.resolve(process.argv[++index]);
     else throw new Error(`Unexpected argument: ${argument}`);

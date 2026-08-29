@@ -23,6 +23,8 @@ export async function renderExercise({ exerciseName, context, outputDirectory, a
     generationApi: null,
     exerciseId: scene.exerciseId,
     slug: scene.slug,
+    illustrationKey: scene.imageIdentity.illustrationKey ?? scene.slug,
+    imageIdentitySource: scene.imageIdentity.source,
     status: "BLOCKED",
     currentStep: "generate_A_mannequin",
     adapter: adapterPath,
@@ -76,6 +78,7 @@ function parseArguments(argv, defaults) {
     "--exercise-catalog": "exerciseCatalog", "--name-index": "nameIndex",
     "--overrides": "overrides", "--archetypes": "archetypes",
     "--deterministic-mapping": "deterministicMapping",
+    "--family-mapping": "familyMapping", "--image-identity": "imageIdentity",
     "--equipment-catalog": "equipmentCatalog", "--muscle-layers": "muscleLayers",
     "--final-directory": "finalDirectory",
   };

@@ -35,8 +35,8 @@
           0.84
         ]
       },
-      "status": null,
-      "renderClass": null
+      "status": "approved",
+      "renderClass": "fixed_support"
     },
     {
       "id": "barbell_loaded_three_quarter_v1",
@@ -68,8 +68,8 @@
           0.43
         ]
       },
-      "status": null,
-      "renderClass": null
+      "status": "approved",
+      "renderClass": "movable_free_weight"
     },
     {
       "id": "dumbbell_adjustable_three_quarter_v1",
@@ -101,8 +101,8 @@
           0.32
         ]
       },
-      "status": null,
-      "renderClass": null
+      "status": "approved",
+      "renderClass": "movable_free_weight"
     },
     {
       "id": "kettlebell_competition_front_v1",
@@ -134,8 +134,8 @@
           0.845
         ]
       },
-      "status": null,
-      "renderClass": null
+      "status": "approved",
+      "renderClass": "movable_free_weight"
     },
     {
       "id": "lat_pulldown_machine_rear_three_quarter_v1",
@@ -171,8 +171,8 @@
           0.88
         ]
       },
-      "status": null,
-      "renderClass": null
+      "status": "approved",
+      "renderClass": "fixed_machine"
     }
   ]
 }

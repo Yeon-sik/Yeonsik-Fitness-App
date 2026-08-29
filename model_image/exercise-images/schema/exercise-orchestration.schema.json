@@ -15,8 +15,10 @@
     "camera",
     "exerciseMetadata",
     "metadataResolution",
+    "imageIdentity",
     "muscleMapping",
     "equipment",
+    "equipmentViews",
     "frames",
     "renderPolicy",
     "generationContract"
@@ -40,7 +42,15 @@
       },
       "additionalProperties": false
     },
-    "camera": { "type": "object", "minProperties": 1 },
+    "camera": {
+      "type": "object",
+      "minProperties": 1,
+      "anyOf": [
+        { "required": ["viewId"] },
+        { "required": ["canonicalView"] },
+        { "required": ["view"] }
+      ]
+    },
     "exerciseMetadata": {
       "type": "object",
       "required": [
@@ -87,6 +97,30 @@
       },
       "additionalProperties": false
     },
+    "imageIdentity": {
+      "type": "object",
+      "required": ["familyId", "visualVariantKey", "illustrationKey", "source", "sceneFile", "frameFiles", "equipmentViews"],
+      "properties": {
+        "familyId": { "type": ["string", "null"] },
+        "visualVariantKey": { "type": ["string", "null"] },
+        "illustrationKey": { "type": ["string", "null"], "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "source": { "enum": ["exact_visual_variant", "family_default", "placeholder"] },
+        "sceneFile": { "type": ["string", "null"] },
+        "frameFiles": {
+          "type": "object",
+          "properties": {
+            "A": { "type": "string" },
+            "B": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "equipmentViews": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
     "muscleMapping": {
       "type": "object",
       "required": ["primaryGroup", "primaryLayers", "secondaryGroups", "secondaryLayers"],
@@ -99,6 +133,10 @@
       "additionalProperties": false
     },
     "equipment": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "equipmentViews": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
     "frames": {
       "type": "array",
       "minItems": 2,
@@ -122,7 +160,7 @@
     },
     "generationContract": {
       "type": "object",
-      "required": ["baseFrame", "derivedFrames", "referenceScene", "equipmentAnchorStrategy", "prompts", "renderSteps"],
+      "required": ["baseFrame", "derivedFrames", "referenceScene", "equipmentAnchorStrategy", "prompts", "renderSteps", "mannequin", "equipmentComposition"],
       "properties": {
         "baseFrame": { "const": "A" },
         "derivedFrames": {
@@ -152,6 +190,31 @@
           "type": "array",
           "minItems": 1,
           "items": { "type": "string", "minLength": 1 }
+        },
+        "mannequin": {
+          "type": "object",
+          "required": ["contract", "baseFrame", "derivedFrame", "camera", "canvas", "proportions", "lockedAnchors"],
+          "properties": {
+            "contract": { "const": "mannequin-generation.v1" },
+            "baseFrame": { "const": "A" },
+            "derivedFrame": { "const": "B" },
+            "camera": { "const": "scene.camera" },
+            "canvas": { "const": "scene.canvas" },
+            "proportions": { "const": "preserve_from_A" },
+            "lockedAnchors": { "const": "scene.renderPolicy.lockedAnchors" }
+          },
+          "additionalProperties": false
+        },
+        "equipmentComposition": {
+          "type": "object",
+          "required": ["source", "frameA", "frameB", "movingEquipment"],
+          "properties": {
+            "source": { "const": "canonical_equipment_catalog_v2" },
+            "frameA": { "const": "compose_approved_equipment" },
+            "frameB": { "const": "reuse_A_equipment_identity" },
+            "movingEquipment": { "const": "rigid_transform_only" }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -188,6 +251,7 @@
         "id": { "enum": ["A", "B"] },
         "file": { "type": "string", "pattern": "^(?:\\.\\./)+final/[a-z0-9]+(?:-[a-z0-9]+)*-(?:a|b)\\.png$" },
         "mannequinFile": { "type": "string" },
+        "derivedFrom": { "const": "A" },
         "pose": { "type": "object", "minProperties": 1 },
         "equipmentPlacements": { "type": "array", "items": { "$ref": "#/$defs/placement" } },
         "invisibleGripTargets": {
@@ -213,7 +277,7 @@
       "additionalProperties": false
     },
     "frameA": { "allOf": [{ "$ref": "#/$defs/frame" }, { "properties": { "id": { "const": "A" } } }] },
-    "frameB": { "allOf": [{ "$ref": "#/$defs/frame" }, { "properties": { "id": { "const": "B" } } }] }
+    "frameB": { "allOf": [{ "$ref": "#/$defs/frame" }, { "required": ["derivedFrom"], "properties": { "id": { "const": "B" } } }] }
   },
   "additionalProperties": false
 }

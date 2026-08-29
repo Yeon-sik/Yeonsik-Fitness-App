@@ -42,6 +42,25 @@ test("readiness rejects a mismatched equipment view", async () => {
   assert.equal((await inspectExerciseReadiness("test", context)).code, "MISSING_EQUIPMENT_VIEW");
 });
 
+test("readiness reports MISSING_VIEW when the visual variant requires an unavailable canonical view", async () => {
+  const context = await readyContext();
+  context.exerciseCatalog.exercises[0].familyId = "biceps_curl";
+  context.exerciseCatalog.exercises[0].visualVariantKey = "variant";
+  context.imageIdentity = {
+    fallbackOrder: ["exact_visual_variant", "family_default", "placeholder"],
+    imageVariants: [{
+      familyId: "biceps_curl",
+      visualVariantKey: "variant",
+      illustrationKey: "variant",
+      sceneFile: "variant.scene.json",
+      frameFiles: { A: "variant-a.png", B: "variant-b.png" },
+      equipmentViews: { dumbbell: "side" },
+    }],
+    familyDefaults: [],
+  };
+  assert.equal((await inspectExerciseReadiness("test", context)).code, "MISSING_VIEW");
+});
+
 async function readyContext() {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "fitness-readiness-"));
   const reference = path.join(root, "reference.scene.json");
@@ -99,6 +118,7 @@ async function readyContext() {
     } } },
     equipmentCatalog: { assets: [{
       id: "equipment_v1",
+      type: "dumbbell",
       status: "approved",
       renderClass: "movable_free_weight",
       file: "final/equipment.png",

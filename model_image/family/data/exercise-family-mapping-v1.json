@@ -65,15 +65,112 @@
     "performanceKey": "familyId + canonicalVariantKey + relevantLoadSemantics"
   },
   "imageIdentity": {
-    "target": "familyId + visualVariantKey -> illustrationKey -> A/B images",
+    "schemaVersion": 1,
     "fallbackOrder": [
       "exact_visual_variant",
       "family_default",
       "placeholder"
     ],
-    "rule": "Load-state changes such as +10kg vs +20kg do not create separate illustration identity.",
-    "imageVariants": [],
-    "familyDefaults": []
+    "imageVariants": [
+      {
+        "familyId": "pull_up",
+        "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"bodyweight\",\"pull\",\"up\"]}",
+        "illustrationKey": "pull-up",
+        "sceneFile": "../exercise-images/scenes/pull-up.scene.json",
+        "frameFiles": {
+          "A": "../exercise-images/final/pull-up-a.png",
+          "B": "../exercise-images/final/pull-up-b.png"
+        }
+      },
+      {
+        "familyId": "biceps_curl",
+        "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"curl\"]}",
+        "illustrationKey": "dumbbell-curl",
+        "sceneFile": "../exercise-images/scenes/dumbbell-curl.scene.json",
+        "frameFiles": {
+          "A": "../exercise-images/final/dumbbell-curl-a.png",
+          "B": "../exercise-images/final/dumbbell-curl-b.png"
+        },
+        "equipmentViews": {
+          "dumbbell": "elevated_front_three_quarter"
+        }
+      },
+      {
+        "familyId": "squat",
+        "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"back\",\"squat\"]}",
+        "illustrationKey": "barbell-back-squat",
+        "sceneFile": "../exercise-images/scenes/barbell-back-squat.scene.json",
+        "frameFiles": {
+          "A": "../exercise-images/final/barbell-back-squat-a.png",
+          "B": "../exercise-images/final/barbell-back-squat-b.png"
+        },
+        "equipmentViews": {
+          "barbell": "slight_rising_three_quarter"
+        }
+      },
+      {
+        "familyId": "bench_press",
+        "visualVariantKey": "{\"angle\":\"flat\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"bench\",\"press\"]}",
+        "illustrationKey": "barbell-flat-bench-press",
+        "sceneFile": "../exercise-images/scenes/barbell-flat-bench-press.scene.json",
+        "frameFiles": {
+          "A": "../exercise-images/final/barbell-flat-bench-press-a.png",
+          "B": "../exercise-images/final/barbell-flat-bench-press-b.png"
+        },
+        "equipmentViews": {
+          "flat_bench": "elevated_front_three_quarter",
+          "barbell": "slight_rising_three_quarter"
+        }
+      }
+    ],
+    "familyDefaults": [
+      {
+        "familyId": "pull_up",
+        "illustrationKey": "pull-up",
+        "sceneFile": "../exercise-images/scenes/pull-up.scene.json",
+        "frameFiles": {
+          "A": "../exercise-images/final/pull-up-a.png",
+          "B": "../exercise-images/final/pull-up-b.png"
+        }
+      },
+      {
+        "familyId": "biceps_curl",
+        "illustrationKey": "dumbbell-curl",
+        "sceneFile": "../exercise-images/scenes/dumbbell-curl.scene.json",
+        "frameFiles": {
+          "A": "../exercise-images/final/dumbbell-curl-a.png",
+          "B": "../exercise-images/final/dumbbell-curl-b.png"
+        },
+        "equipmentViews": {
+          "dumbbell": "elevated_front_three_quarter"
+        }
+      },
+      {
+        "familyId": "squat",
+        "illustrationKey": "barbell-back-squat",
+        "sceneFile": "../exercise-images/scenes/barbell-back-squat.scene.json",
+        "frameFiles": {
+          "A": "../exercise-images/final/barbell-back-squat-a.png",
+          "B": "../exercise-images/final/barbell-back-squat-b.png"
+        },
+        "equipmentViews": {
+          "barbell": "slight_rising_three_quarter"
+        }
+      },
+      {
+        "familyId": "bench_press",
+        "illustrationKey": "barbell-flat-bench-press",
+        "sceneFile": "../exercise-images/scenes/barbell-flat-bench-press.scene.json",
+        "frameFiles": {
+          "A": "../exercise-images/final/barbell-flat-bench-press-a.png",
+          "B": "../exercise-images/final/barbell-flat-bench-press-b.png"
+        },
+        "equipmentViews": {
+          "flat_bench": "elevated_front_three_quarter",
+          "barbell": "slight_rising_three_quarter"
+        }
+      }
+    ]
   },
   "families": {
     "push_up": {
@@ -1654,7 +1751,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_bodyweight_chest_dip",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -1698,7 +1796,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_bodyweight_incline_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -1742,7 +1841,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_machine_decline_chest_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -1782,11 +1882,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"decline\",\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"angle\":\"decline\",\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_decline_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -1828,7 +1929,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_decline_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -1868,11 +1970,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"decline\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"angle\":\"decline\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_barbell_decline_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -1912,11 +2015,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"decline\",\"equipment\":\"smith_machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"smith\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"angle\":\"decline\",\"equipment\":\"smith_machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"smith\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_smith_decline_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -1961,7 +2065,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_cable_high_to_low_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2008,7 +2113,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_cable_single_arm_high_to_low_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2051,7 +2157,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_bodyweight_wide_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2092,7 +2199,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_machine_chest_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2137,7 +2245,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_machine_iso_lateral_chest_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2175,7 +2284,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_machine_pec_deck_fly",
         "canonicalAliasMerge": "machine_chest_fly"
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2220,7 +2330,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_machine_plate_loaded_chest_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2260,11 +2371,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"flat\",\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"angle\":\"flat\",\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_flat_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -2303,11 +2415,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_single_arm_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -2349,7 +2462,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_flat_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2389,11 +2503,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"bench\",\"press\"],\"technique\":\"pause\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"bench\",\"press\"],\"technique\":\"pause\"}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_barbell_pause_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -2433,11 +2548,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"flat\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"angle\":\"flat\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_barbell_flat_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "exact_visual_variant"
     },
     {
       "status": "mapped",
@@ -2474,11 +2590,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"floor\",\"press\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"floor\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_barbell_floor_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -2518,11 +2635,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"flat\",\"equipment\":\"smith_machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"smith\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"angle\":\"flat\",\"equipment\":\"smith_machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"smith\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_smith_flat_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -2565,7 +2683,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_bodyweight_weighted_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2606,7 +2725,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_bodyweight_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2643,7 +2763,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_machine_chest_fly",
         "canonicalAliasMerge": "machine_chest_fly"
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2681,11 +2802,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"gripOrientation\":\"neutral\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"press\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"gripOrientation\":\"neutral\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_neutral_grip_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -2726,7 +2848,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_squeeze_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2762,7 +2885,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_pullover",
         "canonicalAliasMerge": "dumbbell_pullover"
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2803,7 +2927,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_cable_single_arm_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2847,7 +2972,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_cable_standing_chest_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2890,7 +3016,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_cable_single_arm_chest_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2929,7 +3056,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_cable_crossover",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -2970,7 +3098,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_band_chest_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3011,7 +3140,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_band_chest_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3052,7 +3182,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_band_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3093,7 +3224,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_plate_squeeze_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3137,7 +3269,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_bodyweight_decline_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3181,7 +3314,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_machine_incline_chest_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3227,7 +3361,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_machine_plate_loaded_incline_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3267,11 +3402,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"incline\",\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"angle\":\"incline\",\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_incline_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -3310,11 +3446,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"incline\",\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"press\"]}",
       "visualVariantKey": "{\"angle\":\"incline\",\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"chest\",\"dumbbell\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_single_arm_incline_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -3356,7 +3493,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_dumbbell_incline_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3393,11 +3531,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"guillotine\",\"press\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"guillotine\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_barbell_guillotine_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -3437,11 +3576,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"incline\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"angle\":\"incline\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_barbell_incline_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -3481,11 +3621,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"incline\",\"equipment\":\"smith_machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"smith\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"angle\":\"incline\",\"equipment\":\"smith_machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"smith\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "chest_smith_incline_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -3530,7 +3671,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_cable_low_to_high_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3577,7 +3719,8 @@
       "compatibility": {
         "legacyExerciseId": "chest_cable_single_arm_low_to_high_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3618,7 +3761,8 @@
       "compatibility": {
         "legacyExerciseId": "back_bodyweight_reverse_hyperextension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3659,7 +3803,8 @@
       "compatibility": {
         "legacyExerciseId": "back_bodyweight_back_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3700,7 +3845,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_reverse_hyperextension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3741,7 +3887,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_back_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3782,7 +3929,8 @@
       "compatibility": {
         "legacyExerciseId": "back_barbell_rack_pull",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3821,7 +3969,8 @@
       "compatibility": {
         "legacyExerciseId": "back_barbell_deadlift",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3864,7 +4013,8 @@
       "compatibility": {
         "legacyExerciseId": "back_barbell_snatch_grip_deadlift",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3904,11 +4054,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"gripOrientation\":\"neutral\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"bodyweight\",\"pull\",\"up\"]}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"gripOrientation\":\"neutral\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"bodyweight\",\"pull\",\"up\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "pull-up",
       "compatibility": {
         "legacyExerciseId": "back_bodyweight_neutral_grip_pull_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -3951,7 +4102,8 @@
       "compatibility": {
         "legacyExerciseId": "back_bodyweight_scapular_pull_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -3991,11 +4143,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"gripWidth\":\"wide\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"bodyweight\",\"pull\",\"up\"]}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"gripWidth\":\"wide\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"bodyweight\",\"pull\",\"up\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "pull-up",
       "compatibility": {
         "legacyExerciseId": "back_bodyweight_wide_grip_pull_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -4032,11 +4185,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"bodyweight\",\"chin\",\"up\"]}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"bodyweight\",\"chin\",\"up\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "pull-up",
       "compatibility": {
         "legacyExerciseId": "back_bodyweight_chin_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -4073,11 +4227,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"bodyweight\",\"pull\",\"up\"]}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"bodyweight\",\"pull\",\"up\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "pull-up",
       "compatibility": {
         "legacyExerciseId": "back_bodyweight_pull_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "exact_visual_variant"
     },
     {
       "status": "mapped",
@@ -4121,7 +4276,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_neutral_grip_lat_pulldown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4162,7 +4318,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_lat_pulldown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4203,7 +4360,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_low_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4247,7 +4405,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_reverse_grip_lat_pulldown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4286,7 +4445,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_pullover",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4325,11 +4485,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"machine\",\"assisted\",\"pull\",\"up\"]}",
       "visualVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"machine\",\"assisted\",\"pull\",\"up\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "pull-up",
       "compatibility": {
         "legacyExerciseId": "back_machine_assisted_pull_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -4373,7 +4534,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_wide_grip_lat_pulldown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4414,7 +4576,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_high_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4450,7 +4613,8 @@
       "compatibility": {
         "legacyExerciseId": "back_dumbbell_pullover",
         "canonicalAliasMerge": "dumbbell_pullover"
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4491,7 +4655,8 @@
       "compatibility": {
         "legacyExerciseId": "back_dumbbell_one_arm_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4533,7 +4698,8 @@
       "compatibility": {
         "legacyExerciseId": "back_dumbbell_kroc_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4575,7 +4741,8 @@
       "compatibility": {
         "legacyExerciseId": "back_barbell_yates_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4618,7 +4785,8 @@
       "compatibility": {
         "legacyExerciseId": "back_cable_straight_arm_pulldown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4663,7 +4831,8 @@
       "compatibility": {
         "legacyExerciseId": "back_cable_single_arm_straight_arm_pulldown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4706,7 +4875,8 @@
       "compatibility": {
         "legacyExerciseId": "back_cable_single_arm_lat_pulldown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4747,7 +4917,8 @@
       "compatibility": {
         "legacyExerciseId": "back_cable_single_arm_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4789,7 +4960,8 @@
       "compatibility": {
         "legacyExerciseId": "back_cable_kneeling_pullover",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4830,7 +5002,8 @@
       "compatibility": {
         "legacyExerciseId": "back_cable_high_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4873,7 +5046,8 @@
       "compatibility": {
         "legacyExerciseId": "back_cable_single_arm_high_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4914,7 +5088,8 @@
       "compatibility": {
         "legacyExerciseId": "back_band_lat_pulldown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -4953,11 +5128,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"band\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"band\",\"assisted\",\"pull\",\"up\"]}",
       "visualVariantKey": "{\"equipment\":\"band\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"band\",\"assisted\",\"pull\",\"up\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "pull-up",
       "compatibility": {
         "legacyExerciseId": "back_band_assisted_pull_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -4998,7 +5174,8 @@
       "compatibility": {
         "legacyExerciseId": "back_kettlebell_one_arm_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5039,7 +5216,8 @@
       "compatibility": {
         "legacyExerciseId": "back_bodyweight_inverted_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5081,7 +5259,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_chest_supported_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5124,7 +5303,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_t_bar_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5166,7 +5346,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_seated_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5209,7 +5390,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_iso_lateral_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5251,7 +5433,8 @@
       "compatibility": {
         "legacyExerciseId": "back_dumbbell_chest_supported_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5294,7 +5477,8 @@
       "compatibility": {
         "legacyExerciseId": "back_dumbbell_single_arm_chest_supported_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5335,7 +5519,8 @@
       "compatibility": {
         "legacyExerciseId": "back_dumbbell_renegade_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5377,7 +5562,8 @@
       "compatibility": {
         "legacyExerciseId": "back_dumbbell_incline_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5418,7 +5604,8 @@
       "compatibility": {
         "legacyExerciseId": "back_barbell_landmine_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5461,7 +5648,8 @@
       "compatibility": {
         "legacyExerciseId": "back_barbell_bent_over_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5504,7 +5692,8 @@
       "compatibility": {
         "legacyExerciseId": "back_barbell_t_bar_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5546,7 +5735,8 @@
       "compatibility": {
         "legacyExerciseId": "back_barbell_pendlay_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5588,7 +5778,8 @@
       "compatibility": {
         "legacyExerciseId": "back_cable_seated_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5627,7 +5818,8 @@
       "compatibility": {
         "legacyExerciseId": "back_band_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5668,7 +5860,8 @@
       "compatibility": {
         "legacyExerciseId": "back_plate_loaded_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5707,7 +5900,8 @@
       "compatibility": {
         "legacyExerciseId": "back_machine_shrug",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5746,7 +5940,8 @@
       "compatibility": {
         "legacyExerciseId": "back_dumbbell_shrug",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5785,7 +5980,8 @@
       "compatibility": {
         "legacyExerciseId": "back_barbell_shrug",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5824,7 +6020,8 @@
       "compatibility": {
         "legacyExerciseId": "back_cable_shrug",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5865,7 +6062,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_hip_abduction",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5906,7 +6104,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_cable_hip_abduction",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5947,7 +6146,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_band_lateral_walk",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -5988,7 +6188,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_band_hip_abduction",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6029,7 +6230,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_hip_adduction",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6067,11 +6269,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"dumbbell\",\"squat\"],\"stance\":\"sumo\"}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"dumbbell\",\"squat\"],\"stance\":\"sumo\"}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_sumo_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -6112,7 +6315,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_cable_hip_adduction",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6156,7 +6360,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_standing_calf_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6199,7 +6404,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_single_leg_calf_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6244,7 +6450,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_leg_press_calf_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6288,7 +6495,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_standing_calf_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6332,7 +6540,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_seated_calf_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6376,7 +6585,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_standing_calf_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6419,7 +6629,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_single_leg_calf_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6463,7 +6674,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_barbell_standing_calf_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6504,7 +6716,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_smith_calf_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6545,7 +6758,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_glute_bridge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6585,7 +6799,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_reverse_lunge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6628,7 +6843,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_single_leg_glute_bridge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6669,7 +6885,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_glute_kickback",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6710,7 +6927,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_hip_thrust",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6750,7 +6968,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_reverse_lunge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6791,7 +7010,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_hip_thrust",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6834,7 +7054,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_single_leg_hip_thrust",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6872,11 +7093,12 @@
       ],
       "canonicalVariantKey": "{\"barPosition\":\"low_bar\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"squat\"]}",
       "visualVariantKey": "{\"barPosition\":\"low_bar\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_barbell_low_bar_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -6917,7 +7139,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_barbell_glute_bridge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6957,7 +7180,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_barbell_reverse_lunge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -6998,7 +7222,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_barbell_hip_thrust",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7035,11 +7260,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"box\",\"squat\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"box\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_barbell_box_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -7081,7 +7307,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_barbell_sumo_deadlift",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7122,7 +7349,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_smith_hip_thrust",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7163,7 +7391,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_cable_glute_kickback",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7204,7 +7433,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_cable_pull_through",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7245,7 +7475,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_band_glute_bridge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7284,7 +7515,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_band_kickback",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7325,7 +7557,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_band_hip_thrust",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7367,7 +7600,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_kettlebell_sumo_deadlift",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7406,7 +7640,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_kettlebell_swing",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7449,7 +7684,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_nordic_hamstring_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7492,7 +7728,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_glute_ham_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7536,7 +7773,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_lying_leg_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7579,7 +7817,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_single_leg_lying_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7623,7 +7862,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_standing_leg_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7667,7 +7907,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_seated_leg_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7710,7 +7951,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_single_leg_seated_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7751,7 +7993,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_romanian_deadlift",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7794,7 +8037,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_single_leg_romanian_deadlift",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7837,7 +8081,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_stiff_leg_deadlift",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7878,7 +8123,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_barbell_good_morning",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7919,7 +8165,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_barbell_romanian_deadlift",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -7962,7 +8209,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_barbell_stiff_leg_deadlift",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8003,7 +8251,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_smith_romanian_deadlift",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8044,7 +8293,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_cable_leg_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8085,7 +8335,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_band_leg_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8120,11 +8371,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"bodyweight\",\"squat\"]}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"bodyweight\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -8163,7 +8415,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_lunge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8207,7 +8460,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_bulgarian_split_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8248,7 +8502,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_step_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8289,7 +8544,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_sissy_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8330,7 +8586,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_wall_sit",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8371,7 +8628,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_jump_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8412,7 +8670,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_bodyweight_pistol_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8453,7 +8712,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_leg_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8494,7 +8754,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_single_leg_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8535,7 +8796,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_leg_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8576,7 +8838,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_single_leg_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8617,7 +8880,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_belt_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8658,7 +8922,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_v_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8699,7 +8964,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_pendulum_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8740,7 +9006,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_machine_hack_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8777,11 +9044,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"dumbbell\",\"goblet\",\"squat\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"dumbbell\",\"goblet\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_goblet_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -8820,7 +9088,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_lunge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8864,7 +9133,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_bulgarian_split_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8899,11 +9169,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"dumbbell\",\"squat\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"dumbbell\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -8944,7 +9215,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_step_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -8984,7 +9256,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_dumbbell_walking_lunge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9021,11 +9294,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"back\",\"squat\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"back\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_barbell_back_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "exact_visual_variant"
     },
     {
       "status": "mapped",
@@ -9069,7 +9343,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_barbell_bulgarian_split_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9109,7 +9384,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_barbell_walking_lunge",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9145,11 +9421,12 @@
       ],
       "canonicalVariantKey": "{\"barPosition\":\"front\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\"]}",
       "visualVariantKey": "{\"barPosition\":\"front\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_barbell_front_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -9187,11 +9464,12 @@
       ],
       "canonicalVariantKey": "{\"barPosition\":\"zercher\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"squat\"]}",
       "visualVariantKey": "{\"barPosition\":\"zercher\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_barbell_zercher_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -9229,11 +9507,12 @@
       ],
       "canonicalVariantKey": "{\"barPosition\":\"high_bar\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"squat\"]}",
       "visualVariantKey": "{\"barPosition\":\"high_bar\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_barbell_high_bar_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -9277,7 +9556,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_smith_bulgarian_split_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9312,11 +9592,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"smith_machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"smith\",\"squat\"]}",
       "visualVariantKey": "{\"equipment\":\"smith_machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"smith\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_smith_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -9357,7 +9638,8 @@
       "compatibility": {
         "legacyExerciseId": "legs_smith_split_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9393,11 +9675,12 @@
       ],
       "canonicalVariantKey": "{\"barPosition\":\"front\",\"equipment\":\"smith_machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"smith\"]}",
       "visualVariantKey": "{\"barPosition\":\"front\",\"equipment\":\"smith_machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"smith\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_smith_front_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -9434,11 +9717,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"kettlebell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"kettlebell\",\"goblet\",\"squat\"]}",
       "visualVariantKey": "{\"equipment\":\"kettlebell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"kettlebell\",\"goblet\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_kettlebell_goblet_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -9475,11 +9759,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"plate\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"plate\",\"goblet\",\"squat\"]}",
       "visualVariantKey": "{\"equipment\":\"plate\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"plate\",\"goblet\",\"squat\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-back-squat",
       "compatibility": {
         "legacyExerciseId": "legs_plate_goblet_squat",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -9522,7 +9807,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_bodyweight_pike_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9563,7 +9849,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_machine_shoulder_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9608,7 +9895,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_machine_plate_loaded_shoulder_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9649,7 +9937,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_shoulder_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9692,7 +9981,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_single_arm_shoulder_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9733,7 +10023,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_front_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9777,7 +10068,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_seated_shoulder_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9818,7 +10110,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_barbell_overhead_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9861,7 +10154,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_barbell_single_arm_landmine_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9902,7 +10196,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_barbell_front_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9946,7 +10241,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_barbell_seated_overhead_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -9987,7 +10283,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_smith_shoulder_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10028,7 +10325,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_cable_front_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10071,7 +10369,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_cable_single_arm_front_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10110,7 +10409,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_kettlebell_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10151,7 +10451,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_plate_overhead_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10192,7 +10493,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_plate_front_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10237,7 +10539,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_bodyweight_wall_handstand_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10280,7 +10583,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_bodyweight_handstand_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10322,7 +10626,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_arnold_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10363,7 +10668,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_barbell_push_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10405,7 +10711,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_barbell_bradford_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10447,7 +10754,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_kettlebell_bottoms_up_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10491,7 +10799,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_bodyweight_prone_y_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10529,7 +10838,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_machine_reverse_pec_deck",
         "canonicalAliasMerge": "machine_rear_delt_fly"
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10567,7 +10877,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_machine_rear_delt_fly",
         "canonicalAliasMerge": "machine_rear_delt_fly"
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10605,7 +10916,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_rear_delt_fly",
         "canonicalAliasMerge": "dumbbell_rear_delt_fly"
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10646,7 +10958,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_cuban_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10685,7 +10998,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_bent_over_lateral_raise",
         "canonicalAliasMerge": "dumbbell_rear_delt_fly"
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10726,7 +11040,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_cable_y_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10769,7 +11084,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_cable_single_arm_y_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10812,7 +11128,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_cable_rear_delt_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10857,7 +11174,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_cable_single_arm_rear_delt_fly",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10898,7 +11216,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_cable_external_rotation",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10939,7 +11258,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_cable_face_pull",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -10980,7 +11300,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_band_face_pull",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11021,7 +11342,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_band_pull_apart",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11062,7 +11384,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_machine_lateral_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11103,7 +11426,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_lateral_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11144,7 +11468,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_high_pull",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11187,7 +11512,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_leaning_lateral_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11230,7 +11556,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_single_arm_lateral_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11274,7 +11601,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_dumbbell_incline_lateral_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11315,7 +11643,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_barbell_upright_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11357,7 +11686,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_barbell_behind_neck_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11399,7 +11729,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_smith_behind_neck_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11440,7 +11771,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_smith_upright_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11481,7 +11813,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_cable_lateral_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11522,7 +11855,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_cable_upright_row",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11563,7 +11897,8 @@
       "compatibility": {
         "legacyExerciseId": "shoulders_band_lateral_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -11600,11 +11935,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"machine\",\"biceps\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"machine\",\"biceps\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_machine_biceps_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -11641,11 +11977,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"machine\",\"preacher\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"machine\",\"preacher\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_machine_preacher_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -11682,11 +12019,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"spider\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"spider\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_spider_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -11723,11 +12061,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"alternating\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"alternating\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_alternating_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -11762,11 +12101,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "exact_visual_variant"
     },
     {
       "status": "mapped",
@@ -11803,11 +12143,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"preacher\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"preacher\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_preacher_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -11844,11 +12185,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"hammer\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"hammer\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_hammer_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -11886,11 +12228,12 @@
       ],
       "canonicalVariantKey": "{\"angle\":\"incline\",\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"curl\"]}",
       "visualVariantKey": "{\"angle\":\"incline\",\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_incline_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -11927,11 +12270,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"zottman\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"zottman\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_zottman_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -11968,11 +12312,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"concentration\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"concentration\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_concentration_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12009,11 +12354,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"drag\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"drag\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_barbell_drag_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12050,11 +12396,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"spider\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"spider\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_barbell_spider_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12089,11 +12436,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_barbell_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12132,11 +12480,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"ez\",\"bar\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"ez\",\"bar\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_barbell_ez_bar_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12173,11 +12522,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"preacher\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"preacher\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_barbell_preacher_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12214,11 +12564,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"bayesian\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"bayesian\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_cable_bayesian_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12255,11 +12606,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_cable_single_arm_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12296,11 +12648,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"overhead\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"overhead\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_cable_overhead_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12339,11 +12692,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"rope\",\"hammer\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"rope\",\"hammer\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_cable_rope_hammer_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12382,11 +12736,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"hammer\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"hammer\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_cable_single_arm_hammer_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12421,11 +12776,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_cable_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12462,11 +12818,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"preacher\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"preacher\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_cable_preacher_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12505,11 +12862,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"preacher\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"cable\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"cable\",\"preacher\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_cable_single_arm_preacher_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12544,11 +12902,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"band\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"band\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"band\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"band\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_band_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12585,11 +12944,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"band\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"band\",\"hammer\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"band\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"band\",\"hammer\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_band_hammer_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12630,7 +12990,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_bodyweight_dead_hang",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -12673,7 +13034,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_reverse_wrist_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -12714,7 +13076,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_wrist_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -12755,7 +13118,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_farmer_carry",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -12796,11 +13160,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"cross\",\"body\",\"hammer\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"cross\",\"body\",\"hammer\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_cross_body_hammer_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12843,7 +13208,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_barbell_reverse_wrist_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -12880,11 +13246,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"reverse\",\"curl\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"reverse\",\"curl\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "dumbbell-curl",
       "compatibility": {
         "legacyExerciseId": "arms_barbell_reverse_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -12925,7 +13292,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_barbell_wrist_curl",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -12966,7 +13334,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_kettlebell_farmer_carry",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13007,7 +13376,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_plate_pinch_hold",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13046,7 +13416,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_other_gripper",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13089,7 +13460,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_bodyweight_diamond_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13128,7 +13500,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_bodyweight_dip",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13169,7 +13542,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_bodyweight_bench_dip",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13213,7 +13587,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_bodyweight_close_grip_push_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13254,7 +13629,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_machine_dip_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13295,7 +13671,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_machine_triceps_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13336,7 +13713,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_machine_assisted_dip",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13377,7 +13755,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_skull_crusher",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13420,7 +13799,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_single_arm_skull_crusher",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13463,7 +13843,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_overhead_triceps_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13502,7 +13883,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_kickback",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13545,7 +13927,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_dumbbell_single_arm_overhead_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13586,7 +13969,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_barbell_jm_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13627,7 +14011,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_barbell_skull_crusher",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13670,7 +14055,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_barbell_ez_skull_crusher",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13713,7 +14099,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_barbell_overhead_triceps_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13753,11 +14140,12 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"gripWidth\":\"narrow\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"bench\",\"press\"]}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"gripWidth\":\"narrow\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"barbell\",\"bench\",\"press\"]}",
-      "illustrationKey": null,
+      "illustrationKey": "barbell-flat-bench-press",
       "compatibility": {
         "legacyExerciseId": "arms_barbell_close_grip_bench_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "family_default"
     },
     {
       "status": "mapped",
@@ -13798,7 +14186,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_cable_single_arm_pushdown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13841,7 +14230,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_cable_crossbody_triceps_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13882,7 +14272,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_cable_rope_pushdown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13924,7 +14315,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_cable_reverse_grip_pushdown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -13967,7 +14359,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_cable_single_arm_reverse_grip_pushdown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14011,7 +14404,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_cable_triceps_pushdown_straight_bar",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14054,7 +14448,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_cable_overhead_triceps_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14099,7 +14494,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_cable_single_arm_overhead_triceps_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14140,7 +14536,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_cable_triceps_kickback",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14183,7 +14580,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_band_overhead_triceps_extension",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14224,7 +14622,8 @@
       "compatibility": {
         "legacyExerciseId": "arms_band_triceps_pushdown",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14265,7 +14664,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_dead_bug",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14304,7 +14704,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_plank",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14347,7 +14748,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_plank_shoulder_tap",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14388,7 +14790,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_hollow_hold",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14427,7 +14830,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_barbell_rollout",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14468,7 +14872,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_cable_pallof_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14509,7 +14914,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_band_pallof_press",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14552,7 +14958,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_kettlebell_turkish_get_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14595,7 +15002,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_other_ab_wheel_rollout",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14636,7 +15044,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_russian_twist",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14677,7 +15086,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_bicycle_crunch",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14718,7 +15128,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_side_plank",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14759,7 +15170,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_machine_torso_rotation",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14800,7 +15212,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_dumbbell_russian_twist",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14841,7 +15254,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_dumbbell_side_bend",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14882,7 +15296,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_barbell_landmine_rotation",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14921,7 +15336,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_cable_woodchop",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -14960,7 +15376,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_kettlebell_windmill",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15001,7 +15418,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_plate_russian_twist",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15042,7 +15460,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_plate_side_bend",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15083,7 +15502,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_leg_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15124,7 +15544,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_reverse_crunch",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15165,7 +15586,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_v_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15206,7 +15628,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_sit_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15251,7 +15674,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_captains_chair_knee_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15290,7 +15714,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_crunch",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15331,7 +15756,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_toe_touch",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15374,7 +15800,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_hanging_knee_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15417,7 +15844,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_bodyweight_hanging_leg_raise",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15458,7 +15886,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_machine_ab_crunch",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15499,7 +15928,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_machine_captains_chair",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15542,7 +15972,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_dumbbell_weighted_sit_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15584,7 +16015,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_cable_standing_crunch",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15625,7 +16057,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_cable_reverse_crunch",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15664,7 +16097,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_cable_crunch",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15703,7 +16137,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_band_crunch",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15744,7 +16179,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_plate_weighted_crunch",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     },
     {
       "status": "mapped",
@@ -15789,7 +16225,8 @@
       "compatibility": {
         "legacyExerciseId": "abs_other_roman_chair_sit_up",
         "canonicalAliasMerge": null
-      }
+      },
+      "imageIdentitySource": "placeholder"
     }
   ],
   "approvedPresets": [
@@ -15809,7 +16246,8 @@
       ],
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"knees\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"knees\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "trap_bar_deadlift_high_handles",
@@ -15824,7 +16262,8 @@
       "defaultLoadState": "external_load",
       "canonicalVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"high\",\"stance\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"high\",\"stance\":\"standard\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "trap_bar_deadlift_low_handles",
@@ -15839,7 +16278,8 @@
       "defaultLoadState": "external_load",
       "canonicalVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"low\",\"stance\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"low\",\"stance\":\"standard\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "lateral_lunge",
@@ -15857,7 +16297,8 @@
       ],
       "canonicalVariantKey": "{\"direction\":\"lateral\",\"equipment\":\"bodyweight\",\"travelMode\":\"stationary\"}",
       "visualVariantKey": "{\"direction\":\"lateral\",\"equipment\":\"bodyweight\",\"travelMode\":\"stationary\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "cossack_squat",
@@ -15872,7 +16313,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"cossack\",\"technique\":\"lateral_shift\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"cossack\",\"technique\":\"lateral_shift\"}",
-      "illustrationKey": null
+      "illustrationKey": "barbell-back-squat",
+      "imageIdentitySource": "family_default"
     },
     {
       "presetId": "wall_tibialis_raise",
@@ -15887,7 +16329,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"support\":\"wall\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"support\":\"wall\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "machine_tibialis_raise",
@@ -15902,7 +16345,8 @@
       "defaultLoadState": "external_load",
       "canonicalVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"support\":\"machine\"}",
       "visualVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"support\":\"machine\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "bird_dog",
@@ -15917,7 +16361,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"contralateral\",\"limbPattern\":\"opposite_arm_leg\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"contralateral\",\"limbPattern\":\"opposite_arm_leg\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "copenhagen_plank",
@@ -15933,7 +16378,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"laterality\":\"unilateral\",\"orientation\":\"side\",\"support\":\"elevated_leg\",\"technique\":\"copenhagen\"}",
       "visualVariantKey": "{\"laterality\":\"unilateral\",\"orientation\":\"side\",\"support\":\"elevated_leg\",\"technique\":\"copenhagen\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "barbell_seal_row",
@@ -15949,7 +16395,8 @@
       "defaultLoadState": "external_load",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"support\":\"prone_bench\",\"torsoAngle\":\"horizontal\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"support\":\"prone_bench\",\"torsoAngle\":\"horizontal\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "ring_row",
@@ -15964,7 +16411,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"bodyAngle\":\"inclined\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "visualVariantKey": "{\"bodyAngle\":\"inclined\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "ring_pull_up",
@@ -15979,7 +16427,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"gymnastic_rings\",\"gripOrientation\":\"dynamic\",\"gripWidth\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"gymnastic_rings\",\"gripOrientation\":\"dynamic\",\"gripWidth\":\"standard\"}",
-      "illustrationKey": null
+      "illustrationKey": "pull-up",
+      "imageIdentitySource": "family_default"
     },
     {
       "presetId": "ring_dip",
@@ -15994,7 +16443,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"emphasis\":\"general\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "visualVariantKey": "{\"emphasis\":\"general\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "dumbbell_suitcase_carry",
@@ -16009,7 +16459,8 @@
       "defaultLoadState": "external_load",
       "canonicalVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\"}",
       "visualVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "kettlebell_suitcase_carry",
@@ -16024,7 +16475,8 @@
       "defaultLoadState": "external_load",
       "canonicalVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"kettlebell\",\"laterality\":\"unilateral\"}",
       "visualVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"kettlebell\",\"laterality\":\"unilateral\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "reverse_nordic_curl",
@@ -16038,7 +16490,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"rangeOfMotion\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"rangeOfMotion\":\"standard\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "box_jump",
@@ -16052,7 +16505,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"bilateral\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"bilateral\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "bar_muscle_up",
@@ -16067,7 +16521,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"pull_up_bar\",\"technique\":\"bar\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"pull_up_bar\",\"technique\":\"bar\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "ring_muscle_up",
@@ -16082,7 +16537,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"gymnastic_rings\",\"support\":\"rings\",\"technique\":\"rings\"}",
       "visualVariantKey": "{\"equipment\":\"gymnastic_rings\",\"support\":\"rings\",\"technique\":\"rings\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "dragon_flag",
@@ -16096,7 +16552,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"bench\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"bench\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "parallel_bar_l_sit",
@@ -16111,7 +16568,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"parallel_bars\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"parallel_bars\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "floor_l_sit",
@@ -16126,7 +16584,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"floor\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"floor\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "hanging_windshield_wiper",
@@ -16141,7 +16600,8 @@
       "defaultLoadState": "bodyweight",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"kneePosition\":\"straight\",\"support\":\"pull_up_bar\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"kneePosition\":\"straight\",\"support\":\"pull_up_bar\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "barbell_clean",
@@ -16156,7 +16616,8 @@
       "defaultLoadState": "external_load",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"clean\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"clean\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "barbell_power_clean",
@@ -16171,7 +16632,8 @@
       "defaultLoadState": "external_load",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_clean\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_clean\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "barbell_snatch",
@@ -16186,7 +16648,8 @@
       "defaultLoadState": "external_load",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"snatch\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"snatch\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     },
     {
       "presetId": "barbell_power_snatch",
@@ -16201,7 +16664,8 @@
       "defaultLoadState": "external_load",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_snatch\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_snatch\"}",
-      "illustrationKey": null
+      "illustrationKey": null,
+      "imageIdentitySource": "placeholder"
     }
   ],
   "canonicalAliasMerges": [

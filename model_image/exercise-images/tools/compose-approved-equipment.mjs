@@ -33,7 +33,7 @@ function assertAnchor(equipmentId, name, point) {
 }
 
 async function verifyComponent(sharp, catalogDirectory, equipmentId, component) {
-  if (typeof component.file !== "string" || !/^final\/[a-z0-9]+(?:-[a-z0-9]+)*\.png$/.test(component.file)) {
+  if (typeof component.file !== "string" || !/^final\/[a-z0-9]+(?:[-_][a-z0-9]+)*\.png$/.test(component.file)) {
     fail("SOURCE_ASSET_FORBIDDEN", `${equipmentId}:${String(component.file)}`);
   }
   if (!Number.isInteger(component.width) || component.width <= 0 || !Number.isInteger(component.height) || component.height <= 0) {
@@ -100,62 +100,100 @@ async function renderPlacement(sharp, canvas, equipmentId, component, placement,
   }).composite([{ input: cropped, left: destinationLeft, top: destinationTop }]).png().toBuffer();
 }
 
-const [sharpModulePath, catalogPath, mannequinPath, outputPath, placementsPath] = process.argv.slice(2);
-if (!sharpModulePath || !catalogPath || !mannequinPath || !outputPath || !placementsPath) {
-  fail("MISSING_ARGUMENT", "expected <sharp-module> <catalog.json> <mannequin.png> <output.png> <placements.json>");
-}
-const sharp = require(sharpModulePath);
-const catalog = JSON.parse(await fs.readFile(catalogPath, "utf8"));
-if (catalog.schemaVersion !== 2) fail("MISSING_CATALOG_SCHEMA_V2");
-if (catalog.coordinateSystem?.unit !== "asset_local_normalized_0_to_1") fail("INVALID_CATALOG_COORDINATE_SYSTEM");
-if (!Array.isArray(catalog.assets)) fail("MISSING_CATALOG_ASSETS");
-const placementsDocument = JSON.parse(await fs.readFile(placementsPath, "utf8"));
-const placements = Array.isArray(placementsDocument) ? placementsDocument : placementsDocument.placements;
-if (!Array.isArray(placements) || placements.length === 0) fail("MISSING_PLACEMENTS");
-
-const mannequinBytes = await fs.readFile(mannequinPath);
-const mannequinMetadata = await sharp(mannequinBytes).metadata();
-if (mannequinMetadata.format !== "png" || !mannequinMetadata.hasAlpha || !mannequinMetadata.width || !mannequinMetadata.height) {
-  fail("INVALID_MANNEQUIN", "mannequin must be an alpha PNG");
-}
-await assertTransparentPixels(sharp, mannequinBytes, "mannequin");
-const canvas = { width: mannequinMetadata.width, height: mannequinMetadata.height, catalogDirectory: path.dirname(path.resolve(catalogPath)) };
-const equipmentById = new Map();
-for (const asset of catalog.assets) {
-  if (equipmentById.has(asset.id)) fail("DUPLICATE_EQUIPMENT_ID", asset.id);
-  equipmentById.set(asset.id, asset);
-}
-
-const layers = [];
-for (const [index, placement] of placements.entries()) {
-  const asset = equipmentById.get(placement?.equipmentId);
-  if (!asset) fail("MISSING_EQUIPMENT", String(placement?.equipmentId));
-  if (asset.status !== "approved") fail("UNAPPROVED_EQUIPMENT", asset.id);
-  if (typeof placement.anchor !== "string" || !placement.anchor) fail("MISSING_ANCHOR", asset.id);
-  const z = Number(placement.z);
-  if (!Number.isFinite(z) || z === 0) fail("INVALID_Z", `${asset.id}; z=0 is mannequin-only`);
-  if (placement.viewId !== undefined && placement.viewId !== asset.viewId) {
-    fail("INVALID_EQUIPMENT_VIEW", `${asset.id}:${placement.viewId} != ${asset.viewId}`);
+export async function composeApprovedEquipment({
+  sharpModulePath,
+  catalogPath,
+  mannequinPath,
+  outputPath,
+  placementsPath,
+  placements: suppliedPlacements,
+}) {
+  if (!sharpModulePath || !catalogPath || !mannequinPath || !outputPath) {
+    fail("MISSING_ARGUMENT", "expected sharpModulePath, catalogPath, mannequinPath, and outputPath");
   }
-  layers.push({ input: await renderPlacement(sharp, canvas, asset.id, asset, placement, placement.anchor), z, order: index * 2, equipmentId: asset.id, component: "primary" });
-  if (placement.includeFrontOccluder === true) {
-    if (!["fixed_machine", "cable_machine"].includes(asset.renderClass)) fail("INVALID_FRONT_OCCLUDER_CLASS", asset.id);
-    if (!asset.frontOccluder) fail("MISSING_FRONT_OCCLUDER", asset.id);
-    const frontZ = Number(placement.frontZ);
-    if (!Number.isFinite(frontZ) || frontZ <= 0 || frontZ <= z) fail("INVALID_FRONT_Z", asset.id);
-    layers.push({
-      input: await renderPlacement(sharp, canvas, `${asset.id}.frontOccluder`, asset.frontOccluder, placement, placement.anchor),
-      z: frontZ, order: index * 2 + 1, equipmentId: asset.id, component: "frontOccluder",
-    });
-  } else if (placement.frontZ !== undefined) fail("UNUSED_FRONT_Z", asset.id);
+  const sharp = require(sharpModulePath);
+  const catalog = JSON.parse(await fs.readFile(catalogPath, "utf8"));
+  if (catalog.schemaVersion !== 2) fail("MISSING_CATALOG_SCHEMA_V2");
+  if (catalog.coordinateSystem?.unit !== "asset_local_normalized_0_to_1") fail("INVALID_CATALOG_COORDINATE_SYSTEM");
+  if (!Array.isArray(catalog.assets)) fail("MISSING_CATALOG_ASSETS");
+  let placements = suppliedPlacements;
+  if (placements === undefined) {
+    if (!placementsPath) fail("MISSING_PLACEMENTS", "placementsPath is required when placements are not supplied");
+    const placementsDocument = JSON.parse(await fs.readFile(placementsPath, "utf8"));
+    placements = Array.isArray(placementsDocument) ? placementsDocument : placementsDocument.placements;
+  }
+  if (!Array.isArray(placements) || placements.length === 0) fail("MISSING_PLACEMENTS");
+
+  const mannequinBytes = await fs.readFile(mannequinPath);
+  const mannequinMetadata = await sharp(mannequinBytes).metadata();
+  if (mannequinMetadata.format !== "png" || !mannequinMetadata.hasAlpha || !mannequinMetadata.width || !mannequinMetadata.height) {
+    fail("INVALID_MANNEQUIN", "mannequin must be an alpha PNG");
+  }
+  await assertTransparentPixels(sharp, mannequinBytes, "mannequin");
+  const canvas = { width: mannequinMetadata.width, height: mannequinMetadata.height, catalogDirectory: path.dirname(path.resolve(catalogPath)) };
+  const equipmentById = new Map();
+  for (const asset of catalog.assets) {
+    if (equipmentById.has(asset.id)) fail("DUPLICATE_EQUIPMENT_ID", asset.id);
+    equipmentById.set(asset.id, asset);
+  }
+
+  const layers = [];
+  for (const [index, placement] of placements.entries()) {
+    const asset = equipmentById.get(placement?.equipmentId);
+    if (!asset) fail("MISSING_EQUIPMENT", String(placement?.equipmentId));
+    if (asset.status !== "approved") fail("UNAPPROVED_EQUIPMENT", asset.id);
+    if (!asset.renderClass) fail("MISSING_RENDER_CLASS", asset.id);
+    if (typeof placement.anchor !== "string" || !placement.anchor) fail("MISSING_ANCHOR", asset.id);
+    const z = Number(placement.z);
+    if (!Number.isFinite(z) || z === 0) fail("INVALID_Z", `${asset.id}; z=0 is mannequin-only`);
+    if (placement.viewId !== undefined && placement.viewId !== asset.viewId) {
+      fail("INVALID_EQUIPMENT_VIEW", `${asset.id}:${placement.viewId} != ${asset.viewId}`);
+    }
+    layers.push({ input: await renderPlacement(sharp, canvas, asset.id, asset, placement, placement.anchor), z, order: index * 2, equipmentId: asset.id, component: "primary" });
+    if (placement.includeFrontOccluder === true) {
+      if (!["fixed_machine", "cable_machine"].includes(asset.renderClass)) fail("INVALID_FRONT_OCCLUDER_CLASS", asset.id);
+      if (!asset.frontOccluder) fail("MISSING_FRONT_OCCLUDER", asset.id);
+      const frontZ = Number(placement.frontZ);
+      if (!Number.isFinite(frontZ) || frontZ <= 0 || frontZ <= z) fail("INVALID_FRONT_Z", asset.id);
+      layers.push({
+        input: await renderPlacement(sharp, canvas, `${asset.id}.frontOccluder`, asset.frontOccluder, placement, placement.anchor),
+        z: frontZ, order: index * 2 + 1, equipmentId: asset.id, component: "frontOccluder",
+      });
+    } else if (placement.frontZ !== undefined) fail("UNUSED_FRONT_Z", asset.id);
+  }
+
+  layers.push({ input: await sharp(mannequinBytes).ensureAlpha().png().toBuffer(), z: 0, order: -1, component: "mannequin" });
+  layers.sort((left, right) => left.z - right.z || left.order - right.order);
+  await fs.mkdir(path.dirname(path.resolve(outputPath)), { recursive: true });
+  await sharp({ create: { width: canvas.width, height: canvas.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite(layers.map(({ input }) => ({ input, left: 0, top: 0 }))).png().toFile(outputPath);
+  return {
+    output: outputPath,
+    width: canvas.width,
+    height: canvas.height,
+    equipmentInstances: placements.length,
+    layers: layers.map(({ z, equipmentId, component }) => ({ z, equipmentId, component })),
+  };
 }
 
-layers.push({ input: await sharp(mannequinBytes).ensureAlpha().png().toBuffer(), z: 0, order: -1, component: "mannequin" });
-layers.sort((left, right) => left.z - right.z || left.order - right.order);
-await fs.mkdir(path.dirname(path.resolve(outputPath)), { recursive: true });
-await sharp({ create: { width: canvas.width, height: canvas.height, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
-  .composite(layers.map(({ input }) => ({ input, left: 0, top: 0 }))).png().toFile(outputPath);
-console.log(JSON.stringify({
-  output: outputPath, width: canvas.width, height: canvas.height, equipmentInstances: placements.length,
-  layers: layers.map(({ z, equipmentId, component }) => ({ z, equipmentId, component })),
-}));
+async function main() {
+  const [sharpModulePath, catalogPath, mannequinPath, outputPath, placementsPath] = process.argv.slice(2);
+  if (!sharpModulePath || !catalogPath || !mannequinPath || !outputPath || !placementsPath) {
+    fail("MISSING_ARGUMENT", "expected <sharp-module> <catalog.json> <mannequin.png> <output.png> <placements.json>");
+  }
+  console.log(JSON.stringify(await composeApprovedEquipment({
+    sharpModulePath,
+    catalogPath,
+    mannequinPath,
+    outputPath,
+    placementsPath,
+  })));
+}
+
+const normalizedUrl = new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+if (path.resolve(decodeURIComponent(normalizedUrl)) === path.resolve(process.argv[1] ?? "")) {
+  main().catch((error) => {
+    console.error(error?.stack ?? String(error));
+    process.exitCode = 1;
+  });
+}

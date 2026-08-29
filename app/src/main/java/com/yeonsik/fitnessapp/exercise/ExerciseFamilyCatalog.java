@@ -190,28 +190,59 @@ public final class ExerciseFamilyCatalog {
         public final String visualVariantKey;
         public final String illustrationKey;
         public final String legacyExerciseId;
+        public final String sceneFile;
+        public final String frameFileA;
+        public final String frameFileB;
+        public final Map<String, String> equipmentViews;
 
         private ImageAssetRef(
                 String familyId,
                 String visualVariantKey,
                 String illustrationKey,
-                String legacyExerciseId
+                String legacyExerciseId,
+                String sceneFile,
+                String frameFileA,
+                String frameFileB,
+                Map<String, String> equipmentViews
         ) {
             this.familyId = familyId;
             this.visualVariantKey = visualVariantKey;
             this.illustrationKey = illustrationKey;
             this.legacyExerciseId = legacyExerciseId;
+            this.sceneFile = sceneFile;
+            this.frameFileA = frameFileA;
+            this.frameFileB = frameFileB;
+            this.equipmentViews = Collections.unmodifiableMap(new LinkedHashMap<>(equipmentViews));
         }
 
         private static ImageAssetRef fromJson(JSONObject item) {
             if (item == null) {
                 return null;
             }
+            Map<String, String> equipmentViews = new LinkedHashMap<>();
+            JSONObject equipmentViewsObject = item.optJSONObject("equipmentViews");
+            if (equipmentViewsObject != null) {
+                JSONArray names = equipmentViewsObject.names();
+                if (names != null) {
+                    for (int index = 0; index < names.length(); index += 1) {
+                        String key = names.optString(index, null);
+                        String value = nullableString(equipmentViewsObject, key);
+                        if (key != null && value != null) {
+                            equipmentViews.put(key, value);
+                        }
+                    }
+                }
+            }
+            JSONObject frameFiles = item.optJSONObject("frameFiles");
             return new ImageAssetRef(
                     nullableString(item, "familyId"),
                     nullableString(item, "visualVariantKey"),
                     nullableString(item, "illustrationKey"),
-                    nullableString(item, "legacyExerciseId")
+                    nullableString(item, "legacyExerciseId"),
+                    nullableString(item, "sceneFile"),
+                    nullableString(frameFiles, "A"),
+                    nullableString(frameFiles, "B"),
+                    equipmentViews
             );
         }
     }

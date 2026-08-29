@@ -72,6 +72,26 @@ public final class ExerciseIllustrationCatalogTest {
     }
 
     @Test
+    public void mapsCanonicalIllustrationKeysToTheSameAAndBDrawables() {
+        assertArrayEquals(
+                ExerciseIllustrationCatalog.detailDrawablesFor(ExerciseIllustrationCatalog.PULL_UP_ID),
+                ExerciseIllustrationCatalog.detailDrawablesFor("pull-up")
+        );
+        assertArrayEquals(
+                ExerciseIllustrationCatalog.detailDrawablesFor(ExerciseIllustrationCatalog.DUMBBELL_CURL_ID),
+                ExerciseIllustrationCatalog.detailDrawablesFor("dumbbell-curl")
+        );
+        assertArrayEquals(
+                ExerciseIllustrationCatalog.detailDrawablesFor(ExerciseIllustrationCatalog.BARBELL_BACK_SQUAT_ID),
+                ExerciseIllustrationCatalog.detailDrawablesFor("barbell-back-squat")
+        );
+        assertArrayEquals(
+                ExerciseIllustrationCatalog.detailDrawablesFor(ExerciseIllustrationCatalog.BARBELL_FLAT_BENCH_PRESS_ID),
+                ExerciseIllustrationCatalog.detailDrawablesFor("barbell-flat-bench-press")
+        );
+    }
+
+    @Test
     public void readsFrameDurationsFromSceneCatalog() {
         assertArrayEquals(
                 new int[]{1000, 1000},
