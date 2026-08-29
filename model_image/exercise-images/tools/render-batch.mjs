@@ -30,6 +30,8 @@ export async function compileBatch({ exerciseNames, context, outputDirectory }) 
   }
   const manifest = {
     contractType: "exercise-image-batch.v1",
+    implementation: "scaffold",
+    generationApi: null,
     status: items.every((item) => item.status === "COMPILED") ? "COMPILED" : "BLOCKED",
     zipStatus: "NOT_CREATED",
     zipPolicy: "ZIP is created only after every item has validated <slug>-a.png and <slug>-b.png outputs",
@@ -50,6 +52,8 @@ async function main() {
   for (let index = 3; index < process.argv.length; index += 1) {
     const argument = process.argv[index];
     if (argument === "--equipment-catalog") paths.equipmentCatalog = path.resolve(process.argv[++index]);
+    else if (argument === "--deterministic-mapping") paths.deterministicMapping = path.resolve(process.argv[++index]);
+    else if (argument === "--final-directory") paths.finalDirectory = path.resolve(process.argv[++index]);
     else if (argument === "--out") outputDirectory = path.resolve(process.argv[++index]);
     else throw new Error(`Unexpected argument: ${argument}`);
   }

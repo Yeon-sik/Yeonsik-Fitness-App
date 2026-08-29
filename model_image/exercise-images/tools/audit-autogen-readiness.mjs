@@ -14,6 +14,12 @@ import {
   inspectExerciseReadiness,
   loadCompileContext,
 } from "./compile-exercise.mjs";
+import {
+  buildArchetypeCandidates,
+  findDeterministicMapping,
+  resolveArchetypeId,
+  resolveExerciseMetadata,
+} from "../../lib/metadata-resolution.mjs";
 
 const AUDIT_CODES = Object.freeze({
   MISSING_EXERCISE_METADATA: "MISSING_METADATA",
@@ -22,7 +28,36 @@ const AUDIT_CODES = Object.freeze({
 
 export async function auditAutogenReadiness(context) {
   const results = [];
-  for (const exercise of context.exerciseCatalog.exercises ?? []) {
+  const manualDecisions = new Set();
+  const manualDecisionFields = new Map();
+  const exercises = context.exerciseCatalog.exercises ?? [];
+  const deterministicMapping = context.deterministicMapping ?? context.deterministicMappings ?? {};
+  const candidates = buildArchetypeCandidates(exercises, deterministicMapping);
+  const overrides = context.overrides?.exercises ?? {};
+  const requiredOverrideIds = new Set();
+
+  function addManualDecision(key, field) {
+    manualDecisions.add(key);
+    const keys = manualDecisionFields.get(field) ?? new Set();
+    keys.add(key);
+    manualDecisionFields.set(field, keys);
+  }
+
+  for (const exercise of exercises) {
+    const override = overrides[exercise.id] ?? {};
+    const deterministic = findDeterministicMapping(exercise, deterministicMapping);
+    const archetypeId = resolveArchetypeId({ exercise, override, deterministic });
+    const archetype = context.archetypes.archetypes?.[archetypeId];
+    const metadata = resolveExerciseMetadata({ exercise, override, archetype, deterministic });
+    for (const field of metadata.missingFields) addManualDecision(`${exercise.id}.${field}`, field);
+    if (deterministic.requiresExerciseOverride === true
+      || exercise.overridePolicy === "required_exception"
+      || override.required === true
+      || override.kind === "exception") {
+      requiredOverrideIds.add(exercise.id);
+    }
+    if (!archetypeId) addManualDecision(`${exercise.id}.archetypeId`, "archetypeId");
+    else if (!archetype) addManualDecision(`archetype.${archetypeId}`, "archetypeDefinition");
     const readiness = await inspectExerciseReadiness(exercise.id, context);
     results.push({
       exerciseId: exercise.id,
@@ -32,10 +67,15 @@ export async function auditAutogenReadiness(context) {
       details: readiness.ready ? {} : readiness.details,
     });
   }
+  for (const asset of context.equipmentCatalog.assets ?? []) {
+    if (asset.status === null || asset.status === undefined || asset.status === "") addManualDecision(`equipment.${asset.id}.status`, "equipmentStatus");
+    if (asset.renderClass === null || asset.renderClass === undefined || asset.renderClass === "") addManualDecision(`equipment.${asset.id}.renderClass`, "equipmentRenderClass");
+  }
   const counts = {};
   for (const result of results) counts[result.status] = (counts[result.status] ?? 0) + 1;
   const ready = counts.READY ?? 0;
   const total = results.length;
+  const overrideIds = Object.keys(overrides).filter((id) => exercises.some((exercise) => exercise.id === id));
   return {
     schemaVersion: 1,
     ready: ready === total && total > 0,
@@ -43,6 +83,20 @@ export async function auditAutogenReadiness(context) {
     readyCount: ready,
     readinessPercent: total === 0 ? 0 : Number(((ready / total) * 100).toFixed(2)),
     counts: Object.fromEntries(Object.entries(counts).sort(([left], [right]) => left.localeCompare(right))),
+    manualDecisions: {
+      unit: "exercise_or_equipment_field",
+      count: manualDecisions.size,
+      byField: Object.fromEntries(
+        [...manualDecisionFields.entries()]
+          .map(([field, keys]) => [field, keys.size])
+          .sort(([left], [right]) => left.localeCompare(right)),
+      ),
+    },
+    archetypeCandidateCount: candidates.length,
+    exerciseSpecificOverrideCount: overrideIds.length,
+    exerciseSpecificOverrideIds: overrideIds.sort(),
+    exerciseSpecificOverrideRequiredCount: requiredOverrideIds.size,
+    exerciseSpecificOverrideRequiredIds: [...requiredOverrideIds].sort(),
     results,
   };
 }
@@ -54,6 +108,7 @@ function parseArguments(argv, defaults) {
   const flags = {
     "--exercise-catalog": "exerciseCatalog", "--name-index": "nameIndex",
     "--overrides": "overrides", "--archetypes": "archetypes",
+    "--deterministic-mapping": "deterministicMapping",
     "--equipment-catalog": "equipmentCatalog", "--muscle-layers": "muscleLayers",
   };
   for (let index = 0; index < argv.length; index += 1) {
@@ -68,6 +123,10 @@ function parseArguments(argv, defaults) {
 
 function printTable(report) {
   console.log(`READY ${report.readyCount}/${report.total} (${report.readinessPercent}%)`);
+  console.log(`ARCHETYPE_CANDIDATES\t${report.archetypeCandidateCount}`);
+  console.log(`MANUAL_DECISIONS\t${report.manualDecisions.count}`);
+  console.log(`EXERCISE_OVERRIDES\t${report.exerciseSpecificOverrideCount}`);
+  console.log(`REQUIRED_EXERCISE_OVERRIDES\t${report.exerciseSpecificOverrideRequiredCount}`);
   for (const [status, count] of Object.entries(report.counts)) console.log(`${status}\t${count}`);
   console.log("\nSTATUS\tEXERCISE_ID\tNAME_KO");
   for (const result of report.results) console.log(`${result.status}\t${result.exerciseId}\t${result.nameKo}`);

@@ -1,0 +1,178 @@
+{
+  "schemaVersion": 2,
+  "coordinateSystem": {
+    "origin": "top_left",
+    "unit": "asset_local_normalized_0_to_1"
+  },
+  "assets": [
+    {
+      "id": "flat_bench_three_quarter_v1",
+      "type": "flat_bench",
+      "viewId": "elevated_front_three_quarter",
+      "file": "final/flat_bench_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "3581c801225a4afeba79f655f0c2086d5f68529e06288a4c1e066c09eccd2726",
+      "anchors": {
+        "pad_head": [
+          0.3,
+          0.16
+        ],
+        "pad_shoulders": [
+          0.43,
+          0.23
+        ],
+        "pad_pelvis": [
+          0.7,
+          0.4
+        ],
+        "rear_floor": [
+          0.25,
+          0.51
+        ],
+        "front_floor": [
+          0.68,
+          0.84
+        ]
+      },
+      "status": null,
+      "renderClass": null
+    },
+    {
+      "id": "barbell_loaded_three_quarter_v1",
+      "type": "barbell",
+      "viewId": "slight_rising_three_quarter",
+      "file": "final/barbell_loaded_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "c1b8593039632eb217a71a303f2fee22c420aaa1422c52ea95c568006d850cc5",
+      "anchors": {
+        "center": [
+          0.5,
+          0.493
+        ],
+        "grip_left": [
+          0.36,
+          0.516
+        ],
+        "grip_right": [
+          0.65,
+          0.47
+        ],
+        "sleeve_left": [
+          0.19,
+          0.55
+        ],
+        "sleeve_right": [
+          0.82,
+          0.43
+        ]
+      },
+      "status": null,
+      "renderClass": null
+    },
+    {
+      "id": "dumbbell_adjustable_three_quarter_v1",
+      "type": "dumbbell",
+      "viewId": "elevated_front_three_quarter",
+      "file": "final/dumbbell_adjustable_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "b9e86d462ca71e6a4e3fccf63a06e3ea35b0b2335d8fe50710ff0f05c6b404a2",
+      "anchors": {
+        "grip_center": [
+          0.524,
+          0.439
+        ],
+        "grip_left": [
+          0.43,
+          0.49
+        ],
+        "grip_right": [
+          0.62,
+          0.39
+        ],
+        "mass_left": [
+          0.31,
+          0.56
+        ],
+        "mass_right": [
+          0.72,
+          0.32
+        ]
+      },
+      "status": null,
+      "renderClass": null
+    },
+    {
+      "id": "kettlebell_competition_front_v1",
+      "type": "kettlebell",
+      "viewId": "front",
+      "file": "final/kettlebell_competition_front.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "0b2af2b334dee71f270293f58f39b8e524458819818b0b908eba1d99937da602",
+      "anchors": {
+        "grip_center": [
+          0.493,
+          0.196
+        ],
+        "grip_left": [
+          0.339,
+          0.205
+        ],
+        "grip_right": [
+          0.649,
+          0.205
+        ],
+        "mass_center": [
+          0.493,
+          0.61
+        ],
+        "base_center": [
+          0.493,
+          0.845
+        ]
+      },
+      "status": null,
+      "renderClass": null
+    },
+    {
+      "id": "lat_pulldown_machine_rear_three_quarter_v1",
+      "type": "lat_pulldown_machine",
+      "viewId": "rear_three_quarter",
+      "file": "final/lat_pulldown_machine_rear_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "2d1596429371af13dd99b1d9d08f5dd988cea6d4bdfe7e86ab1bceb4e13b3815",
+      "anchors": {
+        "overhead_pulley": [
+          0.5,
+          0.1
+        ],
+        "bar_center": [
+          0.48,
+          0.3
+        ],
+        "thigh_pad_center": [
+          0.47,
+          0.61
+        ],
+        "seat_center": [
+          0.45,
+          0.72
+        ],
+        "weight_stack_center": [
+          0.61,
+          0.55
+        ],
+        "base_center": [
+          0.49,
+          0.88
+        ]
+      },
+      "status": null,
+      "renderClass": null
+    }
+  ]
+}

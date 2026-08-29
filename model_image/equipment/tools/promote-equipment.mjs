@@ -130,7 +130,7 @@ const renderClasses = new Set([
 if (!renderClasses.has(options["render-class"])) fail("INVALID_RENDER_CLASS", options["render-class"]);
 
 const normalizedFile = options.file.replaceAll("\\", "/");
-if (!/^final\/[a-z0-9]+(?:-[a-z0-9]+)*\.png$/.test(normalizedFile)) {
+if (!/^final\/[a-z0-9]+(?:[-_][a-z0-9]+)*\.png$/.test(normalizedFile)) {
   fail("INVALID_CANONICAL_FILENAME", normalizedFile);
 }
 

@@ -4,41 +4,275 @@ import crypto from "node:crypto";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createRequire } from "node:module";
+import {
+  EXERCISE_SCENE_CONTRACT_TYPE,
+  EXERCISE_SCENE_SCHEMA_VERSION,
+  SCENE_FRAME_IDS,
+  finalFrameFilename,
+  isFinalFrameReference,
+} from "../../lib/scene-contract.mjs";
 
 const require = createRequire(import.meta.url);
-const [sharpModulePath, catalogPath, ...scenePaths] = process.argv.slice(2);
-if (!sharpModulePath || !catalogPath) {
-  throw new Error("Usage: node validate-asset-manifests.mjs <sharp-module> <catalog-json> [scene-json ...]");
+
+export async function validateAssetManifests({ sharpModulePath, catalogPath, scenePaths = [] }) {
+  const sharp = require(sharpModulePath);
+  const catalog = JSON.parse(await fs.readFile(catalogPath, "utf8"));
+  failIf(catalog.schemaVersion !== 2, "MISSING_CATALOG_SCHEMA_V2");
+  failIf(
+    catalog.coordinateSystem?.origin !== "top_left"
+      || catalog.coordinateSystem?.unit !== "asset_local_normalized_0_to_1",
+    "INVALID_CATALOG_COORDINATE_SYSTEM",
+  );
+  failIf(!Array.isArray(catalog.assets), "MISSING_CATALOG_ASSETS");
+
+  const catalogDirectory = path.dirname(path.resolve(catalogPath));
+  const finalDirectory = path.resolve(catalogDirectory, "final");
+  const statuses = new Set(["draft", "approved", "deprecated"]);
+  const renderClasses = new Set([
+    "movable_free_weight", "fixed_support", "fixed_machine", "cable_machine", "canonical_attachment",
+  ]);
+  const equipmentById = new Map();
+  const equipmentViews = new Set();
+
+  async function validateComponent(assetId, component, suffix = "") {
+    if (!component || typeof component !== "object") failIf(true, "MISSING_EQUIPMENT_COMPONENT", `${assetId}${suffix}`);
+    if (typeof component.file !== "string" || !/^final\/[a-z0-9]+(?:[-_][a-z0-9]+)*\.png$/.test(component.file)) {
+      failIf(true, "SOURCE_ASSET_FORBIDDEN", `${assetId}${suffix}:${String(component.file)}`);
+    }
+    if (!Number.isInteger(component.width) || component.width <= 0 || !Number.isInteger(component.height) || component.height <= 0) {
+      failIf(true, "MISSING_ASSET_DIMENSIONS", `${assetId}${suffix}`);
+    }
+    if (typeof component.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(component.sha256)) {
+      failIf(true, "MISSING_ASSET_SHA256", `${assetId}${suffix}`);
+    }
+    if (!component.anchors || typeof component.anchors !== "object" || Array.isArray(component.anchors)
+      || Object.keys(component.anchors).length === 0) {
+      failIf(true, "MISSING_ANCHOR", `${assetId}${suffix}`);
+    }
+    for (const [anchorName, point] of Object.entries(component.anchors)) {
+      assertToken("INVALID_ANCHOR_NAME", anchorName);
+      assertPoint(`${assetId}${suffix}.${anchorName}`, point, 1, 1, true);
+    }
+    const imagePath = path.resolve(catalogDirectory, component.file);
+    assertInside(finalDirectory, imagePath, "SOURCE_ASSET_FORBIDDEN");
+    await assertTransparentPng(imagePath, `${assetId}${suffix}`, component.width, component.height, component.sha256, false, sharp);
+  }
+
+  for (const asset of catalog.assets) {
+    assertToken("INVALID_EQUIPMENT_ID", asset.id);
+    assertToken("INVALID_EQUIPMENT_TYPE", asset.type);
+    assertToken("INVALID_EQUIPMENT_VIEW", asset.viewId);
+    failIf(equipmentById.has(asset.id), "DUPLICATE_EQUIPMENT_ID", asset.id);
+    const viewKey = `${asset.type}|${asset.viewId}`;
+    failIf(equipmentViews.has(viewKey), "DUPLICATE_EQUIPMENT_TYPE_VIEW", viewKey);
+    if (asset.status === null || asset.status === undefined || asset.status === "") {
+      failIf(true, "MISSING_EQUIPMENT_STATUS", asset.id);
+    }
+    if (!statuses.has(asset.status)) failIf(true, "INVALID_STATUS", `${asset.id}:${asset.status}`);
+    if (asset.renderClass === null || asset.renderClass === undefined || asset.renderClass === "") {
+      failIf(true, "MISSING_RENDER_CLASS", asset.id);
+    }
+    if (!renderClasses.has(asset.renderClass)) failIf(true, "INVALID_RENDER_CLASS", `${asset.id}:${asset.renderClass}`);
+    equipmentById.set(asset.id, asset);
+    equipmentViews.add(viewKey);
+    await validateComponent(asset.id, asset);
+    if (asset.frontOccluder) {
+      if (!["fixed_machine", "cable_machine"].includes(asset.renderClass)) failIf(true, "INVALID_FRONT_OCCLUDER_CLASS", asset.id);
+      await validateComponent(asset.id, asset.frontOccluder, ".frontOccluder");
+    }
+  }
+
+  let frameCount = 0;
+  let placementCount = 0;
+  for (const scenePath of scenePaths) {
+    const scene = JSON.parse(await fs.readFile(scenePath, "utf8"));
+    const sceneLabel = scene.exerciseId ?? scenePath;
+    validateSceneRoot(scene, sceneLabel);
+    if (!scene.canvas || !Number.isInteger(scene.canvas.width) || !Number.isInteger(scene.canvas.height)) {
+      failIf(true, "MISSING_SCENE_CANVAS", scenePath);
+    }
+    if (!Array.isArray(scene.equipment)) failIf(true, "MISSING_SCENE_EQUIPMENT", sceneLabel);
+    if (new Set(scene.equipment).size !== scene.equipment.length) failIf(true, "DUPLICATE_SCENE_EQUIPMENT", sceneLabel);
+    for (const equipmentId of scene.equipment) {
+      const asset = equipmentById.get(equipmentId);
+      if (!asset) failIf(true, "MISSING_EQUIPMENT", `${sceneLabel}:${equipmentId}`);
+      if (asset.status !== "approved") failIf(true, "UNAPPROVED_EQUIPMENT", `${sceneLabel}:${equipmentId}`);
+      const expectedView = scene.equipmentViews?.[equipmentId];
+      if (expectedView !== undefined && expectedView !== asset.viewId) failIf(true, "INVALID_EQUIPMENT_VIEW", `${sceneLabel}:${equipmentId}`);
+    }
+
+    const renderPolicy = scene.renderPolicy;
+    if (!renderPolicy || typeof renderPolicy !== "object") failIf(true, "MISSING_RENDER_POLICY", sceneLabel);
+    if (!Object.prototype.hasOwnProperty.call(renderPolicy, "lockedAnchors")) failIf(true, "MISSING_LOCKED_ANCHORS", sceneLabel);
+    if (!renderPolicy.lockedAnchors || typeof renderPolicy.lockedAnchors !== "object" || Array.isArray(renderPolicy.lockedAnchors)) {
+      failIf(true, "INVALID_LOCKED_ANCHORS", sceneLabel);
+    }
+    if (!Number.isFinite(renderPolicy.anchorTolerancePixels) || renderPolicy.anchorTolerancePixels < 0) {
+      failIf(true, "INVALID_LOCKED_ANCHOR_TOLERANCE", sceneLabel);
+    }
+    if (!Array.isArray(renderPolicy.lockedEquipment)) failIf(true, "MISSING_LOCKED_EQUIPMENT", sceneLabel);
+    if (new Set(renderPolicy.lockedEquipment).size !== renderPolicy.lockedEquipment.length) {
+      failIf(true, "DUPLICATE_LOCKED_EQUIPMENT", sceneLabel);
+    }
+    for (const [anchorName, point] of Object.entries(renderPolicy.lockedAnchors ?? {})) {
+      assertPoint(`${sceneLabel}.${anchorName}`, point, scene.canvas.width, scene.canvas.height);
+    }
+
+    if (!Array.isArray(scene.frames) || scene.frames.length !== SCENE_FRAME_IDS.length
+      || scene.frames[0]?.id !== SCENE_FRAME_IDS[0] || scene.frames[1]?.id !== SCENE_FRAME_IDS[1]) {
+      failIf(true, "INVALID_AB_FRAMES", sceneLabel);
+    }
+    const slug = scene.slug ?? path.basename(scenePath, ".scene.json");
+    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) failIf(true, "INVALID_SCENE_SLUG", slug);
+    const placementsByFrame = [];
+    const identities = [];
+
+    for (const frame of scene.frames) {
+      const expectedName = finalFrameFilename(slug, frame.id);
+      if (!isFinalFrameFile(frame.file, expectedName)) {
+        failIf(true, "INVALID_FRAME_FILENAME", `${sceneLabel}:${frame.file}; expected ${expectedName} under final/`);
+      }
+      const imagePath = path.resolve(path.dirname(scenePath), frame.file);
+      await assertTransparentPng(imagePath, `${sceneLabel}.${frame.id}`, scene.canvas.width, scene.canvas.height, null, true, sharp);
+      for (const [jointName, point] of Object.entries(frame.joints ?? {})) {
+        assertPoint(`${frame.id}.${jointName}`, point, scene.canvas.width, scene.canvas.height);
+      }
+      if (!Array.isArray(frame.equipmentPlacements)) failIf(true, "MISSING_EQUIPMENT_PLACEMENT", `${sceneLabel}.${frame.id}`);
+      if (!Array.isArray(frame.invisibleGripTargets)) failIf(true, "MISSING_INVISIBLE_GRIP_TARGETS", `${sceneLabel}.${frame.id}`);
+      validateInvisibleGripTargets(scene, frame, sceneLabel);
+
+      for (const gripTarget of frame.invisibleGripTargets) {
+        if (typeof gripTarget?.instanceId !== "string" || typeof gripTarget?.equipmentId !== "string"
+          || typeof gripTarget?.anchor !== "string") failIf(true, "INVALID_INVISIBLE_GRIP_TARGET", `${sceneLabel}.${frame.id}`);
+        assertPoint(`${sceneLabel}.${frame.id}.${gripTarget.instanceId}`, gripTarget.target, scene.canvas.width, scene.canvas.height);
+      }
+
+      const frameIds = new Set();
+      const frameIdentity = [];
+      for (const [index, placement] of frame.equipmentPlacements.entries()) {
+        const asset = validatePlacement(scene, frame, placement, index, equipmentById);
+        frameIds.add(asset.id);
+        frameIdentity.push(...placementIdentity(asset, placement, index));
+      }
+      for (const equipmentId of scene.equipment) {
+        if (!frameIds.has(equipmentId)) failIf(true, "MISSING_EQUIPMENT_PLACEMENT", `${sceneLabel}.${frame.id}:${equipmentId}`);
+      }
+      identities.push(frameIdentity.sort());
+      placementsByFrame.push(frame.equipmentPlacements);
+      placementCount += frame.equipmentPlacements.length;
+      frameCount += 1;
+    }
+    if (JSON.stringify(identities[0]) !== JSON.stringify(identities[1])) failIf(true, "AB_EQUIPMENT_IDENTITY_MISMATCH", sceneLabel);
+
+    for (const lockedId of renderPolicy.lockedEquipment) {
+      const pairs = findLockedPlacementPairs(lockedId, placementsByFrame[0], placementsByFrame[1]);
+      if (pairs.length === 0) failIf(true, "MISSING_LOCKED_EQUIPMENT_INSTANCE", `${sceneLabel}:${lockedId}`);
+      for (const [placementA, placementB] of pairs) {
+        const drift = Math.hypot(placementA.target[0] - placementB.target[0], placementA.target[1] - placementB.target[1]);
+        if (drift > renderPolicy.anchorTolerancePixels) failIf(true, "LOCKED_ANCHOR_DRIFT", `${sceneLabel}:${lockedId}:${drift}`);
+        if (Math.abs(placementA.scale - placementB.scale) / placementA.scale > 0.01) failIf(true, "LOCKED_EQUIPMENT_SCALE_DRIFT", `${sceneLabel}:${lockedId}`);
+        if (Math.abs(placementA.rotationDegrees - placementB.rotationDegrees) > 0.5) failIf(true, "LOCKED_EQUIPMENT_ROTATION_DRIFT", `${sceneLabel}:${lockedId}`);
+      }
+    }
+  }
+
+  return { valid: true, equipmentAssets: equipmentById.size, scenes: scenePaths.length, frames: frameCount, placements: placementCount };
 }
-const sharp = require(sharpModulePath);
-const fail = (code, detail) => { throw new Error(`${code}${detail ? `: ${detail}` : ""}`); };
-const isPoint = (value) => Array.isArray(value) && value.length === 2 && value.every(Number.isFinite);
+
+function failIf(condition, code, detail = "") {
+  if (condition) throw new Error(`${code}${detail ? `: ${detail}` : ""}`);
+}
 
 function assertToken(code, value) {
-  if (typeof value !== "string" || !/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(value)) fail(code, String(value));
+  failIf(typeof value !== "string" || !/^[a-z0-9]+(?:_[a-z0-9]+)*$/.test(value), code, String(value));
+}
+
+function isPoint(value) {
+  return Array.isArray(value) && value.length === 2 && value.every(Number.isFinite);
 }
 
 function assertPoint(name, point, width, height, normalized = false) {
-  if (!isPoint(point)) fail("INVALID_POINT", `${name}=${JSON.stringify(point)}`);
+  failIf(!isPoint(point), "INVALID_POINT", `${name}=${JSON.stringify(point)}`);
   const maximumX = normalized ? 1 : width;
   const maximumY = normalized ? 1 : height;
-  if (point[0] < 0 || point[0] > maximumX || point[1] < 0 || point[1] > maximumY) {
-    fail("POINT_OUTSIDE_CANVAS", `${name}=${JSON.stringify(point)}`);
-  }
+  failIf(point[0] < 0 || point[0] > maximumX || point[1] < 0 || point[1] > maximumY, "POINT_OUTSIDE_CANVAS", `${name}=${JSON.stringify(point)}`);
 }
 
 function assertInside(root, candidate, code) {
   const relative = path.relative(root, candidate);
-  if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) fail(code, candidate);
+  failIf(!relative || relative.startsWith("..") || path.isAbsolute(relative), code, candidate);
 }
 
-async function assertTransparentPng(imagePath, label, expectedWidth, expectedHeight, expectedSha, requireTransparentPixel = true) {
+function isFinalFrameFile(file, expectedName) {
+  return isFinalFrameReference(file, expectedName);
+}
+
+function validateSceneRoot(scene, sceneLabel) {
+  failIf(scene.contractType !== EXERCISE_SCENE_CONTRACT_TYPE, "INVALID_SCENE_CONTRACT", sceneLabel);
+  failIf(scene.schemaVersion !== EXERCISE_SCENE_SCHEMA_VERSION, "INVALID_SCENE_SCHEMA_VERSION", sceneLabel);
+  for (const field of [
+    "exerciseId", "nameKo", "slug", "archetypeId", "renderClass", "canvas", "camera",
+    "exerciseMetadata", "metadataResolution", "muscleMapping", "equipment", "frames",
+    "renderPolicy", "generationContract",
+  ]) {
+    failIf(scene[field] === undefined || scene[field] === null, "MISSING_SCENE_FIELD", `${sceneLabel}:${field}`);
+  }
+  const metadata = scene.exerciseMetadata;
+  for (const field of [
+    "movementPattern", "motionType", "supportMode", "bodyOrientation",
+    "equipmentKinematics", "laterality", "gripVariant", "equipmentType",
+  ]) {
+    failIf(typeof metadata[field] !== "string" || metadata[field].length === 0, "MISSING_SCENE_METADATA", `${sceneLabel}:${field}`);
+  }
+  const metadataResolution = scene.metadataResolution;
+  const resolutionFields = metadataResolution.fields;
+  failIf(!resolutionFields || typeof resolutionFields !== "object" || Array.isArray(resolutionFields), "MISSING_METADATA_RESOLUTION", sceneLabel);
+  const metadataSources = new Set(["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog"]);
+  for (const field of ["supportMode", "bodyOrientation", "equipmentKinematics", "gripVariant", "canonicalView"]) {
+    failIf(!(field in resolutionFields), "MISSING_METADATA_RESOLUTION", `${sceneLabel}:${field}`);
+    failIf(resolutionFields[field] !== null && !metadataSources.has(resolutionFields[field]), "INVALID_METADATA_SOURCE", `${sceneLabel}:${field}`);
+  }
+  failIf(metadataResolution.canonicalViewSource !== null
+    && !metadataSources.has(metadataResolution.canonicalViewSource), "INVALID_METADATA_SOURCE", `${sceneLabel}:canonicalView`);
+  if (resolutionFields.canonicalView !== null && resolutionFields.canonicalView !== undefined
+    && metadataResolution.canonicalViewSource === "archetype_camera") {
+    failIf(metadata.canonicalView !== undefined, "DUPLICATE_CANONICAL_VIEW_SOURCE", sceneLabel);
+  }
+  const generation = scene.generationContract;
+  failIf(generation.baseFrame !== "A" || generation.derivedFrames?.B !== "edit_from_A", "INVALID_GENERATION_CONTRACT", sceneLabel);
+  failIf(!generation.equipmentAnchorStrategy || !generation.prompts?.A || !generation.prompts?.B
+    || !Array.isArray(generation.renderSteps), "INVALID_GENERATION_CONTRACT", sceneLabel);
+}
+
+function validateInvisibleGripTargets(scene, frame, sceneLabel) {
+  const strategy = scene.generationContract?.equipmentAnchorStrategy?.type;
+  const generationTargets = scene.generationContract?.invisibleGripTargets?.[frame.id];
+  if (generationTargets !== undefined) {
+    failIf(!Array.isArray(generationTargets), "INVALID_INVISIBLE_GRIP_TARGETS", `${sceneLabel}.${frame.id}`);
+    failIf(JSON.stringify(generationTargets) !== JSON.stringify(frame.invisibleGripTargets), "INVISIBLE_GRIP_TARGET_CONTRACT_MISMATCH", `${sceneLabel}.${frame.id}`);
+  }
+  if (strategy !== "invisible_grip") {
+    failIf(frame.invisibleGripTargets.length !== 0, "UNEXPECTED_INVISIBLE_GRIP_TARGETS", `${sceneLabel}.${frame.id}`);
+    return;
+  }
+  failIf(frame.invisibleGripTargets.length !== frame.equipmentPlacements.length, "INVISIBLE_GRIP_TARGET_COUNT_MISMATCH", `${sceneLabel}.${frame.id}`);
+  const placements = new Map(frame.equipmentPlacements.map((placement) => [placement.instanceId, placement]));
+  for (const target of frame.invisibleGripTargets) {
+    const placement = placements.get(target.instanceId);
+    failIf(!placement, "INVISIBLE_GRIP_TARGET_NOT_PLACED", `${sceneLabel}.${frame.id}:${target.instanceId}`);
+    failIf(target.equipmentId !== placement.equipmentId || target.anchor !== placement.anchor
+      || JSON.stringify(target.target) !== JSON.stringify(placement.target),
+    "INVISIBLE_GRIP_TARGET_MISMATCH", `${sceneLabel}.${frame.id}:${target.instanceId}`);
+  }
+}
+
+async function assertTransparentPng(imagePath, label, expectedWidth, expectedHeight, expectedSha, requireTransparentPixel, sharp) {
   const bytes = await fs.readFile(imagePath);
-  if (expectedSha && crypto.createHash("sha256").update(bytes).digest("hex") !== expectedSha) fail("ASSET_IDENTITY_MISMATCH", label);
+  if (expectedSha && crypto.createHash("sha256").update(bytes).digest("hex") !== expectedSha) failIf(true, "ASSET_IDENTITY_MISMATCH", label);
   const metadata = await sharp(bytes).metadata();
-  if (metadata.format !== "png" || !metadata.hasAlpha) fail("MISSING_TRANSPARENCY", label);
-  if (metadata.width !== expectedWidth || metadata.height !== expectedHeight) {
-    fail("CANVAS_MISMATCH", `${label}:${metadata.width}x${metadata.height}`);
+  if (metadata.format !== "png" || !metadata.hasAlpha) failIf(true, "MISSING_TRANSPARENCY", label);
+  if (expectedWidth !== null && (metadata.width !== expectedWidth || metadata.height !== expectedHeight)) {
+    failIf(true, "CANVAS_MISMATCH", `${label}:${metadata.width}x${metadata.height}`);
   }
   const raw = await sharp(bytes).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
   let transparent = false;
@@ -48,156 +282,61 @@ async function assertTransparentPng(imagePath, label, expectedWidth, expectedHei
     visible ||= raw.data[offset] > 0;
     if (transparent && visible) break;
   }
-  if (!visible) fail("MISSING_VISIBLE_PIXELS", label);
-  if (requireTransparentPixel && !transparent) fail("MISSING_TRANSPARENCY", `${label}: no fully transparent pixel`);
+  failIf(!visible, "MISSING_VISIBLE_PIXELS", label);
+  if (requireTransparentPixel) failIf(!transparent, "MISSING_TRANSPARENCY", `${label}: no fully transparent pixel`);
 }
 
-const catalog = JSON.parse(await fs.readFile(catalogPath, "utf8"));
-if (catalog.schemaVersion !== 2) fail("MISSING_CATALOG_SCHEMA_V2");
-if (catalog.coordinateSystem?.origin !== "top_left" || catalog.coordinateSystem?.unit !== "asset_local_normalized_0_to_1") {
-  fail("INVALID_CATALOG_COORDINATE_SYSTEM");
-}
-if (!Array.isArray(catalog.assets)) fail("MISSING_CATALOG_ASSETS");
-const catalogDirectory = path.dirname(path.resolve(catalogPath));
-const finalDirectory = path.resolve(catalogDirectory, "final");
-const statuses = new Set(["draft", "approved", "deprecated"]);
-const renderClasses = new Set(["movable_free_weight", "fixed_support", "fixed_machine", "cable_machine", "canonical_attachment"]);
-const equipmentById = new Map();
-const equipmentViews = new Set();
-
-async function validateComponent(assetId, component, suffix = "") {
-  if (!component || typeof component !== "object") fail("MISSING_EQUIPMENT_COMPONENT", `${assetId}${suffix}`);
-  if (typeof component.file !== "string" || !/^final\/[a-z0-9]+(?:-[a-z0-9]+)*\.png$/.test(component.file)) {
-    fail("SOURCE_ASSET_FORBIDDEN", `${assetId}${suffix}:${String(component.file)}`);
-  }
-  if (!Number.isInteger(component.width) || component.width <= 0 || !Number.isInteger(component.height) || component.height <= 0) {
-    fail("MISSING_ASSET_DIMENSIONS", `${assetId}${suffix}`);
-  }
-  if (typeof component.sha256 !== "string" || !/^[a-f0-9]{64}$/.test(component.sha256)) fail("MISSING_ASSET_SHA256", `${assetId}${suffix}`);
-  if (!component.anchors || typeof component.anchors !== "object" || Array.isArray(component.anchors) || Object.keys(component.anchors).length === 0) {
-    fail("MISSING_ANCHOR", `${assetId}${suffix}`);
-  }
-  for (const [anchorName, point] of Object.entries(component.anchors)) {
-    assertToken("INVALID_ANCHOR_NAME", anchorName);
-    assertPoint(`${assetId}${suffix}.${anchorName}`, point, 1, 1, true);
-  }
-  const imagePath = path.resolve(catalogDirectory, component.file);
-  assertInside(finalDirectory, imagePath, "SOURCE_ASSET_FORBIDDEN");
-  await assertTransparentPng(imagePath, `${assetId}${suffix}`, component.width, component.height, component.sha256, false);
-}
-
-for (const asset of catalog.assets) {
-  assertToken("INVALID_EQUIPMENT_ID", asset.id);
-  assertToken("INVALID_EQUIPMENT_TYPE", asset.type);
-  assertToken("INVALID_EQUIPMENT_VIEW", asset.viewId);
-  if (equipmentById.has(asset.id)) fail("DUPLICATE_EQUIPMENT_ID", asset.id);
-  const viewKey = `${asset.type}|${asset.viewId}`;
-  if (equipmentViews.has(viewKey)) fail("DUPLICATE_EQUIPMENT_TYPE_VIEW", viewKey);
-  if (!statuses.has(asset.status)) fail("INVALID_STATUS", `${asset.id}:${asset.status}`);
-  if (!renderClasses.has(asset.renderClass)) fail("INVALID_RENDER_CLASS", `${asset.id}:${asset.renderClass}`);
-  equipmentById.set(asset.id, asset);
-  equipmentViews.add(viewKey);
-  await validateComponent(asset.id, asset);
-  if (asset.frontOccluder) {
-    if (!["fixed_machine", "cable_machine"].includes(asset.renderClass)) fail("INVALID_FRONT_OCCLUDER_CLASS", asset.id);
-    await validateComponent(asset.id, asset.frontOccluder, ".frontOccluder");
-  }
-}
-
-function placementIdentity(asset, placement) {
-  const values = [`${asset.id}|${asset.file}|${asset.sha256}|primary`];
+function validatePlacement(scene, frame, placement, index, equipmentById) {
+  const label = `${scene.exerciseId}.${frame.id}.equipmentPlacements[${index}]`;
+  const asset = equipmentById.get(placement?.equipmentId);
+  if (!asset) failIf(true, "MISSING_EQUIPMENT", `${label}:${String(placement?.equipmentId)}`);
+  if (asset.status !== "approved") failIf(true, "UNAPPROVED_EQUIPMENT", asset.id);
+  if (!scene.equipment.includes(asset.id)) failIf(true, "PLACEMENT_NOT_DECLARED", `${label}:${asset.id}`);
+  if (placement.viewId !== asset.viewId) failIf(true, "INVALID_EQUIPMENT_VIEW", `${label}:${placement.viewId}`);
+  if (typeof placement.anchor !== "string" || !asset.anchors?.[placement.anchor]) failIf(true, "MISSING_ANCHOR", `${label}:${placement.anchor}`);
+  assertPoint(`${label}.target`, placement.target, scene.canvas.width, scene.canvas.height);
+  failIf(!Number.isFinite(placement.scale) || placement.scale <= 0, "INVALID_SCALE", label);
+  failIf(!Number.isFinite(placement.rotationDegrees), "INVALID_ROTATION", label);
+  failIf(!Number.isFinite(placement.z) || placement.z === 0, "INVALID_Z", label);
+  if (typeof placement.instanceId !== "string" || !placement.instanceId) failIf(true, "MISSING_PLACEMENT_INSTANCE_ID", label);
   if (placement.includeFrontOccluder === true) {
-    values.push(`${asset.id}|${asset.frontOccluder?.file}|${asset.frontOccluder?.sha256}|frontOccluder`);
+    if (!asset.frontOccluder) failIf(true, "MISSING_FRONT_OCCLUDER", label);
+    if (!asset.frontOccluder.anchors?.[placement.anchor]) failIf(true, "MISSING_ANCHOR", `${label}.frontOccluder.${placement.anchor}`);
+    if (!Number.isFinite(placement.frontZ) || placement.frontZ <= 0 || placement.frontZ <= placement.z) failIf(true, "INVALID_FRONT_Z", label);
+  } else if (placement.frontZ !== undefined) failIf(true, "UNUSED_FRONT_Z", label);
+  return asset;
+}
+
+function placementIdentity(asset, placement, index) {
+  const key = placement.instanceId ?? `${asset.id}#${index}`;
+  const values = [`${key}|${asset.id}|${asset.file}|${asset.sha256}|primary`];
+  if (placement.includeFrontOccluder === true) {
+    values.push(`${key}|${asset.id}|${asset.frontOccluder?.file}|${asset.frontOccluder?.sha256}|frontOccluder`);
   }
   return values;
 }
 
-function validatePlacement(scene, frame, placement, index) {
-  const label = `${scene.exerciseId}.${frame.id}.equipmentPlacements[${index}]`;
-  const asset = equipmentById.get(placement?.equipmentId);
-  if (!asset) fail("MISSING_EQUIPMENT", `${label}:${String(placement?.equipmentId)}`);
-  if (asset.status !== "approved") fail("UNAPPROVED_EQUIPMENT", asset.id);
-  if (!scene.equipment.includes(asset.id)) fail("PLACEMENT_NOT_DECLARED", `${label}:${asset.id}`);
-  if (placement.viewId !== undefined && placement.viewId !== asset.viewId) fail("INVALID_EQUIPMENT_VIEW", `${label}:${placement.viewId}`);
-  if (typeof placement.anchor !== "string" || !asset.anchors?.[placement.anchor]) fail("MISSING_ANCHOR", `${label}:${placement.anchor}`);
-  assertPoint(`${label}.target`, placement.target, scene.canvas.width, scene.canvas.height);
-  if (!Number.isFinite(placement.scale) || placement.scale <= 0) fail("INVALID_SCALE", label);
-  if (!Number.isFinite(placement.rotationDegrees)) fail("INVALID_ROTATION", label);
-  if (!Number.isFinite(placement.z) || placement.z === 0) fail("INVALID_Z", label);
-  if (placement.includeFrontOccluder === true) {
-    if (!asset.frontOccluder) fail("MISSING_FRONT_OCCLUDER", label);
-    if (!asset.frontOccluder.anchors?.[placement.anchor]) fail("MISSING_ANCHOR", `${label}.frontOccluder.${placement.anchor}`);
-    if (!Number.isFinite(placement.frontZ) || placement.frontZ <= 0 || placement.frontZ <= placement.z) fail("INVALID_FRONT_Z", label);
-  } else if (placement.frontZ !== undefined) fail("UNUSED_FRONT_Z", label);
-  return asset;
+function findLockedPlacementPairs(lockedId, placementsA, placementsB) {
+  const selectedA = placementsA.filter((placement) => placement.instanceId === lockedId || placement.equipmentId === lockedId);
+  return selectedA.map((placementA) => {
+    const placementB = placementsB.find((candidate) => candidate.instanceId === placementA.instanceId)
+      ?? placementsB.find((candidate) => candidate.equipmentId === placementA.equipmentId);
+    return placementB ? [placementA, placementB] : null;
+  }).filter(Boolean);
 }
 
-let frameCount = 0;
-let placementCount = 0;
-for (const scenePath of scenePaths) {
-  const scene = JSON.parse(await fs.readFile(scenePath, "utf8"));
-  if (!scene.canvas || !Number.isInteger(scene.canvas.width) || !Number.isInteger(scene.canvas.height)) fail("MISSING_SCENE_CANVAS", scenePath);
-  if (!Array.isArray(scene.equipment)) fail("MISSING_SCENE_EQUIPMENT", scenePath);
-  if (new Set(scene.equipment).size !== scene.equipment.length) fail("DUPLICATE_SCENE_EQUIPMENT", scene.exerciseId);
-  for (const equipmentId of scene.equipment) {
-    const asset = equipmentById.get(equipmentId);
-    if (!asset) fail("MISSING_EQUIPMENT", `${scene.exerciseId}:${equipmentId}`);
-    if (asset.status !== "approved") fail("UNAPPROVED_EQUIPMENT", `${scene.exerciseId}:${equipmentId}`);
-    const expectedView = scene.equipmentViews?.[equipmentId];
-    if (expectedView !== undefined && expectedView !== asset.viewId) fail("INVALID_EQUIPMENT_VIEW", `${scene.exerciseId}:${equipmentId}`);
+async function main() {
+  const [sharpModulePath, catalogPath, ...scenePaths] = process.argv.slice(2);
+  if (!sharpModulePath || !catalogPath) {
+    throw new Error("Usage: node validate-asset-manifests.mjs <sharp-module> <catalog-json> [scene-json ...]");
   }
-  for (const [anchorName, point] of Object.entries(scene.lockedAnchors ?? {})) {
-    assertPoint(`${scene.exerciseId}.${anchorName}`, point, scene.canvas.width, scene.canvas.height);
-  }
-  if (!Array.isArray(scene.frames) || scene.frames.length !== 2 || scene.frames[0]?.id !== "A" || scene.frames[1]?.id !== "B") {
-    fail("INVALID_AB_FRAMES", scene.exerciseId);
-  }
-  const slug = scene.slug ?? path.basename(scenePath, ".scene.json");
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail("INVALID_SCENE_SLUG", slug);
-  const hasPlacements = scene.frames.map((frame) => Array.isArray(frame.equipmentPlacements));
-  if (hasPlacements.some(Boolean) && !hasPlacements.every(Boolean)) fail("MISSING_EQUIPMENT_PLACEMENT", scene.exerciseId);
-  const identities = [];
-  const placementsByFrame = [];
-
-  for (const frame of scene.frames) {
-    const expectedName = `${slug}-${frame.id.toLowerCase()}.png`;
-    if (path.basename(frame.file) !== expectedName || !String(frame.file).replaceAll("\\", "/").includes("/final/")) {
-      fail("INVALID_FRAME_FILENAME", `${scene.exerciseId}:${frame.file}; expected ${expectedName}`);
-    }
-    const imagePath = path.resolve(path.dirname(scenePath), frame.file);
-    await assertTransparentPng(imagePath, `${scene.exerciseId}.${frame.id}`, scene.canvas.width, scene.canvas.height);
-    for (const [jointName, point] of Object.entries(frame.joints ?? {})) assertPoint(`${frame.id}.${jointName}`, point, scene.canvas.width, scene.canvas.height);
-    const framePlacements = frame.equipmentPlacements ?? [];
-    if (hasPlacements.every(Boolean)) {
-      const frameIds = new Set();
-      const frameIdentity = [];
-      framePlacements.forEach((placement, index) => {
-        const asset = validatePlacement(scene, frame, placement, index);
-        frameIds.add(asset.id);
-        frameIdentity.push(...placementIdentity(asset, placement));
-      });
-      if ([...new Set(scene.equipment)].some((id) => !frameIds.has(id))) fail("MISSING_EQUIPMENT_PLACEMENT", `${scene.exerciseId}.${frame.id}`);
-      identities.push(frameIdentity.sort());
-    }
-    placementsByFrame.push(framePlacements);
-    placementCount += framePlacements.length;
-    frameCount += 1;
-  }
-  if (identities.length === 2 && JSON.stringify(identities[0]) !== JSON.stringify(identities[1])) fail("AB_EQUIPMENT_IDENTITY_MISMATCH", scene.exerciseId);
-
-  const lockedIds = new Set(scene.compositionContract?.lockedEquipment ?? []);
-  const tolerance = Number(scene.compositionContract?.lockedAnchorTolerancePixels ?? Math.max(scene.canvas.width, scene.canvas.height) * 0.005);
-  if (!Number.isFinite(tolerance) || tolerance < 0) fail("INVALID_LOCKED_ANCHOR_TOLERANCE", scene.exerciseId);
-  for (const [index, placementA] of placementsByFrame[0].entries()) {
-    if (placementA.locked !== true && !lockedIds.has(placementA.equipmentId)) continue;
-    const key = placementA.instanceId ?? `${placementA.equipmentId}#${index}`;
-    const placementB = placementsByFrame[1].find((item, candidateIndex) => (item.instanceId ?? `${item.equipmentId}#${candidateIndex}`) === key);
-    if (!placementB) fail("MISSING_LOCKED_EQUIPMENT_INSTANCE", `${scene.exerciseId}:${key}`);
-    const drift = Math.hypot(placementA.target[0] - placementB.target[0], placementA.target[1] - placementB.target[1]);
-    if (drift > tolerance) fail("LOCKED_ANCHOR_DRIFT", `${scene.exerciseId}:${key}:${drift}`);
-    if (Math.abs(placementA.scale - placementB.scale) / placementA.scale > 0.01) fail("LOCKED_EQUIPMENT_SCALE_DRIFT", `${scene.exerciseId}:${key}`);
-    if (Math.abs(placementA.rotationDegrees - placementB.rotationDegrees) > 0.5) fail("LOCKED_EQUIPMENT_ROTATION_DRIFT", `${scene.exerciseId}:${key}`);
-  }
+  console.log(JSON.stringify(await validateAssetManifests({ sharpModulePath, catalogPath, scenePaths })));
 }
 
-console.log(JSON.stringify({ valid: true, equipmentAssets: equipmentById.size, scenes: scenePaths.length, frames: frameCount, placements: placementCount }));
+const normalizedUrl = new URL(import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, "$1");
+if (path.resolve(decodeURIComponent(normalizedUrl)) === path.resolve(process.argv[1] ?? "")) {
+  main().catch((error) => {
+    console.error(error?.stack ?? String(error));
+    process.exitCode = 1;
+  });
+}

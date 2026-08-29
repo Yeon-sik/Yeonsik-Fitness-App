@@ -43,7 +43,7 @@
       "properties": {
         "file": {
           "type": "string",
-          "pattern": "^final/[a-z0-9]+(?:-[a-z0-9]+)*\\.png$"
+          "pattern": "^final/[a-z0-9]+(?:[-_][a-z0-9]+)*\\.png$"
         },
         "width": { "type": "integer", "minimum": 1 },
         "height": { "type": "integer", "minimum": 1 },
@@ -72,20 +72,22 @@
         "viewId": { "type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$" },
         "file": {
           "type": "string",
-          "pattern": "^final/[a-z0-9]+(?:-[a-z0-9]+)*\\.png$"
+          "pattern": "^final/[a-z0-9]+(?:[-_][a-z0-9]+)*\\.png$"
         },
         "width": { "type": "integer", "minimum": 1 },
         "height": { "type": "integer", "minimum": 1 },
         "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
         "anchors": { "$ref": "#/$defs/anchors" },
-        "status": { "enum": ["draft", "approved", "deprecated"] },
+        "status": { "type": ["string", "null"], "enum": ["draft", "approved", "deprecated", null] },
         "renderClass": {
+          "type": ["string", "null"],
           "enum": [
             "movable_free_weight",
             "fixed_support",
             "fixed_machine",
             "cable_machine",
-            "canonical_attachment"
+            "canonical_attachment",
+            null
           ]
         },
         "frontOccluder": { "$ref": "#/$defs/pngComponent" }

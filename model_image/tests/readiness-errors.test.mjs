@@ -7,10 +7,15 @@ import test from "node:test";
 import { inspectExerciseReadiness } from "../exercise-images/tools/compile-exercise.mjs";
 import { writeJson } from "../lib/pipeline-contract.mjs";
 
-test("readiness fails with MISSING_OVERRIDE", async () => {
+test("readiness does not require an exercise override", async () => {
   const context = await readyContext();
   context.overrides.exercises = {};
-  assert.equal((await inspectExerciseReadiness("test", context)).code, "MISSING_OVERRIDE");
+  const result = await inspectExerciseReadiness("test", context);
+  assert.equal(result.ready, true);
+  assert.equal(result.metadataResolution.sources.supportMode, "archetype_default");
+  assert.equal(result.metadataResolution.sources.canonicalView, "archetype_camera");
+  assert.equal(result.normalizedPlacements.A[0].instanceId, "equipment_v1#0");
+  assert.deepEqual(result.normalizedPlacements.A[0].target, [50, 50]);
 });
 
 test("readiness fails with MISSING_ARCHETYPE", async () => {
@@ -81,10 +86,21 @@ async function readyContext() {
       canonicalReferenceScene: "reference.scene.json",
       equipmentAnchorStrategy: { type: "invisible_grip" },
       canvas: { width: 100, height: 100 },
+      metadata: {
+        supportMode: "standing",
+        bodyOrientation: "upright",
+        equipmentKinematics: "free_weight",
+        gripVariant: "neutral",
+      },
+      placementRecipe: { A: [{ ...placement }], B: [{ ...placement }] },
+      lockedAnchors: {},
+      anchorTolerancePixels: 8,
+      lockedEquipment: [],
     } } },
     equipmentCatalog: { assets: [{
       id: "equipment_v1",
       status: "approved",
+      renderClass: "movable_free_weight",
       file: "final/equipment.png",
       viewId: "front",
       anchors: { center: [0.5, 0.5] },

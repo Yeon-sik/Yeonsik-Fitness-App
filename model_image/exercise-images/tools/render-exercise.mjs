@@ -19,6 +19,8 @@ export async function renderExercise({ exerciseName, context, outputDirectory, a
   const scene = compiled.scene;
   const run = {
     contractType: "exercise-image-render-run.v1",
+    implementation: "scaffold",
+    generationApi: null,
     exerciseId: scene.exerciseId,
     slug: scene.slug,
     status: "BLOCKED",
@@ -73,7 +75,9 @@ function parseArguments(argv, defaults) {
   const flags = {
     "--exercise-catalog": "exerciseCatalog", "--name-index": "nameIndex",
     "--overrides": "overrides", "--archetypes": "archetypes",
+    "--deterministic-mapping": "deterministicMapping",
     "--equipment-catalog": "equipmentCatalog", "--muscle-layers": "muscleLayers",
+    "--final-directory": "finalDirectory",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const argument = argv[index];

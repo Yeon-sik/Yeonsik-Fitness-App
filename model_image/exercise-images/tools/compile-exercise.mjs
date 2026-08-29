@@ -16,11 +16,21 @@ import {
   readJson,
   writeJson,
 } from "../../lib/pipeline-contract.mjs";
+import {
+  findDeterministicMapping,
+  resolveArchetypeId,
+  resolveEquipmentPlacements,
+  resolveExerciseMetadata,
+} from "../../lib/metadata-resolution.mjs";
+import {
+  EXERCISE_SCENE_CONTRACT_TYPE,
+  EXERCISE_SCENE_SCHEMA_VERSION,
+  finalFrameReference,
+} from "../../lib/scene-contract.mjs";
 
 const REQUIRED_METADATA_FIELDS = [
-  "id", "nameKo", "slug", "movementPattern", "motionType", "supportMode",
-  "bodyOrientation", "equipmentKinematics", "laterality", "gripVariant",
-  "canonicalView", "primarySubPart", "secondarySubParts", "equipmentType",
+  "id", "nameKo", "slug", "movementPattern", "motionType", "equipmentKinematics",
+  "laterality", "primarySubPart", "secondarySubParts", "equipmentType",
 ];
 const RENDER_CLASSES = new Set([
   "bodyweight", "movable_free_weight", "fixed_support", "fixed_machine", "cable_machine",
@@ -33,11 +43,13 @@ export function defaultCompilePaths(repositoryRoot) {
     nameIndex: path.join(modelImage, "data", "exercise-name-index.json"),
     overrides: path.join(modelImage, "data", "exercise-overrides.json"),
     archetypes: path.join(modelImage, "archetypes", "archetype-registry.json"),
+    deterministicMapping: path.join(modelImage, "archetypes", "deterministic-mapping.json"),
     equipmentCatalog: path.join(modelImage, "equipment", "equipment-catalog.json"),
     muscleLayers: path.join(modelImage, "style-4", "muscle-layers.json"),
     templateA: path.join(modelImage, "exercise-images", "templates", "mannequin-a.prompt.md"),
     templateB: path.join(modelImage, "exercise-images", "templates", "mannequin-b-edit.prompt.md"),
     outputRoot: path.join(modelImage, "exercise-images", "generated"),
+    finalDirectory: path.join(modelImage, "exercise-images", "final"),
   };
 }
 
@@ -49,6 +61,9 @@ export async function loadCompileContext(paths) {
     readJson(paths.archetypes, ERROR_CODES.MISSING_ARCHETYPE),
     readJson(paths.muscleLayers, ERROR_CODES.MISSING_MUSCLE_MAPPING),
   ]);
+  const deterministicMapping = paths.deterministicMapping && await pathExists(paths.deterministicMapping)
+    ? await readJson(paths.deterministicMapping, ERROR_CODES.MISSING_DETERMINISTIC_MAPPING)
+    : { schemaVersion: 1, candidateKeyFields: [], rules: [] };
   if (!(await pathExists(paths.equipmentCatalog))) {
     fail(ERROR_CODES.MISSING_EQUIPMENT_CATALOG, "Canonical equipment catalog is missing", {
       expected: paths.equipmentCatalog,
@@ -56,7 +71,7 @@ export async function loadCompileContext(paths) {
     });
   }
   const equipmentCatalog = await readJson(paths.equipmentCatalog, ERROR_CODES.MISSING_EQUIPMENT_CATALOG);
-  return { exerciseCatalog, nameIndex, overrides, archetypes, equipmentCatalog, muscleLayers, paths };
+  return { exerciseCatalog, nameIndex, overrides, archetypes, deterministicMapping, equipmentCatalog, muscleLayers, paths };
 }
 
 export function resolveExerciseId(exerciseName, nameIndex) {
@@ -79,11 +94,29 @@ export async function inspectExerciseReadiness(exerciseId, context) {
     return issue(ERROR_CODES.MISSING_EXERCISE_METADATA, { exerciseId, fields: [...new Set(metadataMissing)] });
   }
 
-  const override = context.overrides.exercises?.[exerciseId];
-  if (!override) return issue(ERROR_CODES.MISSING_OVERRIDE, { exerciseId });
-  const archetypeId = override.archetypeId ?? exercise.archetypeId;
+  const override = context.overrides?.exercises?.[exerciseId] ?? {};
+  const deterministic = findDeterministicMapping(
+    exercise,
+    context.deterministicMapping ?? context.deterministicMappings ?? {},
+  );
+  const archetypeId = resolveArchetypeId({ exercise, override, deterministic });
   const archetype = context.archetypes.archetypes?.[archetypeId];
-  if (!archetypeId || !archetype) return issue(ERROR_CODES.MISSING_ARCHETYPE, { exerciseId, archetypeId: archetypeId ?? null });
+  if (!archetypeId || !archetype) {
+    return issue(ERROR_CODES.MISSING_ARCHETYPE, {
+      exerciseId,
+      archetypeId: archetypeId ?? null,
+      deterministicRule: deterministic.rule?.id ?? null,
+    });
+  }
+
+  const metadataResolution = resolveExerciseMetadata({ exercise, override, archetype, deterministic });
+  if (metadataResolution.missingFields.length > 0 || metadataResolution.conflicts.length > 0) {
+    return issue(ERROR_CODES.MISSING_EXERCISE_METADATA, {
+      exerciseId,
+      fields: [...new Set([...metadataResolution.missingFields, ...metadataResolution.conflicts])],
+      sources: metadataResolution.sources,
+    });
+  }
 
   const missingArchetype = missingFields(archetype, [
     "camera", "poses", "lockedJoints", "animatedJoints", "renderClass",
@@ -102,21 +135,41 @@ export async function inspectExerciseReadiness(exerciseId, context) {
   const missingGroups = requestedGroups.filter((group) => !Array.isArray(muscleGroups[group]));
   if (missingGroups.length > 0) return issue(ERROR_CODES.MISSING_MUSCLE_MAPPING, { exerciseId, groups: missingGroups });
 
-  const placementsByFrame = override.equipmentPlacements;
-  if (!placementsByFrame || !Array.isArray(placementsByFrame.A) || !Array.isArray(placementsByFrame.B)) {
-    return issue(ERROR_CODES.MISSING_OVERRIDE, { exerciseId, field: "equipmentPlacements.A/B" });
+  const placementResolution = resolveEquipmentPlacements({ exercise, override, archetype, deterministic });
+  if (placementResolution.invalid.length > 0) {
+    return issue(ERROR_CODES.INVALID_CONTRACT, {
+      exerciseId,
+      field: "equipmentPlacements.A/B",
+      invalidFrames: placementResolution.invalid,
+    });
+  }
+  if (placementResolution.missingRecipe) {
+    return issue(ERROR_CODES.MISSING_PLACEMENT_RECIPE, {
+      exerciseId,
+      equipmentType: exercise.equipmentType,
+      archetypeId,
+    });
   }
   const equipmentById = new Map((context.equipmentCatalog.assets ?? []).map((asset) => [asset.id, asset]));
+  const normalizedPlacements = { A: [], B: [] };
   for (const frameId of ["A", "B"]) {
-    for (const [placementIndex, placement] of placementsByFrame[frameId].entries()) {
+    for (const [placementIndex, placement] of placementResolution.frames[frameId].entries()) {
       const asset = equipmentById.get(placement.equipmentId);
-      if (!asset || asset.status !== "approved" || !String(asset.file ?? "").replaceAll("\\", "/").startsWith("final/")) {
-        return issue(ERROR_CODES.MISSING_EQUIPMENT, { exerciseId, frameId, placementIndex, equipmentId: placement.equipmentId });
+      if (!asset || asset.status !== "approved" || !asset.renderClass
+        || !String(asset.file ?? "").replaceAll("\\", "/").startsWith("final/")) {
+        return issue(ERROR_CODES.MISSING_EQUIPMENT, {
+          exerciseId,
+          frameId,
+          placementIndex,
+          equipmentId: placement.equipmentId,
+          status: asset?.status ?? null,
+          renderClass: asset?.renderClass ?? null,
+        });
       }
-      if (!placement.viewId || asset.viewId !== placement.viewId) {
+      if (placement.viewId !== undefined && asset.viewId !== placement.viewId) {
         return issue(ERROR_CODES.MISSING_EQUIPMENT_VIEW, {
           exerciseId, frameId, placementIndex, equipmentId: placement.equipmentId,
-          requested: placement.viewId ?? null, available: asset.viewId ?? null,
+          requested: placement.viewId, available: asset.viewId ?? null,
         });
       }
       if (!placement.anchor || !Array.isArray(asset.anchors?.[placement.anchor])) {
@@ -127,31 +180,107 @@ export async function inspectExerciseReadiness(exerciseId, context) {
       }
       const missingPlacement = missingFields(placement, ["target", "scale", "rotationDegrees", "z"]);
       if (missingPlacement.length > 0) {
-        return issue(ERROR_CODES.MISSING_OVERRIDE, { exerciseId, frameId, placementIndex, fields: missingPlacement });
+        return issue(ERROR_CODES.MISSING_PLACEMENT, { exerciseId, frameId, placementIndex, fields: missingPlacement });
       }
+      if (!Array.isArray(placement.target) || placement.target.length !== 2 || !placement.target.every(Number.isFinite)
+        || placement.target[0] < 0 || placement.target[0] > archetype.canvas.width
+        || placement.target[1] < 0 || placement.target[1] > archetype.canvas.height
+        || !Number.isFinite(placement.scale) || placement.scale <= 0
+        || !Number.isFinite(placement.rotationDegrees) || !Number.isFinite(placement.z) || placement.z === 0) {
+        return issue(ERROR_CODES.INVALID_CONTRACT, { exerciseId, frameId, placementIndex });
+      }
+      normalizedPlacements[frameId].push({
+        ...placement,
+        instanceId: placement.instanceId ?? `${placement.equipmentId}#${placementIndex}`,
+        viewId: asset.viewId,
+      });
+    }
+    if (new Set(normalizedPlacements[frameId].map((placement) => placement.instanceId)).size
+      !== normalizedPlacements[frameId].length) {
+      return issue(ERROR_CODES.MISSING_PLACEMENT, { exerciseId, frameId, field: "unique instanceId" });
     }
   }
-  if (!sameEquipmentIdentity(placementsByFrame.A, placementsByFrame.B)) {
-    return issue(ERROR_CODES.MISSING_OVERRIDE, { exerciseId, field: "A/B equipment identity" });
+  if (exercise.equipmentType !== "bodyweight" && normalizedPlacements.A.length === 0) {
+    return issue(ERROR_CODES.MISSING_PLACEMENT, { exerciseId, field: "equipmentPlacements.A/B" });
   }
-  return { ready: true, code: "READY", exercise, override, archetype, referencePath };
+  if (!sameEquipmentIdentity(normalizedPlacements.A, normalizedPlacements.B)) {
+    return issue(ERROR_CODES.MISSING_PLACEMENT, { exerciseId, field: "A/B equipment identity" });
+  }
+
+  const lockedAnchors = firstDefined(
+    own(override, "lockedAnchors") ? override.lockedAnchors : undefined,
+    own(archetype, "lockedAnchors") ? archetype.lockedAnchors : undefined,
+    archetype.renderPolicy?.lockedAnchors,
+    deterministic.values?.lockedAnchors,
+  );
+  if (!lockedAnchors || typeof lockedAnchors !== "object" || Array.isArray(lockedAnchors)) {
+    return issue(ERROR_CODES.MISSING_LOCKED_ANCHORS, { exerciseId, archetypeId });
+  }
+  const rawTolerance = firstDefined(
+    own(override, "anchorTolerancePixels") ? override.anchorTolerancePixels : undefined,
+    own(archetype, "anchorTolerancePixels") ? archetype.anchorTolerancePixels : undefined,
+    archetype.renderPolicy?.anchorTolerancePixels,
+    deterministic.values?.anchorTolerancePixels,
+  );
+  const tolerance = resolveTolerance(rawTolerance, archetype.canvas);
+  if (!Number.isFinite(tolerance) || tolerance < 0) {
+    return issue(ERROR_CODES.MISSING_ANCHOR_TOLERANCE, { exerciseId, archetypeId });
+  }
+  const equipmentIds = [...new Set(normalizedPlacements.A.map((placement) => placement.equipmentId))];
+  const lockedEquipment = firstDefined(
+    own(override, "lockedEquipment") ? override.lockedEquipment : undefined,
+    own(archetype, "lockedEquipment") ? archetype.lockedEquipment : undefined,
+    archetype.renderPolicy?.lockedEquipment,
+    deterministic.values?.lockedEquipment,
+    normalizedPlacements.A.filter((placement) => placement.locked === true).map((placement) => placement.instanceId),
+    [],
+  );
+  if (!Array.isArray(lockedEquipment)) {
+    return issue(ERROR_CODES.MISSING_LOCKED_EQUIPMENT, { exerciseId, archetypeId });
+  }
+  return {
+    ready: true,
+    code: "READY",
+    exercise,
+    override,
+    archetype,
+    deterministic,
+    metadataResolution,
+    placementResolution,
+    normalizedPlacements,
+    lockedAnchors,
+    tolerance,
+    equipmentIds,
+    lockedEquipment,
+    referencePath,
+  };
 }
 
 export async function compileExercise({ exerciseName, context, outputDirectory }) {
   const exerciseId = resolveExerciseId(exerciseName, context.nameIndex);
   const readiness = await inspectExerciseReadiness(exerciseId, context);
   if (!readiness.ready) fail(readiness.code, `Exercise is not ready: ${exerciseId}`, readiness.details);
-  const { exercise, override, archetype, referencePath } = readiness;
+  const {
+    exercise,
+    override,
+    archetype,
+    deterministic,
+    metadataResolution,
+    normalizedPlacements,
+    lockedAnchors,
+    tolerance,
+    equipmentIds,
+    lockedEquipment,
+    referencePath,
+  } = readiness;
   const muscleMapping = buildMuscleMapping(exercise, context.muscleLayers.exerciseGroups);
-  const equipmentIds = [...new Set([
-    ...override.equipmentPlacements.A,
-    ...override.equipmentPlacements.B,
-  ].map((placement) => placement.equipmentId))];
-  const lockedAnchors = override.lockedAnchors ?? {};
-  const tolerance = override.anchorTolerancePixels;
-  if (!Number.isFinite(tolerance)) {
-    fail(ERROR_CODES.MISSING_OVERRIDE, "anchorTolerancePixels must be explicitly reviewed", { exerciseId });
-  }
+  const output = outputDirectory ?? path.join(context.paths.outputRoot, exercise.slug);
+  const finalDirectory = context.paths.finalDirectory
+    ?? path.resolve(context.paths.outputRoot, "..", "final");
+  const invisibleGripTargets = {
+    A: buildInvisibleGripTargets(normalizedPlacements.A, archetype),
+    B: buildInvisibleGripTargets(normalizedPlacements.B, archetype),
+  };
 
   const variables = {
     exerciseNameKo: exercise.nameKo,
@@ -164,6 +293,9 @@ export async function compileExercise({ exerciseName, context, outputDirectory }
     primaryLayersJson: JSON.stringify(muscleMapping.primaryLayers),
     secondaryLayersJson: JSON.stringify(muscleMapping.secondaryLayers),
     lockedAnchorsJson: JSON.stringify({ anchors: lockedAnchors, tolerancePixels: tolerance }),
+    invisibleGripTargetsAJson: JSON.stringify(invisibleGripTargets.A),
+    invisibleGripTargetsBJson: JSON.stringify(invisibleGripTargets.B),
+    invisibleGripTargetsJson: JSON.stringify(invisibleGripTargets),
   };
   const [templateA, templateB] = await Promise.all([
     fs.readFile(context.paths.templateA, "utf8"),
@@ -171,39 +303,47 @@ export async function compileExercise({ exerciseName, context, outputDirectory }
   ]);
   const promptA = renderTemplate(templateA, variables);
   const promptB = renderTemplate(templateB, variables);
-  const output = outputDirectory ?? path.join(context.paths.outputRoot, exercise.slug);
+  const exerciseMetadata = {
+    movementPattern: exercise.movementPattern,
+    motionType: exercise.motionType,
+    supportMode: metadataResolution.metadata.supportMode,
+    bodyOrientation: metadataResolution.metadata.bodyOrientation,
+    equipmentKinematics: metadataResolution.metadata.equipmentKinematics,
+    laterality: exercise.laterality,
+    gripVariant: metadataResolution.metadata.gripVariant,
+    equipmentType: exercise.equipmentType,
+  };
+  if (!metadataResolution.canonicalViewFromCamera) {
+    exerciseMetadata.canonicalView = metadataResolution.metadata.canonicalView;
+  }
   const scene = {
-    contractType: "exercise-image-orchestration.v1",
-    schemaVersion: 1,
+    contractType: EXERCISE_SCENE_CONTRACT_TYPE,
+    schemaVersion: EXERCISE_SCENE_SCHEMA_VERSION,
     exerciseId,
     nameKo: exercise.nameKo,
     slug: exercise.slug,
-    archetypeId: override.archetypeId ?? exercise.archetypeId,
+    archetypeId: resolveArchetypeId({ exercise, override, deterministic }),
     renderClass: archetype.renderClass,
     canvas: archetype.canvas,
     camera: archetype.camera,
-    exerciseMetadata: {
-      movementPattern: exercise.movementPattern,
-      motionType: exercise.motionType,
-      supportMode: exercise.supportMode,
-      bodyOrientation: exercise.bodyOrientation,
-      equipmentKinematics: exercise.equipmentKinematics,
-      laterality: exercise.laterality,
-      gripVariant: exercise.gripVariant,
-      canonicalView: exercise.canonicalView,
-      equipmentType: exercise.equipmentType,
+    exerciseMetadata,
+    metadataResolution: {
+      fields: metadataResolution.sources,
+      deterministicRule: deterministic.rule?.id ?? null,
+      canonicalViewSource: metadataResolution.sources.canonicalView,
     },
     muscleMapping,
     equipment: equipmentIds,
     frames: [
-      frameContract("A", exercise.slug, archetype.poses.A, override.equipmentPlacements.A),
-      frameContract("B", exercise.slug, archetype.poses.B, override.equipmentPlacements.B),
+      frameContract("A", exercise.slug, archetype.poses.A, normalizedPlacements.A, invisibleGripTargets.A, output, finalDirectory),
+      frameContract("B", exercise.slug, archetype.poses.B, normalizedPlacements.B, invisibleGripTargets.B, output, finalDirectory),
     ],
     renderPolicy: {
       lockedJoints: archetype.lockedJoints,
       animatedJoints: archetype.animatedJoints,
       lockedAnchors,
       anchorTolerancePixels: tolerance,
+      lockedEquipment,
     },
     generationContract: {
       baseFrame: "A",
@@ -211,14 +351,15 @@ export async function compileExercise({ exerciseName, context, outputDirectory }
       referenceScene: path.relative(output, referencePath).replaceAll("\\", "/"),
       equipmentAnchorStrategy: archetype.equipmentAnchorStrategy,
       prompts: { A: "prompt-a.md", B: "prompt-b-edit.md" },
+      invisibleGripTargets,
       renderSteps: renderSteps(archetype.renderClass),
     },
   };
   await fs.mkdir(output, { recursive: true });
   await Promise.all([
     writeJson(path.join(output, "scene.json"), scene),
-    writeJson(path.join(output, "placements-a.json"), override.equipmentPlacements.A),
-    writeJson(path.join(output, "placements-b.json"), override.equipmentPlacements.B),
+    writeJson(path.join(output, "placements-a.json"), normalizedPlacements.A),
+    writeJson(path.join(output, "placements-b.json"), normalizedPlacements.B),
     fs.writeFile(path.join(output, "prompt-a.md"), promptA, "utf8"),
     fs.writeFile(path.join(output, "prompt-b-edit.md"), promptB, "utf8"),
   ]);
@@ -227,6 +368,25 @@ export async function compileExercise({ exerciseName, context, outputDirectory }
 
 function issue(code, details) {
   return { ready: false, code, details };
+}
+
+function own(object, key) {
+  return object !== null && typeof object === "object" && Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null);
+}
+
+function resolveTolerance(value, canvas) {
+  if (Number.isFinite(value)) return value;
+  if (!value || typeof value !== "object") return null;
+  const amount = Number(value.value ?? value.ratio ?? value.percent);
+  if (!Number.isFinite(amount)) return null;
+  if (["long_side_percent", "canvas_long_side_percent"].includes(value.mode)) {
+    return Math.max(canvas.width, canvas.height) * amount;
+  }
+  return null;
 }
 
 function buildMuscleMapping(exercise, groups) {
@@ -244,7 +404,9 @@ function buildMuscleMapping(exercise, groups) {
 }
 
 function sameEquipmentIdentity(left, right) {
-  const ids = (placements) => placements.map((item) => item.equipmentId).sort();
+  const ids = (placements) => placements
+    .map((item) => `${item.instanceId}|${item.equipmentId}|${item.viewId}`)
+    .sort();
   return JSON.stringify(ids(left)) === JSON.stringify(ids(right));
 }
 
@@ -255,14 +417,26 @@ function renderTemplate(template, variables) {
   });
 }
 
-function frameContract(id, slug, pose, equipmentPlacements) {
+function buildInvisibleGripTargets(equipmentPlacements, archetype) {
+  const strategy = archetype?.equipmentAnchorStrategy?.type;
+  if (strategy !== "invisible_grip") return [];
+  return equipmentPlacements.map((placement) => ({
+    instanceId: placement.instanceId,
+    equipmentId: placement.equipmentId,
+    anchor: placement.anchor,
+    target: [...placement.target],
+  }));
+}
+
+function frameContract(id, slug, pose, equipmentPlacements, invisibleGripTargets, outputDirectory, finalDirectory) {
   const lower = id.toLowerCase();
   return {
     id,
-    file: `${slug}-${lower}.png`,
+    file: finalFrameReference(outputDirectory, finalDirectory, slug, id),
     mannequinFile: `${slug}-${lower}-mannequin.png`,
     pose,
     equipmentPlacements,
+    invisibleGripTargets,
   };
 }
 
@@ -282,8 +456,10 @@ function parseArguments(argv, defaults) {
   const pathFlags = {
     "--exercise-catalog": "exerciseCatalog", "--name-index": "nameIndex",
     "--overrides": "overrides", "--archetypes": "archetypes",
+    "--deterministic-mapping": "deterministicMapping",
     "--equipment-catalog": "equipmentCatalog", "--muscle-layers": "muscleLayers",
     "--template-a": "templateA", "--template-b": "templateB", "--output-root": "outputRoot",
+    "--final-directory": "finalDirectory",
   };
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];

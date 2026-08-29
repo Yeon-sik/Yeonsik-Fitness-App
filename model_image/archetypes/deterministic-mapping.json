@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "description": "Explicit, reviewable mappings only. A missing mapping remains missing; no rule may infer a pose, camera, or placement from a name.",
+  "candidateKeyFields": [
+    "movementPattern",
+    "motionType",
+    "equipmentKinematics",
+    "laterality"
+  ],
+  "rules": []
+}

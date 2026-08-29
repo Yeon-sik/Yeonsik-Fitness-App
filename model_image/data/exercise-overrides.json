@@ -1,5 +1,5 @@
 {
   "schemaVersion": 1,
-  "description": "User-reviewed exercise-specific rendering decisions. Empty values are never inferred by tools.",
+  "description": "Exception-only reviewed exercise decisions. Ordinary exercises inherit archetype defaults; empty values are never inferred by tools.",
   "exercises": {}
 }

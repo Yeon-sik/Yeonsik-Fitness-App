@@ -25,7 +25,7 @@ const REQUIRED_SOURCE_FIELDS = [
   "resistanceType",
 ];
 
-const REVIEWED_RENDER_FIELDS = [
+const OVERRIDE_FIELDS = [
   "supportMode",
   "bodyOrientation",
   "gripVariant",
@@ -80,10 +80,17 @@ export async function buildExerciseCatalog({ fitnessPath, overridesPath, outputD
         uiPart: source.uiPart ?? null,
         notes: source.notes ?? null,
       },
-      missingReviewedFields: REVIEWED_RENDER_FIELDS.filter((field) => {
-        const value = field === "archetypeId" ? override?.archetypeId : override?.[field];
-        return value === null || value === undefined || value === "";
-      }),
+      // This is intentionally empty for ordinary exercises. An override file
+      // is an exception layer, not a checklist that every exercise must fill.
+      missingReviewedFields: override
+        ? OVERRIDE_FIELDS.filter((field) => {
+          const value = field === "archetypeId" ? override?.archetypeId : override?.[field];
+          return value === null || value === undefined || value === "";
+        })
+        : [],
+      overridePolicy: override?.required === true || override?.kind === "exception"
+        ? "required_exception"
+        : "optional_exception",
     };
     catalogExercises.push(record);
 
@@ -101,7 +108,7 @@ export async function buildExerciseCatalog({ fitnessPath, overridesPath, outputD
   const catalog = {
     schemaVersion: 1,
     generatedFrom: path.relative(outputDirectory, fitnessPath).replaceAll("\\", "/"),
-    generationPolicy: "copy_source_fields_and_preserve_unreviewed_values_as_null",
+    generationPolicy: "copy_source_fields_and_preserve_unreviewed_values_as_null; overrides_are_exception_only",
     exerciseCount: catalogExercises.length,
     exercises: catalogExercises,
   };

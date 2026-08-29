@@ -14,6 +14,7 @@
     "canvas",
     "camera",
     "exerciseMetadata",
+    "metadataResolution",
     "muscleMapping",
     "equipment",
     "frames",
@@ -50,7 +51,6 @@
         "equipmentKinematics",
         "laterality",
         "gripVariant",
-        "canonicalView",
         "equipmentType"
       ],
       "properties": {
@@ -63,6 +63,27 @@
         "gripVariant": { "type": "string", "minLength": 1 },
         "canonicalView": { "type": "string", "minLength": 1 },
         "equipmentType": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "metadataResolution": {
+      "type": "object",
+      "required": ["fields", "deterministicRule", "canonicalViewSource"],
+      "properties": {
+        "fields": {
+          "type": "object",
+          "required": ["supportMode", "bodyOrientation", "equipmentKinematics", "gripVariant", "canonicalView"],
+          "properties": {
+            "supportMode": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] },
+            "bodyOrientation": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] },
+            "equipmentKinematics": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] },
+            "gripVariant": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] },
+            "canonicalView": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] }
+          },
+          "additionalProperties": false
+        },
+        "deterministicRule": { "type": ["string", "null"] },
+        "canonicalViewSource": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] }
       },
       "additionalProperties": false
     },
@@ -89,12 +110,13 @@
     },
     "renderPolicy": {
       "type": "object",
-      "required": ["lockedJoints", "animatedJoints", "lockedAnchors", "anchorTolerancePixels"],
+      "required": ["lockedJoints", "animatedJoints", "lockedAnchors", "anchorTolerancePixels", "lockedEquipment"],
       "properties": {
         "lockedJoints": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
         "animatedJoints": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
         "lockedAnchors": { "type": "object" },
-        "anchorTolerancePixels": { "type": "number", "minimum": 0 }
+        "anchorTolerancePixels": { "type": "number", "minimum": 0 },
+        "lockedEquipment": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
       },
       "additionalProperties": false
     },
@@ -115,6 +137,15 @@
           "type": "object",
           "required": ["A", "B"],
           "properties": { "A": { "type": "string" }, "B": { "type": "string" } },
+          "additionalProperties": false
+        },
+        "invisibleGripTargets": {
+          "type": "object",
+          "required": ["A", "B"],
+          "properties": {
+            "A": { "type": "array" },
+            "B": { "type": "array" }
+          },
           "additionalProperties": false
         },
         "renderSteps": {
@@ -152,13 +183,32 @@
     },
     "frame": {
       "type": "object",
-      "required": ["id", "file", "mannequinFile", "pose", "equipmentPlacements"],
+      "required": ["id", "file", "mannequinFile", "pose", "equipmentPlacements", "invisibleGripTargets"],
       "properties": {
         "id": { "enum": ["A", "B"] },
-        "file": { "type": "string" },
+        "file": { "type": "string", "pattern": "^(?:\\.\\./)+final/[a-z0-9]+(?:-[a-z0-9]+)*-(?:a|b)\\.png$" },
         "mannequinFile": { "type": "string" },
         "pose": { "type": "object", "minProperties": 1 },
-        "equipmentPlacements": { "type": "array", "items": { "$ref": "#/$defs/placement" } }
+        "equipmentPlacements": { "type": "array", "items": { "$ref": "#/$defs/placement" } },
+        "invisibleGripTargets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["instanceId", "equipmentId", "anchor", "target"],
+            "properties": {
+              "instanceId": { "type": "string", "minLength": 1 },
+              "equipmentId": { "type": "string", "minLength": 1 },
+              "anchor": { "type": "string", "minLength": 1 },
+              "target": {
+                "type": "array",
+                "prefixItems": [{ "type": "number" }, { "type": "number" }],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "additionalProperties": false
+          }
+        }
       },
       "additionalProperties": false
     },
