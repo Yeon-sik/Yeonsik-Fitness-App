@@ -1018,14 +1018,7 @@ public final class NutritionCatalogRepository {
             String branchName,
             DiningOutIdentity identity
     ) {
-        String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
-        String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
         MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
-        if (!MealEntryPolicy.hasDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams)) {
-            throw new IllegalArgumentException(
-                    "메뉴로 저장하려면 추정 탄수화물·단백질·지방을 입력하세요."
-            );
-        }
         if (calories != null && calories < 0) {
             throw new IllegalArgumentException("칼로리는 0 이상인 숫자로 입력하세요.");
         }
@@ -1046,11 +1039,54 @@ public final class NutritionCatalogRepository {
                 .value(NutritionProfile.SUGARS_GRAMS, sugarsGrams)
                 .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFatGrams)
                 .build();
+        return saveDiningOutMenuWithNutrition(
+                storeName,
+                menuName,
+                profile,
+                branchName,
+                identity
+        );
+    }
+
+    /** Saves a reusable dining-out menu without dropping already-known nutrition fields. */
+    public NutritionFood saveDiningOutMenuWithNutrition(
+            String storeName,
+            String menuName,
+            NutritionProfile profile,
+            String branchName,
+            DiningOutIdentity identity
+    ) {
+        String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
+        String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
+        NutritionProfile sourceProfile = profile == null
+                ? NutritionProfile.empty()
+                : profile;
+        Double carbsGrams = sourceProfile.value(NutritionProfile.CARBS_GRAMS);
+        Double proteinGrams = sourceProfile.value(NutritionProfile.PROTEIN_GRAMS);
+        Double fatGrams = sourceProfile.value(NutritionProfile.FAT_GRAMS);
+        MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
+        if (!MealEntryPolicy.hasDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams)) {
+            throw new IllegalArgumentException(
+                    "메뉴로 저장하려면 추정 탄수화물·단백질·지방을 입력하세요."
+            );
+        }
+        Double calories = sourceProfile.value(NutritionProfile.CALORIES_KCAL);
+        double resolvedCalories = calories == null
+                ? MealEntryPolicy.estimatedDiningOutCalories(
+                carbsGrams,
+                proteinGrams,
+                fatGrams
+        )
+                : calories;
+        NutritionProfile normalizedProfile = NutritionProfile.builder()
+                .from(sourceProfile)
+                .value(NutritionProfile.CALORIES_KCAL, resolvedCalories)
+                .build();
         return saveDiningOutMenuCatalogRow(
                 normalizedStoreName,
                 normalizedMenuName,
-                profile,
-                profile.hasAllRequired()
+                normalizedProfile,
+                normalizedProfile.hasAllRequired()
                         ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
                         : NutritionFood.DATA_VERSION_MACROS_ONLY,
                 diningOutMenuSourceReference(
@@ -3456,18 +3492,15 @@ public final class NutritionCatalogRepository {
      */
     private static final class DiningOutMenuCanonicalIdentity {
         private final String restaurantMenuId;
-        private final String restaurantId;
         private final String normalizedStoreName;
         private final String normalizedMenuName;
 
         private DiningOutMenuCanonicalIdentity(
                 String restaurantMenuId,
-                String restaurantId,
                 String normalizedStoreName,
                 String normalizedMenuName
         ) {
             this.restaurantMenuId = restaurantMenuId;
-            this.restaurantId = restaurantId;
             this.normalizedStoreName = normalizedStoreName;
             this.normalizedMenuName = normalizedMenuName;
         }
@@ -3497,15 +3530,11 @@ public final class NutritionCatalogRepository {
                             nullableString(source, "normalized_menu_name"),
                             nullableString(source, "menu_name")
                     );
-            String sourceRestaurantId = source == null
-                    ? null
-                    : nullableString(source, "restaurant_id");
             String sourceRestaurantMenuId = source == null
                     ? null
                     : nullableString(source, "restaurant_menu_id");
             return new DiningOutMenuCanonicalIdentity(
                     normalizeIdentityToken(sourceRestaurantMenuId),
-                    normalizeIdentityToken(sourceRestaurantId),
                     normalizeDiningOutIdentityText(firstNonBlank(storeName, sourceStoreName)),
                     normalizeDiningOutIdentityText(firstNonBlank(menuName, sourceMenuName))
             );
@@ -3515,34 +3544,13 @@ public final class NutritionCatalogRepository {
             if (!restaurantMenuId.isEmpty()) {
                 return "restaurant_menu_id|" + restaurantMenuId;
             }
-            if (!restaurantId.isEmpty()) {
-                return "restaurant_id|" + restaurantId + "|menu|" + normalizedMenuName;
-            }
             return "store|" + normalizedStoreName + "|menu|" + normalizedMenuName;
         }
 
         private boolean matches(DiningOutMenuCanonicalIdentity candidate) {
-            if (!restaurantMenuId.isEmpty()) {
-                if (!candidate.restaurantMenuId.isEmpty()) {
-                    return restaurantMenuId.equals(candidate.restaurantMenuId);
-                }
-                return !restaurantId.isEmpty()
-                        && restaurantId.equals(candidate.restaurantId)
-                        && normalizedMenuName.equals(candidate.normalizedMenuName);
-            }
-            if (!candidate.restaurantMenuId.isEmpty()) {
-                return false;
-            }
-            if (!restaurantId.isEmpty()) {
-                if (!candidate.restaurantId.isEmpty()) {
-                    return restaurantId.equals(candidate.restaurantId)
-                            && normalizedMenuName.equals(candidate.normalizedMenuName);
-                }
-                return normalizedStoreName.equals(candidate.normalizedStoreName)
-                        && normalizedMenuName.equals(candidate.normalizedMenuName);
-            }
-            if (!candidate.restaurantId.isEmpty()) {
-                return false;
+            if (!restaurantMenuId.isEmpty() || !candidate.restaurantMenuId.isEmpty()) {
+                return !restaurantMenuId.isEmpty()
+                        && restaurantMenuId.equals(candidate.restaurantMenuId);
             }
             return normalizedStoreName.equals(candidate.normalizedStoreName)
                     && normalizedMenuName.equals(candidate.normalizedMenuName);

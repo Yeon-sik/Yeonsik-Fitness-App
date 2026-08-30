@@ -1860,6 +1860,7 @@ public final class MealManagementScreen extends BaseScreen {
             Double sodium,
             Double sugars,
             Double saturatedFat,
+            NutritionProfile profile,
             List<DiningOutOption> options,
             DiningOutIdentity identity
     ) {
@@ -1873,6 +1874,7 @@ public final class MealManagementScreen extends BaseScreen {
                         sodium,
                         sugars,
                         saturatedFat,
+                        profile,
                         identity
                 )
                 : savedMenu;
@@ -1893,20 +1895,19 @@ public final class MealManagementScreen extends BaseScreen {
             Double sodium,
             Double sugars,
             Double saturatedFat,
+            NutritionProfile baseProfile,
             DiningOutIdentity identity
     ) {
-        int resolvedCalories = calories == null
-                ? MealEntryPolicy.estimatedDiningOutCalories(carbs, protein, fat)
-                : calories;
-        NutritionProfile profile = NutritionProfile.builder()
-                .value(NutritionProfile.CALORIES_KCAL, (double) resolvedCalories)
-                .value(NutritionProfile.PROTEIN_GRAMS, protein)
-                .value(NutritionProfile.CARBS_GRAMS, carbs)
-                .value(NutritionProfile.FAT_GRAMS, fat)
-                .value(NutritionProfile.SODIUM_MG, sodium)
-                .value(NutritionProfile.SUGARS_GRAMS, sugars)
-                .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFat)
-                .build();
+        NutritionProfile profile = diningOutMenuProfile(
+                baseProfile,
+                calories,
+                protein,
+                carbs,
+                fat,
+                sodium,
+                sugars,
+                saturatedFat
+        );
         return NutritionFood.builder()
                 .id(null)
                 .ownerId(repository().currentUserId())
@@ -1924,6 +1925,36 @@ public final class MealManagementScreen extends BaseScreen {
                 .dataVersion(profile.hasAllRequired()
                         ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
                         : NutritionFood.DATA_VERSION_MACROS_ONLY)
+                .build();
+    }
+
+    private NutritionProfile diningOutMenuProfile(
+            NutritionProfile baseProfile,
+            Integer calories,
+            Double protein,
+            Double carbs,
+            Double fat,
+            Double sodium,
+            Double sugars,
+            Double saturatedFat
+    ) {
+        Double resolvedCalories = calories == null
+                ? baseProfile == null
+                || !baseProfile.isKnown(NutritionProfile.CALORIES_KCAL)
+                ? (carbs == null || protein == null || fat == null
+                ? null
+                : (double) MealEntryPolicy.estimatedDiningOutCalories(carbs, protein, fat))
+                : baseProfile.value(NutritionProfile.CALORIES_KCAL)
+                : calories.doubleValue();
+        return NutritionProfile.builder()
+                .from(baseProfile)
+                .value(NutritionProfile.PROTEIN_GRAMS, protein)
+                .value(NutritionProfile.CARBS_GRAMS, carbs)
+                .value(NutritionProfile.FAT_GRAMS, fat)
+                .value(NutritionProfile.SODIUM_MG, sodium)
+                .value(NutritionProfile.SUGARS_GRAMS, sugars)
+                .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFat)
+                .value(NutritionProfile.CALORIES_KCAL, resolvedCalories)
                 .build();
     }
 
@@ -2467,6 +2498,10 @@ public final class MealManagementScreen extends BaseScreen {
         draft.name = menu.name;
         draft.catalogFoodId = menu.id == null ? "" : menu.id;
         draft.options.clear();
+        for (NutritionFood component : host.nutritionCatalogRepository()
+                .diningOutComponentsForMenu(menu.id)) {
+            draft.options.add(savedDiningOutOptionDraft(component));
+        }
         applyDiningOutNutrition(draft, menu.profile);
         updateDiningOutSelectionSummary();
         host.toast("저장한 외식 메뉴를 불러왔습니다. 섭취량을 확인한 뒤 기록하세요.");
@@ -2477,6 +2512,7 @@ public final class MealManagementScreen extends BaseScreen {
             DiningOutMenuDraft menu,
             NutritionProfile profile
     ) {
+        menu.profile = profile == null ? NutritionProfile.empty() : profile;
         menu.calories = knownNumber(profile, NutritionProfile.CALORIES_KCAL);
         menu.protein = knownNumber(profile, NutritionProfile.PROTEIN_GRAMS);
         menu.carbs = knownNumber(profile, NutritionProfile.CARBS_GRAMS);
@@ -2487,6 +2523,35 @@ public final class MealManagementScreen extends BaseScreen {
                 profile,
                 NutritionProfile.SATURATED_FAT_GRAMS
         );
+    }
+
+    private DiningOutOptionDraft savedDiningOutOptionDraft(NutritionFood component) {
+        DiningOutOptionDraft draft = new DiningOutOptionDraft();
+        if (component == null) {
+            return draft;
+        }
+        draft.profile = component.profile == null
+                ? NutritionProfile.empty()
+                : component.profile;
+        draft.groupType = savedDiningOutOptionGroupType(component.sourceReference);
+        draft.groupKey = savedDiningOutOptionGroupKey(component.sourceReference);
+        draft.name = component.name == null ? "" : component.name;
+        draft.catalogFoodId = component.id == null ? "" : component.id;
+        draft.sourceReference = component.sourceReference == null
+                ? "" : component.sourceReference;
+        draft.calories = knownNumber(draft.profile, NutritionProfile.CALORIES_KCAL);
+        draft.protein = knownNumber(draft.profile, NutritionProfile.PROTEIN_GRAMS);
+        draft.carbs = knownNumber(draft.profile, NutritionProfile.CARBS_GRAMS);
+        draft.fat = knownNumber(draft.profile, NutritionProfile.FAT_GRAMS);
+        draft.sodium = knownNumber(draft.profile, NutritionProfile.SODIUM_MG);
+        draft.sugars = knownNumber(draft.profile, NutritionProfile.SUGARS_GRAMS);
+        draft.saturatedFat = knownNumber(
+                draft.profile,
+                NutritionProfile.SATURATED_FAT_GRAMS
+        );
+        // Provision is an actual-meal snapshot property, never a reusable component default.
+        draft.provisionType = DiningOutProvisionType.INCLUDED.value();
+        return draft;
     }
 
     private void showDiningOutOptionGroupPicker() {
@@ -4564,6 +4629,16 @@ public final class MealManagementScreen extends BaseScreen {
                     Double sugarsGrams = MealEntryPolicy.optionalDiningOutMacro(menu.sugars, "당류");
                     Double saturatedFatGrams = MealEntryPolicy.optionalDiningOutMacro(
                             menu.saturatedFat, "포화지방");
+                    NutritionProfile menuProfile = diningOutMenuProfile(
+                            menu.profile,
+                            calories,
+                            proteinGrams,
+                            carbsGrams,
+                            fatGrams,
+                            sodiumMg,
+                            sugarsGrams,
+                            saturatedFatGrams
+                    );
                     DiningOutIdentity identity = selectedDiningOutIdentity(menu);
                     if (diningOutMenus.isEmpty()) {
                         firstIdentity = identity;
@@ -4574,35 +4649,15 @@ public final class MealManagementScreen extends BaseScreen {
                     }
                     List<DiningOutOption> optionSnapshots = saveDiningOutOptions(
                             menu, saveDiningOutMenu, identity);
-                    boolean hasExtendedNutrition = calories != null
-                            || sodiumMg != null
-                            || sugarsGrams != null
-                            || saturatedFatGrams != null;
                     NutritionFood savedMenu = null;
                     if (saveDiningOutMenu) {
-                        savedMenu = hasExtendedNutrition
-                                ? host.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
-                                        draftDiningOutStoreName,
-                                        menuName,
-                                        calories,
-                                        proteinGrams,
-                                        carbsGrams,
-                                        fatGrams,
-                                        sodiumMg,
-                                        sugarsGrams,
-                                        saturatedFatGrams,
-                                        draftDiningOutBranchName,
-                                        identity
-                                )
-                                : host.nutritionCatalogRepository().saveDiningOutMenu(
-                                        draftDiningOutStoreName,
-                                        menuName,
-                                        carbsGrams,
-                                        proteinGrams,
-                                        fatGrams,
-                                        draftDiningOutBranchName,
-                                        identity
-                                );
+                        savedMenu = host.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                                draftDiningOutStoreName,
+                                menuName,
+                                menuProfile,
+                                draftDiningOutBranchName,
+                                identity
+                        );
                     }
                     diningOutMenus.add(diningOutMenuSelection(
                             savedMenu,
@@ -4614,6 +4669,7 @@ public final class MealManagementScreen extends BaseScreen {
                             sodiumMg,
                             sugarsGrams,
                             saturatedFatGrams,
+                            menuProfile,
                             optionSnapshots,
                             identity
                     ));
@@ -5201,6 +5257,7 @@ public final class MealManagementScreen extends BaseScreen {
 
     private static final class DiningOutMenuDraft {
         private String name = "";
+        private NutritionProfile profile = NutritionProfile.empty();
         private String calories = "";
         private String carbs = "";
         private String protein = "";
