@@ -4,12 +4,12 @@ import java.util.Locale;
 
 /** How a dining-out component was provided for one actual meal. */
 public enum DiningOutProvisionType {
-    INCLUDED("included", "기본 제공"),
+    INCLUDED("included", "기본 포함"),
     PAID("paid", "유료 추가"),
     REVIEW_EVENT("review_event", "리뷰 이벤트"),
-    SERVICE("service", "매장 서비스"),
+    SERVICE("service", "서비스"),
     COUPON("coupon", "쿠폰"),
-    PROMOTION("promotion", "기타 프로모션");
+    PROMOTION("promotion", "프로모션");
 
     private final String value;
     private final String label;
