@@ -585,7 +585,6 @@ public final class ProductReadV1 {
     /** The only standard-product identity shown in the Fitness app UI. */
     public String standardProductLabel() {
         List<String> parts = new ArrayList<>();
-        addLabelPart(parts, manufacturerName);
         addLabelPart(parts, brand);
         addLabelPart(parts, subBrandName);
         addLabelPart(parts, name);

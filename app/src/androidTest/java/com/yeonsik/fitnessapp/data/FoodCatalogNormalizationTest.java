@@ -295,7 +295,8 @@ public final class FoodCatalogNormalizationTest {
             FitnessRepository.MealItemEntry entry = records.mealItemsForRecord(recordId).get(0);
             assertEquals(500d, entry.profile.value(NutritionProfile.CALORIES_KCAL), 0.001d);
             assertEquals("대상", entry.manufacturerNameSnapshot);
-            assertEquals("호밍스", entry.brandNameSnapshot);
+            assertEquals("청정원", entry.brandNameSnapshot);
+            assertEquals("호밍스", entry.subBrandNameSnapshot);
             assertEquals("우삼겹 스키야끼", entry.productNameSnapshot);
             assertEquals(450d, entry.packageAmountSnapshot, 0.001d);
             assertEquals("g", entry.packageUnitSnapshot);

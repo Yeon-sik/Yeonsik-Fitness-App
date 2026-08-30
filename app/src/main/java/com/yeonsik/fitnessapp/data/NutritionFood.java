@@ -193,7 +193,6 @@ public final class NutritionFood {
     /** Display label for a packaged canonical product, including only explicit hierarchy parts. */
     public String packagedProductLabel() {
         List<String> parts = new ArrayList<>();
-        addLabelPart(parts, manufacturerName);
         addLabelPart(parts, brandName == null ? brand : brandName);
         addLabelPart(parts, subBrandName);
         addLabelPart(parts, productName == null ? name : productName);
