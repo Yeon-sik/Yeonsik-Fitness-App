@@ -210,12 +210,13 @@ public final class NutritionCatalogRepository {
         try (Cursor cursor = database.rawQuery(
                 "SELECT " + String.join(", ", FOOD_COLUMNS) + " " +
                         "FROM nutrition_foods " +
-                        "WHERE deleted_at IS NULL " +
+                "WHERE deleted_at IS NULL " +
                         "AND (visibility = 'public' OR owner_id = ?) " +
+                        "AND COALESCE(source_type, '') <> ? " +
                         "AND (name LIKE ? COLLATE NOCASE " +
                         "OR brand LIKE ? COLLATE NOCASE) " +
                         "ORDER BY kind ASC, brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC LIMIT 100",
-                new String[]{userId, like, like}
+                new String[]{userId, DINING_OUT_OPTION_SOURCE_TYPE, like, like}
         )) {
             while (cursor.moveToNext()) {
                 rows.add(readFoodRow(cursor));
@@ -312,16 +313,16 @@ public final class NutritionCatalogRepository {
         if (normalizedStoreName.isEmpty()) {
             return new ArrayList<>();
         }
+        String normalizedStoreKey = normalizeDiningOutComponentName(normalizedStoreName);
         int safeLimit = Math.max(1, Math.min(limit, SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX));
         String normalizedQuery = query == null ? "" : query.trim();
         String normalizedGroupType = optionalDiningOutComponentGroupType(groupType);
         List<NutritionFood> candidates = readFoods(
-                "owner_id = ? AND kind = ? AND brand = ? COLLATE NOCASE "
-                        + "AND source_type = ? AND name LIKE ? COLLATE NOCASE",
+                "owner_id = ? AND kind = ? AND source_type = ? "
+                        + "AND name LIKE ? COLLATE NOCASE",
                 new String[]{
                         userId,
                         NutritionFood.KIND_EXTERNAL_MENU,
-                        normalizedStoreName,
                         DINING_OUT_OPTION_SOURCE_TYPE,
                         "%" + normalizedQuery + "%"
                 },
@@ -331,6 +332,9 @@ public final class NutritionCatalogRepository {
         List<NutritionFood> results = new ArrayList<>();
         Set<String> names = new LinkedHashSet<>();
         for (NutritionFood candidate : candidates) {
+            if (!normalizedStoreKey.equals(normalizeDiningOutComponentName(candidate.brand))) {
+                continue;
+            }
             if (normalizedGroupType != null
                     && !normalizedGroupType.equals(optionGroupType(candidate.sourceReference))) {
                 continue;
@@ -338,9 +342,7 @@ public final class NutritionCatalogRepository {
             if (!matchesDiningOutOptionIdentity(candidate, identity)) {
                 continue;
             }
-            String normalizedName = candidate.name == null
-                    ? ""
-                    : candidate.name.trim().toLowerCase(Locale.ROOT);
+            String normalizedName = normalizeDiningOutComponentName(candidate.name);
             String optionKey = optionGroupType(candidate.sourceReference) + "\u0000" + normalizedName;
             if (normalizedName.isEmpty() || !names.add(optionKey)) {
                 continue;
@@ -558,6 +560,11 @@ public final class NutritionCatalogRepository {
         }
     }
 
+    static String normalizeDiningOutComponentName(String value) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+    }
+
     private static String requiredId(String value, String label) {
         String normalized = value == null ? "" : value.trim();
         if (normalized.isEmpty()) {
@@ -619,16 +626,20 @@ public final class NutritionCatalogRepository {
         try {
             JSONObject reference = new JSONObject(food.sourceReference);
             String restaurantId = nullableString(reference, "restaurant_id");
-            String locationId = nullableString(reference, "restaurant_location_id");
-            // Options are reusable at restaurant scope, not menu scope. Keep the location
-            // fallback only for historical rows that never stored a restaurant ID.
-            if (restaurantId == null && locationId == null) {
+            String restaurantName = nullableString(reference, "restaurant_name");
+            // Components are reusable at restaurant scope. Branch/location and menu IDs are
+            // snapshots or catalog context, not reusable component identity.
+            if (restaurantId == null && restaurantName == null) {
                 return true;
             }
             if (restaurantId != null) {
-                return identity.restaurantId.equals(restaurantId);
+                return identity.restaurantId.equals(restaurantId)
+                        || (restaurantName != null
+                        && normalizeDiningOutComponentName(identity.restaurantName)
+                        .equals(normalizeDiningOutComponentName(restaurantName)));
             }
-            return identity.restaurantLocationId.equals(locationId);
+            return normalizeDiningOutComponentName(identity.restaurantName)
+                    .equals(normalizeDiningOutComponentName(restaurantName));
         } catch (JSONException error) {
             return false;
         }
@@ -1160,22 +1171,8 @@ public final class NutritionCatalogRepository {
                     )
             );
         }
-        if (!component.hasCompleteMacros()) {
-            throw new IllegalArgumentException(
-                    "구성품 영양성분은 칼로리와 탄수화물·단백질·지방을 모두 입력해야 합니다."
-            );
-        }
-        Double protein = profile.value(NutritionProfile.PROTEIN_GRAMS);
-        Double carbs = profile.value(NutritionProfile.CARBS_GRAMS);
-        Double fat = profile.value(NutritionProfile.FAT_GRAMS);
-        MealEntryPolicy.requireDiningOutEstimatedMacros(carbs, protein, fat);
-        double calories = profile.isKnown(NutritionProfile.CALORIES_KCAL)
-                ? profile.calories()
-                : MealEntryPolicy.estimatedDiningOutCalories(carbs, protein, fat);
-        profile = NutritionProfile.builder()
-                .from(profile)
-                .value(NutritionProfile.CALORIES_KCAL, calories)
-                .build();
+        // A component profile may be partial or entirely unknown. Never infer a missing value
+        // from the component name or from other macros; NULL and numeric zero are distinct.
         return saveDiningOutOptionCatalogRow(
                 normalizedStoreName,
                 normalizedMenuName,
@@ -1339,13 +1336,11 @@ public final class NutritionCatalogRepository {
             }
         } else {
             List<NutritionFood> candidates = readFoods(
-                    "owner_id = ? AND kind = ? AND name = ? COLLATE NOCASE " +
-                            "AND brand = ? COLLATE NOCASE AND source_type = ?",
+                    "owner_id = ? AND kind = ? " +
+                            "AND source_type = ?",
                     new String[]{
                             userId,
                             NutritionFood.KIND_EXTERNAL_MENU,
-                            normalizedFoodName,
-                            normalizedStoreName,
                             sourceType
                     },
                     "updated_at DESC, id ASC",
@@ -1353,7 +1348,11 @@ public final class NutritionCatalogRepository {
             );
             String requestedGroup = optionGroupType(sourceReference);
             for (NutritionFood candidate : candidates) {
-                if (!requestedGroup.equals(optionGroupType(candidate.sourceReference))
+                if (!normalizeDiningOutComponentName(normalizedStoreName)
+                        .equals(normalizeDiningOutComponentName(candidate.brand))
+                        || !requestedGroup.equals(optionGroupType(candidate.sourceReference))
+                        || !normalizeDiningOutComponentName(normalizedFoodName)
+                        .equals(normalizeDiningOutComponentName(candidate.name))
                         || !sameDiningOutRestaurantScope(
                         sourceReference,
                         candidate.sourceReference
