@@ -5675,6 +5675,13 @@ public final class FitnessRepository {
                 && input.addedWeightKg > 0) {
             return LoadState.ADDED_WEIGHT;
         }
+        if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(normalized)
+                && input != null
+                && input.loadState == null
+                && input.addedWeightKg != null
+                && input.addedWeightKg == 0d) {
+            return LoadState.BODYWEIGHT;
+        }
         if (identity != null && identity.defaultLoadStateValue() != null) {
             return identity.defaultLoadStateValue();
         }
@@ -5822,8 +5829,7 @@ public final class FitnessRepository {
                 requirePositive(input.weightKg, "중량");
                 break;
             case ADDED_WEIGHT:
-                // Zero is a valid bodyweight-capable added-load value.
-                validateNonNegative(input.addedWeightKg, "추가 중량");
+                requirePositive(input.addedWeightKg, "추가 중량");
                 break;
             case ASSISTED:
                 requirePositive(input.assistedWeightKg, "보조 중량");

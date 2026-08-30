@@ -142,6 +142,47 @@ public final class FitnessRepositoryLoadStateTest {
     }
 
     @Test
+    public void rejectsZeroAddedWeightAndDefaultsImplicitZeroToBodyweight() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String recordId = repository.createSession(
+                    "2026-08-30", "Load state", "strength", "", "", ""
+            );
+            String exerciseId = addMasterExercise(
+                    repository, recordId, "chest_bodyweight_weighted_push_up"
+            );
+
+            expectIllegalArgument(() -> repository.addTypedSet(
+                    recordId,
+                    exerciseId,
+                    1,
+                    new FitnessRepository.SetInput(
+                            null, 8, null, null, 0d, null, null, true,
+                            LoadState.ADDED_WEIGHT
+                    )
+            ));
+
+            repository.addTypedSet(
+                    recordId,
+                    exerciseId,
+                    1,
+                    new FitnessRepository.SetInput(
+                            null, 8, null, null, 0d, null, null, true
+                    )
+            );
+            assertEquals(
+                    LoadState.BODYWEIGHT,
+                    repository.setsForExercise(exerciseId).get(0).loadState
+            );
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
     public void persistsExternalAssistedAndBandResistedStatesPerSet() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
