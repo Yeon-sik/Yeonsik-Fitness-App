@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 43;
+    public static final int DATABASE_VERSION = 44;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -34,6 +34,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createSyncStateTables(db);
         createDiningOutMealIndexes(db);
         createRoutineTables(db);
+        createExercisePickerPreferenceTable(db);
         createCardioTables(db);
         createMealMenuPresetTable(db);
         createNutritionTables(db);
@@ -295,6 +296,16 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "deleted_at TEXT)");
         db.execSQL("CREATE INDEX IF NOT EXISTS routines_user_default_idx ON routines(user_id, is_default)");
         db.execSQL("CREATE INDEX IF NOT EXISTS routine_exercises_routine_order_idx ON routine_exercises(routine_id, order_index)");
+    }
+
+    private void createExercisePickerPreferenceTable(SQLiteDatabase db) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS exercise_picker_preferences (" +
+                "user_id TEXT NOT NULL, " +
+                "canonical_preset_id TEXT NOT NULL, " +
+                "is_favorite INTEGER NOT NULL DEFAULT 0, " +
+                "created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, " +
+                "PRIMARY KEY(user_id, canonical_preset_id))");
     }
 
     private void createCardioTables(SQLiteDatabase db) {
@@ -1056,6 +1067,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 43) {
             upgradeExerciseFamilyIdentitySchema(db);
+        }
+        if (oldVersion < 44) {
+            createExercisePickerPreferenceTable(db);
         }
     }
 

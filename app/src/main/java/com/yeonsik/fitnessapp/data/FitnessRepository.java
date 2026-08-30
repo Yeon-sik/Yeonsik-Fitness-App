@@ -29,8 +29,10 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 public final class FitnessRepository {
@@ -62,6 +64,94 @@ public final class FitnessRepository {
     /** Normative Family/Preset projection used for new rows and legacy compatibility reads. */
     public ExerciseFamilyCatalog familyCatalog() {
         return familyCatalog;
+    }
+
+    public void setExercisePickerFavorite(String canonicalPresetId, boolean favorite) {
+        String presetId = emptyToNull(canonicalPresetId);
+        if (presetId == null) {
+            return;
+        }
+        String timestamp = now();
+        ContentValues values = new ContentValues();
+        values.put("user_id", userId);
+        values.put("canonical_preset_id", presetId);
+        values.put("is_favorite", favorite ? 1 : 0);
+        values.put("created_at", timestamp);
+        values.put("updated_at", timestamp);
+        db().insertWithOnConflict(
+                "exercise_picker_preferences",
+                null,
+                values,
+                SQLiteDatabase.CONFLICT_REPLACE
+        );
+    }
+
+    public boolean isExercisePickerFavorite(String canonicalPresetId) {
+        String presetId = emptyToNull(canonicalPresetId);
+        if (presetId == null) {
+            return false;
+        }
+        try (Cursor cursor = db().rawQuery(
+                "SELECT is_favorite FROM exercise_picker_preferences "
+                        + "WHERE user_id = ? AND canonical_preset_id = ? LIMIT 1",
+                new String[]{userId, presetId}
+        )) {
+            return cursor.moveToFirst() && cursor.getInt(0) == 1;
+        }
+    }
+
+    public Set<String> favoriteExercisePickerPresetIds() {
+        Set<String> favorites = new LinkedHashSet<>();
+        try (Cursor cursor = db().rawQuery(
+                "SELECT canonical_preset_id FROM exercise_picker_preferences "
+                        + "WHERE user_id = ? AND is_favorite = 1",
+                new String[]{userId}
+        )) {
+            while (cursor.moveToNext()) {
+                String presetId = emptyToNull(cursor.getString(0));
+                if (presetId != null) {
+                    favorites.add(presetId);
+                }
+            }
+        }
+        return Collections.unmodifiableSet(favorites);
+    }
+
+    /** Derived from workout history; no separate recent-use state is persisted. */
+    public Map<String, String> lastPerformedAtByCanonicalPreset() {
+        Map<String, String> result = new LinkedHashMap<>();
+        String sql = "SELECT we.exercise_id, we.exercise_name_snapshot, we.family_id, "
+                + "we.preset_id, we.canonical_variant_key, we.visual_variant_key, "
+                + "we.record_type, wr.date, wr.updated_at "
+                + "FROM workout_exercises we INNER JOIN workout_records wr "
+                + "ON wr.id = we.record_id AND wr.deleted_at IS NULL "
+                + "WHERE wr.user_id = ? AND we.user_id = ? AND we.deleted_at IS NULL "
+                + "AND " + COMPLETED_OR_OS_WORKOUT + " "
+                + "ORDER BY wr.date DESC, wr.updated_at DESC";
+        try (Cursor cursor = db().rawQuery(sql, new String[]{userId, userId})) {
+            while (cursor.moveToNext()) {
+                ExerciseFamilyIdentity identity = identityForRow(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getString(2),
+                        cursor.getString(3),
+                        cursor.getString(4),
+                        cursor.getString(5),
+                        cursor.getString(6)
+                );
+                if (identity == null) {
+                    continue;
+                }
+                String canonicalPresetId = emptyToNull(identity.canonicalPresetId);
+                if (canonicalPresetId == null) {
+                    canonicalPresetId = emptyToNull(identity.presetId);
+                }
+                if (canonicalPresetId != null && !result.containsKey(canonicalPresetId)) {
+                    result.put(canonicalPresetId, cursor.getString(7));
+                }
+            }
+        }
+        return Collections.unmodifiableMap(result);
     }
 
     /** Local reusable meal/menu definitions. Detailed templates are intentionally not in the shared sync set. */
@@ -4663,6 +4753,7 @@ public final class FitnessRepository {
         tables.add("cardio_route_points");
         tables.add("routines");
         tables.add("routine_exercises");
+        tables.add("exercise_picker_preferences");
         return tables;
     }
 

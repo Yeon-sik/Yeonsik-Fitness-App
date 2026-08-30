@@ -2,10 +2,10 @@ package com.yeonsik.fitnessapp.exercise;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 /** Family-first search projection for the runtime exercise picker. */
@@ -17,11 +17,19 @@ public final class RuntimeExercisePicker {
     }
 
     public List<FamilyResult> search(String query) {
-        String normalizedQuery = normalize(query);
+        return search(Filter.forQuery(query));
+    }
+
+    public List<FamilyResult> search(Filter filter) {
+        Filter applied = filter == null ? Filter.empty() : filter;
+        String normalizedQuery = normalize(applied.query);
         List<FamilyResult> results = new ArrayList<>();
         for (RuntimeExerciseFamily family : catalog.families) {
             List<PresetResult> matchingPresets = new ArrayList<>();
             for (RuntimeExercisePreset preset : family.presets) {
+                if (!applied.matches(preset, family)) {
+                    continue;
+                }
                 int score = presetScore(preset, normalizedQuery);
                 if (normalizedQuery.isEmpty() || score > 0) {
                     matchingPresets.add(new PresetResult(preset, score));
@@ -31,7 +39,9 @@ public final class RuntimeExercisePicker {
             int familyScore = familyScore(family, normalizedQuery);
             if (!normalizedQuery.isEmpty() && familyScore > 0 && matchingPresets.isEmpty()) {
                 for (RuntimeExercisePreset preset : family.presets) {
-                    matchingPresets.add(new PresetResult(preset, familyScore));
+                    if (applied.matches(preset, family)) {
+                        matchingPresets.add(new PresetResult(preset, familyScore));
+                    }
                 }
             }
             if (matchingPresets.isEmpty()) {
@@ -45,18 +55,26 @@ public final class RuntimeExercisePicker {
                         : byScore;
             });
             int resultScore = matchingPresets.get(0).score;
+            List<RuntimeExercisePreset> presets = toPresets(matchingPresets);
             results.add(new FamilyResult(
                     family,
-                    toPresets(matchingPresets),
-                    resultScore
+                    presets,
+                    resultScore,
+                    isFavorite(family, applied.favoritePresetIds),
+                    lastPerformedAt(family, applied.lastPerformedAtByPreset),
+                    sortName(presets, family)
             ));
         }
 
         results.sort((left, right) -> {
             int byScore = Integer.compare(right.matchScore, left.matchScore);
-            return byScore == 0
+            if (byScore != 0) {
+                return byScore;
+            }
+            int bySort = compareSort(left, right, applied.sortOrder);
+            return bySort == 0
                     ? displayName(left.family).compareToIgnoreCase(displayName(right.family))
-                    : byScore;
+                    : bySort;
         });
         return Collections.unmodifiableList(results);
     }
@@ -74,6 +92,34 @@ public final class RuntimeExercisePicker {
     public RuntimeExercisePreset directPresetForFamily(String familyId, String query) {
         List<RuntimeExercisePreset> presets = presetsForFamily(familyId, query);
         return presets.size() == 1 ? presets.get(0) : null;
+    }
+
+    private static int compareSort(FamilyResult left, FamilyResult right, SortOrder sortOrder) {
+        if (sortOrder == SortOrder.FAVORITES) {
+            int byFavorite = Boolean.compare(right.favorite, left.favorite);
+            if (byFavorite != 0) {
+                return byFavorite;
+            }
+        } else if (sortOrder == SortOrder.RECENT) {
+            int byRecent = compareNullableDescending(left.lastPerformedAt, right.lastPerformedAt);
+            if (byRecent != 0) {
+                return byRecent;
+            }
+        }
+        return left.sortName.compareToIgnoreCase(right.sortName);
+    }
+
+    private static int compareNullableDescending(String left, String right) {
+        if (left == null && right == null) {
+            return 0;
+        }
+        if (left == null) {
+            return 1;
+        }
+        if (right == null) {
+            return -1;
+        }
+        return right.compareTo(left);
     }
 
     public static String normalize(String value) {
@@ -156,6 +202,99 @@ public final class RuntimeExercisePicker {
         return name == null ? "" : name;
     }
 
+    private static boolean isFavorite(RuntimeExerciseFamily family, Set<String> favoritePresetIds) {
+        for (RuntimeExercisePreset preset : family.presets) {
+            if (favoritePresetIds.contains(preset.identityId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String lastPerformedAt(
+            RuntimeExerciseFamily family,
+            Map<String, String> lastPerformedAtByPreset
+    ) {
+        String latest = null;
+        for (RuntimeExercisePreset preset : family.presets) {
+            String candidate = lastPerformedAtByPreset.get(preset.identityId());
+            if (candidate != null && (latest == null || candidate.compareTo(latest) > 0)) {
+                latest = candidate;
+            }
+        }
+        return latest;
+    }
+
+    private static String sortName(
+            List<RuntimeExercisePreset> presets,
+            RuntimeExerciseFamily family
+    ) {
+        String result = null;
+        for (RuntimeExercisePreset preset : presets) {
+            String candidate = displayName(preset);
+            if (result == null || candidate.compareToIgnoreCase(result) < 0) {
+                result = candidate;
+            }
+        }
+        return result == null ? displayName(family) : result;
+    }
+
+    public enum SortOrder {
+        RECENT,
+        FAVORITES,
+        NAME
+    }
+
+    public static final class Filter {
+        public final String query;
+        public final BodyPart bodyPart;
+        public final String primarySubPart;
+        public final UiEquipmentCategory equipmentCategory;
+        public final SortOrder sortOrder;
+        public final Map<String, String> lastPerformedAtByPreset;
+        public final Set<String> favoritePresetIds;
+
+        public Filter(
+                String query,
+                BodyPart bodyPart,
+                String primarySubPart,
+                UiEquipmentCategory equipmentCategory,
+                SortOrder sortOrder,
+                Map<String, String> lastPerformedAtByPreset,
+                Set<String> favoritePresetIds
+        ) {
+            this.query = query == null ? "" : query;
+            this.bodyPart = bodyPart;
+            this.primarySubPart = primarySubPart;
+            this.equipmentCategory = equipmentCategory;
+            this.sortOrder = sortOrder == null ? SortOrder.RECENT : sortOrder;
+            this.lastPerformedAtByPreset = lastPerformedAtByPreset == null
+                    ? Collections.emptyMap() : lastPerformedAtByPreset;
+            this.favoritePresetIds = favoritePresetIds == null
+                    ? Collections.emptySet() : favoritePresetIds;
+        }
+
+        public static Filter empty() {
+            return new Filter("", null, null, null, SortOrder.RECENT,
+                    Collections.emptyMap(), Collections.emptySet());
+        }
+
+        public static Filter forQuery(String query) {
+            return new Filter(query, null, null, null, SortOrder.RECENT,
+                    Collections.emptyMap(), Collections.emptySet());
+        }
+
+        private boolean matches(RuntimeExercisePreset preset, RuntimeExerciseFamily family) {
+            if (bodyPart != null && !bodyPart.id().equals(family.defaultUiPart)) {
+                return false;
+            }
+            if (primarySubPart != null && !primarySubPart.equals(preset.primarySubPart)) {
+                return false;
+            }
+            return equipmentCategory == null || equipmentCategory == preset.uiEquipmentCategory;
+        }
+    }
+
     private static final class PresetResult {
         final RuntimeExercisePreset preset;
         final int score;
@@ -170,15 +309,24 @@ public final class RuntimeExercisePicker {
         public final RuntimeExerciseFamily family;
         public final List<RuntimeExercisePreset> presets;
         public final int matchScore;
+        public final boolean favorite;
+        public final String lastPerformedAt;
+        public final String sortName;
 
         private FamilyResult(
                 RuntimeExerciseFamily family,
                 List<RuntimeExercisePreset> presets,
-                int matchScore
+                int matchScore,
+                boolean favorite,
+                String lastPerformedAt,
+                String sortName
         ) {
             this.family = family;
             this.presets = presets;
             this.matchScore = matchScore;
+            this.favorite = favorite;
+            this.lastPerformedAt = lastPerformedAt;
+            this.sortName = sortName;
         }
 
         public boolean hasSinglePreset() {
