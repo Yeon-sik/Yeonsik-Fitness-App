@@ -741,6 +741,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "standard_product_id TEXT, " +
                 "product_name TEXT NOT NULL, " +
                 "brand_name TEXT, " +
+                "manufacturer_name TEXT, " +
+                "sub_brand_name TEXT, " +
                 "seller_name TEXT, " +
                 "latest_price_krw INTEGER, " +
                 "price_observed_at TEXT, " +
@@ -988,6 +990,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
             addColumnIfMissing(db, "nutrition_foods", "brand", "TEXT");
             addColumnIfMissing(db, "product_nutrition_links", "standard_product_id", "TEXT");
             addColumnIfMissing(db, "pricetrace_product_cache", "brand_name", "TEXT");
+            addColumnIfMissing(db, "pricetrace_product_cache", "manufacturer_name", "TEXT");
+            addColumnIfMissing(db, "pricetrace_product_cache", "sub_brand_name", "TEXT");
             db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_brand_name_idx " +
                     "ON nutrition_foods(owner_id, brand COLLATE NOCASE, name COLLATE NOCASE)");
         }
@@ -1114,6 +1118,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
 
     /** Adds immutable packaged-food hierarchy values to newly written meal item snapshots. */
     private void upgradePackagedFoodSnapshotSchema(SQLiteDatabase db) {
+        addColumnIfMissing(db, "pricetrace_product_cache", "manufacturer_name", "TEXT");
+        addColumnIfMissing(db, "pricetrace_product_cache", "sub_brand_name", "TEXT");
         addColumnIfMissing(db, "meal_record_items", "manufacturer_name_snapshot", "TEXT");
         addColumnIfMissing(db, "meal_record_items", "brand_name_snapshot", "TEXT");
         addColumnIfMissing(db, "meal_record_items", "sub_brand_name_snapshot", "TEXT");

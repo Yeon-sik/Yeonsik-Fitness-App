@@ -117,6 +117,7 @@ public final class NutritionCatalogRepository {
     private static final String OCR_DINING_OUT_MENU_SOURCE_TYPE = "food_image_estimate";
     private static final String DINING_OUT_OPTION_SOURCE_TYPE = "manual_option";
     private static final int SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX = 50;
+    private static final int PACKAGED_PRODUCT_RESULT_LIMIT_MAX = 50;
 
     private final FitnessDatabaseHelper dbHelper;
     private volatile String userId;
@@ -237,6 +238,143 @@ public final class NutritionCatalogRepository {
             foods.add(buildFood(row, micronutrients.get((String) row[0])));
         }
         return foods;
+    }
+
+    /**
+     * Searches reusable packaged-food products, returning one representative package per
+     * canonical product. Package rows remain available through packagedFoodVariants().
+     */
+    public List<NutritionFood> searchPackagedFoods(String query, int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, PACKAGED_PRODUCT_RESULT_LIMIT_MAX));
+        String like = "%" + (query == null ? "" : query.trim()) + "%";
+        List<NutritionFood> candidates = readFoods(
+                "kind = ? AND (visibility = 'public' OR owner_id = ?) " +
+                        "AND LOWER(COALESCE(source_type, '')) NOT IN (?, ?, ?) " +
+                        "AND (name LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(brand, '') LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(manufacturer_name, '') LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(brand_name, '') LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(sub_brand_name, '') LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(product_name, '') LIKE ? COLLATE NOCASE)",
+                new String[]{
+                        NutritionFood.KIND_EXTERNAL_MENU,
+                        userId,
+                        "manual_estimate",
+                        "food_image_estimate",
+                        DINING_OUT_OPTION_SOURCE_TYPE,
+                        like,
+                        like,
+                        like,
+                        like,
+                        like,
+                        like
+                },
+                "updated_at DESC, manufacturer_name COLLATE NOCASE ASC, " +
+                        "brand_name COLLATE NOCASE ASC, name COLLATE NOCASE ASC",
+                null
+        );
+        Map<String, NutritionFood> representatives = new LinkedHashMap<>();
+        for (NutritionFood candidate : candidates) {
+            if (!candidate.isPackagedFood()) {
+                continue;
+            }
+            representatives.putIfAbsent(canonicalPackagedProductKey(candidate), candidate);
+            if (representatives.size() >= safeLimit) {
+                break;
+            }
+        }
+        return new ArrayList<>(representatives.values());
+    }
+
+    public List<NutritionFood> searchPackagedFoods(String query) {
+        return searchPackagedFoods(query, PACKAGED_PRODUCT_RESULT_LIMIT_MAX);
+    }
+
+    /** Source-compatible name for callers that treat saved products as a catalog picker. */
+    public List<NutritionFood> savedPackagedFoods(String query, int limit) {
+        return searchPackagedFoods(query, limit);
+    }
+
+    public List<NutritionFood> savedPackagedFoods(String query) {
+        return searchPackagedFoods(query, PACKAGED_PRODUCT_RESULT_LIMIT_MAX);
+    }
+
+    /**
+     * Returns the package/variant rows belonging to one canonical packaged product. Duplicate
+     * rows for the same package are represented by their newest row because readFoods is ordered
+     * by updated_at descending.
+     */
+    public List<NutritionFood> packagedFoodVariants(NutritionFood product) {
+        if (product == null || !product.isPackagedFood()) {
+            return new ArrayList<>();
+        }
+        String canonicalKey = canonicalPackagedProductKey(product);
+        List<NutritionFood> candidates = readFoods(
+                "kind = ? AND (visibility = 'public' OR owner_id = ?) " +
+                        "AND LOWER(COALESCE(source_type, '')) NOT IN (?, ?, ?)",
+                new String[]{
+                        NutritionFood.KIND_EXTERNAL_MENU,
+                        userId,
+                        "manual_estimate",
+                        "food_image_estimate",
+                        DINING_OUT_OPTION_SOURCE_TYPE
+                },
+                "updated_at DESC, id ASC",
+                null
+        );
+        Map<String, NutritionFood> variants = new LinkedHashMap<>();
+        for (NutritionFood candidate : candidates) {
+            if (!candidate.isPackagedFood()
+                    || !canonicalKey.equals(canonicalPackagedProductKey(candidate))) {
+                continue;
+            }
+            variants.putIfAbsent(packagedVariantKey(candidate), candidate);
+        }
+        return new ArrayList<>(variants.values());
+    }
+
+    /** Canonical product identity; package amount/count are deliberately excluded. */
+    public String canonicalPackagedProductKey(NutritionFood food) {
+        if (food == null) {
+            return "unresolved|product";
+        }
+        ProductNutritionLink link = approvedProductLink(food.id);
+        if (link != null) {
+            if (link.standardProductId != null && !link.standardProductId.trim().isEmpty()) {
+                return "pricetrace|standard|" + normalizeIdentityText(link.standardProductId);
+            }
+            if (link.catalogProductId != null && !link.catalogProductId.trim().isEmpty()) {
+                return "pricetrace|catalog|" + normalizeIdentityText(link.catalogProductId);
+            }
+        }
+        return "local|manufacturer|" + normalizeIdentityText(food.manufacturerName)
+                + "|brand|" + normalizeIdentityText(
+                food.brandName == null ? food.brand : food.brandName
+        )
+                + "|sub_brand|" + normalizeIdentityText(food.subBrandName)
+                + "|product|" + normalizeIdentityText(
+                food.productName == null ? food.name : food.productName
+        );
+    }
+
+    private static String packagedVariantKey(NutritionFood food) {
+        String amount = food.packageAmount == null
+                ? ""
+                : NutritionCalculator.trim(food.packageAmount);
+        String unit = normalizeIdentityText(food.packageUnit);
+        String count = food.packageCount == null ? "" : String.valueOf(food.packageCount);
+        if (amount.isEmpty() && unit.isEmpty() && count.isEmpty()) {
+            return "basis|" + NutritionCalculator.trim(food.basisAmount)
+                    + "|" + normalizeIdentityText(food.basisUnit);
+        }
+        return "package|" + amount + "|" + unit + "|" + count;
+    }
+
+    private static String normalizeIdentityText(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 
     public NutritionFood findFoodById(String foodId) {
@@ -2394,7 +2532,8 @@ public final class NutritionCatalogRepository {
                         "l.standard_product_id, l.status, l.source_type, l.proposal_reference, " +
                         "l.revision, l.reviewed_at, l.catalog_product_revision, " +
                         "l.catalog_content_amount, l.catalog_content_unit, l.catalog_package_count, " +
-                        "c.standard_product_id, c.product_name, c.brand_name, c.seller_name, " +
+                        "c.standard_product_id, c.product_name, c.brand_name, " +
+                        "c.manufacturer_name, c.sub_brand_name, c.seller_name, " +
                         "c.latest_price_krw, c.price_observed_at, c.content_amount, c.content_unit, " +
                         "c.package_count, c.catalog_product_revision " +
                         "FROM product_nutrition_links l " +
@@ -2412,15 +2551,17 @@ public final class NutritionCatalogRepository {
                         product = new ProductReadV1(
                                 cursor.getString(3),
                                 cursor.isNull(4) ? cursor.isNull(14) ? null : cursor.getString(14) : cursor.getString(4),
-                                cursor.getString(15),
-                                cursor.isNull(16) ? null : cursor.getString(16),
-                                cursor.isNull(17) ? null : cursor.getString(17),
-                                cursor.isNull(18) ? null : cursor.getInt(18),
-                                cursor.isNull(19) ? null : cursor.getString(19),
-                                cursor.isNull(20) ? null : cursor.getDouble(20),
-                                cursor.isNull(21) ? null : cursor.getString(21),
-                                cursor.isNull(22) ? null : cursor.getInt(22),
-                                cursor.isNull(23) ? null : cursor.getString(23)
+                                 cursor.getString(15),
+                                 cursor.isNull(16) ? null : cursor.getString(16),
+                                 cursor.isNull(17) ? null : cursor.getString(17),
+                                 cursor.isNull(18) ? null : cursor.getString(18),
+                                 cursor.isNull(19) ? null : cursor.getString(19),
+                                 cursor.isNull(20) ? null : cursor.getInt(20),
+                                 cursor.isNull(21) ? null : cursor.getString(21),
+                                 cursor.isNull(22) ? null : cursor.getDouble(22),
+                                 cursor.isNull(23) ? null : cursor.getString(23),
+                                 cursor.isNull(24) ? null : cursor.getInt(24),
+                                 cursor.isNull(25) ? null : cursor.getString(25)
                         );
                     } catch (IllegalArgumentException ignored) {
                         // A corrupt cache must not hide the underlying exact link decision.
@@ -2497,6 +2638,8 @@ public final class NutritionCatalogRepository {
         putNullable(values, "standard_product_id", product.standardProductId);
         values.put("product_name", product.name);
         putNullable(values, "brand_name", product.brand);
+        putNullable(values, "manufacturer_name", product.manufacturerName);
+        putNullable(values, "sub_brand_name", product.subBrandName);
         putNullable(values, "seller_name", product.sellerName);
         if (product.latestObservedPriceKrw == null) {
             values.putNull("latest_price_krw");

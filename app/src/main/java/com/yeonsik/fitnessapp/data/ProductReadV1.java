@@ -114,6 +114,40 @@ public final class ProductReadV1 {
         );
     }
 
+    /** Explicit hierarchy overload used when rebuilding a read-only product from local cache. */
+    public ProductReadV1(
+            String catalogProductId,
+            String standardProductId,
+            String name,
+            String brand,
+            String manufacturerName,
+            String subBrandName,
+            String sellerName,
+            Integer latestObservedPriceKrw,
+            String observedAt,
+            Double contentAmount,
+            String contentUnit,
+            Integer packageCount,
+            String revision
+    ) {
+        this(
+                catalogProductId,
+                standardProductId,
+                name,
+                brand,
+                manufacturerName,
+                subBrandName,
+                sellerName,
+                latestObservedPriceKrw,
+                observedAt,
+                contentAmount,
+                contentUnit,
+                packageCount,
+                revision,
+                Collections.emptyList()
+        );
+    }
+
     private ProductReadV1(
             String catalogProductId,
             String standardProductId,
