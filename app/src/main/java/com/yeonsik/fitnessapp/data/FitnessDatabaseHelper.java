@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 46;
+    public static final int DATABASE_VERSION = 47;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -238,6 +238,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "date TEXT NOT NULL, " +
                 "menu TEXT NOT NULL, " +
                 "meal_kind TEXT NOT NULL DEFAULT 'food', " +
+                "fulfillment_mode TEXT, " +
                 "store_name TEXT, " +
                 "branch_name TEXT, " +
                 "menu_name TEXT, " +
@@ -1098,6 +1099,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
         if (oldVersion < 46) {
             upgradePackagedFoodSnapshotSchema(db);
+        }
+        if (oldVersion < 47) {
+            addColumnIfMissing(db, "meal_records", "fulfillment_mode", "TEXT");
         }
     }
 

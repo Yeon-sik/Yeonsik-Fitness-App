@@ -1516,6 +1516,51 @@ public final class FitnessRepository {
             DiningOutConsumption consumption,
             boolean hasCompleteNutrition
     ) {
+        return addDiningOutMealAtTimeWithConsumption(
+                date,
+                mealTime,
+                storeName,
+                branchName,
+                menuName,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams,
+                identity,
+                null,
+                menuSnapshot,
+                options,
+                nominalServings,
+                consumption,
+                hasCompleteNutrition
+        );
+    }
+
+    /** Records a shared dining-out meal with its actual fulfillment mode snapshot. */
+    public String addDiningOutMealAtTimeWithConsumption(
+            String date,
+            String mealTime,
+            String storeName,
+            String branchName,
+            String menuName,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams,
+            DiningOutIdentity identity,
+            String fulfillmentMode,
+            MealCompositionItem menuSnapshot,
+            List<? extends DiningOutOption> options,
+            double nominalServings,
+            DiningOutConsumption consumption,
+            boolean hasCompleteNutrition
+    ) {
         if (consumption == null) {
             throw new IllegalArgumentException("공유 외식 섭취 정보가 필요합니다.");
         }
@@ -1536,6 +1581,7 @@ public final class FitnessRepository {
                 menuSnapshot,
                 options,
                 !hasCompleteNutrition,
+                fulfillmentMode,
                 consumption,
                 nominalServings,
                 null
@@ -1549,6 +1595,31 @@ public final class FitnessRepository {
             String storeName,
             String branchName,
             DiningOutIdentity identity,
+            List<MealMenuSelection> menuSelections,
+            double nominalServings,
+            DiningOutConsumption consumption
+    ) {
+        return addDiningOutMealAtTimeWithMenusAndConsumption(
+                date,
+                mealTime,
+                storeName,
+                branchName,
+                identity,
+                null,
+                menuSelections,
+                nominalServings,
+                consumption
+        );
+    }
+
+    /** Records multiple menus and the actual fulfillment mode selected for this meal. */
+    public String addDiningOutMealAtTimeWithMenusAndConsumption(
+            String date,
+            String mealTime,
+            String storeName,
+            String branchName,
+            DiningOutIdentity identity,
+            String fulfillmentMode,
             List<MealMenuSelection> menuSelections,
             double nominalServings,
             DiningOutConsumption consumption
@@ -1602,6 +1673,7 @@ public final class FitnessRepository {
                 null,
                 Collections.emptyList(),
                 false,
+                fulfillmentMode,
                 consumption,
                 nominalServings,
                 menus
@@ -1706,8 +1778,57 @@ public final class FitnessRepository {
             Double nominalServings,
             List<MealMenuSelection> suppliedMenuSelections
     ) {
+        return insertDiningOutMeal(
+                date,
+                mealTime,
+                storeName,
+                menuName,
+                caloriesInput,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams,
+                branchName,
+                identity,
+                menuSnapshot,
+                optionNames,
+                legacyMacroEstimate,
+                null,
+                consumption,
+                nominalServings,
+                suppliedMenuSelections
+        );
+    }
+
+    private String insertDiningOutMeal(
+            String date,
+            String mealTime,
+            String storeName,
+            String menuName,
+            Integer caloriesInput,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams,
+            String branchName,
+            DiningOutIdentity identity,
+            MealCompositionItem menuSnapshot,
+            List<?> optionNames,
+            boolean legacyMacroEstimate,
+            String fulfillmentMode,
+            DiningOutConsumption consumption,
+            Double nominalServings,
+            List<MealMenuSelection> suppliedMenuSelections
+    ) {
         String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
         String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
+        String normalizedFulfillmentMode = fulfillmentMode == null
+                ? null
+                : DiningOutFulfillmentMode.require(fulfillmentMode);
         String normalizedBranchName = identity == null
                 ? optionalDiningOutBranchName(normalizedStoreName, branchName)
                 : identity.branchName;
@@ -1843,6 +1964,7 @@ public final class FitnessRepository {
         // menu remains populated for the legacy shared-record projection.
         values.put("menu", normalizedMenuName);
         values.put("meal_kind", MealRecordKind.DINING_OUT);
+        putNullable(values, "fulfillment_mode", normalizedFulfillmentMode);
         values.put("store_name", normalizedStoreName);
         if (identity == null) {
             if (normalizedBranchName == null) {
@@ -2671,7 +2793,7 @@ public final class FitnessRepository {
         try (Cursor cursor = db().rawQuery(
                 "SELECT r.id, r.date, r.menu, r.calories, r.protein_grams, " +
                         "r.carbs_grams, r.fat_grams, r.metadata, r.created_at, " +
-                        "r.meal_kind, r.store_name, r.branch_name, r.menu_name, " +
+                        "r.meal_kind, r.fulfillment_mode, r.store_name, r.branch_name, r.menu_name, " +
                         "(SELECT i.food_name_snapshot FROM meal_record_items i " +
                         "WHERE i.meal_record_id = r.id AND i.user_id = r.user_id " +
                         "AND i.deleted_at IS NULL ORDER BY i.order_index ASC, i.id ASC LIMIT 1), " +
@@ -2694,15 +2816,15 @@ public final class FitnessRepository {
                         metadataValue(metadata, "meal_kind", MealRecordKind.FOOD)
                 ));
                 String storeName = firstNonBlank(
-                        cursor.getString(10),
+                        cursor.getString(11),
                         metadataValue(metadata, "store_name", "")
                 );
                 String menuName = firstNonBlank(
-                        cursor.getString(12),
+                        cursor.getString(13),
                         metadataValue(metadata, "menu_name", "")
                 );
                 String rawBranchName = firstNonBlank(
-                        cursor.getString(11),
+                        cursor.getString(12),
                         metadataValue(metadata, "branch_name", "")
                 );
                 String branchName = MealRecordKind.isDiningOut(mealKind)
@@ -2713,11 +2835,11 @@ public final class FitnessRepository {
                         "nutrition_status",
                         MealRecordKind.isDiningOut(mealKind) ? "unknown" : "recorded"
                 );
-                int itemCount = Math.max(0, cursor.getInt(14));
+                int itemCount = Math.max(0, cursor.getInt(15));
                 String previewTitle = MealRecordKind.isDiningOut(mealKind)
                         ? MealEntryPolicy.previewDiningOutTitle(storeName, branchName, menuName)
                         : MealEntryPolicy.previewTitle(
-                                cursor.getString(13),
+                                cursor.getString(14),
                                 itemCount,
                                 cursor.getString(2)
                         );
@@ -2738,7 +2860,8 @@ public final class FitnessRepository {
                         branchName,
                         menuName,
                         nutritionStatus,
-                        DEVICE_ID.equals(cursor.getString(15)),
+                        cursor.isNull(10) ? null : cursor.getString(10),
+                        DEVICE_ID.equals(cursor.getString(16)),
                         cursor.getString(8)
                 ));
             }
@@ -6211,6 +6334,8 @@ public final class FitnessRepository {
         public final String eatenAt;
         public final String mealTime;
         public final String mealKind;
+        /** Actual fulfillment mode for this meal; null for legacy records. */
+        public final String fulfillmentMode;
         public final String storeName;
         public final String branchName;
         public final String menuName;
@@ -6226,6 +6351,35 @@ public final class FitnessRepository {
                          String mealKind, String storeName, String branchName, String menuName,
                          String nutritionStatus,
                          boolean timeEditable, String createdAt) {
+            this(
+                    id,
+                    date,
+                    mealLabel,
+                    menu,
+                    calories,
+                    proteinGrams,
+                    carbsGrams,
+                    fatGrams,
+                    compositionCount,
+                    previewTitle,
+                    eatenAt,
+                    mealKind,
+                    null,
+                    storeName,
+                    branchName,
+                    menuName,
+                    nutritionStatus,
+                    timeEditable,
+                    createdAt
+            );
+        }
+
+        public MealEntry(String id, String date, String mealLabel, String menu, int calories,
+                         Double proteinGrams, Double carbsGrams, Double fatGrams,
+                         int compositionCount, String previewTitle, String eatenAt,
+                         String mealKind, String fulfillmentMode, String storeName,
+                         String branchName, String menuName, String nutritionStatus,
+                         boolean timeEditable, String createdAt) {
             this.id = id;
             this.date = date;
             this.mealLabel = mealLabel;
@@ -6239,6 +6393,9 @@ public final class FitnessRepository {
             this.eatenAt = eatenAt;
             this.mealTime = MealEntryPolicy.displayMealTime(eatenAt);
             this.mealKind = MealRecordKind.normalize(mealKind);
+            this.fulfillmentMode = MealRecordKind.isDiningOut(this.mealKind)
+                    ? DiningOutFulfillmentMode.normalize(fulfillmentMode)
+                    : null;
             this.storeName = MealEntryPolicy.isMissingText(storeName) ? "" : storeName.trim();
             this.branchName = MealEntryPolicy.isMissingText(branchName)
                     ? "" : branchName.trim();
@@ -6263,13 +6420,21 @@ public final class FitnessRepository {
             return MealRecordKind.isDiningOut(mealKind);
         }
 
+        public boolean hasFulfillmentMode() {
+            return fulfillmentMode != null;
+        }
+
         public boolean hasEstimatedNutrition() {
             return "estimated".equals(nutritionStatus);
         }
 
         public String previewSubtitle() {
             return isDiningOut()
-                    ? mealTime + " · 외식 · "
+                    ? mealTime + " · 외식"
+                    + (fulfillmentMode == null
+                    ? ""
+                    : " · " + DiningOutFulfillmentMode.labelOf(fulfillmentMode))
+                    + " · "
                     + (hasEstimatedNutrition() ? "영양 추정" : "영양 미입력")
                     : mealTime + " · "
                     + (compositionCount > 1 ? compositionCount + "개 메뉴 · " : "")

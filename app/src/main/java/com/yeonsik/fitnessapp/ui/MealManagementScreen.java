@@ -25,6 +25,7 @@ import com.yeonsik.fitnessapp.data.CompositionMember;
 import com.yeonsik.fitnessapp.data.CompositionTemplate;
 import com.yeonsik.fitnessapp.data.CompositionTemplateRepository;
 import com.yeonsik.fitnessapp.data.DiningOutConsumption;
+import com.yeonsik.fitnessapp.data.DiningOutFulfillmentMode;
 import com.yeonsik.fitnessapp.data.DiningOutProvisionType;
 import com.yeonsik.fitnessapp.data.DiningOutIdentity;
 import com.yeonsik.fitnessapp.data.DiningOutOption;
@@ -95,6 +96,7 @@ public final class MealManagementScreen extends BaseScreen {
     private String draftDiningOutNominalServings = "1";
     private String draftDiningOutDinerCount = "1";
     private String draftDiningOutConsumedPercent = "";
+    private String draftDiningOutFulfillmentMode = DiningOutFulfillmentMode.DINE_IN.value();
 
     private Button mealTimeButton;
     private EditText menuNameInput;
@@ -1619,6 +1621,35 @@ public final class MealManagementScreen extends BaseScreen {
                 ui.fieldCellParams(false)
         );
         form.addView(restaurantFields, ui.fullWidthParams(ui.dp(8)));
+
+        form.addView(ui.text(
+                "이번 식사 이용 방식",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ), ui.fullWidthParams(ui.dp(3)));
+        LinearLayout fulfillmentRow = ui.tileRow();
+        for (DiningOutFulfillmentMode mode : DiningOutFulfillmentMode.values()) {
+            Button modeButton = ui.filterButton(mode.label());
+            ui.styleFilterButton(
+                    modeButton,
+                    mode.value().equals(draftDiningOutFulfillmentMode)
+            );
+            modeButton.setContentDescription("외식 이용 방식 " + mode.label());
+            modeButton.setOnClickListener(ignored -> {
+                syncDraftFromViews();
+                draftDiningOutFulfillmentMode = mode.value();
+                rerenderDiningOutFromDraft();
+            });
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+            );
+            params.setMargins(ui.dp(2), 0, ui.dp(2), 0);
+            fulfillmentRow.addView(modeButton, params);
+        }
+        form.addView(fulfillmentRow, ui.fullWidthParams(ui.dp(5)));
 
         LinearLayout menuHeader = new LinearLayout(host.activity());
         menuHeader.setOrientation(LinearLayout.HORIZONTAL);
@@ -4683,6 +4714,9 @@ public final class MealManagementScreen extends BaseScreen {
                 if (draftDiningOutMenus.isEmpty()) {
                     throw new IllegalArgumentException("외식 메뉴를 하나 이상 추가하세요.");
                 }
+                String fulfillmentMode = DiningOutFulfillmentMode.require(
+                        draftDiningOutFulfillmentMode
+                );
                 double nominalServings = diningOutNominalServingsValue();
                 int dinerCount = diningOutDinerCountValue();
                 Double consumedFraction = diningOutConsumedFractionValue();
@@ -4771,6 +4805,7 @@ public final class MealManagementScreen extends BaseScreen {
                         draftDiningOutStoreName,
                         draftDiningOutBranchName,
                         firstIdentity,
+                        fulfillmentMode,
                         diningOutMenus,
                         nominalServings,
                         consumption
@@ -4873,6 +4908,7 @@ public final class MealManagementScreen extends BaseScreen {
     private void resetDiningOutEditor() {
         draftDiningOutStoreName = "";
         draftDiningOutBranchName = "";
+        draftDiningOutFulfillmentMode = DiningOutFulfillmentMode.DINE_IN.value();
         draftDiningOutMenus.clear();
         activeDiningOutMenuIndex = 0;
         diningOutStoreInput = null;
