@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
+import android.app.AlertDialog;
 import android.animation.ValueAnimator;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
@@ -20,6 +21,7 @@ import android.widget.TextView;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup;
+import com.yeonsik.fitnessapp.exercise.LoadState;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 
@@ -517,10 +519,30 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             ui.applyDepth(setBox, 2);
         }
 
-        TextView volumeDelta = volumeDeltaLabel(ui, exercise.recordType, previousSet);
+        List<LoadState> allowedLoadStates = repository().allowedLoadStatesForExercise(exercise.id);
+        LoadState initialLoadState = effectiveLoadState(
+                exercise.recordType,
+                set.loadState,
+                allowedLoadStates
+        );
+        final LoadState[] selectedLoadState = {initialLoadState};
+
+        TextView volumeDelta = volumeDeltaLabel(
+                ui,
+                exercise.recordType,
+                initialLoadState,
+                previousSet
+        );
         if (volumeDelta != null) {
             setBox.addView(volumeDelta, ui.fullWidthParams(ui.dp(2)));
         }
+
+        Button loadStateButton = ui.button(
+                "저항 상태: " + loadStateLabel(initialLoadState),
+                false,
+                null
+        );
+        setBox.addView(loadStateButton, ui.fullWidthParams(ui.dp(2)));
 
         LinearLayout row = new LinearLayout(host.activity());
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -537,8 +559,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         previous.setMaxLines(2);
         row.addView(previous, new LinearLayout.LayoutParams(ui.dp(52), ui.dp(44)));
 
-        EditText primary = typedPrimaryInput(exercise.recordType, set);
-        EditText secondary = typedSecondaryInput(exercise.recordType, set);
+        EditText primary = typedPrimaryInput(exercise.recordType, set, initialLoadState);
+        EditText secondary = typedSecondaryInput(exercise.recordType, set, initialLoadState);
         EditText rir = FitnessRecordContract.supportsRir(exercise.recordType)
                 ? ui.numberInput("", set.rir == null ? "" : String.valueOf(set.rir))
                 : null;
@@ -552,7 +574,18 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             input.setMinimumHeight(ui.dp(38));
             input.setPadding(ui.dp(4), ui.dp(3), ui.dp(4), ui.dp(3));
         }
-        secondary.setEnabled(!secondaryLabel(exercise.recordType).isEmpty());
+        secondary.setEnabled(hasSecondaryInput(exercise.recordType, initialLoadState));
+        loadStateButton.setOnClickListener(view -> showLoadStateDialog(
+                recordId,
+                exercise,
+                set,
+                allowedLoadStates,
+                selectedLoadState,
+                loadStateButton,
+                primary,
+                secondary,
+                rir
+        ));
         row.addView(primary, compactSetFieldParams(ui, true));
         row.addView(secondary, compactSetFieldParams(ui, false));
         if (rir != null) {
@@ -573,32 +606,49 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
                 @Override
                 public void afterTextChanged(Editable editable) {
-                    updateVolumeDeltaLabel(volumeDelta, primary, secondary, previousSet);
+                    updateVolumeDeltaLabel(
+                            volumeDelta,
+                            exercise.recordType,
+                            selectedLoadState[0],
+                            primary,
+                            secondary,
+                            previousSet
+                    );
                 }
             };
             primary.addTextChangedListener(volumeDeltaWatcher);
             secondary.addTextChangedListener(volumeDeltaWatcher);
-            updateVolumeDeltaLabel(volumeDelta, primary, secondary, previousSet);
+            updateVolumeDeltaLabel(
+                    volumeDelta,
+                    exercise.recordType,
+                    selectedLoadState[0],
+                    primary,
+                    secondary,
+                    previousSet
+            );
         }
 
         if (previousSet != null) {
             previous.setClickable(true);
             previous.setFocusable(true);
             previous.setOnClickListener(view -> {
-                applyPrevious(exercise.recordType, previousSet, primary, secondary, rir);
                 try {
                     repository().updateTypedSet(
                             recordId,
                             set.id,
-                            typedSetInput(
+                            setInputFromEntry(
                                     exercise.recordType,
-                                    primary,
-                                    secondary,
-                                    rir,
+                                    previousSet,
+                                    effectiveLoadState(
+                                            exercise.recordType,
+                                            previousSet.loadState,
+                                            allowedLoadStates
+                                    ),
                                     set.restSeconds,
                                     set.isCompleted
                             )
                     );
+                    host.rerender();
                 } catch (IllegalArgumentException error) {
                     host.toast(error.getMessage());
                 }
@@ -622,6 +672,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                         set.id,
                         typedSetInput(
                                 exercise.recordType,
+                                selectedLoadState[0],
                                 primary,
                                 secondary,
                                 rir,
@@ -662,73 +713,198 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         card.addView(setBox, ui.fullWidthParams(ui.dp(6)));
     }
 
+    private void showLoadStateDialog(
+            String recordId,
+            FitnessRepository.SessionExerciseEntry exercise,
+            FitnessRepository.SessionSetEntry set,
+            List<LoadState> allowedLoadStates,
+            LoadState[] selectedLoadState,
+            Button loadStateButton,
+            EditText primary,
+            EditText secondary,
+            EditText rir
+    ) {
+        if (allowedLoadStates == null || allowedLoadStates.isEmpty()) {
+            return;
+        }
+        String[] labels = new String[allowedLoadStates.size()];
+        int checked = 0;
+        for (int index = 0; index < allowedLoadStates.size(); index += 1) {
+            LoadState state = allowedLoadStates.get(index);
+            labels[index] = loadStateLabel(state);
+            if (state == selectedLoadState[0]) {
+                checked = index;
+            }
+        }
+
+        new AlertDialog.Builder(host.activity())
+                .setTitle("세트 저항 상태")
+                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+                    LoadState next = allowedLoadStates.get(which);
+                    if (next == selectedLoadState[0]) {
+                        dialog.dismiss();
+                        return;
+                    }
+                    try {
+                        repository().updateTypedSet(
+                                recordId,
+                                set.id,
+                                typedStateChangeInput(
+                                        exercise.recordType,
+                                        selectedLoadState[0],
+                                        next,
+                                        primary,
+                                        secondary,
+                                        rir,
+                                        set.restSeconds,
+                                        set.isCompleted
+                                )
+                        );
+                        selectedLoadState[0] = next;
+                        loadStateButton.setText("저항 상태: " + loadStateLabel(next));
+                        dialog.dismiss();
+                        host.rerender();
+                    } catch (IllegalArgumentException error) {
+                        host.toast(error.getMessage());
+                    }
+                })
+                .setNegativeButton("취소", null)
+                .show();
+    }
+
+    private static boolean isTimeRecordType(String recordType) {
+        String type = FitnessRecordContract.normalizeRecordType(recordType);
+        return FitnessRecordContract.TIME.equals(type)
+                || FitnessRecordContract.WEIGHT_TIME.equals(type);
+    }
+
+    private static boolean hasNumericLoad(LoadState loadState) {
+        return loadState == LoadState.EXTERNAL_LOAD
+                || loadState == LoadState.ADDED_WEIGHT
+                || loadState == LoadState.ASSISTED;
+    }
+
+    private static boolean hasSecondaryInput(String recordType, LoadState loadState) {
+        return hasNumericLoad(loadState);
+    }
+
+    private static LoadState effectiveLoadState(
+            String recordType,
+            LoadState loadState,
+            List<LoadState> allowedLoadStates
+    ) {
+        if (loadState != null) {
+            return loadState;
+        }
+        if (allowedLoadStates != null && !allowedLoadStates.isEmpty()) {
+            return allowedLoadStates.get(0);
+        }
+        String type = FitnessRecordContract.normalizeRecordType(recordType);
+        if (FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)) {
+            return LoadState.ASSISTED;
+        }
+        if (FitnessRecordContract.WEIGHT_REPS.equals(type)
+                || FitnessRecordContract.WEIGHT_TIME.equals(type)) {
+            return LoadState.EXTERNAL_LOAD;
+        }
+        return LoadState.BODYWEIGHT;
+    }
+
+    private static String loadStateLabel(LoadState loadState) {
+        if (loadState == null) {
+            return "기본";
+        }
+        switch (loadState) {
+            case BODYWEIGHT:
+                return "맨몸";
+            case EXTERNAL_LOAD:
+                return "외부 중량";
+            case ADDED_WEIGHT:
+                return "추가 중량";
+            case ASSISTED:
+                return "보조 중량";
+            case BAND_ASSISTED:
+                return "밴드 보조";
+            case BAND_RESISTED:
+                return "밴드 저항";
+            default:
+                return loadState.id();
+        }
+    }
+
     private EditText typedPrimaryInput(
             String recordType,
-            FitnessRepository.SessionSetEntry set
+            FitnessRepository.SessionSetEntry set,
+            LoadState loadState
     ) {
-        String type = FitnessRecordContract.normalizeRecordType(recordType);
-        if (FitnessRecordContract.REPS_ONLY.equals(type)) {
-            return ui().numberInput("", zeroToBlank(set.actualReps));
+        if (hasNumericLoad(loadState)) {
+            return loadInput(loadState, set);
         }
-        if (FitnessRecordContract.TIME.equals(type)) {
+        if (isTimeRecordType(recordType)) {
             return ui().numberInput("", zeroToBlank(set.durationSeconds));
         }
-        if (FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)) {
-            return ui().decimalInput("", zeroToBlank(set.assistedWeightKg));
-        }
-        if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(type)) {
-            return ui().decimalInput("", zeroToBlank(set.addedWeightKg));
-        }
-        return ui().decimalInput("", zeroToBlank(set.weightKg));
+        return ui().numberInput("", zeroToBlank(set.actualReps));
     }
 
     private EditText typedSecondaryInput(
             String recordType,
-            FitnessRepository.SessionSetEntry set
+            FitnessRepository.SessionSetEntry set,
+            LoadState loadState
     ) {
-        String type = FitnessRecordContract.normalizeRecordType(recordType);
-        if (FitnessRecordContract.WEIGHT_TIME.equals(type)) {
+        if (hasNumericLoad(loadState) && isTimeRecordType(recordType)) {
             return ui().numberInput("", zeroToBlank(set.durationSeconds));
         }
-        if (FitnessRecordContract.WEIGHT_REPS.equals(type)
-                || FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)
-                || FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(type)) {
+        if (hasNumericLoad(loadState) && !isTimeRecordType(recordType)) {
             return ui().numberInput("", zeroToBlank(set.actualReps));
         }
         return ui().numberInput("", "");
     }
 
+    private EditText loadInput(
+            LoadState loadState,
+            FitnessRepository.SessionSetEntry set
+    ) {
+        if (loadState == LoadState.ADDED_WEIGHT) {
+            return ui().decimalInput("", zeroToBlank(set.addedWeightKg));
+        }
+        if (loadState == LoadState.ASSISTED) {
+            return ui().decimalInput("", zeroToBlank(set.assistedWeightKg));
+        }
+        return ui().decimalInput("", zeroToBlank(set.weightKg));
+    }
+
     private FitnessRepository.SetInput typedSetInput(
             String recordType,
+            LoadState loadState,
             EditText primary,
             EditText secondary,
             EditText rir,
             Integer restSeconds,
             boolean completed
     ) {
-        String type = FitnessRecordContract.normalizeRecordType(recordType);
+        LoadState effectiveState = effectiveLoadState(recordType, loadState, null);
         Double weight = null;
         Integer reps = null;
         Integer duration = null;
         Double assisted = null;
         Double added = null;
 
-        if (FitnessRecordContract.REPS_ONLY.equals(type)) {
-            reps = FitnessUi.optionalInt(primary);
-        } else if (FitnessRecordContract.TIME.equals(type)) {
-            duration = FitnessUi.optionalInt(primary);
-        } else if (FitnessRecordContract.WEIGHT_TIME.equals(type)) {
-            weight = FitnessUi.optionalDouble(primary);
-            duration = FitnessUi.optionalInt(secondary);
-        } else if (FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)) {
-            assisted = FitnessUi.optionalDouble(primary);
-            reps = FitnessUi.optionalInt(secondary);
-        } else if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(type)) {
-            added = FitnessUi.optionalDouble(primary);
-            reps = FitnessUi.optionalInt(secondary);
+        if (isTimeRecordType(recordType)) {
+            duration = hasNumericLoad(effectiveState)
+                    ? FitnessUi.optionalInt(secondary)
+                    : FitnessUi.optionalInt(primary);
         } else {
+            reps = hasNumericLoad(effectiveState)
+                    ? FitnessUi.optionalInt(secondary)
+                    : FitnessUi.optionalInt(primary);
+        }
+
+        if (effectiveState == LoadState.EXTERNAL_LOAD) {
             weight = FitnessUi.optionalDouble(primary);
-            reps = FitnessUi.optionalInt(secondary);
+        } else if (effectiveState == LoadState.ADDED_WEIGHT) {
+            added = FitnessUi.optionalDouble(primary);
+        } else if (effectiveState == LoadState.ASSISTED) {
+            assisted = FitnessUi.optionalDouble(primary);
         }
 
         return new FitnessRepository.SetInput(
@@ -739,7 +915,71 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 added,
                 rir == null ? null : FitnessUi.optionalInt(rir),
                 restSeconds,
-                completed
+                completed,
+                effectiveState
+        );
+    }
+
+    private FitnessRepository.SetInput typedStateChangeInput(
+            String recordType,
+            LoadState currentLoadState,
+            LoadState nextLoadState,
+            EditText primary,
+            EditText secondary,
+            EditText rir,
+            Integer restSeconds,
+            boolean completed
+    ) {
+        LoadState current = effectiveLoadState(recordType, currentLoadState, null);
+        Integer reps = null;
+        Integer duration = null;
+        if (isTimeRecordType(recordType)) {
+            duration = hasNumericLoad(current)
+                    ? FitnessUi.optionalInt(secondary)
+                    : FitnessUi.optionalInt(primary);
+        } else {
+            reps = hasNumericLoad(current)
+                    ? FitnessUi.optionalInt(secondary)
+                    : FitnessUi.optionalInt(primary);
+        }
+        return new FitnessRepository.SetInput(
+                null,
+                reps,
+                duration,
+                null,
+                null,
+                rir == null ? null : FitnessUi.optionalInt(rir),
+                restSeconds,
+                completed,
+                nextLoadState
+        );
+    }
+
+    private FitnessRepository.SetInput setInputFromEntry(
+            String recordType,
+            FitnessRepository.SessionSetEntry set,
+            LoadState loadState,
+            Integer restSeconds,
+            boolean completed
+    ) {
+        LoadState effectiveState = effectiveLoadState(recordType, loadState, null);
+        Double weight = effectiveState == LoadState.EXTERNAL_LOAD ? set.weightKg : null;
+        Double assisted = effectiveState == LoadState.ASSISTED
+                ? set.assistedWeightKg
+                : null;
+        Double added = effectiveState == LoadState.ADDED_WEIGHT
+                ? set.addedWeightKg
+                : null;
+        return new FitnessRepository.SetInput(
+                weight,
+                isTimeRecordType(recordType) ? null : set.actualReps,
+                set.durationSeconds == 0 ? null : set.durationSeconds,
+                assisted,
+                added,
+                set.rir,
+                restSeconds,
+                completed,
+                effectiveState
         );
     }
 
@@ -835,11 +1075,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private static TextView volumeDeltaLabel(
             FitnessUi ui,
             String recordType,
+            LoadState loadState,
             FitnessRepository.SessionSetEntry previousSet
     ) {
         if (!FitnessRecordContract.WEIGHT_REPS.equals(
                 FitnessRecordContract.normalizeRecordType(recordType))
-                || previousSet == null) {
+                || previousSet == null
+                || (loadState != LoadState.EXTERNAL_LOAD
+                && loadState != LoadState.ADDED_WEIGHT)
+                || effectiveLoadState(recordType, previousSet.loadState, null) != loadState) {
             return null;
         }
 
@@ -853,22 +1097,19 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     /** 중량과 횟수가 입력될 때마다 한 세트의 총 중량 차이를 갱신한다. */
     private static void updateVolumeDeltaLabel(
             TextView label,
+            String recordType,
+            LoadState loadState,
             EditText weightInput,
             EditText repsInput,
             FitnessRepository.SessionSetEntry previousSet
     ) {
-        Double currentWeight = FitnessUi.optionalDouble(weightInput);
-        Integer currentReps = FitnessUi.optionalInt(repsInput);
-        if (currentWeight == null
-                || currentReps == null
-                || currentWeight < 0
-                || currentReps <= 0) {
+        double currentVolume = volumeFromInputs(recordType, loadState, weightInput, repsInput);
+        if (currentVolume <= 0) {
             label.setVisibility(View.GONE);
             return;
         }
 
-        double currentVolume = currentWeight * currentReps;
-        double previousVolume = previousSet.weightKg * previousSet.actualReps;
+        double previousVolume = volumeFromSet(previousSet);
         double delta = currentVolume - previousVolume;
         String direction = delta < 0 ? "덜" : "더";
         int color = delta > 0
@@ -878,6 +1119,35 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 + " KG " + direction + " 들었어요");
         label.setTextColor(color);
         label.setVisibility(View.VISIBLE);
+    }
+
+    private static double volumeFromInputs(
+            String recordType,
+            LoadState loadState,
+            EditText primary,
+            EditText secondary
+    ) {
+        if (loadState != LoadState.EXTERNAL_LOAD && loadState != LoadState.ADDED_WEIGHT) {
+            return 0;
+        }
+        Double load = FitnessUi.optionalDouble(primary);
+        Integer reps = hasNumericLoad(loadState)
+                ? FitnessUi.optionalInt(secondary)
+                : FitnessUi.optionalInt(primary);
+        if (load == null || reps == null || load < 0 || reps <= 0) {
+            return 0;
+        }
+        return load * reps;
+    }
+
+    private static double volumeFromSet(FitnessRepository.SessionSetEntry set) {
+        if (set.loadState == LoadState.EXTERNAL_LOAD) {
+            return set.weightKg * set.actualReps;
+        }
+        if (set.loadState == LoadState.ADDED_WEIGHT) {
+            return set.addedWeightKg * set.actualReps;
+        }
+        return 0;
     }
 
     private static FitnessRepository.SetInput emptySetInput(
@@ -1034,8 +1304,12 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             if (!set.isCompleted) {
                 continue;
             }
-            todayMaxWeight = Math.max(todayMaxWeight, set.weightKg);
-            todayBestE1rm = Math.max(todayBestE1rm, FitnessRepository.epleyE1rm(set.weightKg, set.actualReps));
+            if (bests.loadState != null && set.loadState != bests.loadState) {
+                continue;
+            }
+            double load = loadValueForSet(set);
+            todayMaxWeight = Math.max(todayMaxWeight, load);
+            todayBestE1rm = Math.max(todayBestE1rm, FitnessRepository.epleyE1rm(load, set.actualReps));
         }
         double todayVolume = currentExerciseVolume(sets);
         boolean todayPr = bests.sessionCount > 0
@@ -1126,10 +1400,23 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         double volume = 0;
         for (FitnessRepository.SessionSetEntry set : sets) {
             if (set.isCompleted) {
-                volume += set.weightKg * set.actualReps;
+                volume += volumeFromSet(set);
             }
         }
         return volume;
+    }
+
+    private static double loadValueForSet(FitnessRepository.SessionSetEntry set) {
+        if (set.loadState == LoadState.EXTERNAL_LOAD) {
+            return set.weightKg;
+        }
+        if (set.loadState == LoadState.ADDED_WEIGHT) {
+            return set.addedWeightKg;
+        }
+        if (set.loadState == LoadState.ASSISTED) {
+            return set.assistedWeightKg;
+        }
+        return 0;
     }
 
     private int resolveDefaultRest(List<FitnessRepository.SessionSetEntry> sets) {
@@ -1166,7 +1453,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                         last == null || last.addedWeightKg == 0 ? null : last.addedWeightKg,
                         last == null ? null : last.rir,
                         defaultRestSeconds[0],
-                        false
+                        false,
+                        last == null ? null : last.loadState
                 )
         );
         host.rerender();

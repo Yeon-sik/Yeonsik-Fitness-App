@@ -11,6 +11,7 @@ import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.ExercisePerformanceKey;
 import com.yeonsik.fitnessapp.exercise.LoadState;
+import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 
@@ -64,6 +65,25 @@ public final class FitnessRepository {
     /** Normative Family/Preset projection used for new rows and legacy compatibility reads. */
     public ExerciseFamilyCatalog familyCatalog() {
         return familyCatalog;
+    }
+
+    /** Allowed set-level resistance states for one saved workout exercise. */
+    public List<LoadState> allowedLoadStatesForExercise(String workoutExerciseId) {
+        ExerciseFamilyIdentity identity = familyIdentityForWorkoutExercise(workoutExerciseId);
+        if (identity != null) {
+            RuntimeExerciseFamily family = familyCatalog.runtimeCatalog().family(identity.familyId);
+            if (family != null && !family.allowedLoadStates.isEmpty()) {
+                return Collections.unmodifiableList(new ArrayList<>(family.allowedLoadStates));
+            }
+        }
+        LoadState fallback = resolveLoadState(
+                exerciseRecordType(workoutExerciseId),
+                null,
+                identity
+        );
+        return fallback == null
+                ? Collections.emptyList()
+                : Collections.singletonList(fallback);
     }
 
     public void setExercisePickerFavorite(String canonicalPresetId, boolean favorite) {
@@ -428,27 +448,29 @@ public final class FitnessRepository {
 
                     for (FleekCsvImporter.SetData set : exercise.sets) {
                         SetInput input = importedSetInput(set);
-                        validateSetInput(exercise.recordType, input);
+                        ExerciseFamilyIdentity identity = familyCatalog.identityForStorageExerciseId(
+                                exercise.exerciseId
+                        );
+                        LoadState loadState = resolveLoadStateForIdentity(
+                                exercise.recordType,
+                                input,
+                                identity
+                        );
+                        validateSetInput(exercise.recordType, input, identity, loadState);
                         ContentValues setValues = baseValues(newId(), importedAt);
                         setValues.put("workout_exercise_id", workoutExerciseId);
                         setValues.put("set_index", Math.max(1, set.setIndex));
                         putNullable(setValues, "target_reps", set.reps);
                         putNullable(setValues, "actual_reps", set.reps);
-                        putNullable(setValues, "weight_kg", set.weightKg);
-                        setValues.put("volume_kg", setVolume(exercise.recordType, input));
+                        putLoadStateFields(setValues, input, loadState);
+                        setValues.put(
+                                "volume_kg",
+                                setVolume(exercise.recordType, input, loadState)
+                        );
                         putNullable(setValues, "duration_seconds", set.durationSeconds);
                         putNullable(setValues, "distance_meters", set.distanceMeters);
                         setValues.putNull("rest_seconds");
-                        putNullable(setValues, "assisted_weight_kg", set.assistedWeightKg);
-                        putNullable(setValues, "added_weight_kg", set.addedWeightKg);
-                        putLoadState(
-                                setValues,
-                                resolveLoadState(
-                                        exercise.recordType,
-                                        input,
-                                        familyCatalog.identityForLegacyId(exercise.exerciseId)
-                                )
-                        );
+                        putLoadState(setValues, loadState);
                         setValues.put("is_completed", 1);
                         putNullable(setValues, "rpe", set.rpe);
                         setValues.put("memo", importedSetMemo(set));
@@ -478,13 +500,21 @@ public final class FitnessRepository {
         }
     }
 
-    private static double importedSessionVolume(FleekCsvImporter.SessionData session) {
+    private double importedSessionVolume(FleekCsvImporter.SessionData session) {
         double total = 0;
         for (FleekCsvImporter.ExerciseData exercise : session.exercises) {
             for (FleekCsvImporter.SetData set : exercise.sets) {
                 SetInput input = importedSetInput(set);
-                validateSetInput(exercise.recordType, input);
-                total += setVolume(exercise.recordType, input);
+                ExerciseFamilyIdentity identity = familyCatalog.identityForStorageExerciseId(
+                        exercise.exerciseId
+                );
+                LoadState loadState = resolveLoadStateForIdentity(
+                        exercise.recordType,
+                        input,
+                        identity
+                );
+                validateSetInput(exercise.recordType, input, identity, loadState);
+                total += setVolume(exercise.recordType, input, loadState);
             }
         }
         return total;
@@ -617,8 +647,8 @@ public final class FitnessRepository {
         requireOwnedWorkoutExercise(recordId, exerciseId);
         String recordType = exerciseRecordType(exerciseId);
         ExerciseFamilyIdentity identity = familyIdentityForWorkoutExercise(exerciseId);
-        validateSetInput(recordType, input);
-        LoadState loadState = resolveLoadState(recordType, input, identity);
+        LoadState loadState = resolveLoadStateForIdentity(recordType, input, identity);
+        validateSetInput(recordType, input, identity, loadState);
         String id = newId();
         String now = now();
         ContentValues values = baseValues(id, now);
@@ -626,13 +656,11 @@ public final class FitnessRepository {
         values.put("set_index", Math.max(1, setIndex));
         putNullable(values, "target_reps", input.reps);
         putNullable(values, "actual_reps", input.reps);
-        putNullable(values, "weight_kg", input.weightKg);
-        values.put("volume_kg", setVolume(recordType, input));
+        putLoadStateFields(values, input, loadState);
+        values.put("volume_kg", setVolume(recordType, input, loadState));
         putNullable(values, "duration_seconds", input.durationSeconds);
         putNullable(values, "distance_meters", input.distanceMeters);
         putNullable(values, "rest_seconds", input.restSeconds);
-        putNullable(values, "assisted_weight_kg", input.assistedWeightKg);
-        putNullable(values, "added_weight_kg", input.addedWeightKg);
         putLoadState(values, loadState);
         values.put("is_completed", input.completed ? 1 : 0);
         putNullable(values, "rir", input.rir);
@@ -675,17 +703,15 @@ public final class FitnessRepository {
 
         String recordType = setRecordType(setId);
         ExerciseFamilyIdentity identity = familyIdentityForSet(setId);
-        validateSetInput(recordType, input);
-        LoadState loadState = resolveLoadState(recordType, input, identity);
+        LoadState loadState = resolveLoadStateForIdentity(recordType, input, identity);
+        validateSetInput(recordType, input, identity, loadState);
         ContentValues values = new ContentValues();
-        putNullable(values, "weight_kg", input.weightKg);
+        putLoadStateFields(values, input, loadState);
         putNullable(values, "target_reps", input.reps);
         putNullable(values, "actual_reps", input.reps);
-        values.put("volume_kg", setVolume(recordType, input));
+        values.put("volume_kg", setVolume(recordType, input, loadState));
         putNullable(values, "duration_seconds", input.durationSeconds);
         putNullable(values, "distance_meters", input.distanceMeters);
-        putNullable(values, "assisted_weight_kg", input.assistedWeightKg);
-        putNullable(values, "added_weight_kg", input.addedWeightKg);
         putLoadState(values, loadState);
         putNullable(values, "rir", input.rir);
         putNullable(values, "rest_seconds", input.restSeconds);
@@ -4058,7 +4084,7 @@ public final class FitnessRepository {
     public SessionMetrics sessionMetrics(String recordId) {
         SessionMetrics metrics = new SessionMetrics();
         try (Cursor cursor = db().rawQuery(
-                "SELECT COALESCE(SUM(COALESCE(volume_kg, COALESCE(weight_kg, 0) * COALESCE(actual_reps, 0))), 0), "
+                "SELECT COALESCE(SUM(COALESCE(volume_kg, 0)), 0), "
                         + "COUNT(*), COALESCE(SUM(COALESCE(distance_meters, 0)), 0) " +
                         "FROM workout_sets ws " +
                         "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id " +
@@ -4179,7 +4205,7 @@ public final class FitnessRepository {
                 matchArguments
         );
         String sql = "SELECT we.record_id, wr.date, wr.exercise_name, "
-                + "COALESCE(SUM(CASE WHEN ws.is_completed = 1 THEN COALESCE(ws.volume_kg, ws.weight_kg * ws.actual_reps) ELSE 0 END), 0) "
+                + "COALESCE(SUM(CASE WHEN ws.is_completed = 1 THEN COALESCE(ws.volume_kg, 0) ELSE 0 END), 0) "
                 + "FROM workout_exercises we "
                 + "INNER JOIN workout_records wr ON wr.id = we.record_id AND wr.deleted_at IS NULL "
                 + "LEFT JOIN workout_sets ws ON ws.workout_exercise_id = we.id "
@@ -4276,11 +4302,13 @@ public final class FitnessRepository {
         ExerciseBests bests = new ExerciseBests();
         ExercisePerformanceKey requestedKey = ExercisePerformanceKey.of(identity, loadState);
         bests.performanceKey = requestedKey == null ? "" : requestedKey.stableValue();
+        bests.loadState = loadState;
         String sql = "SELECT ws.weight_kg, ws.actual_reps, wr.date, we.record_id, "
-                + "COALESCE(ws.volume_kg, COALESCE(ws.weight_kg, 0) * COALESCE(ws.actual_reps, 0)) "
+                + "COALESCE(ws.volume_kg, 0) "
                 + ", we.exercise_id, we.family_id, we.preset_id, we.canonical_variant_key, "
                 + "we.visual_variant_key, we.record_type, ws.load_state, "
-                + "COALESCE(ws.added_weight_kg, 0), we.exercise_name_snapshot "
+                + "COALESCE(ws.added_weight_kg, 0), COALESCE(ws.assisted_weight_kg, 0), "
+                + "we.exercise_name_snapshot "
                 + "FROM workout_sets ws "
                 + "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id AND we.deleted_at IS NULL "
                 + "INNER JOIN workout_records wr ON wr.id = we.record_id AND wr.deleted_at IS NULL "
@@ -4298,21 +4326,22 @@ public final class FitnessRepository {
             while (cursor.moveToNext()) {
                 ExerciseFamilyIdentity rowIdentity = identityForRow(
                         cursor.getString(5),
-                        cursor.getString(13),
+                        cursor.getString(14),
                         cursor.getString(6),
                         cursor.getString(7),
                         cursor.getString(8),
                         cursor.getString(9),
                         cursor.getString(10)
                 );
+                LoadState rowLoadState = loadStateForRead(
+                        cursor.getString(10),
+                        rowIdentity,
+                        cursor.isNull(11) ? null : cursor.getString(11),
+                        cursor.getDouble(12)
+                );
                 ExercisePerformanceKey rowKey = ExercisePerformanceKey.of(
                         rowIdentity,
-                        loadStateForRead(
-                                cursor.getString(10),
-                                rowIdentity,
-                                cursor.isNull(11) ? null : cursor.getString(11),
-                                cursor.getDouble(12)
-                        )
+                        rowLoadState
                 );
                 if (requestedKey != null) {
                     if (!requestedKey.isComparableTo(rowKey)) {
@@ -4322,11 +4351,16 @@ public final class FitnessRepository {
                         cursor.getString(5),
                         exerciseId,
                         exerciseName,
-                        cursor.getString(13)
+                        cursor.getString(14)
                 )) {
                     continue;
                 }
-                double weight = cursor.isNull(0) ? 0 : cursor.getDouble(0);
+                double weight = loadValueForState(
+                        rowLoadState,
+                        cursor.isNull(0) ? 0 : cursor.getDouble(0),
+                        cursor.getDouble(12),
+                        cursor.getDouble(13)
+                );
                 int reps = cursor.isNull(1) ? 0 : cursor.getInt(1);
                 String setDate = cursor.getString(2);
                 String recordId = cursor.getString(3);
@@ -5482,13 +5516,17 @@ public final class FitnessRepository {
             return input.loadState;
         }
         String normalized = FitnessRecordContract.normalizeRecordType(recordType);
-        if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(normalized)) {
-            return input != null && input.addedWeightKg != null && input.addedWeightKg > 0
-                    ? LoadState.ADDED_WEIGHT
-                    : LoadState.BODYWEIGHT;
+        if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(normalized)
+                && input != null
+                && input.addedWeightKg != null
+                && input.addedWeightKg > 0) {
+            return LoadState.ADDED_WEIGHT;
         }
         if (identity != null && identity.defaultLoadStateValue() != null) {
             return identity.defaultLoadStateValue();
+        }
+        if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(normalized)) {
+            return LoadState.BODYWEIGHT;
         }
         if (FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(normalized)) {
             return LoadState.ASSISTED;
@@ -5510,11 +5548,36 @@ public final class FitnessRepository {
         if (stored != null) {
             return stored;
         }
-        if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(
-                FitnessRecordContract.normalizeRecordType(recordType))) {
-            return addedWeightKg > 0 ? LoadState.ADDED_WEIGHT : LoadState.BODYWEIGHT;
+        SetInput legacyInput = addedWeightKg > 0
+                ? new SetInput(null, null, null, null, addedWeightKg, null, null, false)
+                : null;
+        return resolveLoadState(recordType, legacyInput, identity);
+    }
+
+    private LoadState resolveLoadStateForIdentity(
+            String recordType,
+            SetInput input,
+            ExerciseFamilyIdentity identity
+    ) {
+        LoadState loadState = resolveLoadState(recordType, input, identity);
+        validateAllowedLoadState(identity, loadState);
+        return loadState;
+    }
+
+    private void validateAllowedLoadState(
+            ExerciseFamilyIdentity identity,
+            LoadState loadState
+    ) {
+        if (identity == null || loadState == null) {
+            return;
         }
-        return resolveLoadState(recordType, null, identity);
+        RuntimeExerciseFamily family = familyCatalog.runtimeCatalog().family(identity.familyId);
+        if (family != null && !family.allowedLoadStates.isEmpty()
+                && !family.supportsLoadState(loadState)) {
+            throw new IllegalArgumentException(
+                    "이 운동 family에서는 " + loadState.id() + " 상태를 사용할 수 없습니다."
+            );
+        }
     }
 
     private static void putLoadState(ContentValues values, LoadState loadState) {
@@ -5542,22 +5605,7 @@ public final class FitnessRepository {
         if (input == null) {
             throw new IllegalArgumentException("세트 입력이 없습니다.");
         }
-        validateNonNegative(input.weightKg, "중량");
-        validateNonNegative(input.distanceMeters, "거리");
-        validateNonNegative(input.assistedWeightKg, "보조 중량");
-        validateNonNegative(input.addedWeightKg, "추가 중량");
-        if (input.reps != null && input.reps < 0) {
-            throw new IllegalArgumentException("횟수는 음수일 수 없습니다.");
-        }
-        if (input.durationSeconds != null && input.durationSeconds < 0) {
-            throw new IllegalArgumentException("시간은 음수일 수 없습니다.");
-        }
-        if (input.restSeconds != null && input.restSeconds < 0) {
-            throw new IllegalArgumentException("휴식 시간은 음수일 수 없습니다.");
-        }
-        if (input.rir != null && (input.rir < 0 || input.rir > 5)) {
-            throw new IllegalArgumentException("RIR는 0부터 5 사이여야 합니다.");
-        }
+        validateCommonSetInput(input);
         if (!input.completed) {
             return;
         }
@@ -5587,6 +5635,70 @@ public final class FitnessRepository {
                 requirePositive(input.weightKg, "중량");
                 requirePositive(input.reps, "횟수");
                 break;
+        }
+    }
+
+    /** New writes validate the actual set-level load state, not only the legacy record shape. */
+    private static void validateSetInput(
+            String recordType,
+            SetInput input,
+            ExerciseFamilyIdentity identity,
+            LoadState loadState
+    ) {
+        if (input == null) {
+            throw new IllegalArgumentException("세트 입력이 없습니다.");
+        }
+        validateCommonSetInput(input);
+        if (!input.completed) {
+            return;
+        }
+
+        String normalized = FitnessRecordContract.normalizeRecordType(recordType);
+        if (FitnessRecordContract.TIME.equals(normalized)
+                || FitnessRecordContract.WEIGHT_TIME.equals(normalized)) {
+            requirePositive(input.durationSeconds, "시간");
+        } else {
+            requirePositive(input.reps, "횟수");
+        }
+
+        if (loadState == null) {
+            return;
+        }
+        switch (loadState) {
+            case EXTERNAL_LOAD:
+                requirePositive(input.weightKg, "중량");
+                break;
+            case ADDED_WEIGHT:
+                // Zero is a valid bodyweight-capable added-load value.
+                validateNonNegative(input.addedWeightKg, "추가 중량");
+                break;
+            case ASSISTED:
+                requirePositive(input.assistedWeightKg, "보조 중량");
+                break;
+            case BODYWEIGHT:
+            case BAND_ASSISTED:
+            case BAND_RESISTED:
+                // These states deliberately do not carry a fake kg value.
+                break;
+        }
+    }
+
+    private static void validateCommonSetInput(SetInput input) {
+        validateNonNegative(input.weightKg, "중량");
+        validateNonNegative(input.distanceMeters, "거리");
+        validateNonNegative(input.assistedWeightKg, "보조 중량");
+        validateNonNegative(input.addedWeightKg, "추가 중량");
+        if (input.reps != null && input.reps < 0) {
+            throw new IllegalArgumentException("횟수는 음수일 수 없습니다.");
+        }
+        if (input.durationSeconds != null && input.durationSeconds < 0) {
+            throw new IllegalArgumentException("시간은 음수일 수 없습니다.");
+        }
+        if (input.restSeconds != null && input.restSeconds < 0) {
+            throw new IllegalArgumentException("휴식 시간은 음수일 수 없습니다.");
+        }
+        if (input.rir != null && (input.rir < 0 || input.rir > 5)) {
+            throw new IllegalArgumentException("RIR는 0부터 5 사이여야 합니다.");
         }
     }
 
@@ -5620,10 +5732,36 @@ public final class FitnessRepository {
         return 0;
     }
 
+    private static double setVolume(
+            String recordType,
+            SetInput input,
+            LoadState loadState
+    ) {
+        if (loadState == null) {
+            return setVolume(recordType, input);
+        }
+        if (loadState == LoadState.EXTERNAL_LOAD) {
+            return valueOrZero(input.weightKg) * intOrZero(input.reps);
+        }
+        if (loadState == LoadState.ADDED_WEIGHT) {
+            return valueOrZero(input.addedWeightKg) * intOrZero(input.reps);
+        }
+        return 0;
+    }
+
     private static double volumeForStoredSet(
             String recordType,
             SessionSetEntry set
     ) {
+        if (set.loadState == LoadState.EXTERNAL_LOAD) {
+            return set.weightKg * set.actualReps;
+        }
+        if (set.loadState == LoadState.ADDED_WEIGHT) {
+            return set.addedWeightKg * set.actualReps;
+        }
+        if (set.loadState != null) {
+            return 0;
+        }
         String normalized = FitnessRecordContract.normalizeRecordType(recordType);
         if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(normalized)) {
             return set.addedWeightKg * set.actualReps;
@@ -5634,12 +5772,67 @@ public final class FitnessRepository {
         return 0;
     }
 
+    private static void putLoadStateFields(
+            ContentValues values,
+            SetInput input,
+            LoadState loadState
+    ) {
+        if (loadState == null) {
+            putNullable(values, "weight_kg", input.weightKg);
+            putNullable(values, "assisted_weight_kg", input.assistedWeightKg);
+            putNullable(values, "added_weight_kg", input.addedWeightKg);
+            return;
+        }
+        switch (loadState) {
+            case EXTERNAL_LOAD:
+                putNullable(values, "weight_kg", input.weightKg);
+                values.putNull("assisted_weight_kg");
+                values.putNull("added_weight_kg");
+                break;
+            case ADDED_WEIGHT:
+                values.putNull("weight_kg");
+                values.putNull("assisted_weight_kg");
+                putNullable(values, "added_weight_kg", input.addedWeightKg);
+                break;
+            case ASSISTED:
+                values.putNull("weight_kg");
+                putNullable(values, "assisted_weight_kg", input.assistedWeightKg);
+                values.putNull("added_weight_kg");
+                break;
+            case BODYWEIGHT:
+            case BAND_ASSISTED:
+            case BAND_RESISTED:
+                values.putNull("weight_kg");
+                values.putNull("assisted_weight_kg");
+                values.putNull("added_weight_kg");
+                break;
+        }
+    }
+
     private static double valueOrZero(Double value) {
         return value == null ? 0 : value;
     }
 
     private static int intOrZero(Integer value) {
         return value == null ? 0 : value;
+    }
+
+    private static double loadValueForState(
+            LoadState loadState,
+            double externalLoadKg,
+            double addedWeightKg,
+            double assistedWeightKg
+    ) {
+        if (loadState == LoadState.EXTERNAL_LOAD) {
+            return externalLoadKg;
+        }
+        if (loadState == LoadState.ADDED_WEIGHT) {
+            return addedWeightKg;
+        }
+        if (loadState == LoadState.ASSISTED) {
+            return assistedWeightKg;
+        }
+        return 0;
     }
 
     private static void putNullable(ContentValues values, String key, Double value) {
@@ -5944,6 +6137,7 @@ public final class FitnessRepository {
     /** 종목 역대 기록 요약. */
     public static final class ExerciseBests {
         public String performanceKey = "";
+        public LoadState loadState;
         public double maxWeightKg;
         public int repsAtMaxWeight;
         public String maxWeightDate = "";

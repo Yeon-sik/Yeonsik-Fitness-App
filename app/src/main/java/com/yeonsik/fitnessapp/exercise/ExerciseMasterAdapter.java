@@ -36,7 +36,7 @@ public final class ExerciseMasterAdapter {
                 bodyPart,
                 equipmentType == null ? EquipmentType.OTHER : equipmentType,
                 preset.equipmentVariantId,
-                null,
+                preset.primarySubPartNameKo,
                 preset.recordType,
                 identity
         );
