@@ -1,0 +1,1202 @@
+{
+  "schemaVersion": 2,
+  "coordinateSystem": {
+    "origin": "top_left",
+    "unit": "asset_local_normalized_0_to_1"
+  },
+  "assets": [
+    {
+      "id": "flat_bench_three_quarter_v1",
+      "type": "flat_bench",
+      "viewId": "elevated_front_three_quarter",
+      "file": "final/flat_bench_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "3581c801225a4afeba79f655f0c2086d5f68529e06288a4c1e066c09eccd2726",
+      "anchors": {
+        "pad_head": [
+          0.3,
+          0.16
+        ],
+        "pad_shoulders": [
+          0.43,
+          0.23
+        ],
+        "pad_pelvis": [
+          0.7,
+          0.4
+        ],
+        "rear_floor": [
+          0.25,
+          0.51
+        ],
+        "front_floor": [
+          0.68,
+          0.84
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_support"
+    },
+    {
+      "id": "barbell_loaded_three_quarter_v1",
+      "type": "barbell",
+      "viewId": "slight_rising_three_quarter",
+      "file": "final/barbell_loaded_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "c1b8593039632eb217a71a303f2fee22c420aaa1422c52ea95c568006d850cc5",
+      "anchors": {
+        "center": [
+          0.5,
+          0.493
+        ],
+        "grip_left": [
+          0.36,
+          0.516
+        ],
+        "grip_right": [
+          0.65,
+          0.47
+        ],
+        "sleeve_left": [
+          0.19,
+          0.55
+        ],
+        "sleeve_right": [
+          0.82,
+          0.43
+        ]
+      },
+      "status": "approved",
+      "renderClass": "movable_free_weight"
+    },
+    {
+      "id": "dumbbell_adjustable_three_quarter_v1",
+      "type": "dumbbell",
+      "viewId": "elevated_front_three_quarter",
+      "file": "final/dumbbell_adjustable_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "b9e86d462ca71e6a4e3fccf63a06e3ea35b0b2335d8fe50710ff0f05c6b404a2",
+      "anchors": {
+        "grip_center": [
+          0.524,
+          0.439
+        ],
+        "grip_left": [
+          0.43,
+          0.49
+        ],
+        "grip_right": [
+          0.62,
+          0.39
+        ],
+        "mass_left": [
+          0.31,
+          0.56
+        ],
+        "mass_right": [
+          0.72,
+          0.32
+        ]
+      },
+      "status": "approved",
+      "renderClass": "movable_free_weight"
+    },
+    {
+      "id": "kettlebell_competition_front_v1",
+      "type": "kettlebell",
+      "viewId": "front",
+      "file": "final/kettlebell_competition_front.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "0b2af2b334dee71f270293f58f39b8e524458819818b0b908eba1d99937da602",
+      "anchors": {
+        "grip_center": [
+          0.493,
+          0.196
+        ],
+        "grip_left": [
+          0.339,
+          0.205
+        ],
+        "grip_right": [
+          0.649,
+          0.205
+        ],
+        "mass_center": [
+          0.493,
+          0.61
+        ],
+        "base_center": [
+          0.493,
+          0.845
+        ]
+      },
+      "status": "approved",
+      "renderClass": "movable_free_weight"
+    },
+    {
+      "id": "lat_pulldown_machine_rear_three_quarter_v1",
+      "type": "lat_pulldown_machine",
+      "viewId": "rear_three_quarter",
+      "file": "final/lat_pulldown_machine_rear_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "2d1596429371af13dd99b1d9d08f5dd988cea6d4bdfe7e86ab1bceb4e13b3815",
+      "anchors": {
+        "overhead_pulley": [
+          0.5,
+          0.1
+        ],
+        "bar_center": [
+          0.48,
+          0.3
+        ],
+        "thigh_pad_center": [
+          0.47,
+          0.61
+        ],
+        "seat_center": [
+          0.45,
+          0.72
+        ],
+        "weight_stack_center": [
+          0.61,
+          0.55
+        ],
+        "base_center": [
+          0.49,
+          0.88
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "ab_wheel_side_three_quarter_v1",
+      "type": "ab_wheel",
+      "viewId": "side_three_quarter",
+      "file": "final/ab_wheel_side_three_quarter.png",
+      "width": 499,
+      "height": 499,
+      "sha256": "e43362e875b340159335fa0641b0d208e5312314a39ddc8f9ef46b2f6f78506f",
+      "anchors": {
+        "center": [
+          0.43,
+          0.39
+        ],
+        "axle_center": [
+          0.44,
+          0.39
+        ],
+        "grip_left": [
+          0.23,
+          0.39
+        ],
+        "grip_right": [
+          0.66,
+          0.39
+        ],
+        "wheel_center": [
+          0.44,
+          0.39
+        ]
+      },
+      "status": "approved",
+      "renderClass": "movable_free_weight"
+    },
+    {
+      "id": "ankle_cuff_front_v1",
+      "type": "ankle_cuff",
+      "viewId": "front",
+      "file": "final/ankle_cuff_front.png",
+      "width": 499,
+      "height": 416,
+      "sha256": "3c541e222f01585c31464b79fd1564a5699ef7d32f040c804e134602de943f27",
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "cable_ring": [
+          0.77,
+          0.48
+        ],
+        "cuff_center": [
+          0.43,
+          0.5
+        ]
+      },
+      "status": "approved",
+      "renderClass": "canonical_attachment"
+    },
+    {
+      "id": "assisted_pullup_dip_machine_front_three_quarter_v1",
+      "type": "assisted_pullup_dip_machine",
+      "viewId": "front_three_quarter",
+      "file": "final/assisted_pullup_dip_machine_front_three_quarter.png",
+      "width": 1086,
+      "height": 1448,
+      "sha256": "e1c09eabfd541b6e751c1cbabb4a37fc06bf1a6d6becea7808e181b6809e67f5",
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "pullup_bar_center": [
+          0.5,
+          0.14
+        ],
+        "pullup_grip_left": [
+          0.42,
+          0.15
+        ],
+        "pullup_grip_right": [
+          0.58,
+          0.15
+        ],
+        "dip_grip_left": [
+          0.39,
+          0.43
+        ],
+        "dip_grip_right": [
+          0.61,
+          0.43
+        ],
+        "assist_pad_center": [
+          0.5,
+          0.62
+        ],
+        "base_center": [
+          0.5,
+          0.84
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "cable_attachment_set_front_v1",
+      "type": "cable_attachment_set",
+      "viewId": "front_set",
+      "file": "final/cable_attachment_set_front.png",
+      "width": 493,
+      "height": 490,
+      "sha256": "8a3fc0014509f0385823076a2fbd147d74047b465c07fb020d4af7f9765d4eda",
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "upper_center": [
+          0.5,
+          0.23
+        ],
+        "middle_center": [
+          0.5,
+          0.5
+        ],
+        "lower_center": [
+          0.5,
+          0.76
+        ]
+      },
+      "status": "approved",
+      "renderClass": "canonical_attachment"
+    },
+    {
+      "id": "captains_chair_front_three_quarter_v1",
+      "type": "captains_chair",
+      "viewId": "front_three_quarter",
+      "file": "final/captains_chair_front_three_quarter.png",
+      "width": 366,
+      "height": 348,
+      "sha256": "6f0d9d1ed83ffa70f5f9f5a2cee6da1c05699bab73e8a9120b6bb3999b2208f9",
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "back_pad_center": [
+          0.5,
+          0.35
+        ],
+        "arm_pad_left": [
+          0.38,
+          0.36
+        ],
+        "arm_pad_right": [
+          0.62,
+          0.36
+        ],
+        "grip_left": [
+          0.31,
+          0.38
+        ],
+        "grip_right": [
+          0.69,
+          0.38
+        ],
+        "base_center": [
+          0.5,
+          0.84
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_support"
+    },
+    {
+      "id": "ez_curl_bar_three_quarter_v1",
+      "type": "ez_curl_bar",
+      "viewId": "slight_rising_three_quarter",
+      "file": "final/ez_curl_bar_three_quarter.png",
+      "width": 485,
+      "height": 490,
+      "sha256": "923febd644f145e019a7ea5d44768e57785a959b5ee712f8194d658ab01edbd6",
+      "anchors": {
+        "center": [
+          0.5,
+          0.49
+        ],
+        "grip_left": [
+          0.4,
+          0.51
+        ],
+        "grip_right": [
+          0.6,
+          0.47
+        ],
+        "sleeve_left": [
+          0.1,
+          0.59
+        ],
+        "sleeve_right": [
+          0.9,
+          0.39
+        ]
+      },
+      "status": "approved",
+      "renderClass": "movable_free_weight"
+    },
+    {
+      "id": "functional_trainer_front_three_quarter_v1",
+      "type": "functional_trainer",
+      "viewId": "front_three_quarter",
+      "file": "final/functional_trainer_front_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "073cbdf417e54206f0b1fffec564faf59c2da4e9232b031aa55e65a11b9d8c62",
+      "anchors": {
+        "center": [
+          0.5,
+          0.51
+        ],
+        "pulley_left": [
+          0.37,
+          0.34
+        ],
+        "pulley_right": [
+          0.63,
+          0.34
+        ],
+        "attachment_left": [
+          0.36,
+          0.46
+        ],
+        "attachment_right": [
+          0.64,
+          0.46
+        ],
+        "base_left": [
+          0.29,
+          0.91
+        ],
+        "base_right": [
+          0.72,
+          0.91
+        ]
+      },
+      "status": "approved",
+      "renderClass": "cable_machine"
+    },
+    {
+      "id": "ghd_nordic_support_side_three_quarter_v1",
+      "type": "ghd_nordic_support",
+      "viewId": "side_three_quarter",
+      "file": "final/ghd_nordic_support_side_three_quarter.png",
+      "width": 392,
+      "height": 348,
+      "sha256": "76cec46048946ba0572c321421d09c45e09d5bb9de78dcf570e2cf312598c7dc",
+      "anchors": {
+        "center": [
+          0.51,
+          0.52
+        ],
+        "hip_pad_center": [
+          0.43,
+          0.36
+        ],
+        "ankle_pad_center": [
+          0.7,
+          0.34
+        ],
+        "footplate_center": [
+          0.73,
+          0.57
+        ],
+        "base_center": [
+          0.51,
+          0.82
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_support"
+    },
+    {
+      "id": "hand_gripper_front_three_quarter_v1",
+      "type": "hand_gripper",
+      "viewId": "front_three_quarter",
+      "file": "final/hand_gripper_front_three_quarter.png",
+      "width": 497,
+      "height": 498,
+      "sha256": "f28585817b41e70b5908ca5fb6d6817d9138f8f6a60cfa06d56f74e92e19df71",
+      "anchors": {
+        "center": [
+          0.36,
+          0.39
+        ],
+        "spring_center": [
+          0.36,
+          0.22
+        ],
+        "grip_left_center": [
+          0.31,
+          0.46
+        ],
+        "grip_right_center": [
+          0.43,
+          0.46
+        ]
+      },
+      "status": "approved",
+      "renderClass": "movable_free_weight"
+    },
+    {
+      "id": "hip_abduction_adduction_machine_front_three_quarter_v1",
+      "type": "hip_abduction_adduction_machine",
+      "viewId": "front_three_quarter",
+      "file": "final/hip_abduction_adduction_machine_front_three_quarter.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "e6a0d54dda1ba413cdf76cb72b7cdfc3018681f830fe4c0bdf01b3cb78877762",
+      "anchors": {
+        "center": [
+          0.51,
+          0.52
+        ],
+        "seat_center": [
+          0.58,
+          0.56
+        ],
+        "back_pad_center": [
+          0.62,
+          0.39
+        ],
+        "thigh_pad_left": [
+          0.44,
+          0.55
+        ],
+        "thigh_pad_right": [
+          0.68,
+          0.55
+        ],
+        "footrest_left": [
+          0.42,
+          0.72
+        ],
+        "footrest_right": [
+          0.68,
+          0.72
+        ],
+        "base_center": [
+          0.51,
+          0.84
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "landmine_base_front_three_quarter_v1",
+      "type": "landmine_base",
+      "viewId": "front_three_quarter",
+      "file": "final/landmine_base_front_three_quarter.png",
+      "width": 485,
+      "height": 495,
+      "sha256": "e2dbc2aa285d4c13fb915afe691bc864bc874d88673d42e5c4be5f67a3f865d4",
+      "anchors": {
+        "center": [
+          0.5,
+          0.6
+        ],
+        "pivot_center": [
+          0.48,
+          0.61
+        ],
+        "bar_socket": [
+          0.36,
+          0.34
+        ],
+        "base_center": [
+          0.5,
+          0.76
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_support"
+    },
+    {
+      "id": "leg_extension_front_side_three_quarter_v1",
+      "type": "leg_extension",
+      "viewId": "front_side_three_quarter",
+      "file": "final/leg_extension_front_side_three_quarter.png",
+      "width": 366,
+      "height": 312,
+      "sha256": "a2d4f77ef3c65ff5f93ace1a0d10999432d8dfe86055bf03c45f71e96ad4e77e",
+      "anchors": {
+        "center": [
+          0.5,
+          0.53
+        ],
+        "seat_center": [
+          0.56,
+          0.51
+        ],
+        "back_pad_center": [
+          0.64,
+          0.34
+        ],
+        "knee_axis": [
+          0.43,
+          0.57
+        ],
+        "ankle_roller_center": [
+          0.3,
+          0.65
+        ],
+        "base_center": [
+          0.5,
+          0.84
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "leg_press_side_three_quarter_v1",
+      "type": "leg_press",
+      "viewId": "side_three_quarter",
+      "file": "final/leg_press_side_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "0825c9de363786b414dc6e20c98eb631650f750376cab5bd019ed3bd674fd894",
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "seat_center": [
+          0.31,
+          0.58
+        ],
+        "back_pad_center": [
+          0.38,
+          0.43
+        ],
+        "footplate_center": [
+          0.63,
+          0.33
+        ],
+        "sled_center": [
+          0.67,
+          0.36
+        ],
+        "base_center": [
+          0.51,
+          0.84
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "lying_leg_curl_side_three_quarter_v1",
+      "type": "lying_leg_curl",
+      "viewId": "side_three_quarter",
+      "file": "final/lying_leg_curl_side_three_quarter.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "545d4092d6fa5dd0d2f223b2de1821d276173e1a91ebcd29e82d2977c0dcaea6",
+      "anchors": {
+        "center": [
+          0.51,
+          0.52
+        ],
+        "bench_center": [
+          0.42,
+          0.45
+        ],
+        "hip_position": [
+          0.52,
+          0.45
+        ],
+        "knee_position": [
+          0.63,
+          0.47
+        ],
+        "ankle_roller_center": [
+          0.76,
+          0.45
+        ],
+        "base_center": [
+          0.51,
+          0.83
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "pec_deck_front_v1",
+      "type": "pec_deck",
+      "viewId": "front",
+      "file": "final/pec_deck_front.png",
+      "width": 374,
+      "height": 312,
+      "sha256": "36ff8a2bb5c6ee4de9b22f8a5051ef53b8a3eb3851013d05008e807c6a52071f",
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "seat_center": [
+          0.5,
+          0.68
+        ],
+        "back_pad_center": [
+          0.5,
+          0.5
+        ],
+        "grip_left": [
+          0.25,
+          0.42
+        ],
+        "grip_right": [
+          0.75,
+          0.42
+        ],
+        "pivot_left": [
+          0.25,
+          0.25
+        ],
+        "pivot_right": [
+          0.75,
+          0.25
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "plate_loaded_press_frame_front_three_quarter_v1",
+      "type": "plate_loaded_press_frame",
+      "viewId": "front_three_quarter",
+      "file": "final/plate_loaded_press_frame_front_three_quarter.png",
+      "width": 500,
+      "height": 498,
+      "sha256": "39400d8e7c209399d58bf6b23316bb43e4c1ca8e6f5ff238c31fcc9f95f4d753",
+      "anchors": {
+        "center": [
+          0.45,
+          0.52
+        ],
+        "seat_center": [
+          0.47,
+          0.62
+        ],
+        "back_pad_center": [
+          0.48,
+          0.45
+        ],
+        "grip_left": [
+          0.29,
+          0.34
+        ],
+        "grip_right": [
+          0.65,
+          0.34
+        ],
+        "loading_sleeve_left": [
+          0.21,
+          0.49
+        ],
+        "loading_sleeve_right": [
+          0.78,
+          0.49
+        ],
+        "base_center": [
+          0.46,
+          0.84
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "resistance_band_loop_front_v1",
+      "type": "resistance_band",
+      "viewId": "front",
+      "file": "final/resistance_band_loop_front.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "a61db043692362feaafd912dd2b19452b1ba9d1f61029963e04efc40845681ad",
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "loop_top": [
+          0.5,
+          0.1
+        ],
+        "loop_bottom": [
+          0.5,
+          0.88
+        ],
+        "left_mid": [
+          0.43,
+          0.5
+        ],
+        "right_mid": [
+          0.57,
+          0.5
+        ]
+      },
+      "status": "approved",
+      "renderClass": "movable_free_weight"
+    },
+    {
+      "id": "roman_chair_side_three_quarter_v1",
+      "type": "roman_chair",
+      "viewId": "side_three_quarter",
+      "file": "final/roman_chair_side_three_quarter.png",
+      "width": 366,
+      "height": 348,
+      "sha256": "f0089bfb7b6deba111eef96aedc61f4200391c762e634624b095bfcb366a0f4b",
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "hip_pad_center": [
+          0.46,
+          0.34
+        ],
+        "ankle_pad_center": [
+          0.7,
+          0.55
+        ],
+        "foot_support_center": [
+          0.73,
+          0.63
+        ],
+        "base_center": [
+          0.5,
+          0.82
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_support"
+    },
+    {
+      "id": "rope_attachment_front_v1",
+      "type": "rope_attachment",
+      "viewId": "front",
+      "file": "final/rope_attachment_front.png",
+      "width": 500,
+      "height": 420,
+      "sha256": "9fbc9560b0301a642ca59948016abc23c2e364bcb3ff31ee1947923ccad98cb6",
+      "anchors": {
+        "center": [
+          0.5,
+          0.49
+        ],
+        "cable_eye": [
+          0.5,
+          0.12
+        ],
+        "grip_left": [
+          0.4,
+          0.73
+        ],
+        "grip_right": [
+          0.6,
+          0.73
+        ]
+      },
+      "status": "approved",
+      "renderClass": "canonical_attachment"
+    },
+    {
+      "id": "seated_calf_raise_machine_side_three_quarter_v1",
+      "type": "seated_calf_raise_machine",
+      "viewId": "side_three_quarter",
+      "file": "final/seated_calf_raise_machine_side_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "8bd0fbf6430e27768da051bf8ca32ef7a318c4bf36f0d95bf580da7506ba20ce",
+      "anchors": {
+        "center": [
+          0.53,
+          0.51
+        ],
+        "seat_center": [
+          0.29,
+          0.5
+        ],
+        "knee_pad_center": [
+          0.4,
+          0.25
+        ],
+        "grip_left": [
+          0.36,
+          0.13
+        ],
+        "grip_right": [
+          0.46,
+          0.17
+        ],
+        "footplate_center": [
+          0.54,
+          0.64
+        ],
+        "loading_sleeve_center": [
+          0.86,
+          0.44
+        ],
+        "pivot_center": [
+          0.56,
+          0.48
+        ],
+        "base_center": [
+          0.52,
+          0.84
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "seated_leg_curl_front_side_three_quarter_v1",
+      "type": "seated_leg_curl",
+      "viewId": "front_side_three_quarter",
+      "file": "final/seated_leg_curl_front_side_three_quarter.png",
+      "width": 366,
+      "height": 312,
+      "sha256": "df7098ff36347147adca32c08e0ddbc28b00144f0e026d75efa57ae21dfbaeeb",
+      "anchors": {
+        "center": [
+          0.5,
+          0.53
+        ],
+        "seat_center": [
+          0.56,
+          0.52
+        ],
+        "back_pad_center": [
+          0.64,
+          0.34
+        ],
+        "thigh_pad_center": [
+          0.43,
+          0.54
+        ],
+        "knee_axis": [
+          0.43,
+          0.58
+        ],
+        "ankle_roller_center": [
+          0.31,
+          0.68
+        ],
+        "base_center": [
+          0.5,
+          0.84
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "seated_row_machine_front_side_three_quarter_v1",
+      "type": "seated_row_machine",
+      "viewId": "front_side_three_quarter",
+      "file": "final/seated_row_machine_front_side_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "052b604c6bfdbd3e1354e2857973b5e53c23b1527110a7c9b6da697d95b772f7",
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "seat_center": [
+          0.35,
+          0.65
+        ],
+        "chest_pad_center": [
+          0.42,
+          0.52
+        ],
+        "grip_left": [
+          0.47,
+          0.42
+        ],
+        "grip_right": [
+          0.64,
+          0.44
+        ],
+        "footplate_left": [
+          0.51,
+          0.78
+        ],
+        "footplate_right": [
+          0.6,
+          0.8
+        ],
+        "weight_stack_center": [
+          0.6,
+          0.65
+        ],
+        "base_center": [
+          0.53,
+          0.88
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "single_d_handle_front_v1",
+      "type": "single_d_handle",
+      "viewId": "front",
+      "file": "final/single_d_handle_front.png",
+      "width": 497,
+      "height": 420,
+      "sha256": "c171dc8dd28147f3b82f0f3255a83d10e2f53597be6799402debfa77e17ba585",
+      "anchors": {
+        "center": [
+          0.48,
+          0.48
+        ],
+        "cable_eye": [
+          0.48,
+          0.16
+        ],
+        "grip_center": [
+          0.48,
+          0.62
+        ]
+      },
+      "status": "approved",
+      "renderClass": "canonical_attachment"
+    },
+    {
+      "id": "smith_machine_front_three_quarter_v1",
+      "type": "smith_machine",
+      "viewId": "front_three_quarter",
+      "file": "final/smith_machine_front_three_quarter.png",
+      "width": 1536,
+      "height": 1024,
+      "sha256": "4477f2bb4ec29876a6436c5f01a740efa54e33bd188f8863ec18f79ec6f66583",
+      "anchors": {
+        "center": [
+          0.5,
+          0.5
+        ],
+        "bar_center": [
+          0.5,
+          0.39
+        ],
+        "bar_grip_left": [
+          0.4,
+          0.39
+        ],
+        "bar_grip_right": [
+          0.6,
+          0.39
+        ],
+        "rail_left": [
+          0.35,
+          0.48
+        ],
+        "rail_right": [
+          0.65,
+          0.48
+        ],
+        "base_left": [
+          0.3,
+          0.91
+        ],
+        "base_right": [
+          0.71,
+          0.91
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "standing_calf_raise_machine_front_three_quarter_v1",
+      "type": "standing_calf_raise_machine",
+      "viewId": "front_three_quarter",
+      "file": "final/standing_calf_raise_machine_front_three_quarter.png",
+      "width": 1254,
+      "height": 1254,
+      "sha256": "9973c9b49242b7edb4ab7a7b14cdc951d6166db36f96cc08a7ade7307cf786de",
+      "anchors": {
+        "center": [
+          0.5,
+          0.52
+        ],
+        "shoulder_pad_left": [
+          0.43,
+          0.29
+        ],
+        "shoulder_pad_right": [
+          0.57,
+          0.29
+        ],
+        "grip_left": [
+          0.38,
+          0.31
+        ],
+        "grip_right": [
+          0.62,
+          0.31
+        ],
+        "footplate_center": [
+          0.5,
+          0.72
+        ],
+        "base_center": [
+          0.5,
+          0.84
+        ]
+      },
+      "status": "approved",
+      "renderClass": "fixed_machine"
+    },
+    {
+      "id": "straight_bar_attachment_front_three_quarter_v1",
+      "type": "straight_bar",
+      "viewId": "front_three_quarter",
+      "file": "final/straight_bar_attachment_front_three_quarter.png",
+      "width": 499,
+      "height": 420,
+      "sha256": "01aed3410b70cfb64516e98757e48b80c9eeffe016cfd127cb2d1e9a4effbc1e",
+      "anchors": {
+        "center": [
+          0.51,
+          0.5
+        ],
+        "cable_eye": [
+          0.51,
+          0.27
+        ],
+        "grip_left": [
+          0.37,
+          0.57
+        ],
+        "grip_right": [
+          0.65,
+          0.46
+        ],
+        "bar_left": [
+          0.17,
+          0.65
+        ],
+        "bar_right": [
+          0.86,
+          0.35
+        ]
+      },
+      "status": "approved",
+      "renderClass": "canonical_attachment"
+    },
+    {
+      "id": "weight_plate_set_three_quarter_v1",
+      "type": "weight_plate",
+      "viewId": "front_three_quarter_set",
+      "file": "final/weight_plate_set_three_quarter.png",
+      "width": 490,
+      "height": 490,
+      "sha256": "59138bb2ca958a873a9708dbfea0d1c107aa2efe827ae93fad701f6925620c72",
+      "anchors": {
+        "center": [
+          0.48,
+          0.5
+        ],
+        "largest_plate_center": [
+          0.25,
+          0.5
+        ],
+        "middle_plate_center": [
+          0.49,
+          0.55
+        ],
+        "small_plate_center": [
+          0.73,
+          0.61
+        ]
+      },
+      "status": "approved",
+      "renderClass": "movable_free_weight"
+    },
+    {
+      "id": "wide_lat_bar_front_v1",
+      "type": "wide_lat_bar",
+      "viewId": "front",
+      "file": "final/wide_lat_bar_front.png",
+      "width": 497,
+      "height": 416,
+      "sha256": "e0bfb869bd8ac6c70d38bfe854d80cd03482b7e914388c36455cf6aab7cab144",
+      "anchors": {
+        "center": [
+          0.5,
+          0.39
+        ],
+        "cable_eye": [
+          0.5,
+          0.21
+        ],
+        "grip_left": [
+          0.17,
+          0.46
+        ],
+        "grip_right": [
+          0.83,
+          0.46
+        ],
+        "bar_center": [
+          0.5,
+          0.4
+        ]
+      },
+      "status": "approved",
+      "renderClass": "canonical_attachment"
+    }
+  ]
+}

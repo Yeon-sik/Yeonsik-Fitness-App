@@ -19,7 +19,7 @@ import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
-import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationCatalog;
+import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 
@@ -115,14 +115,16 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     // ── 운동 자세 이미지 ───────────────────────────────────────────────
 
     private void renderExerciseIllustration(FitnessRepository.SessionExerciseEntry exercise) {
-        int[] drawableIds = ExerciseIllustrationCatalog.detailDrawablesFor(exercise.exerciseId);
+        int[] drawableIds = ExerciseIllustrationLookup.detailDrawablesFor(
+                host.activity(), exercise.exerciseId);
         if (drawableIds.length == 0) {
             return;
         }
 
         FitnessUi ui = ui();
         ImageView illustration = new ImageView(host.activity());
-        int[] durationsMs = ExerciseIllustrationCatalog.frameDurationsMsFor(exercise.exerciseId);
+        int[] durationsMs = ExerciseIllustrationLookup.frameDurationsMsFor(
+                host.activity(), exercise.exerciseId);
         String illustrationDescription = exercise.name
                 + (drawableIds.length > 1 ? " 운동 자세 애니메이션" : " 운동 자세");
         illustration.setContentDescription(illustrationDescription);
@@ -132,7 +134,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         illustration.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         illustration.setPadding(0, ui.dp(4), 0, ui.dp(4));
 
-        int preferredHeightDp = ExerciseIllustrationCatalog.preferredHeightDp(exercise.exerciseId);
+        int preferredHeightDp = ExerciseIllustrationLookup.preferredHeightDp(
+                host.activity(), exercise.exerciseId);
         int height = ui.dp(Math.round(preferredHeightDp * ILLUSTRATION_DISPLAY_SCALE_PERCENT / 100f));
 
         LinearLayout.LayoutParams imageParams = ui.fullWidthParams(ui.dp(8));
@@ -936,7 +939,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 weightInput.setText(prev.weightKg == 0 ? "" : FitnessUi.trimDouble(prev.weightKg));
                 repsInput.setText(prev.actualReps == 0 ? "" : String.valueOf(prev.actualReps));
                 repository().updateSet(recordId, set.id, prev.weightKg, prev.actualReps,
-                        null, set.restSeconds, set.isCompleted);
+                        null, set.restSeconds, set.isCompleted, set.loadState);
             });
         }
         row.addView(prevCell, new LinearLayout.LayoutParams(ui.dp(56), ui.dp(48)));
@@ -1000,7 +1003,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 Math.max(0, FitnessUi.parseInt(repsInput, 0)),
                 null,
                 completed ? defaultRestSeconds[0] : set.restSeconds,
-                completed);
+                completed,
+                set.loadState);
         if (completed) {
             host.startRestTimer(defaultRestSeconds[0]);
         }

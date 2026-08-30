@@ -183,7 +183,9 @@ secondary layers = union(glutes, hamstrings, overall_legs) - primary layers
 
 - `renderPolicy.locked`: 캔버스, 카메라, 고정 기구, 머리·몸통·골반 또는 발 접점
 - `renderPolicy.animated`: 실제로 움직이는 관절, 사지, 케이블, 바, 웨이트 스택
-- `lockedAnchors`: 모든 프레임에서 같은 화면 좌표를 유지할 점
+- `renderPolicy.lockedAnchors`: 모든 프레임에서 같은 화면 좌표를 유지할 점
+- `renderPolicy.anchorTolerancePixels`: `lockedAnchors`와 고정 기구에 적용할 허용 오차
+- `renderPolicy.lockedEquipment`: A/B에서 identity와 transform을 고정할 placement `instanceId` 목록
 - `joints`: 프레임별 관절 좌표
 - `movingEquipment`: 이동 기구의 중심과 회전
 
@@ -275,12 +277,12 @@ This is a canonical reusable asset, not an exercise scene.
 
 1. `Fitness_Weight.json`과 `muscle-layers.json`에서 주·보조 레이어를 확정한다.
 2. anatomy master, 가장 가까운 승인 운동 이미지, 정확한 기구 PNG의 세 레퍼런스만 사용해 첫 프레임을 만든다.
-3. 첫 프레임을 승인한 즉시 머리·흉골·골반·양발과 운동 중 움직이면 안 되는 관절을 픽셀 좌표로 측정해 `lockedAnchors`에 기록한다.
+3. 첫 프레임을 승인한 즉시 머리·흉골·골반·양발과 운동 중 움직이면 안 되는 관절을 픽셀 좌표로 측정해 `renderPolicy.lockedAnchors`에 기록한다.
 4. 후속 프레임의 첫 번째 입력은 반드시 승인 첫 프레임이다. 별도의 텍스트 생성이나 병렬 생성 결과를 후속 프레임으로 사용하지 않는다.
-5. 후속 편집 프롬프트에 고정 좌표와 허용 오차를 숫자로 다시 적는다. `같은 자세`, `고정` 같은 추상 표현만 사용하지 않는다.
+5. 후속 편집 프롬프트에 고정 좌표와 허용 오차를 숫자로 다시 적는다. movable equipment는 compiler가 계산한 `invisibleGripTargets` 픽셀 좌표도 프롬프트에 전달한다. `같은 자세`, `고정` 같은 추상 표현만 사용하지 않는다.
 6. 한 번에 하나의 문제만 수정한다. 예를 들어 팔꿈치가 이동했다면 카메라·색·기구·다른 관절을 동시에 다시 요청하지 않는다.
 
-scene에는 선택적으로 `visualContract`와 `generationContract`를 기록한다.
+compiler가 출력하는 scene에는 `generationContract`를 필수로 기록한다. 기존 정적 manifest의 `visualContract`와 확장 필드는 별도 legacy coverage 문서로만 유지하며 compiler contract에 섞지 않는다.
 
 - `visualContract`: 시점, 주·보조 레이어, 금지 강조 부위, 자세 규칙
 - `generationContract.baseFrame`: 골든 첫 프레임 ID
@@ -307,34 +309,51 @@ scene에는 선택적으로 `visualContract`와 `generationContract`를 기록�
 
 ```json
 {
+  "contractType": "exercise-image-orchestration.v1",
   "schemaVersion": 1,
   "exerciseId": "exact_id_from_Fitness_Weight",
-  "preferredHeightDp": 280,
+  "slug": "exercise-slug",
+  "archetypeId": "reviewed-archetype",
+  "renderClass": "bodyweight",
   "canvas": { "width": 1536, "height": 1024 },
-  "coordinateSystem": { "origin": "top_left", "unit": "pixel" },
-  "normalization": { "scale": 0.9, "translate": [77, 51] },
-  "equipment": ["registered_equipment_id"],
-  "lockedAnchors": {
-    "foot_left": [0, 0],
-    "foot_right": [0, 0]
+  "camera": { "viewId": "front" },
+  "exerciseMetadata": {
+    "movementPattern": "<resolved>", "motionType": "<resolved>", "supportMode": "<resolved>",
+    "bodyOrientation": "<resolved>", "equipmentKinematics": "<resolved>", "laterality": "<resolved>",
+    "gripVariant": "<resolved>", "equipmentType": "bodyweight"
   },
+  "metadataResolution": {
+    "fields": {
+      "supportMode": "archetype_default", "bodyOrientation": "archetype_default",
+      "equipmentKinematics": "archetype_default", "gripVariant": "archetype_default",
+      "canonicalView": "archetype_camera"
+    },
+    "deterministicRule": null, "canonicalViewSource": "archetype_camera"
+  },
+  "muscleMapping": { "primaryGroup": "<group>", "primaryLayers": ["<layer>"], "secondaryGroups": [], "secondaryLayers": [] },
+  "equipment": [],
   "frames": [
-    {
-      "id": "start",
-      "file": "../final/exercise-start.png",
-      "durationMs": 1000,
-      "joints": {},
-      "movingEquipment": {}
-    }
+    { "id": "A", "file": "../../final/exercise-slug-a.png", "mannequinFile": "exercise-slug-a-mannequin.png", "pose": { "state": "A" }, "equipmentPlacements": [], "invisibleGripTargets": [] },
+    { "id": "B", "file": "../../final/exercise-slug-b.png", "mannequinFile": "exercise-slug-b-mannequin.png", "pose": { "state": "B" }, "equipmentPlacements": [], "invisibleGripTargets": [] }
   ],
   "renderPolicy": {
-    "locked": ["canvas", "camera", "feet"],
-    "animated": ["hips", "knees"]
+    "lockedJoints": ["shoulders"],
+    "animatedJoints": ["elbows"],
+    "lockedAnchors": { "pelvis": [768, 486] },
+    "anchorTolerancePixels": 8,
+    "lockedEquipment": []
+  },
+  "generationContract": {
+    "baseFrame": "A", "derivedFrames": { "B": "edit_from_A" },
+    "referenceScene": "../../archetypes/reference.scene.json",
+    "equipmentAnchorStrategy": { "type": "none" },
+    "prompts": { "A": "prompt-a.md", "B": "prompt-b-edit.md" },
+    "renderSteps": ["generate_A_mannequin", "edit_A_into_B"]
   }
 }
 ```
 
-맨몸 운동은 `equipment`를 빈 배열로 둔다. 단일 프레임도 `durationMs`를 양수로 기록한다. `preferredHeightDp`는 누운 장면처럼 가로가 긴 경우 220, 전신 세로 장면은 280을 현재 기준값으로 사용하되 화면 검수 후 조정한다.
+`frame.file`은 scene에서 `final/`로 향하는 상대 경로여야 하며 파일명은 `<slug>-a.png`, `<slug>-b.png`로 고정한다. 맨몸 운동은 `equipment`와 두 frame의 `equipmentPlacements`를 빈 배열로 둔다. `lockedAnchors`, `anchorTolerancePixels`, `lockedEquipment`는 반드시 `renderPolicy` 아래에 둔다.
 
 ## 10. 앱 연결 방식
 
@@ -406,7 +425,7 @@ $taskSharp = '<sharp-module>'
   model_image/exercise-images/final/example-end.png
 
 # 기구 catalog와 모든 scene 검사
-$taskScenes = Get-ChildItem model_image/exercise-images/scenes/*.scene.json |
+$taskScenes = Get-ChildItem model_image/exercise-images/generated/*/scene.json |
   Select-Object -ExpandProperty FullName
 & $taskNode model_image/equipment/tools/validate-asset-manifests.mjs `
   $taskSharp `

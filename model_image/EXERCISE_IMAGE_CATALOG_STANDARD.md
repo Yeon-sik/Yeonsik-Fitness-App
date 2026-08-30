@@ -115,16 +115,16 @@ Fitness_Weight 운동 항목
 
 `motionType`만으로 원형을 정하지 않는다. 현재 데이터에서 `machine_press_seated`는 수평·수직 프레스와 여러 기구를 함께 포함하고, `hip_hinge_motion`은 힙힌지·힙신전·무릎굴곡을 함께 포함한다.
 
-각 운동은 아래 복합 키로 분류한다.
+각 운동은 아래 복합 키를 후보 생성에 사용한다. `supportMode`, `bodyOrientation`, `gripVariant`, `canonicalView`가 아직 `null`인 운동도 먼저 후보를 만들 수 있어야 하며, 이 값들은 후보 archetype을 선택한 뒤 해소한다.
 
 ```text
-catalogArchetypeId =
+archetypeCandidateKey =
   movementPattern
-  + supportMode
-  + bodyOrientation
+  + motionType
   + equipmentKinematics
   + laterality
-  + canonicalView
+
+최종 metadata 해소 순서는 `exercise override → archetype default → 명시된 deterministic mapping → MISSING_*`다. `canonicalView`는 가능하면 archetype의 `camera.viewId`를 단일 source of truth로 사용한다. 이름이나 `motionType`만으로 support, pose, camera, placement를 자동 추론하지 않는다.
 ```
 
 필수 렌더링 필드는 다음과 같다.
@@ -268,7 +268,7 @@ displayedSecondary = secondaryLayers - omittedLayers
 1. 정확한 `exerciseId`를 찾는다.
 2. 제품의 모든 분류 필드를 기록한다.
 3. 그룹을 실제 근육 레이어로 확장한다.
-4. `catalogArchetypeId`와 변형 태그를 정한다.
+4. `exercise override → archetype default → deterministic mapping` 순서로 archetype을 해소한다. 매칭되지 않으면 `MISSING_ARCHETYPE`로 중단한다.
 5. 시각 별칭·파생 변형·신규 원형 중 하나를 선택한다.
 
 ### 단계 B. 해부학과 운동역학
@@ -319,7 +319,7 @@ displayedSecondary = secondaryLayers - omittedLayers
 
 ## 12. 운동별 필수 산출물
 
-각 운동은 최소한 다음 파일 관계를 가진다.
+기존 정적 catalog manifest는 다음 source/final 관계를 유지한다.
 
 ```text
 exercise-images/source/<exercise>-<frame>-generated.png
@@ -331,17 +331,15 @@ exercise-images/scenes/<exercise>.prompt.md
 scene의 필수 제품 계약은 다음과 같다.
 
 - 정확한 `exerciseId`
-- `catalogArchetypeId`와 변형 태그
-- 캔버스, 좌표계, 정규화
+- `archetypeId`, 해소된 metadata와 `metadataResolution`
+- 캔버스, camera
 - 기구 ID 목록
-- 고정 앵커
-- 프레임 ID, 파일, 시간, 관절 좌표, 이동 기구 변환
-- `renderPolicy.locked`와 `renderPolicy.animated`
-- `visualContract`: 시점, 작업 측, 주·보조 그룹과 레이어, 금지 강조, 자세 규칙
-- `generationContract`: 기준 프레임, 파생 관계, prompt spec, 레퍼런스, source
-- `anatomyReview`: 날짜, 출처, 판단 메모
+- `renderPolicy.lockedAnchors`, `renderPolicy.anchorTolerancePixels`, `renderPolicy.lockedEquipment`
+- 순서가 고정된 A/B frame의 `final/<slug>-a|b.png` 상대 경로
+- frame별 `equipmentPlacements`와 compiled `invisibleGripTargets`
+- `generationContract`: 기준 프레임, 파생 관계, prompt, 레퍼런스, render steps
 
-기존 schema가 아직 강제하지 않는 필드는 신규 scene에서 먼저 적용하고 기존 scene은 원형별로 이관한다.
+기존 `scenes/*.scene.json`의 `catalogArchetypeId`, `visualContract`, `anatomyReview`는 legacy coverage 자료로 유지한다. compiler 출력은 `generated/<slug>/scene.json`의 `exercise-orchestration.v1` 계약을 사용하며, 두 형식을 validator에서 혼용하지 않는다.
 
 ## 13. 검증 게이트
 
@@ -426,7 +424,7 @@ node model_image/exercise-images/tools/audit-catalog-coverage.mjs `
 ```powershell
 $taskNode = '<node>'
 $taskSharp = '<sharp-module>'
-$taskScenes = Get-ChildItem model_image/exercise-images/scenes/*.scene.json |
+$taskScenes = Get-ChildItem model_image/exercise-images/generated/*/scene.json |
   Select-Object -ExpandProperty FullName
 
 & $taskNode model_image/equipment/tools/validate-asset-manifests.mjs `

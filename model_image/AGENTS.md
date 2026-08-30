@@ -9,7 +9,7 @@
 3. 해부학 위치와 운동 동작은 서로 독립적인 신뢰 가능한 외부 자료로 교차 검증한다. 한 장의 참고 이미지나 생성 모델의 기억만 사용하지 않는다.
 4. `equipment/equipment-catalog.json`에서 같은 기구와 `viewId`가 있는지 확인한다.
 5. 가장 가까운 승인 자산을 시각 레퍼런스로 사용해 첫 프레임을 만든다.
-6. 첫 프레임 승인 직후 머리·흉골·골반·발과 운동별 고정 관절의 픽셀 좌표를 scene의 `lockedAnchors`에 먼저 기록한다.
+6. 첫 프레임 승인 직후 머리·흉골·골반·발과 운동별 고정 관절의 픽셀 좌표를 scene의 `renderPolicy.lockedAnchors`에 먼저 기록한다.
 7. 추가 프레임은 첫 프레임을 첫 번째 편집 대상으로 만들고 프롬프트에 고정 좌표를 수치로 반복한다. 두 프레임을 독립 생성하지 않는다.
 8. 후속 프레임에서 고정 관절이 8px 이상 이동하거나 상완·대퇴처럼 고정할 분절 길이가 달라지면 승인하지 않고 한 항목만 교정한다.
 9. 최종 PNG, scene manifest, 자산 검증, Android 빌드를 함께 완료한다.
@@ -31,6 +31,15 @@
 - 최종 파일에는 체크무늬 배경 픽셀이 남아 있으면 안 된다. 알파가 있는 실제 투명 PNG여야 한다.
 - 카메라·캔버스·고정 접점이 흔들리는 2프레임은 정적 1프레임보다 나쁘다. 실패한 동적 이미지는 앱에 연결하지 않는다.
 - `app/src/main/res/`에 운동 이미지를 수동 복사하지 않는다. scene manifest에서 Gradle 생성 파이프라인으로 배포 자산을 만든다.
+
+## 자동 생성 Fail-Closed 규칙
+
+- 운동 metadata는 exercise override, archetype default, 명시된 deterministic mapping 순서로만 해석하며, exercise override는 예외 운동에만 둔다.
+- 운동 메타데이터, 근육 매핑, archetype, 카메라, A/B 자세, 기준 scene, 기구 view, anchor 또는 placement를 임의로 추측하거나 기본값으로 채우지 않는다.
+- 필수 정보가 없으면 해당 단계에서 중단하고 `MISSING_*` 오류와 누락 필드를 출력한다. 미완성 scene, prompt 또는 이미지를 READY로 취급하지 않는다.
+- 합성에는 `equipment/final/` 아래의 `status === "approved"` canonical PNG만 사용한다. `source/`, draft, deprecated 자산은 생성 입력이나 합성 입력이 아니다.
+- 이미지 생성 모델은 anatomical mannequin pose만 생성한다. canonical 장비를 다시 그리지 않으며, 장비는 asset-local anchor와 명시적 transform으로 compositor가 합성한다.
+- B는 승인된 A를 첫 편집 입력으로 사용하고 animated joint만 변경한다. locked joint, camera, body proportions와 canonical equipment identity는 유지한다.
 
 ## 에이전트 작업 보고
 

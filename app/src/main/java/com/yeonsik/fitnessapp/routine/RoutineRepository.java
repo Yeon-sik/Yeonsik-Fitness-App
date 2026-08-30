@@ -8,6 +8,8 @@ import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
+import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 
 import java.time.OffsetDateTime;
@@ -21,11 +23,13 @@ public final class RoutineRepository {
     private static final String DEFAULT_ROUTINE_NAME = "나만의 루틴";
 
     private final FitnessDatabaseHelper dbHelper;
+    private final ExerciseFamilyCatalog familyCatalog;
     private String userId;
     private String activeRoutineId;
 
     public RoutineRepository(FitnessDatabaseHelper dbHelper, String userId) {
         this.dbHelper = dbHelper;
+        this.familyCatalog = ExerciseFamilyCatalog.load(dbHelper.applicationContext());
         this.userId = normalizeUserId(userId);
     }
 
@@ -203,6 +207,8 @@ public final class RoutineRepository {
         values.put("primary_sub_part", emptyToDefault(exercise.primarySubPart, "세부 부위 없음"));
         values.put("equipment", exercise.equipmentType == null ? "기타" : exercise.equipmentType.labelKo());
         values.put("record_type", FitnessRecordContract.normalizeRecordType(exercise.recordType));
+        ExerciseFamilyIdentity identity = resolvedIdentity(exercise.familyIdentity, exercise.masterExerciseId);
+        putFamilyIdentity(values, identity);
         values.put("order_index", nextOrder);
         db().insertOrThrow("routine_exercises", null, values);
 
@@ -214,14 +220,16 @@ public final class RoutineRepository {
                 emptyToDefault(exercise.primarySubPart, "세부 부위 없음"),
                 exercise.equipmentType == null ? "기타" : exercise.equipmentType.labelKo(),
                 FitnessRecordContract.normalizeRecordType(exercise.recordType),
-                nextOrder
+                nextOrder,
+                identity
         );
     }
 
     public List<RoutineExerciseInstance> routineExercises(String routineId) {
         List<RoutineExerciseInstance> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
-                "SELECT id, exercise_id, name_ko, ui_part, primary_sub_part, equipment, record_type, order_index " +
+                "SELECT id, exercise_id, name_ko, ui_part, primary_sub_part, equipment, record_type, order_index, " +
+                        "family_id, preset_id, canonical_variant_key, visual_variant_key " +
                         "FROM routine_exercises WHERE routine_id = ? AND user_id = ? " +
                         "AND deleted_at IS NULL ORDER BY order_index, created_at",
                 new String[]{routineId, userId})) {
@@ -234,7 +242,16 @@ public final class RoutineRepository {
                         cursor.getString(4),
                         cursor.getString(5),
                         cursor.getString(6),
-                        cursor.getInt(7)
+                        cursor.getInt(7),
+                        identityForRow(
+                                cursor.getString(1),
+                                cursor.getString(2),
+                                cursor.getString(8),
+                                cursor.getString(9),
+                                cursor.getString(10),
+                                cursor.getString(11),
+                                cursor.getString(6)
+                        )
                 ));
             }
         }
@@ -273,6 +290,72 @@ public final class RoutineRepository {
         values.put("updated_at", now);
         values.putNull("deleted_at");
         return values;
+    }
+
+    private static void putFamilyIdentity(ContentValues values, ExerciseFamilyIdentity identity) {
+        if (identity == null) {
+            values.putNull("family_id");
+            values.putNull("preset_id");
+            values.putNull("canonical_variant_key");
+            values.putNull("visual_variant_key");
+            return;
+        }
+        putNullable(values, "family_id", identity.familyId);
+        putNullable(values, "preset_id", identity.presetId);
+        putNullable(values, "canonical_variant_key", identity.canonicalVariantKey);
+        putNullable(values, "visual_variant_key", identity.visualVariantKey);
+    }
+
+    private ExerciseFamilyIdentity resolvedIdentity(
+            ExerciseFamilyIdentity supplied,
+            String legacyExerciseId
+    ) {
+        return supplied != null
+                ? supplied
+                : familyCatalog.identityForLegacyId(legacyExerciseId);
+    }
+
+    private ExerciseFamilyIdentity identityForRow(
+            String legacyExerciseId,
+            String nameKo,
+            String familyId,
+            String presetId,
+            String canonicalVariantKey,
+            String visualVariantKey,
+            String recordType
+    ) {
+        ExerciseFamilyIdentity mapped = familyCatalog.identityForLegacyId(legacyExerciseId);
+        if (mapped != null) {
+            return mapped;
+        }
+        if (familyId == null || familyId.trim().isEmpty()) {
+            return null;
+        }
+        return new ExerciseFamilyIdentity(
+                legacyExerciseId,
+                familyId,
+                presetId,
+                presetId,
+                nameKo,
+                nameKo,
+                nameKo,
+                nameKo,
+                null,
+                canonicalVariantKey,
+                visualVariantKey,
+                null,
+                null,
+                recordType,
+                null
+        );
+    }
+
+    private static void putNullable(ContentValues values, String key, String value) {
+        if (value == null || value.trim().isEmpty()) {
+            values.putNull(key);
+        } else {
+            values.put(key, value.trim());
+        }
     }
 
     private static String normalizeUserId(String value) {

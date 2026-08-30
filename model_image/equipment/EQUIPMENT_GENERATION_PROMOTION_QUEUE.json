@@ -1,0 +1,3066 @@
+{
+  "schemaVersion": 1,
+  "status": "EQUIPMENT_GENERATION_PROMOTION_QUEUE_READY",
+  "source": {
+    "machineFamilyPlan": "model_image/archetypes/MACHINE_FAMILY_PLAN.json",
+    "approvedCanonicalCatalog": "model_image/equipment/equipment-catalog.json",
+    "sharedExerciseEvidence": "model_image/archetypes/DECISION_PACK.json"
+  },
+  "constraints": {
+    "noImageGenerationPerformed": true,
+    "noArchetypeCameraPoseChanges": true,
+    "approvedCanonicalOnlyForComposition": true
+  },
+  "queue": [
+    {
+      "assetId": "flat_bench_three_quarter_v1",
+      "equipmentFamily": "flat_bench",
+      "equipmentFamilyLabel": "flat_bench",
+      "equipmentType": "flat_bench",
+      "sharedExercises": [],
+      "targetViewId": "elevated_front_three_quarter",
+      "renderClass": "fixed_support",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/flat-bench-three-quarter-generated.png",
+      "canonicalPath": "final/flat_bench_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "barbell_loaded_three_quarter_v1",
+      "equipmentFamily": "barbell",
+      "equipmentFamilyLabel": "barbell",
+      "equipmentType": "barbell",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_barbell_landmine_rotation",
+          "exerciseName": "랜드마인 로테이션",
+          "exerciseFamilyId": "landmine_rotation"
+        },
+        {
+          "exerciseId": "abs_barbell_rollout",
+          "exerciseName": "바벨 롤아웃",
+          "exerciseFamilyId": "rollout"
+        },
+        {
+          "exerciseId": "arms_barbell_close_grip_bench_press",
+          "exerciseName": "클로즈 그립 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "arms_barbell_curl",
+          "exerciseName": "바벨 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_drag_curl",
+          "exerciseName": "바벨 드래그 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_ez_bar_curl",
+          "exerciseName": "이지바 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_ez_skull_crusher",
+          "exerciseName": "이지바 스컬 크러셔",
+          "exerciseFamilyId": "lying_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_barbell_jm_press",
+          "exerciseName": "JM 프레스",
+          "exerciseFamilyId": "jm_press"
+        },
+        {
+          "exerciseId": "arms_barbell_overhead_triceps_extension",
+          "exerciseName": "이지바 오버헤드 트라이셉스 익스텐션",
+          "exerciseFamilyId": "overhead_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_barbell_preacher_curl",
+          "exerciseName": "이지바 프리처 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_reverse_curl",
+          "exerciseName": "바벨 리버스 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_reverse_wrist_curl",
+          "exerciseName": "바벨 리버스 리스트 컬",
+          "exerciseFamilyId": "wrist_extension"
+        },
+        {
+          "exerciseId": "arms_barbell_skull_crusher",
+          "exerciseName": "바벨 스컬 크러셔",
+          "exerciseFamilyId": "lying_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_barbell_spider_curl",
+          "exerciseName": "바벨 스파이더 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_wrist_curl",
+          "exerciseName": "바벨 리스트 컬",
+          "exerciseFamilyId": "wrist_flexion"
+        },
+        {
+          "exerciseId": "back_barbell_bent_over_row",
+          "exerciseName": "바벨 벤트오버 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_barbell_deadlift",
+          "exerciseName": "바벨 데드리프트",
+          "exerciseFamilyId": "deadlift"
+        },
+        {
+          "exerciseId": "back_barbell_landmine_row",
+          "exerciseName": "랜드마인 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_barbell_pendlay_row",
+          "exerciseName": "펜들레이 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_barbell_rack_pull",
+          "exerciseName": "랙 풀",
+          "exerciseFamilyId": "deadlift"
+        },
+        {
+          "exerciseId": "back_barbell_shrug",
+          "exerciseName": "바벨 슈러그",
+          "exerciseFamilyId": "shrug"
+        },
+        {
+          "exerciseId": "back_barbell_snatch_grip_deadlift",
+          "exerciseName": "스내치 그립 데드리프트",
+          "exerciseFamilyId": "deadlift"
+        },
+        {
+          "exerciseId": "back_barbell_t_bar_row",
+          "exerciseName": "바벨 티바 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_barbell_yates_row",
+          "exerciseName": "예이츠 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "chest_barbell_decline_bench_press",
+          "exerciseName": "바벨 디클라인 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_barbell_flat_bench_press",
+          "exerciseName": "바벨 플랫 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_barbell_floor_press",
+          "exerciseName": "바벨 플로어 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_barbell_guillotine_press",
+          "exerciseName": "바벨 길로틴 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_barbell_incline_bench_press",
+          "exerciseName": "바벨 인클라인 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_barbell_pause_bench_press",
+          "exerciseName": "바벨 포즈 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "legs_barbell_back_squat",
+          "exerciseName": "바벨 백 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "legs_barbell_box_squat",
+          "exerciseName": "박스 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "legs_barbell_bulgarian_split_squat",
+          "exerciseName": "바벨 불가리안 스플릿 스쿼트",
+          "exerciseFamilyId": "split_squat"
+        },
+        {
+          "exerciseId": "legs_barbell_front_squat",
+          "exerciseName": "바벨 프론트 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "legs_barbell_glute_bridge",
+          "exerciseName": "바벨 글루트 브릿지",
+          "exerciseFamilyId": "glute_bridge"
+        },
+        {
+          "exerciseId": "legs_barbell_good_morning",
+          "exerciseName": "바벨 굿모닝",
+          "exerciseFamilyId": "good_morning"
+        },
+        {
+          "exerciseId": "legs_barbell_high_bar_squat",
+          "exerciseName": "하이바 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "legs_barbell_hip_thrust",
+          "exerciseName": "바벨 힙 쓰러스트",
+          "exerciseFamilyId": "hip_thrust"
+        },
+        {
+          "exerciseId": "legs_barbell_low_bar_squat",
+          "exerciseName": "로우바 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "legs_barbell_reverse_lunge",
+          "exerciseName": "바벨 리버스 런지",
+          "exerciseFamilyId": "lunge"
+        },
+        {
+          "exerciseId": "legs_barbell_romanian_deadlift",
+          "exerciseName": "바벨 루마니안 데드리프트",
+          "exerciseFamilyId": "romanian_deadlift"
+        },
+        {
+          "exerciseId": "legs_barbell_standing_calf_raise",
+          "exerciseName": "바벨 스탠딩 카프 레이즈",
+          "exerciseFamilyId": "calf_raise"
+        },
+        {
+          "exerciseId": "legs_barbell_stiff_leg_deadlift",
+          "exerciseName": "바벨 스티프 레그 데드리프트",
+          "exerciseFamilyId": "stiff_leg_deadlift"
+        },
+        {
+          "exerciseId": "legs_barbell_sumo_deadlift",
+          "exerciseName": "스모 데드리프트",
+          "exerciseFamilyId": "deadlift"
+        },
+        {
+          "exerciseId": "legs_barbell_walking_lunge",
+          "exerciseName": "바벨 워킹 런지",
+          "exerciseFamilyId": "lunge"
+        },
+        {
+          "exerciseId": "legs_barbell_zercher_squat",
+          "exerciseName": "저쳐 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "shoulders_barbell_behind_neck_press",
+          "exerciseName": "비하인드 넥 프레스",
+          "exerciseFamilyId": "overhead_press"
+        },
+        {
+          "exerciseId": "shoulders_barbell_bradford_press",
+          "exerciseName": "브래드포드 프레스",
+          "exerciseFamilyId": "overhead_press"
+        },
+        {
+          "exerciseId": "shoulders_barbell_front_raise",
+          "exerciseName": "바벨 프론트 레이즈",
+          "exerciseFamilyId": "front_raise"
+        },
+        {
+          "exerciseId": "shoulders_barbell_overhead_press",
+          "exerciseName": "바벨 오버헤드 프레스",
+          "exerciseFamilyId": "overhead_press"
+        },
+        {
+          "exerciseId": "shoulders_barbell_push_press",
+          "exerciseName": "바벨 푸쉬 프레스",
+          "exerciseFamilyId": "push_press"
+        },
+        {
+          "exerciseId": "shoulders_barbell_seated_overhead_press",
+          "exerciseName": "시티드 바벨 숄더 프레스",
+          "exerciseFamilyId": "overhead_press"
+        },
+        {
+          "exerciseId": "shoulders_barbell_single_arm_landmine_press",
+          "exerciseName": "원암 랜드마인 프레스",
+          "exerciseFamilyId": "landmine_press"
+        },
+        {
+          "exerciseId": "shoulders_barbell_upright_row",
+          "exerciseName": "바벨 업라이트 로우",
+          "exerciseFamilyId": "upright_row"
+        }
+      ],
+      "targetViewId": "slight_rising_three_quarter",
+      "renderClass": "movable_free_weight",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/barbell-loaded-three-quarter-generated.png",
+      "canonicalPath": "final/barbell_loaded_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "dumbbell_adjustable_three_quarter_v1",
+      "equipmentFamily": "dumbbell",
+      "equipmentFamilyLabel": "dumbbell",
+      "equipmentType": "dumbbell",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_dumbbell_russian_twist",
+          "exerciseName": "덤벨 러시안 트위스트",
+          "exerciseFamilyId": "russian_twist"
+        },
+        {
+          "exerciseId": "abs_dumbbell_side_bend",
+          "exerciseName": "덤벨 사이드 벤드",
+          "exerciseFamilyId": "side_bend"
+        },
+        {
+          "exerciseId": "abs_dumbbell_weighted_sit_up",
+          "exerciseName": "덤벨 웨이티드 싯업",
+          "exerciseFamilyId": "sit_up"
+        },
+        {
+          "exerciseId": "arms_dumbbell_alternating_curl",
+          "exerciseName": "덤벨 얼터네이팅 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_dumbbell_concentration_curl",
+          "exerciseName": "컨센트레이션 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_dumbbell_cross_body_hammer_curl",
+          "exerciseName": "크로스 바디 해머 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_dumbbell_curl",
+          "exerciseName": "덤벨 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_dumbbell_farmer_carry",
+          "exerciseName": "덤벨 파머스 캐리",
+          "exerciseFamilyId": "loaded_carry"
+        },
+        {
+          "exerciseId": "arms_dumbbell_hammer_curl",
+          "exerciseName": "덤벨 해머 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_dumbbell_incline_curl",
+          "exerciseName": "인클라인 덤벨 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_dumbbell_kickback",
+          "exerciseName": "덤벨 킥백",
+          "exerciseFamilyId": "triceps_kickback"
+        },
+        {
+          "exerciseId": "arms_dumbbell_overhead_triceps_extension",
+          "exerciseName": "덤벨 오버헤드 트라이셉스 익스텐션",
+          "exerciseFamilyId": "overhead_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_dumbbell_preacher_curl",
+          "exerciseName": "덤벨 프리처 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_dumbbell_reverse_wrist_curl",
+          "exerciseName": "덤벨 리버스 리스트 컬",
+          "exerciseFamilyId": "wrist_extension"
+        },
+        {
+          "exerciseId": "arms_dumbbell_single_arm_overhead_extension",
+          "exerciseName": "원암 덤벨 오버헤드 익스텐션",
+          "exerciseFamilyId": "overhead_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_dumbbell_single_arm_skull_crusher",
+          "exerciseName": "원암 덤벨 스컬 크러셔",
+          "exerciseFamilyId": "lying_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_dumbbell_skull_crusher",
+          "exerciseName": "덤벨 스컬 크러셔",
+          "exerciseFamilyId": "lying_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_dumbbell_spider_curl",
+          "exerciseName": "덤벨 스파이더 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_dumbbell_wrist_curl",
+          "exerciseName": "덤벨 리스트 컬",
+          "exerciseFamilyId": "wrist_flexion"
+        },
+        {
+          "exerciseId": "arms_dumbbell_zottman_curl",
+          "exerciseName": "조트맨 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "back_dumbbell_chest_supported_row",
+          "exerciseName": "덤벨 체스트 서포티드 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_dumbbell_incline_row",
+          "exerciseName": "인클라인 덤벨 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_dumbbell_kroc_row",
+          "exerciseName": "크록 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_dumbbell_one_arm_row",
+          "exerciseName": "원암 덤벨 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_dumbbell_pullover",
+          "exerciseName": "덤벨 랫 풀오버",
+          "exerciseFamilyId": "pullover"
+        },
+        {
+          "exerciseId": "back_dumbbell_renegade_row",
+          "exerciseName": "레니게이드 로우",
+          "exerciseFamilyId": "renegade_row"
+        },
+        {
+          "exerciseId": "back_dumbbell_shrug",
+          "exerciseName": "덤벨 슈러그",
+          "exerciseFamilyId": "shrug"
+        },
+        {
+          "exerciseId": "back_dumbbell_single_arm_chest_supported_row",
+          "exerciseName": "원암 덤벨 체스트 서포티드 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "chest_dumbbell_decline_bench_press",
+          "exerciseName": "덤벨 디클라인 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_dumbbell_decline_fly",
+          "exerciseName": "덤벨 디클라인 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_dumbbell_flat_bench_press",
+          "exerciseName": "덤벨 플랫 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_dumbbell_flat_fly",
+          "exerciseName": "덤벨 플랫 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_dumbbell_incline_bench_press",
+          "exerciseName": "덤벨 인클라인 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_dumbbell_incline_fly",
+          "exerciseName": "덤벨 인클라인 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_dumbbell_neutral_grip_press",
+          "exerciseName": "덤벨 뉴트럴 그립 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_dumbbell_pullover",
+          "exerciseName": "덤벨 풀오버",
+          "exerciseFamilyId": "pullover"
+        },
+        {
+          "exerciseId": "chest_dumbbell_single_arm_bench_press",
+          "exerciseName": "원암 덤벨 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_dumbbell_single_arm_incline_press",
+          "exerciseName": "원암 인클라인 덤벨 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_dumbbell_squeeze_press",
+          "exerciseName": "덤벨 스퀴즈 프레스",
+          "exerciseFamilyId": "squeeze_press"
+        },
+        {
+          "exerciseId": "legs_dumbbell_bulgarian_split_squat",
+          "exerciseName": "덤벨 불가리안 스플릿 스쿼트",
+          "exerciseFamilyId": "split_squat"
+        },
+        {
+          "exerciseId": "legs_dumbbell_goblet_squat",
+          "exerciseName": "덤벨 고블릿 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "legs_dumbbell_hip_thrust",
+          "exerciseName": "덤벨 힙 쓰러스트",
+          "exerciseFamilyId": "hip_thrust"
+        },
+        {
+          "exerciseId": "legs_dumbbell_lunge",
+          "exerciseName": "덤벨 런지",
+          "exerciseFamilyId": "lunge"
+        },
+        {
+          "exerciseId": "legs_dumbbell_reverse_lunge",
+          "exerciseName": "덤벨 리버스 런지",
+          "exerciseFamilyId": "lunge"
+        },
+        {
+          "exerciseId": "legs_dumbbell_romanian_deadlift",
+          "exerciseName": "덤벨 루마니안 데드리프트",
+          "exerciseFamilyId": "romanian_deadlift"
+        },
+        {
+          "exerciseId": "legs_dumbbell_single_leg_calf_raise",
+          "exerciseName": "원레그 덤벨 카프 레이즈",
+          "exerciseFamilyId": "calf_raise"
+        },
+        {
+          "exerciseId": "legs_dumbbell_single_leg_hip_thrust",
+          "exerciseName": "원레그 덤벨 힙 쓰러스트",
+          "exerciseFamilyId": "hip_thrust"
+        },
+        {
+          "exerciseId": "legs_dumbbell_single_leg_romanian_deadlift",
+          "exerciseName": "원레그 덤벨 루마니안 데드리프트",
+          "exerciseFamilyId": "romanian_deadlift"
+        },
+        {
+          "exerciseId": "legs_dumbbell_squat",
+          "exerciseName": "덤벨 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "legs_dumbbell_standing_calf_raise",
+          "exerciseName": "덤벨 스탠딩 카프 레이즈",
+          "exerciseFamilyId": "calf_raise"
+        },
+        {
+          "exerciseId": "legs_dumbbell_step_up",
+          "exerciseName": "덤벨 스텝업",
+          "exerciseFamilyId": "step_up"
+        },
+        {
+          "exerciseId": "legs_dumbbell_stiff_leg_deadlift",
+          "exerciseName": "덤벨 스티프 레그 데드리프트",
+          "exerciseFamilyId": "stiff_leg_deadlift"
+        },
+        {
+          "exerciseId": "legs_dumbbell_sumo_squat",
+          "exerciseName": "덤벨 스모 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "legs_dumbbell_walking_lunge",
+          "exerciseName": "덤벨 워킹 런지",
+          "exerciseFamilyId": "lunge"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_arnold_press",
+          "exerciseName": "아놀드 프레스",
+          "exerciseFamilyId": "overhead_press"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_bent_over_lateral_raise",
+          "exerciseName": "벤트오버 덤벨 레터럴 레이즈",
+          "exerciseFamilyId": "rear_delt_fly"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_cuban_press",
+          "exerciseName": "덤벨 쿠반 프레스",
+          "exerciseFamilyId": "cuban_press"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_front_raise",
+          "exerciseName": "덤벨 프론트 레이즈",
+          "exerciseFamilyId": "front_raise"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_high_pull",
+          "exerciseName": "덤벨 하이 풀",
+          "exerciseFamilyId": "high_pull"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_incline_lateral_raise",
+          "exerciseName": "인클라인 덤벨 레터럴 레이즈",
+          "exerciseFamilyId": "lateral_raise"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_lateral_raise",
+          "exerciseName": "덤벨 사이드 레터럴 레이즈",
+          "exerciseFamilyId": "lateral_raise"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_leaning_lateral_raise",
+          "exerciseName": "리닝 덤벨 레터럴 레이즈",
+          "exerciseFamilyId": "lateral_raise"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_rear_delt_fly",
+          "exerciseName": "덤벨 리어 델트 플라이",
+          "exerciseFamilyId": "rear_delt_fly"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_seated_shoulder_press",
+          "exerciseName": "시티드 덤벨 숄더 프레스",
+          "exerciseFamilyId": "overhead_press"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_shoulder_press",
+          "exerciseName": "덤벨 숄더 프레스",
+          "exerciseFamilyId": "overhead_press"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_single_arm_lateral_raise",
+          "exerciseName": "원암 덤벨 사이드 레터럴 레이즈",
+          "exerciseFamilyId": "lateral_raise"
+        },
+        {
+          "exerciseId": "shoulders_dumbbell_single_arm_shoulder_press",
+          "exerciseName": "원암 덤벨 숄더 프레스",
+          "exerciseFamilyId": "overhead_press"
+        }
+      ],
+      "targetViewId": "elevated_front_three_quarter",
+      "renderClass": "movable_free_weight",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/dumbbell-adjustable-three-quarter-generated.png",
+      "canonicalPath": "final/dumbbell_adjustable_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "kettlebell_competition_front_v1",
+      "equipmentFamily": "kettlebell",
+      "equipmentFamilyLabel": "kettlebell",
+      "equipmentType": "kettlebell",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_kettlebell_turkish_get_up",
+          "exerciseName": "터키시 겟업",
+          "exerciseFamilyId": "turkish_get_up"
+        },
+        {
+          "exerciseId": "abs_kettlebell_windmill",
+          "exerciseName": "케틀벨 윈드밀",
+          "exerciseFamilyId": "windmill"
+        },
+        {
+          "exerciseId": "arms_kettlebell_farmer_carry",
+          "exerciseName": "케틀벨 파머스 캐리",
+          "exerciseFamilyId": "loaded_carry"
+        },
+        {
+          "exerciseId": "back_kettlebell_one_arm_row",
+          "exerciseName": "원암 케틀벨 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "legs_kettlebell_goblet_squat",
+          "exerciseName": "케틀벨 고블릿 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "legs_kettlebell_sumo_deadlift",
+          "exerciseName": "케틀벨 스모 데드리프트",
+          "exerciseFamilyId": "deadlift"
+        },
+        {
+          "exerciseId": "legs_kettlebell_swing",
+          "exerciseName": "케틀벨 스윙",
+          "exerciseFamilyId": "kettlebell_swing"
+        },
+        {
+          "exerciseId": "shoulders_kettlebell_bottoms_up_press",
+          "exerciseName": "케틀벨 바텀업 프레스",
+          "exerciseFamilyId": "overhead_press"
+        },
+        {
+          "exerciseId": "shoulders_kettlebell_press",
+          "exerciseName": "케틀벨 숄더 프레스",
+          "exerciseFamilyId": "overhead_press"
+        }
+      ],
+      "targetViewId": "front",
+      "renderClass": "movable_free_weight",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/kettlebell-competition-front-generated.png",
+      "canonicalPath": "final/kettlebell_competition_front.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "lat_pulldown_machine_rear_three_quarter_v1",
+      "equipmentFamily": "lat_pulldown_machine",
+      "equipmentFamilyLabel": "lat_pulldown_machine",
+      "equipmentType": "lat_pulldown_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_machine_lat_pulldown",
+          "exerciseName": "랫 풀다운",
+          "exerciseFamilyId": "lat_pulldown"
+        },
+        {
+          "exerciseId": "back_machine_neutral_grip_lat_pulldown",
+          "exerciseName": "뉴트럴 그립 랫 풀다운",
+          "exerciseFamilyId": "lat_pulldown"
+        },
+        {
+          "exerciseId": "back_machine_reverse_grip_lat_pulldown",
+          "exerciseName": "리버스 그립 랫 풀다운",
+          "exerciseFamilyId": "lat_pulldown"
+        },
+        {
+          "exerciseId": "back_machine_wide_grip_lat_pulldown",
+          "exerciseName": "와이드 그립 랫 풀다운",
+          "exerciseFamilyId": "lat_pulldown"
+        }
+      ],
+      "targetViewId": "rear_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/lat-pulldown-machine-rear-three-quarter-generated.png",
+      "canonicalPath": "final/lat_pulldown_machine_rear_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "ab_wheel_side_three_quarter_v1",
+      "equipmentFamily": "ab_wheel",
+      "equipmentFamilyLabel": "ab_wheel",
+      "equipmentType": "ab_wheel",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_other_ab_wheel_rollout",
+          "exerciseName": "AB휠 롤아웃",
+          "exerciseFamilyId": "rollout"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "movable_free_weight",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/26_ab_wheel.png",
+      "canonicalPath": "final/ab_wheel_side_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "ankle_cuff_front_v1",
+      "equipmentFamily": "ankle_cuff",
+      "equipmentFamilyLabel": "ankle_cuff",
+      "equipmentType": "ankle_cuff",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_cable_triceps_kickback",
+          "exerciseName": "케이블 트라이셉스 킥백",
+          "exerciseFamilyId": "triceps_kickback"
+        },
+        {
+          "exerciseId": "legs_cable_glute_kickback",
+          "exerciseName": "케이블 글루트 킥백",
+          "exerciseFamilyId": "glute_kickback"
+        },
+        {
+          "exerciseId": "legs_cable_hip_abduction",
+          "exerciseName": "케이블 힙 어브덕션",
+          "exerciseFamilyId": "hip_abduction"
+        },
+        {
+          "exerciseId": "legs_cable_hip_adduction",
+          "exerciseName": "케이블 힙 어덕션",
+          "exerciseFamilyId": "hip_adduction"
+        },
+        {
+          "exerciseId": "legs_cable_leg_curl",
+          "exerciseName": "케이블 레그 컬",
+          "exerciseFamilyId": "leg_curl"
+        }
+      ],
+      "targetViewId": "front",
+      "renderClass": "canonical_attachment",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/cable_attachments/F_ankle_cuff.png",
+      "canonicalPath": "final/ankle_cuff_front.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "assisted_pullup_dip_machine_front_three_quarter_v1",
+      "equipmentFamily": "assisted_pullup_dip_machine",
+      "equipmentFamilyLabel": "assisted_pullup_dip_machine",
+      "equipmentType": "assisted_pullup_dip_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_machine_assisted_dip",
+          "exerciseName": "어시스트 딥스",
+          "exerciseFamilyId": "dip"
+        },
+        {
+          "exerciseId": "back_machine_assisted_pull_up",
+          "exerciseName": "어시스트 풀업",
+          "exerciseFamilyId": "pull_up"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/21_assisted_pullup_dip_machine.png",
+      "canonicalPath": "final/assisted_pullup_dip_machine_front_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "cable_attachment_set_front_v1",
+      "equipmentFamily": "cable_attachment_set",
+      "equipmentFamilyLabel": "cable_attachment_set",
+      "equipmentType": "cable_attachment_set",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_cable_crunch",
+          "exerciseName": "케이블 크런치",
+          "exerciseFamilyId": "crunch"
+        },
+        {
+          "exerciseId": "abs_cable_pallof_press",
+          "exerciseName": "케이블 팔로프 프레스",
+          "exerciseFamilyId": "pallof_press"
+        },
+        {
+          "exerciseId": "abs_cable_reverse_crunch",
+          "exerciseName": "케이블 리버스 크런치",
+          "exerciseFamilyId": "reverse_crunch"
+        },
+        {
+          "exerciseId": "abs_cable_standing_crunch",
+          "exerciseName": "스탠딩 케이블 크런치",
+          "exerciseFamilyId": "crunch"
+        },
+        {
+          "exerciseId": "abs_cable_woodchop",
+          "exerciseName": "케이블 우드찹",
+          "exerciseFamilyId": "woodchop"
+        },
+        {
+          "exerciseId": "arms_cable_bayesian_curl",
+          "exerciseName": "베이지안 케이블 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_crossbody_triceps_extension",
+          "exerciseName": "크로스바디 케이블 트라이셉스 익스텐션",
+          "exerciseFamilyId": "crossbody_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_cable_curl",
+          "exerciseName": "케이블 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_overhead_curl",
+          "exerciseName": "오버헤드 케이블 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_overhead_triceps_extension",
+          "exerciseName": "케이블 오버헤드 트라이셉스 익스텐션",
+          "exerciseFamilyId": "overhead_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_cable_preacher_curl",
+          "exerciseName": "케이블 프리처 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_reverse_grip_pushdown",
+          "exerciseName": "케이블 리버스 그립 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "arms_cable_rope_hammer_curl",
+          "exerciseName": "케이블 로프 해머 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_rope_pushdown",
+          "exerciseName": "케이블 로프 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_curl",
+          "exerciseName": "원암 케이블 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_hammer_curl",
+          "exerciseName": "원암 케이블 해머 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_overhead_triceps_extension",
+          "exerciseName": "원암 케이블 오버헤드 트라이셉스 익스텐션",
+          "exerciseFamilyId": "overhead_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_preacher_curl",
+          "exerciseName": "원암 케이블 프리처 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_pushdown",
+          "exerciseName": "원암 케이블 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_reverse_grip_pushdown",
+          "exerciseName": "원암 케이블 리버스 그립 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "arms_cable_triceps_kickback",
+          "exerciseName": "케이블 트라이셉스 킥백",
+          "exerciseFamilyId": "triceps_kickback"
+        },
+        {
+          "exerciseId": "arms_cable_triceps_pushdown_straight_bar",
+          "exerciseName": "케이블 스트레이트바 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "back_cable_high_row",
+          "exerciseName": "케이블 하이 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_cable_kneeling_pullover",
+          "exerciseName": "케이블 닐링 풀오버",
+          "exerciseFamilyId": "pullover"
+        },
+        {
+          "exerciseId": "back_cable_seated_row",
+          "exerciseName": "시티드 케이블 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_cable_shrug",
+          "exerciseName": "케이블 슈러그",
+          "exerciseFamilyId": "shrug"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_high_row",
+          "exerciseName": "원암 케이블 하이 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_lat_pulldown",
+          "exerciseName": "원암 랫 풀다운",
+          "exerciseFamilyId": "lat_pulldown"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_row",
+          "exerciseName": "원암 케이블 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_straight_arm_pulldown",
+          "exerciseName": "원암 스트레이트 암 케이블 풀다운",
+          "exerciseFamilyId": "straight_arm_pulldown"
+        },
+        {
+          "exerciseId": "back_cable_straight_arm_pulldown",
+          "exerciseName": "스트레이트 암 풀다운",
+          "exerciseFamilyId": "straight_arm_pulldown"
+        },
+        {
+          "exerciseId": "chest_cable_crossover",
+          "exerciseName": "케이블 크로스오버",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_high_to_low_fly",
+          "exerciseName": "케이블 하이 투 로우 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_low_to_high_fly",
+          "exerciseName": "케이블 로우 투 하이 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_chest_press",
+          "exerciseName": "원암 케이블 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_fly",
+          "exerciseName": "원암 케이블 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_high_to_low_fly",
+          "exerciseName": "원암 케이블 하이 투 로우 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_low_to_high_fly",
+          "exerciseName": "원암 케이블 로우 투 하이 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_standing_chest_press",
+          "exerciseName": "케이블 스탠딩 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        },
+        {
+          "exerciseId": "legs_cable_glute_kickback",
+          "exerciseName": "케이블 글루트 킥백",
+          "exerciseFamilyId": "glute_kickback"
+        },
+        {
+          "exerciseId": "legs_cable_hip_abduction",
+          "exerciseName": "케이블 힙 어브덕션",
+          "exerciseFamilyId": "hip_abduction"
+        },
+        {
+          "exerciseId": "legs_cable_hip_adduction",
+          "exerciseName": "케이블 힙 어덕션",
+          "exerciseFamilyId": "hip_adduction"
+        },
+        {
+          "exerciseId": "legs_cable_leg_curl",
+          "exerciseName": "케이블 레그 컬",
+          "exerciseFamilyId": "leg_curl"
+        },
+        {
+          "exerciseId": "legs_cable_pull_through",
+          "exerciseName": "케이블 풀 스루",
+          "exerciseFamilyId": "cable_pull_through"
+        },
+        {
+          "exerciseId": "shoulders_cable_external_rotation",
+          "exerciseName": "케이블 익스터널 로테이션",
+          "exerciseFamilyId": "external_rotation"
+        },
+        {
+          "exerciseId": "shoulders_cable_face_pull",
+          "exerciseName": "케이블 페이스 풀",
+          "exerciseFamilyId": "face_pull"
+        },
+        {
+          "exerciseId": "shoulders_cable_front_raise",
+          "exerciseName": "케이블 프론트 레이즈",
+          "exerciseFamilyId": "front_raise"
+        },
+        {
+          "exerciseId": "shoulders_cable_lateral_raise",
+          "exerciseName": "원암 케이블 레터럴 레이즈",
+          "exerciseFamilyId": "lateral_raise"
+        },
+        {
+          "exerciseId": "shoulders_cable_rear_delt_fly",
+          "exerciseName": "케이블 리어 델트 플라이",
+          "exerciseFamilyId": "rear_delt_fly"
+        },
+        {
+          "exerciseId": "shoulders_cable_single_arm_front_raise",
+          "exerciseName": "원암 케이블 프론트 레이즈",
+          "exerciseFamilyId": "front_raise"
+        },
+        {
+          "exerciseId": "shoulders_cable_single_arm_rear_delt_fly",
+          "exerciseName": "원암 케이블 리어 델트 플라이",
+          "exerciseFamilyId": "rear_delt_fly"
+        },
+        {
+          "exerciseId": "shoulders_cable_single_arm_y_raise",
+          "exerciseName": "원암 케이블 Y 레이즈",
+          "exerciseFamilyId": "y_raise"
+        },
+        {
+          "exerciseId": "shoulders_cable_upright_row",
+          "exerciseName": "케이블 업라이트 로우",
+          "exerciseFamilyId": "upright_row"
+        },
+        {
+          "exerciseId": "shoulders_cable_y_raise",
+          "exerciseName": "케이블 Y 레이즈",
+          "exerciseFamilyId": "y_raise"
+        }
+      ],
+      "targetViewId": "front_set",
+      "renderClass": "canonical_attachment",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/09_cable_attachment_set.png",
+      "canonicalPath": "final/cable_attachment_set_front.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "captains_chair_front_three_quarter_v1",
+      "equipmentFamily": "captains_chair",
+      "equipmentFamilyLabel": "captains_chair",
+      "equipmentType": "captains_chair",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_machine_captains_chair",
+          "exerciseName": "캡틴스 체어 레그 레이즈",
+          "exerciseFamilyId": "leg_raise"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_support",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/13_captains_chair.png",
+      "canonicalPath": "final/captains_chair_front_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "ez_curl_bar_three_quarter_v1",
+      "equipmentFamily": "ez_curl_bar",
+      "equipmentFamilyLabel": "ez_curl_bar",
+      "equipmentType": "ez_curl_bar",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_barbell_curl",
+          "exerciseName": "바벨 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_drag_curl",
+          "exerciseName": "바벨 드래그 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_ez_bar_curl",
+          "exerciseName": "이지바 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_ez_skull_crusher",
+          "exerciseName": "이지바 스컬 크러셔",
+          "exerciseFamilyId": "lying_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_barbell_preacher_curl",
+          "exerciseName": "이지바 프리처 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_reverse_curl",
+          "exerciseName": "바벨 리버스 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_barbell_skull_crusher",
+          "exerciseName": "바벨 스컬 크러셔",
+          "exerciseFamilyId": "lying_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_barbell_spider_curl",
+          "exerciseName": "바벨 스파이더 컬",
+          "exerciseFamilyId": "biceps_curl"
+        }
+      ],
+      "targetViewId": "slight_rising_three_quarter",
+      "renderClass": "movable_free_weight",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/08_ez_curl_bar.png",
+      "canonicalPath": "final/ez_curl_bar_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "functional_trainer_front_three_quarter_v1",
+      "equipmentFamily": "functional_trainer",
+      "equipmentFamilyLabel": "functional_trainer",
+      "equipmentType": "functional_trainer",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_cable_crunch",
+          "exerciseName": "케이블 크런치",
+          "exerciseFamilyId": "crunch"
+        },
+        {
+          "exerciseId": "abs_cable_pallof_press",
+          "exerciseName": "케이블 팔로프 프레스",
+          "exerciseFamilyId": "pallof_press"
+        },
+        {
+          "exerciseId": "abs_cable_reverse_crunch",
+          "exerciseName": "케이블 리버스 크런치",
+          "exerciseFamilyId": "reverse_crunch"
+        },
+        {
+          "exerciseId": "abs_cable_standing_crunch",
+          "exerciseName": "스탠딩 케이블 크런치",
+          "exerciseFamilyId": "crunch"
+        },
+        {
+          "exerciseId": "abs_cable_woodchop",
+          "exerciseName": "케이블 우드찹",
+          "exerciseFamilyId": "woodchop"
+        },
+        {
+          "exerciseId": "arms_cable_bayesian_curl",
+          "exerciseName": "베이지안 케이블 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_crossbody_triceps_extension",
+          "exerciseName": "크로스바디 케이블 트라이셉스 익스텐션",
+          "exerciseFamilyId": "crossbody_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_cable_curl",
+          "exerciseName": "케이블 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_overhead_curl",
+          "exerciseName": "오버헤드 케이블 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_overhead_triceps_extension",
+          "exerciseName": "케이블 오버헤드 트라이셉스 익스텐션",
+          "exerciseFamilyId": "overhead_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_cable_preacher_curl",
+          "exerciseName": "케이블 프리처 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_reverse_grip_pushdown",
+          "exerciseName": "케이블 리버스 그립 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "arms_cable_rope_hammer_curl",
+          "exerciseName": "케이블 로프 해머 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_rope_pushdown",
+          "exerciseName": "케이블 로프 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_curl",
+          "exerciseName": "원암 케이블 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_hammer_curl",
+          "exerciseName": "원암 케이블 해머 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_overhead_triceps_extension",
+          "exerciseName": "원암 케이블 오버헤드 트라이셉스 익스텐션",
+          "exerciseFamilyId": "overhead_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_preacher_curl",
+          "exerciseName": "원암 케이블 프리처 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_pushdown",
+          "exerciseName": "원암 케이블 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_reverse_grip_pushdown",
+          "exerciseName": "원암 케이블 리버스 그립 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "arms_cable_triceps_kickback",
+          "exerciseName": "케이블 트라이셉스 킥백",
+          "exerciseFamilyId": "triceps_kickback"
+        },
+        {
+          "exerciseId": "arms_cable_triceps_pushdown_straight_bar",
+          "exerciseName": "케이블 스트레이트바 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "back_cable_high_row",
+          "exerciseName": "케이블 하이 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_cable_kneeling_pullover",
+          "exerciseName": "케이블 닐링 풀오버",
+          "exerciseFamilyId": "pullover"
+        },
+        {
+          "exerciseId": "back_cable_seated_row",
+          "exerciseName": "시티드 케이블 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_cable_shrug",
+          "exerciseName": "케이블 슈러그",
+          "exerciseFamilyId": "shrug"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_high_row",
+          "exerciseName": "원암 케이블 하이 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_lat_pulldown",
+          "exerciseName": "원암 랫 풀다운",
+          "exerciseFamilyId": "lat_pulldown"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_row",
+          "exerciseName": "원암 케이블 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_straight_arm_pulldown",
+          "exerciseName": "원암 스트레이트 암 케이블 풀다운",
+          "exerciseFamilyId": "straight_arm_pulldown"
+        },
+        {
+          "exerciseId": "back_cable_straight_arm_pulldown",
+          "exerciseName": "스트레이트 암 풀다운",
+          "exerciseFamilyId": "straight_arm_pulldown"
+        },
+        {
+          "exerciseId": "chest_cable_crossover",
+          "exerciseName": "케이블 크로스오버",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_high_to_low_fly",
+          "exerciseName": "케이블 하이 투 로우 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_low_to_high_fly",
+          "exerciseName": "케이블 로우 투 하이 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_chest_press",
+          "exerciseName": "원암 케이블 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_fly",
+          "exerciseName": "원암 케이블 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_high_to_low_fly",
+          "exerciseName": "원암 케이블 하이 투 로우 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_low_to_high_fly",
+          "exerciseName": "원암 케이블 로우 투 하이 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_standing_chest_press",
+          "exerciseName": "케이블 스탠딩 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        },
+        {
+          "exerciseId": "legs_cable_glute_kickback",
+          "exerciseName": "케이블 글루트 킥백",
+          "exerciseFamilyId": "glute_kickback"
+        },
+        {
+          "exerciseId": "legs_cable_hip_abduction",
+          "exerciseName": "케이블 힙 어브덕션",
+          "exerciseFamilyId": "hip_abduction"
+        },
+        {
+          "exerciseId": "legs_cable_hip_adduction",
+          "exerciseName": "케이블 힙 어덕션",
+          "exerciseFamilyId": "hip_adduction"
+        },
+        {
+          "exerciseId": "legs_cable_leg_curl",
+          "exerciseName": "케이블 레그 컬",
+          "exerciseFamilyId": "leg_curl"
+        },
+        {
+          "exerciseId": "legs_cable_pull_through",
+          "exerciseName": "케이블 풀 스루",
+          "exerciseFamilyId": "cable_pull_through"
+        },
+        {
+          "exerciseId": "shoulders_cable_external_rotation",
+          "exerciseName": "케이블 익스터널 로테이션",
+          "exerciseFamilyId": "external_rotation"
+        },
+        {
+          "exerciseId": "shoulders_cable_face_pull",
+          "exerciseName": "케이블 페이스 풀",
+          "exerciseFamilyId": "face_pull"
+        },
+        {
+          "exerciseId": "shoulders_cable_front_raise",
+          "exerciseName": "케이블 프론트 레이즈",
+          "exerciseFamilyId": "front_raise"
+        },
+        {
+          "exerciseId": "shoulders_cable_lateral_raise",
+          "exerciseName": "원암 케이블 레터럴 레이즈",
+          "exerciseFamilyId": "lateral_raise"
+        },
+        {
+          "exerciseId": "shoulders_cable_rear_delt_fly",
+          "exerciseName": "케이블 리어 델트 플라이",
+          "exerciseFamilyId": "rear_delt_fly"
+        },
+        {
+          "exerciseId": "shoulders_cable_single_arm_front_raise",
+          "exerciseName": "원암 케이블 프론트 레이즈",
+          "exerciseFamilyId": "front_raise"
+        },
+        {
+          "exerciseId": "shoulders_cable_single_arm_rear_delt_fly",
+          "exerciseName": "원암 케이블 리어 델트 플라이",
+          "exerciseFamilyId": "rear_delt_fly"
+        },
+        {
+          "exerciseId": "shoulders_cable_single_arm_y_raise",
+          "exerciseName": "원암 케이블 Y 레이즈",
+          "exerciseFamilyId": "y_raise"
+        },
+        {
+          "exerciseId": "shoulders_cable_upright_row",
+          "exerciseName": "케이블 업라이트 로우",
+          "exerciseFamilyId": "upright_row"
+        },
+        {
+          "exerciseId": "shoulders_cable_y_raise",
+          "exerciseName": "케이블 Y 레이즈",
+          "exerciseFamilyId": "y_raise"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "cable_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/02_functional_trainer.png",
+      "canonicalPath": "final/functional_trainer_front_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "ghd_nordic_support_side_three_quarter_v1",
+      "equipmentFamily": "ghd_nordic_support",
+      "equipmentFamilyLabel": "ghd_nordic_support",
+      "equipmentType": "ghd_nordic_support",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_glute_ham_raise",
+          "exerciseName": "글루트 햄 레이즈",
+          "exerciseFamilyId": "glute_ham_raise"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_support",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/15_ghd_nordic_support.png",
+      "canonicalPath": "final/ghd_nordic_support_side_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "hand_gripper_front_three_quarter_v1",
+      "equipmentFamily": "hand_gripper",
+      "equipmentFamilyLabel": "hand_gripper",
+      "equipmentType": "hand_gripper",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_other_gripper",
+          "exerciseName": "핸드 그리퍼",
+          "exerciseFamilyId": "gripper"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "movable_free_weight",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/27_hand_gripper.png",
+      "canonicalPath": "final/hand_gripper_front_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "hip_abduction_adduction_machine_front_three_quarter_v1",
+      "equipmentFamily": "hip_abduction_adduction_machine",
+      "equipmentFamilyLabel": "hip_abduction_adduction_machine",
+      "equipmentType": "hip_abduction_adduction_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_hip_abduction",
+          "exerciseName": "힙 어브덕션 머신",
+          "exerciseFamilyId": "hip_abduction"
+        },
+        {
+          "exerciseId": "legs_machine_hip_adduction",
+          "exerciseName": "힙 어덕션 머신",
+          "exerciseFamilyId": "hip_adduction"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/23_hip_abduction_adduction_machine.png",
+      "canonicalPath": "final/hip_abduction_adduction_machine_front_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "landmine_base_front_three_quarter_v1",
+      "equipmentFamily": "landmine_base",
+      "equipmentFamilyLabel": "landmine_base",
+      "equipmentType": "landmine_base",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_barbell_landmine_rotation",
+          "exerciseName": "랜드마인 로테이션",
+          "exerciseFamilyId": "landmine_rotation"
+        },
+        {
+          "exerciseId": "back_barbell_landmine_row",
+          "exerciseName": "랜드마인 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_barbell_t_bar_row",
+          "exerciseName": "바벨 티바 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "shoulders_barbell_single_arm_landmine_press",
+          "exerciseName": "원암 랜드마인 프레스",
+          "exerciseFamilyId": "landmine_press"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_support",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/11_landmine_base.png",
+      "canonicalPath": "final/landmine_base_front_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "leg_extension_front_side_three_quarter_v1",
+      "equipmentFamily": "leg_extension",
+      "equipmentFamilyLabel": "leg_extension",
+      "equipmentType": "leg_extension",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_leg_extension",
+          "exerciseName": "레그 익스텐션",
+          "exerciseFamilyId": "leg_extension"
+        },
+        {
+          "exerciseId": "legs_machine_single_leg_extension",
+          "exerciseName": "원레그 레그 익스텐션",
+          "exerciseFamilyId": "leg_extension"
+        }
+      ],
+      "targetViewId": "front_side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/17_leg_extension.png",
+      "canonicalPath": "final/leg_extension_front_side_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "leg_press_side_three_quarter_v1",
+      "equipmentFamily": "leg_press",
+      "equipmentFamilyLabel": "leg_press",
+      "equipmentType": "leg_press",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_leg_press",
+          "exerciseName": "레그 프레스",
+          "exerciseFamilyId": "leg_press"
+        },
+        {
+          "exerciseId": "legs_machine_leg_press_calf_raise",
+          "exerciseName": "레그프레스 카프 레이즈",
+          "exerciseFamilyId": "calf_raise"
+        },
+        {
+          "exerciseId": "legs_machine_single_leg_press",
+          "exerciseName": "원레그 레그 프레스",
+          "exerciseFamilyId": "leg_press"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/16_leg_press.png",
+      "canonicalPath": "final/leg_press_side_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "lying_leg_curl_side_three_quarter_v1",
+      "equipmentFamily": "lying_leg_curl",
+      "equipmentFamilyLabel": "lying_leg_curl",
+      "equipmentType": "lying_leg_curl",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_lying_leg_curl",
+          "exerciseName": "라잉 레그 컬",
+          "exerciseFamilyId": "leg_curl"
+        },
+        {
+          "exerciseId": "legs_machine_single_leg_lying_curl",
+          "exerciseName": "원레그 라잉 레그 컬",
+          "exerciseFamilyId": "leg_curl"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/19_lying_leg_curl.png",
+      "canonicalPath": "final/lying_leg_curl_side_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "pec_deck_front_v1",
+      "equipmentFamily": "other_reverse_pec_deck",
+      "equipmentFamilyLabel": "기타 / reverse pec-deck family",
+      "equipmentType": "pec_deck",
+      "sharedExercises": [
+        {
+          "exerciseId": "chest_machine_chest_fly",
+          "exerciseName": "머신 체스트 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_machine_pec_deck_fly",
+          "exerciseName": "펙덱 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "shoulders_machine_reverse_pec_deck",
+          "exerciseName": "리버스 펙덱",
+          "exerciseFamilyId": "rear_delt_fly"
+        }
+      ],
+      "targetViewId": "front",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/20_pec_deck.png",
+      "canonicalPath": "final/pec_deck_front.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "plate_loaded_press_frame_front_three_quarter_v1",
+      "equipmentFamily": "plate_loaded_press_frame",
+      "equipmentFamilyLabel": "plate_loaded_press_frame",
+      "equipmentType": "plate_loaded_press_frame",
+      "sharedExercises": [
+        {
+          "exerciseId": "chest_machine_plate_loaded_chest_press",
+          "exerciseName": "플레이트 로드 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        },
+        {
+          "exerciseId": "chest_machine_plate_loaded_incline_press",
+          "exerciseName": "플레이트 로드 인클라인 프레스",
+          "exerciseFamilyId": "chest_press"
+        },
+        {
+          "exerciseId": "shoulders_machine_plate_loaded_shoulder_press",
+          "exerciseName": "플레이트 로드 숄더 프레스",
+          "exerciseFamilyId": "overhead_press"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/28_plate_loaded_press_frame.png",
+      "canonicalPath": "final/plate_loaded_press_frame_front_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "resistance_band_loop_front_v1",
+      "equipmentFamily": "resistance_band",
+      "equipmentFamilyLabel": "resistance_band",
+      "equipmentType": "resistance_band",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_band_crunch",
+          "exerciseName": "밴드 크런치",
+          "exerciseFamilyId": "crunch"
+        },
+        {
+          "exerciseId": "abs_band_pallof_press",
+          "exerciseName": "밴드 팔로프 프레스",
+          "exerciseFamilyId": "pallof_press"
+        },
+        {
+          "exerciseId": "arms_band_curl",
+          "exerciseName": "밴드 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_band_hammer_curl",
+          "exerciseName": "밴드 해머 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_band_overhead_triceps_extension",
+          "exerciseName": "밴드 오버헤드 트라이셉스 익스텐션",
+          "exerciseFamilyId": "overhead_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_band_triceps_pushdown",
+          "exerciseName": "밴드 트라이셉스 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "back_band_assisted_pull_up",
+          "exerciseName": "밴드 어시스트 풀업",
+          "exerciseFamilyId": "pull_up"
+        },
+        {
+          "exerciseId": "back_band_lat_pulldown",
+          "exerciseName": "밴드 랫 풀다운",
+          "exerciseFamilyId": "lat_pulldown"
+        },
+        {
+          "exerciseId": "back_band_row",
+          "exerciseName": "밴드 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "chest_band_chest_fly",
+          "exerciseName": "밴드 체스트 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_band_chest_press",
+          "exerciseName": "밴드 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        },
+        {
+          "exerciseId": "chest_band_push_up",
+          "exerciseName": "밴드 푸쉬업",
+          "exerciseFamilyId": "push_up"
+        },
+        {
+          "exerciseId": "legs_band_glute_bridge",
+          "exerciseName": "밴드 글루트 브릿지",
+          "exerciseFamilyId": "glute_bridge"
+        },
+        {
+          "exerciseId": "legs_band_hip_abduction",
+          "exerciseName": "밴드 힙 어브덕션",
+          "exerciseFamilyId": "hip_abduction"
+        },
+        {
+          "exerciseId": "legs_band_hip_thrust",
+          "exerciseName": "밴드 힙 쓰러스트",
+          "exerciseFamilyId": "hip_thrust"
+        },
+        {
+          "exerciseId": "legs_band_kickback",
+          "exerciseName": "밴드 글루트 킥백",
+          "exerciseFamilyId": "glute_kickback"
+        },
+        {
+          "exerciseId": "legs_band_lateral_walk",
+          "exerciseName": "밴드 레터럴 워크",
+          "exerciseFamilyId": "lateral_band_walk"
+        },
+        {
+          "exerciseId": "legs_band_leg_curl",
+          "exerciseName": "밴드 레그 컬",
+          "exerciseFamilyId": "leg_curl"
+        },
+        {
+          "exerciseId": "shoulders_band_face_pull",
+          "exerciseName": "밴드 페이스 풀",
+          "exerciseFamilyId": "face_pull"
+        },
+        {
+          "exerciseId": "shoulders_band_lateral_raise",
+          "exerciseName": "밴드 레터럴 레이즈",
+          "exerciseFamilyId": "lateral_raise"
+        },
+        {
+          "exerciseId": "shoulders_band_pull_apart",
+          "exerciseName": "밴드 풀 어파트",
+          "exerciseFamilyId": "band_pull_apart"
+        }
+      ],
+      "targetViewId": "front",
+      "renderClass": "movable_free_weight",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/06_resistance_band.png",
+      "canonicalPath": "final/resistance_band_loop_front.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "roman_chair_side_three_quarter_v1",
+      "equipmentFamily": "roman_chair",
+      "equipmentFamilyLabel": "roman_chair",
+      "equipmentType": "roman_chair",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_other_roman_chair_sit_up",
+          "exerciseName": "로만 체어 싯업",
+          "exerciseFamilyId": "sit_up"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_support",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/14_roman_chair.png",
+      "canonicalPath": "final/roman_chair_side_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "rope_attachment_front_v1",
+      "equipmentFamily": "rope_attachment",
+      "equipmentFamilyLabel": "rope_attachment",
+      "equipmentType": "rope_attachment",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_cable_rope_hammer_curl",
+          "exerciseName": "케이블 로프 해머 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_rope_pushdown",
+          "exerciseName": "케이블 로프 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        }
+      ],
+      "targetViewId": "front",
+      "renderClass": "canonical_attachment",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/cable_attachments/B_rope_attachment.png",
+      "canonicalPath": "final/rope_attachment_front.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "seated_calf_raise_machine_side_three_quarter_v1",
+      "equipmentFamily": "seated_calf_raise_machine",
+      "equipmentFamilyLabel": "seated_calf_raise_machine",
+      "equipmentType": "seated_calf_raise_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_seated_calf_raise",
+          "exerciseName": "시티드 카프 레이즈 머신",
+          "exerciseFamilyId": "calf_raise"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/25_seated_calf_raise_machine.png",
+      "canonicalPath": "final/seated_calf_raise_machine_side_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "seated_leg_curl_front_side_three_quarter_v1",
+      "equipmentFamily": "seated_leg_curl",
+      "equipmentFamilyLabel": "seated_leg_curl",
+      "equipmentType": "seated_leg_curl",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_seated_leg_curl",
+          "exerciseName": "시티드 레그 컬",
+          "exerciseFamilyId": "leg_curl"
+        },
+        {
+          "exerciseId": "legs_machine_single_leg_seated_curl",
+          "exerciseName": "원레그 시티드 레그 컬",
+          "exerciseFamilyId": "leg_curl"
+        }
+      ],
+      "targetViewId": "front_side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/18_seated_leg_curl.png",
+      "canonicalPath": "final/seated_leg_curl_front_side_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "seated_row_machine_front_side_three_quarter_v1",
+      "equipmentFamily": "machine_row",
+      "equipmentFamilyLabel": "machine row family",
+      "equipmentType": "seated_row_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_machine_seated_row",
+          "exerciseName": "시티드 로우 머신",
+          "exerciseFamilyId": "row"
+        }
+      ],
+      "targetViewId": "front_side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/22_seated_row_machine.png",
+      "canonicalPath": "final/seated_row_machine_front_side_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "single_d_handle_front_v1",
+      "equipmentFamily": "single_d_handle",
+      "equipmentFamilyLabel": "single_d_handle",
+      "equipmentType": "single_d_handle",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_cable_single_arm_curl",
+          "exerciseName": "원암 케이블 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_hammer_curl",
+          "exerciseName": "원암 케이블 해머 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_overhead_triceps_extension",
+          "exerciseName": "원암 케이블 오버헤드 트라이셉스 익스텐션",
+          "exerciseFamilyId": "overhead_triceps_extension"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_preacher_curl",
+          "exerciseName": "원암 케이블 프리처 컬",
+          "exerciseFamilyId": "biceps_curl"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_pushdown",
+          "exerciseName": "원암 케이블 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "arms_cable_single_arm_reverse_grip_pushdown",
+          "exerciseName": "원암 케이블 리버스 그립 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_high_row",
+          "exerciseName": "원암 케이블 하이 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_row",
+          "exerciseName": "원암 케이블 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "back_cable_single_arm_straight_arm_pulldown",
+          "exerciseName": "원암 스트레이트 암 케이블 풀다운",
+          "exerciseFamilyId": "straight_arm_pulldown"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_chest_press",
+          "exerciseName": "원암 케이블 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_fly",
+          "exerciseName": "원암 케이블 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_high_to_low_fly",
+          "exerciseName": "원암 케이블 하이 투 로우 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "chest_cable_single_arm_low_to_high_fly",
+          "exerciseName": "원암 케이블 로우 투 하이 플라이",
+          "exerciseFamilyId": "chest_fly"
+        },
+        {
+          "exerciseId": "shoulders_cable_external_rotation",
+          "exerciseName": "케이블 익스터널 로테이션",
+          "exerciseFamilyId": "external_rotation"
+        },
+        {
+          "exerciseId": "shoulders_cable_single_arm_front_raise",
+          "exerciseName": "원암 케이블 프론트 레이즈",
+          "exerciseFamilyId": "front_raise"
+        },
+        {
+          "exerciseId": "shoulders_cable_single_arm_rear_delt_fly",
+          "exerciseName": "원암 케이블 리어 델트 플라이",
+          "exerciseFamilyId": "rear_delt_fly"
+        },
+        {
+          "exerciseId": "shoulders_cable_single_arm_y_raise",
+          "exerciseName": "원암 케이블 Y 레이즈",
+          "exerciseFamilyId": "y_raise"
+        }
+      ],
+      "targetViewId": "front",
+      "renderClass": "canonical_attachment",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/cable_attachments/A_single_d_handle.png",
+      "canonicalPath": "final/single_d_handle_front.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "smith_machine_front_three_quarter_v1",
+      "equipmentFamily": "smith_machine",
+      "equipmentFamilyLabel": "smith_machine",
+      "equipmentType": "smith_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "chest_smith_decline_bench_press",
+          "exerciseName": "스미스머신 디클라인 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_smith_flat_bench_press",
+          "exerciseName": "스미스머신 플랫 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "chest_smith_incline_bench_press",
+          "exerciseName": "스미스머신 인클라인 벤치 프레스",
+          "exerciseFamilyId": "bench_press"
+        },
+        {
+          "exerciseId": "legs_smith_bulgarian_split_squat",
+          "exerciseName": "스미스머신 불가리안 스플릿 스쿼트",
+          "exerciseFamilyId": "split_squat"
+        },
+        {
+          "exerciseId": "legs_smith_calf_raise",
+          "exerciseName": "스미스머신 카프 레이즈",
+          "exerciseFamilyId": "calf_raise"
+        },
+        {
+          "exerciseId": "legs_smith_front_squat",
+          "exerciseName": "스미스머신 프론트 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "legs_smith_hip_thrust",
+          "exerciseName": "스미스머신 힙 쓰러스트",
+          "exerciseFamilyId": "hip_thrust"
+        },
+        {
+          "exerciseId": "legs_smith_romanian_deadlift",
+          "exerciseName": "스미스머신 루마니안 데드리프트",
+          "exerciseFamilyId": "romanian_deadlift"
+        },
+        {
+          "exerciseId": "legs_smith_split_squat",
+          "exerciseName": "스미스머신 스플릿 스쿼트",
+          "exerciseFamilyId": "split_squat"
+        },
+        {
+          "exerciseId": "legs_smith_squat",
+          "exerciseName": "스미스머신 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "shoulders_smith_behind_neck_press",
+          "exerciseName": "스미스머신 비하인드 넥 프레스",
+          "exerciseFamilyId": "overhead_press"
+        },
+        {
+          "exerciseId": "shoulders_smith_shoulder_press",
+          "exerciseName": "스미스머신 숄더 프레스",
+          "exerciseFamilyId": "overhead_press"
+        },
+        {
+          "exerciseId": "shoulders_smith_upright_row",
+          "exerciseName": "스미스머신 업라이트 로우",
+          "exerciseFamilyId": "upright_row"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/03_smith_machine.png",
+      "canonicalPath": "final/smith_machine_front_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "standing_calf_raise_machine_front_three_quarter_v1",
+      "equipmentFamily": "standing_calf_raise_machine",
+      "equipmentFamilyLabel": "standing_calf_raise_machine",
+      "equipmentType": "standing_calf_raise_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_standing_calf_raise",
+          "exerciseName": "스탠딩 카프 레이즈 머신",
+          "exerciseFamilyId": "calf_raise"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/24_standing_calf_raise_machine.png",
+      "canonicalPath": "final/standing_calf_raise_machine_front_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "straight_bar_attachment_front_three_quarter_v1",
+      "equipmentFamily": "straight_bar",
+      "equipmentFamilyLabel": "straight_bar",
+      "equipmentType": "straight_bar",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_cable_triceps_pushdown_straight_bar",
+          "exerciseName": "케이블 스트레이트바 푸쉬다운",
+          "exerciseFamilyId": "triceps_pushdown"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "canonical_attachment",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/cable_attachments/C_straight_bar.png",
+      "canonicalPath": "final/straight_bar_attachment_front_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "weight_plate_set_three_quarter_v1",
+      "equipmentFamily": "weight_plate",
+      "equipmentFamilyLabel": "weight_plate",
+      "equipmentType": "weight_plate",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_plate_russian_twist",
+          "exerciseName": "플레이트 러시안 트위스트",
+          "exerciseFamilyId": "russian_twist"
+        },
+        {
+          "exerciseId": "abs_plate_side_bend",
+          "exerciseName": "플레이트 사이드 벤드",
+          "exerciseFamilyId": "side_bend"
+        },
+        {
+          "exerciseId": "abs_plate_weighted_crunch",
+          "exerciseName": "플레이트 웨이티드 크런치",
+          "exerciseFamilyId": "crunch"
+        },
+        {
+          "exerciseId": "arms_plate_pinch_hold",
+          "exerciseName": "플레이트 핀치 홀드",
+          "exerciseFamilyId": "pinch_hold"
+        },
+        {
+          "exerciseId": "back_plate_loaded_row",
+          "exerciseName": "플레이트 로우",
+          "exerciseFamilyId": "row"
+        },
+        {
+          "exerciseId": "chest_plate_squeeze_press",
+          "exerciseName": "플레이트 스퀴즈 프레스",
+          "exerciseFamilyId": "squeeze_press"
+        },
+        {
+          "exerciseId": "legs_plate_goblet_squat",
+          "exerciseName": "플레이트 고블릿 스쿼트",
+          "exerciseFamilyId": "squat"
+        },
+        {
+          "exerciseId": "shoulders_plate_front_raise",
+          "exerciseName": "플레이트 프론트 레이즈",
+          "exerciseFamilyId": "front_raise"
+        },
+        {
+          "exerciseId": "shoulders_plate_overhead_press",
+          "exerciseName": "플레이트 오버헤드 프레스",
+          "exerciseFamilyId": "overhead_press"
+        }
+      ],
+      "targetViewId": "front_three_quarter_set",
+      "renderClass": "movable_free_weight",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/07_weight_plate.png",
+      "canonicalPath": "final/weight_plate_set_three_quarter.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "wide_lat_bar_front_v1",
+      "equipmentFamily": "wide_lat_bar",
+      "equipmentFamilyLabel": "wide_lat_bar",
+      "equipmentType": "wide_lat_bar",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_cable_single_arm_lat_pulldown",
+          "exerciseName": "원암 랫 풀다운",
+          "exerciseFamilyId": "lat_pulldown"
+        }
+      ],
+      "targetViewId": "front",
+      "renderClass": "canonical_attachment",
+      "assetOrigin": "EXISTING_APPROVED_SOURCE",
+      "sourcePath": "source/cable_attachments/D_wide_lat_bar.png",
+      "canonicalPath": "final/wide_lat_bar_front.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "REUSE_EXISTING_CANONICAL",
+      "promotionStatus": "ALREADY_PROMOTED",
+      "queueAction": "REUSE_APPROVED_CANONICAL",
+      "generationCondition": null
+    },
+    {
+      "assetId": "chest_press_machine_flat_v1",
+      "equipmentFamily": "chest_press_machine",
+      "equipmentFamilyLabel": "chest press machine family",
+      "equipmentType": "chest_press_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "chest_machine_chest_press",
+          "exerciseName": "머신 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/chest_press_machine_flat.png",
+      "canonicalPath": "final/chest_press_machine_flat.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "chest_press_machine_incline_v1",
+      "equipmentFamily": "chest_press_machine",
+      "equipmentFamilyLabel": "chest press machine family",
+      "equipmentType": "chest_press_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "chest_machine_incline_chest_press",
+          "exerciseName": "머신 인클라인 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/chest_press_machine_incline.png",
+      "canonicalPath": "final/chest_press_machine_incline.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "chest_press_machine_decline_v1",
+      "equipmentFamily": "chest_press_machine",
+      "equipmentFamilyLabel": "chest press machine family",
+      "equipmentType": "chest_press_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "chest_machine_decline_chest_press",
+          "exerciseName": "머신 디클라인 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/chest_press_machine_decline.png",
+      "canonicalPath": "final/chest_press_machine_decline.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "iso_lateral_chest_press_v1",
+      "equipmentFamily": "chest_press_machine",
+      "equipmentFamilyLabel": "chest press machine family",
+      "equipmentType": "iso_lateral_chest_press",
+      "sharedExercises": [
+        {
+          "exerciseId": "chest_machine_iso_lateral_chest_press",
+          "exerciseName": "아이소 레터럴 체스트 프레스",
+          "exerciseFamilyId": "chest_press"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/iso_lateral_chest_press.png",
+      "canonicalPath": "final/iso_lateral_chest_press.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "machine_curl_v1",
+      "equipmentFamily": "machine_curl",
+      "equipmentFamilyLabel": "machine curl family",
+      "equipmentType": "machine_curl",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_machine_biceps_curl",
+          "exerciseName": "머신 바이셉스 컬",
+          "exerciseFamilyId": "biceps_curl"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/machine_curl.png",
+      "canonicalPath": "final/machine_curl.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "preacher_curl_machine_v1",
+      "equipmentFamily": "machine_curl",
+      "equipmentFamilyLabel": "machine curl family",
+      "equipmentType": "preacher_curl_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_machine_preacher_curl",
+          "exerciseName": "머신 프리처 컬",
+          "exerciseFamilyId": "biceps_curl"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/preacher_curl_machine.png",
+      "canonicalPath": "final/preacher_curl_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "high_row_machine_v1",
+      "equipmentFamily": "machine_row",
+      "equipmentFamilyLabel": "machine row family",
+      "equipmentType": "high_row_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_machine_high_row",
+          "exerciseName": "하이 로우 머신",
+          "exerciseFamilyId": "row"
+        }
+      ],
+      "targetViewId": "front_side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/high_row_machine.png",
+      "canonicalPath": "final/high_row_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "t_bar_row_machine_v1",
+      "equipmentFamily": "machine_row",
+      "equipmentFamilyLabel": "machine row family",
+      "equipmentType": "t_bar_row_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_machine_t_bar_row",
+          "exerciseName": "머신 티바 로우",
+          "exerciseFamilyId": "row"
+        }
+      ],
+      "targetViewId": "front_side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/t_bar_row_machine.png",
+      "canonicalPath": "final/t_bar_row_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "chest_supported_row_machine_v1",
+      "equipmentFamily": "machine_row",
+      "equipmentFamilyLabel": "machine row family",
+      "equipmentType": "chest_supported_row_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_machine_chest_supported_row",
+          "exerciseName": "머신 체스트 서포티드 로우",
+          "exerciseFamilyId": "row"
+        }
+      ],
+      "targetViewId": "front_side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/chest_supported_row_machine.png",
+      "canonicalPath": "final/chest_supported_row_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "iso_lateral_row_machine_v1",
+      "equipmentFamily": "machine_row",
+      "equipmentFamilyLabel": "machine row family",
+      "equipmentType": "iso_lateral_row_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_machine_iso_lateral_row",
+          "exerciseName": "아이소 레터럴 로우",
+          "exerciseFamilyId": "row"
+        }
+      ],
+      "targetViewId": "front_side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/iso_lateral_row_machine.png",
+      "canonicalPath": "final/iso_lateral_row_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "belt_squat_machine_v1",
+      "equipmentFamily": "machine_squat",
+      "equipmentFamilyLabel": "machine squat family",
+      "equipmentType": "belt_squat_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_belt_squat",
+          "exerciseName": "벨트 스쿼트",
+          "exerciseFamilyId": "machine_squat"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/belt_squat_machine.png",
+      "canonicalPath": "final/belt_squat_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "v_squat_machine_v1",
+      "equipmentFamily": "machine_squat",
+      "equipmentFamilyLabel": "machine squat family",
+      "equipmentType": "v_squat_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_v_squat",
+          "exerciseName": "브이 스쿼트 머신",
+          "exerciseFamilyId": "machine_squat"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/v_squat_machine.png",
+      "canonicalPath": "final/v_squat_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "pendulum_squat_machine_v1",
+      "equipmentFamily": "machine_squat",
+      "equipmentFamilyLabel": "machine squat family",
+      "equipmentType": "pendulum_squat_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_pendulum_squat",
+          "exerciseName": "펜듈럼 스쿼트",
+          "exerciseFamilyId": "machine_squat"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/pendulum_squat_machine.png",
+      "canonicalPath": "final/pendulum_squat_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "hack_squat_machine_v1",
+      "equipmentFamily": "machine_squat",
+      "equipmentFamilyLabel": "machine squat family",
+      "equipmentType": "hack_squat_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_hack_squat",
+          "exerciseName": "핵 스쿼트 머신",
+          "exerciseFamilyId": "machine_squat"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/hack_squat_machine.png",
+      "canonicalPath": "final/hack_squat_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "machine_shoulder_press_v1",
+      "equipmentFamily": "machine_shoulder_press",
+      "equipmentFamilyLabel": "machine shoulder press family",
+      "equipmentType": "machine_shoulder_press",
+      "sharedExercises": [
+        {
+          "exerciseId": "shoulders_machine_shoulder_press",
+          "exerciseName": "머신 숄더 프레스",
+          "exerciseFamilyId": "overhead_press"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/machine_shoulder_press.png",
+      "canonicalPath": "final/machine_shoulder_press.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "machine_triceps_extension_v1",
+      "equipmentFamily": "machine_triceps_extension",
+      "equipmentFamilyLabel": "machine triceps extension family",
+      "equipmentType": "machine_triceps_extension",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_machine_triceps_extension",
+          "exerciseName": "머신 트라이셉스 익스텐션",
+          "exerciseFamilyId": "machine_triceps_extension"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/machine_triceps_extension.png",
+      "canonicalPath": "final/machine_triceps_extension.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "machine_pullover_v1",
+      "equipmentFamily": "machine_pullover",
+      "equipmentFamilyLabel": "machine pullover",
+      "equipmentType": "machine_pullover",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_machine_pullover",
+          "exerciseName": "머신 풀오버",
+          "exerciseFamilyId": "pullover"
+        }
+      ],
+      "targetViewId": "front_side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/machine_pullover.png",
+      "canonicalPath": "final/machine_pullover.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "ab_crunch_machine_v1",
+      "equipmentFamily": "ab_crunch_machine",
+      "equipmentFamilyLabel": "ab crunch machine",
+      "equipmentType": "ab_crunch_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_machine_ab_crunch",
+          "exerciseName": "복근 크런치 머신",
+          "exerciseFamilyId": "crunch"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/ab_crunch_machine.png",
+      "canonicalPath": "final/ab_crunch_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "back_extension_machine_v1",
+      "equipmentFamily": "back_extension_machine",
+      "equipmentFamilyLabel": "back extension machine",
+      "equipmentType": "back_extension_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_machine_back_extension",
+          "exerciseName": "백 익스텐션 머신",
+          "exerciseFamilyId": "back_extension"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/back_extension_machine.png",
+      "canonicalPath": "final/back_extension_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "reverse_hyper_machine_v1",
+      "equipmentFamily": "reverse_hyper_machine",
+      "equipmentFamilyLabel": "reverse hyper machine",
+      "equipmentType": "reverse_hyper_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_machine_reverse_hyperextension",
+          "exerciseName": "리버스 하이퍼익스텐션 머신",
+          "exerciseFamilyId": "reverse_hyperextension"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/reverse_hyper_machine.png",
+      "canonicalPath": "final/reverse_hyper_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "glute_kickback_machine_v1",
+      "equipmentFamily": "glute_kickback_machine",
+      "equipmentFamilyLabel": "glute kickback machine",
+      "equipmentType": "glute_kickback_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_glute_kickback",
+          "exerciseName": "글루트 킥백 머신",
+          "exerciseFamilyId": "glute_kickback"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/glute_kickback_machine.png",
+      "canonicalPath": "final/glute_kickback_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "torso_rotation_machine_v1",
+      "equipmentFamily": "torso_rotation_machine",
+      "equipmentFamilyLabel": "torso rotation machine",
+      "equipmentType": "torso_rotation_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "abs_machine_torso_rotation",
+          "exerciseName": "토르소 로테이션 머신",
+          "exerciseFamilyId": "torso_rotation"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/torso_rotation_machine.png",
+      "canonicalPath": "final/torso_rotation_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "shrug_machine_v1",
+      "equipmentFamily": "shrug_machine",
+      "equipmentFamilyLabel": "shrug machine",
+      "equipmentType": "shrug_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "back_machine_shrug",
+          "exerciseName": "머신 슈러그",
+          "exerciseFamilyId": "shrug"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/shrug_machine.png",
+      "canonicalPath": "final/shrug_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "standing_leg_curl_machine_v1",
+      "equipmentFamily": "other_machine_leg_curl",
+      "equipmentFamilyLabel": "기타 / machine leg curl family",
+      "equipmentType": "standing_leg_curl_machine",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_standing_leg_curl",
+          "exerciseName": "스탠딩 레그 컬",
+          "exerciseFamilyId": "leg_curl"
+        }
+      ],
+      "targetViewId": "front_side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/standing_leg_curl_machine.png",
+      "canonicalPath": "final/standing_leg_curl_machine.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "reverse_pec_deck_v1",
+      "equipmentFamily": "other_reverse_pec_deck",
+      "equipmentFamilyLabel": "기타 / reverse pec-deck family",
+      "equipmentType": "reverse_pec_deck",
+      "sharedExercises": [],
+      "targetViewId": "rear_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/reverse_pec_deck.png",
+      "canonicalPath": "final/reverse_pec_deck.png",
+      "generationRequired": false,
+      "promotionRequired": false,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "CONDITIONAL_AFTER_REVERSE_TEST",
+      "queueAction": "HOLD_UNTIL_REVERSE_ORIENTATION_TEST",
+      "generationCondition": "CREATE_ONLY_IF_pec_deck_reverse_test_fails"
+    },
+    {
+      "assetId": "machine_dip_press_v1",
+      "equipmentFamily": "other_machine_dip_press",
+      "equipmentFamilyLabel": "기타 / machine dip press family",
+      "equipmentType": "machine_dip_press",
+      "sharedExercises": [
+        {
+          "exerciseId": "arms_machine_dip_press",
+          "exerciseName": "머신 딥 프레스",
+          "exerciseFamilyId": "machine_dip_press"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/machine_dip_press.png",
+      "canonicalPath": "final/machine_dip_press.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "machine_lateral_raise_v1",
+      "equipmentFamily": "other_machine_lateral_raise",
+      "equipmentFamilyLabel": "기타 / machine lateral raise family",
+      "equipmentType": "machine_lateral_raise",
+      "sharedExercises": [
+        {
+          "exerciseId": "shoulders_machine_lateral_raise",
+          "exerciseName": "머신 레터럴 레이즈",
+          "exerciseFamilyId": "lateral_raise"
+        }
+      ],
+      "targetViewId": "front_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/machine_lateral_raise.png",
+      "canonicalPath": "final/machine_lateral_raise.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    },
+    {
+      "assetId": "machine_hip_thrust_v1",
+      "equipmentFamily": "machine_hip_thrust",
+      "equipmentFamilyLabel": "machine hip thrust family",
+      "equipmentType": "machine_hip_thrust",
+      "sharedExercises": [
+        {
+          "exerciseId": "legs_machine_hip_thrust",
+          "exerciseName": "힙 쓰러스트 머신",
+          "exerciseFamilyId": "hip_thrust"
+        }
+      ],
+      "targetViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "assetOrigin": "NEW_GENERATION",
+      "sourcePath": "source/machine_hip_thrust.png",
+      "canonicalPath": "final/machine_hip_thrust.png",
+      "generationRequired": true,
+      "promotionRequired": true,
+      "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+      "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+      "queueAction": "GENERATE_SOURCE_THEN_PROMOTE",
+      "generationCondition": null
+    }
+  ],
+  "summary": {
+    "queueItemCount": 61,
+    "existingApprovedSourceCount": 33,
+    "newMachineCanonicalCount": 28,
+    "generationRequiredCount": 27,
+    "promotionRequiredCount": 27,
+    "conditionalNewMachineCount": 1
+  }
+}

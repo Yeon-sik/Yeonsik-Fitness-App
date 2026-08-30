@@ -102,6 +102,18 @@ public final class SupabaseSyncManagerTest {
                 "rir"
         ));
     }
+
+    @Test
+    public void keepsFamilyIdentityAndLoadStateLocalUntilRemoteSchemaExists() {
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("workout_exercises", "family_id"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("workout_exercises", "preset_id"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
+                "workout_exercises", "canonical_variant_key"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
+                "workout_exercises", "visual_variant_key"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("workout_sets", "load_state"));
+    }
+
     @Test
     public void fallsBackOnlyWhenSyncRpcIsMissing() {
         assertTrue(SupabaseSyncManager.isRpcUnavailable(

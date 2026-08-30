@@ -1,0 +1,3066 @@
+{
+  "schemaVersion": 1,
+  "normalization": "NFC + trim + Korean lowercase + whitespace/underscore/hyphen collapse",
+  "aliases": {
+    "가슴 딥스": [
+      "chest_bodyweight_chest_dip"
+    ],
+    "글루트 킥백 머신": [
+      "legs_machine_glute_kickback"
+    ],
+    "글루트 햄 레이즈": [
+      "legs_machine_glute_ham_raise"
+    ],
+    "노르딕 햄스트링 컬": [
+      "legs_bodyweight_nordic_hamstring_curl"
+    ],
+    "뉴트럴 그립 랫 풀다운": [
+      "back_machine_neutral_grip_lat_pulldown"
+    ],
+    "뉴트럴 그립 풀업": [
+      "back_bodyweight_neutral_grip_pull_up"
+    ],
+    "다이아몬드 푸쉬업": [
+      "arms_bodyweight_diamond_push_up"
+    ],
+    "덤벨 고블릿 스쿼트": [
+      "legs_dumbbell_goblet_squat"
+    ],
+    "덤벨 뉴트럴 그립 프레스": [
+      "chest_dumbbell_neutral_grip_press"
+    ],
+    "덤벨 디클라인 벤치 프레스": [
+      "chest_dumbbell_decline_bench_press"
+    ],
+    "덤벨 디클라인 플라이": [
+      "chest_dumbbell_decline_fly"
+    ],
+    "덤벨 랫 풀오버": [
+      "back_dumbbell_pullover"
+    ],
+    "덤벨 러시안 트위스트": [
+      "abs_dumbbell_russian_twist"
+    ],
+    "덤벨 런지": [
+      "legs_dumbbell_lunge"
+    ],
+    "덤벨 루마니안 데드리프트": [
+      "legs_dumbbell_romanian_deadlift"
+    ],
+    "덤벨 리버스 런지": [
+      "legs_dumbbell_reverse_lunge"
+    ],
+    "덤벨 리버스 리스트 컬": [
+      "arms_dumbbell_reverse_wrist_curl"
+    ],
+    "덤벨 리스트 컬": [
+      "arms_dumbbell_wrist_curl"
+    ],
+    "덤벨 리어 델트 플라이": [
+      "shoulders_dumbbell_rear_delt_fly"
+    ],
+    "덤벨 불가리안 스플릿 스쿼트": [
+      "legs_dumbbell_bulgarian_split_squat"
+    ],
+    "덤벨 사이드 레터럴 레이즈": [
+      "shoulders_dumbbell_lateral_raise"
+    ],
+    "덤벨 사이드 벤드": [
+      "abs_dumbbell_side_bend"
+    ],
+    "덤벨 숄더 프레스": [
+      "shoulders_dumbbell_shoulder_press"
+    ],
+    "덤벨 슈러그": [
+      "back_dumbbell_shrug"
+    ],
+    "덤벨 스모 스쿼트": [
+      "legs_dumbbell_sumo_squat"
+    ],
+    "덤벨 스컬 크러셔": [
+      "arms_dumbbell_skull_crusher"
+    ],
+    "덤벨 스쿼트": [
+      "legs_dumbbell_squat"
+    ],
+    "덤벨 스퀴즈 프레스": [
+      "chest_dumbbell_squeeze_press"
+    ],
+    "덤벨 스탠딩 카프 레이즈": [
+      "legs_dumbbell_standing_calf_raise"
+    ],
+    "덤벨 스텝업": [
+      "legs_dumbbell_step_up"
+    ],
+    "덤벨 스티프 레그 데드리프트": [
+      "legs_dumbbell_stiff_leg_deadlift"
+    ],
+    "덤벨 스파이더 컬": [
+      "arms_dumbbell_spider_curl"
+    ],
+    "덤벨 얼터네이팅 컬": [
+      "arms_dumbbell_alternating_curl"
+    ],
+    "덤벨 오버헤드 트라이셉스 익스텐션": [
+      "arms_dumbbell_overhead_triceps_extension"
+    ],
+    "덤벨 워킹 런지": [
+      "legs_dumbbell_walking_lunge"
+    ],
+    "덤벨 웨이티드 싯업": [
+      "abs_dumbbell_weighted_sit_up"
+    ],
+    "덤벨 인클라인 벤치 프레스": [
+      "chest_dumbbell_incline_bench_press"
+    ],
+    "덤벨 인클라인 플라이": [
+      "chest_dumbbell_incline_fly"
+    ],
+    "덤벨 체스트 서포티드 로우": [
+      "back_dumbbell_chest_supported_row"
+    ],
+    "덤벨 컬": [
+      "arms_dumbbell_curl"
+    ],
+    "덤벨 쿠반 프레스": [
+      "shoulders_dumbbell_cuban_press"
+    ],
+    "덤벨 킥백": [
+      "arms_dumbbell_kickback"
+    ],
+    "덤벨 파머스 캐리": [
+      "arms_dumbbell_farmer_carry"
+    ],
+    "덤벨 풀오버": [
+      "chest_dumbbell_pullover"
+    ],
+    "덤벨 프론트 레이즈": [
+      "shoulders_dumbbell_front_raise"
+    ],
+    "덤벨 프리처 컬": [
+      "arms_dumbbell_preacher_curl"
+    ],
+    "덤벨 플랫 벤치 프레스": [
+      "chest_dumbbell_flat_bench_press"
+    ],
+    "덤벨 플랫 플라이": [
+      "chest_dumbbell_flat_fly"
+    ],
+    "덤벨 하이 풀": [
+      "shoulders_dumbbell_high_pull"
+    ],
+    "덤벨 해머 컬": [
+      "arms_dumbbell_hammer_curl"
+    ],
+    "덤벨 힙 쓰러스트": [
+      "legs_dumbbell_hip_thrust"
+    ],
+    "데드 버그": [
+      "abs_bodyweight_dead_bug"
+    ],
+    "데드 행": [
+      "arms_bodyweight_dead_hang"
+    ],
+    "디클라인 푸쉬업": [
+      "chest_bodyweight_decline_push_up"
+    ],
+    "딥스": [
+      "arms_bodyweight_dip"
+    ],
+    "라잉 레그 컬": [
+      "legs_machine_lying_leg_curl"
+    ],
+    "랙 풀": [
+      "back_barbell_rack_pull"
+    ],
+    "랜드마인 로우": [
+      "back_barbell_landmine_row"
+    ],
+    "랜드마인 로테이션": [
+      "abs_barbell_landmine_rotation"
+    ],
+    "랫 풀다운": [
+      "back_machine_lat_pulldown"
+    ],
+    "러시안 트위스트": [
+      "abs_bodyweight_russian_twist"
+    ],
+    "레그 레이즈": [
+      "abs_bodyweight_leg_raise"
+    ],
+    "레그 익스텐션": [
+      "legs_machine_leg_extension"
+    ],
+    "레그 프레스": [
+      "legs_machine_leg_press"
+    ],
+    "레그프레스 카프 레이즈": [
+      "legs_machine_leg_press_calf_raise"
+    ],
+    "레니게이드 로우": [
+      "back_dumbbell_renegade_row"
+    ],
+    "로만 체어 싯업": [
+      "abs_other_roman_chair_sit_up"
+    ],
+    "로우 로우 머신": [
+      "back_machine_low_row"
+    ],
+    "로우바 스쿼트": [
+      "legs_barbell_low_bar_squat"
+    ],
+    "리닝 덤벨 레터럴 레이즈": [
+      "shoulders_dumbbell_leaning_lateral_raise"
+    ],
+    "리버스 그립 랫 풀다운": [
+      "back_machine_reverse_grip_lat_pulldown"
+    ],
+    "리버스 크런치": [
+      "abs_bodyweight_reverse_crunch"
+    ],
+    "리버스 펙덱": [
+      "shoulders_machine_reverse_pec_deck"
+    ],
+    "리버스 하이퍼익스텐션 머신": [
+      "back_machine_reverse_hyperextension"
+    ],
+    "맨몸 글루트 브릿지": [
+      "legs_bodyweight_glute_bridge"
+    ],
+    "맨몸 런지": [
+      "legs_bodyweight_lunge"
+    ],
+    "맨몸 리버스 런지": [
+      "legs_bodyweight_reverse_lunge"
+    ],
+    "맨몸 리버스 하이퍼익스텐션": [
+      "back_bodyweight_reverse_hyperextension"
+    ],
+    "맨몸 백 익스텐션": [
+      "back_bodyweight_back_extension"
+    ],
+    "맨몸 불가리안 스플릿 스쿼트": [
+      "legs_bodyweight_bulgarian_split_squat"
+    ],
+    "맨몸 스쿼트": [
+      "legs_bodyweight_squat"
+    ],
+    "맨몸 스탠딩 카프 레이즈": [
+      "legs_bodyweight_standing_calf_raise"
+    ],
+    "맨몸 스텝업": [
+      "legs_bodyweight_step_up"
+    ],
+    "머신 디클라인 체스트 프레스": [
+      "chest_machine_decline_chest_press"
+    ],
+    "머신 딥 프레스": [
+      "arms_machine_dip_press"
+    ],
+    "머신 레터럴 레이즈": [
+      "shoulders_machine_lateral_raise"
+    ],
+    "머신 리어 델트 플라이": [
+      "shoulders_machine_rear_delt_fly"
+    ],
+    "머신 바이셉스 컬": [
+      "arms_machine_biceps_curl"
+    ],
+    "머신 숄더 프레스": [
+      "shoulders_machine_shoulder_press"
+    ],
+    "머신 슈러그": [
+      "back_machine_shrug"
+    ],
+    "머신 인클라인 체스트 프레스": [
+      "chest_machine_incline_chest_press"
+    ],
+    "머신 체스트 서포티드 로우": [
+      "back_machine_chest_supported_row"
+    ],
+    "머신 체스트 프레스": [
+      "chest_machine_chest_press"
+    ],
+    "머신 체스트 플라이": [
+      "chest_machine_chest_fly"
+    ],
+    "머신 트라이셉스 익스텐션": [
+      "arms_machine_triceps_extension"
+    ],
+    "머신 티바 로우": [
+      "back_machine_t_bar_row"
+    ],
+    "머신 풀오버": [
+      "back_machine_pullover"
+    ],
+    "머신 프리처 컬": [
+      "arms_machine_preacher_curl"
+    ],
+    "바벨 굿모닝": [
+      "legs_barbell_good_morning"
+    ],
+    "바벨 글루트 브릿지": [
+      "legs_barbell_glute_bridge"
+    ],
+    "바벨 길로틴 프레스": [
+      "chest_barbell_guillotine_press"
+    ],
+    "바벨 데드리프트": [
+      "back_barbell_deadlift"
+    ],
+    "바벨 드래그 컬": [
+      "arms_barbell_drag_curl"
+    ],
+    "바벨 디클라인 벤치 프레스": [
+      "chest_barbell_decline_bench_press"
+    ],
+    "바벨 롤아웃": [
+      "abs_barbell_rollout"
+    ],
+    "바벨 루마니안 데드리프트": [
+      "legs_barbell_romanian_deadlift"
+    ],
+    "바벨 리버스 런지": [
+      "legs_barbell_reverse_lunge"
+    ],
+    "바벨 리버스 리스트 컬": [
+      "arms_barbell_reverse_wrist_curl"
+    ],
+    "바벨 리버스 컬": [
+      "arms_barbell_reverse_curl"
+    ],
+    "바벨 리스트 컬": [
+      "arms_barbell_wrist_curl"
+    ],
+    "바벨 백 스쿼트": [
+      "legs_barbell_back_squat"
+    ],
+    "바벨 벤트오버 로우": [
+      "back_barbell_bent_over_row"
+    ],
+    "바벨 불가리안 스플릿 스쿼트": [
+      "legs_barbell_bulgarian_split_squat"
+    ],
+    "바벨 슈러그": [
+      "back_barbell_shrug"
+    ],
+    "바벨 스컬 크러셔": [
+      "arms_barbell_skull_crusher"
+    ],
+    "바벨 스탠딩 카프 레이즈": [
+      "legs_barbell_standing_calf_raise"
+    ],
+    "바벨 스티프 레그 데드리프트": [
+      "legs_barbell_stiff_leg_deadlift"
+    ],
+    "바벨 스파이더 컬": [
+      "arms_barbell_spider_curl"
+    ],
+    "바벨 업라이트 로우": [
+      "shoulders_barbell_upright_row"
+    ],
+    "바벨 오버헤드 프레스": [
+      "shoulders_barbell_overhead_press"
+    ],
+    "바벨 워킹 런지": [
+      "legs_barbell_walking_lunge"
+    ],
+    "바벨 인클라인 벤치 프레스": [
+      "chest_barbell_incline_bench_press"
+    ],
+    "바벨 컬": [
+      "arms_barbell_curl"
+    ],
+    "바벨 티바 로우": [
+      "back_barbell_t_bar_row"
+    ],
+    "바벨 포즈 벤치 프레스": [
+      "chest_barbell_pause_bench_press"
+    ],
+    "바벨 푸쉬 프레스": [
+      "shoulders_barbell_push_press"
+    ],
+    "바벨 프론트 레이즈": [
+      "shoulders_barbell_front_raise"
+    ],
+    "바벨 프론트 스쿼트": [
+      "legs_barbell_front_squat"
+    ],
+    "바벨 플랫 벤치 프레스": [
+      "chest_barbell_flat_bench_press"
+    ],
+    "바벨 플로어 프레스": [
+      "chest_barbell_floor_press"
+    ],
+    "바벨 힙 쓰러스트": [
+      "legs_barbell_hip_thrust"
+    ],
+    "바이시클 크런치": [
+      "abs_bodyweight_bicycle_crunch"
+    ],
+    "박스 스쿼트": [
+      "legs_barbell_box_squat"
+    ],
+    "백 익스텐션 머신": [
+      "back_machine_back_extension"
+    ],
+    "밴드 글루트 브릿지": [
+      "legs_band_glute_bridge"
+    ],
+    "밴드 글루트 킥백": [
+      "legs_band_kickback"
+    ],
+    "밴드 랫 풀다운": [
+      "back_band_lat_pulldown"
+    ],
+    "밴드 레그 컬": [
+      "legs_band_leg_curl"
+    ],
+    "밴드 레터럴 레이즈": [
+      "shoulders_band_lateral_raise"
+    ],
+    "밴드 레터럴 워크": [
+      "legs_band_lateral_walk"
+    ],
+    "밴드 로우": [
+      "back_band_row"
+    ],
+    "밴드 어시스트 풀업": [
+      "back_band_assisted_pull_up"
+    ],
+    "밴드 오버헤드 트라이셉스 익스텐션": [
+      "arms_band_overhead_triceps_extension"
+    ],
+    "밴드 체스트 프레스": [
+      "chest_band_chest_press"
+    ],
+    "밴드 체스트 플라이": [
+      "chest_band_chest_fly"
+    ],
+    "밴드 컬": [
+      "arms_band_curl"
+    ],
+    "밴드 크런치": [
+      "abs_band_crunch"
+    ],
+    "밴드 트라이셉스 푸쉬다운": [
+      "arms_band_triceps_pushdown"
+    ],
+    "밴드 팔로프 프레스": [
+      "abs_band_pallof_press"
+    ],
+    "밴드 페이스 풀": [
+      "shoulders_band_face_pull"
+    ],
+    "밴드 푸쉬업": [
+      "chest_band_push_up"
+    ],
+    "밴드 풀 어파트": [
+      "shoulders_band_pull_apart"
+    ],
+    "밴드 해머 컬": [
+      "arms_band_hammer_curl"
+    ],
+    "밴드 힙 쓰러스트": [
+      "legs_band_hip_thrust"
+    ],
+    "밴드 힙 어브덕션": [
+      "legs_band_hip_abduction"
+    ],
+    "베이지안 케이블 컬": [
+      "arms_cable_bayesian_curl"
+    ],
+    "벤치 딥스": [
+      "arms_bodyweight_bench_dip"
+    ],
+    "벤트오버 덤벨 레터럴 레이즈": [
+      "shoulders_dumbbell_bent_over_lateral_raise"
+    ],
+    "벨트 스쿼트": [
+      "legs_machine_belt_squat"
+    ],
+    "복근 크런치 머신": [
+      "abs_machine_ab_crunch"
+    ],
+    "브래드포드 프레스": [
+      "shoulders_barbell_bradford_press"
+    ],
+    "브이 스쿼트 머신": [
+      "legs_machine_v_squat"
+    ],
+    "브이업": [
+      "abs_bodyweight_v_up"
+    ],
+    "비하인드 넥 프레스": [
+      "shoulders_barbell_behind_neck_press"
+    ],
+    "사이드 플랭크": [
+      "abs_bodyweight_side_plank"
+    ],
+    "스내치 그립 데드리프트": [
+      "back_barbell_snatch_grip_deadlift"
+    ],
+    "스모 데드리프트": [
+      "legs_barbell_sumo_deadlift"
+    ],
+    "스미스머신 디클라인 벤치 프레스": [
+      "chest_smith_decline_bench_press"
+    ],
+    "스미스머신 루마니안 데드리프트": [
+      "legs_smith_romanian_deadlift"
+    ],
+    "스미스머신 불가리안 스플릿 스쿼트": [
+      "legs_smith_bulgarian_split_squat"
+    ],
+    "스미스머신 비하인드 넥 프레스": [
+      "shoulders_smith_behind_neck_press"
+    ],
+    "스미스머신 숄더 프레스": [
+      "shoulders_smith_shoulder_press"
+    ],
+    "스미스머신 스쿼트": [
+      "legs_smith_squat"
+    ],
+    "스미스머신 스플릿 스쿼트": [
+      "legs_smith_split_squat"
+    ],
+    "스미스머신 업라이트 로우": [
+      "shoulders_smith_upright_row"
+    ],
+    "스미스머신 인클라인 벤치 프레스": [
+      "chest_smith_incline_bench_press"
+    ],
+    "스미스머신 카프 레이즈": [
+      "legs_smith_calf_raise"
+    ],
+    "스미스머신 프론트 스쿼트": [
+      "legs_smith_front_squat"
+    ],
+    "스미스머신 플랫 벤치 프레스": [
+      "chest_smith_flat_bench_press"
+    ],
+    "스미스머신 힙 쓰러스트": [
+      "legs_smith_hip_thrust"
+    ],
+    "스캐풀라 풀업": [
+      "back_bodyweight_scapular_pull_up"
+    ],
+    "스탠딩 레그 컬": [
+      "legs_machine_standing_leg_curl"
+    ],
+    "스탠딩 카프 레이즈 머신": [
+      "legs_machine_standing_calf_raise"
+    ],
+    "스탠딩 케이블 크런치": [
+      "abs_cable_standing_crunch"
+    ],
+    "스트레이트 암 풀다운": [
+      "back_cable_straight_arm_pulldown"
+    ],
+    "시시 스쿼트": [
+      "legs_bodyweight_sissy_squat"
+    ],
+    "시티드 덤벨 숄더 프레스": [
+      "shoulders_dumbbell_seated_shoulder_press"
+    ],
+    "시티드 레그 컬": [
+      "legs_machine_seated_leg_curl"
+    ],
+    "시티드 로우 머신": [
+      "back_machine_seated_row"
+    ],
+    "시티드 바벨 숄더 프레스": [
+      "shoulders_barbell_seated_overhead_press"
+    ],
+    "시티드 카프 레이즈 머신": [
+      "legs_machine_seated_calf_raise"
+    ],
+    "시티드 케이블 로우": [
+      "back_cable_seated_row"
+    ],
+    "싯업": [
+      "abs_bodyweight_sit_up"
+    ],
+    "싱글 레그 글루트 브릿지": [
+      "legs_bodyweight_single_leg_glute_bridge"
+    ],
+    "싱글 레그 카프 레이즈": [
+      "legs_bodyweight_single_leg_calf_raise"
+    ],
+    "아놀드 프레스": [
+      "shoulders_dumbbell_arnold_press"
+    ],
+    "아이소 레터럴 로우": [
+      "back_machine_iso_lateral_row"
+    ],
+    "아이소 레터럴 체스트 프레스": [
+      "chest_machine_iso_lateral_chest_press"
+    ],
+    "어시스트 딥스": [
+      "arms_machine_assisted_dip"
+    ],
+    "어시스트 풀업": [
+      "back_machine_assisted_pull_up"
+    ],
+    "예이츠 로우": [
+      "back_barbell_yates_row"
+    ],
+    "오버헤드 케이블 컬": [
+      "arms_cable_overhead_curl"
+    ],
+    "와이드 그립 랫 풀다운": [
+      "back_machine_wide_grip_lat_pulldown"
+    ],
+    "와이드 그립 풀업": [
+      "back_bodyweight_wide_grip_pull_up"
+    ],
+    "와이드 푸쉬업": [
+      "chest_bodyweight_wide_push_up"
+    ],
+    "원레그 덤벨 루마니안 데드리프트": [
+      "legs_dumbbell_single_leg_romanian_deadlift"
+    ],
+    "원레그 덤벨 카프 레이즈": [
+      "legs_dumbbell_single_leg_calf_raise"
+    ],
+    "원레그 덤벨 힙 쓰러스트": [
+      "legs_dumbbell_single_leg_hip_thrust"
+    ],
+    "원레그 라잉 레그 컬": [
+      "legs_machine_single_leg_lying_curl"
+    ],
+    "원레그 레그 익스텐션": [
+      "legs_machine_single_leg_extension"
+    ],
+    "원레그 레그 프레스": [
+      "legs_machine_single_leg_press"
+    ],
+    "원레그 시티드 레그 컬": [
+      "legs_machine_single_leg_seated_curl"
+    ],
+    "원암 덤벨 로우": [
+      "back_dumbbell_one_arm_row"
+    ],
+    "원암 덤벨 벤치 프레스": [
+      "chest_dumbbell_single_arm_bench_press"
+    ],
+    "원암 덤벨 사이드 레터럴 레이즈": [
+      "shoulders_dumbbell_single_arm_lateral_raise"
+    ],
+    "원암 덤벨 숄더 프레스": [
+      "shoulders_dumbbell_single_arm_shoulder_press"
+    ],
+    "원암 덤벨 스컬 크러셔": [
+      "arms_dumbbell_single_arm_skull_crusher"
+    ],
+    "원암 덤벨 오버헤드 익스텐션": [
+      "arms_dumbbell_single_arm_overhead_extension"
+    ],
+    "원암 덤벨 체스트 서포티드 로우": [
+      "back_dumbbell_single_arm_chest_supported_row"
+    ],
+    "원암 랜드마인 프레스": [
+      "shoulders_barbell_single_arm_landmine_press"
+    ],
+    "원암 랫 풀다운": [
+      "back_cable_single_arm_lat_pulldown"
+    ],
+    "원암 스트레이트 암 케이블 풀다운": [
+      "back_cable_single_arm_straight_arm_pulldown"
+    ],
+    "원암 인클라인 덤벨 벤치 프레스": [
+      "chest_dumbbell_single_arm_incline_press"
+    ],
+    "원암 케이블 레터럴 레이즈": [
+      "shoulders_cable_lateral_raise"
+    ],
+    "원암 케이블 로우": [
+      "back_cable_single_arm_row"
+    ],
+    "원암 케이블 로우 투 하이 플라이": [
+      "chest_cable_single_arm_low_to_high_fly"
+    ],
+    "원암 케이블 리버스 그립 푸쉬다운": [
+      "arms_cable_single_arm_reverse_grip_pushdown"
+    ],
+    "원암 케이블 리어 델트 플라이": [
+      "shoulders_cable_single_arm_rear_delt_fly"
+    ],
+    "원암 케이블 오버헤드 트라이셉스 익스텐션": [
+      "arms_cable_single_arm_overhead_triceps_extension"
+    ],
+    "원암 케이블 체스트 프레스": [
+      "chest_cable_single_arm_chest_press"
+    ],
+    "원암 케이블 컬": [
+      "arms_cable_single_arm_curl"
+    ],
+    "원암 케이블 푸쉬다운": [
+      "arms_cable_single_arm_pushdown"
+    ],
+    "원암 케이블 프론트 레이즈": [
+      "shoulders_cable_single_arm_front_raise"
+    ],
+    "원암 케이블 프리처 컬": [
+      "arms_cable_single_arm_preacher_curl"
+    ],
+    "원암 케이블 플라이": [
+      "chest_cable_single_arm_fly"
+    ],
+    "원암 케이블 하이 로우": [
+      "back_cable_single_arm_high_row"
+    ],
+    "원암 케이블 하이 투 로우 플라이": [
+      "chest_cable_single_arm_high_to_low_fly"
+    ],
+    "원암 케이블 해머 컬": [
+      "arms_cable_single_arm_hammer_curl"
+    ],
+    "원암 케이블 y 레이즈": [
+      "shoulders_cable_single_arm_y_raise"
+    ],
+    "원암 케틀벨 로우": [
+      "back_kettlebell_one_arm_row"
+    ],
+    "월 싯": [
+      "legs_bodyweight_wall_sit"
+    ],
+    "월 핸드스탠드 푸쉬업": [
+      "shoulders_bodyweight_wall_handstand_push_up"
+    ],
+    "이지바 스컬 크러셔": [
+      "arms_barbell_ez_skull_crusher"
+    ],
+    "이지바 오버헤드 트라이셉스 익스텐션": [
+      "arms_barbell_overhead_triceps_extension"
+    ],
+    "이지바 컬": [
+      "arms_barbell_ez_bar_curl"
+    ],
+    "이지바 프리처 컬": [
+      "arms_barbell_preacher_curl"
+    ],
+    "인버티드 로우": [
+      "back_bodyweight_inverted_row"
+    ],
+    "인클라인 덤벨 레터럴 레이즈": [
+      "shoulders_dumbbell_incline_lateral_raise"
+    ],
+    "인클라인 덤벨 로우": [
+      "back_dumbbell_incline_row"
+    ],
+    "인클라인 덤벨 컬": [
+      "arms_dumbbell_incline_curl"
+    ],
+    "인클라인 푸쉬업": [
+      "chest_bodyweight_incline_push_up"
+    ],
+    "저쳐 스쿼트": [
+      "legs_barbell_zercher_squat"
+    ],
+    "점프 스쿼트": [
+      "legs_bodyweight_jump_squat"
+    ],
+    "조트맨 컬": [
+      "arms_dumbbell_zottman_curl"
+    ],
+    "중량 푸쉬업": [
+      "chest_bodyweight_weighted_push_up"
+    ],
+    "친업": [
+      "back_bodyweight_chin_up"
+    ],
+    "캡틴스 체어 니 레이즈": [
+      "abs_bodyweight_captains_chair_knee_raise"
+    ],
+    "캡틴스 체어 레그 레이즈": [
+      "abs_machine_captains_chair"
+    ],
+    "컨센트레이션 컬": [
+      "arms_dumbbell_concentration_curl"
+    ],
+    "케이블 글루트 킥백": [
+      "legs_cable_glute_kickback"
+    ],
+    "케이블 닐링 풀오버": [
+      "back_cable_kneeling_pullover"
+    ],
+    "케이블 레그 컬": [
+      "legs_cable_leg_curl"
+    ],
+    "케이블 로우 투 하이 플라이": [
+      "chest_cable_low_to_high_fly"
+    ],
+    "케이블 로프 푸쉬다운": [
+      "arms_cable_rope_pushdown"
+    ],
+    "케이블 로프 해머 컬": [
+      "arms_cable_rope_hammer_curl"
+    ],
+    "케이블 리버스 그립 푸쉬다운": [
+      "arms_cable_reverse_grip_pushdown"
+    ],
+    "케이블 리버스 크런치": [
+      "abs_cable_reverse_crunch"
+    ],
+    "케이블 리어 델트 플라이": [
+      "shoulders_cable_rear_delt_fly"
+    ],
+    "케이블 슈러그": [
+      "back_cable_shrug"
+    ],
+    "케이블 스탠딩 체스트 프레스": [
+      "chest_cable_standing_chest_press"
+    ],
+    "케이블 스트레이트바 푸쉬다운": [
+      "arms_cable_triceps_pushdown_straight_bar"
+    ],
+    "케이블 업라이트 로우": [
+      "shoulders_cable_upright_row"
+    ],
+    "케이블 오버헤드 트라이셉스 익스텐션": [
+      "arms_cable_overhead_triceps_extension"
+    ],
+    "케이블 우드찹": [
+      "abs_cable_woodchop"
+    ],
+    "케이블 익스터널 로테이션": [
+      "shoulders_cable_external_rotation"
+    ],
+    "케이블 컬": [
+      "arms_cable_curl"
+    ],
+    "케이블 크런치": [
+      "abs_cable_crunch"
+    ],
+    "케이블 크로스오버": [
+      "chest_cable_crossover"
+    ],
+    "케이블 트라이셉스 킥백": [
+      "arms_cable_triceps_kickback"
+    ],
+    "케이블 팔로프 프레스": [
+      "abs_cable_pallof_press"
+    ],
+    "케이블 페이스 풀": [
+      "shoulders_cable_face_pull"
+    ],
+    "케이블 풀 스루": [
+      "legs_cable_pull_through"
+    ],
+    "케이블 프론트 레이즈": [
+      "shoulders_cable_front_raise"
+    ],
+    "케이블 프리처 컬": [
+      "arms_cable_preacher_curl"
+    ],
+    "케이블 하이 로우": [
+      "back_cable_high_row"
+    ],
+    "케이블 하이 투 로우 플라이": [
+      "chest_cable_high_to_low_fly"
+    ],
+    "케이블 힙 어덕션": [
+      "legs_cable_hip_adduction"
+    ],
+    "케이블 힙 어브덕션": [
+      "legs_cable_hip_abduction"
+    ],
+    "케이블 y 레이즈": [
+      "shoulders_cable_y_raise"
+    ],
+    "케틀벨 고블릿 스쿼트": [
+      "legs_kettlebell_goblet_squat"
+    ],
+    "케틀벨 바텀업 프레스": [
+      "shoulders_kettlebell_bottoms_up_press"
+    ],
+    "케틀벨 숄더 프레스": [
+      "shoulders_kettlebell_press"
+    ],
+    "케틀벨 스모 데드리프트": [
+      "legs_kettlebell_sumo_deadlift"
+    ],
+    "케틀벨 스윙": [
+      "legs_kettlebell_swing"
+    ],
+    "케틀벨 윈드밀": [
+      "abs_kettlebell_windmill"
+    ],
+    "케틀벨 파머스 캐리": [
+      "arms_kettlebell_farmer_carry"
+    ],
+    "크런치": [
+      "abs_bodyweight_crunch"
+    ],
+    "크로스 바디 해머 컬": [
+      "arms_dumbbell_cross_body_hammer_curl"
+    ],
+    "크로스바디 케이블 트라이셉스 익스텐션": [
+      "arms_cable_crossbody_triceps_extension"
+    ],
+    "크록 로우": [
+      "back_dumbbell_kroc_row"
+    ],
+    "클로즈 그립 벤치 프레스": [
+      "arms_barbell_close_grip_bench_press"
+    ],
+    "클로즈 그립 푸쉬업": [
+      "arms_bodyweight_close_grip_push_up"
+    ],
+    "터키시 겟업": [
+      "abs_kettlebell_turkish_get_up"
+    ],
+    "토 터치": [
+      "abs_bodyweight_toe_touch"
+    ],
+    "토르소 로테이션 머신": [
+      "abs_machine_torso_rotation"
+    ],
+    "파이크 푸쉬업": [
+      "shoulders_bodyweight_pike_push_up"
+    ],
+    "펙덱 플라이": [
+      "chest_machine_pec_deck_fly"
+    ],
+    "펜듈럼 스쿼트": [
+      "legs_machine_pendulum_squat"
+    ],
+    "펜들레이 로우": [
+      "back_barbell_pendlay_row"
+    ],
+    "푸쉬업": [
+      "chest_bodyweight_push_up"
+    ],
+    "풀업": [
+      "back_bodyweight_pull_up"
+    ],
+    "프론 y 레이즈": [
+      "shoulders_bodyweight_prone_y_raise"
+    ],
+    "플랭크": [
+      "abs_bodyweight_plank"
+    ],
+    "플랭크 숄더 탭": [
+      "abs_bodyweight_plank_shoulder_tap"
+    ],
+    "플레이트 고블릿 스쿼트": [
+      "legs_plate_goblet_squat"
+    ],
+    "플레이트 러시안 트위스트": [
+      "abs_plate_russian_twist"
+    ],
+    "플레이트 로드 숄더 프레스": [
+      "shoulders_machine_plate_loaded_shoulder_press"
+    ],
+    "플레이트 로드 인클라인 프레스": [
+      "chest_machine_plate_loaded_incline_press"
+    ],
+    "플레이트 로드 체스트 프레스": [
+      "chest_machine_plate_loaded_chest_press"
+    ],
+    "플레이트 로우": [
+      "back_plate_loaded_row"
+    ],
+    "플레이트 사이드 벤드": [
+      "abs_plate_side_bend"
+    ],
+    "플레이트 스퀴즈 프레스": [
+      "chest_plate_squeeze_press"
+    ],
+    "플레이트 오버헤드 프레스": [
+      "shoulders_plate_overhead_press"
+    ],
+    "플레이트 웨이티드 크런치": [
+      "abs_plate_weighted_crunch"
+    ],
+    "플레이트 프론트 레이즈": [
+      "shoulders_plate_front_raise"
+    ],
+    "플레이트 핀치 홀드": [
+      "arms_plate_pinch_hold"
+    ],
+    "피스톨 스쿼트": [
+      "legs_bodyweight_pistol_squat"
+    ],
+    "하이 로우 머신": [
+      "back_machine_high_row"
+    ],
+    "하이바 스쿼트": [
+      "legs_barbell_high_bar_squat"
+    ],
+    "할로우 바디 홀드": [
+      "abs_bodyweight_hollow_hold"
+    ],
+    "핵 스쿼트 머신": [
+      "legs_machine_hack_squat"
+    ],
+    "핸드 그리퍼": [
+      "arms_other_gripper"
+    ],
+    "핸드스탠드 푸쉬업": [
+      "shoulders_bodyweight_handstand_push_up"
+    ],
+    "행잉 니 레이즈": [
+      "abs_bodyweight_hanging_knee_raise"
+    ],
+    "행잉 레그 레이즈": [
+      "abs_bodyweight_hanging_leg_raise"
+    ],
+    "힙 쓰러스트 머신": [
+      "legs_machine_hip_thrust"
+    ],
+    "힙 어덕션 머신": [
+      "legs_machine_hip_adduction"
+    ],
+    "힙 어브덕션 머신": [
+      "legs_machine_hip_abduction"
+    ],
+    "ab crunch machine": [
+      "abs_machine_ab_crunch"
+    ],
+    "ab wheel rollout": [
+      "abs_other_ab_wheel_rollout"
+    ],
+    "ab휠 롤아웃": [
+      "abs_other_ab_wheel_rollout"
+    ],
+    "abs band crunch": [
+      "abs_band_crunch"
+    ],
+    "abs band pallof press": [
+      "abs_band_pallof_press"
+    ],
+    "abs barbell landmine rotation": [
+      "abs_barbell_landmine_rotation"
+    ],
+    "abs barbell rollout": [
+      "abs_barbell_rollout"
+    ],
+    "abs bodyweight bicycle crunch": [
+      "abs_bodyweight_bicycle_crunch"
+    ],
+    "abs bodyweight captains chair knee raise": [
+      "abs_bodyweight_captains_chair_knee_raise"
+    ],
+    "abs bodyweight crunch": [
+      "abs_bodyweight_crunch"
+    ],
+    "abs bodyweight dead bug": [
+      "abs_bodyweight_dead_bug"
+    ],
+    "abs bodyweight hanging knee raise": [
+      "abs_bodyweight_hanging_knee_raise"
+    ],
+    "abs bodyweight hanging leg raise": [
+      "abs_bodyweight_hanging_leg_raise"
+    ],
+    "abs bodyweight hollow hold": [
+      "abs_bodyweight_hollow_hold"
+    ],
+    "abs bodyweight leg raise": [
+      "abs_bodyweight_leg_raise"
+    ],
+    "abs bodyweight plank": [
+      "abs_bodyweight_plank"
+    ],
+    "abs bodyweight plank shoulder tap": [
+      "abs_bodyweight_plank_shoulder_tap"
+    ],
+    "abs bodyweight reverse crunch": [
+      "abs_bodyweight_reverse_crunch"
+    ],
+    "abs bodyweight russian twist": [
+      "abs_bodyweight_russian_twist"
+    ],
+    "abs bodyweight side plank": [
+      "abs_bodyweight_side_plank"
+    ],
+    "abs bodyweight sit up": [
+      "abs_bodyweight_sit_up"
+    ],
+    "abs bodyweight toe touch": [
+      "abs_bodyweight_toe_touch"
+    ],
+    "abs bodyweight v up": [
+      "abs_bodyweight_v_up"
+    ],
+    "abs cable crunch": [
+      "abs_cable_crunch"
+    ],
+    "abs cable pallof press": [
+      "abs_cable_pallof_press"
+    ],
+    "abs cable reverse crunch": [
+      "abs_cable_reverse_crunch"
+    ],
+    "abs cable standing crunch": [
+      "abs_cable_standing_crunch"
+    ],
+    "abs cable woodchop": [
+      "abs_cable_woodchop"
+    ],
+    "abs dumbbell russian twist": [
+      "abs_dumbbell_russian_twist"
+    ],
+    "abs dumbbell side bend": [
+      "abs_dumbbell_side_bend"
+    ],
+    "abs dumbbell weighted sit up": [
+      "abs_dumbbell_weighted_sit_up"
+    ],
+    "abs kettlebell turkish get up": [
+      "abs_kettlebell_turkish_get_up"
+    ],
+    "abs kettlebell windmill": [
+      "abs_kettlebell_windmill"
+    ],
+    "abs machine ab crunch": [
+      "abs_machine_ab_crunch"
+    ],
+    "abs machine captains chair": [
+      "abs_machine_captains_chair"
+    ],
+    "abs machine torso rotation": [
+      "abs_machine_torso_rotation"
+    ],
+    "abs other ab wheel rollout": [
+      "abs_other_ab_wheel_rollout"
+    ],
+    "abs other roman chair sit up": [
+      "abs_other_roman_chair_sit_up"
+    ],
+    "abs plate russian twist": [
+      "abs_plate_russian_twist"
+    ],
+    "abs plate side bend": [
+      "abs_plate_side_bend"
+    ],
+    "abs plate weighted crunch": [
+      "abs_plate_weighted_crunch"
+    ],
+    "alternating dumbbell curl": [
+      "arms_dumbbell_alternating_curl"
+    ],
+    "arms band curl": [
+      "arms_band_curl"
+    ],
+    "arms band hammer curl": [
+      "arms_band_hammer_curl"
+    ],
+    "arms band overhead triceps extension": [
+      "arms_band_overhead_triceps_extension"
+    ],
+    "arms band triceps pushdown": [
+      "arms_band_triceps_pushdown"
+    ],
+    "arms barbell close grip bench press": [
+      "arms_barbell_close_grip_bench_press"
+    ],
+    "arms barbell curl": [
+      "arms_barbell_curl"
+    ],
+    "arms barbell drag curl": [
+      "arms_barbell_drag_curl"
+    ],
+    "arms barbell ez bar curl": [
+      "arms_barbell_ez_bar_curl"
+    ],
+    "arms barbell ez skull crusher": [
+      "arms_barbell_ez_skull_crusher"
+    ],
+    "arms barbell jm press": [
+      "arms_barbell_jm_press"
+    ],
+    "arms barbell overhead triceps extension": [
+      "arms_barbell_overhead_triceps_extension"
+    ],
+    "arms barbell preacher curl": [
+      "arms_barbell_preacher_curl"
+    ],
+    "arms barbell reverse curl": [
+      "arms_barbell_reverse_curl"
+    ],
+    "arms barbell reverse wrist curl": [
+      "arms_barbell_reverse_wrist_curl"
+    ],
+    "arms barbell skull crusher": [
+      "arms_barbell_skull_crusher"
+    ],
+    "arms barbell spider curl": [
+      "arms_barbell_spider_curl"
+    ],
+    "arms barbell wrist curl": [
+      "arms_barbell_wrist_curl"
+    ],
+    "arms bodyweight bench dip": [
+      "arms_bodyweight_bench_dip"
+    ],
+    "arms bodyweight close grip push up": [
+      "arms_bodyweight_close_grip_push_up"
+    ],
+    "arms bodyweight dead hang": [
+      "arms_bodyweight_dead_hang"
+    ],
+    "arms bodyweight diamond push up": [
+      "arms_bodyweight_diamond_push_up"
+    ],
+    "arms bodyweight dip": [
+      "arms_bodyweight_dip"
+    ],
+    "arms cable bayesian curl": [
+      "arms_cable_bayesian_curl"
+    ],
+    "arms cable crossbody triceps extension": [
+      "arms_cable_crossbody_triceps_extension"
+    ],
+    "arms cable curl": [
+      "arms_cable_curl"
+    ],
+    "arms cable overhead curl": [
+      "arms_cable_overhead_curl"
+    ],
+    "arms cable overhead triceps extension": [
+      "arms_cable_overhead_triceps_extension"
+    ],
+    "arms cable preacher curl": [
+      "arms_cable_preacher_curl"
+    ],
+    "arms cable reverse grip pushdown": [
+      "arms_cable_reverse_grip_pushdown"
+    ],
+    "arms cable rope hammer curl": [
+      "arms_cable_rope_hammer_curl"
+    ],
+    "arms cable rope pushdown": [
+      "arms_cable_rope_pushdown"
+    ],
+    "arms cable single arm curl": [
+      "arms_cable_single_arm_curl"
+    ],
+    "arms cable single arm hammer curl": [
+      "arms_cable_single_arm_hammer_curl"
+    ],
+    "arms cable single arm overhead triceps extension": [
+      "arms_cable_single_arm_overhead_triceps_extension"
+    ],
+    "arms cable single arm preacher curl": [
+      "arms_cable_single_arm_preacher_curl"
+    ],
+    "arms cable single arm pushdown": [
+      "arms_cable_single_arm_pushdown"
+    ],
+    "arms cable single arm reverse grip pushdown": [
+      "arms_cable_single_arm_reverse_grip_pushdown"
+    ],
+    "arms cable triceps kickback": [
+      "arms_cable_triceps_kickback"
+    ],
+    "arms cable triceps pushdown straight bar": [
+      "arms_cable_triceps_pushdown_straight_bar"
+    ],
+    "arms dumbbell alternating curl": [
+      "arms_dumbbell_alternating_curl"
+    ],
+    "arms dumbbell concentration curl": [
+      "arms_dumbbell_concentration_curl"
+    ],
+    "arms dumbbell cross body hammer curl": [
+      "arms_dumbbell_cross_body_hammer_curl"
+    ],
+    "arms dumbbell curl": [
+      "arms_dumbbell_curl"
+    ],
+    "arms dumbbell farmer carry": [
+      "arms_dumbbell_farmer_carry"
+    ],
+    "arms dumbbell hammer curl": [
+      "arms_dumbbell_hammer_curl"
+    ],
+    "arms dumbbell incline curl": [
+      "arms_dumbbell_incline_curl"
+    ],
+    "arms dumbbell kickback": [
+      "arms_dumbbell_kickback"
+    ],
+    "arms dumbbell overhead triceps extension": [
+      "arms_dumbbell_overhead_triceps_extension"
+    ],
+    "arms dumbbell preacher curl": [
+      "arms_dumbbell_preacher_curl"
+    ],
+    "arms dumbbell reverse wrist curl": [
+      "arms_dumbbell_reverse_wrist_curl"
+    ],
+    "arms dumbbell single arm overhead extension": [
+      "arms_dumbbell_single_arm_overhead_extension"
+    ],
+    "arms dumbbell single arm skull crusher": [
+      "arms_dumbbell_single_arm_skull_crusher"
+    ],
+    "arms dumbbell skull crusher": [
+      "arms_dumbbell_skull_crusher"
+    ],
+    "arms dumbbell spider curl": [
+      "arms_dumbbell_spider_curl"
+    ],
+    "arms dumbbell wrist curl": [
+      "arms_dumbbell_wrist_curl"
+    ],
+    "arms dumbbell zottman curl": [
+      "arms_dumbbell_zottman_curl"
+    ],
+    "arms kettlebell farmer carry": [
+      "arms_kettlebell_farmer_carry"
+    ],
+    "arms machine assisted dip": [
+      "arms_machine_assisted_dip"
+    ],
+    "arms machine biceps curl": [
+      "arms_machine_biceps_curl"
+    ],
+    "arms machine dip press": [
+      "arms_machine_dip_press"
+    ],
+    "arms machine preacher curl": [
+      "arms_machine_preacher_curl"
+    ],
+    "arms machine triceps extension": [
+      "arms_machine_triceps_extension"
+    ],
+    "arms other gripper": [
+      "arms_other_gripper"
+    ],
+    "arms plate pinch hold": [
+      "arms_plate_pinch_hold"
+    ],
+    "arnold press": [
+      "shoulders_dumbbell_arnold_press"
+    ],
+    "assisted dip": [
+      "arms_machine_assisted_dip"
+    ],
+    "assisted pull up": [
+      "back_machine_assisted_pull_up"
+    ],
+    "back band assisted pull up": [
+      "back_band_assisted_pull_up"
+    ],
+    "back band lat pulldown": [
+      "back_band_lat_pulldown"
+    ],
+    "back band row": [
+      "back_band_row"
+    ],
+    "back barbell bent over row": [
+      "back_barbell_bent_over_row"
+    ],
+    "back barbell deadlift": [
+      "back_barbell_deadlift"
+    ],
+    "back barbell landmine row": [
+      "back_barbell_landmine_row"
+    ],
+    "back barbell pendlay row": [
+      "back_barbell_pendlay_row"
+    ],
+    "back barbell rack pull": [
+      "back_barbell_rack_pull"
+    ],
+    "back barbell shrug": [
+      "back_barbell_shrug"
+    ],
+    "back barbell snatch grip deadlift": [
+      "back_barbell_snatch_grip_deadlift"
+    ],
+    "back barbell t bar row": [
+      "back_barbell_t_bar_row"
+    ],
+    "back barbell yates row": [
+      "back_barbell_yates_row"
+    ],
+    "back bodyweight back extension": [
+      "back_bodyweight_back_extension"
+    ],
+    "back bodyweight chin up": [
+      "back_bodyweight_chin_up"
+    ],
+    "back bodyweight inverted row": [
+      "back_bodyweight_inverted_row"
+    ],
+    "back bodyweight neutral grip pull up": [
+      "back_bodyweight_neutral_grip_pull_up"
+    ],
+    "back bodyweight pull up": [
+      "back_bodyweight_pull_up"
+    ],
+    "back bodyweight reverse hyperextension": [
+      "back_bodyweight_reverse_hyperextension"
+    ],
+    "back bodyweight scapular pull up": [
+      "back_bodyweight_scapular_pull_up"
+    ],
+    "back bodyweight wide grip pull up": [
+      "back_bodyweight_wide_grip_pull_up"
+    ],
+    "back cable high row": [
+      "back_cable_high_row"
+    ],
+    "back cable kneeling pullover": [
+      "back_cable_kneeling_pullover"
+    ],
+    "back cable seated row": [
+      "back_cable_seated_row"
+    ],
+    "back cable shrug": [
+      "back_cable_shrug"
+    ],
+    "back cable single arm high row": [
+      "back_cable_single_arm_high_row"
+    ],
+    "back cable single arm lat pulldown": [
+      "back_cable_single_arm_lat_pulldown"
+    ],
+    "back cable single arm row": [
+      "back_cable_single_arm_row"
+    ],
+    "back cable single arm straight arm pulldown": [
+      "back_cable_single_arm_straight_arm_pulldown"
+    ],
+    "back cable straight arm pulldown": [
+      "back_cable_straight_arm_pulldown"
+    ],
+    "back dumbbell chest supported row": [
+      "back_dumbbell_chest_supported_row"
+    ],
+    "back dumbbell incline row": [
+      "back_dumbbell_incline_row"
+    ],
+    "back dumbbell kroc row": [
+      "back_dumbbell_kroc_row"
+    ],
+    "back dumbbell one arm row": [
+      "back_dumbbell_one_arm_row"
+    ],
+    "back dumbbell pullover": [
+      "back_dumbbell_pullover"
+    ],
+    "back dumbbell renegade row": [
+      "back_dumbbell_renegade_row"
+    ],
+    "back dumbbell shrug": [
+      "back_dumbbell_shrug"
+    ],
+    "back dumbbell single arm chest supported row": [
+      "back_dumbbell_single_arm_chest_supported_row"
+    ],
+    "back extension machine": [
+      "back_machine_back_extension"
+    ],
+    "back kettlebell one arm row": [
+      "back_kettlebell_one_arm_row"
+    ],
+    "back machine assisted pull up": [
+      "back_machine_assisted_pull_up"
+    ],
+    "back machine back extension": [
+      "back_machine_back_extension"
+    ],
+    "back machine chest supported row": [
+      "back_machine_chest_supported_row"
+    ],
+    "back machine high row": [
+      "back_machine_high_row"
+    ],
+    "back machine iso lateral row": [
+      "back_machine_iso_lateral_row"
+    ],
+    "back machine lat pulldown": [
+      "back_machine_lat_pulldown"
+    ],
+    "back machine low row": [
+      "back_machine_low_row"
+    ],
+    "back machine neutral grip lat pulldown": [
+      "back_machine_neutral_grip_lat_pulldown"
+    ],
+    "back machine pullover": [
+      "back_machine_pullover"
+    ],
+    "back machine reverse grip lat pulldown": [
+      "back_machine_reverse_grip_lat_pulldown"
+    ],
+    "back machine reverse hyperextension": [
+      "back_machine_reverse_hyperextension"
+    ],
+    "back machine seated row": [
+      "back_machine_seated_row"
+    ],
+    "back machine shrug": [
+      "back_machine_shrug"
+    ],
+    "back machine t bar row": [
+      "back_machine_t_bar_row"
+    ],
+    "back machine wide grip lat pulldown": [
+      "back_machine_wide_grip_lat_pulldown"
+    ],
+    "back plate loaded row": [
+      "back_plate_loaded_row"
+    ],
+    "band assisted pull up": [
+      "back_band_assisted_pull_up"
+    ],
+    "band chest fly": [
+      "chest_band_chest_fly"
+    ],
+    "band chest press": [
+      "chest_band_chest_press"
+    ],
+    "band crunch": [
+      "abs_band_crunch"
+    ],
+    "band curl": [
+      "arms_band_curl"
+    ],
+    "band face pull": [
+      "shoulders_band_face_pull"
+    ],
+    "band glute bridge": [
+      "legs_band_glute_bridge"
+    ],
+    "band glute kickback": [
+      "legs_band_kickback"
+    ],
+    "band hammer curl": [
+      "arms_band_hammer_curl"
+    ],
+    "band hip abduction": [
+      "legs_band_hip_abduction"
+    ],
+    "band hip thrust": [
+      "legs_band_hip_thrust"
+    ],
+    "band lat pulldown": [
+      "back_band_lat_pulldown"
+    ],
+    "band lateral raise": [
+      "shoulders_band_lateral_raise"
+    ],
+    "band lateral walk": [
+      "legs_band_lateral_walk"
+    ],
+    "band leg curl": [
+      "legs_band_leg_curl"
+    ],
+    "band overhead triceps extension": [
+      "arms_band_overhead_triceps_extension"
+    ],
+    "band pallof press": [
+      "abs_band_pallof_press"
+    ],
+    "band pull apart": [
+      "shoulders_band_pull_apart"
+    ],
+    "band resisted push up": [
+      "chest_band_push_up"
+    ],
+    "band row": [
+      "back_band_row"
+    ],
+    "band triceps pushdown": [
+      "arms_band_triceps_pushdown"
+    ],
+    "barbell back squat": [
+      "legs_barbell_back_squat"
+    ],
+    "barbell bent over row": [
+      "back_barbell_bent_over_row"
+    ],
+    "barbell bulgarian split squat": [
+      "legs_barbell_bulgarian_split_squat"
+    ],
+    "barbell curl": [
+      "arms_barbell_curl"
+    ],
+    "barbell deadlift": [
+      "back_barbell_deadlift"
+    ],
+    "barbell decline bench press": [
+      "chest_barbell_decline_bench_press"
+    ],
+    "barbell drag curl": [
+      "arms_barbell_drag_curl"
+    ],
+    "barbell flat bench press": [
+      "chest_barbell_flat_bench_press"
+    ],
+    "barbell floor press": [
+      "chest_barbell_floor_press"
+    ],
+    "barbell front raise": [
+      "shoulders_barbell_front_raise"
+    ],
+    "barbell front squat": [
+      "legs_barbell_front_squat"
+    ],
+    "barbell glute bridge": [
+      "legs_barbell_glute_bridge"
+    ],
+    "barbell good morning": [
+      "legs_barbell_good_morning"
+    ],
+    "barbell guillotine press": [
+      "chest_barbell_guillotine_press"
+    ],
+    "barbell hip thrust": [
+      "legs_barbell_hip_thrust"
+    ],
+    "barbell incline bench press": [
+      "chest_barbell_incline_bench_press"
+    ],
+    "barbell overhead press": [
+      "shoulders_barbell_overhead_press"
+    ],
+    "barbell pause bench press": [
+      "chest_barbell_pause_bench_press"
+    ],
+    "barbell push press": [
+      "shoulders_barbell_push_press"
+    ],
+    "barbell reverse curl": [
+      "arms_barbell_reverse_curl"
+    ],
+    "barbell reverse lunge": [
+      "legs_barbell_reverse_lunge"
+    ],
+    "barbell reverse wrist curl": [
+      "arms_barbell_reverse_wrist_curl"
+    ],
+    "barbell rollout": [
+      "abs_barbell_rollout"
+    ],
+    "barbell romanian deadlift": [
+      "legs_barbell_romanian_deadlift"
+    ],
+    "barbell shrug": [
+      "back_barbell_shrug"
+    ],
+    "barbell skull crusher": [
+      "arms_barbell_skull_crusher"
+    ],
+    "barbell spider curl": [
+      "arms_barbell_spider_curl"
+    ],
+    "barbell standing calf raise": [
+      "legs_barbell_standing_calf_raise"
+    ],
+    "barbell stiff leg deadlift": [
+      "legs_barbell_stiff_leg_deadlift"
+    ],
+    "barbell t bar row": [
+      "back_barbell_t_bar_row"
+    ],
+    "barbell upright row": [
+      "shoulders_barbell_upright_row"
+    ],
+    "barbell walking lunge": [
+      "legs_barbell_walking_lunge"
+    ],
+    "barbell wrist curl": [
+      "arms_barbell_wrist_curl"
+    ],
+    "bayesian cable curl": [
+      "arms_cable_bayesian_curl"
+    ],
+    "behind the neck press": [
+      "shoulders_barbell_behind_neck_press"
+    ],
+    "belt squat": [
+      "legs_machine_belt_squat"
+    ],
+    "bench dip": [
+      "arms_bodyweight_bench_dip"
+    ],
+    "bent over dumbbell lateral raise": [
+      "shoulders_dumbbell_bent_over_lateral_raise"
+    ],
+    "bicycle crunch": [
+      "abs_bodyweight_bicycle_crunch"
+    ],
+    "bodyweight back extension": [
+      "back_bodyweight_back_extension"
+    ],
+    "bodyweight bulgarian split squat": [
+      "legs_bodyweight_bulgarian_split_squat"
+    ],
+    "bodyweight glute bridge": [
+      "legs_bodyweight_glute_bridge"
+    ],
+    "bodyweight lunge": [
+      "legs_bodyweight_lunge"
+    ],
+    "bodyweight reverse hyperextension": [
+      "back_bodyweight_reverse_hyperextension"
+    ],
+    "bodyweight reverse lunge": [
+      "legs_bodyweight_reverse_lunge"
+    ],
+    "bodyweight squat": [
+      "legs_bodyweight_squat"
+    ],
+    "bodyweight standing calf raise": [
+      "legs_bodyweight_standing_calf_raise"
+    ],
+    "bodyweight step up": [
+      "legs_bodyweight_step_up"
+    ],
+    "box squat": [
+      "legs_barbell_box_squat"
+    ],
+    "bradford press": [
+      "shoulders_barbell_bradford_press"
+    ],
+    "cable crossover": [
+      "chest_cable_crossover"
+    ],
+    "cable crunch": [
+      "abs_cable_crunch"
+    ],
+    "cable curl": [
+      "arms_cable_curl"
+    ],
+    "cable external rotation": [
+      "shoulders_cable_external_rotation"
+    ],
+    "cable face pull": [
+      "shoulders_cable_face_pull"
+    ],
+    "cable front raise": [
+      "shoulders_cable_front_raise"
+    ],
+    "cable glute kickback": [
+      "legs_cable_glute_kickback"
+    ],
+    "cable high row": [
+      "back_cable_high_row"
+    ],
+    "cable high to low fly": [
+      "chest_cable_high_to_low_fly"
+    ],
+    "cable hip abduction": [
+      "legs_cable_hip_abduction"
+    ],
+    "cable hip adduction": [
+      "legs_cable_hip_adduction"
+    ],
+    "cable leg curl": [
+      "legs_cable_leg_curl"
+    ],
+    "cable low to high fly": [
+      "chest_cable_low_to_high_fly"
+    ],
+    "cable overhead triceps extension": [
+      "arms_cable_overhead_triceps_extension"
+    ],
+    "cable pallof press": [
+      "abs_cable_pallof_press"
+    ],
+    "cable preacher curl": [
+      "arms_cable_preacher_curl"
+    ],
+    "cable pull through": [
+      "legs_cable_pull_through"
+    ],
+    "cable rear delt fly": [
+      "shoulders_cable_rear_delt_fly"
+    ],
+    "cable reverse crunch": [
+      "abs_cable_reverse_crunch"
+    ],
+    "cable reverse grip pushdown": [
+      "arms_cable_reverse_grip_pushdown"
+    ],
+    "cable rope hammer curl": [
+      "arms_cable_rope_hammer_curl"
+    ],
+    "cable rope pushdown": [
+      "arms_cable_rope_pushdown"
+    ],
+    "cable shrug": [
+      "back_cable_shrug"
+    ],
+    "cable standing chest press": [
+      "chest_cable_standing_chest_press"
+    ],
+    "cable straight bar pushdown": [
+      "arms_cable_triceps_pushdown_straight_bar"
+    ],
+    "cable triceps kickback": [
+      "arms_cable_triceps_kickback"
+    ],
+    "cable upright row": [
+      "shoulders_cable_upright_row"
+    ],
+    "cable woodchop": [
+      "abs_cable_woodchop"
+    ],
+    "cable y raise": [
+      "shoulders_cable_y_raise"
+    ],
+    "captain’s chair knee raise": [
+      "abs_bodyweight_captains_chair_knee_raise"
+    ],
+    "captain’s chair leg raise": [
+      "abs_machine_captains_chair"
+    ],
+    "chest band chest fly": [
+      "chest_band_chest_fly"
+    ],
+    "chest band chest press": [
+      "chest_band_chest_press"
+    ],
+    "chest band push up": [
+      "chest_band_push_up"
+    ],
+    "chest barbell decline bench press": [
+      "chest_barbell_decline_bench_press"
+    ],
+    "chest barbell flat bench press": [
+      "chest_barbell_flat_bench_press"
+    ],
+    "chest barbell floor press": [
+      "chest_barbell_floor_press"
+    ],
+    "chest barbell guillotine press": [
+      "chest_barbell_guillotine_press"
+    ],
+    "chest barbell incline bench press": [
+      "chest_barbell_incline_bench_press"
+    ],
+    "chest barbell pause bench press": [
+      "chest_barbell_pause_bench_press"
+    ],
+    "chest bodyweight chest dip": [
+      "chest_bodyweight_chest_dip"
+    ],
+    "chest bodyweight decline push up": [
+      "chest_bodyweight_decline_push_up"
+    ],
+    "chest bodyweight incline push up": [
+      "chest_bodyweight_incline_push_up"
+    ],
+    "chest bodyweight push up": [
+      "chest_bodyweight_push_up"
+    ],
+    "chest bodyweight weighted push up": [
+      "chest_bodyweight_weighted_push_up"
+    ],
+    "chest bodyweight wide push up": [
+      "chest_bodyweight_wide_push_up"
+    ],
+    "chest cable crossover": [
+      "chest_cable_crossover"
+    ],
+    "chest cable high to low fly": [
+      "chest_cable_high_to_low_fly"
+    ],
+    "chest cable low to high fly": [
+      "chest_cable_low_to_high_fly"
+    ],
+    "chest cable single arm chest press": [
+      "chest_cable_single_arm_chest_press"
+    ],
+    "chest cable single arm fly": [
+      "chest_cable_single_arm_fly"
+    ],
+    "chest cable single arm high to low fly": [
+      "chest_cable_single_arm_high_to_low_fly"
+    ],
+    "chest cable single arm low to high fly": [
+      "chest_cable_single_arm_low_to_high_fly"
+    ],
+    "chest cable standing chest press": [
+      "chest_cable_standing_chest_press"
+    ],
+    "chest dip": [
+      "chest_bodyweight_chest_dip"
+    ],
+    "chest dumbbell decline bench press": [
+      "chest_dumbbell_decline_bench_press"
+    ],
+    "chest dumbbell decline fly": [
+      "chest_dumbbell_decline_fly"
+    ],
+    "chest dumbbell flat bench press": [
+      "chest_dumbbell_flat_bench_press"
+    ],
+    "chest dumbbell flat fly": [
+      "chest_dumbbell_flat_fly"
+    ],
+    "chest dumbbell incline bench press": [
+      "chest_dumbbell_incline_bench_press"
+    ],
+    "chest dumbbell incline fly": [
+      "chest_dumbbell_incline_fly"
+    ],
+    "chest dumbbell neutral grip press": [
+      "chest_dumbbell_neutral_grip_press"
+    ],
+    "chest dumbbell pullover": [
+      "chest_dumbbell_pullover"
+    ],
+    "chest dumbbell single arm bench press": [
+      "chest_dumbbell_single_arm_bench_press"
+    ],
+    "chest dumbbell single arm incline press": [
+      "chest_dumbbell_single_arm_incline_press"
+    ],
+    "chest dumbbell squeeze press": [
+      "chest_dumbbell_squeeze_press"
+    ],
+    "chest machine chest fly": [
+      "chest_machine_chest_fly"
+    ],
+    "chest machine chest press": [
+      "chest_machine_chest_press"
+    ],
+    "chest machine decline chest press": [
+      "chest_machine_decline_chest_press"
+    ],
+    "chest machine incline chest press": [
+      "chest_machine_incline_chest_press"
+    ],
+    "chest machine iso lateral chest press": [
+      "chest_machine_iso_lateral_chest_press"
+    ],
+    "chest machine pec deck fly": [
+      "chest_machine_pec_deck_fly"
+    ],
+    "chest machine plate loaded chest press": [
+      "chest_machine_plate_loaded_chest_press"
+    ],
+    "chest machine plate loaded incline press": [
+      "chest_machine_plate_loaded_incline_press"
+    ],
+    "chest plate squeeze press": [
+      "chest_plate_squeeze_press"
+    ],
+    "chest smith decline bench press": [
+      "chest_smith_decline_bench_press"
+    ],
+    "chest smith flat bench press": [
+      "chest_smith_flat_bench_press"
+    ],
+    "chest smith incline bench press": [
+      "chest_smith_incline_bench_press"
+    ],
+    "chin up": [
+      "back_bodyweight_chin_up"
+    ],
+    "close grip bench press": [
+      "arms_barbell_close_grip_bench_press"
+    ],
+    "close grip push up": [
+      "arms_bodyweight_close_grip_push_up"
+    ],
+    "concentration curl": [
+      "arms_dumbbell_concentration_curl"
+    ],
+    "cross body cable triceps extension": [
+      "arms_cable_crossbody_triceps_extension"
+    ],
+    "cross body hammer curl": [
+      "arms_dumbbell_cross_body_hammer_curl"
+    ],
+    "crunch": [
+      "abs_bodyweight_crunch"
+    ],
+    "dead bug": [
+      "abs_bodyweight_dead_bug"
+    ],
+    "dead hang": [
+      "arms_bodyweight_dead_hang"
+    ],
+    "decline push up": [
+      "chest_bodyweight_decline_push_up"
+    ],
+    "diamond push up": [
+      "arms_bodyweight_diamond_push_up"
+    ],
+    "dip": [
+      "arms_bodyweight_dip"
+    ],
+    "dumbbell bulgarian split squat": [
+      "legs_dumbbell_bulgarian_split_squat"
+    ],
+    "dumbbell chest supported row": [
+      "back_dumbbell_chest_supported_row"
+    ],
+    "dumbbell cuban press": [
+      "shoulders_dumbbell_cuban_press"
+    ],
+    "dumbbell curl": [
+      "arms_dumbbell_curl"
+    ],
+    "dumbbell decline bench press": [
+      "chest_dumbbell_decline_bench_press"
+    ],
+    "dumbbell decline fly": [
+      "chest_dumbbell_decline_fly"
+    ],
+    "dumbbell farmer carry": [
+      "arms_dumbbell_farmer_carry"
+    ],
+    "dumbbell flat bench press": [
+      "chest_dumbbell_flat_bench_press"
+    ],
+    "dumbbell flat fly": [
+      "chest_dumbbell_flat_fly"
+    ],
+    "dumbbell front raise": [
+      "shoulders_dumbbell_front_raise"
+    ],
+    "dumbbell goblet squat": [
+      "legs_dumbbell_goblet_squat"
+    ],
+    "dumbbell hammer curl": [
+      "arms_dumbbell_hammer_curl"
+    ],
+    "dumbbell high pull": [
+      "shoulders_dumbbell_high_pull"
+    ],
+    "dumbbell hip thrust": [
+      "legs_dumbbell_hip_thrust"
+    ],
+    "dumbbell incline bench press": [
+      "chest_dumbbell_incline_bench_press"
+    ],
+    "dumbbell incline fly": [
+      "chest_dumbbell_incline_fly"
+    ],
+    "dumbbell kickback": [
+      "arms_dumbbell_kickback"
+    ],
+    "dumbbell lat pullover": [
+      "back_dumbbell_pullover"
+    ],
+    "dumbbell lateral raise": [
+      "shoulders_dumbbell_lateral_raise"
+    ],
+    "dumbbell lunge": [
+      "legs_dumbbell_lunge"
+    ],
+    "dumbbell neutral grip press": [
+      "chest_dumbbell_neutral_grip_press"
+    ],
+    "dumbbell overhead triceps extension": [
+      "arms_dumbbell_overhead_triceps_extension"
+    ],
+    "dumbbell preacher curl": [
+      "arms_dumbbell_preacher_curl"
+    ],
+    "dumbbell pullover": [
+      "chest_dumbbell_pullover"
+    ],
+    "dumbbell rear delt fly": [
+      "shoulders_dumbbell_rear_delt_fly"
+    ],
+    "dumbbell reverse lunge": [
+      "legs_dumbbell_reverse_lunge"
+    ],
+    "dumbbell reverse wrist curl": [
+      "arms_dumbbell_reverse_wrist_curl"
+    ],
+    "dumbbell romanian deadlift": [
+      "legs_dumbbell_romanian_deadlift"
+    ],
+    "dumbbell russian twist": [
+      "abs_dumbbell_russian_twist"
+    ],
+    "dumbbell shoulder press": [
+      "shoulders_dumbbell_shoulder_press"
+    ],
+    "dumbbell shrug": [
+      "back_dumbbell_shrug"
+    ],
+    "dumbbell side bend": [
+      "abs_dumbbell_side_bend"
+    ],
+    "dumbbell skull crusher": [
+      "arms_dumbbell_skull_crusher"
+    ],
+    "dumbbell spider curl": [
+      "arms_dumbbell_spider_curl"
+    ],
+    "dumbbell squat": [
+      "legs_dumbbell_squat"
+    ],
+    "dumbbell squeeze press": [
+      "chest_dumbbell_squeeze_press"
+    ],
+    "dumbbell standing calf raise": [
+      "legs_dumbbell_standing_calf_raise"
+    ],
+    "dumbbell step up": [
+      "legs_dumbbell_step_up"
+    ],
+    "dumbbell stiff leg deadlift": [
+      "legs_dumbbell_stiff_leg_deadlift"
+    ],
+    "dumbbell sumo squat": [
+      "legs_dumbbell_sumo_squat"
+    ],
+    "dumbbell walking lunge": [
+      "legs_dumbbell_walking_lunge"
+    ],
+    "dumbbell weighted sit up": [
+      "abs_dumbbell_weighted_sit_up"
+    ],
+    "dumbbell wrist curl": [
+      "arms_dumbbell_wrist_curl"
+    ],
+    "ez bar curl": [
+      "arms_barbell_ez_bar_curl"
+    ],
+    "ez bar overhead triceps extension": [
+      "arms_barbell_overhead_triceps_extension"
+    ],
+    "ez bar preacher curl": [
+      "arms_barbell_preacher_curl"
+    ],
+    "ez bar skull crusher": [
+      "arms_barbell_ez_skull_crusher"
+    ],
+    "glute ham raise": [
+      "legs_machine_glute_ham_raise"
+    ],
+    "glute kickback machine": [
+      "legs_machine_glute_kickback"
+    ],
+    "hack squat machine": [
+      "legs_machine_hack_squat"
+    ],
+    "hand gripper": [
+      "arms_other_gripper"
+    ],
+    "handstand push up": [
+      "shoulders_bodyweight_handstand_push_up"
+    ],
+    "hanging knee raise": [
+      "abs_bodyweight_hanging_knee_raise"
+    ],
+    "hanging leg raise": [
+      "abs_bodyweight_hanging_leg_raise"
+    ],
+    "high bar back squat": [
+      "legs_barbell_high_bar_squat"
+    ],
+    "high row machine": [
+      "back_machine_high_row"
+    ],
+    "hip abduction machine": [
+      "legs_machine_hip_abduction"
+    ],
+    "hip adduction machine": [
+      "legs_machine_hip_adduction"
+    ],
+    "hip thrust machine": [
+      "legs_machine_hip_thrust"
+    ],
+    "hollow body hold": [
+      "abs_bodyweight_hollow_hold"
+    ],
+    "incline dumbbell curl": [
+      "arms_dumbbell_incline_curl"
+    ],
+    "incline dumbbell lateral raise": [
+      "shoulders_dumbbell_incline_lateral_raise"
+    ],
+    "incline dumbbell row": [
+      "back_dumbbell_incline_row"
+    ],
+    "incline push up": [
+      "chest_bodyweight_incline_push_up"
+    ],
+    "inverted row": [
+      "back_bodyweight_inverted_row"
+    ],
+    "iso lateral chest press": [
+      "chest_machine_iso_lateral_chest_press"
+    ],
+    "iso lateral row": [
+      "back_machine_iso_lateral_row"
+    ],
+    "jm 프레스": [
+      "arms_barbell_jm_press"
+    ],
+    "jm press": [
+      "arms_barbell_jm_press"
+    ],
+    "jump squat": [
+      "legs_bodyweight_jump_squat"
+    ],
+    "kettlebell bottoms up press": [
+      "shoulders_kettlebell_bottoms_up_press"
+    ],
+    "kettlebell farmer carry": [
+      "arms_kettlebell_farmer_carry"
+    ],
+    "kettlebell goblet squat": [
+      "legs_kettlebell_goblet_squat"
+    ],
+    "kettlebell shoulder press": [
+      "shoulders_kettlebell_press"
+    ],
+    "kettlebell sumo deadlift": [
+      "legs_kettlebell_sumo_deadlift"
+    ],
+    "kettlebell swing": [
+      "legs_kettlebell_swing"
+    ],
+    "kettlebell windmill": [
+      "abs_kettlebell_windmill"
+    ],
+    "kneeling cable pullover": [
+      "back_cable_kneeling_pullover"
+    ],
+    "kroc row": [
+      "back_dumbbell_kroc_row"
+    ],
+    "landmine rotation": [
+      "abs_barbell_landmine_rotation"
+    ],
+    "landmine row": [
+      "back_barbell_landmine_row"
+    ],
+    "lat pulldown": [
+      "back_machine_lat_pulldown"
+    ],
+    "leaning dumbbell lateral raise": [
+      "shoulders_dumbbell_leaning_lateral_raise"
+    ],
+    "leg extension": [
+      "legs_machine_leg_extension"
+    ],
+    "leg press": [
+      "legs_machine_leg_press"
+    ],
+    "leg press calf raise": [
+      "legs_machine_leg_press_calf_raise"
+    ],
+    "leg raise": [
+      "abs_bodyweight_leg_raise"
+    ],
+    "legs band glute bridge": [
+      "legs_band_glute_bridge"
+    ],
+    "legs band hip abduction": [
+      "legs_band_hip_abduction"
+    ],
+    "legs band hip thrust": [
+      "legs_band_hip_thrust"
+    ],
+    "legs band kickback": [
+      "legs_band_kickback"
+    ],
+    "legs band lateral walk": [
+      "legs_band_lateral_walk"
+    ],
+    "legs band leg curl": [
+      "legs_band_leg_curl"
+    ],
+    "legs barbell back squat": [
+      "legs_barbell_back_squat"
+    ],
+    "legs barbell box squat": [
+      "legs_barbell_box_squat"
+    ],
+    "legs barbell bulgarian split squat": [
+      "legs_barbell_bulgarian_split_squat"
+    ],
+    "legs barbell front squat": [
+      "legs_barbell_front_squat"
+    ],
+    "legs barbell glute bridge": [
+      "legs_barbell_glute_bridge"
+    ],
+    "legs barbell good morning": [
+      "legs_barbell_good_morning"
+    ],
+    "legs barbell high bar squat": [
+      "legs_barbell_high_bar_squat"
+    ],
+    "legs barbell hip thrust": [
+      "legs_barbell_hip_thrust"
+    ],
+    "legs barbell low bar squat": [
+      "legs_barbell_low_bar_squat"
+    ],
+    "legs barbell reverse lunge": [
+      "legs_barbell_reverse_lunge"
+    ],
+    "legs barbell romanian deadlift": [
+      "legs_barbell_romanian_deadlift"
+    ],
+    "legs barbell standing calf raise": [
+      "legs_barbell_standing_calf_raise"
+    ],
+    "legs barbell stiff leg deadlift": [
+      "legs_barbell_stiff_leg_deadlift"
+    ],
+    "legs barbell sumo deadlift": [
+      "legs_barbell_sumo_deadlift"
+    ],
+    "legs barbell walking lunge": [
+      "legs_barbell_walking_lunge"
+    ],
+    "legs barbell zercher squat": [
+      "legs_barbell_zercher_squat"
+    ],
+    "legs bodyweight bulgarian split squat": [
+      "legs_bodyweight_bulgarian_split_squat"
+    ],
+    "legs bodyweight glute bridge": [
+      "legs_bodyweight_glute_bridge"
+    ],
+    "legs bodyweight jump squat": [
+      "legs_bodyweight_jump_squat"
+    ],
+    "legs bodyweight lunge": [
+      "legs_bodyweight_lunge"
+    ],
+    "legs bodyweight nordic hamstring curl": [
+      "legs_bodyweight_nordic_hamstring_curl"
+    ],
+    "legs bodyweight pistol squat": [
+      "legs_bodyweight_pistol_squat"
+    ],
+    "legs bodyweight reverse lunge": [
+      "legs_bodyweight_reverse_lunge"
+    ],
+    "legs bodyweight single leg calf raise": [
+      "legs_bodyweight_single_leg_calf_raise"
+    ],
+    "legs bodyweight single leg glute bridge": [
+      "legs_bodyweight_single_leg_glute_bridge"
+    ],
+    "legs bodyweight sissy squat": [
+      "legs_bodyweight_sissy_squat"
+    ],
+    "legs bodyweight squat": [
+      "legs_bodyweight_squat"
+    ],
+    "legs bodyweight standing calf raise": [
+      "legs_bodyweight_standing_calf_raise"
+    ],
+    "legs bodyweight step up": [
+      "legs_bodyweight_step_up"
+    ],
+    "legs bodyweight wall sit": [
+      "legs_bodyweight_wall_sit"
+    ],
+    "legs cable glute kickback": [
+      "legs_cable_glute_kickback"
+    ],
+    "legs cable hip abduction": [
+      "legs_cable_hip_abduction"
+    ],
+    "legs cable hip adduction": [
+      "legs_cable_hip_adduction"
+    ],
+    "legs cable leg curl": [
+      "legs_cable_leg_curl"
+    ],
+    "legs cable pull through": [
+      "legs_cable_pull_through"
+    ],
+    "legs dumbbell bulgarian split squat": [
+      "legs_dumbbell_bulgarian_split_squat"
+    ],
+    "legs dumbbell goblet squat": [
+      "legs_dumbbell_goblet_squat"
+    ],
+    "legs dumbbell hip thrust": [
+      "legs_dumbbell_hip_thrust"
+    ],
+    "legs dumbbell lunge": [
+      "legs_dumbbell_lunge"
+    ],
+    "legs dumbbell reverse lunge": [
+      "legs_dumbbell_reverse_lunge"
+    ],
+    "legs dumbbell romanian deadlift": [
+      "legs_dumbbell_romanian_deadlift"
+    ],
+    "legs dumbbell single leg calf raise": [
+      "legs_dumbbell_single_leg_calf_raise"
+    ],
+    "legs dumbbell single leg hip thrust": [
+      "legs_dumbbell_single_leg_hip_thrust"
+    ],
+    "legs dumbbell single leg romanian deadlift": [
+      "legs_dumbbell_single_leg_romanian_deadlift"
+    ],
+    "legs dumbbell squat": [
+      "legs_dumbbell_squat"
+    ],
+    "legs dumbbell standing calf raise": [
+      "legs_dumbbell_standing_calf_raise"
+    ],
+    "legs dumbbell step up": [
+      "legs_dumbbell_step_up"
+    ],
+    "legs dumbbell stiff leg deadlift": [
+      "legs_dumbbell_stiff_leg_deadlift"
+    ],
+    "legs dumbbell sumo squat": [
+      "legs_dumbbell_sumo_squat"
+    ],
+    "legs dumbbell walking lunge": [
+      "legs_dumbbell_walking_lunge"
+    ],
+    "legs kettlebell goblet squat": [
+      "legs_kettlebell_goblet_squat"
+    ],
+    "legs kettlebell sumo deadlift": [
+      "legs_kettlebell_sumo_deadlift"
+    ],
+    "legs kettlebell swing": [
+      "legs_kettlebell_swing"
+    ],
+    "legs machine belt squat": [
+      "legs_machine_belt_squat"
+    ],
+    "legs machine glute ham raise": [
+      "legs_machine_glute_ham_raise"
+    ],
+    "legs machine glute kickback": [
+      "legs_machine_glute_kickback"
+    ],
+    "legs machine hack squat": [
+      "legs_machine_hack_squat"
+    ],
+    "legs machine hip abduction": [
+      "legs_machine_hip_abduction"
+    ],
+    "legs machine hip adduction": [
+      "legs_machine_hip_adduction"
+    ],
+    "legs machine hip thrust": [
+      "legs_machine_hip_thrust"
+    ],
+    "legs machine leg extension": [
+      "legs_machine_leg_extension"
+    ],
+    "legs machine leg press": [
+      "legs_machine_leg_press"
+    ],
+    "legs machine leg press calf raise": [
+      "legs_machine_leg_press_calf_raise"
+    ],
+    "legs machine lying leg curl": [
+      "legs_machine_lying_leg_curl"
+    ],
+    "legs machine pendulum squat": [
+      "legs_machine_pendulum_squat"
+    ],
+    "legs machine seated calf raise": [
+      "legs_machine_seated_calf_raise"
+    ],
+    "legs machine seated leg curl": [
+      "legs_machine_seated_leg_curl"
+    ],
+    "legs machine single leg extension": [
+      "legs_machine_single_leg_extension"
+    ],
+    "legs machine single leg lying curl": [
+      "legs_machine_single_leg_lying_curl"
+    ],
+    "legs machine single leg press": [
+      "legs_machine_single_leg_press"
+    ],
+    "legs machine single leg seated curl": [
+      "legs_machine_single_leg_seated_curl"
+    ],
+    "legs machine standing calf raise": [
+      "legs_machine_standing_calf_raise"
+    ],
+    "legs machine standing leg curl": [
+      "legs_machine_standing_leg_curl"
+    ],
+    "legs machine v squat": [
+      "legs_machine_v_squat"
+    ],
+    "legs plate goblet squat": [
+      "legs_plate_goblet_squat"
+    ],
+    "legs smith bulgarian split squat": [
+      "legs_smith_bulgarian_split_squat"
+    ],
+    "legs smith calf raise": [
+      "legs_smith_calf_raise"
+    ],
+    "legs smith front squat": [
+      "legs_smith_front_squat"
+    ],
+    "legs smith hip thrust": [
+      "legs_smith_hip_thrust"
+    ],
+    "legs smith romanian deadlift": [
+      "legs_smith_romanian_deadlift"
+    ],
+    "legs smith split squat": [
+      "legs_smith_split_squat"
+    ],
+    "legs smith squat": [
+      "legs_smith_squat"
+    ],
+    "low bar back squat": [
+      "legs_barbell_low_bar_squat"
+    ],
+    "low row machine": [
+      "back_machine_low_row"
+    ],
+    "lying leg curl": [
+      "legs_machine_lying_leg_curl"
+    ],
+    "machine biceps curl": [
+      "arms_machine_biceps_curl"
+    ],
+    "machine chest fly": [
+      "chest_machine_chest_fly"
+    ],
+    "machine chest press": [
+      "chest_machine_chest_press"
+    ],
+    "machine chest supported row": [
+      "back_machine_chest_supported_row"
+    ],
+    "machine decline chest press": [
+      "chest_machine_decline_chest_press"
+    ],
+    "machine dip press": [
+      "arms_machine_dip_press"
+    ],
+    "machine incline chest press": [
+      "chest_machine_incline_chest_press"
+    ],
+    "machine lateral raise": [
+      "shoulders_machine_lateral_raise"
+    ],
+    "machine preacher curl": [
+      "arms_machine_preacher_curl"
+    ],
+    "machine pullover": [
+      "back_machine_pullover"
+    ],
+    "machine rear delt fly": [
+      "shoulders_machine_rear_delt_fly"
+    ],
+    "machine shoulder press": [
+      "shoulders_machine_shoulder_press"
+    ],
+    "machine shrug": [
+      "back_machine_shrug"
+    ],
+    "machine t bar row": [
+      "back_machine_t_bar_row"
+    ],
+    "machine triceps extension": [
+      "arms_machine_triceps_extension"
+    ],
+    "neutral grip lat pulldown": [
+      "back_machine_neutral_grip_lat_pulldown"
+    ],
+    "neutral grip pull up": [
+      "back_bodyweight_neutral_grip_pull_up"
+    ],
+    "nordic hamstring curl": [
+      "legs_bodyweight_nordic_hamstring_curl"
+    ],
+    "one arm dumbbell row": [
+      "back_dumbbell_one_arm_row"
+    ],
+    "one arm kettlebell row": [
+      "back_kettlebell_one_arm_row"
+    ],
+    "overhead cable curl": [
+      "arms_cable_overhead_curl"
+    ],
+    "pec deck fly": [
+      "chest_machine_pec_deck_fly"
+    ],
+    "pendlay row": [
+      "back_barbell_pendlay_row"
+    ],
+    "pendulum squat": [
+      "legs_machine_pendulum_squat"
+    ],
+    "pike push up": [
+      "shoulders_bodyweight_pike_push_up"
+    ],
+    "pistol squat": [
+      "legs_bodyweight_pistol_squat"
+    ],
+    "plank": [
+      "abs_bodyweight_plank"
+    ],
+    "plank shoulder tap": [
+      "abs_bodyweight_plank_shoulder_tap"
+    ],
+    "plate front raise": [
+      "shoulders_plate_front_raise"
+    ],
+    "plate goblet squat": [
+      "legs_plate_goblet_squat"
+    ],
+    "plate loaded chest press": [
+      "chest_machine_plate_loaded_chest_press"
+    ],
+    "plate loaded incline press": [
+      "chest_machine_plate_loaded_incline_press"
+    ],
+    "plate loaded shoulder press": [
+      "shoulders_machine_plate_loaded_shoulder_press"
+    ],
+    "plate overhead press": [
+      "shoulders_plate_overhead_press"
+    ],
+    "plate pinch hold": [
+      "arms_plate_pinch_hold"
+    ],
+    "plate row": [
+      "back_plate_loaded_row"
+    ],
+    "plate russian twist": [
+      "abs_plate_russian_twist"
+    ],
+    "plate side bend": [
+      "abs_plate_side_bend"
+    ],
+    "plate squeeze press": [
+      "chest_plate_squeeze_press"
+    ],
+    "plate weighted crunch": [
+      "abs_plate_weighted_crunch"
+    ],
+    "prone y raise": [
+      "shoulders_bodyweight_prone_y_raise"
+    ],
+    "pull up": [
+      "back_bodyweight_pull_up"
+    ],
+    "push up": [
+      "chest_bodyweight_push_up"
+    ],
+    "rack pull": [
+      "back_barbell_rack_pull"
+    ],
+    "renegade row": [
+      "back_dumbbell_renegade_row"
+    ],
+    "reverse crunch": [
+      "abs_bodyweight_reverse_crunch"
+    ],
+    "reverse grip lat pulldown": [
+      "back_machine_reverse_grip_lat_pulldown"
+    ],
+    "reverse hyperextension machine": [
+      "back_machine_reverse_hyperextension"
+    ],
+    "reverse pec deck": [
+      "shoulders_machine_reverse_pec_deck"
+    ],
+    "roman chair sit up": [
+      "abs_other_roman_chair_sit_up"
+    ],
+    "russian twist": [
+      "abs_bodyweight_russian_twist"
+    ],
+    "scapular pull up": [
+      "back_bodyweight_scapular_pull_up"
+    ],
+    "seated barbell shoulder press": [
+      "shoulders_barbell_seated_overhead_press"
+    ],
+    "seated cable row": [
+      "back_cable_seated_row"
+    ],
+    "seated calf raise machine": [
+      "legs_machine_seated_calf_raise"
+    ],
+    "seated dumbbell shoulder press": [
+      "shoulders_dumbbell_seated_shoulder_press"
+    ],
+    "seated leg curl": [
+      "legs_machine_seated_leg_curl"
+    ],
+    "seated row machine": [
+      "back_machine_seated_row"
+    ],
+    "shoulders band face pull": [
+      "shoulders_band_face_pull"
+    ],
+    "shoulders band lateral raise": [
+      "shoulders_band_lateral_raise"
+    ],
+    "shoulders band pull apart": [
+      "shoulders_band_pull_apart"
+    ],
+    "shoulders barbell behind neck press": [
+      "shoulders_barbell_behind_neck_press"
+    ],
+    "shoulders barbell bradford press": [
+      "shoulders_barbell_bradford_press"
+    ],
+    "shoulders barbell front raise": [
+      "shoulders_barbell_front_raise"
+    ],
+    "shoulders barbell overhead press": [
+      "shoulders_barbell_overhead_press"
+    ],
+    "shoulders barbell push press": [
+      "shoulders_barbell_push_press"
+    ],
+    "shoulders barbell seated overhead press": [
+      "shoulders_barbell_seated_overhead_press"
+    ],
+    "shoulders barbell single arm landmine press": [
+      "shoulders_barbell_single_arm_landmine_press"
+    ],
+    "shoulders barbell upright row": [
+      "shoulders_barbell_upright_row"
+    ],
+    "shoulders bodyweight handstand push up": [
+      "shoulders_bodyweight_handstand_push_up"
+    ],
+    "shoulders bodyweight pike push up": [
+      "shoulders_bodyweight_pike_push_up"
+    ],
+    "shoulders bodyweight prone y raise": [
+      "shoulders_bodyweight_prone_y_raise"
+    ],
+    "shoulders bodyweight wall handstand push up": [
+      "shoulders_bodyweight_wall_handstand_push_up"
+    ],
+    "shoulders cable external rotation": [
+      "shoulders_cable_external_rotation"
+    ],
+    "shoulders cable face pull": [
+      "shoulders_cable_face_pull"
+    ],
+    "shoulders cable front raise": [
+      "shoulders_cable_front_raise"
+    ],
+    "shoulders cable lateral raise": [
+      "shoulders_cable_lateral_raise"
+    ],
+    "shoulders cable rear delt fly": [
+      "shoulders_cable_rear_delt_fly"
+    ],
+    "shoulders cable single arm front raise": [
+      "shoulders_cable_single_arm_front_raise"
+    ],
+    "shoulders cable single arm rear delt fly": [
+      "shoulders_cable_single_arm_rear_delt_fly"
+    ],
+    "shoulders cable single arm y raise": [
+      "shoulders_cable_single_arm_y_raise"
+    ],
+    "shoulders cable upright row": [
+      "shoulders_cable_upright_row"
+    ],
+    "shoulders cable y raise": [
+      "shoulders_cable_y_raise"
+    ],
+    "shoulders dumbbell arnold press": [
+      "shoulders_dumbbell_arnold_press"
+    ],
+    "shoulders dumbbell bent over lateral raise": [
+      "shoulders_dumbbell_bent_over_lateral_raise"
+    ],
+    "shoulders dumbbell cuban press": [
+      "shoulders_dumbbell_cuban_press"
+    ],
+    "shoulders dumbbell front raise": [
+      "shoulders_dumbbell_front_raise"
+    ],
+    "shoulders dumbbell high pull": [
+      "shoulders_dumbbell_high_pull"
+    ],
+    "shoulders dumbbell incline lateral raise": [
+      "shoulders_dumbbell_incline_lateral_raise"
+    ],
+    "shoulders dumbbell lateral raise": [
+      "shoulders_dumbbell_lateral_raise"
+    ],
+    "shoulders dumbbell leaning lateral raise": [
+      "shoulders_dumbbell_leaning_lateral_raise"
+    ],
+    "shoulders dumbbell rear delt fly": [
+      "shoulders_dumbbell_rear_delt_fly"
+    ],
+    "shoulders dumbbell seated shoulder press": [
+      "shoulders_dumbbell_seated_shoulder_press"
+    ],
+    "shoulders dumbbell shoulder press": [
+      "shoulders_dumbbell_shoulder_press"
+    ],
+    "shoulders dumbbell single arm lateral raise": [
+      "shoulders_dumbbell_single_arm_lateral_raise"
+    ],
+    "shoulders dumbbell single arm shoulder press": [
+      "shoulders_dumbbell_single_arm_shoulder_press"
+    ],
+    "shoulders kettlebell bottoms up press": [
+      "shoulders_kettlebell_bottoms_up_press"
+    ],
+    "shoulders kettlebell press": [
+      "shoulders_kettlebell_press"
+    ],
+    "shoulders machine lateral raise": [
+      "shoulders_machine_lateral_raise"
+    ],
+    "shoulders machine plate loaded shoulder press": [
+      "shoulders_machine_plate_loaded_shoulder_press"
+    ],
+    "shoulders machine rear delt fly": [
+      "shoulders_machine_rear_delt_fly"
+    ],
+    "shoulders machine reverse pec deck": [
+      "shoulders_machine_reverse_pec_deck"
+    ],
+    "shoulders machine shoulder press": [
+      "shoulders_machine_shoulder_press"
+    ],
+    "shoulders plate front raise": [
+      "shoulders_plate_front_raise"
+    ],
+    "shoulders plate overhead press": [
+      "shoulders_plate_overhead_press"
+    ],
+    "shoulders smith behind neck press": [
+      "shoulders_smith_behind_neck_press"
+    ],
+    "shoulders smith shoulder press": [
+      "shoulders_smith_shoulder_press"
+    ],
+    "shoulders smith upright row": [
+      "shoulders_smith_upright_row"
+    ],
+    "side plank": [
+      "abs_bodyweight_side_plank"
+    ],
+    "single arm cable chest press": [
+      "chest_cable_single_arm_chest_press"
+    ],
+    "single arm cable curl": [
+      "arms_cable_single_arm_curl"
+    ],
+    "single arm cable fly": [
+      "chest_cable_single_arm_fly"
+    ],
+    "single arm cable front raise": [
+      "shoulders_cable_single_arm_front_raise"
+    ],
+    "single arm cable hammer curl": [
+      "arms_cable_single_arm_hammer_curl"
+    ],
+    "single arm cable high row": [
+      "back_cable_single_arm_high_row"
+    ],
+    "single arm cable high to low fly": [
+      "chest_cable_single_arm_high_to_low_fly"
+    ],
+    "single arm cable lateral raise": [
+      "shoulders_cable_lateral_raise"
+    ],
+    "single arm cable low to high fly": [
+      "chest_cable_single_arm_low_to_high_fly"
+    ],
+    "single arm cable overhead triceps extension": [
+      "arms_cable_single_arm_overhead_triceps_extension"
+    ],
+    "single arm cable preacher curl": [
+      "arms_cable_single_arm_preacher_curl"
+    ],
+    "single arm cable pushdown": [
+      "arms_cable_single_arm_pushdown"
+    ],
+    "single arm cable rear delt fly": [
+      "shoulders_cable_single_arm_rear_delt_fly"
+    ],
+    "single arm cable row": [
+      "back_cable_single_arm_row"
+    ],
+    "single arm cable y raise": [
+      "shoulders_cable_single_arm_y_raise"
+    ],
+    "single arm chest supported dumbbell row": [
+      "back_dumbbell_single_arm_chest_supported_row"
+    ],
+    "single arm dumbbell chest press": [
+      "chest_dumbbell_single_arm_bench_press"
+    ],
+    "single arm dumbbell lateral raise": [
+      "shoulders_dumbbell_single_arm_lateral_raise"
+    ],
+    "single arm dumbbell overhead extension": [
+      "arms_dumbbell_single_arm_overhead_extension"
+    ],
+    "single arm dumbbell shoulder press": [
+      "shoulders_dumbbell_single_arm_shoulder_press"
+    ],
+    "single arm dumbbell skull crusher": [
+      "arms_dumbbell_single_arm_skull_crusher"
+    ],
+    "single arm incline dumbbell chest press": [
+      "chest_dumbbell_single_arm_incline_press"
+    ],
+    "single arm landmine press": [
+      "shoulders_barbell_single_arm_landmine_press"
+    ],
+    "single arm lat pulldown": [
+      "back_cable_single_arm_lat_pulldown"
+    ],
+    "single arm reverse grip cable pushdown": [
+      "arms_cable_single_arm_reverse_grip_pushdown"
+    ],
+    "single arm straight arm cable pulldown": [
+      "back_cable_single_arm_straight_arm_pulldown"
+    ],
+    "single leg calf raise": [
+      "legs_bodyweight_single_leg_calf_raise"
+    ],
+    "single leg dumbbell calf raise": [
+      "legs_dumbbell_single_leg_calf_raise"
+    ],
+    "single leg dumbbell hip thrust": [
+      "legs_dumbbell_single_leg_hip_thrust"
+    ],
+    "single leg dumbbell romanian deadlift": [
+      "legs_dumbbell_single_leg_romanian_deadlift"
+    ],
+    "single leg extension": [
+      "legs_machine_single_leg_extension"
+    ],
+    "single leg glute bridge": [
+      "legs_bodyweight_single_leg_glute_bridge"
+    ],
+    "single leg lying leg curl": [
+      "legs_machine_single_leg_lying_curl"
+    ],
+    "single leg press": [
+      "legs_machine_single_leg_press"
+    ],
+    "single leg seated leg curl": [
+      "legs_machine_single_leg_seated_curl"
+    ],
+    "sissy squat": [
+      "legs_bodyweight_sissy_squat"
+    ],
+    "sit up": [
+      "abs_bodyweight_sit_up"
+    ],
+    "smith machine behind the neck press": [
+      "shoulders_smith_behind_neck_press"
+    ],
+    "smith machine bulgarian split squat": [
+      "legs_smith_bulgarian_split_squat"
+    ],
+    "smith machine calf raise": [
+      "legs_smith_calf_raise"
+    ],
+    "smith machine decline bench press": [
+      "chest_smith_decline_bench_press"
+    ],
+    "smith machine flat bench press": [
+      "chest_smith_flat_bench_press"
+    ],
+    "smith machine front squat": [
+      "legs_smith_front_squat"
+    ],
+    "smith machine hip thrust": [
+      "legs_smith_hip_thrust"
+    ],
+    "smith machine incline bench press": [
+      "chest_smith_incline_bench_press"
+    ],
+    "smith machine romanian deadlift": [
+      "legs_smith_romanian_deadlift"
+    ],
+    "smith machine shoulder press": [
+      "shoulders_smith_shoulder_press"
+    ],
+    "smith machine split squat": [
+      "legs_smith_split_squat"
+    ],
+    "smith machine squat": [
+      "legs_smith_squat"
+    ],
+    "smith machine upright row": [
+      "shoulders_smith_upright_row"
+    ],
+    "snatch grip deadlift": [
+      "back_barbell_snatch_grip_deadlift"
+    ],
+    "standing cable crunch": [
+      "abs_cable_standing_crunch"
+    ],
+    "standing calf raise machine": [
+      "legs_machine_standing_calf_raise"
+    ],
+    "standing leg curl": [
+      "legs_machine_standing_leg_curl"
+    ],
+    "straight arm pulldown": [
+      "back_cable_straight_arm_pulldown"
+    ],
+    "sumo deadlift": [
+      "legs_barbell_sumo_deadlift"
+    ],
+    "toe touch crunch": [
+      "abs_bodyweight_toe_touch"
+    ],
+    "torso rotation machine": [
+      "abs_machine_torso_rotation"
+    ],
+    "turkish get up": [
+      "abs_kettlebell_turkish_get_up"
+    ],
+    "v squat machine": [
+      "legs_machine_v_squat"
+    ],
+    "v up": [
+      "abs_bodyweight_v_up"
+    ],
+    "wall handstand push up": [
+      "shoulders_bodyweight_wall_handstand_push_up"
+    ],
+    "wall sit": [
+      "legs_bodyweight_wall_sit"
+    ],
+    "weighted push up": [
+      "chest_bodyweight_weighted_push_up"
+    ],
+    "wide grip lat pulldown": [
+      "back_machine_wide_grip_lat_pulldown"
+    ],
+    "wide grip pull up": [
+      "back_bodyweight_wide_grip_pull_up"
+    ],
+    "wide push up": [
+      "chest_bodyweight_wide_push_up"
+    ],
+    "yates row": [
+      "back_barbell_yates_row"
+    ],
+    "zercher squat": [
+      "legs_barbell_zercher_squat"
+    ],
+    "zottman curl": [
+      "arms_dumbbell_zottman_curl"
+    ]
+  }
+}

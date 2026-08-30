@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 42;
+    public static final int DATABASE_VERSION = 43;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -46,6 +46,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createAthleteNutritionTables(db);
         createDevelopmentTables(db);
         createSupplementTables(db);
+        upgradeExerciseFamilyIdentitySchema(db);
         reconcileVerifiedFoodCatalog(db);
     }
 
@@ -106,6 +107,10 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "primary_sub_part_snapshot TEXT, " +
                 "equipment_snapshot TEXT, " +
                 "record_type TEXT NOT NULL, " +
+                "family_id TEXT, " +
+                "preset_id TEXT, " +
+                "canonical_variant_key TEXT, " +
+                "visual_variant_key TEXT, " +
                 "memo TEXT, " +
                 "created_at TEXT NOT NULL, " +
                 "updated_at TEXT NOT NULL, " +
@@ -126,6 +131,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "rest_seconds INTEGER, " +
                 "assisted_weight_kg REAL, " +
                 "added_weight_kg REAL, " +
+                "load_state TEXT, " +
                 "is_completed INTEGER NOT NULL, " +
                 "rpe INTEGER, " +
                 "rir INTEGER, " +
@@ -278,6 +284,10 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "primary_sub_part TEXT NOT NULL, " +
                 "equipment TEXT NOT NULL, " +
                 "record_type TEXT NOT NULL, " +
+                "family_id TEXT, " +
+                "preset_id TEXT, " +
+                "canonical_variant_key TEXT, " +
+                "visual_variant_key TEXT, " +
                 "order_index INTEGER NOT NULL, " +
                 "device_id TEXT NOT NULL, " +
                 "created_at TEXT NOT NULL, " +
@@ -1044,6 +1054,28 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 42) {
             upgradeDiningOutComponentSchema(db);
         }
+        if (oldVersion < 43) {
+            upgradeExerciseFamilyIdentitySchema(db);
+        }
+    }
+
+    /** Adds family/preset/variant snapshots and keeps load semantics at set granularity. */
+    private void upgradeExerciseFamilyIdentitySchema(SQLiteDatabase db) {
+        addColumnIfMissing(db, "workout_exercises", "family_id", "TEXT");
+        addColumnIfMissing(db, "workout_exercises", "preset_id", "TEXT");
+        addColumnIfMissing(db, "workout_exercises", "canonical_variant_key", "TEXT");
+        addColumnIfMissing(db, "workout_exercises", "visual_variant_key", "TEXT");
+        addColumnIfMissing(db, "workout_sets", "load_state", "TEXT");
+        addColumnIfMissing(db, "routine_exercises", "family_id", "TEXT");
+        addColumnIfMissing(db, "routine_exercises", "preset_id", "TEXT");
+        addColumnIfMissing(db, "routine_exercises", "canonical_variant_key", "TEXT");
+        addColumnIfMissing(db, "routine_exercises", "visual_variant_key", "TEXT");
+        db.execSQL("CREATE INDEX IF NOT EXISTS workout_exercises_family_variant_idx " +
+                "ON workout_exercises(user_id, family_id, canonical_variant_key)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS routine_exercises_family_variant_idx " +
+                "ON routine_exercises(user_id, family_id, canonical_variant_key)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS workout_sets_load_state_idx " +
+                "ON workout_sets(user_id, load_state)");
     }
 
     /** Generalizes the v38 add-on relationship and adds the actual-meal provision snapshot. */
@@ -1844,5 +1876,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (tableExists(db, tableName) && !hasColumn(db, tableName, columnName)) {
             db.execSQL("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + definition);
         }
+    }
+
+    public Context applicationContext() {
+        return appContext;
     }
 }

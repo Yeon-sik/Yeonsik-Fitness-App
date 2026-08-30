@@ -16,7 +16,8 @@ public final class ExerciseMasterAdapter {
                 exercise.bodyPart,
                 exercise.equipmentType,
                 exercise.primarySubPartNameKo,
-                exercise.recordType
+                exercise.recordType,
+                exercise.familyIdentity
         );
     }
 }

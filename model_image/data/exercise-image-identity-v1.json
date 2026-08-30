@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "fallbackOrder": [
+    "exact_visual_variant",
+    "family_default",
+    "placeholder"
+  ],
+  "imageVariants": [
+    {
+      "familyId": "pull_up",
+      "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"back\",\"bodyweight\",\"pull\",\"up\"]}",
+      "illustrationKey": "pull-up",
+      "sceneFile": "../exercise-images/scenes/pull-up.scene.json",
+      "frameFiles": {
+        "A": "../exercise-images/final/pull-up-a.png",
+        "B": "../exercise-images/final/pull-up-b.png"
+      }
+    },
+    {
+      "familyId": "biceps_curl",
+      "visualVariantKey": "{\"equipment\":\"dumbbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"arms\",\"dumbbell\",\"curl\"]}",
+      "illustrationKey": "dumbbell-curl",
+      "sceneFile": "../exercise-images/scenes/dumbbell-curl.scene.json",
+      "frameFiles": {
+        "A": "../exercise-images/final/dumbbell-curl-a.png",
+        "B": "../exercise-images/final/dumbbell-curl-b.png"
+      },
+      "equipmentViews": {
+        "dumbbell": "elevated_front_three_quarter"
+      }
+    },
+    {
+      "familyId": "squat",
+      "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"legs\",\"barbell\",\"back\",\"squat\"]}",
+      "illustrationKey": "barbell-back-squat",
+      "sceneFile": "../exercise-images/scenes/barbell-back-squat.scene.json",
+      "frameFiles": {
+        "A": "../exercise-images/final/barbell-back-squat-a.png",
+        "B": "../exercise-images/final/barbell-back-squat-b.png"
+      },
+      "equipmentViews": {
+        "barbell": "slight_rising_three_quarter"
+      }
+    },
+    {
+      "familyId": "bench_press",
+      "visualVariantKey": "{\"angle\":\"flat\",\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"legacyTokens\":[\"chest\",\"barbell\",\"bench\",\"press\"]}",
+      "illustrationKey": "barbell-flat-bench-press",
+      "sceneFile": "../exercise-images/scenes/barbell-flat-bench-press.scene.json",
+      "frameFiles": {
+        "A": "../exercise-images/final/barbell-flat-bench-press-a.png",
+        "B": "../exercise-images/final/barbell-flat-bench-press-b.png"
+      },
+      "equipmentViews": {
+        "flat_bench": "elevated_front_three_quarter",
+        "barbell": "slight_rising_three_quarter"
+      }
+    }
+  ],
+  "familyDefaults": [
+    {
+      "familyId": "pull_up",
+      "illustrationKey": "pull-up",
+      "sceneFile": "../exercise-images/scenes/pull-up.scene.json",
+      "frameFiles": {
+        "A": "../exercise-images/final/pull-up-a.png",
+        "B": "../exercise-images/final/pull-up-b.png"
+      }
+    },
+    {
+      "familyId": "biceps_curl",
+      "illustrationKey": "dumbbell-curl",
+      "sceneFile": "../exercise-images/scenes/dumbbell-curl.scene.json",
+      "frameFiles": {
+        "A": "../exercise-images/final/dumbbell-curl-a.png",
+        "B": "../exercise-images/final/dumbbell-curl-b.png"
+      },
+      "equipmentViews": {
+        "dumbbell": "elevated_front_three_quarter"
+      }
+    },
+    {
+      "familyId": "squat",
+      "illustrationKey": "barbell-back-squat",
+      "sceneFile": "../exercise-images/scenes/barbell-back-squat.scene.json",
+      "frameFiles": {
+        "A": "../exercise-images/final/barbell-back-squat-a.png",
+        "B": "../exercise-images/final/barbell-back-squat-b.png"
+      },
+      "equipmentViews": {
+        "barbell": "slight_rising_three_quarter"
+      }
+    },
+    {
+      "familyId": "bench_press",
+      "illustrationKey": "barbell-flat-bench-press",
+      "sceneFile": "../exercise-images/scenes/barbell-flat-bench-press.scene.json",
+      "frameFiles": {
+        "A": "../exercise-images/final/barbell-flat-bench-press-a.png",
+        "B": "../exercise-images/final/barbell-flat-bench-press-b.png"
+      },
+      "equipmentViews": {
+        "flat_bench": "elevated_front_three_quarter",
+        "barbell": "slight_rising_three_quarter"
+      }
+    }
+  ]
+}

@@ -67,6 +67,7 @@ class ExerciseIllustrationColorBox {
 
 def exerciseIllustrationSourceDir = rootProject.file("model_image/exercise-images")
 def exerciseIllustrationScenesDir = new File(exerciseIllustrationSourceDir, "scenes")
+def exerciseIllustrationIdentityFile = rootProject.file("model_image/data/exercise-image-identity-v1.json")
 def exerciseIllustrationGeneratedResDir = file("$buildDir/generated/exercise-illustration/res")
 def exerciseIllustrationGeneratedJavaDir = file("$buildDir/generated/exercise-illustration/src/main/java")
 def exerciseIllustrationGeneratedPackageDir = new File(
@@ -251,6 +252,7 @@ def downscaleExerciseIllustration = { File inputFile, File outputFile, int maxDi
 
 tasks.register("generateExerciseIllustrationAssets") {
     inputs.files(fileTree(exerciseIllustrationScenesDir) { include("*.scene.json") })
+    inputs.file(exerciseIllustrationIdentityFile)
     inputs.dir(exerciseIllustrationSourceDir)
     outputs.dir(exerciseIllustrationGeneratedResDir)
     outputs.dir(exerciseIllustrationGeneratedJavaDir)
@@ -272,6 +274,17 @@ tasks.register("generateExerciseIllustrationAssets") {
         Set<String> constantNames = [] as Set
         Set<String> resourceNames = [] as Set
         List<Map> scenes = []
+        Map imageIdentity = (Map) new JsonSlurper().parse(exerciseIllustrationIdentityFile)
+        Map<String, Set<String>> illustrationKeysByScene = [:].withDefault { [] as Set<String> }
+        List<Map> imageIdentityEntries = []
+        imageIdentityEntries.addAll((imageIdentity.imageVariants ?: []) as List<Map>)
+        imageIdentityEntries.addAll((imageIdentity.familyDefaults ?: []) as List<Map>)
+        imageIdentityEntries.each { Map identity ->
+            if (identity.sceneFile && identity.illustrationKey) {
+                File identityScene = new File(exerciseIllustrationIdentityFile.parentFile, identity.sceneFile as String).canonicalFile
+                illustrationKeysByScene[identityScene.path] << identity.illustrationKey as String
+            }
+        }
 
         sceneFiles.each { File sceneFile ->
             Map scene = (Map) new JsonSlurper().parse(sceneFile)
@@ -339,9 +352,16 @@ tasks.register("generateExerciseIllustrationAssets") {
                 throw new GradleException("preferredHeightDp must be positive in ${sceneFile.name}")
             }
 
+            Set<String> illustrationKeys = [] as Set<String>
+            illustrationKeys.addAll(illustrationKeysByScene[sceneFile.canonicalFile.path] ?: [])
+            if (scene.imageIdentity?.illustrationKey) {
+                illustrationKeys << scene.imageIdentity.illustrationKey as String
+            }
+
             scenes << [
                     exerciseId: exerciseId,
                     constantName: constantName,
+                    illustrationKeys: illustrationKeys.toList().sort(),
                     preferredHeightDp: preferredHeightDp,
                     frames: frames
             ]
@@ -367,6 +387,12 @@ tasks.register("generateExerciseIllustrationAssets") {
             }
         }
 
+        def lookupCondition = { Map scene ->
+            List<String> lookupKeys = [scene.constantName as String]
+            lookupKeys.addAll((scene.illustrationKeys as List<String>).collect { javaStringLiteral(it) })
+            lookupKeys.collect { String key -> "${key}.equals(exerciseId)" }.join(" || ")
+        }
+
         StringBuilder javaSource = new StringBuilder()
         javaSource.append("package com.yeonsik.fitnessapp.exercise;\n\n")
         javaSource.append("import com.yeonsik.fitnessapp.R;\n\n")
@@ -380,7 +406,7 @@ tasks.register("generateExerciseIllustrationAssets") {
         javaSource.append("    /** Returns the fixed A slot used by all exercise lists. */\n")
         javaSource.append("    public static int listPreviewDrawableFor(String exerciseId) {\n")
         scenes.each { Map scene ->
-            javaSource.append("        if (${scene.constantName}.equals(exerciseId)) {\n")
+            javaSource.append("        if (${lookupCondition(scene)}) {\n")
             javaSource.append("            return R.drawable.${scene.frames[0].resourceName};\n        }\n")
         }
         javaSource.append("        return 0;\n    }\n\n")
@@ -388,7 +414,7 @@ tasks.register("generateExerciseIllustrationAssets") {
         javaSource.append("    /** Returns the fixed A then B slots used by exercise detail. */\n")
         javaSource.append("    public static int[] detailDrawablesFor(String exerciseId) {\n")
         scenes.each { Map scene ->
-            javaSource.append("        if (${scene.constantName}.equals(exerciseId)) {\n")
+            javaSource.append("        if (${lookupCondition(scene)}) {\n")
             javaSource.append("            return new int[]{\n")
             scene.frames.eachWithIndex { Map frame, int index ->
                 String comma = index + 1 == scene.frames.size() ? "" : ","
@@ -400,7 +426,7 @@ tasks.register("generateExerciseIllustrationAssets") {
         javaSource.append("        return new int[0];\n    }\n\n")
         javaSource.append("    public static int[] frameDurationsMsFor(String exerciseId) {\n")
         scenes.each { Map scene ->
-            javaSource.append("        if (${scene.constantName}.equals(exerciseId)) {\n")
+            javaSource.append("        if (${lookupCondition(scene)}) {\n")
             javaSource.append("            return new int[]{")
             scene.frames.eachWithIndex { Map frame, int index ->
                 if (index > 0) {
@@ -414,7 +440,7 @@ tasks.register("generateExerciseIllustrationAssets") {
 
         javaSource.append("    public static int preferredHeightDp(String exerciseId) {\n")
         scenes.each { Map scene ->
-            javaSource.append("        if (${scene.constantName}.equals(exerciseId)) {\n")
+            javaSource.append("        if (${lookupCondition(scene)}) {\n")
             javaSource.append("            return ${scene.preferredHeightDp};\n        }\n")
         }
         javaSource.append("        return 280;\n    }\n")

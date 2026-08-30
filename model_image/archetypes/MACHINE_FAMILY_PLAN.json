@@ -1,0 +1,774 @@
+{
+  "schemaVersion": 1,
+  "status": "MACHINE_FAMILY_PLAN_APPROVED_SOURCE_PENDING",
+  "source": "MISSING_ASSET machine family approval",
+  "constraints": {
+    "noImageGenerationAdapter": true,
+    "noArchetypeCameraPoseChanges": true,
+    "noExerciseSpecificAssetPerExercise": true,
+    "existingViewIdsPreserved": true,
+    "hipThrustIndependentFromGluteKickback": true,
+    "oneCanonicalHipThrustMachinePerFamily": true
+  },
+  "familyPlans": [
+    {
+      "machineFamilyId": "chest_press_machine",
+      "label": "chest press machine family",
+      "assets": [
+        {
+          "machineFamilyId": "chest_press_machine",
+          "label": "chest press machine family",
+          "assetId": "chest_press_machine_flat_v1",
+          "type": "chest_press_machine",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/chest_press_machine_flat.png",
+          "finalPath": "final/chest_press_machine_flat.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "chest_press_machine",
+          "label": "chest press machine family",
+          "assetId": "chest_press_machine_incline_v1",
+          "type": "chest_press_machine",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/chest_press_machine_incline.png",
+          "finalPath": "final/chest_press_machine_incline.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "chest_press_machine",
+          "label": "chest press machine family",
+          "assetId": "chest_press_machine_decline_v1",
+          "type": "chest_press_machine",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/chest_press_machine_decline.png",
+          "finalPath": "final/chest_press_machine_decline.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "chest_press_machine",
+          "label": "chest press machine family",
+          "assetId": "iso_lateral_chest_press_v1",
+          "type": "iso_lateral_chest_press",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/iso_lateral_chest_press.png",
+          "finalPath": "final/iso_lateral_chest_press.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "chest_machine_decline_chest_press",
+          "exerciseName": "머신 디클라인 체스트 프레스",
+          "familyId": "chest_press",
+          "machineFamilyId": "chest_press_machine",
+          "canonicalAssetId": "chest_press_machine_decline_v1"
+        },
+        {
+          "exerciseId": "chest_machine_incline_chest_press",
+          "exerciseName": "머신 인클라인 체스트 프레스",
+          "familyId": "chest_press",
+          "machineFamilyId": "chest_press_machine",
+          "canonicalAssetId": "chest_press_machine_incline_v1"
+        },
+        {
+          "exerciseId": "chest_machine_chest_press",
+          "exerciseName": "머신 체스트 프레스",
+          "familyId": "chest_press",
+          "machineFamilyId": "chest_press_machine",
+          "canonicalAssetId": "chest_press_machine_flat_v1"
+        },
+        {
+          "exerciseId": "chest_machine_iso_lateral_chest_press",
+          "exerciseName": "아이소 레터럴 체스트 프레스",
+          "familyId": "chest_press",
+          "machineFamilyId": "chest_press_machine",
+          "canonicalAssetId": "iso_lateral_chest_press_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "machine_curl",
+      "label": "machine curl family",
+      "assets": [
+        {
+          "machineFamilyId": "machine_curl",
+          "label": "machine curl family",
+          "assetId": "machine_curl_v1",
+          "type": "machine_curl",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/machine_curl.png",
+          "finalPath": "final/machine_curl.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "machine_curl",
+          "label": "machine curl family",
+          "assetId": "preacher_curl_machine_v1",
+          "type": "preacher_curl_machine",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/preacher_curl_machine.png",
+          "finalPath": "final/preacher_curl_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "arms_machine_biceps_curl",
+          "exerciseName": "머신 바이셉스 컬",
+          "familyId": "biceps_curl",
+          "machineFamilyId": "machine_curl",
+          "canonicalAssetId": "machine_curl_v1"
+        },
+        {
+          "exerciseId": "arms_machine_preacher_curl",
+          "exerciseName": "머신 프리처 컬",
+          "familyId": "biceps_curl",
+          "machineFamilyId": "machine_curl",
+          "canonicalAssetId": "preacher_curl_machine_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "machine_row",
+      "label": "machine row family",
+      "assets": [
+        {
+          "machineFamilyId": "machine_row",
+          "label": "machine row family",
+          "assetId": "seated_row_machine_front_side_three_quarter_v1",
+          "type": "seated_row_machine",
+          "recommendedViewId": "front_side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "REUSE_EXISTING_CANONICAL",
+          "sourcePath": "final/seated_row_machine_front_side_three_quarter.png",
+          "finalPath": "final/seated_row_machine_front_side_three_quarter.png",
+          "promotionStatus": "ALREADY_PROMOTED",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "machine_row",
+          "label": "machine row family",
+          "assetId": "high_row_machine_v1",
+          "type": "high_row_machine",
+          "recommendedViewId": "front_side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/high_row_machine.png",
+          "finalPath": "final/high_row_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "machine_row",
+          "label": "machine row family",
+          "assetId": "t_bar_row_machine_v1",
+          "type": "t_bar_row_machine",
+          "recommendedViewId": "front_side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/t_bar_row_machine.png",
+          "finalPath": "final/t_bar_row_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "machine_row",
+          "label": "machine row family",
+          "assetId": "chest_supported_row_machine_v1",
+          "type": "chest_supported_row_machine",
+          "recommendedViewId": "front_side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/chest_supported_row_machine.png",
+          "finalPath": "final/chest_supported_row_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "machine_row",
+          "label": "machine row family",
+          "assetId": "iso_lateral_row_machine_v1",
+          "type": "iso_lateral_row_machine",
+          "recommendedViewId": "front_side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/iso_lateral_row_machine.png",
+          "finalPath": "final/iso_lateral_row_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "back_machine_chest_supported_row",
+          "exerciseName": "머신 체스트 서포티드 로우",
+          "familyId": "row",
+          "machineFamilyId": "machine_row",
+          "canonicalAssetId": "chest_supported_row_machine_v1"
+        },
+        {
+          "exerciseId": "back_machine_low_row",
+          "exerciseName": "로우 로우 머신",
+          "familyId": "row",
+          "machineFamilyId": "machine_row",
+          "canonicalAssetId": "seated_row_machine_front_side_three_quarter_v1"
+        },
+        {
+          "exerciseId": "back_machine_high_row",
+          "exerciseName": "하이 로우 머신",
+          "familyId": "row",
+          "machineFamilyId": "machine_row",
+          "canonicalAssetId": "high_row_machine_v1"
+        },
+        {
+          "exerciseId": "back_machine_t_bar_row",
+          "exerciseName": "머신 티바 로우",
+          "familyId": "row",
+          "machineFamilyId": "machine_row",
+          "canonicalAssetId": "t_bar_row_machine_v1"
+        },
+        {
+          "exerciseId": "back_machine_iso_lateral_row",
+          "exerciseName": "아이소 레터럴 로우",
+          "familyId": "row",
+          "machineFamilyId": "machine_row",
+          "canonicalAssetId": "iso_lateral_row_machine_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "machine_squat",
+      "label": "machine squat family",
+      "assets": [
+        {
+          "machineFamilyId": "machine_squat",
+          "label": "machine squat family",
+          "assetId": "belt_squat_machine_v1",
+          "type": "belt_squat_machine",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/belt_squat_machine.png",
+          "finalPath": "final/belt_squat_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "machine_squat",
+          "label": "machine squat family",
+          "assetId": "v_squat_machine_v1",
+          "type": "v_squat_machine",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/v_squat_machine.png",
+          "finalPath": "final/v_squat_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "machine_squat",
+          "label": "machine squat family",
+          "assetId": "pendulum_squat_machine_v1",
+          "type": "pendulum_squat_machine",
+          "recommendedViewId": "side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/pendulum_squat_machine.png",
+          "finalPath": "final/pendulum_squat_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "machine_squat",
+          "label": "machine squat family",
+          "assetId": "hack_squat_machine_v1",
+          "type": "hack_squat_machine",
+          "recommendedViewId": "side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/hack_squat_machine.png",
+          "finalPath": "final/hack_squat_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "legs_machine_belt_squat",
+          "exerciseName": "벨트 스쿼트",
+          "familyId": "machine_squat",
+          "machineFamilyId": "machine_squat",
+          "canonicalAssetId": "belt_squat_machine_v1"
+        },
+        {
+          "exerciseId": "legs_machine_v_squat",
+          "exerciseName": "브이 스쿼트 머신",
+          "familyId": "machine_squat",
+          "machineFamilyId": "machine_squat",
+          "canonicalAssetId": "v_squat_machine_v1"
+        },
+        {
+          "exerciseId": "legs_machine_pendulum_squat",
+          "exerciseName": "펜듈럼 스쿼트",
+          "familyId": "machine_squat",
+          "machineFamilyId": "machine_squat",
+          "canonicalAssetId": "pendulum_squat_machine_v1"
+        },
+        {
+          "exerciseId": "legs_machine_hack_squat",
+          "exerciseName": "핵 스쿼트 머신",
+          "familyId": "machine_squat",
+          "machineFamilyId": "machine_squat",
+          "canonicalAssetId": "hack_squat_machine_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "machine_shoulder_press",
+      "label": "machine shoulder press family",
+      "assets": [
+        {
+          "machineFamilyId": "machine_shoulder_press",
+          "label": "machine shoulder press family",
+          "assetId": "machine_shoulder_press_v1",
+          "type": "machine_shoulder_press",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/machine_shoulder_press.png",
+          "finalPath": "final/machine_shoulder_press.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "shoulders_machine_shoulder_press",
+          "exerciseName": "머신 숄더 프레스",
+          "familyId": "overhead_press",
+          "machineFamilyId": "machine_shoulder_press",
+          "canonicalAssetId": "machine_shoulder_press_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "machine_triceps_extension",
+      "label": "machine triceps extension family",
+      "assets": [
+        {
+          "machineFamilyId": "machine_triceps_extension",
+          "label": "machine triceps extension family",
+          "assetId": "machine_triceps_extension_v1",
+          "type": "machine_triceps_extension",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/machine_triceps_extension.png",
+          "finalPath": "final/machine_triceps_extension.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "arms_machine_triceps_extension",
+          "exerciseName": "머신 트라이셉스 익스텐션",
+          "familyId": "machine_triceps_extension",
+          "machineFamilyId": "machine_triceps_extension",
+          "canonicalAssetId": "machine_triceps_extension_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "machine_pullover",
+      "label": "machine pullover",
+      "assets": [
+        {
+          "machineFamilyId": "machine_pullover",
+          "label": "machine pullover",
+          "assetId": "machine_pullover_v1",
+          "type": "machine_pullover",
+          "recommendedViewId": "front_side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/machine_pullover.png",
+          "finalPath": "final/machine_pullover.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "back_machine_pullover",
+          "exerciseName": "머신 풀오버",
+          "familyId": "pullover",
+          "machineFamilyId": "machine_pullover",
+          "canonicalAssetId": "machine_pullover_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "ab_crunch_machine",
+      "label": "ab crunch machine",
+      "assets": [
+        {
+          "machineFamilyId": "ab_crunch_machine",
+          "label": "ab crunch machine",
+          "assetId": "ab_crunch_machine_v1",
+          "type": "ab_crunch_machine",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/ab_crunch_machine.png",
+          "finalPath": "final/ab_crunch_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "abs_machine_ab_crunch",
+          "exerciseName": "복근 크런치 머신",
+          "familyId": "crunch",
+          "machineFamilyId": "ab_crunch_machine",
+          "canonicalAssetId": "ab_crunch_machine_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "back_extension_machine",
+      "label": "back extension machine",
+      "assets": [
+        {
+          "machineFamilyId": "back_extension_machine",
+          "label": "back extension machine",
+          "assetId": "back_extension_machine_v1",
+          "type": "back_extension_machine",
+          "recommendedViewId": "side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/back_extension_machine.png",
+          "finalPath": "final/back_extension_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "back_machine_back_extension",
+          "exerciseName": "백 익스텐션 머신",
+          "familyId": "back_extension",
+          "machineFamilyId": "back_extension_machine",
+          "canonicalAssetId": "back_extension_machine_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "reverse_hyper_machine",
+      "label": "reverse hyper machine",
+      "assets": [
+        {
+          "machineFamilyId": "reverse_hyper_machine",
+          "label": "reverse hyper machine",
+          "assetId": "reverse_hyper_machine_v1",
+          "type": "reverse_hyper_machine",
+          "recommendedViewId": "side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/reverse_hyper_machine.png",
+          "finalPath": "final/reverse_hyper_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "back_machine_reverse_hyperextension",
+          "exerciseName": "리버스 하이퍼익스텐션 머신",
+          "familyId": "reverse_hyperextension",
+          "machineFamilyId": "reverse_hyper_machine",
+          "canonicalAssetId": "reverse_hyper_machine_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "glute_kickback_machine",
+      "label": "glute kickback machine",
+      "assets": [
+        {
+          "machineFamilyId": "glute_kickback_machine",
+          "label": "glute kickback machine",
+          "assetId": "glute_kickback_machine_v1",
+          "type": "glute_kickback_machine",
+          "recommendedViewId": "side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/glute_kickback_machine.png",
+          "finalPath": "final/glute_kickback_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "legs_machine_glute_kickback",
+          "exerciseName": "글루트 킥백 머신",
+          "familyId": "glute_kickback",
+          "machineFamilyId": "glute_kickback_machine",
+          "canonicalAssetId": "glute_kickback_machine_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "torso_rotation_machine",
+      "label": "torso rotation machine",
+      "assets": [
+        {
+          "machineFamilyId": "torso_rotation_machine",
+          "label": "torso rotation machine",
+          "assetId": "torso_rotation_machine_v1",
+          "type": "torso_rotation_machine",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/torso_rotation_machine.png",
+          "finalPath": "final/torso_rotation_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "abs_machine_torso_rotation",
+          "exerciseName": "토르소 로테이션 머신",
+          "familyId": "torso_rotation",
+          "machineFamilyId": "torso_rotation_machine",
+          "canonicalAssetId": "torso_rotation_machine_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "shrug_machine",
+      "label": "shrug machine",
+      "assets": [
+        {
+          "machineFamilyId": "shrug_machine",
+          "label": "shrug machine",
+          "assetId": "shrug_machine_v1",
+          "type": "shrug_machine",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/shrug_machine.png",
+          "finalPath": "final/shrug_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "back_machine_shrug",
+          "exerciseName": "머신 슈러그",
+          "familyId": "shrug",
+          "machineFamilyId": "shrug_machine",
+          "canonicalAssetId": "shrug_machine_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "other_machine_leg_curl",
+      "label": "기타 / machine leg curl family",
+      "assets": [
+        {
+          "machineFamilyId": "other_machine_leg_curl",
+          "label": "기타 / machine leg curl family",
+          "assetId": "standing_leg_curl_machine_v1",
+          "type": "standing_leg_curl_machine",
+          "recommendedViewId": "front_side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/standing_leg_curl_machine.png",
+          "finalPath": "final/standing_leg_curl_machine.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "legs_machine_standing_leg_curl",
+          "exerciseName": "스탠딩 레그 컬",
+          "familyId": "leg_curl",
+          "machineFamilyId": "other_machine_leg_curl",
+          "canonicalAssetId": "standing_leg_curl_machine_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "other_reverse_pec_deck",
+      "label": "기타 / reverse pec-deck family",
+      "assets": [
+        {
+          "machineFamilyId": "other_reverse_pec_deck",
+          "label": "기타 / reverse pec-deck family",
+          "assetId": "pec_deck_front_v1",
+          "type": "pec_deck",
+          "recommendedViewId": "front",
+          "renderClass": "fixed_machine",
+          "sourceAction": "REUSE_EXISTING_CANONICAL",
+          "sourcePath": "final/pec_deck_front.png",
+          "finalPath": "final/pec_deck_front.png",
+          "promotionStatus": "ALREADY_PROMOTED",
+          "reversePecDeckFallback": null
+        },
+        {
+          "machineFamilyId": "other_reverse_pec_deck",
+          "label": "기타 / reverse pec-deck family",
+          "assetId": "reverse_pec_deck_v1",
+          "type": "reverse_pec_deck",
+          "recommendedViewId": "rear_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/reverse_pec_deck.png",
+          "finalPath": "final/reverse_pec_deck.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": "CREATE_ONLY_IF_pec_deck_reverse_test_fails"
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "shoulders_machine_rear_delt_fly",
+          "exerciseName": "머신 리어 델트 플라이",
+          "familyId": "rear_delt_fly",
+          "machineFamilyId": "other_reverse_pec_deck",
+          "canonicalAssetId": "pec_deck_front_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "other_machine_dip_press",
+      "label": "기타 / machine dip press family",
+      "assets": [
+        {
+          "machineFamilyId": "other_machine_dip_press",
+          "label": "기타 / machine dip press family",
+          "assetId": "machine_dip_press_v1",
+          "type": "machine_dip_press",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/machine_dip_press.png",
+          "finalPath": "final/machine_dip_press.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "arms_machine_dip_press",
+          "exerciseName": "머신 딥 프레스",
+          "familyId": "machine_dip_press",
+          "machineFamilyId": "other_machine_dip_press",
+          "canonicalAssetId": "machine_dip_press_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "other_machine_lateral_raise",
+      "label": "기타 / machine lateral raise family",
+      "assets": [
+        {
+          "machineFamilyId": "other_machine_lateral_raise",
+          "label": "기타 / machine lateral raise family",
+          "assetId": "machine_lateral_raise_v1",
+          "type": "machine_lateral_raise",
+          "recommendedViewId": "front_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/machine_lateral_raise.png",
+          "finalPath": "final/machine_lateral_raise.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "shoulders_machine_lateral_raise",
+          "exerciseName": "머신 레터럴 레이즈",
+          "familyId": "lateral_raise",
+          "machineFamilyId": "other_machine_lateral_raise",
+          "canonicalAssetId": "machine_lateral_raise_v1"
+        }
+      ]
+    },
+    {
+      "machineFamilyId": "machine_hip_thrust",
+      "label": "machine hip thrust family",
+      "assets": [
+        {
+          "machineFamilyId": "machine_hip_thrust",
+          "label": "machine hip thrust family",
+          "assetId": "machine_hip_thrust_v1",
+          "type": "machine_hip_thrust",
+          "recommendedViewId": "side_three_quarter",
+          "renderClass": "fixed_machine",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/machine_hip_thrust.png",
+          "finalPath": "final/machine_hip_thrust.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
+          "reversePecDeckFallback": null
+        }
+      ],
+      "exercises": [
+        {
+          "exerciseId": "legs_machine_hip_thrust",
+          "exerciseName": "힙 쓰러스트 머신",
+          "familyId": "hip_thrust",
+          "machineFamilyId": "machine_hip_thrust",
+          "canonicalAssetId": "machine_hip_thrust_v1"
+        }
+      ]
+    }
+  ],
+  "decisions": {
+    "hipThrust": {
+      "machineFamilyId": "machine_hip_thrust",
+      "canonicalAssetId": "machine_hip_thrust_v1",
+      "recommendedViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "sharedExerciseIds": [
+        "legs_machine_hip_thrust"
+      ],
+      "notIntegratedWith": [
+        "glute_kickback_machine"
+      ]
+    }
+  },
+  "summary": {
+    "missingExerciseCount": 29,
+    "familyCount": 18,
+    "assetPlanCount": 30,
+    "sourceRequiredCount": 28,
+    "existingCanonicalReuseCount": 2,
+    "unresolvedMachineFamilyTodoCount": 0
+  }
+}

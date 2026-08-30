@@ -102,6 +102,9 @@ def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")
 tasks.register("copyExerciseMasterAssets", Copy) {
     from(rootProject.file("Fitness_Index.json"))
     from(rootProject.file("Fitness_Weight.json"))
+    from(rootProject.file("model_image/family/data/exercise-family-mapping-v1.json")) {
+        rename { "exercise_family_mapping_v1.json" }
+    }
     into(exerciseMasterAssetsDir)
 }
 

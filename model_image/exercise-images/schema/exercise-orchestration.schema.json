@@ -1,0 +1,283 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "exercise-orchestration.schema.json",
+  "title": "Fail-closed exercise image orchestration contract",
+  "type": "object",
+  "required": [
+    "contractType",
+    "schemaVersion",
+    "exerciseId",
+    "nameKo",
+    "slug",
+    "archetypeId",
+    "renderClass",
+    "canvas",
+    "camera",
+    "exerciseMetadata",
+    "metadataResolution",
+    "imageIdentity",
+    "muscleMapping",
+    "equipment",
+    "equipmentViews",
+    "frames",
+    "renderPolicy",
+    "generationContract"
+  ],
+  "properties": {
+    "contractType": { "const": "exercise-image-orchestration.v1" },
+    "schemaVersion": { "const": 1 },
+    "exerciseId": { "type": "string", "minLength": 1 },
+    "nameKo": { "type": "string", "minLength": 1 },
+    "slug": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+    "archetypeId": { "type": "string", "minLength": 1 },
+    "renderClass": {
+      "enum": ["bodyweight", "movable_free_weight", "fixed_support", "fixed_machine", "cable_machine"]
+    },
+    "canvas": {
+      "type": "object",
+      "required": ["width", "height"],
+      "properties": {
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "camera": {
+      "type": "object",
+      "minProperties": 1,
+      "anyOf": [
+        { "required": ["viewId"] },
+        { "required": ["canonicalView"] },
+        { "required": ["view"] }
+      ]
+    },
+    "exerciseMetadata": {
+      "type": "object",
+      "required": [
+        "movementPattern",
+        "motionType",
+        "supportMode",
+        "bodyOrientation",
+        "equipmentKinematics",
+        "laterality",
+        "gripVariant",
+        "equipmentType"
+      ],
+      "properties": {
+        "movementPattern": { "type": "string", "minLength": 1 },
+        "motionType": { "type": "string", "minLength": 1 },
+        "supportMode": { "type": "string", "minLength": 1 },
+        "bodyOrientation": { "type": "string", "minLength": 1 },
+        "equipmentKinematics": { "type": "string", "minLength": 1 },
+        "laterality": { "type": "string", "minLength": 1 },
+        "gripVariant": { "type": "string", "minLength": 1 },
+        "canonicalView": { "type": "string", "minLength": 1 },
+        "equipmentType": { "type": "string", "minLength": 1 }
+      },
+      "additionalProperties": false
+    },
+    "metadataResolution": {
+      "type": "object",
+      "required": ["fields", "deterministicRule", "canonicalViewSource"],
+      "properties": {
+        "fields": {
+          "type": "object",
+          "required": ["supportMode", "bodyOrientation", "equipmentKinematics", "gripVariant", "canonicalView"],
+          "properties": {
+            "supportMode": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] },
+            "bodyOrientation": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] },
+            "equipmentKinematics": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] },
+            "gripVariant": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] },
+            "canonicalView": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] }
+          },
+          "additionalProperties": false
+        },
+        "deterministicRule": { "type": ["string", "null"] },
+        "canonicalViewSource": { "enum": ["exercise_override", "archetype_default", "archetype_camera", "deterministic_mapping", "source_catalog", null] }
+      },
+      "additionalProperties": false
+    },
+    "imageIdentity": {
+      "type": "object",
+      "required": ["familyId", "visualVariantKey", "illustrationKey", "source", "sceneFile", "frameFiles", "equipmentViews"],
+      "properties": {
+        "familyId": { "type": ["string", "null"] },
+        "visualVariantKey": { "type": ["string", "null"] },
+        "illustrationKey": { "type": ["string", "null"], "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "source": { "enum": ["exact_visual_variant", "family_default", "placeholder"] },
+        "sceneFile": { "type": ["string", "null"] },
+        "frameFiles": {
+          "type": "object",
+          "properties": {
+            "A": { "type": "string" },
+            "B": { "type": "string" }
+          },
+          "additionalProperties": false
+        },
+        "equipmentViews": {
+          "type": "object",
+          "additionalProperties": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    },
+    "muscleMapping": {
+      "type": "object",
+      "required": ["primaryGroup", "primaryLayers", "secondaryGroups", "secondaryLayers"],
+      "properties": {
+        "primaryGroup": { "type": "string" },
+        "primaryLayers": { "type": "array", "items": { "type": "string" } },
+        "secondaryGroups": { "type": "array", "items": { "type": "string" } },
+        "secondaryLayers": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    },
+    "equipment": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+    "equipmentViews": {
+      "type": "object",
+      "additionalProperties": { "type": "string", "minLength": 1 }
+    },
+    "frames": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "prefixItems": [
+        { "$ref": "#/$defs/frameA" },
+        { "$ref": "#/$defs/frameB" }
+      ]
+    },
+    "renderPolicy": {
+      "type": "object",
+      "required": ["lockedJoints", "animatedJoints", "lockedAnchors", "anchorTolerancePixels", "lockedEquipment"],
+      "properties": {
+        "lockedJoints": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "animatedJoints": { "type": "array", "items": { "type": "string" }, "uniqueItems": true },
+        "lockedAnchors": { "type": "object" },
+        "anchorTolerancePixels": { "type": "number", "minimum": 0 },
+        "lockedEquipment": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      },
+      "additionalProperties": false
+    },
+    "generationContract": {
+      "type": "object",
+      "required": ["baseFrame", "derivedFrames", "referenceScene", "equipmentAnchorStrategy", "prompts", "renderSteps", "mannequin", "equipmentComposition"],
+      "properties": {
+        "baseFrame": { "const": "A" },
+        "derivedFrames": {
+          "type": "object",
+          "required": ["B"],
+          "properties": { "B": { "const": "edit_from_A" } },
+          "additionalProperties": false
+        },
+        "referenceScene": { "type": "string", "minLength": 1 },
+        "equipmentAnchorStrategy": { "type": "object", "minProperties": 1 },
+        "prompts": {
+          "type": "object",
+          "required": ["A", "B"],
+          "properties": { "A": { "type": "string" }, "B": { "type": "string" } },
+          "additionalProperties": false
+        },
+        "invisibleGripTargets": {
+          "type": "object",
+          "required": ["A", "B"],
+          "properties": {
+            "A": { "type": "array" },
+            "B": { "type": "array" }
+          },
+          "additionalProperties": false
+        },
+        "renderSteps": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "mannequin": {
+          "type": "object",
+          "required": ["contract", "baseFrame", "derivedFrame", "camera", "canvas", "proportions", "lockedAnchors"],
+          "properties": {
+            "contract": { "const": "mannequin-generation.v1" },
+            "baseFrame": { "const": "A" },
+            "derivedFrame": { "const": "B" },
+            "camera": { "const": "scene.camera" },
+            "canvas": { "const": "scene.canvas" },
+            "proportions": { "const": "preserve_from_A" },
+            "lockedAnchors": { "const": "scene.renderPolicy.lockedAnchors" }
+          },
+          "additionalProperties": false
+        },
+        "equipmentComposition": {
+          "type": "object",
+          "required": ["source", "frameA", "frameB", "movingEquipment"],
+          "properties": {
+            "source": { "const": "canonical_equipment_catalog_v2" },
+            "frameA": { "const": "compose_approved_equipment" },
+            "frameB": { "const": "reuse_A_equipment_identity" },
+            "movingEquipment": { "const": "rigid_transform_only" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "$defs": {
+    "placement": {
+      "type": "object",
+      "required": ["equipmentId", "viewId", "anchor", "target", "scale", "rotationDegrees", "z"],
+      "properties": {
+        "equipmentId": { "type": "string" },
+        "viewId": { "type": "string" },
+        "anchor": { "type": "string" },
+        "target": {
+          "type": "array",
+          "prefixItems": [{ "type": "number" }, { "type": "number" }],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "scale": { "type": "number", "exclusiveMinimum": 0 },
+        "rotationDegrees": { "type": "number" },
+        "z": { "type": "number" },
+        "instanceId": { "type": "string", "minLength": 1 },
+        "locked": { "type": "boolean" },
+        "includeFrontOccluder": { "type": "boolean" },
+        "frontZ": { "type": "number" }
+      },
+      "additionalProperties": false
+    },
+    "frame": {
+      "type": "object",
+      "required": ["id", "file", "mannequinFile", "pose", "equipmentPlacements", "invisibleGripTargets"],
+      "properties": {
+        "id": { "enum": ["A", "B"] },
+        "file": { "type": "string", "pattern": "^(?:\\.\\./)+final/[a-z0-9]+(?:-[a-z0-9]+)*-(?:a|b)\\.png$" },
+        "mannequinFile": { "type": "string" },
+        "derivedFrom": { "const": "A" },
+        "pose": { "type": "object", "minProperties": 1 },
+        "equipmentPlacements": { "type": "array", "items": { "$ref": "#/$defs/placement" } },
+        "invisibleGripTargets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["instanceId", "equipmentId", "anchor", "target"],
+            "properties": {
+              "instanceId": { "type": "string", "minLength": 1 },
+              "equipmentId": { "type": "string", "minLength": 1 },
+              "anchor": { "type": "string", "minLength": 1 },
+              "target": {
+                "type": "array",
+                "prefixItems": [{ "type": "number" }, { "type": "number" }],
+                "minItems": 2,
+                "maxItems": 2
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "frameA": { "allOf": [{ "$ref": "#/$defs/frame" }, { "properties": { "id": { "const": "A" } } }] },
+    "frameB": { "allOf": [{ "$ref": "#/$defs/frame" }, { "required": ["derivedFrom"], "properties": { "id": { "const": "B" } } }] }
+  },
+  "additionalProperties": false
+}

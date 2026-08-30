@@ -1,0 +1,97 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "equipment-catalog.schema.json",
+  "title": "Canonical equipment catalog",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "coordinateSystem", "assets"],
+  "properties": {
+    "schemaVersion": { "const": 2 },
+    "coordinateSystem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["origin", "unit"],
+      "properties": {
+        "origin": { "const": "top_left" },
+        "unit": { "const": "asset_local_normalized_0_to_1" }
+      }
+    },
+    "assets": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/asset" }
+    }
+  },
+  "$defs": {
+    "normalizedPoint": {
+      "type": "array",
+      "prefixItems": [
+        { "type": "number", "minimum": 0, "maximum": 1 },
+        { "type": "number", "minimum": 0, "maximum": 1 }
+      ],
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "anchors": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/normalizedPoint" }
+    },
+    "pngComponent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "width", "height", "sha256", "anchors"],
+      "properties": {
+        "file": {
+          "type": "string",
+          "pattern": "^final/[a-z0-9]+(?:[-_][a-z0-9]+)*\\.png$"
+        },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "anchors": { "$ref": "#/$defs/anchors" }
+      }
+    },
+    "asset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "type",
+        "viewId",
+        "file",
+        "width",
+        "height",
+        "sha256",
+        "anchors",
+        "status",
+        "renderClass"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$" },
+        "type": { "type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$" },
+        "viewId": { "type": "string", "pattern": "^[a-z0-9]+(?:_[a-z0-9]+)*$" },
+        "file": {
+          "type": "string",
+          "pattern": "^final/[a-z0-9]+(?:[-_][a-z0-9]+)*\\.png$"
+        },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "anchors": { "$ref": "#/$defs/anchors" },
+        "status": { "type": ["string", "null"], "enum": ["draft", "approved", "deprecated", null] },
+        "renderClass": {
+          "type": ["string", "null"],
+          "enum": [
+            "movable_free_weight",
+            "fixed_support",
+            "fixed_machine",
+            "cable_machine",
+            "canonical_attachment",
+            null
+          ]
+        },
+        "frontOccluder": { "$ref": "#/$defs/pngComponent" }
+      }
+    }
+  }
+}

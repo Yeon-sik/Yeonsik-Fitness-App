@@ -762,6 +762,18 @@ public final class SupabaseSyncManager {
         if ("workout_sets".equals(table) && "rir".equals(column)) {
             return false;
         }
+        // Family/preset/variant and set-level load-state columns are local-first until the
+        // shared Personal OS schema exposes the same additive contract.
+        if ("workout_exercises".equals(table)
+                && ("family_id".equals(column)
+                || "preset_id".equals(column)
+                || "canonical_variant_key".equals(column)
+                || "visual_variant_key".equals(column))) {
+            return false;
+        }
+        if ("workout_sets".equals(table) && "load_state".equals(column)) {
+            return false;
+        }
         // The common Personal OS dining-out identity migration is not part of the tracked
         // deployed contract yet. Keep these columns local and rely on metadata until the
         // remote schema is confirmed to expose them.

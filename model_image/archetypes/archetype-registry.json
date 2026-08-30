@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 2,
+  "description": "Only user-reviewed archetypes belong here. Metadata defaults and placement recipes are shared by exercises; the compiler never derives camera, pose, or placement values from an exercise name.",
+  "metadataPrecedence": [
+    "exercise_override",
+    "archetype_default",
+    "deterministic_mapping",
+    "MISSING_*"
+  ],
+  "archetypes": {}
+}
