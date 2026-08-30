@@ -320,14 +320,17 @@ public final class FitnessRepository {
                     exerciseValues.put("record_id", recordId);
                     exerciseValues.put("order_index", exerciseOrder++);
                     exerciseValues.put("exercise_id", exercise.exerciseId);
-                    exerciseValues.put("exercise_name_snapshot", exercise.name);
+                    exerciseValues.put("exercise_name_snapshot", canonicalExerciseName(
+                            exercise.name,
+                            familyCatalog.identityForStorageExerciseId(exercise.exerciseId)
+                    ));
                     exerciseValues.put("ui_part", exercise.uiPart);
                     exerciseValues.put("primary_sub_part_snapshot", exercise.primarySubPart);
                     exerciseValues.put("equipment_snapshot", exercise.equipment);
                     exerciseValues.put("record_type", FitnessRecordContract.normalizeRecordType(exercise.recordType));
                     putFamilyIdentity(
                             exerciseValues,
-                            familyCatalog.identityForLegacyId(exercise.exerciseId)
+                            familyCatalog.identityForStorageExerciseId(exercise.exerciseId)
                     );
                     exerciseValues.putNull("memo");
                     database.insertOrThrow("workout_exercises", null, exerciseValues);
@@ -485,7 +488,10 @@ public final class FitnessRepository {
         values.put("record_id", recordId);
         values.put("order_index", nextWorkoutExerciseOrder(recordId));
         values.put("exercise_id", emptyToDefault(exercise.masterExerciseId, "manual"));
-        values.put("exercise_name_snapshot", emptyToDefault(exercise.nameKo, "Exercise"));
+        values.put("exercise_name_snapshot", canonicalExerciseName(
+                exercise.nameKo,
+                resolvedIdentity(exercise.familyIdentity, exercise.masterExerciseId)
+        ));
         values.put("ui_part", exercise.bodyPart == null ? "chest" : normalizeCategory(exercise.bodyPart.labelKo()));
         values.put("primary_sub_part_snapshot", emptyToDefault(exercise.primarySubPart, displayCategory(exercise.bodyPart == null ? "chest" : normalizeCategory(exercise.bodyPart.labelKo()))));
         values.put("equipment_snapshot", exercise.equipmentType == null ? null : exercise.equipmentType.labelKo());
@@ -3477,7 +3483,10 @@ public final class FitnessRepository {
             values.put("record_id", recordId);
             values.put("order_index", exercise.order);
             values.put("exercise_id", emptyToDefault(exercise.exerciseId, "manual"));
-            values.put("exercise_name_snapshot", emptyToDefault(exercise.nameKo, "Exercise"));
+            values.put("exercise_name_snapshot", canonicalExerciseName(
+                    exercise.nameKo,
+                    resolvedIdentity(exercise.familyIdentity, exercise.exerciseId)
+            ));
             values.put("ui_part", normalizeCategory(exercise.uiPart));
             values.put("primary_sub_part_snapshot", emptyToDefault(exercise.primarySubPart, displayCategory(normalizeCategory(exercise.uiPart))));
             values.put("equipment_snapshot", emptyToNull(exercise.equipment));
@@ -3910,23 +3919,24 @@ public final class FitnessRepository {
                         "ORDER BY order_index",
                 new String[]{recordId, userId})) {
             while (cursor.moveToNext()) {
+                ExerciseFamilyIdentity identity = identityForRow(
+                        cursor.getString(1),
+                        cursor.getString(3),
+                        cursor.getString(7),
+                        cursor.getString(8),
+                        cursor.getString(9),
+                        cursor.getString(10),
+                        cursor.getString(6)
+                );
                 rows.add(new SessionExerciseEntry(
                         cursor.getString(0),
                         cursor.getString(1),
                         cursor.getInt(2),
-                        cursor.getString(3),
+                        canonicalExerciseName(cursor.getString(3), identity),
                         displayCategory(cursor.getString(4)),
                         cursor.isNull(5) ? "" : cursor.getString(5),
                         cursor.getString(6),
-                        identityForRow(
-                                cursor.getString(1),
-                                cursor.getString(3),
-                                cursor.getString(7),
-                                cursor.getString(8),
-                                cursor.getString(9),
-                                cursor.getString(10),
-                                cursor.getString(6)
-                        )
+                        identity
                 ));
             }
         }
@@ -4006,22 +4016,96 @@ public final class FitnessRepository {
             "((we.exercise_id != 'manual' AND we.exercise_id = ?) "
                     + "OR (we.exercise_id = 'manual' AND we.exercise_name_snapshot = ?))";
 
+    /**
+     * Matches both new snapshot rows and old rows that predate the family identity columns.
+     * Alias legacy IDs are expanded from the catalog so one canonical preset is never split
+     * into separate history/statistics buckets.
+     */
+    private String exerciseMatchClause(
+            ExerciseFamilyIdentity identity,
+            String exerciseId,
+            String exerciseName,
+            List<String> arguments
+    ) {
+        if (identity == null || identity.familyId == null || identity.canonicalVariantKey == null) {
+            arguments.add(exerciseId);
+            arguments.add(exerciseName);
+            return EXERCISE_MATCH;
+        }
+
+        arguments.add(identity.familyId);
+        arguments.add(identity.canonicalVariantKey);
+        StringBuilder clause = new StringBuilder(
+                "((we.family_id = ? AND we.canonical_variant_key = ?)"
+        );
+
+        List<String> legacyIds = familyCatalog.legacyIdsForVariant(identity);
+        if (!legacyIds.isEmpty()) {
+            clause.append(" OR (we.exercise_id != 'manual' AND we.exercise_id IN (");
+            appendPlaceholders(clause, legacyIds.size());
+            clause.append("))");
+            arguments.addAll(legacyIds);
+        }
+
+        List<String> names = new ArrayList<>();
+        addUnique(names, exerciseName);
+        addUnique(names, identity.presetNameKo);
+        addUnique(names, identity.legacyNameKo);
+        addUnique(names, identity.presetNameEn);
+        addUnique(names, identity.legacyNameEn);
+        if (!names.isEmpty()) {
+            clause.append(" OR (we.exercise_id = 'manual' AND we.exercise_name_snapshot IN (");
+            appendPlaceholders(clause, names.size());
+            clause.append("))");
+            arguments.addAll(names);
+        }
+        clause.append(")");
+        return clause.toString();
+    }
+
+    private static void appendPlaceholders(StringBuilder builder, int count) {
+        for (int index = 0; index < count; index += 1) {
+            if (index > 0) {
+                builder.append(", ");
+            }
+            builder.append("?");
+        }
+    }
+
+    private static void addUnique(List<String> values, String value) {
+        if (value != null && !value.trim().isEmpty() && !values.contains(value)) {
+            values.add(value);
+        }
+    }
+
     public List<VolumePoint> recentExerciseVolumes(String exerciseId, String exerciseName, String currentRecordId, int limit) {
         List<VolumePoint> rows = new ArrayList<>();
+        ExerciseFamilyIdentity identity = familyCatalog.identityForStorageExerciseId(exerciseId);
+        List<String> matchArguments = new ArrayList<>();
+        String matchClause = exerciseMatchClause(
+                identity,
+                exerciseId,
+                exerciseName,
+                matchArguments
+        );
         String sql = "SELECT we.record_id, wr.date, wr.exercise_name, "
                 + "COALESCE(SUM(CASE WHEN ws.is_completed = 1 THEN COALESCE(ws.volume_kg, ws.weight_kg * ws.actual_reps) ELSE 0 END), 0) "
                 + "FROM workout_exercises we "
                 + "INNER JOIN workout_records wr ON wr.id = we.record_id AND wr.deleted_at IS NULL "
                 + "LEFT JOIN workout_sets ws ON ws.workout_exercise_id = we.id "
                 + "AND ws.user_id = we.user_id AND ws.deleted_at IS NULL "
-                + "WHERE wr.user_id = ? AND we.user_id = ? AND " + EXERCISE_MATCH
+                + "WHERE wr.user_id = ? AND we.user_id = ? AND " + matchClause
                 + " AND we.record_id != ? AND we.deleted_at IS NULL "
                 + "AND we.record_type = 'weight_reps' "
                 + "GROUP BY we.record_id, wr.date, wr.exercise_name, wr.updated_at "
                 + "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT ?";
-        try (Cursor cursor = db().rawQuery(sql,
-                new String[]{userId, userId, exerciseId, exerciseName, currentRecordId,
-                        String.valueOf(limit)})) {
+        List<String> arguments = new ArrayList<>();
+        arguments.add(userId);
+        arguments.add(userId);
+        arguments.addAll(matchArguments);
+        arguments.add(currentRecordId);
+        arguments.add(String.valueOf(limit));
+        try (Cursor cursor = db().rawQuery(sql, arguments.toArray(new String[0]))) {
             while (cursor.moveToNext()) {
                 rows.add(new VolumePoint(cursor.getString(1), cursor.getString(2), cursor.getDouble(3)));
             }
@@ -4034,15 +4118,25 @@ public final class FitnessRepository {
     public ExerciseHistory lastExerciseHistory(String exerciseId, String exerciseName, String currentRecordId) {
         String workoutExerciseId = null;
         String date = null;
+        ExerciseFamilyIdentity identity = familyCatalog.identityForStorageExerciseId(exerciseId);
+        List<String> matchArguments = new ArrayList<>();
+        String matchClause = exerciseMatchClause(
+                identity,
+                exerciseId,
+                exerciseName,
+                matchArguments
+        );
         String sql = "SELECT we.id, wr.date FROM workout_exercises we "
                 + "INNER JOIN workout_records wr ON wr.id = we.record_id AND wr.deleted_at IS NULL "
-                + "WHERE wr.user_id = ? AND we.user_id = ? AND " + EXERCISE_MATCH
+                + "WHERE wr.user_id = ? AND we.user_id = ? AND " + matchClause
                 + " AND we.record_id != ? AND we.deleted_at IS NULL "
                 + "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 1";
-        try (Cursor cursor = db().rawQuery(
-                sql,
-                new String[]{userId, userId, exerciseId, exerciseName, currentRecordId}
-        )) {
+        List<String> arguments = new ArrayList<>();
+        arguments.add(userId);
+        arguments.add(userId);
+        arguments.addAll(matchArguments);
+        arguments.add(currentRecordId);
+        try (Cursor cursor = db().rawQuery(sql, arguments.toArray(new String[0]))) {
             if (cursor.moveToFirst()) {
                 workoutExerciseId = cursor.getString(0);
                 date = cursor.getString(1);
@@ -4073,7 +4167,7 @@ public final class FitnessRepository {
      * 완료된 세트만 집계한다. 기록이 없으면 sessionCount = 0.
      */
     public ExerciseBests exerciseBests(String exerciseId, String exerciseName, String currentRecordId) {
-        ExerciseFamilyIdentity identity = familyCatalog.identityForLegacyId(exerciseId);
+        ExerciseFamilyIdentity identity = familyCatalog.identityForStorageExerciseId(exerciseId);
         LoadState loadState = identity == null ? null : identity.defaultLoadStateValue();
         return exerciseBests(identity, loadState, exerciseId, exerciseName, currentRecordId);
     }
@@ -5195,7 +5289,7 @@ public final class FitnessRepository {
     ) {
         return supplied != null
                 ? supplied
-                : familyCatalog.identityForLegacyId(legacyExerciseId);
+                : familyCatalog.identityForStorageExerciseId(legacyExerciseId);
     }
 
     private ExerciseFamilyIdentity familyIdentityForWorkoutExercise(String workoutExerciseId) {
@@ -5261,7 +5355,7 @@ public final class FitnessRepository {
             String visualVariantKey,
             String recordType
     ) {
-        ExerciseFamilyIdentity mapped = familyCatalog.identityForLegacyId(legacyExerciseId);
+        ExerciseFamilyIdentity mapped = familyCatalog.identityForStorageExerciseId(legacyExerciseId);
         if (mapped != null) {
             return mapped;
         }
@@ -5338,6 +5432,19 @@ public final class FitnessRepository {
         } else {
             values.put("load_state", loadState.id());
         }
+    }
+
+    private static String canonicalExerciseName(
+            String fallback,
+            ExerciseFamilyIdentity identity
+    ) {
+        if (identity != null) {
+            String canonicalName = identity.displayName();
+            if (canonicalName != null && !canonicalName.trim().isEmpty()) {
+                return canonicalName;
+            }
+        }
+        return emptyToDefault(fallback, "Exercise");
     }
 
     private static void validateSetInput(String recordType, SetInput input) {

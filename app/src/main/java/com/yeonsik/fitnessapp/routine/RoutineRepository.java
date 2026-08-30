@@ -202,7 +202,7 @@ public final class RoutineRepository {
         ContentValues values = baseValues(id, now);
         values.put("routine_id", routineId);
         values.put("exercise_id", exercise.masterExerciseId);
-        values.put("name_ko", emptyToDefault(exercise.nameKo, "운동"));
+        values.put("name_ko", displayName(exercise));
         values.put("ui_part", exercise.bodyPart == null ? "" : exercise.bodyPart.labelKo());
         values.put("primary_sub_part", emptyToDefault(exercise.primarySubPart, "세부 부위 없음"));
         values.put("equipment", exercise.equipmentType == null ? "기타" : exercise.equipmentType.labelKo());
@@ -215,7 +215,7 @@ public final class RoutineRepository {
         return new RoutineExerciseInstance(
                 id,
                 exercise.masterExerciseId,
-                emptyToDefault(exercise.nameKo, "운동"),
+                displayName(exercise),
                 exercise.bodyPart == null ? "" : exercise.bodyPart.labelKo(),
                 emptyToDefault(exercise.primarySubPart, "세부 부위 없음"),
                 exercise.equipmentType == null ? "기타" : exercise.equipmentType.labelKo(),
@@ -234,24 +234,25 @@ public final class RoutineRepository {
                         "AND deleted_at IS NULL ORDER BY order_index, created_at",
                 new String[]{routineId, userId})) {
             while (cursor.moveToNext()) {
+                ExerciseFamilyIdentity identity = identityForRow(
+                        cursor.getString(1),
+                        cursor.getString(2),
+                        cursor.getString(8),
+                        cursor.getString(9),
+                        cursor.getString(10),
+                        cursor.getString(11),
+                        cursor.getString(6)
+                );
                 rows.add(new RoutineExerciseInstance(
                         cursor.getString(0),
                         cursor.getString(1),
-                        cursor.getString(2),
+                        identity == null ? cursor.getString(2) : identity.displayName(),
                         cursor.getString(3),
                         cursor.getString(4),
                         cursor.getString(5),
                         cursor.getString(6),
                         cursor.getInt(7),
-                        identityForRow(
-                                cursor.getString(1),
-                                cursor.getString(2),
-                                cursor.getString(8),
-                                cursor.getString(9),
-                                cursor.getString(10),
-                                cursor.getString(11),
-                                cursor.getString(6)
-                        )
+                        identity
                 ));
             }
         }
@@ -312,7 +313,7 @@ public final class RoutineRepository {
     ) {
         return supplied != null
                 ? supplied
-                : familyCatalog.identityForLegacyId(legacyExerciseId);
+                : familyCatalog.identityForStorageExerciseId(legacyExerciseId);
     }
 
     private ExerciseFamilyIdentity identityForRow(
@@ -324,7 +325,7 @@ public final class RoutineRepository {
             String visualVariantKey,
             String recordType
     ) {
-        ExerciseFamilyIdentity mapped = familyCatalog.identityForLegacyId(legacyExerciseId);
+        ExerciseFamilyIdentity mapped = familyCatalog.identityForStorageExerciseId(legacyExerciseId);
         if (mapped != null) {
             return mapped;
         }
@@ -365,6 +366,16 @@ public final class RoutineRepository {
 
     private static String emptyToDefault(String value, String fallback) {
         return value == null || value.trim().isEmpty() ? fallback : value.trim();
+    }
+
+    private static String displayName(RoutineExercise exercise) {
+        if (exercise != null && exercise.familyIdentity != null) {
+            String canonicalName = exercise.familyIdentity.displayName();
+            if (canonicalName != null && !canonicalName.trim().isEmpty()) {
+                return canonicalName;
+            }
+        }
+        return emptyToDefault(exercise == null ? null : exercise.nameKo, "운동");
     }
 
     private static String newId() {

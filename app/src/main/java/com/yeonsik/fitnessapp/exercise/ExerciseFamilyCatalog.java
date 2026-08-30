@@ -198,6 +198,41 @@ public final class ExerciseFamilyCatalog {
         return runtimeCatalog.presetForLegacyId(legacyExerciseId);
     }
 
+    public ExerciseFamilyIdentity identityForStorageExerciseId(String storageExerciseId) {
+        if (storageExerciseId == null || storageExerciseId.trim().isEmpty()) {
+            return null;
+        }
+        ExerciseFamilyIdentity legacyIdentity = identityForLegacyId(storageExerciseId);
+        if (legacyIdentity != null) {
+            return legacyIdentity;
+        }
+        RuntimeExercisePreset preset = runtimeCatalog.presetForStorageExerciseId(storageExerciseId);
+        return identityForPreset(preset);
+    }
+
+    public ExerciseFamilyIdentity identityForPreset(RuntimeExercisePreset preset) {
+        if (preset == null) {
+            return null;
+        }
+        return new ExerciseFamilyIdentity(
+                preset.storageExerciseId,
+                preset.familyId,
+                preset.presetId,
+                preset.canonicalPresetId,
+                preset.nameKo,
+                preset.nameEn,
+                preset.legacyNameKo,
+                preset.legacyNameEn,
+                preset.defaultUiPart,
+                preset.canonicalVariantKey,
+                preset.visualVariantKey,
+                preset.illustrationKey,
+                preset.defaultLoadState == null ? null : preset.defaultLoadState.id(),
+                preset.recordType,
+                preset.variant.isEmpty() ? null : new JSONObject(preset.variant).toString()
+        );
+    }
+
     private static String nullableString(JSONObject object, String key) {
         if (object == null || object.isNull(key)) {
             return null;
