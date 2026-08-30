@@ -96,7 +96,7 @@ public final class MealManagementScreen extends BaseScreen {
     private String draftDiningOutNominalServings = "1";
     private String draftDiningOutDinerCount = "1";
     private String draftDiningOutConsumedPercent = "";
-    private String draftDiningOutFulfillmentMode = DiningOutFulfillmentMode.DINE_IN.value();
+    private String draftDiningOutFulfillmentMode;
 
     private Button mealTimeButton;
     private EditText menuNameInput;
@@ -4908,7 +4908,7 @@ public final class MealManagementScreen extends BaseScreen {
     private void resetDiningOutEditor() {
         draftDiningOutStoreName = "";
         draftDiningOutBranchName = "";
-        draftDiningOutFulfillmentMode = DiningOutFulfillmentMode.DINE_IN.value();
+        draftDiningOutFulfillmentMode = null;
         draftDiningOutMenus.clear();
         activeDiningOutMenuIndex = 0;
         diningOutStoreInput = null;

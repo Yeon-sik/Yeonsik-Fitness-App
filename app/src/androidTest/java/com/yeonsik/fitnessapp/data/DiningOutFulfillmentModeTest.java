@@ -56,6 +56,14 @@ public final class DiningOutFulfillmentModeTest {
     }
 
     @Test
+    public void rejectsUnselectedFulfillmentModeForNewSave() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DiningOutFulfillmentMode.require(null)
+        );
+    }
+
+    @Test
     public void storesFulfillmentModeOnActualMealAndExposesItOnRead() {
         IsolatedDatabaseContext context = new IsolatedDatabaseContext(
                 ApplicationProvider.getApplicationContext()
