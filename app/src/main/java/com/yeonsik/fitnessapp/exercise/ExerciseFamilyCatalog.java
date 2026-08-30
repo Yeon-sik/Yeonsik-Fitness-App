@@ -21,21 +21,25 @@ public final class ExerciseFamilyCatalog {
     private static final ExerciseFamilyCatalog EMPTY = new ExerciseFamilyCatalog(
             Collections.emptyMap(),
             Collections.emptyMap(),
-            Collections.emptyMap()
+            Collections.emptyMap(),
+            RuntimeExerciseCatalog.empty()
     );
 
     private final Map<String, ExerciseFamilyIdentity> identitiesByLegacyId;
     private final Map<String, ImageAssetRef> imageVariantsByKey;
     private final Map<String, ImageAssetRef> familyDefaultsByFamilyId;
+    private final RuntimeExerciseCatalog runtimeCatalog;
 
     private ExerciseFamilyCatalog(
             Map<String, ExerciseFamilyIdentity> identitiesByLegacyId,
             Map<String, ImageAssetRef> imageVariantsByKey,
-            Map<String, ImageAssetRef> familyDefaultsByFamilyId
+            Map<String, ImageAssetRef> familyDefaultsByFamilyId,
+            RuntimeExerciseCatalog runtimeCatalog
     ) {
         this.identitiesByLegacyId = Collections.unmodifiableMap(new LinkedHashMap<>(identitiesByLegacyId));
         this.imageVariantsByKey = Collections.unmodifiableMap(new LinkedHashMap<>(imageVariantsByKey));
         this.familyDefaultsByFamilyId = Collections.unmodifiableMap(new LinkedHashMap<>(familyDefaultsByFamilyId));
+        this.runtimeCatalog = runtimeCatalog == null ? RuntimeExerciseCatalog.empty() : runtimeCatalog;
     }
 
     public static ExerciseFamilyCatalog empty() {
@@ -125,7 +129,12 @@ public final class ExerciseFamilyCatalog {
                 }
             }
         }
-        return new ExerciseFamilyCatalog(identities, imageVariants, familyDefaults);
+        return new ExerciseFamilyCatalog(
+                identities,
+                imageVariants,
+                familyDefaults,
+                RuntimeExerciseCatalog.fromJson(document)
+        );
     }
 
     public ExerciseFamilyIdentity identityForLegacyId(String legacyExerciseId) {
@@ -175,6 +184,18 @@ public final class ExerciseFamilyCatalog {
 
     public int size() {
         return identitiesByLegacyId.size();
+    }
+
+    public RuntimeExerciseCatalog runtimeCatalog() {
+        return runtimeCatalog;
+    }
+
+    public RuntimeExerciseCatalog getRuntimeCatalog() {
+        return runtimeCatalog();
+    }
+
+    public RuntimeExercisePreset presetForLegacyId(String legacyExerciseId) {
+        return runtimeCatalog.presetForLegacyId(legacyExerciseId);
     }
 
     private static String nullableString(JSONObject object, String key) {

@@ -10,6 +10,12 @@ const EXPECTED_LOAD_STATES = [
   'band_assisted',
   'band_resisted',
 ];
+const EXPECTED_RECORD_TYPES = [
+  'reps_only',
+  'time',
+  'weight_time',
+  'weight_reps',
+];
 const EXPECTED_FALLBACK_ORDER = [
   'exact_visual_variant',
   'family_default',
@@ -348,6 +354,7 @@ export function validateExerciseFamilyContract(contract) {
       if (preset.presetId) presetIds.add(preset.presetId);
       if (!familyIds.has(preset.familyId)) errors.push(`approvedNewPresets[${index}] references unknown family ${preset.familyId}`);
       if (!EXPECTED_LOAD_STATES.includes(preset.defaultLoadState)) errors.push(`approvedNewPresets[${index}] references unknown loadState ${preset.defaultLoadState}`);
+      if (!EXPECTED_RECORD_TYPES.includes(preset.recordType)) errors.push(`approvedNewPresets[${index}] must declare one of ${EXPECTED_RECORD_TYPES.join(', ')}`);
     }
   }
 
@@ -624,6 +631,7 @@ export function buildFamilyCatalogDocument(contract, legacyExercises, mapping, i
     sourceContract: 'EXERCISE_FAMILY_CATALOG_V1.yaml',
     sourceBaseline: contract.sourceBaseline,
     loadStates: contract.loadStates,
+    allowedLoadStates: contract.loadStates,
     loadStateRules: contract.loadStateRules,
     performance: contract.performanceStats,
     imageIdentity: {

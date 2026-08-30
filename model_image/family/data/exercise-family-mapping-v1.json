@@ -17,6 +17,14 @@
     "band_assisted",
     "band_resisted"
   ],
+  "allowedLoadStates": [
+    "bodyweight",
+    "external_load",
+    "added_weight",
+    "assisted",
+    "band_assisted",
+    "band_resisted"
+  ],
   "loadStateRules": {
     "bodyweightAddedWeightZeroAllowed": true,
     "derivationForLegacyRows": [
@@ -16240,6 +16248,7 @@
         "support": "knees"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "aliases": [
         "무릎 푸쉬업",
         "Kneeling Push-Up"
@@ -16260,6 +16269,7 @@
         "stance": "standard"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"high\",\"stance\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"high\",\"stance\":\"standard\"}",
       "illustrationKey": null,
@@ -16276,6 +16286,7 @@
         "stance": "standard"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"low\",\"stance\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"low\",\"stance\":\"standard\"}",
       "illustrationKey": null,
@@ -16292,6 +16303,7 @@
         "travelMode": "stationary"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "aliases": [
         "사이드 런지"
       ],
@@ -16311,6 +16323,7 @@
         "technique": "lateral_shift"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"cossack\",\"technique\":\"lateral_shift\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"cossack\",\"technique\":\"lateral_shift\"}",
       "illustrationKey": "barbell-back-squat",
@@ -16327,6 +16340,7 @@
         "laterality": "bilateral"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"support\":\"wall\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"support\":\"wall\"}",
       "illustrationKey": null,
@@ -16343,6 +16357,7 @@
         "laterality": "bilateral"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"support\":\"machine\"}",
       "visualVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"support\":\"machine\"}",
       "illustrationKey": null,
@@ -16359,6 +16374,7 @@
         "limbPattern": "opposite_arm_leg"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"contralateral\",\"limbPattern\":\"opposite_arm_leg\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"contralateral\",\"limbPattern\":\"opposite_arm_leg\"}",
       "illustrationKey": null,
@@ -16376,6 +16392,7 @@
         "technique": "copenhagen"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "time",
       "canonicalVariantKey": "{\"laterality\":\"unilateral\",\"orientation\":\"side\",\"support\":\"elevated_leg\",\"technique\":\"copenhagen\"}",
       "visualVariantKey": "{\"laterality\":\"unilateral\",\"orientation\":\"side\",\"support\":\"elevated_leg\",\"technique\":\"copenhagen\"}",
       "illustrationKey": null,
@@ -16393,6 +16410,7 @@
         "laterality": "bilateral"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"support\":\"prone_bench\",\"torsoAngle\":\"horizontal\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"support\":\"prone_bench\",\"torsoAngle\":\"horizontal\"}",
       "illustrationKey": null,
@@ -16409,6 +16427,7 @@
         "bodyAngle": "inclined"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"bodyAngle\":\"inclined\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "visualVariantKey": "{\"bodyAngle\":\"inclined\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "illustrationKey": null,
@@ -16425,6 +16444,7 @@
         "gripWidth": "standard"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"gymnastic_rings\",\"gripOrientation\":\"dynamic\",\"gripWidth\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"gymnastic_rings\",\"gripOrientation\":\"dynamic\",\"gripWidth\":\"standard\"}",
       "illustrationKey": "pull-up",
@@ -16441,6 +16461,7 @@
         "emphasis": "general"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"emphasis\":\"general\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "visualVariantKey": "{\"emphasis\":\"general\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "illustrationKey": null,
@@ -16457,6 +16478,7 @@
         "laterality": "unilateral"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_time",
       "canonicalVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\"}",
       "visualVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\"}",
       "illustrationKey": null,
@@ -16473,6 +16495,7 @@
         "laterality": "unilateral"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_time",
       "canonicalVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"kettlebell\",\"laterality\":\"unilateral\"}",
       "visualVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"kettlebell\",\"laterality\":\"unilateral\"}",
       "illustrationKey": null,
@@ -16488,6 +16511,7 @@
         "rangeOfMotion": "standard"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"rangeOfMotion\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"rangeOfMotion\":\"standard\"}",
       "illustrationKey": null,
@@ -16503,6 +16527,7 @@
         "stance": "bilateral"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"bilateral\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"bilateral\"}",
       "illustrationKey": null,
@@ -16519,6 +16544,7 @@
         "technique": "bar"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"pull_up_bar\",\"technique\":\"bar\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"pull_up_bar\",\"technique\":\"bar\"}",
       "illustrationKey": null,
@@ -16535,6 +16561,7 @@
         "technique": "rings"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"gymnastic_rings\",\"support\":\"rings\",\"technique\":\"rings\"}",
       "visualVariantKey": "{\"equipment\":\"gymnastic_rings\",\"support\":\"rings\",\"technique\":\"rings\"}",
       "illustrationKey": null,
@@ -16550,6 +16577,7 @@
         "support": "bench"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"bench\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"bench\"}",
       "illustrationKey": null,
@@ -16566,6 +16594,7 @@
         "legPosition": "straight"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "time",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"parallel_bars\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"parallel_bars\"}",
       "illustrationKey": null,
@@ -16582,6 +16611,7 @@
         "legPosition": "straight"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "time",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"floor\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"floor\"}",
       "illustrationKey": null,
@@ -16598,6 +16628,7 @@
         "kneePosition": "straight"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"kneePosition\":\"straight\",\"support\":\"pull_up_bar\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"kneePosition\":\"straight\",\"support\":\"pull_up_bar\"}",
       "illustrationKey": null,
@@ -16614,6 +16645,7 @@
         "startPosition": "floor"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"clean\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"clean\"}",
       "illustrationKey": null,
@@ -16630,6 +16662,7 @@
         "startPosition": "floor"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_clean\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_clean\"}",
       "illustrationKey": null,
@@ -16646,6 +16679,7 @@
         "startPosition": "floor"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"snatch\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"snatch\"}",
       "illustrationKey": null,
@@ -16662,6 +16696,7 @@
         "startPosition": "floor"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_snatch\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_snatch\"}",
       "illustrationKey": null,
