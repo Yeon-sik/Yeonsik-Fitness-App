@@ -2467,6 +2467,15 @@ public final class FitnessRepository {
         putNullable(values, "food_id", snapshot.foodId);
         values.put("food_name_snapshot", snapshot.foodNameSnapshot);
         putNullable(values, "brand_snapshot", snapshot.brandSnapshot);
+        if (zeroMissingRequiredNutrition) {
+            putNullable(values, "manufacturer_name_snapshot", snapshot.manufacturerNameSnapshot);
+            putNullable(values, "brand_name_snapshot", snapshot.brandNameSnapshot);
+            putNullable(values, "sub_brand_name_snapshot", snapshot.subBrandNameSnapshot);
+            putNullable(values, "product_name_snapshot", snapshot.productNameSnapshot);
+            putNullable(values, "package_amount_snapshot", snapshot.packageAmountSnapshot);
+            putNullable(values, "package_unit_snapshot", snapshot.packageUnitSnapshot);
+            putNullable(values, "package_count_snapshot", snapshot.packageCountSnapshot);
+        }
         values.put("food_kind_snapshot", snapshot.foodKindSnapshot);
         values.put("quantity", snapshot.quantity);
         values.put("unit", snapshot.unit);
@@ -2552,12 +2561,15 @@ public final class FitnessRepository {
         }
         Map<String, NutritionProfile.Builder> profiles = new LinkedHashMap<>();
         List<String> itemIds = new ArrayList<>();
-        List<String[]> rows = new ArrayList<>();
+        List<Object[]> rows = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
                 "SELECT id, food_name_snapshot, quantity, unit, prep_state_snapshot, " +
-                        "calories, protein_grams, carbs_grams, fat_grams, sodium_mg, " +
-                        "saturated_fat_grams, sugars_grams, fiber_grams, added_sugars_grams, " +
-                        "trans_fat_grams, cholesterol_mg " +
+                        "manufacturer_name_snapshot, brand_name_snapshot, " +
+                        "sub_brand_name_snapshot, product_name_snapshot, " +
+                        "package_amount_snapshot, package_unit_snapshot, " +
+                        "package_count_snapshot, calories, protein_grams, carbs_grams, " +
+                        "fat_grams, sodium_mg, saturated_fat_grams, sugars_grams, " +
+                        "fiber_grams, added_sugars_grams, trans_fat_grams, cholesterol_mg " +
                         "FROM meal_record_items WHERE meal_record_id = ? AND user_id = ? " +
                         "AND deleted_at IS NULL " +
                         "ORDER BY order_index ASC",
@@ -2566,38 +2578,52 @@ public final class FitnessRepository {
             while (cursor.moveToNext()) {
                 String itemId = cursor.getString(0);
                 itemIds.add(itemId);
-                rows.add(new String[]{
+                rows.add(new Object[]{
                         itemId,
                         cursor.getString(1),
-                        String.valueOf(cursor.getDouble(2)),
+                        cursor.getDouble(2),
                         cursor.getString(3),
-                        cursor.getString(4)
+                        cursor.getString(4),
+                        cursor.getString(5),
+                        cursor.getString(6),
+                        cursor.getString(7),
+                        cursor.getString(8),
+                        nullableDouble(cursor, 9),
+                        cursor.getString(10),
+                        nullableInteger(cursor, 11)
                 });
                 NutritionProfile.Builder profile = NutritionProfile.builder();
-                profile.value(NutritionProfile.CALORIES_KCAL, nullableDouble(cursor, 5));
-                profile.value(NutritionProfile.PROTEIN_GRAMS, nullableDouble(cursor, 6));
-                profile.value(NutritionProfile.CARBS_GRAMS, nullableDouble(cursor, 7));
-                profile.value(NutritionProfile.FAT_GRAMS, nullableDouble(cursor, 8));
-                profile.value(NutritionProfile.SODIUM_MG, nullableDouble(cursor, 9));
-                profile.value(NutritionProfile.SATURATED_FAT_GRAMS, nullableDouble(cursor, 10));
-                profile.value(NutritionProfile.SUGARS_GRAMS, nullableDouble(cursor, 11));
-                profile.value(NutritionProfile.FIBER_GRAMS, nullableDouble(cursor, 12));
-                profile.value(NutritionProfile.ADDED_SUGARS_GRAMS, nullableDouble(cursor, 13));
-                profile.value(NutritionProfile.TRANS_FAT_GRAMS, nullableDouble(cursor, 14));
-                profile.value(NutritionProfile.CHOLESTEROL_MG, nullableDouble(cursor, 15));
+                profile.value(NutritionProfile.CALORIES_KCAL, nullableDouble(cursor, 12));
+                profile.value(NutritionProfile.PROTEIN_GRAMS, nullableDouble(cursor, 13));
+                profile.value(NutritionProfile.CARBS_GRAMS, nullableDouble(cursor, 14));
+                profile.value(NutritionProfile.FAT_GRAMS, nullableDouble(cursor, 15));
+                profile.value(NutritionProfile.SODIUM_MG, nullableDouble(cursor, 16));
+                profile.value(NutritionProfile.SATURATED_FAT_GRAMS, nullableDouble(cursor, 17));
+                profile.value(NutritionProfile.SUGARS_GRAMS, nullableDouble(cursor, 18));
+                profile.value(NutritionProfile.FIBER_GRAMS, nullableDouble(cursor, 19));
+                profile.value(NutritionProfile.ADDED_SUGARS_GRAMS, nullableDouble(cursor, 20));
+                profile.value(NutritionProfile.TRANS_FAT_GRAMS, nullableDouble(cursor, 21));
+                profile.value(NutritionProfile.CHOLESTEROL_MG, nullableDouble(cursor, 22));
                 profiles.put(itemId, profile);
             }
         }
         readMealItemMicronutrients(recordId, itemIds, profiles);
 
-        for (String[] row : rows) {
+        for (Object[] row : rows) {
             entries.add(new MealItemEntry(
-                    row[0],
-                    row[1],
-                    Double.parseDouble(row[2]),
-                    row[3],
-                    row[4],
-                    profiles.get(row[0]).build()
+                    (String) row[0],
+                    (String) row[1],
+                    (Double) row[2],
+                    (String) row[3],
+                    (String) row[4],
+                    (String) row[5],
+                    (String) row[6],
+                    (String) row[7],
+                    (String) row[8],
+                    (Double) row[9],
+                    (String) row[10],
+                    (Integer) row[11],
+                    profiles.get((String) row[0]).build()
             ));
         }
         return entries;
@@ -2630,6 +2656,10 @@ public final class FitnessRepository {
 
     private static Double nullableDouble(Cursor cursor, int index) {
         return cursor.isNull(index) ? null : cursor.getDouble(index);
+    }
+
+    private static Integer nullableInteger(Cursor cursor, int index) {
+        return cursor.isNull(index) ? null : cursor.getInt(index);
     }
 
     public List<MealEntry> mealEntriesForDate(String date) {
@@ -6280,15 +6310,61 @@ public final class FitnessRepository {
         public final double quantity;
         public final String unit;
         public final String prepState;
+        public final String manufacturerNameSnapshot;
+        public final String brandNameSnapshot;
+        public final String subBrandNameSnapshot;
+        public final String productNameSnapshot;
+        public final Double packageAmountSnapshot;
+        public final String packageUnitSnapshot;
+        public final Integer packageCountSnapshot;
         public final NutritionProfile profile;
 
         public MealItemEntry(String id, String foodName, double quantity, String unit,
                              String prepState, NutritionProfile profile) {
+            this(
+                    id,
+                    foodName,
+                    quantity,
+                    unit,
+                    prepState,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    profile
+            );
+        }
+
+        public MealItemEntry(
+                String id,
+                String foodName,
+                double quantity,
+                String unit,
+                String prepState,
+                String manufacturerNameSnapshot,
+                String brandNameSnapshot,
+                String subBrandNameSnapshot,
+                String productNameSnapshot,
+                Double packageAmountSnapshot,
+                String packageUnitSnapshot,
+                Integer packageCountSnapshot,
+                NutritionProfile profile
+        ) {
             this.id = id;
             this.foodName = foodName;
             this.quantity = quantity;
             this.unit = unit;
             this.prepState = prepState;
+            this.manufacturerNameSnapshot = manufacturerNameSnapshot;
+            this.brandNameSnapshot = brandNameSnapshot;
+            this.subBrandNameSnapshot = subBrandNameSnapshot;
+            this.productNameSnapshot = productNameSnapshot;
+            this.packageAmountSnapshot = packageAmountSnapshot;
+            this.packageUnitSnapshot = packageUnitSnapshot;
+            this.packageCountSnapshot = packageCountSnapshot;
             this.profile = profile;
         }
 

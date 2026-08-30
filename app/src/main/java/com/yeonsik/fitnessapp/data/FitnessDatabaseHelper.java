@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 44;
+    public static final int DATABASE_VERSION = 46;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -374,6 +374,13 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "owner_id TEXT, " +
                 "name TEXT NOT NULL, " +
                 "brand TEXT, " +
+                "manufacturer_name TEXT, " +
+                "brand_name TEXT, " +
+                "sub_brand_name TEXT, " +
+                "product_name TEXT, " +
+                "package_amount REAL, " +
+                "package_unit TEXT, " +
+                "package_count INTEGER, " +
                 "kind TEXT NOT NULL, " +
                 "category TEXT NOT NULL DEFAULT 'other', " +
                 "basis_amount REAL NOT NULL, " +
@@ -431,6 +438,13 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "food_id TEXT, " +
                 "food_name_snapshot TEXT NOT NULL, " +
                 "brand_snapshot TEXT, " +
+                "manufacturer_name_snapshot TEXT, " +
+                "brand_name_snapshot TEXT, " +
+                "sub_brand_name_snapshot TEXT, " +
+                "product_name_snapshot TEXT, " +
+                "package_amount_snapshot REAL, " +
+                "package_unit_snapshot TEXT, " +
+                "package_count_snapshot INTEGER, " +
                 "food_kind_snapshot TEXT, " +
                 "quantity REAL NOT NULL, " +
                 "unit TEXT NOT NULL, " +
@@ -631,6 +645,10 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON nutrition_foods(owner_id, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_brand_name_idx " +
                 "ON nutrition_foods(owner_id, brand COLLATE NOCASE, name COLLATE NOCASE)");
+        db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_product_hierarchy_idx " +
+                "ON nutrition_foods(owner_id, manufacturer_name COLLATE NOCASE, " +
+                "brand_name COLLATE NOCASE, sub_brand_name COLLATE NOCASE, " +
+                "product_name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_category_idx " +
                 "ON nutrition_foods(owner_id, category, cooking_method, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_visibility_name_idx " +
@@ -996,6 +1014,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         // Idempotently enforce the feature schema for every historical upgrade path. This also
         // repairs development preview databases that reached v16-v18 without these tables.
         createDevelopmentTables(db);
+        if (oldVersion < 45) {
+            upgradePackagedFoodHierarchySchema(db);
+        }
         createNutritionIndexes(db);
         if (oldVersion < 19) {
             reconcileVerifiedFoodCatalog(db);
@@ -1071,6 +1092,35 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 44) {
             createExercisePickerPreferenceTable(db);
         }
+        if (oldVersion < 46) {
+            upgradePackagedFoodSnapshotSchema(db);
+        }
+    }
+
+    /** Adds explicit packaged-food hierarchy without guessing legacy brand-only mappings. */
+    private void upgradePackagedFoodHierarchySchema(SQLiteDatabase db) {
+        addColumnIfMissing(db, "nutrition_foods", "manufacturer_name", "TEXT");
+        addColumnIfMissing(db, "nutrition_foods", "brand_name", "TEXT");
+        addColumnIfMissing(db, "nutrition_foods", "sub_brand_name", "TEXT");
+        addColumnIfMissing(db, "nutrition_foods", "product_name", "TEXT");
+        addColumnIfMissing(db, "nutrition_foods", "package_amount", "REAL");
+        addColumnIfMissing(db, "nutrition_foods", "package_unit", "TEXT");
+        addColumnIfMissing(db, "nutrition_foods", "package_count", "INTEGER");
+        db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_product_hierarchy_idx " +
+                "ON nutrition_foods(owner_id, manufacturer_name COLLATE NOCASE, " +
+                "brand_name COLLATE NOCASE, sub_brand_name COLLATE NOCASE, " +
+                "product_name COLLATE NOCASE)");
+    }
+
+    /** Adds immutable packaged-food hierarchy values to newly written meal item snapshots. */
+    private void upgradePackagedFoodSnapshotSchema(SQLiteDatabase db) {
+        addColumnIfMissing(db, "meal_record_items", "manufacturer_name_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "brand_name_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "sub_brand_name_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "product_name_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "package_amount_snapshot", "REAL");
+        addColumnIfMissing(db, "meal_record_items", "package_unit_snapshot", "TEXT");
+        addColumnIfMissing(db, "meal_record_items", "package_count_snapshot", "INTEGER");
     }
 
     /** Adds family/preset/variant snapshots and keeps load semantics at set granularity. */

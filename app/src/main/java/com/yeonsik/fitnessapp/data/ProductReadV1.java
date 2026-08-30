@@ -18,6 +18,10 @@ public final class ProductReadV1 {
     public final String standardProductId;
     public final String name;
     public final String brand;
+    /** Explicit PriceTrace company/manufacturer field; null when it is absent from the contract. */
+    public final String manufacturerName;
+    /** Explicit PriceTrace sub-brand field; nullable by contract. */
+    public final String subBrandName;
     public final String sellerName;
     public final Integer latestObservedPriceKrw;
     public final String observedAt;
@@ -124,10 +128,46 @@ public final class ProductReadV1 {
             String revision,
             List<ProductReadV1> catalogVariants
     ) {
+        this(
+                catalogProductId,
+                standardProductId,
+                name,
+                brand,
+                null,
+                null,
+                sellerName,
+                latestObservedPriceKrw,
+                observedAt,
+                contentAmount,
+                contentUnit,
+                packageCount,
+                revision,
+                catalogVariants
+        );
+    }
+
+    private ProductReadV1(
+            String catalogProductId,
+            String standardProductId,
+            String name,
+            String brand,
+            String manufacturerName,
+            String subBrandName,
+            String sellerName,
+            Integer latestObservedPriceKrw,
+            String observedAt,
+            Double contentAmount,
+            String contentUnit,
+            Integer packageCount,
+            String revision,
+            List<ProductReadV1> catalogVariants
+    ) {
         this.catalogProductId = requireUuid(catalogProductId, "catalogProductId");
         this.standardProductId = optionalUuid(standardProductId, "standardProductId");
         this.name = requireText(name, "상품명");
         this.brand = optionalText(brand);
+        this.manufacturerName = optionalText(manufacturerName);
+        this.subBrandName = optionalText(subBrandName);
         this.sellerName = optionalText(sellerName);
         if ((latestObservedPriceKrw == null) != (optionalText(observedAt) == null)) {
             throw new IllegalArgumentException("최근 관측가와 관측시각은 함께 있거나 함께 null이어야 합니다.");
@@ -196,6 +236,20 @@ public final class ProductReadV1 {
             seller = stringValue(first(row, "sourceLabel", "source_label"));
         }
         String brand = stringValue(first(row, "brand", "brandName", "brand_name"));
+        String manufacturerName = stringValue(first(
+                row,
+                "manufacturerName",
+                "manufacturer_name",
+                "companyName",
+                "company_name"
+        ));
+        String subBrandName = stringValue(first(
+                row,
+                "subBrandName",
+                "sub_brand_name",
+                "subBrand",
+                "sub_brand"
+        ));
         String name = productNameWithoutBrand(stringValue(first(
                 row,
                 "standardProductName",
@@ -212,13 +266,16 @@ public final class ProductReadV1 {
                 stringValue(first(row, "standardProductId", "standard_product_id")),
                 name,
                 brand,
+                manufacturerName,
+                subBrandName,
                 seller,
                 price,
                 observedAt,
                 doubleValue(first(row, "contentAmount", "content_amount")),
                 stringValue(first(row, "contentUnit", "content_unit")),
                 integerValue(first(row, "packageCount", "package_count")),
-                stringValue(first(row, "revision", "catalogProductRevision", "catalog_product_revision"))
+                stringValue(first(row, "revision", "catalogProductRevision", "catalog_product_revision")),
+                Collections.emptyList()
         );
     }
 
@@ -258,6 +315,24 @@ public final class ProductReadV1 {
                 stringValue(first(standardProduct, "brand", "brandName", "brand_name")),
                 stringValue(first(catalogProduct, "name", "productName", "product_name"))
         );
+        String manufacturerName = firstExplicitText(
+                standardProduct,
+                row,
+                catalogProduct,
+                "manufacturerName",
+                "manufacturer_name",
+                "companyName",
+                "company_name"
+        );
+        String subBrandName = firstExplicitText(
+                standardProduct,
+                row,
+                catalogProduct,
+                "subBrandName",
+                "sub_brand_name",
+                "subBrand",
+                "sub_brand"
+        );
         Map<String, ?> observation = firstMap(listValue(first(row, "observations")));
         Map<String, ?> sellerProduct = firstMap(listValue(first(
                 row,
@@ -276,6 +351,8 @@ public final class ProductReadV1 {
                 stringValue(first(standardProduct, "id", "standardProductId", "standard_product_id")),
                 displayName.productName,
                 displayName.brand,
+                manufacturerName,
+                subBrandName,
                 seller,
                 observation == null
                         ? null
@@ -286,7 +363,8 @@ public final class ProductReadV1 {
                 doubleValue(first(catalogProduct, "contentAmount", "content_amount")),
                 stringValue(first(catalogProduct, "contentUnit", "content_unit")),
                 integerValue(first(catalogProduct, "packageCount", "package_count")),
-                stringValue(first(row, "revision", "catalogProductRevision", "catalog_product_revision"))
+                stringValue(first(row, "revision", "catalogProductRevision", "catalog_product_revision")),
+                Collections.emptyList()
         );
     }
 
@@ -306,9 +384,10 @@ public final class ProductReadV1 {
                 if (product == null || product.standardProductId == null) {
                     continue;
                 }
-                String searchable = product.brand == null
-                        ? product.name
-                        : product.brand + " " + product.name;
+                String searchable = product.manufacturerName + " "
+                        + product.brand + " "
+                        + product.subBrandName + " "
+                        + product.name;
                 if (!searchable.toLowerCase(Locale.ROOT).contains(term)) {
                     continue;
                 }
@@ -351,6 +430,8 @@ public final class ProductReadV1 {
                 standardProductId,
                 name,
                 brand,
+                manufacturerName,
+                subBrandName,
                 sellerName,
                 latestObservedPriceKrw,
                 observedAt,
@@ -468,7 +549,12 @@ public final class ProductReadV1 {
 
     /** The only standard-product identity shown in the Fitness app UI. */
     public String standardProductLabel() {
-        return brand == null ? name : brand + " · " + name;
+        List<String> parts = new ArrayList<>();
+        addLabelPart(parts, manufacturerName);
+        addLabelPart(parts, brand);
+        addLabelPart(parts, subBrandName);
+        addLabelPart(parts, name);
+        return String.join(" · ", parts);
     }
 
     public String exactSelectionLabel() {
@@ -482,6 +568,30 @@ public final class ProductReadV1 {
             throw new IllegalArgumentException("PriceTrace 상품 revision 형식이 올바르지 않습니다.");
         }
         return normalized;
+    }
+
+    private static String firstExplicitText(
+            Map<String, ?> primary,
+            Map<String, ?> secondary,
+            Map<String, ?> tertiary,
+            String... keys
+    ) {
+        String value = stringValue(first(primary, keys));
+        if (value != null) {
+            return value;
+        }
+        value = stringValue(first(secondary, keys));
+        if (value != null) {
+            return value;
+        }
+        return stringValue(first(tertiary, keys));
+    }
+
+    private static void addLabelPart(List<String> parts, String value) {
+        String normalized = optionalText(value);
+        if (normalized != null && !parts.contains(normalized)) {
+            parts.add(normalized);
+        }
     }
 
     private static Object first(Map<String, ?> row, String... keys) {

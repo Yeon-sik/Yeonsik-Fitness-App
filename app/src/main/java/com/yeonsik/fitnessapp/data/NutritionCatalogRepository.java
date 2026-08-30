@@ -57,6 +57,13 @@ public final class NutritionCatalogRepository {
             "owner_id",
             "name",
             "brand",
+            "manufacturer_name",
+            "brand_name",
+            "sub_brand_name",
+            "product_name",
+            "package_amount",
+            "package_unit",
+            "package_count",
             "kind",
             "category",
             "basis_amount",
@@ -866,6 +873,150 @@ public final class NutritionCatalogRepository {
             database.setTransactionSuccessful();
         } finally {
             database.endTransaction();
+        }
+        return food;
+    }
+
+    /**
+     * Saves one Fitness nutrition row for a packaged-food package/variant.
+     * PriceTrace remains the canonical product owner; an exact product, when supplied, is
+     * recorded only through product_nutrition_links.
+     */
+    public NutritionFood savePackagedFood(
+            String manufacturerName,
+            String brandName,
+            String subBrandName,
+            String productName,
+            Double packageAmount,
+            String packageUnit,
+            Integer packageCount,
+            double basisAmount,
+            String basisUnit,
+            String prepState,
+            NutritionProfile profile,
+            String sourceType,
+            String sourceReference,
+            String sourceVersion
+    ) {
+        return savePackagedFood(
+                manufacturerName,
+                brandName,
+                subBrandName,
+                productName,
+                packageAmount,
+                packageUnit,
+                packageCount,
+                basisAmount,
+                basisUnit,
+                prepState,
+                profile,
+                sourceType,
+                sourceReference,
+                sourceVersion,
+                null
+        );
+    }
+
+    /** Saves a packaged package/variant and optionally creates an exact PriceTrace link. */
+    public NutritionFood savePackagedFood(
+            String manufacturerName,
+            String brandName,
+            String subBrandName,
+            String productName,
+            Double packageAmount,
+            String packageUnit,
+            Integer packageCount,
+            double basisAmount,
+            String basisUnit,
+            String prepState,
+            NutritionProfile profile,
+            String sourceType,
+            String sourceReference,
+            String sourceVersion,
+            ProductReadV1 exactProduct
+    ) {
+        String normalizedProductName = emptyToNull(productName);
+        String normalizedManufacturerName = emptyToNull(manufacturerName);
+        String normalizedBrandName = emptyToNull(brandName);
+        String normalizedSubBrandName = emptyToNull(subBrandName);
+        Double resolvedPackageAmount = packageAmount;
+        String resolvedPackageUnit = normalizePackagedUnit(packageUnit);
+        Integer resolvedPackageCount = packageCount;
+        if (exactProduct != null) {
+            if (normalizedManufacturerName == null) {
+                normalizedManufacturerName = exactProduct.manufacturerName;
+            }
+            if (normalizedBrandName == null) {
+                normalizedBrandName = exactProduct.brand;
+            }
+            if (normalizedSubBrandName == null) {
+                normalizedSubBrandName = exactProduct.subBrandName;
+            }
+            if (productName == null || productName.trim().isEmpty()) {
+                normalizedProductName = exactProduct.name;
+            }
+            if (resolvedPackageAmount == null) {
+                resolvedPackageAmount = exactProduct.contentAmount;
+            }
+            if (resolvedPackageUnit == null) {
+                resolvedPackageUnit = normalizePackagedUnit(exactProduct.contentUnit);
+            }
+            if (resolvedPackageCount == null) {
+                resolvedPackageCount = exactProduct.packageCount;
+            }
+        }
+        normalizedProductName = requireName(normalizedProductName);
+        if (resolvedPackageAmount != null && resolvedPackageAmount <= 0) {
+            throw new IllegalArgumentException("포장 용량은 0보다 커야 합니다.");
+        }
+        if (resolvedPackageAmount != null && resolvedPackageUnit == null) {
+            throw new IllegalArgumentException("포장 용량의 단위를 입력하세요.");
+        }
+        if (resolvedPackageCount != null && resolvedPackageCount <= 0) {
+            throw new IllegalArgumentException("포장 개수는 0보다 커야 합니다.");
+        }
+        if (basisAmount <= 0) {
+            throw new IllegalArgumentException("Basis amount must be greater than zero.");
+        }
+        String normalizedBasisUnit = NutritionUnit.requireSupported(basisUnit);
+        NutritionProfile normalizedProfile = requireRequiredNutrients(profile);
+        String normalizedSourceType = emptyToDefault(
+                sourceType,
+                exactProduct == null ? "manual" : "pricetrace_manual"
+        );
+        NutritionFood food = NutritionFood.builder()
+                .id(UUID.randomUUID().toString())
+                .ownerId(userId)
+                .name(normalizedProductName)
+                .brand(normalizedBrandName)
+                .manufacturerName(normalizedManufacturerName)
+                .brandName(normalizedBrandName)
+                .subBrandName(normalizedSubBrandName)
+                .productName(normalizedProductName)
+                .packageAmount(resolvedPackageAmount)
+                .packageUnit(resolvedPackageUnit)
+                .packageCount(resolvedPackageCount)
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .category(NutritionFood.CATEGORY_PROCESSED)
+                .basis(basisAmount, normalizedBasisUnit)
+                .prepState(emptyToDefault(prepState, NutritionFood.PREP_UNSPECIFIED))
+                .profile(normalizedProfile)
+                .source(normalizedSourceType, emptyToNull(sourceReference))
+                .sourceVersion(emptyToNull(sourceVersion))
+                .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
+                .build();
+
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        database.beginTransaction();
+        try {
+            database.insertOrThrow("nutrition_foods", null, foodValues(food, now()));
+            replaceMicronutrients(database, food);
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        if (exactProduct != null) {
+            linkProduct(food.id, exactProduct);
         }
         return food;
     }
@@ -2636,6 +2787,17 @@ public final class NutritionCatalogRepository {
                 putNullable(values, "owner_id", nullableString(row, "owner_id"));
                 values.put("name", name);
                 putNullable(values, "brand", nullableString(row, "brand"));
+                putNullable(values, "manufacturer_name", nullableString(row, "manufacturer_name"));
+                putNullable(values, "brand_name", nullableString(row, "brand_name"));
+                putNullable(values, "sub_brand_name", nullableString(row, "sub_brand_name"));
+                putNullable(values, "product_name", nullableString(row, "product_name"));
+                putNullableDouble(values, "package_amount", nullableDouble(row, "package_amount"));
+                putNullable(values, "package_unit", nullableString(row, "package_unit"));
+                if (row.has("package_count") && !row.isNull("package_count")) {
+                    values.put("package_count", row.optInt("package_count"));
+                } else {
+                    values.putNull("package_count");
+                }
                 String kind = NutritionFood.normalizeKind(
                         row.optString("kind", NutritionFood.KIND_EXTERNAL_MENU));
                 values.put("kind", kind);
@@ -2886,6 +3048,17 @@ public final class NutritionCatalogRepository {
         values.put("owner_id", food.ownerId);
         values.put("name", food.name);
         putNullable(values, "brand", food.brand);
+        putNullable(values, "manufacturer_name", food.manufacturerName);
+        putNullable(values, "brand_name", food.brandName);
+        putNullable(values, "sub_brand_name", food.subBrandName);
+        putNullable(values, "product_name", food.productName);
+        putNullableDouble(values, "package_amount", food.packageAmount);
+        putNullable(values, "package_unit", food.packageUnit);
+        if (food.packageCount == null) {
+            values.putNull("package_count");
+        } else {
+            values.put("package_count", food.packageCount);
+        }
         values.put("kind", food.kind);
         values.put("category", food.category);
         values.put("basis_amount", food.basisAmount);
@@ -2986,11 +3159,11 @@ public final class NutritionCatalogRepository {
 
     private NutritionFood buildFood(Object[] row, Map<String, Double> micronutrients) {
         NutritionProfile.Builder profile = NutritionProfile.builder()
-                .value(NutritionProfile.CALORIES_KCAL, doubleAt(row, 10))
-                .value(NutritionProfile.PROTEIN_GRAMS, doubleAt(row, 11))
-                .value(NutritionProfile.CARBS_GRAMS, doubleAt(row, 12))
-                .value(NutritionProfile.FAT_GRAMS, doubleAt(row, 13));
-        int columnIndex = 14;
+                .value(NutritionProfile.CALORIES_KCAL, doubleAt(row, 17))
+                .value(NutritionProfile.PROTEIN_GRAMS, doubleAt(row, 18))
+                .value(NutritionProfile.CARBS_GRAMS, doubleAt(row, 19))
+                .value(NutritionProfile.FAT_GRAMS, doubleAt(row, 20));
+        int columnIndex = 21;
         for (String key : nullableTypedKeys()) {
             profile.value(key, doubleAt(row, columnIndex++));
         }
@@ -3000,21 +3173,28 @@ public final class NutritionCatalogRepository {
             }
         }
 
-        Double dataVersion = doubleAt(row, 24);
-        Double revision = doubleAt(row, 25);
+        Double dataVersion = doubleAt(row, 31);
+        Double revision = doubleAt(row, 32);
         return NutritionFood.builder()
                 .id(stringAt(row, 0))
                 .ownerId(stringAt(row, 1))
                 .name(stringAt(row, 2))
                 .brand(stringAt(row, 3))
-                .kind(stringAt(row, 4))
-                .category(stringAt(row, 5))
-                .basis(positiveOrDefault(doubleAt(row, 6)), emptyToDefault(stringAt(row, 7), "serving"))
-                .prepState(stringAt(row, 8))
-                .cookingMethod(stringAt(row, 9))
+                .manufacturerName(stringAt(row, 4))
+                .brandName(stringAt(row, 5))
+                .subBrandName(stringAt(row, 6))
+                .productName(stringAt(row, 7))
+                .packageAmount(doubleAt(row, 8))
+                .packageUnit(stringAt(row, 9))
+                .packageCount(integerAt(row, 10))
+                .kind(stringAt(row, 11))
+                .category(stringAt(row, 12))
+                .basis(positiveOrDefault(doubleAt(row, 13)), emptyToDefault(stringAt(row, 14), "serving"))
+                .prepState(stringAt(row, 15))
+                .cookingMethod(stringAt(row, 16))
                 .profile(profile.build())
-                .source(emptyToDefault(stringAt(row, 21), "manual"), stringAt(row, 22))
-                .sourceVersion(stringAt(row, 23))
+                .source(emptyToDefault(stringAt(row, 28), "manual"), stringAt(row, 29))
+                .sourceVersion(stringAt(row, 30))
                 .dataVersion(dataVersion == null
                         ? NutritionFood.DATA_VERSION_MACROS_ONLY
                         : (int) Math.round(dataVersion))
@@ -3421,8 +3601,24 @@ public final class NutritionCatalogRepository {
         }
     }
 
+    private static Integer integerAt(Object[] row, int index) {
+        Double value = doubleAt(row, index);
+        return value == null ? null : (int) Math.round(value);
+    }
+
     private static double positiveOrDefault(Double value) {
         return value == null || value <= 0 ? 1.0 : value;
+    }
+
+    private static String normalizePackagedUnit(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        String normalized = NutritionUnit.normalize(value);
+        if ("each".equals(normalized)) {
+            return normalized;
+        }
+        return NutritionUnit.requireSupported(normalized);
     }
 
     private static String nullableString(JSONObject object, String key) {

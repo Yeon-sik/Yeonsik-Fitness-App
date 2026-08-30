@@ -84,6 +84,14 @@ public final class NutritionFood {
     public final String ownerId;
     public final String name;
     public final String brand;
+    /** Explicit packaged-food hierarchy fields. Legacy rows may leave these null. */
+    public final String manufacturerName;
+    public final String brandName;
+    public final String subBrandName;
+    public final String productName;
+    public final Double packageAmount;
+    public final String packageUnit;
+    public final Integer packageCount;
     public final String kind;
     public final String category;
     public final double basisAmount;
@@ -112,6 +120,13 @@ public final class NutritionFood {
         this.ownerId = builder.ownerId;
         this.name = builder.name;
         this.brand = normalizeText(builder.brand);
+        this.manufacturerName = normalizeText(builder.manufacturerName);
+        this.brandName = normalizeText(builder.brandName);
+        this.subBrandName = normalizeText(builder.subBrandName);
+        this.productName = normalizeText(builder.productName);
+        this.packageAmount = builder.packageAmount;
+        this.packageUnit = normalizeText(builder.packageUnit);
+        this.packageCount = builder.packageCount;
         this.kind = normalizeKind(builder.kind);
         this.category = normalizeCategory(builder.category);
         this.basisAmount = builder.basisAmount;
@@ -173,6 +188,29 @@ public final class NutritionFood {
 
     public String displayName() {
         return brand == null ? name : brand + " · " + name;
+    }
+
+    /** Display label for a packaged canonical product, including only explicit hierarchy parts. */
+    public String packagedProductLabel() {
+        List<String> parts = new ArrayList<>();
+        addLabelPart(parts, manufacturerName);
+        addLabelPart(parts, brandName == null ? brand : brandName);
+        addLabelPart(parts, subBrandName);
+        addLabelPart(parts, productName == null ? name : productName);
+        return String.join(" · ", parts);
+    }
+
+    /** Display label for one package/variant without changing the canonical product identity. */
+    public String packagedVariantLabel() {
+        List<String> parts = new ArrayList<>();
+        if (packageAmount != null && packageAmount > 0) {
+            parts.add(NutritionCalculator.trim(packageAmount)
+                    + NutritionUnit.display(packageUnit));
+        }
+        if (packageCount != null && packageCount > 0) {
+            parts.add(packageCount + "개입");
+        }
+        return parts.isEmpty() ? basisLabel() : String.join(" · ", parts);
     }
 
     /** 카탈로그에서 같은 종류의 조리 방식을 구분해 보여 주는 표시명. */
@@ -263,6 +301,19 @@ public final class NutritionFood {
     public boolean isDiningOutMenu() {
         return KIND_EXTERNAL_MENU.equals(normalizeKind(kind))
                 && isDiningOutSourceType(sourceType);
+    }
+
+    /** Reusable dining-out components are kept out of both menu and packaged-product pickers. */
+    public boolean isDiningOutComponent() {
+        return KIND_EXTERNAL_MENU.equals(normalizeKind(kind))
+                && "manual_option".equalsIgnoreCase(sourceType);
+    }
+
+    /** Fitness-owned packaged nutrition row; PriceTrace identity remains in product links. */
+    public boolean isPackagedFood() {
+        return KIND_EXTERNAL_MENU.equals(normalizeKind(kind))
+                && !isDiningOutMenu()
+                && !isDiningOutComponent();
     }
 
     /** Legacy manual estimates and canonical OCR food-image estimates share the dining-out UI path. */
@@ -422,6 +473,13 @@ public final class NutritionFood {
         private String ownerId;
         private String name;
         private String brand;
+        private String manufacturerName;
+        private String brandName;
+        private String subBrandName;
+        private String productName;
+        private Double packageAmount;
+        private String packageUnit;
+        private Integer packageCount;
         private String kind = KIND_EXTERNAL_MENU;
         private String category = CATEGORY_OTHER;
         private double basisAmount = 1;
@@ -455,6 +513,47 @@ public final class NutritionFood {
 
         public Builder brand(String brand) {
             this.brand = brand;
+            return this;
+        }
+
+        public Builder manufacturerName(String manufacturerName) {
+            this.manufacturerName = manufacturerName;
+            return this;
+        }
+
+        public Builder brandName(String brandName) {
+            this.brandName = brandName;
+            return this;
+        }
+
+        public Builder subBrandName(String subBrandName) {
+            this.subBrandName = subBrandName;
+            return this;
+        }
+
+        public Builder productName(String productName) {
+            this.productName = productName;
+            return this;
+        }
+
+        public Builder packageAmount(Double packageAmount) {
+            if (packageAmount != null && packageAmount <= 0) {
+                throw new IllegalArgumentException("Package amount must be greater than zero.");
+            }
+            this.packageAmount = packageAmount;
+            return this;
+        }
+
+        public Builder packageUnit(String packageUnit) {
+            this.packageUnit = packageUnit;
+            return this;
+        }
+
+        public Builder packageCount(Integer packageCount) {
+            if (packageCount != null && packageCount <= 0) {
+                throw new IllegalArgumentException("Package count must be greater than zero.");
+            }
+            this.packageCount = packageCount;
             return this;
         }
 
@@ -521,5 +620,12 @@ public final class NutritionFood {
         }
         String normalized = value.trim();
         return normalized.isEmpty() ? null : normalized;
+    }
+
+    private static void addLabelPart(List<String> parts, String value) {
+        String normalized = normalizeText(value);
+        if (normalized != null && !parts.contains(normalized)) {
+            parts.add(normalized);
+        }
     }
 }
