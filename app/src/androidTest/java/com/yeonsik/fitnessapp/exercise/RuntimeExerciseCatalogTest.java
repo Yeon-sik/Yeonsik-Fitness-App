@@ -21,6 +21,7 @@ import java.util.Set;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
@@ -223,6 +224,31 @@ public final class RuntimeExerciseCatalogTest {
         assertEquals(
                 "family_default",
                 ExerciseIllustrationLookup.resolve(context, chinUp).source
+        );
+    }
+
+    @Test
+    public void resolvesFamilyFallbackForApprovedPresetWithoutLegacyId() {
+        android.content.Context context = ApplicationProvider.getApplicationContext();
+        ExerciseFamilyCatalog catalog = ExerciseFamilyCatalog.load(context);
+        RuntimeExercisePreset preset = catalog.runtimeCatalog().preset("ring_pull_up");
+        assertNotNull(preset);
+        assertTrue(preset.approvedNewPreset);
+        assertTrue(preset.legacyIds.isEmpty());
+        assertNull(catalog.identityForLegacyId(preset.storageExerciseId));
+
+        ExerciseFamilyIdentity identity = catalog.identityForStorageExerciseId(
+                preset.storageExerciseId
+        );
+        assertNotNull(identity);
+        assertEquals("pull_up", identity.familyId);
+        assertEquals(
+                "family_default",
+                ExerciseIllustrationLookup.resolve(context, preset.storageExerciseId).source
+        );
+        assertEquals(
+                "family_default",
+                ExerciseIllustrationLookup.resolve(context, identity).source
         );
     }
 

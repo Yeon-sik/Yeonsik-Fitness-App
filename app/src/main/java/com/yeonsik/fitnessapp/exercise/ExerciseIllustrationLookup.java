@@ -32,11 +32,11 @@ public final class ExerciseIllustrationLookup {
         return resolution.preferredHeightDp;
     }
 
-    public static IllustrationResolution resolve(Context context, String legacyExerciseId) {
+    public static IllustrationResolution resolve(Context context, String storageExerciseId) {
         ExerciseFamilyCatalog catalog = familyCatalog(context);
-        ExerciseFamilyIdentity identity = catalog.identityForLegacyId(legacyExerciseId);
+        ExerciseFamilyIdentity identity = catalog.identityForStorageExerciseId(storageExerciseId);
         if (identity == null) {
-            return legacyResolution(legacyExerciseId, "legacy_exercise_id_compatibility");
+            return legacyResolution(storageExerciseId, "legacy_exercise_id_compatibility");
         }
 
         return resolve(context, identity);

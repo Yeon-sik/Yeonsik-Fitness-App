@@ -117,16 +117,17 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     // ── 운동 자세 이미지 ───────────────────────────────────────────────
 
     private void renderExerciseIllustration(FitnessRepository.SessionExerciseEntry exercise) {
-        int[] drawableIds = ExerciseIllustrationLookup.detailDrawablesFor(
-                host.activity(), exercise.exerciseId);
+        ExerciseIllustrationLookup.IllustrationResolution resolution = exercise.familyIdentity == null
+                ? ExerciseIllustrationLookup.resolve(host.activity(), exercise.exerciseId)
+                : ExerciseIllustrationLookup.resolve(host.activity(), exercise.familyIdentity);
+        int[] drawableIds = resolution.drawables;
         if (drawableIds.length == 0) {
             return;
         }
 
         FitnessUi ui = ui();
         ImageView illustration = new ImageView(host.activity());
-        int[] durationsMs = ExerciseIllustrationLookup.frameDurationsMsFor(
-                host.activity(), exercise.exerciseId);
+        int[] durationsMs = resolution.durationsMs;
         String illustrationDescription = exercise.name
                 + (drawableIds.length > 1 ? " 운동 자세 애니메이션" : " 운동 자세");
         illustration.setContentDescription(illustrationDescription);
@@ -136,8 +137,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         illustration.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         illustration.setPadding(0, ui.dp(4), 0, ui.dp(4));
 
-        int preferredHeightDp = ExerciseIllustrationLookup.preferredHeightDp(
-                host.activity(), exercise.exerciseId);
+        int preferredHeightDp = resolution.preferredHeightDp;
         int height = ui.dp(Math.round(preferredHeightDp * ILLUSTRATION_DISPLAY_SCALE_PERCENT / 100f));
 
         LinearLayout.LayoutParams imageParams = ui.fullWidthParams(ui.dp(8));

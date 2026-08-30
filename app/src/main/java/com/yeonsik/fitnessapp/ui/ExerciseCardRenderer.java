@@ -97,7 +97,8 @@ public final class ExerciseCardRenderer {
                     exercise.name,
                     primarySubPart,
                     equipment,
-                    recordType
+                    recordType,
+                    exercise.familyIdentity
             );
         }
 
