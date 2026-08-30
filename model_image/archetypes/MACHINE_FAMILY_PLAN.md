@@ -6,7 +6,9 @@
 
 - MISSING_ASSET 운동: **29**
 - machine family: **18**
-- asset plan: **30** (기존 canonical 재사용 2, source 필요 27)
+- asset plan: **30** (기존 canonical 재사용 2, source 필요 28)
+- unresolved machine-family TODO: **0**
+- 힙 쓰러스트는 `machine_hip_thrust` 독립 reusable family이며 `glute_kickback_machine`과 통합하지 않는다.
 
 | family | canonical asset | source action | recommended viewId | promotion | shared exercises |
 |---|---|---|---|---|---|
@@ -39,7 +41,7 @@
 | 기타 / reverse pec-deck family | reverse_pec_deck_v1 | SOURCE_REQUIRED_NO_IMAGE_YET | rear_three_quarter | PLANNED_AFTER_SOURCE_REVIEW | - |
 | 기타 / machine dip press family | machine_dip_press_v1 | SOURCE_REQUIRED_NO_IMAGE_YET | front_three_quarter | PLANNED_AFTER_SOURCE_REVIEW | 머신 딥 프레스 (arms_machine_dip_press) |
 | 기타 / machine lateral raise family | machine_lateral_raise_v1 | SOURCE_REQUIRED_NO_IMAGE_YET | front_three_quarter | PLANNED_AFTER_SOURCE_REVIEW | 머신 레터럴 레이즈 (shoulders_machine_lateral_raise) |
-| 기타 / machine hip thrust family | TODO_USER_APPROVAL_machine_hip_thrust | UNRESOLVED_NOT_IN_APPROVED_PLAN | TODO_USER_APPROVAL | NOT_IN_APPROVED_PLAN | 힙 쓰러스트 머신 (legs_machine_hip_thrust) |
+| machine hip thrust family | machine_hip_thrust_v1 | SOURCE_REQUIRED_NO_IMAGE_YET | side_three_quarter | PLANNED_AFTER_SOURCE_REVIEW | 힙 쓰러스트 머신 (legs_machine_hip_thrust) |
 
 ## Exercise mapping
 
@@ -54,7 +56,7 @@
 | 아이소 레터럴 체스트 프레스 (chest_machine_iso_lateral_chest_press) | chest_press | iso_lateral_chest_press_v1 |
 | 복근 크런치 머신 (abs_machine_ab_crunch) | crunch | ab_crunch_machine_v1 |
 | 글루트 킥백 머신 (legs_machine_glute_kickback) | glute_kickback | glute_kickback_machine_v1 |
-| 힙 쓰러스트 머신 (legs_machine_hip_thrust) | hip_thrust | TODO_USER_APPROVAL_machine_hip_thrust |
+| 힙 쓰러스트 머신 (legs_machine_hip_thrust) | hip_thrust | machine_hip_thrust_v1 |
 | 머신 레터럴 레이즈 (shoulders_machine_lateral_raise) | lateral_raise | machine_lateral_raise_v1 |
 | 스탠딩 레그 컬 (legs_machine_standing_leg_curl) | leg_curl | standing_leg_curl_machine_v1 |
 | 머신 딥 프레스 (arms_machine_dip_press) | machine_dip_press | machine_dip_press_v1 |

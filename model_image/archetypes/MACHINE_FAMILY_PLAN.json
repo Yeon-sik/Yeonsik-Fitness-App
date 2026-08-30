@@ -6,7 +6,9 @@
     "noImageGenerationAdapter": true,
     "noArchetypeCameraPoseChanges": true,
     "noExerciseSpecificAssetPerExercise": true,
-    "existingViewIdsPreserved": true
+    "existingViewIdsPreserved": true,
+    "hipThrustIndependentFromGluteKickback": true,
+    "oneCanonicalHipThrustMachinePerFamily": true
   },
   "familyPlans": [
     {
@@ -719,20 +721,20 @@
       ]
     },
     {
-      "machineFamilyId": "other_machine_hip_thrust",
-      "label": "기타 / machine hip thrust family",
+      "machineFamilyId": "machine_hip_thrust",
+      "label": "machine hip thrust family",
       "assets": [
         {
-          "machineFamilyId": "other_machine_hip_thrust",
-          "label": "기타 / machine hip thrust family",
-          "assetId": "TODO_USER_APPROVAL_machine_hip_thrust",
+          "machineFamilyId": "machine_hip_thrust",
+          "label": "machine hip thrust family",
+          "assetId": "machine_hip_thrust_v1",
           "type": "machine_hip_thrust",
-          "recommendedViewId": "TODO_USER_APPROVAL",
+          "recommendedViewId": "side_three_quarter",
           "renderClass": "fixed_machine",
-          "sourceAction": "UNRESOLVED_NOT_IN_APPROVED_PLAN",
-          "sourcePath": "source/TODO_USER_APPROVAL_machine_hip_thrust.png",
-          "finalPath": "final/TODO_USER_APPROVAL_machine_hip_thrust.png",
-          "promotionStatus": "NOT_IN_APPROVED_PLAN",
+          "sourceAction": "SOURCE_REQUIRED_NO_IMAGE_YET",
+          "sourcePath": "source/machine_hip_thrust.png",
+          "finalPath": "final/machine_hip_thrust.png",
+          "promotionStatus": "PLANNED_AFTER_SOURCE_REVIEW",
           "reversePecDeckFallback": null
         }
       ],
@@ -741,17 +743,32 @@
           "exerciseId": "legs_machine_hip_thrust",
           "exerciseName": "힙 쓰러스트 머신",
           "familyId": "hip_thrust",
-          "machineFamilyId": "other_machine_hip_thrust",
-          "canonicalAssetId": "TODO_USER_APPROVAL_machine_hip_thrust"
+          "machineFamilyId": "machine_hip_thrust",
+          "canonicalAssetId": "machine_hip_thrust_v1"
         }
       ]
     }
   ],
+  "decisions": {
+    "hipThrust": {
+      "machineFamilyId": "machine_hip_thrust",
+      "canonicalAssetId": "machine_hip_thrust_v1",
+      "recommendedViewId": "side_three_quarter",
+      "renderClass": "fixed_machine",
+      "sharedExerciseIds": [
+        "legs_machine_hip_thrust"
+      ],
+      "notIntegratedWith": [
+        "glute_kickback_machine"
+      ]
+    }
+  },
   "summary": {
     "missingExerciseCount": 29,
     "familyCount": 18,
     "assetPlanCount": 30,
-    "sourceRequiredCount": 27,
-    "existingCanonicalReuseCount": 2
+    "sourceRequiredCount": 28,
+    "existingCanonicalReuseCount": 2,
+    "unresolvedMachineFamilyTodoCount": 0
   }
 }
