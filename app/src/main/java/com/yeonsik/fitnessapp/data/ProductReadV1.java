@@ -418,10 +418,11 @@ public final class ProductReadV1 {
                 if (product == null || product.standardProductId == null) {
                     continue;
                 }
-                String searchable = product.manufacturerName + " "
-                        + product.brand + " "
-                        + product.subBrandName + " "
-                        + product.name;
+                String searchable = searchPart(product.manufacturerName) + " "
+                        + searchPart(product.brand) + " "
+                        + searchPart(product.subBrandName) + " "
+                        + searchPart(product.name);
+                searchable = searchable.replaceAll("\\s+", " ").trim();
                 if (!searchable.toLowerCase(Locale.ROOT).contains(term)) {
                     continue;
                 }
@@ -626,6 +627,10 @@ public final class ProductReadV1 {
         if (normalized != null && !parts.contains(normalized)) {
             parts.add(normalized);
         }
+    }
+
+    private static String searchPart(String value) {
+        return value == null ? "" : value;
     }
 
     private static Object first(Map<String, ?> row, String... keys) {
