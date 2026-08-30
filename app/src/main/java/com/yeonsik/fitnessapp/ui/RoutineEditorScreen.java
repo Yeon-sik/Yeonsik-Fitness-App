@@ -14,8 +14,13 @@ import android.widget.TextView;
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.ExerciseCategory;
+import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter;
 import com.yeonsik.fitnessapp.exercise.WeightExercise;
+import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
+import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
+import com.yeonsik.fitnessapp.exercise.RuntimeExercisePicker;
+import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
@@ -47,9 +52,9 @@ public final class RoutineEditorScreen extends BaseScreen {
         if (screen == FitnessScreen.ROUTINE_DETAIL) {
             renderDetail();
         } else if (screen == FitnessScreen.ROUTINE_ADD) {
-            renderPicker(true);
+            renderRuntimePicker(true);
         } else {
-            renderPicker(false);
+            renderRuntimePicker(false);
         }
     }
 
@@ -128,6 +133,311 @@ public final class RoutineEditorScreen extends BaseScreen {
     }
 
     // ── 운동 픽커 (루틴 추가 / 세션 종목 추가 공용) ─────────────────────
+
+    private void renderRuntimePicker(boolean routineMode) {
+        FitnessUi ui = ui();
+        String recordId = routineMode
+                ? null
+                : (host.sessionState().activeRecordId() != null
+                        ? host.sessionState().activeRecordId()
+                        : host.currentWorkoutRecordId());
+        RuntimeExerciseCatalog catalog = host.exerciseMasterRepository().runtimeCatalog();
+        RuntimeExercisePicker picker = new RuntimeExercisePicker(catalog);
+        List<RuntimeExercisePreset> selectedPresets = new ArrayList<>();
+        EditText routineNameInput = routineMode ? ui.input("루틴 이름", "") : null;
+
+        if (routineMode) {
+            add(ui.textAction("‹ 무산소로", FitnessUi.COLOR_MUTED,
+                    () -> host.navigate(FitnessScreen.STRENGTH)), ui.fullWidthParams(0));
+        } else {
+            add(ui.textAction("‹ 운동으로", FitnessUi.COLOR_MUTED, () -> {
+                if (host.sessionState().activeRecordId() != null) {
+                    host.navigate(FitnessScreen.WORKOUT_SESSION);
+                } else {
+                    host.navigate(FitnessScreen.STRENGTH);
+                }
+            }), ui.fullWidthParams(0));
+        }
+
+        TextView eyebrowView = ui.caption(routineMode ? "루틴 구성" : "진행 중 운동", FitnessUi.COLOR_MUTED);
+        eyebrowView.setPadding(0, ui.dp(16), 0, 0);
+        add(eyebrowView);
+        add(ui.titleView(routineMode ? "루틴 추가" : "운동 종목 추가"));
+        if (routineMode) {
+            add(ui.fieldLabel("루틴 이름"));
+            add(routineNameInput, ui.fullWidthParams(0));
+        }
+
+        EditText searchInput = ui.searchField("운동명, 영문명, Family 검색");
+        add(searchInput, ui.fullWidthParams(routineMode ? ui.dp(12) : 0));
+        TextView selectedCount = ui.text("선택한 운동 0개", 13, FitnessUi.COLOR_MUTED, true);
+        selectedCount.setPadding(0, ui.dp(14), 0, 0);
+        add(selectedCount);
+
+        String addLabel = routineMode ? "선택한 운동 추가" : "선택한 종목 추가";
+        Button addButton = ui.button(addLabel, true, v -> {
+            if (routineMode) {
+                String routineName = FitnessUi.inputText(routineNameInput).trim();
+                if (routineName.isEmpty()) {
+                    host.toast("루틴 이름을 입력하세요.");
+                    return;
+                }
+                if (selectedPresets.isEmpty()) {
+                    host.toast("추가할 운동을 선택하세요.");
+                    return;
+                }
+                if (!host.routineRepository().canCreateRoutine()) {
+                    host.toast("루틴은 최대 5개까지 저장할 수 있습니다.");
+                    return;
+                }
+                List<com.yeonsik.fitnessapp.exercise.RoutineExercise> routineExercises = new ArrayList<>();
+                for (RuntimeExercisePreset preset : selectedPresets) {
+                    routineExercises.add(ExerciseMasterAdapter.toRoutineExercise(preset));
+                }
+                String createdRoutineId = host.routineRepository().createRoutine(routineName, routineExercises);
+                if (createdRoutineId == null) {
+                    host.toast("루틴은 최대 5개까지 저장할 수 있습니다.");
+                    return;
+                }
+                host.routineRepository().selectRoutine(createdRoutineId);
+                host.toast("루틴을 저장했습니다. (" + host.routineRepository().routines().size() + "/5)");
+                host.navigate(FitnessScreen.ROUTINE_DETAIL);
+                return;
+            }
+            if (recordId == null) {
+                host.toast("먼저 운동을 시작하세요.");
+                return;
+            }
+            if (selectedPresets.isEmpty()) {
+                host.toast("추가할 운동을 선택하세요.");
+                return;
+            }
+            for (RuntimeExercisePreset preset : selectedPresets) {
+                repository().addExerciseFromMaster(recordId, ExerciseMasterAdapter.toRoutineExercise(preset));
+            }
+            host.toast(selectedPresets.size() + "개 종목을 운동에 추가했습니다.");
+            host.navigate(host.sessionState().activeRecordId() != null
+                    ? FitnessScreen.WORKOUT_SESSION
+                    : FitnessScreen.STRENGTH);
+        });
+        addButton.setEnabled(false);
+        add(addButton, ui.fullWidthParams(ui.dp(10)));
+
+        Runnable updateSelectionSummary = () -> setRuntimeSelectionSummary(
+                selectedCount, addButton, addLabel, routineMode, selectedPresets);
+        LinearLayout listArea = new LinearLayout(host.activity());
+        listArea.setOrientation(LinearLayout.VERTICAL);
+        Runnable refresh = () -> {
+            updateSelectionSummary.run();
+            renderRuntimePickerList(
+                    listArea,
+                    picker.search(FitnessUi.inputText(searchInput)),
+                    selectedPresets,
+                    updateSelectionSummary
+            );
+        };
+        searchInput.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                refresh.run();
+            }
+
+            @Override
+            public void afterTextChanged(Editable s) {
+            }
+        });
+        section("운동 Family");
+        add(listArea, ui.fullWidthParams(0));
+        refresh.run();
+    }
+
+    private void renderRuntimePickerList(
+            LinearLayout listArea,
+            List<RuntimeExercisePicker.FamilyResult> results,
+            List<RuntimeExercisePreset> selectedPresets,
+            Runnable onSelectionChanged
+    ) {
+        FitnessUi ui = ui();
+        listArea.removeAllViews();
+        if (results.isEmpty()) {
+            LinearLayout empty = ui.card();
+            empty.addView(ui.text("조건에 맞는 운동 Family가 없습니다.", 14, FitnessUi.COLOR_MUTED, false));
+            listArea.addView(empty);
+            return;
+        }
+        for (RuntimeExercisePicker.FamilyResult result : results) {
+            RuntimeExerciseFamily family = result.family;
+            boolean selected = hasSelectedFamily(family.familyId, selectedPresets);
+            LinearLayout card = ui.card();
+            card.setClickable(true);
+            card.setFocusable(true);
+            card.setBackground(selected
+                    ? ui.vibrantRippleDrawable("family-" + family.familyId, ui.dp(16))
+                    : ui.flatSurfaceRippleDrawable(ui.dp(16)));
+            ui.applyDepth(card, selected ? 7 : 4);
+
+            TextView name = ui.text(family.displayName(), 15,
+                    selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
+            card.addView(name);
+            TextView meta = ui.text(
+                    family.presets.size() == 1
+                            ? family.presets.get(0).displayName()
+                            : family.presets.size() + "개 variant · " + presetNames(result.presets),
+                    12,
+                    selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED,
+                    false
+            );
+            meta.setPadding(0, ui.dp(4), 0, 0);
+            card.addView(meta);
+            if (!result.presets.isEmpty()) {
+                RuntimeExercisePreset previewPreset = result.presets.get(0);
+                ImageView image = exerciseIllustrationPreview.create(
+                        ExerciseFamilyCatalog.empty().identityForPreset(previewPreset));
+                if (image != null) {
+                    card.addView(image, exercisePreviewParams(ui));
+                }
+            }
+            TextView check = ui.text(selected ? "✓" : "", 16,
+                    selected ? FitnessUi.COLOR_INVERSE_TEXT : ui.inkMuted(), true);
+            check.setGravity(Gravity.CENTER);
+            card.addView(check, new LinearLayout.LayoutParams(ui.dp(28), ui.dp(28)));
+            ui.pressFeedback(card);
+            card.setOnClickListener(v -> {
+                if (family.presets.size() == 1) {
+                    toggleRuntimePreset(result.presets.get(0), selectedPresets);
+                    onSelectionChanged.run();
+                } else {
+                    showRuntimeVariantPicker(result.presets, selectedPresets, onSelectionChanged);
+                }
+            });
+            listArea.addView(card, ui.fullWidthParams(listArea.getChildCount() == 0 ? 0 : ui.dp(8)));
+        }
+    }
+
+    private void showRuntimeVariantPicker(
+            List<RuntimeExercisePreset> presets,
+            List<RuntimeExercisePreset> selectedPresets,
+            Runnable onSelectionChanged
+    ) {
+        String[] labels = new String[presets.size()];
+        boolean[] checked = new boolean[presets.size()];
+        for (int index = 0; index < presets.size(); index++) {
+            labels[index] = presets.get(index).displayName();
+            checked[index] = containsRuntimePreset(selectedPresets, presets.get(index));
+        }
+        new AlertDialog.Builder(host.activity())
+                .setTitle("Variant 선택")
+                .setMultiChoiceItems(labels, checked,
+                        (dialog, which, isChecked) -> checked[which] = isChecked)
+                .setNegativeButton("취소", null)
+                .setPositiveButton("적용", (dialog, which) -> {
+                    for (int index = 0; index < presets.size(); index++) {
+                        if (checked[index]) {
+                            addRuntimePreset(presets.get(index), selectedPresets);
+                        } else {
+                            removeRuntimePreset(presets.get(index), selectedPresets);
+                        }
+                    }
+                    onSelectionChanged.run();
+                })
+                .show();
+    }
+
+    private void setRuntimeSelectionSummary(
+            TextView selectedCount,
+            Button addButton,
+            String addLabel,
+            boolean routineMode,
+            List<RuntimeExercisePreset> selectedPresets
+    ) {
+        selectedCount.setText("선택한 운동 " + selectedPresets.size() + "개");
+        addButton.setText(selectedPresets.isEmpty()
+                ? addLabel
+                : (routineMode
+                        ? "선택한 운동 " + selectedPresets.size() + "개 추가"
+                        : "선택한 종목 " + selectedPresets.size() + "개 추가"));
+        addButton.setEnabled(!selectedPresets.isEmpty());
+    }
+
+    private static String presetNames(List<RuntimeExercisePreset> presets) {
+        StringBuilder names = new StringBuilder();
+        int max = Math.min(3, presets.size());
+        for (int index = 0; index < max; index++) {
+            if (index > 0) {
+                names.append(", ");
+            }
+            names.append(presets.get(index).displayName());
+        }
+        if (presets.size() > max) {
+            names.append(" …");
+        }
+        return names.toString();
+    }
+
+    private static boolean hasSelectedFamily(String familyId, List<RuntimeExercisePreset> selectedPresets) {
+        for (RuntimeExercisePreset preset : selectedPresets) {
+            if (familyId.equals(preset.familyId)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsRuntimePreset(
+            List<RuntimeExercisePreset> selectedPresets,
+            RuntimeExercisePreset candidate
+    ) {
+        for (RuntimeExercisePreset preset : selectedPresets) {
+            if (preset.identityId().equals(candidate.identityId())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void addRuntimePreset(
+            RuntimeExercisePreset preset,
+            List<RuntimeExercisePreset> selectedPresets
+    ) {
+        if (!containsRuntimePreset(selectedPresets, preset)) {
+            selectedPresets.add(preset);
+        }
+    }
+
+    private static void removeRuntimePreset(
+            RuntimeExercisePreset preset,
+            List<RuntimeExercisePreset> selectedPresets
+    ) {
+        for (int index = selectedPresets.size() - 1; index >= 0; index--) {
+            if (selectedPresets.get(index).identityId().equals(preset.identityId())) {
+                selectedPresets.remove(index);
+            }
+        }
+    }
+
+    private static void toggleRuntimePreset(
+            RuntimeExercisePreset preset,
+            List<RuntimeExercisePreset> selectedPresets
+    ) {
+        if (containsRuntimePreset(selectedPresets, preset)) {
+            removeRuntimePreset(preset, selectedPresets);
+        } else {
+            addRuntimePreset(preset, selectedPresets);
+        }
+    }
+
+    private LinearLayout.LayoutParams exercisePreviewParams(FitnessUi ui) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ui.dp(ExerciseIllustrationPreview.SIZE_DP),
+                ui.dp(ExerciseIllustrationPreview.SIZE_DP)
+        );
+        params.setMargins(ui.dp(8), 0, 0, 0);
+        return params;
+    }
 
     private void renderPicker(boolean routineMode) {
         FitnessUi ui = ui();
@@ -485,15 +795,6 @@ public final class RoutineEditorScreen extends BaseScreen {
                         ? "선택한 운동 " + selectedExercises.size() + "개 추가"
                         : "선택한 종목 " + selectedExercises.size() + "개 추가"));
         addButton.setEnabled(!selectedExercises.isEmpty());
-    }
-
-    private LinearLayout.LayoutParams exercisePreviewParams(FitnessUi ui) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                ui.dp(ExerciseIllustrationPreview.SIZE_DP),
-                ui.dp(ExerciseIllustrationPreview.SIZE_DP)
-        );
-        params.setMargins(ui.dp(8), 0, 0, 0);
-        return params;
     }
 
     private void removeSelectedExercise(String exerciseId, List<String> selectedExerciseIds,

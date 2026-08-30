@@ -264,7 +264,7 @@ public final class RuntimeExerciseCatalog {
             }
             PresetBuilder builder = resolvedPresetId == null ? null : builders.get(resolvedPresetId);
             if (builder != null) {
-                builder.addAlias(alias);
+                builder.addAlias(alias, LoadState.fromId(nullableString(item, "defaultLoadState")));
             }
         }
     }
@@ -425,6 +425,11 @@ public final class RuntimeExerciseCatalog {
         final String legacyNameEn;
         final String defaultUiPart;
         final String equipmentVariantId;
+        final String primarySubPart;
+        final String primarySubPartNameKo;
+        final List<String> secondarySubParts;
+        final List<String> secondarySubPartNamesKo;
+        final String equipmentNameKo;
         final String recordType;
         final LoadState defaultLoadState;
         final List<LoadState> allowedLoadStates;
@@ -433,6 +438,7 @@ public final class RuntimeExerciseCatalog {
         final String illustrationKey;
         final List<String> legacyIds = new ArrayList<>();
         final Set<String> aliases = new LinkedHashSet<>();
+        final Map<String, LoadState> aliasLoadStates = new LinkedHashMap<>();
         final Map<String, String> variant;
         final boolean aliasMerged;
         final boolean approvedNewPreset;
@@ -449,6 +455,11 @@ public final class RuntimeExerciseCatalog {
                 String legacyNameEn,
                 String defaultUiPart,
                 String equipmentVariantId,
+                String primarySubPart,
+                String primarySubPartNameKo,
+                List<String> secondarySubParts,
+                List<String> secondarySubPartNamesKo,
+                String equipmentNameKo,
                 String recordType,
                 LoadState defaultLoadState,
                 List<LoadState> allowedLoadStates,
@@ -470,6 +481,11 @@ public final class RuntimeExerciseCatalog {
             this.legacyNameEn = legacyNameEn;
             this.defaultUiPart = defaultUiPart;
             this.equipmentVariantId = equipmentVariantId;
+            this.primarySubPart = primarySubPart;
+            this.primarySubPartNameKo = primarySubPartNameKo;
+            this.secondarySubParts = secondarySubParts;
+            this.secondarySubPartNamesKo = secondarySubPartNamesKo;
+            this.equipmentNameKo = equipmentNameKo;
             this.recordType = recordType;
             this.defaultLoadState = defaultLoadState;
             this.allowedLoadStates = allowedLoadStates;
@@ -506,6 +522,11 @@ public final class RuntimeExerciseCatalog {
                     legacyNameEn,
                     family.defaultUiPart,
                     nullableString(item, "legacyEquipment"),
+                    nullableString(item, "primarySubPart"),
+                    nullableString(item, "primarySubPartNameKo"),
+                    stringList(item.optJSONArray("secondarySubParts")),
+                    stringList(item.optJSONArray("secondarySubPartNamesKo")),
+                    nullableString(item, "equipmentNameKo"),
                     nullableString(item, "legacyRecordType"),
                     LoadState.fromId(nullableString(item, "defaultLoadState")),
                     family.allowedLoadStates,
@@ -544,6 +565,11 @@ public final class RuntimeExerciseCatalog {
                     null,
                     family.defaultUiPart,
                     variant.get("equipment"),
+                    nullableString(item, "primarySubPart"),
+                    nullableString(item, "primarySubPartNameKo"),
+                    stringList(item.optJSONArray("secondarySubParts")),
+                    stringList(item.optJSONArray("secondarySubPartNamesKo")),
+                    nullableString(item, "equipmentNameKo"),
                     nullableString(item, "recordType"),
                     LoadState.fromId(nullableString(item, "defaultLoadState")),
                     family.allowedLoadStates,
@@ -568,8 +594,16 @@ public final class RuntimeExerciseCatalog {
         }
 
         void addAlias(String alias) {
+            addAlias(alias, null);
+        }
+
+        void addAlias(String alias, LoadState defaultLoadState) {
             if (alias != null && !alias.trim().isEmpty()) {
-                aliases.add(alias.trim());
+                String normalized = alias.trim();
+                aliases.add(normalized);
+                if (defaultLoadState != null) {
+                    aliasLoadStates.put(normalized, defaultLoadState);
+                }
             }
         }
 
@@ -591,6 +625,11 @@ public final class RuntimeExerciseCatalog {
                     legacyNameEn,
                     defaultUiPart,
                     equipmentVariantId,
+                    primarySubPart,
+                    primarySubPartNameKo,
+                    secondarySubParts,
+                    secondarySubPartNamesKo,
+                    equipmentNameKo,
                     recordType,
                     defaultLoadState,
                     allowedLoadStates,
@@ -599,6 +638,7 @@ public final class RuntimeExerciseCatalog {
                     illustrationKey,
                     legacyIds,
                     new ArrayList<>(aliases),
+                    aliasLoadStates,
                     variant,
                     aliasMerged,
                     approvedNewPreset

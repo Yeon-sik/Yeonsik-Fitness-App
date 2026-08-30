@@ -8,6 +8,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
+import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.exercise.WeightExercise;
 
 /**
@@ -22,19 +24,32 @@ public final class ExerciseCardRenderer {
         public final String primarySubPart;
         public final String equipment;
         public final String recordType;
+        public final ExerciseFamilyIdentity familyIdentity;
+
+        public Content(
+                String exerciseId,
+                String name,
+                    String primarySubPart,
+                    String equipment,
+                    String recordType
+            ) {
+            this(exerciseId, name, primarySubPart, equipment, recordType, null);
+        }
 
         public Content(
                 String exerciseId,
                 String name,
                 String primarySubPart,
                 String equipment,
-                String recordType
-        ) {
+                String recordType,
+                ExerciseFamilyIdentity familyIdentity
+            ) {
             this.exerciseId = valueOrDefault(exerciseId, "");
             this.name = valueOrDefault(name, "운동");
             this.primarySubPart = valueOrDefault(primarySubPart, "세부 부위 없음");
             this.equipment = valueOrDefault(equipment, "기타");
             this.recordType = valueOrDefault(recordType, "기록 방식 없음");
+            this.familyIdentity = familyIdentity;
         }
 
         public static Content fromWeightExercise(WeightExercise exercise) {
@@ -44,6 +59,23 @@ public final class ExerciseCardRenderer {
                     exercise.primarySubPartNameKo,
                     exercise.equipmentNameKo,
                     displayRecordType(exercise)
+            );
+        }
+
+        public static Content fromRuntimePreset(RuntimeExercisePreset preset) {
+            if (preset == null) {
+                return new Content("", "운동", "세부 부위 없음", "기타", "기록 방식 없음");
+            }
+            String equipment = isBlank(preset.equipmentNameKo)
+                    ? preset.uiEquipmentCategory.labelKo()
+                    : preset.equipmentNameKo;
+            return new Content(
+                    preset.storageExerciseId,
+                    preset.displayName(),
+                    preset.primarySubPartNameKo,
+                    equipment,
+                    displayRecordType(preset.recordType),
+                    ExerciseFamilyIdentityForPreset.identity(preset)
             );
         }
 
@@ -163,7 +195,7 @@ public final class ExerciseCardRenderer {
                 1f
         ));
 
-        ImageView preview = createPreview(content.exerciseId);
+        ImageView preview = createPreview(content);
         row.addView(preview, previewParams());
 
         TextView check = null;
@@ -183,7 +215,7 @@ public final class ExerciseCardRenderer {
      * 이름과 순번은 표시하지 않고, 대표 이미지의 접근성 설명만 유지한다.
      */
     public void addPreviewOnly(LinearLayout row, Content content) {
-        ImageView preview = createPreview(content.exerciseId);
+        ImageView preview = createPreview(content);
         preview.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
         preview.setContentDescription(content.name);
         LinearLayout.LayoutParams params = previewParams();
@@ -191,8 +223,10 @@ public final class ExerciseCardRenderer {
         row.addView(preview, params);
     }
 
-    private ImageView createPreview(String exerciseId) {
-        ImageView preview = illustrationPreview.create(exerciseId);
+    private ImageView createPreview(Content content) {
+        ImageView preview = content.familyIdentity == null
+                ? illustrationPreview.create(content.exerciseId)
+                : illustrationPreview.create(content.familyIdentity);
         return preview == null ? emptyPreview() : preview;
     }
 
@@ -255,5 +289,27 @@ public final class ExerciseCardRenderer {
 
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private static final class ExerciseFamilyIdentityForPreset {
+        private static ExerciseFamilyIdentity identity(RuntimeExercisePreset preset) {
+            return new ExerciseFamilyIdentity(
+                    preset.storageExerciseId,
+                    preset.familyId,
+                    preset.presetId,
+                    preset.canonicalPresetId,
+                    preset.nameKo,
+                    preset.nameEn,
+                    preset.legacyNameKo,
+                    preset.legacyNameEn,
+                    preset.defaultUiPart,
+                    preset.canonicalVariantKey,
+                    preset.visualVariantKey,
+                    preset.illustrationKey,
+                    preset.defaultLoadState == null ? null : preset.defaultLoadState.id(),
+                    preset.recordType,
+                    null
+            );
+        }
     }
 }
