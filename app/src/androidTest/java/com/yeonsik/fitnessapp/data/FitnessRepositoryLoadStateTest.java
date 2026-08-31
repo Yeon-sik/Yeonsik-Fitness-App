@@ -249,7 +249,7 @@ public final class FitnessRepositoryLoadStateTest {
             assertEquals(0d, band.weightKg, 0.001d);
             assertEquals(0d, band.assistedWeightKg, 0.001d);
             assertEquals(0d, band.addedWeightKg, 0.001d);
-            assertEquals(160d, repository.sessionMetrics(recordId).totalVolumeKg, 0.001d);
+            assertEquals(320d, repository.sessionMetrics(recordId).totalVolumeKg, 0.001d);
         } finally {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);

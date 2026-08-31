@@ -119,6 +119,22 @@ public final class RuntimeExerciseCatalogTest {
         assertEquals(340, runtime.presetsByLegacyId.size());
         assertEquals(363, runtime.presetCount());
 
+        RuntimeExercisePreset flatDumbbellPress = runtime.presetForStorageExerciseId(
+                "chest_dumbbell_flat_bench_press");
+        RuntimeExercisePreset dumbbellPullover = runtime.presetForStorageExerciseId(
+                "chest_dumbbell_pullover");
+        RuntimeExercisePreset bulgarianSplitSquat = runtime.presetForStorageExerciseId(
+                "legs_dumbbell_bulgarian_split_squat");
+        assertNotNull(flatDumbbellPress);
+        assertNotNull(dumbbellPullover);
+        assertNotNull(bulgarianSplitSquat);
+        assertEquals("bilateral", flatDumbbellPress.laterality());
+        assertEquals(2, flatDumbbellPress.implementMultiplier);
+        assertEquals(1, dumbbellPullover.implementMultiplier);
+        assertEquals("unilateral", bulgarianSplitSquat.laterality());
+        assertEquals(4, ExerciseVolumeCalculator.totalMultiplier(
+                bulgarianSplitSquat.laterality(), bulgarianSplitSquat.implementMultiplier));
+
         Set<String> approvedIds = new HashSet<>(Arrays.asList(
                 "knee_push_up",
                 "trap_bar_deadlift_high_handles",

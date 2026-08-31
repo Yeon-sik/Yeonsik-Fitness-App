@@ -268,6 +268,31 @@ export function validateExerciseFamilyContract(contract) {
     }
   }
 
+  const loadAccounting = contract.loadAccounting;
+  if (requireObject(loadAccounting, 'loadAccounting', errors)) {
+    if (loadAccounting.defaultImplementMultiplier !== 1) {
+      errors.push('loadAccounting.defaultImplementMultiplier must be 1');
+    }
+    if (!requireObject(loadAccounting.lateralityOverrides, 'loadAccounting.lateralityOverrides', errors)) {
+      // The map error is already recorded.
+    } else {
+      for (const [exerciseId, laterality] of Object.entries(loadAccounting.lateralityOverrides)) {
+        if (!['bilateral', 'unilateral'].includes(laterality)) {
+          errors.push(`loadAccounting.lateralityOverrides.${exerciseId} must be bilateral or unilateral`);
+        }
+      }
+    }
+    if (!requireObject(loadAccounting.implementMultiplierOverrides, 'loadAccounting.implementMultiplierOverrides', errors)) {
+      // The map error is already recorded.
+    } else {
+      for (const [exerciseId, multiplier] of Object.entries(loadAccounting.implementMultiplierOverrides)) {
+        if (!Number.isInteger(multiplier) || multiplier < 1) {
+          errors.push(`loadAccounting.implementMultiplierOverrides.${exerciseId} must be a positive integer`);
+        }
+      }
+    }
+  }
+
   const imageIdentity = contract.imageIdentity;
   if (requireObject(imageIdentity, 'imageIdentity', errors)) {
     if (!requireArray(imageIdentity.fallbackOrder, 'imageIdentity.fallbackOrder', errors)
@@ -401,6 +426,28 @@ export function deriveLegacyLoadState(contract, exercise) {
     if (rule.otherwise) return rule.otherwise;
   }
   throw new ExerciseFamilyContractError(`No deterministic loadState rule for legacy exercise ${exercise.id}.`);
+}
+
+function normalizedPositiveInteger(value, fallback = 1) {
+  return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+function exerciseContractId(exercise) {
+  return exercise?.id ?? exercise?.presetId ?? null;
+}
+
+export function deriveLaterality(contract, exercise, variant = {}) {
+  const id = exerciseContractId(exercise);
+  const override = id == null ? null : contract.loadAccounting?.lateralityOverrides?.[id];
+  return override ?? exercise?.laterality ?? variant?.laterality ?? null;
+}
+
+export function deriveImplementMultiplier(contract, exercise) {
+  const accounting = contract.loadAccounting ?? {};
+  const fallback = normalizedPositiveInteger(accounting.defaultImplementMultiplier, 1);
+  const id = exerciseContractId(exercise);
+  const override = id == null ? null : accounting.implementMultiplierOverrides?.[id];
+  return normalizedPositiveInteger(override ?? exercise?.implementMultiplier, fallback);
 }
 
 export function isBodyweightAddedWeightZeroAllowed(contract, addedWeightKg) {
@@ -557,6 +604,8 @@ export function mapLegacyExercise(contract, exercise) {
     legacyEquipment: exercise.equipment,
     legacyRecordType: exercise.recordType,
     defaultLoadState: deriveLegacyLoadState(contract, exercise),
+    laterality: deriveLaterality(contract, exercise, variant.variant),
+    implementMultiplier: deriveImplementMultiplier(contract, exercise),
     variant: variant.variant,
     matchedVariantTokens: variant.matchedTokens,
     residualVariantTokens: variant.residualTokens,
@@ -611,6 +660,8 @@ export function buildFamilyCatalogDocument(contract, legacyExercises, mapping, i
     });
     return {
       ...preset,
+      laterality: deriveLaterality(contract, preset, preset.variant ?? {}),
+      implementMultiplier: deriveImplementMultiplier(contract, preset),
       canonicalVariantKey: visualVariantKey,
       visualVariantKey,
       illustrationKey: identity.illustrationKey === 'placeholder' ? null : identity.illustrationKey,
@@ -638,6 +689,7 @@ export function buildFamilyCatalogDocument(contract, legacyExercises, mapping, i
     loadStates: contract.loadStates,
     allowedLoadStates: contract.loadStates,
     loadStateRules: contract.loadStateRules,
+    loadAccounting: contract.loadAccounting,
     performance: contract.performanceStats,
     imageIdentity: {
       ...imageIdentity,

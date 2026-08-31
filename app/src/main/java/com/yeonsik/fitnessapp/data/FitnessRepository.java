@@ -10,8 +10,11 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.ExercisePerformanceKey;
+import com.yeonsik.fitnessapp.exercise.ExerciseVolumeCalculator;
 import com.yeonsik.fitnessapp.exercise.LoadState;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
+import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
+import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 
@@ -43,6 +46,7 @@ public final class FitnessRepository {
     private final ExerciseFamilyCatalog familyCatalog;
     private final CompositionTemplateRepository compositionTemplateRepository;
     private String userId;
+    private boolean canonicalVolumesReconciled;
 
     public FitnessRepository(FitnessDatabaseHelper dbHelper, String userId) {
         this.dbHelper = dbHelper;
@@ -53,6 +57,7 @@ public final class FitnessRepository {
 
     public void setUserId(String userId) {
         this.userId = normalizeUserId(userId);
+        canonicalVolumesReconciled = false;
         compositionTemplateRepository.setUserId(this.userId);
     }
 
@@ -63,6 +68,37 @@ public final class FitnessRepository {
     /** Normative Family/Preset projection used for new rows and legacy compatibility reads. */
     public ExerciseFamilyCatalog familyCatalog() {
         return familyCatalog;
+    }
+
+    /** Calculates one set using the canonical exercise load-accounting contract. */
+    public double volumeForSet(SessionExerciseEntry exercise, SessionSetEntry set) {
+        if (exercise == null || set == null) {
+            return 0d;
+        }
+        ExerciseFamilyIdentity identity = exercise.familyIdentity != null
+                ? exercise.familyIdentity
+                : familyCatalog.identityForStorageExerciseId(exercise.exerciseId);
+        if (identity == null) {
+            RuntimeExercisePreset preset = familyCatalog.runtimeCatalog().presetForExactName(exercise.name);
+            identity = familyCatalog.identityForPreset(preset);
+        }
+        return volumeForStoredSet(exercise.recordType, identity, set);
+    }
+
+    /** Human-readable formula for the current exercise's completed-set volume. */
+    public String volumeCalculationFormula(SessionExerciseEntry exercise) {
+        ExerciseFamilyIdentity identity = exercise == null ? null : exercise.familyIdentity;
+        if (identity == null && exercise != null) {
+            identity = familyCatalog.identityForStorageExerciseId(exercise.exerciseId);
+        }
+        if (identity == null && exercise != null) {
+            RuntimeExercisePreset preset = familyCatalog.runtimeCatalog().presetForExactName(exercise.name);
+            identity = familyCatalog.identityForPreset(preset);
+        }
+        return ExerciseVolumeCalculator.formulaLabel(
+                lateralityForIdentity(identity),
+                implementMultiplierForIdentity(identity)
+        );
     }
 
     /** Allowed set-level resistance states for one saved workout exercise. */
@@ -412,7 +448,7 @@ public final class FitnessRepository {
                         putLoadStateFields(setValues, input, loadState);
                         setValues.put(
                                 "volume_kg",
-                                setVolume(exercise.recordType, input, loadState)
+                                setVolume(identity, exercise.recordType, input, loadState)
                         );
                         putNullable(setValues, "duration_seconds", set.durationSeconds);
                         putNullable(setValues, "distance_meters", set.distanceMeters);
@@ -461,7 +497,7 @@ public final class FitnessRepository {
                         identity
                 );
                 validateSetInput(exercise.recordType, input, identity, loadState);
-                total += setVolume(exercise.recordType, input, loadState);
+                total += setVolume(identity, exercise.recordType, input, loadState);
             }
         }
         return total;
@@ -692,7 +728,7 @@ public final class FitnessRepository {
         putNullable(values, "target_reps", input.reps);
         putNullable(values, "actual_reps", input.reps);
         putLoadStateFields(values, input, loadState);
-        values.put("volume_kg", setVolume(recordType, input, loadState));
+        values.put("volume_kg", setVolume(identity, recordType, input, loadState));
         putNullable(values, "duration_seconds", input.durationSeconds);
         putNullable(values, "distance_meters", input.distanceMeters);
         putNullable(values, "rest_seconds", input.restSeconds);
@@ -744,7 +780,7 @@ public final class FitnessRepository {
         putLoadStateFields(values, input, loadState);
         putNullable(values, "target_reps", input.reps);
         putNullable(values, "actual_reps", input.reps);
-        values.put("volume_kg", setVolume(recordType, input, loadState));
+        values.put("volume_kg", setVolume(identity, recordType, input, loadState));
         putNullable(values, "duration_seconds", input.durationSeconds);
         putNullable(values, "distance_meters", input.distanceMeters);
         putLoadState(values, loadState);
@@ -807,6 +843,7 @@ public final class FitnessRepository {
     }
 
     public List<SessionSetEntry> setsForExercise(String workoutExerciseId) {
+        ensureCanonicalVolumesReconciled();
         List<SessionSetEntry> rows = new ArrayList<>();
         ExerciseFamilyIdentity identity = familyIdentityForWorkoutExercise(workoutExerciseId);
         String recordType = exerciseRecordType(workoutExerciseId);
@@ -4270,20 +4307,51 @@ public final class FitnessRepository {
     }
 
     public SessionMetrics sessionMetrics(String recordId) {
+        ensureCanonicalVolumesReconciled();
         SessionMetrics metrics = new SessionMetrics();
         try (Cursor cursor = db().rawQuery(
-                "SELECT COALESCE(SUM(COALESCE(volume_kg, 0)), 0), "
-                        + "COUNT(*), COALESCE(SUM(COALESCE(distance_meters, 0)), 0) " +
-                        "FROM workout_sets ws " +
-                        "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id " +
-                        "WHERE we.record_id = ? AND we.user_id = ? AND ws.user_id = ? " +
-                        "AND we.deleted_at IS NULL AND ws.deleted_at IS NULL " +
-                        "AND ws.is_completed = 1",
+                "SELECT COALESCE(ws.weight_kg, 0), COALESCE(ws.actual_reps, 0), "
+                        + "COALESCE(ws.added_weight_kg, 0), COALESCE(ws.assisted_weight_kg, 0), "
+                        + "ws.load_state, we.exercise_id, we.exercise_name_snapshot, "
+                        + "we.family_id, we.preset_id, we.canonical_variant_key, "
+                        + "we.visual_variant_key, we.record_type, "
+                        + "COALESCE(ws.distance_meters, 0), COALESCE(ws.volume_kg, 0) "
+                        + "FROM workout_sets ws "
+                        + "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id "
+                        + "WHERE we.record_id = ? AND we.user_id = ? AND ws.user_id = ? "
+                        + "AND we.deleted_at IS NULL AND ws.deleted_at IS NULL "
+                        + "AND ws.is_completed = 1",
                 new String[]{recordId, userId, userId})) {
-            if (cursor.moveToFirst()) {
-                metrics.totalVolumeKg = cursor.getDouble(0);
-                metrics.setCount = cursor.getInt(1);
-                metrics.totalDistanceMeters = cursor.getDouble(2);
+            while (cursor.moveToNext()) {
+                String recordType = FitnessRecordContract.normalizeRecordType(cursor.getString(11));
+                ExerciseFamilyIdentity identity = identityForRow(
+                        cursor.getString(5),
+                        cursor.getString(6),
+                        cursor.getString(7),
+                        cursor.getString(8),
+                        cursor.getString(9),
+                        cursor.getString(10),
+                        recordType
+                );
+                LoadState loadState = loadStateForRead(
+                        recordType,
+                        identity,
+                        cursor.isNull(4) ? null : cursor.getString(4),
+                        cursor.getDouble(2)
+                );
+                metrics.totalVolumeKg += identity == null
+                        ? cursor.getDouble(13)
+                        : volumeForStoredSet(
+                        recordType,
+                        identity,
+                        loadState,
+                        cursor.getDouble(0),
+                        cursor.getInt(1),
+                        cursor.getDouble(2),
+                        cursor.getDouble(3)
+                );
+                metrics.setCount += 1;
+                metrics.totalDistanceMeters += cursor.getDouble(12);
             }
         }
         return metrics;
@@ -4383,7 +4451,11 @@ public final class FitnessRepository {
     }
 
     public List<VolumePoint> recentExerciseVolumes(String exerciseId, String exerciseName, String currentRecordId, int limit) {
-        List<VolumePoint> rows = new ArrayList<>();
+        ensureCanonicalVolumesReconciled();
+        int safeLimit = Math.max(0, limit);
+        if (safeLimit == 0) {
+            return Collections.emptyList();
+        }
         ExerciseFamilyIdentity identity = familyCatalog.identityForStorageExerciseId(exerciseId);
         List<String> matchArguments = new ArrayList<>();
         String matchClause = exerciseMatchClause(
@@ -4393,26 +4465,76 @@ public final class FitnessRepository {
                 matchArguments
         );
         String sql = "SELECT we.record_id, wr.date, wr.exercise_name, "
-                + "COALESCE(SUM(CASE WHEN ws.is_completed = 1 THEN COALESCE(ws.volume_kg, 0) ELSE 0 END), 0) "
+                + "we.exercise_id, we.exercise_name_snapshot, we.family_id, we.preset_id, "
+                + "we.canonical_variant_key, we.visual_variant_key, we.record_type, "
+                + "COALESCE(ws.weight_kg, 0), COALESCE(ws.actual_reps, 0), "
+                + "COALESCE(ws.added_weight_kg, 0), COALESCE(ws.assisted_weight_kg, 0), "
+                + "ws.load_state, COALESCE(ws.volume_kg, 0) "
                 + "FROM workout_exercises we "
                 + "INNER JOIN workout_records wr ON wr.id = we.record_id AND wr.deleted_at IS NULL "
-                + "LEFT JOIN workout_sets ws ON ws.workout_exercise_id = we.id "
-                + "AND ws.user_id = we.user_id AND ws.deleted_at IS NULL "
+                + "INNER JOIN workout_sets ws ON ws.workout_exercise_id = we.id "
+                + "AND ws.user_id = we.user_id AND ws.deleted_at IS NULL AND ws.is_completed = 1 "
                 + "WHERE wr.user_id = ? AND we.user_id = ? AND " + matchClause
                 + " AND we.record_id != ? AND we.deleted_at IS NULL "
                 + "AND we.record_type = 'weight_reps' "
-                + "GROUP BY we.record_id, wr.date, wr.exercise_name, wr.updated_at "
-                + "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT ?";
+                + "ORDER BY wr.date DESC, wr.updated_at DESC, wr.id DESC, "
+                + "we.order_index ASC, ws.set_index ASC";
         List<String> arguments = new ArrayList<>();
         arguments.add(userId);
         arguments.add(userId);
         arguments.addAll(matchArguments);
         arguments.add(currentRecordId);
-        arguments.add(String.valueOf(limit));
+        Map<String, VolumeAccumulator> accumulators = new LinkedHashMap<>();
         try (Cursor cursor = db().rawQuery(sql, arguments.toArray(new String[0]))) {
             while (cursor.moveToNext()) {
-                rows.add(new VolumePoint(cursor.getString(1), cursor.getString(2), cursor.getDouble(3)));
+                String recordId = cursor.getString(0);
+                VolumeAccumulator accumulator = accumulators.get(recordId);
+                if (accumulator == null) {
+                    if (accumulators.size() >= safeLimit) {
+                        break;
+                    }
+                    accumulator = new VolumeAccumulator(
+                            cursor.getString(1),
+                            cursor.getString(2)
+                    );
+                    accumulators.put(recordId, accumulator);
+                }
+                String recordType = FitnessRecordContract.normalizeRecordType(cursor.getString(9));
+                ExerciseFamilyIdentity rowIdentity = identityForRow(
+                        cursor.getString(3),
+                        cursor.getString(4),
+                        cursor.getString(5),
+                        cursor.getString(6),
+                        cursor.getString(7),
+                        cursor.getString(8),
+                        recordType
+                );
+                LoadState rowLoadState = loadStateForRead(
+                        recordType,
+                        rowIdentity,
+                        cursor.isNull(14) ? null : cursor.getString(14),
+                        cursor.getDouble(12)
+                );
+                accumulator.volumeKg += rowIdentity == null
+                        ? cursor.getDouble(15)
+                        : volumeForStoredSet(
+                        recordType,
+                        rowIdentity,
+                        rowLoadState,
+                        cursor.getDouble(10),
+                        cursor.getInt(11),
+                        cursor.getDouble(12),
+                        cursor.getDouble(13)
+                );
             }
+        }
+        List<VolumePoint> rows = new ArrayList<>();
+        for (VolumeAccumulator accumulator : accumulators.values()) {
+            rows.add(new VolumePoint(
+                    accumulator.date,
+                    accumulator.label,
+                    accumulator.volumeKg
+            ));
         }
         java.util.Collections.reverse(rows);
         return rows;
@@ -4454,11 +4576,13 @@ public final class FitnessRepository {
         history.date = date;
         history.sets = new ArrayList<>();
         String historyRecordType = exerciseRecordType(workoutExerciseId);
+        ExerciseFamilyIdentity historyIdentity = familyIdentityForWorkoutExercise(workoutExerciseId);
         for (SessionSetEntry set : setsForExercise(workoutExerciseId)) {
             if (set.isCompleted) {
                 history.sets.add(set);
                 history.totalVolumeKg += volumeForStoredSet(
                         historyRecordType,
+                        historyIdentity,
                         set
                 );
             }
@@ -4488,6 +4612,7 @@ public final class FitnessRepository {
             String currentRecordId
     ) {
         ExerciseBests bests = new ExerciseBests();
+        ensureCanonicalVolumesReconciled();
         ExercisePerformanceKey requestedKey = ExercisePerformanceKey.of(identity, loadState);
         bests.performanceKey = requestedKey == null ? "" : requestedKey.stableValue();
         bests.loadState = loadState;
@@ -4552,7 +4677,15 @@ public final class FitnessRepository {
                 int reps = cursor.isNull(1) ? 0 : cursor.getInt(1);
                 String setDate = cursor.getString(2);
                 String recordId = cursor.getString(3);
-                double volume = cursor.getDouble(4);
+                double volume = volumeForStoredSet(
+                        cursor.getString(10),
+                        rowIdentity,
+                        rowLoadState,
+                        cursor.isNull(0) ? 0d : cursor.getDouble(0),
+                        reps,
+                        cursor.getDouble(12),
+                        cursor.getDouble(13)
+                );
 
                 if (weight > bests.maxWeightKg
                         || (weight == bests.maxWeightKg && reps > bests.repsAtMaxWeight)) {
@@ -4604,6 +4737,104 @@ public final class FitnessRepository {
             return weightKg;
         }
         return weightKg * (1 + reps / 30.0);
+    }
+
+    private void ensureCanonicalVolumesReconciled() {
+        if (!canonicalVolumesReconciled) {
+            recalculateCanonicalVolumes();
+        }
+    }
+
+    /** Rebuilds derived volume columns from raw set values and the current canonical contract. */
+    public int recalculateCanonicalVolumes() {
+        List<CanonicalVolumeUpdate> updates = new ArrayList<>();
+        Map<String, Double> totalsByRecord = new LinkedHashMap<>();
+        String sql = "SELECT ws.id, ws.volume_kg, ws.weight_kg, ws.actual_reps, "
+                + "COALESCE(ws.added_weight_kg, 0), COALESCE(ws.assisted_weight_kg, 0), "
+                + "ws.load_state, we.record_id, we.exercise_id, we.exercise_name_snapshot, "
+                + "we.family_id, we.preset_id, we.canonical_variant_key, "
+                + "we.visual_variant_key, we.record_type, ws.is_completed "
+                + "FROM workout_sets ws INNER JOIN workout_exercises we "
+                + "ON we.id = ws.workout_exercise_id "
+                + "WHERE ws.user_id = ? AND we.user_id = ? "
+                + "AND ws.deleted_at IS NULL AND we.deleted_at IS NULL";
+        try (Cursor cursor = db().rawQuery(sql, new String[]{userId, userId})) {
+            while (cursor.moveToNext()) {
+                String recordType = FitnessRecordContract.normalizeRecordType(cursor.getString(14));
+                ExerciseFamilyIdentity identity = identityForRow(
+                        cursor.getString(8),
+                        cursor.getString(9),
+                        cursor.getString(10),
+                        cursor.getString(11),
+                        cursor.getString(12),
+                        cursor.getString(13),
+                        recordType
+                );
+                double storedVolume = cursor.isNull(1) ? 0d : cursor.getDouble(1);
+                LoadState loadState = loadStateForRead(
+                        recordType,
+                        identity,
+                        cursor.isNull(6) ? null : cursor.getString(6),
+                        cursor.getDouble(4)
+                );
+                double calculatedVolume = identity == null
+                        ? storedVolume
+                        : volumeForStoredSet(
+                        recordType,
+                        identity,
+                        loadState,
+                        cursor.isNull(2) ? 0d : cursor.getDouble(2),
+                        cursor.isNull(3) ? 0 : cursor.getInt(3),
+                        cursor.getDouble(4),
+                        cursor.getDouble(5)
+                );
+                if (!sameVolume(storedVolume, calculatedVolume)) {
+                    updates.add(new CanonicalVolumeUpdate(cursor.getString(0), calculatedVolume));
+                }
+                if (cursor.getInt(15) == 1) {
+                    Double current = totalsByRecord.get(cursor.getString(7));
+                    totalsByRecord.put(
+                            cursor.getString(7),
+                            (current == null ? 0d : current) + calculatedVolume
+                    );
+                }
+            }
+        }
+
+        SQLiteDatabase database = db();
+        database.beginTransaction();
+        try {
+            for (CanonicalVolumeUpdate update : updates) {
+                ContentValues values = new ContentValues();
+                values.put("volume_kg", update.volumeKg);
+                database.update(
+                        "workout_sets",
+                        values,
+                        "id = ? AND user_id = ? AND deleted_at IS NULL",
+                        new String[]{update.setId, userId}
+                );
+            }
+            for (Map.Entry<String, Double> total : totalsByRecord.entrySet()) {
+                ContentValues values = new ContentValues();
+                values.put("total_volume_kg", total.getValue());
+                database.update(
+                        "workout_records",
+                        values,
+                        "id = ? AND user_id = ? AND deleted_at IS NULL",
+                        new String[]{total.getKey(), userId}
+                );
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        canonicalVolumesReconciled = true;
+        return updates.size();
+    }
+
+    private static boolean sameVolume(double left, double right) {
+        return Double.isFinite(left) && Double.isFinite(right)
+                && Math.abs(left - right) < 0.000001d;
     }
 
     private void updateSessionTotalVolume(String recordId) {
@@ -5605,6 +5836,43 @@ public final class FitnessRepository {
                 : familyCatalog.identityForStorageExerciseId(legacyExerciseId);
     }
 
+    private RuntimeExercisePreset runtimePresetForIdentity(ExerciseFamilyIdentity identity) {
+        if (identity == null) {
+            return null;
+        }
+        RuntimeExerciseCatalog catalog = familyCatalog.runtimeCatalog();
+        RuntimeExercisePreset preset = catalog.preset(identity.presetId);
+        if (preset == null) {
+            preset = catalog.preset(identity.canonicalPresetId);
+        }
+        if (preset == null) {
+            preset = catalog.presetForStorageExerciseId(identity.legacyExerciseId);
+        }
+        return preset;
+    }
+
+    private String lateralityForIdentity(ExerciseFamilyIdentity identity) {
+        RuntimeExercisePreset preset = runtimePresetForIdentity(identity);
+        if (preset != null) {
+            return preset.laterality();
+        }
+        if (identity != null && identity.variantJson != null) {
+            try {
+                return new JSONObject(identity.variantJson).optString("laterality", null);
+            } catch (Exception ignored) {
+                // Invalid historical metadata remains unknown; do not infer a side.
+            }
+        }
+        return null;
+    }
+
+    private int implementMultiplierForIdentity(ExerciseFamilyIdentity identity) {
+        RuntimeExercisePreset preset = runtimePresetForIdentity(identity);
+        return preset == null
+                ? ExerciseVolumeCalculator.DEFAULT_IMPLEMENT_MULTIPLIER
+                : preset.implementMultiplier;
+    }
+
     private ExerciseFamilyIdentity familyIdentityForWorkoutExercise(String workoutExerciseId) {
         if (emptyToNull(workoutExerciseId) == null) {
             return null;
@@ -5915,55 +6183,57 @@ public final class FitnessRepository {
         }
     }
 
-    private static double setVolume(String recordType, SetInput input) {
-        String normalized = FitnessRecordContract.normalizeRecordType(recordType);
-        if (FitnessRecordContract.WEIGHT_REPS.equals(normalized)) {
-            return valueOrZero(input.weightKg) * intOrZero(input.reps);
-        }
-        if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(normalized)) {
-            return valueOrZero(input.addedWeightKg) * intOrZero(input.reps);
-        }
-        return 0;
-    }
-
-    private static double setVolume(
+    private double setVolume(
+            ExerciseFamilyIdentity identity,
             String recordType,
             SetInput input,
             LoadState loadState
     ) {
-        if (loadState == null) {
-            return setVolume(recordType, input);
-        }
-        if (loadState == LoadState.EXTERNAL_LOAD) {
-            return valueOrZero(input.weightKg) * intOrZero(input.reps);
-        }
-        if (loadState == LoadState.ADDED_WEIGHT) {
-            return valueOrZero(input.addedWeightKg) * intOrZero(input.reps);
-        }
-        return 0;
+        return ExerciseVolumeCalculator.calculate(
+                recordType,
+                loadState,
+                valueOrZero(input.weightKg),
+                valueOrZero(input.addedWeightKg),
+                intOrZero(input.reps),
+                lateralityForIdentity(identity),
+                implementMultiplierForIdentity(identity)
+        );
     }
 
-    private static double volumeForStoredSet(
+    private double volumeForStoredSet(
             String recordType,
+            ExerciseFamilyIdentity identity,
             SessionSetEntry set
     ) {
-        if (set.loadState == LoadState.EXTERNAL_LOAD) {
-            return set.weightKg * set.actualReps;
-        }
-        if (set.loadState == LoadState.ADDED_WEIGHT) {
-            return set.addedWeightKg * set.actualReps;
-        }
-        if (set.loadState != null) {
-            return 0;
-        }
-        String normalized = FitnessRecordContract.normalizeRecordType(recordType);
-        if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(normalized)) {
-            return set.addedWeightKg * set.actualReps;
-        }
-        if (FitnessRecordContract.WEIGHT_REPS.equals(normalized)) {
-            return set.weightKg * set.actualReps;
-        }
-        return 0;
+        return volumeForStoredSet(
+                recordType,
+                identity,
+                set.loadState,
+                set.weightKg,
+                set.actualReps,
+                set.addedWeightKg,
+                set.assistedWeightKg
+        );
+    }
+
+    private double volumeForStoredSet(
+            String recordType,
+            ExerciseFamilyIdentity identity,
+            LoadState loadState,
+            double weightKg,
+            int reps,
+            double addedWeightKg,
+            double assistedWeightKg
+    ) {
+        return ExerciseVolumeCalculator.calculate(
+                recordType,
+                loadState,
+                weightKg,
+                addedWeightKg,
+                reps,
+                lateralityForIdentity(identity),
+                implementMultiplierForIdentity(identity)
+        );
     }
 
     private static void putLoadStateFields(
@@ -6017,7 +6287,7 @@ public final class FitnessRepository {
         );
         ContentValues values = new ContentValues();
         putReplacementLoadStateFields(values, set, loadState);
-        values.put("volume_kg", replacementSetVolume(set, loadState));
+        values.put("volume_kg", replacementSetVolume(set, targetIdentity, targetRecordType, loadState));
         putLoadState(values, loadState);
         values.put("is_completed", replacementSetCanRemainCompleted(
                 targetRecordType,
@@ -6083,17 +6353,14 @@ public final class FitnessRepository {
         }
     }
 
-    private static double replacementSetVolume(
+    private double replacementSetVolume(
             SessionSetEntry set,
+            ExerciseFamilyIdentity identity,
+            String recordType,
             LoadState loadState
     ) {
-        if (loadState == LoadState.EXTERNAL_LOAD) {
-            return set.weightKg * set.actualReps;
-        }
-        if (loadState == LoadState.ADDED_WEIGHT) {
-            return set.addedWeightKg * set.actualReps;
-        }
-        return 0;
+        return volumeForStoredSet(recordType, identity, loadState, set.weightKg, set.actualReps,
+                set.addedWeightKg, set.assistedWeightKg);
     }
 
     private static boolean replacementSetCanRemainCompleted(
@@ -6172,6 +6439,27 @@ public final class FitnessRepository {
             values.putNull(key);
         } else {
             values.put(key, value.trim());
+        }
+    }
+
+    private static final class CanonicalVolumeUpdate {
+        final String setId;
+        final double volumeKg;
+
+        CanonicalVolumeUpdate(String setId, double volumeKg) {
+            this.setId = setId;
+            this.volumeKg = volumeKg;
+        }
+    }
+
+    private static final class VolumeAccumulator {
+        final String date;
+        final String label;
+        double volumeKg;
+
+        VolumeAccumulator(String date, String label) {
+            this.date = date;
+            this.label = label;
         }
     }
 

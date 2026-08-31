@@ -29,6 +29,8 @@ public final class RuntimeExercisePreset {
     public final String recordType;
     public final LoadState defaultLoadState;
     public final List<LoadState> allowedLoadStates;
+    public final int implementMultiplier;
+    public final String canonicalLaterality;
     public final String canonicalVariantKey;
     public final String visualVariantKey;
     public final String illustrationKey;
@@ -60,6 +62,8 @@ public final class RuntimeExercisePreset {
             String recordType,
             LoadState defaultLoadState,
             List<LoadState> allowedLoadStates,
+            int implementMultiplier,
+            String canonicalLaterality,
             String canonicalVariantKey,
             String visualVariantKey,
             String illustrationKey,
@@ -91,6 +95,8 @@ public final class RuntimeExercisePreset {
         this.recordType = recordType;
         this.defaultLoadState = defaultLoadState;
         this.allowedLoadStates = immutableList(allowedLoadStates);
+        this.implementMultiplier = ExerciseVolumeCalculator.normalizeImplementMultiplier(implementMultiplier);
+        this.canonicalLaterality = canonicalLaterality;
         this.canonicalVariantKey = canonicalVariantKey;
         this.visualVariantKey = visualVariantKey;
         this.illustrationKey = illustrationKey;
@@ -119,6 +125,15 @@ public final class RuntimeExercisePreset {
 
     public boolean supportsLoadState(LoadState loadState) {
         return loadState != null && allowedLoadStates.contains(loadState);
+    }
+
+    public String laterality() {
+        String value = canonicalLaterality == null ? variant.get("laterality") : canonicalLaterality;
+        return value == null ? "" : value;
+    }
+
+    public int sideMultiplier() {
+        return ExerciseVolumeCalculator.sideMultiplier(laterality());
     }
 
     public boolean hasLegacyId(String legacyId) {

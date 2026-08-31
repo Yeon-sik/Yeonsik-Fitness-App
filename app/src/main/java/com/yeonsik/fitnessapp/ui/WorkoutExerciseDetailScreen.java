@@ -23,6 +23,7 @@ import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter;
+import com.yeonsik.fitnessapp.exercise.ExerciseVolumeCalculator;
 import com.yeonsik.fitnessapp.exercise.LoadState;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
@@ -118,7 +119,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
         section("기록 분석");
         if (supportsLoadRepAnalytics(activeExercise.recordType)) {
-            renderPersonalRecordCard(bests, sets);
+            renderPersonalRecordCard(activeExercise, bests, sets);
             add(volumeTrendCard("볼륨 추이", "최근 8회 + 현재",
                     repository().recentExerciseVolumes(
                             activeExercise.exerciseId,
@@ -126,7 +127,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                             recordId,
                             8
                     ),
-                    currentExerciseVolume(sets)));
+                    currentExerciseVolume(activeExercise, sets)));
         }
         renderLastHistoryCard(activeExercise.recordType, lastHistory);
     }
@@ -399,6 +400,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         headerRow.addView(restStepper());
         setCard.addView(headerRow);
 
+        setCard.addView(ui.button("볼륨 계산 방식", false,
+                        v -> showVolumeCalculationDialog(activeExercise)),
+                ui.fullWidthParams(ui.dp(8)));
+
         TextView totalVolumeComparison = totalVolumeComparisonLabel(
                 ui,
                 activeExercise.recordType,
@@ -607,10 +612,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         }
 
         if (totalVolumeComparison != null) {
+            RuntimeExercisePreset volumePreset = runtimePresetForExercise(exercise);
             LiveVolumeInput liveVolumeInput = new LiveVolumeInput(
                     selectedLoadState,
                     primary,
-                    secondary
+                    secondary,
+                    volumePreset == null ? null : volumePreset.laterality(),
+                    volumePreset == null
+                            ? ExerciseVolumeCalculator.DEFAULT_IMPLEMENT_MULTIPLIER
+                            : volumePreset.implementMultiplier
             );
             liveVolumeInputs.add(liveVolumeInput);
             TextWatcher totalVolumeWatcher = new TextWatcher() {
@@ -1208,7 +1218,9 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     recordType,
                     input.loadState[0],
                     input.primary,
-                    input.secondary
+                    input.secondary,
+                    input.laterality,
+                    input.implementMultiplier
             ));
         }
         double currentVolumeKg = sumVolumeKg(currentSetVolumes);
@@ -1254,15 +1266,21 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         private final LoadState[] loadState;
         private final EditText primary;
         private final EditText secondary;
+        private final String laterality;
+        private final int implementMultiplier;
 
         private LiveVolumeInput(
                 LoadState[] loadState,
                 EditText primary,
-                EditText secondary
+                EditText secondary,
+                String laterality,
+                int implementMultiplier
         ) {
             this.loadState = loadState;
             this.primary = primary;
             this.secondary = secondary;
+            this.laterality = laterality;
+            this.implementMultiplier = implementMultiplier;
         }
     }
 
@@ -1270,7 +1288,9 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             String recordType,
             LoadState loadState,
             EditText primary,
-            EditText secondary
+            EditText secondary,
+            String laterality,
+            int implementMultiplier
     ) {
         if (loadState != LoadState.EXTERNAL_LOAD && loadState != LoadState.ADDED_WEIGHT) {
             return 0;
@@ -1282,17 +1302,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         if (load == null || !Double.isFinite(load) || reps == null || load < 0 || reps <= 0) {
             return 0;
         }
-        return load * reps;
-    }
-
-    private static double volumeFromSet(FitnessRepository.SessionSetEntry set) {
-        if (set.loadState == LoadState.EXTERNAL_LOAD) {
-            return set.weightKg * set.actualReps;
-        }
-        if (set.loadState == LoadState.ADDED_WEIGHT) {
-            return set.addedWeightKg * set.actualReps;
-        }
-        return 0;
+        return ExerciseVolumeCalculator.calculate(
+                recordType,
+                loadState,
+                loadState == LoadState.EXTERNAL_LOAD ? load : 0d,
+                loadState == LoadState.ADDED_WEIGHT ? load : 0d,
+                reps,
+                laterality,
+                implementMultiplier
+        );
     }
 
     private static FitnessRepository.SetInput emptySetInput(
@@ -1438,7 +1456,9 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     // ── 기록 분석 ─────────────────────────────────────────────────────
 
     /** 개인 기록 카드: 역대 최고 무게 / 추정 1RM / 최고 세션 볼륨. 오늘 갱신 시 PR 뱃지. */
-    private void renderPersonalRecordCard(FitnessRepository.ExerciseBests bests,
+    private void renderPersonalRecordCard(
+                                          FitnessRepository.SessionExerciseEntry exercise,
+                                          FitnessRepository.ExerciseBests bests,
                                           List<FitnessRepository.SessionSetEntry> sets) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
@@ -1456,7 +1476,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             todayMaxWeight = Math.max(todayMaxWeight, load);
             todayBestE1rm = Math.max(todayBestE1rm, FitnessRepository.epleyE1rm(load, set.actualReps));
         }
-        double todayVolume = currentExerciseVolume(sets);
+        double todayVolume = currentExerciseVolume(exercise, sets);
         boolean todayPr = bests.sessionCount > 0
                 && (todayMaxWeight > bests.maxWeightKg
                 || todayBestE1rm > bests.bestE1rmKg
@@ -1539,13 +1559,56 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         add(card);
     }
 
+    private void showVolumeCalculationDialog(FitnessRepository.SessionExerciseEntry exercise) {
+        FitnessUi ui = ui();
+        LinearLayout body = new LinearLayout(host.activity());
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.addView(ui.text("완료 세트의 파생 볼륨을 계산하는 기준입니다.",
+                13, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(8)));
+        TextView formula = ui.num(
+                repository().volumeCalculationFormula(exercise),
+                19,
+                FitnessUi.COLOR_TEXT,
+                true
+        );
+        formula.setGravity(Gravity.CENTER);
+        formula.setPadding(0, ui.dp(12), 0, ui.dp(12));
+        body.addView(formula, ui.fullWidthParams(0));
+        body.addView(ui.text("입력한 중량은 그대로 저장되며, 배수는 파생 볼륨에만 적용됩니다.",
+                12, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(8)));
+        ui.sheet("볼륨 계산 방식", body, "확인", () -> {
+        }, null, null);
+    }
+
     // ── 헬퍼 ─────────────────────────────────────────────────────────
 
-    private double currentExerciseVolume(List<FitnessRepository.SessionSetEntry> sets) {
+    private RuntimeExercisePreset runtimePresetForExercise(
+            FitnessRepository.SessionExerciseEntry exercise
+    ) {
+        if (exercise == null) {
+            return null;
+        }
+        RuntimeExerciseCatalog catalog = host.exerciseMasterRepository().runtimeCatalog();
+        RuntimeExercisePreset preset = exercise.familyIdentity == null
+                ? null
+                : catalog.preset(exercise.familyIdentity.presetId);
+        if (preset == null && exercise.familyIdentity != null) {
+            preset = catalog.preset(exercise.familyIdentity.canonicalPresetId);
+        }
+        if (preset == null) {
+            preset = catalog.presetForStorageExerciseId(exercise.exerciseId);
+        }
+        return preset == null ? catalog.presetForExactName(exercise.name) : preset;
+    }
+
+    private double currentExerciseVolume(
+            FitnessRepository.SessionExerciseEntry exercise,
+            List<FitnessRepository.SessionSetEntry> sets
+    ) {
         double volume = 0;
         for (FitnessRepository.SessionSetEntry set : sets) {
             if (set.isCompleted) {
-                volume += volumeFromSet(set);
+                volume += repository().volumeForSet(exercise, set);
             }
         }
         return volume;

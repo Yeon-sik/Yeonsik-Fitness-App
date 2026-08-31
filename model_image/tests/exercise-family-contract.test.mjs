@@ -21,6 +21,9 @@ test('normative exercise family contract validates without taxonomy edits', () =
   assert.equal(Object.keys(contract.families).length, 103);
   assert.equal(contract.approvedNewPresets.length, 27);
   assert.equal(contract.canonicalAliasMerges.length, 4);
+  assert.equal(contract.loadAccounting.defaultImplementMultiplier, 1);
+  assert.equal(contract.loadAccounting.implementMultiplierOverrides.chest_dumbbell_flat_bench_press, 2);
+  assert.equal(contract.loadAccounting.lateralityOverrides.legs_dumbbell_bulgarian_split_squat, 'unilateral');
 });
 
 test('the three resolved legacy IDs match exactly one intended family', () => {
@@ -48,6 +51,24 @@ test('legacy audit maps the complete catalog and preserves wall-sit time semanti
     (entry) => entry.legacyExerciseId === 'arms_cable_triceps_pushdown_straight_bar',
   );
   assert.equal(straightBar.variant.handle, 'straight_bar');
+  const flatDumbbellPress = result.document.legacyExercises.find(
+    (entry) => entry.legacyExerciseId === 'chest_dumbbell_flat_bench_press',
+  );
+  const dumbbellPullover = result.document.legacyExercises.find(
+    (entry) => entry.legacyExerciseId === 'chest_dumbbell_pullover',
+  );
+  const singleArmRow = result.document.legacyExercises.find(
+    (entry) => entry.legacyExerciseId === 'back_dumbbell_one_arm_row',
+  );
+  const bulgarianSplitSquat = result.document.legacyExercises.find(
+    (entry) => entry.legacyExerciseId === 'legs_dumbbell_bulgarian_split_squat',
+  );
+  assert.equal(flatDumbbellPress.implementMultiplier, 2);
+  assert.equal(dumbbellPullover.implementMultiplier, 1);
+  assert.equal(singleArmRow.laterality, 'unilateral');
+  assert.equal(singleArmRow.implementMultiplier, 1);
+  assert.equal(bulgarianSplitSquat.laterality, 'unilateral');
+  assert.equal(bulgarianSplitSquat.implementMultiplier, 2);
   for (const merge of loadExerciseFamilyContract(contractPath).canonicalAliasMerges) {
     const mergedEntries = merge.legacyIds.map((legacyId) => result.document.legacyExercises.find(
       (entry) => entry.legacyExerciseId === legacyId,
