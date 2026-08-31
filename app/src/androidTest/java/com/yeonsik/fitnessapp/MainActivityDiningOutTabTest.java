@@ -27,6 +27,21 @@ import static org.junit.Assert.assertNotNull;
 @RunWith(AndroidJUnit4.class)
 public final class MainActivityDiningOutTabTest {
     @Test
+    public void diningOutEntryOpensAfterDatabaseMigration() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+
+                assertNotNull(findEditTextWithContentDescription(root, "가게 명"));
+                assertNotNull(findEditTextWithContentDescription(root, "외식 메뉴 1 이름"));
+            });
+        }
+    }
+
+    @Test
     public void diningOutTabSeparatesStoreAndMenuAndSavesTheEntry() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {

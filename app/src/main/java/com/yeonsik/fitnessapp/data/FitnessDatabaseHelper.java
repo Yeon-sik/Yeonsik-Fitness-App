@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 48;
+    public static final int DATABASE_VERSION = 49;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -993,8 +993,6 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
             addColumnIfMissing(db, "pricetrace_product_cache", "brand_name", "TEXT");
             addColumnIfMissing(db, "pricetrace_product_cache", "manufacturer_name", "TEXT");
             addColumnIfMissing(db, "pricetrace_product_cache", "sub_brand_name", "TEXT");
-            db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_brand_name_idx " +
-                    "ON nutrition_foods(owner_id, brand COLLATE NOCASE, name COLLATE NOCASE)");
         }
         if (oldVersion < 12) {
             addColumnIfMissing(db, "nutrition_foods", "category", "TEXT NOT NULL DEFAULT 'other'");
@@ -1004,8 +1002,6 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                     "cooking_method",
                     "TEXT NOT NULL DEFAULT 'unspecified'"
             );
-            db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_category_idx " +
-                    "ON nutrition_foods(owner_id, category, cooking_method, name COLLATE NOCASE)");
         }
         if (oldVersion < 13) {
             createAthleteNutritionTables(db);
@@ -1019,15 +1015,6 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         // Idempotently enforce the feature schema for every historical upgrade path. This also
         // repairs development preview databases that reached v16-v18 without these tables.
         createDevelopmentTables(db);
-        if (oldVersion < 45) {
-            upgradePackagedFoodHierarchySchema(db);
-        }
-        if (oldVersion < 48) {
-            // Some preview builds recorded v45-v47 without applying the packaged-food
-            // hierarchy columns. Repair that state before any index references those columns.
-            upgradePackagedFoodHierarchySchema(db);
-        }
-        createNutritionIndexes(db);
         if (oldVersion < 19) {
             reconcileVerifiedFoodCatalog(db);
         }
@@ -1108,6 +1095,14 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 47) {
             addColumnIfMissing(db, "meal_records", "fulfillment_mode", "TEXT");
         }
+        if (oldVersion < 49) {
+            // v45-v48 could finish with nutrition_foods recreated by the v40 nullability
+            // migration after the hierarchy columns had been added. Run the repair only after
+            // every table-recreation migration so already-upgraded preview databases are fixed.
+            upgradePackagedFoodHierarchySchema(db);
+        }
+        // All nutrition indexes are created after the final nutrition_foods shape is known.
+        createNutritionIndexes(db);
     }
 
     /** Adds explicit packaged-food hierarchy without guessing legacy brand-only mappings. */
@@ -1119,10 +1114,6 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         addColumnIfMissing(db, "nutrition_foods", "package_amount", "REAL");
         addColumnIfMissing(db, "nutrition_foods", "package_unit", "TEXT");
         addColumnIfMissing(db, "nutrition_foods", "package_count", "INTEGER");
-        db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_product_hierarchy_idx " +
-                "ON nutrition_foods(owner_id, manufacturer_name COLLATE NOCASE, " +
-                "brand_name COLLATE NOCASE, sub_brand_name COLLATE NOCASE, " +
-                "product_name COLLATE NOCASE)");
     }
 
     /** Adds immutable packaged-food hierarchy values to newly written meal item snapshots. */
@@ -1185,6 +1176,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("DROP TABLE IF EXISTS nutrition_foods_v40");
         db.execSQL("CREATE TABLE nutrition_foods_v40 (" +
                 "id TEXT PRIMARY KEY, owner_id TEXT, name TEXT NOT NULL, brand TEXT, " +
+                "manufacturer_name TEXT, brand_name TEXT, sub_brand_name TEXT, " +
+                "product_name TEXT, package_amount REAL, package_unit TEXT, " +
+                "package_count INTEGER, " +
                 "kind TEXT NOT NULL, category TEXT NOT NULL DEFAULT 'other', " +
                 "basis_amount REAL NOT NULL, basis_unit TEXT NOT NULL, " +
                 "prep_state TEXT NOT NULL DEFAULT 'unspecified', " +
@@ -1197,13 +1191,23 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "revision INTEGER NOT NULL DEFAULT 1, visibility TEXT NOT NULL DEFAULT 'private', " +
                 "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT)");
         db.execSQL("INSERT INTO nutrition_foods_v40 (" +
-                "id, owner_id, name, brand, kind, category, basis_amount, basis_unit, " +
+                "id, owner_id, name, brand, manufacturer_name, brand_name, sub_brand_name, " +
+                "product_name, package_amount, package_unit, package_count, kind, category, " +
+                "basis_amount, basis_unit, " +
                 "prep_state, cooking_method, calories_kcal, protein_grams, carbs_grams, " +
                 "fat_grams, sodium_mg, saturated_fat_grams, sugars_grams, fiber_grams, " +
                 "added_sugars_grams, trans_fat_grams, cholesterol_mg, source_type, " +
                 "source_reference, source_version, data_version, revision, visibility, " +
                 "created_at, updated_at, deleted_at) " +
-                "SELECT id, owner_id, name, brand, kind, category, basis_amount, basis_unit, " +
+                "SELECT id, owner_id, name, brand, " +
+                nullableSourceColumn(db, "nutrition_foods", "manufacturer_name") + ", " +
+                nullableSourceColumn(db, "nutrition_foods", "brand_name") + ", " +
+                nullableSourceColumn(db, "nutrition_foods", "sub_brand_name") + ", " +
+                nullableSourceColumn(db, "nutrition_foods", "product_name") + ", " +
+                nullableSourceColumn(db, "nutrition_foods", "package_amount") + ", " +
+                nullableSourceColumn(db, "nutrition_foods", "package_unit") + ", " +
+                nullableSourceColumn(db, "nutrition_foods", "package_count") + ", " +
+                "kind, category, basis_amount, basis_unit, " +
                 "prep_state, cooking_method, calories_kcal, protein_grams, carbs_grams, " +
                 "fat_grams, sodium_mg, saturated_fat_grams, sugars_grams, fiber_grams, " +
                 "added_sugars_grams, trans_fat_grams, cholesterol_mg, source_type, " +
@@ -1211,7 +1215,10 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "created_at, updated_at, deleted_at FROM nutrition_foods");
         db.execSQL("DROP TABLE nutrition_foods");
         db.execSQL("ALTER TABLE nutrition_foods_v40 RENAME TO nutrition_foods");
-        // Recreate indexes after all later schema migrations add their referenced columns.
+    }
+
+    private String nullableSourceColumn(SQLiteDatabase db, String tableName, String columnName) {
+        return hasColumn(db, tableName, columnName) ? columnName : "NULL";
     }
 
     /** Allows an option snapshot to retain unknown nutrition as NULL instead of inventing zero. */
