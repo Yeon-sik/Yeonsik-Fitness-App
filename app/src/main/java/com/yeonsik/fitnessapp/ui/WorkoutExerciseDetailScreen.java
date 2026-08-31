@@ -43,10 +43,12 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private static final int DEFAULT_REST_SECONDS = 90;
     private static final int REST_STEP_SECONDS = 15;
     private static final int ILLUSTRATION_DISPLAY_SCALE_PERCENT = 120;
+    private static final int LOAD_STATE_CELL_WIDTH_DP = 64;
 
     /** 이번 종목의 기본 휴식(초). 스탬프 시 타이머와 세트 기록에 쓰인다. */
     private final int[] defaultRestSeconds = {DEFAULT_REST_SECONDS};
     private final ExerciseVariantPickerDialog exerciseVariantPickerDialog;
+    private LinearLayout openLoadStateSelector;
 
     public WorkoutExerciseDetailScreen(ScreenHost host) {
         super(host);
@@ -59,6 +61,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
     @Override
     public void render() {
+        openLoadStateSelector = null;
         String recordId = host.sessionState().activeRecordId();
         if (recordId == null) {
             host.navigate(FitnessScreen.WORKOUT_SESSION);
@@ -131,9 +134,14 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     // ── 운동 자세 이미지 ───────────────────────────────────────────────
 
     private void renderExerciseIllustration(FitnessRepository.SessionExerciseEntry exercise) {
-        ExerciseIllustrationLookup.IllustrationResolution resolution = exercise.familyIdentity == null
-                ? ExerciseIllustrationLookup.resolve(host.activity(), exercise.exerciseId)
-                : ExerciseIllustrationLookup.resolve(host.activity(), exercise.familyIdentity);
+        ExerciseFamilyIdentity identity = exercise.familyIdentity != null
+                ? exercise.familyIdentity
+                : repository().familyCatalog().identityForStorageExerciseId(exercise.exerciseId);
+        if (identity == null) {
+            return;
+        }
+        ExerciseIllustrationLookup.IllustrationResolution resolution =
+                ExerciseIllustrationLookup.resolveExact(host.activity(), identity);
         int[] drawableIds = resolution.drawables;
         if (drawableIds.length == 0) {
             return;
@@ -409,21 +417,6 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             }
         }
 
-        LinearLayout columnHeader = new LinearLayout(host.activity());
-        columnHeader.setOrientation(LinearLayout.HORIZONTAL);
-        columnHeader.setGravity(Gravity.CENTER_VERTICAL);
-        addColumnHeader(columnHeader, "이전", new LinearLayout.LayoutParams(ui.dp(56),
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-        addColumnHeader(columnHeader, "무게 kg", ui.fieldCellParams(false));
-        addColumnHeader(columnHeader, "횟수", ui.fieldCellParams(false));
-        TextView stampHeader = ui.caption("완료", FitnessUi.COLOR_MUTED);
-        stampHeader.setGravity(Gravity.CENTER);
-        columnHeader.addView(stampHeader, new LinearLayout.LayoutParams(ui.dp(48),
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-        TextView deleteHeader = ui.caption("삭제", FitnessUi.COLOR_MUTED);
-        deleteHeader.setGravity(Gravity.CENTER);
-        columnHeader.addView(deleteHeader, new LinearLayout.LayoutParams(ui.dp(32),
-                LinearLayout.LayoutParams.WRAP_CONTENT));
         addTypedColumnHeader(setCard, activeExercise.recordType);
 
         for (FitnessRepository.SessionSetEntry set : sets) {
@@ -500,6 +493,24 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         return params;
     }
 
+    private static LinearLayout.LayoutParams loadStateHeaderParams(FitnessUi ui) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ui.dp(LOAD_STATE_CELL_WIDTH_DP),
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(ui.dp(4), 0, 0, 0);
+        return params;
+    }
+
+    private static LinearLayout.LayoutParams loadStateCellParams(FitnessUi ui) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ui.dp(LOAD_STATE_CELL_WIDTH_DP),
+                ui.dp(44)
+        );
+        params.setMargins(ui.dp(4), 0, 0, 0);
+        return params;
+    }
+
     private void addColumnHeader(LinearLayout row, String label, LinearLayout.LayoutParams params) {
         TextView header = ui().caption(label, FitnessUi.COLOR_MUTED);
         header.setGravity(Gravity.CENTER);
@@ -524,6 +535,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 ui.dp(44),
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
+        addColumnHeader(row, "저항 상태", loadStateHeaderParams(ui));
         addColumnHeader(row, "삭제", new LinearLayout.LayoutParams(
                 ui.dp(30),
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -557,13 +569,6 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         );
         final LoadState[] selectedLoadState = {initialLoadState};
 
-        Button loadStateButton = ui.button(
-                "저항 상태: " + loadStateLabel(initialLoadState),
-                false,
-                null
-        );
-        setBox.addView(loadStateButton, ui.fullWidthParams(ui.dp(2)));
-
         LinearLayout row = new LinearLayout(host.activity());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
@@ -595,17 +600,6 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             input.setPadding(ui.dp(4), ui.dp(3), ui.dp(4), ui.dp(3));
         }
         secondary.setEnabled(hasSecondaryInput(exercise.recordType, initialLoadState));
-        loadStateButton.setOnClickListener(view -> showLoadStateDialog(
-                recordId,
-                exercise,
-                set,
-                allowedLoadStates,
-                selectedLoadState,
-                loadStateButton,
-                primary,
-                secondary,
-                rir
-        ));
         row.addView(primary, compactSetFieldParams(ui, true));
         row.addView(secondary, compactSetFieldParams(ui, false));
         if (rir != null) {
@@ -715,6 +709,48 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         });
         row.addView(stampCell, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
 
+        TextView loadStateCell = ui.text(
+                loadStateCompactLabel(initialLoadState),
+                10,
+                FitnessUi.COLOR_TEXT,
+                true
+        );
+        loadStateCell.setGravity(Gravity.CENTER);
+        loadStateCell.setMaxLines(2);
+        loadStateCell.setContentDescription("저항 상태: " + loadStateLabel(initialLoadState));
+        loadStateCell.setPadding(ui.dp(3), ui.dp(2), ui.dp(3), ui.dp(2));
+        loadStateCell.setBackground(ui.flatSurfaceRippleDrawable(ui.dp(8)));
+        loadStateCell.setClickable(true);
+        loadStateCell.setFocusable(true);
+
+        LinearLayout inlineSelector = inlineLoadStateSelector(
+                recordId,
+                exercise,
+                set,
+                allowedLoadStates,
+                selectedLoadState,
+                loadStateCell,
+                primary,
+                secondary,
+                rir
+        );
+        loadStateCell.setOnClickListener(view -> {
+            if (allowedLoadStates == null || allowedLoadStates.isEmpty()) {
+                return;
+            }
+            if (openLoadStateSelector != null && openLoadStateSelector != inlineSelector) {
+                openLoadStateSelector.setVisibility(View.GONE);
+            }
+            if (inlineSelector.getVisibility() == View.VISIBLE) {
+                inlineSelector.setVisibility(View.GONE);
+                openLoadStateSelector = null;
+            } else {
+                inlineSelector.setVisibility(View.VISIBLE);
+                openLoadStateSelector = inlineSelector;
+            }
+        });
+        row.addView(loadStateCell, loadStateCellParams(ui));
+
         if (set.setIndex > 1) {
             TextView delete = ui.num("×", 18, FitnessUi.COLOR_MUTED, true);
             delete.setGravity(Gravity.CENTER);
@@ -732,66 +768,94 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             ));
         }
         setBox.addView(row, ui.fullWidthParams(0));
+        setBox.addView(inlineSelector, ui.fullWidthParams(ui.dp(2)));
         card.addView(setBox, ui.fullWidthParams(ui.dp(6)));
     }
 
-    private void showLoadStateDialog(
+    private LinearLayout inlineLoadStateSelector(
             String recordId,
             FitnessRepository.SessionExerciseEntry exercise,
             FitnessRepository.SessionSetEntry set,
             List<LoadState> allowedLoadStates,
             LoadState[] selectedLoadState,
-            Button loadStateButton,
+            TextView loadStateCell,
             EditText primary,
             EditText secondary,
             EditText rir
     ) {
-        if (allowedLoadStates == null || allowedLoadStates.isEmpty()) {
-            return;
+        FitnessUi ui = ui();
+        LinearLayout selector = new LinearLayout(host.activity());
+        selector.setOrientation(LinearLayout.HORIZONTAL);
+        selector.setGravity(Gravity.CENTER_VERTICAL);
+        selector.setPadding(ui.dp(4), ui.dp(4), ui.dp(4), ui.dp(4));
+        selector.setBackground(ui.borderDrawable(ui.subtle(), ui.border(), ui.dp(10)));
+        selector.setVisibility(View.GONE);
+
+        if (allowedLoadStates == null) {
+            return selector;
         }
-        String[] labels = new String[allowedLoadStates.size()];
-        int checked = 0;
         for (int index = 0; index < allowedLoadStates.size(); index += 1) {
             LoadState state = allowedLoadStates.get(index);
-            labels[index] = loadStateLabel(state);
-            if (state == selectedLoadState[0]) {
-                checked = index;
+            TextView option = ui.text(
+                    loadStateLabel(state),
+                    11,
+                    state == selectedLoadState[0]
+                            ? FitnessUi.COLOR_INVERSE_TEXT
+                            : FitnessUi.COLOR_TEXT,
+                    true
+            );
+            option.setGravity(Gravity.CENTER);
+            option.setMaxLines(2);
+            option.setPadding(ui.dp(4), ui.dp(4), ui.dp(4), ui.dp(4));
+            option.setBackground(state == selectedLoadState[0]
+                    ? ui.vibrantRippleDrawable("load-state-" + state.id(), ui.dp(8))
+                    : ui.flatSurfaceRippleDrawable(ui.dp(8)));
+            option.setClickable(true);
+            option.setFocusable(true);
+            option.setContentDescription("저항 상태 선택: " + loadStateLabel(state));
+            LinearLayout.LayoutParams optionParams = new LinearLayout.LayoutParams(
+                    0,
+                    ui.dp(36),
+                    1f
+            );
+            if (index > 0) {
+                optionParams.setMargins(ui.dp(4), 0, 0, 0);
             }
+            selector.addView(option, optionParams);
+            option.setOnClickListener(view -> {
+                LoadState next = state;
+                if (next == selectedLoadState[0]) {
+                    selector.setVisibility(View.GONE);
+                    openLoadStateSelector = null;
+                    return;
+                }
+                try {
+                    repository().updateTypedSet(
+                            recordId,
+                            set.id,
+                            typedStateChangeInput(
+                                    exercise.recordType,
+                                    selectedLoadState[0],
+                                    next,
+                                    primary,
+                                    secondary,
+                                    rir,
+                                    set.restSeconds,
+                                    set.isCompleted
+                            )
+                    );
+                    selectedLoadState[0] = next;
+                    loadStateCell.setText(loadStateCompactLabel(next));
+                    loadStateCell.setContentDescription("저항 상태: " + loadStateLabel(next));
+                    selector.setVisibility(View.GONE);
+                    openLoadStateSelector = null;
+                    host.rerender();
+                } catch (IllegalArgumentException error) {
+                    host.toast(error.getMessage());
+                }
+            });
         }
-
-        new AlertDialog.Builder(host.activity())
-                .setTitle("세트 저항 상태")
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
-                    LoadState next = allowedLoadStates.get(which);
-                    if (next == selectedLoadState[0]) {
-                        dialog.dismiss();
-                        return;
-                    }
-                    try {
-                        repository().updateTypedSet(
-                                recordId,
-                                set.id,
-                                typedStateChangeInput(
-                                        exercise.recordType,
-                                        selectedLoadState[0],
-                                        next,
-                                        primary,
-                                        secondary,
-                                        rir,
-                                        set.restSeconds,
-                                        set.isCompleted
-                                )
-                        );
-                        selectedLoadState[0] = next;
-                        loadStateButton.setText("저항 상태: " + loadStateLabel(next));
-                        dialog.dismiss();
-                        host.rerender();
-                    } catch (IllegalArgumentException error) {
-                        host.toast(error.getMessage());
-                    }
-                })
-                .setNegativeButton("취소", null)
-                .show();
+        return selector;
     }
 
     private static boolean isTimeRecordType(String recordType) {
@@ -851,6 +915,27 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 return "밴드 저항";
             default:
                 return loadState.id();
+        }
+    }
+
+    private static String loadStateCompactLabel(LoadState loadState) {
+        if (loadState == null) {
+            return "기본";
+        }
+        switch (loadState) {
+            case EXTERNAL_LOAD:
+                return "외부";
+            case ADDED_WEIGHT:
+                return "추가";
+            case ASSISTED:
+                return "보조";
+            case BAND_ASSISTED:
+                return "밴드 보조";
+            case BAND_RESISTED:
+                return "밴드 저항";
+            case BODYWEIGHT:
+            default:
+                return "맨몸";
         }
     }
 
