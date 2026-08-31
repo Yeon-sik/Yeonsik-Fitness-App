@@ -67,6 +67,30 @@ public final class ExerciseIllustrationLookup {
         return IllustrationResolution.placeholder(identity.legacyExerciseId);
     }
 
+    /**
+     * Returns only the exact family + visual variant asset.
+     *
+     * <p>Unlike {@link #resolve(Context, ExerciseFamilyIdentity)}, this method never falls back
+     * to the family default. Picker cells use it so one variant cannot display another variant's
+     * illustration.</p>
+     */
+    public static IllustrationResolution resolveExact(
+            Context context,
+            ExerciseFamilyIdentity identity
+    ) {
+        if (identity == null) {
+            return IllustrationResolution.placeholder(null);
+        }
+        ExerciseFamilyCatalog catalog = familyCatalog(context);
+        IllustrationResolution exact = refResolution(
+                catalog.imageVariantFor(identity),
+                "exact_visual_variant"
+        );
+        return exact == null
+                ? IllustrationResolution.placeholder(identity.legacyExerciseId)
+                : exact;
+    }
+
     /** Lookup without requiring callers to construct a legacy exercise object. */
     public static IllustrationResolution resolve(
             Context context,

@@ -79,7 +79,7 @@ public final class RuntimeExerciseCatalogTest {
         RuntimeExercisePicker.Filter filter = new RuntimeExercisePicker.Filter(
                 "", BodyPart.LEGS, null, UiEquipmentCategory.FREE_WEIGHT,
                 RuntimeExercisePicker.SortOrder.NAME,
-                Collections.emptyMap(), Collections.emptySet()
+                Collections.emptyMap()
         );
 
         List<RuntimeExercisePicker.FamilyResult> results = picker.search(filter);
@@ -91,28 +91,16 @@ public final class RuntimeExerciseCatalogTest {
     }
 
     @Test
-    public void ranksFavoritesAndRecentHistoryAtFamilyLevel() throws Exception {
+    public void ranksRecentHistoryAtFamilyLevel() throws Exception {
         RuntimeExercisePicker picker = new RuntimeExercisePicker(fixture());
-        Set<String> favorites = new HashSet<>();
-        favorites.add("push_up");
         Map<String, String> recent = new HashMap<>();
         recent.put("push_up", "2026-08-30");
         recent.put("barbell_squat", "2026-08-29");
 
-        List<RuntimeExercisePicker.FamilyResult> favoriteResults = picker.search(
-                new RuntimeExercisePicker.Filter(
-                        "", null, null, null, RuntimeExercisePicker.SortOrder.FAVORITES,
-                        Collections.emptyMap(), favorites
-                )
-        );
-        assertFalse(favoriteResults.isEmpty());
-        assertEquals("push_up", favoriteResults.get(0).family.familyId);
-        assertTrue(favoriteResults.get(0).favorite);
-
         List<RuntimeExercisePicker.FamilyResult> recentResults = picker.search(
                 new RuntimeExercisePicker.Filter(
                         "", null, null, null, RuntimeExercisePicker.SortOrder.RECENT,
-                        recent, Collections.emptySet()
+                        recent
                 )
         );
         assertEquals("push_up", recentResults.get(0).family.familyId);
@@ -130,6 +118,22 @@ public final class RuntimeExerciseCatalogTest {
         assertEquals(340, catalog.size());
         assertEquals(340, runtime.presetsByLegacyId.size());
         assertEquals(363, runtime.presetCount());
+
+        RuntimeExercisePreset flatDumbbellPress = runtime.presetForStorageExerciseId(
+                "chest_dumbbell_flat_bench_press");
+        RuntimeExercisePreset dumbbellPullover = runtime.presetForStorageExerciseId(
+                "chest_dumbbell_pullover");
+        RuntimeExercisePreset bulgarianSplitSquat = runtime.presetForStorageExerciseId(
+                "legs_dumbbell_bulgarian_split_squat");
+        assertNotNull(flatDumbbellPress);
+        assertNotNull(dumbbellPullover);
+        assertNotNull(bulgarianSplitSquat);
+        assertEquals("bilateral", flatDumbbellPress.laterality());
+        assertEquals(2, flatDumbbellPress.implementMultiplier);
+        assertEquals(1, dumbbellPullover.implementMultiplier);
+        assertEquals("unilateral", bulgarianSplitSquat.laterality());
+        assertEquals(4, ExerciseVolumeCalculator.totalMultiplier(
+                bulgarianSplitSquat.laterality(), bulgarianSplitSquat.implementMultiplier));
 
         Set<String> approvedIds = new HashSet<>(Arrays.asList(
                 "knee_push_up",
@@ -225,6 +229,21 @@ public final class RuntimeExerciseCatalogTest {
                 "family_default",
                 ExerciseIllustrationLookup.resolve(context, chinUp).source
         );
+    }
+
+    @Test
+    public void exactVariantLookupDoesNotUseFamilyDefault() {
+        android.content.Context context = ApplicationProvider.getApplicationContext();
+        ExerciseFamilyCatalog catalog = ExerciseFamilyCatalog.load(context);
+        ExerciseFamilyIdentity pullUp = catalog.identityForLegacyId("back_bodyweight_pull_up");
+        ExerciseFamilyIdentity chinUp = catalog.identityForLegacyId("back_bodyweight_chin_up");
+        assertNotNull(pullUp);
+        assertNotNull(chinUp);
+        assertEquals(
+                "exact_visual_variant",
+                ExerciseIllustrationLookup.resolveExact(context, pullUp).source
+        );
+        assertTrue(ExerciseIllustrationLookup.resolveExact(context, chinUp).isPlaceholder());
     }
 
     @Test

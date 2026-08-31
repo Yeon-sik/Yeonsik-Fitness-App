@@ -105,6 +105,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
             host.toast("먼저 운동을 시작하세요.");
             return;
         }
+        host.sessionState().clearExerciseReplacement();
         host.sessionState().setActiveRecordId(recordId);
         host.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
     }

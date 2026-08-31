@@ -191,6 +191,25 @@ public final class RuntimeExerciseCatalog {
         return byLegacy == null ? presetsById.get(normalized) : byLegacy;
     }
 
+    /** Resolves a manual row only when its displayed name exactly identifies one canonical preset. */
+    public RuntimeExercisePreset presetForExactName(String name) {
+        String normalized = RuntimeExercisePicker.normalize(name);
+        if (normalized.isEmpty()) {
+            return null;
+        }
+        RuntimeExercisePreset match = null;
+        for (RuntimeExercisePreset preset : presetsById.values()) {
+            if (!exactNameMatch(preset, normalized)) {
+                continue;
+            }
+            if (match != null && !match.identityId().equals(preset.identityId())) {
+                return null;
+            }
+            match = preset;
+        }
+        return match;
+    }
+
     public int familyCount() {
         return families.size();
     }
@@ -289,6 +308,29 @@ public final class RuntimeExerciseCatalog {
         }
         String value = object.optString(key, null);
         return value == null || value.trim().isEmpty() ? null : value.trim();
+    }
+
+    private static int integerValue(JSONObject object, String key, int fallback) {
+        if (object == null || object.isNull(key)) {
+            return fallback;
+        }
+        int value = object.optInt(key, fallback);
+        return value > 0 ? value : fallback;
+    }
+
+    private static boolean exactNameMatch(RuntimeExercisePreset preset, String normalized) {
+        if (normalized.equals(RuntimeExercisePicker.normalize(preset.nameKo))
+                || normalized.equals(RuntimeExercisePicker.normalize(preset.nameEn))
+                || normalized.equals(RuntimeExercisePicker.normalize(preset.legacyNameKo))
+                || normalized.equals(RuntimeExercisePicker.normalize(preset.legacyNameEn))) {
+            return true;
+        }
+        for (String alias : preset.searchAliases) {
+            if (normalized.equals(RuntimeExercisePicker.normalize(alias))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static List<String> stringList(JSONArray array) {
@@ -433,6 +475,8 @@ public final class RuntimeExerciseCatalog {
         final String recordType;
         final LoadState defaultLoadState;
         final List<LoadState> allowedLoadStates;
+        final int implementMultiplier;
+        final String laterality;
         final String canonicalVariantKey;
         final String visualVariantKey;
         final String illustrationKey;
@@ -463,6 +507,8 @@ public final class RuntimeExerciseCatalog {
                 String recordType,
                 LoadState defaultLoadState,
                 List<LoadState> allowedLoadStates,
+                int implementMultiplier,
+                String laterality,
                 String canonicalVariantKey,
                 String visualVariantKey,
                 String illustrationKey,
@@ -489,6 +535,8 @@ public final class RuntimeExerciseCatalog {
             this.recordType = recordType;
             this.defaultLoadState = defaultLoadState;
             this.allowedLoadStates = allowedLoadStates;
+            this.implementMultiplier = ExerciseVolumeCalculator.normalizeImplementMultiplier(implementMultiplier);
+            this.laterality = laterality;
             this.canonicalVariantKey = canonicalVariantKey;
             this.visualVariantKey = visualVariantKey;
             this.illustrationKey = illustrationKey;
@@ -530,6 +578,8 @@ public final class RuntimeExerciseCatalog {
                     nullableString(item, "legacyRecordType"),
                     LoadState.fromId(nullableString(item, "defaultLoadState")),
                     family.allowedLoadStates,
+                    integerValue(item, "implementMultiplier", 1),
+                    nullableString(item, "laterality"),
                     nullableString(item, "canonicalVariantKey"),
                     nullableString(item, "visualVariantKey"),
                     nullableString(item, "illustrationKey"),
@@ -573,6 +623,8 @@ public final class RuntimeExerciseCatalog {
                     nullableString(item, "recordType"),
                     LoadState.fromId(nullableString(item, "defaultLoadState")),
                     family.allowedLoadStates,
+                    integerValue(item, "implementMultiplier", 1),
+                    nullableString(item, "laterality"),
                     nullableString(item, "canonicalVariantKey"),
                     nullableString(item, "visualVariantKey"),
                     nullableString(item, "illustrationKey"),
@@ -633,6 +685,8 @@ public final class RuntimeExerciseCatalog {
                     recordType,
                     defaultLoadState,
                     allowedLoadStates,
+                    implementMultiplier,
+                    laterality,
                     canonicalVariantKey,
                     visualVariantKey,
                     illustrationKey,

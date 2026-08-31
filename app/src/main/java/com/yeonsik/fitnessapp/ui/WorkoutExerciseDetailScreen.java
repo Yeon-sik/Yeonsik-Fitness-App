@@ -21,10 +21,17 @@ import android.widget.TextView;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup;
+import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
+import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter;
+import com.yeonsik.fitnessapp.exercise.ExerciseVolumeCalculator;
 import com.yeonsik.fitnessapp.exercise.LoadState;
+import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
+import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
+import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,16 +44,25 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private static final int DEFAULT_REST_SECONDS = 90;
     private static final int REST_STEP_SECONDS = 15;
     private static final int ILLUSTRATION_DISPLAY_SCALE_PERCENT = 120;
+    private static final int LOAD_STATE_CELL_WIDTH_DP = 64;
 
     /** 이번 종목의 기본 휴식(초). 스탬프 시 타이머와 세트 기록에 쓰인다. */
     private final int[] defaultRestSeconds = {DEFAULT_REST_SECONDS};
+    private final ExerciseVariantPickerDialog exerciseVariantPickerDialog;
+    private LinearLayout openLoadStateSelector;
 
     public WorkoutExerciseDetailScreen(ScreenHost host) {
         super(host);
+        exerciseVariantPickerDialog = new ExerciseVariantPickerDialog(
+                host.activity(),
+                host.ui(),
+                new ExerciseIllustrationPreview(host.activity(), host.ui())
+        );
     }
 
     @Override
     public void render() {
+        openLoadStateSelector = null;
         String recordId = host.sessionState().activeRecordId();
         if (recordId == null) {
             host.navigate(FitnessScreen.WORKOUT_SESSION);
@@ -87,6 +103,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         TextView backAction = ui.textAction("‹ 세션으로", FitnessUi.COLOR_MUTED,
                 () -> host.navigate(FitnessScreen.WORKOUT_SESSION));
         topRow.addView(backAction, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        topRow.addView(ui.textAction("종목 교체", FitnessUi.COLOR_MUTED,
+                () -> beginExerciseReplacement(activeExercise)));
         topRow.addView(ui.textAction("종목 삭제", FitnessUi.COLOR_MUTED,
                 () -> confirmDeleteExercise(recordId, activeExercise)));
         add(topRow, ui.fullWidthParams(0));
@@ -101,7 +119,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
         section("기록 분석");
         if (supportsLoadRepAnalytics(activeExercise.recordType)) {
-            renderPersonalRecordCard(bests, sets);
+            renderPersonalRecordCard(activeExercise, bests, sets);
             add(volumeTrendCard("볼륨 추이", "최근 8회 + 현재",
                     repository().recentExerciseVolumes(
                             activeExercise.exerciseId,
@@ -109,7 +127,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                             recordId,
                             8
                     ),
-                    currentExerciseVolume(sets)));
+                    currentExerciseVolume(activeExercise, sets)));
         }
         renderLastHistoryCard(activeExercise.recordType, lastHistory);
     }
@@ -117,9 +135,14 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     // ── 운동 자세 이미지 ───────────────────────────────────────────────
 
     private void renderExerciseIllustration(FitnessRepository.SessionExerciseEntry exercise) {
-        ExerciseIllustrationLookup.IllustrationResolution resolution = exercise.familyIdentity == null
-                ? ExerciseIllustrationLookup.resolve(host.activity(), exercise.exerciseId)
-                : ExerciseIllustrationLookup.resolve(host.activity(), exercise.familyIdentity);
+        ExerciseFamilyIdentity identity = exercise.familyIdentity != null
+                ? exercise.familyIdentity
+                : repository().familyCatalog().identityForStorageExerciseId(exercise.exerciseId);
+        if (identity == null) {
+            return;
+        }
+        ExerciseIllustrationLookup.IllustrationResolution resolution =
+                ExerciseIllustrationLookup.resolveExact(host.activity(), identity);
         int[] drawableIds = resolution.drawables;
         if (drawableIds.length == 0) {
             return;
@@ -377,6 +400,20 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         headerRow.addView(restStepper());
         setCard.addView(headerRow);
 
+        setCard.addView(ui.button("볼륨 계산 방식", false,
+                        v -> showVolumeCalculationDialog(activeExercise)),
+                ui.fullWidthParams(ui.dp(8)));
+
+        TextView totalVolumeComparison = totalVolumeComparisonLabel(
+                ui,
+                activeExercise.recordType,
+                lastHistory
+        );
+        List<LiveVolumeInput> liveVolumeInputs = new ArrayList<>();
+        if (totalVolumeComparison != null) {
+            setCard.addView(totalVolumeComparison, ui.fullWidthParams(ui.dp(8)));
+        }
+
         // 이전 세션의 세트 인덱스별 참조값
         Map<Integer, FitnessRepository.SessionSetEntry> previousBySetIndex = new HashMap<>();
         if (lastHistory != null) {
@@ -385,21 +422,6 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             }
         }
 
-        LinearLayout columnHeader = new LinearLayout(host.activity());
-        columnHeader.setOrientation(LinearLayout.HORIZONTAL);
-        columnHeader.setGravity(Gravity.CENTER_VERTICAL);
-        addColumnHeader(columnHeader, "이전", new LinearLayout.LayoutParams(ui.dp(56),
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-        addColumnHeader(columnHeader, "무게 kg", ui.fieldCellParams(false));
-        addColumnHeader(columnHeader, "횟수", ui.fieldCellParams(false));
-        TextView stampHeader = ui.caption("완료", FitnessUi.COLOR_MUTED);
-        stampHeader.setGravity(Gravity.CENTER);
-        columnHeader.addView(stampHeader, new LinearLayout.LayoutParams(ui.dp(48),
-                LinearLayout.LayoutParams.WRAP_CONTENT));
-        TextView deleteHeader = ui.caption("삭제", FitnessUi.COLOR_MUTED);
-        deleteHeader.setGravity(Gravity.CENTER);
-        columnHeader.addView(deleteHeader, new LinearLayout.LayoutParams(ui.dp(32),
-                LinearLayout.LayoutParams.WRAP_CONTENT));
         addTypedColumnHeader(setCard, activeExercise.recordType);
 
         for (FitnessRepository.SessionSetEntry set : sets) {
@@ -408,7 +430,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     recordId,
                     activeExercise,
                     set,
-                    previousBySetIndex.get(set.setIndex)
+                    previousBySetIndex.get(set.setIndex),
+                    totalVolumeComparison,
+                    liveVolumeInputs,
+                    lastHistory == null ? 0 : lastHistory.totalVolumeKg
             );
         }
         setCard.addView(ui.button("+ 세트 추가", false, v -> addSet(recordId, activeExercise, sets)),
@@ -473,6 +498,24 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         return params;
     }
 
+    private static LinearLayout.LayoutParams loadStateHeaderParams(FitnessUi ui) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ui.dp(LOAD_STATE_CELL_WIDTH_DP),
+                LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(ui.dp(4), 0, 0, 0);
+        return params;
+    }
+
+    private static LinearLayout.LayoutParams loadStateCellParams(FitnessUi ui) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ui.dp(LOAD_STATE_CELL_WIDTH_DP),
+                ui.dp(44)
+        );
+        params.setMargins(ui.dp(4), 0, 0, 0);
+        return params;
+    }
+
     private void addColumnHeader(LinearLayout row, String label, LinearLayout.LayoutParams params) {
         TextView header = ui().caption(label, FitnessUi.COLOR_MUTED);
         header.setGravity(Gravity.CENTER);
@@ -497,6 +540,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 ui.dp(44),
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
+        addColumnHeader(row, "저항 상태", loadStateHeaderParams(ui));
         addColumnHeader(row, "삭제", new LinearLayout.LayoutParams(
                 ui.dp(30),
                 LinearLayout.LayoutParams.WRAP_CONTENT
@@ -509,7 +553,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             String recordId,
             FitnessRepository.SessionExerciseEntry exercise,
             FitnessRepository.SessionSetEntry set,
-            FitnessRepository.SessionSetEntry previousSet
+            FitnessRepository.SessionSetEntry previousSet,
+            TextView totalVolumeComparison,
+            List<LiveVolumeInput> liveVolumeInputs,
+            double previousVolumeKg
     ) {
         FitnessUi ui = ui();
         LinearLayout setBox = new LinearLayout(host.activity());
@@ -526,23 +573,6 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 allowedLoadStates
         );
         final LoadState[] selectedLoadState = {initialLoadState};
-
-        TextView volumeDelta = volumeDeltaLabel(
-                ui,
-                exercise.recordType,
-                initialLoadState,
-                previousSet
-        );
-        if (volumeDelta != null) {
-            setBox.addView(volumeDelta, ui.fullWidthParams(ui.dp(2)));
-        }
-
-        Button loadStateButton = ui.button(
-                "저항 상태: " + loadStateLabel(initialLoadState),
-                false,
-                null
-        );
-        setBox.addView(loadStateButton, ui.fullWidthParams(ui.dp(2)));
 
         LinearLayout row = new LinearLayout(host.activity());
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -575,25 +605,25 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             input.setPadding(ui.dp(4), ui.dp(3), ui.dp(4), ui.dp(3));
         }
         secondary.setEnabled(hasSecondaryInput(exercise.recordType, initialLoadState));
-        loadStateButton.setOnClickListener(view -> showLoadStateDialog(
-                recordId,
-                exercise,
-                set,
-                allowedLoadStates,
-                selectedLoadState,
-                loadStateButton,
-                primary,
-                secondary,
-                rir
-        ));
         row.addView(primary, compactSetFieldParams(ui, true));
         row.addView(secondary, compactSetFieldParams(ui, false));
         if (rir != null) {
             row.addView(rir, compactSetFieldParams(ui, false));
         }
 
-        if (volumeDelta != null) {
-            TextWatcher volumeDeltaWatcher = new TextWatcher() {
+        if (totalVolumeComparison != null) {
+            RuntimeExercisePreset volumePreset = runtimePresetForExercise(exercise);
+            LiveVolumeInput liveVolumeInput = new LiveVolumeInput(
+                    selectedLoadState,
+                    primary,
+                    secondary,
+                    volumePreset == null ? null : volumePreset.laterality(),
+                    volumePreset == null
+                            ? ExerciseVolumeCalculator.DEFAULT_IMPLEMENT_MULTIPLIER
+                            : volumePreset.implementMultiplier
+            );
+            liveVolumeInputs.add(liveVolumeInput);
+            TextWatcher totalVolumeWatcher = new TextWatcher() {
                 @Override
                 public void beforeTextChanged(CharSequence text, int start, int count, int after) {
                     // 입력 중간값은 afterTextChanged에서 다시 계산한다.
@@ -606,25 +636,21 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
                 @Override
                 public void afterTextChanged(Editable editable) {
-                    updateVolumeDeltaLabel(
-                            volumeDelta,
+                    updateTotalVolumeComparisonLabel(
+                            totalVolumeComparison,
                             exercise.recordType,
-                            selectedLoadState[0],
-                            primary,
-                            secondary,
-                            previousSet
+                            previousVolumeKg,
+                            liveVolumeInputs
                     );
                 }
             };
-            primary.addTextChangedListener(volumeDeltaWatcher);
-            secondary.addTextChangedListener(volumeDeltaWatcher);
-            updateVolumeDeltaLabel(
-                    volumeDelta,
+            primary.addTextChangedListener(totalVolumeWatcher);
+            secondary.addTextChangedListener(totalVolumeWatcher);
+            updateTotalVolumeComparisonLabel(
+                    totalVolumeComparison,
                     exercise.recordType,
-                    selectedLoadState[0],
-                    primary,
-                    secondary,
-                    previousSet
+                    previousVolumeKg,
+                    liveVolumeInputs
             );
         }
 
@@ -693,6 +719,48 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         });
         row.addView(stampCell, new LinearLayout.LayoutParams(ui.dp(44), ui.dp(44)));
 
+        TextView loadStateCell = ui.text(
+                loadStateCompactLabel(initialLoadState),
+                10,
+                FitnessUi.COLOR_TEXT,
+                true
+        );
+        loadStateCell.setGravity(Gravity.CENTER);
+        loadStateCell.setMaxLines(2);
+        loadStateCell.setContentDescription("저항 상태: " + loadStateLabel(initialLoadState));
+        loadStateCell.setPadding(ui.dp(3), ui.dp(2), ui.dp(3), ui.dp(2));
+        loadStateCell.setBackground(ui.flatSurfaceRippleDrawable(ui.dp(8)));
+        loadStateCell.setClickable(true);
+        loadStateCell.setFocusable(true);
+
+        LinearLayout inlineSelector = inlineLoadStateSelector(
+                recordId,
+                exercise,
+                set,
+                allowedLoadStates,
+                selectedLoadState,
+                loadStateCell,
+                primary,
+                secondary,
+                rir
+        );
+        loadStateCell.setOnClickListener(view -> {
+            if (allowedLoadStates == null || allowedLoadStates.isEmpty()) {
+                return;
+            }
+            if (openLoadStateSelector != null && openLoadStateSelector != inlineSelector) {
+                openLoadStateSelector.setVisibility(View.GONE);
+            }
+            if (inlineSelector.getVisibility() == View.VISIBLE) {
+                inlineSelector.setVisibility(View.GONE);
+                openLoadStateSelector = null;
+            } else {
+                inlineSelector.setVisibility(View.VISIBLE);
+                openLoadStateSelector = inlineSelector;
+            }
+        });
+        row.addView(loadStateCell, loadStateCellParams(ui));
+
         if (set.setIndex > 1) {
             TextView delete = ui.num("×", 18, FitnessUi.COLOR_MUTED, true);
             delete.setGravity(Gravity.CENTER);
@@ -710,66 +778,94 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             ));
         }
         setBox.addView(row, ui.fullWidthParams(0));
+        setBox.addView(inlineSelector, ui.fullWidthParams(ui.dp(2)));
         card.addView(setBox, ui.fullWidthParams(ui.dp(6)));
     }
 
-    private void showLoadStateDialog(
+    private LinearLayout inlineLoadStateSelector(
             String recordId,
             FitnessRepository.SessionExerciseEntry exercise,
             FitnessRepository.SessionSetEntry set,
             List<LoadState> allowedLoadStates,
             LoadState[] selectedLoadState,
-            Button loadStateButton,
+            TextView loadStateCell,
             EditText primary,
             EditText secondary,
             EditText rir
     ) {
-        if (allowedLoadStates == null || allowedLoadStates.isEmpty()) {
-            return;
+        FitnessUi ui = ui();
+        LinearLayout selector = new LinearLayout(host.activity());
+        selector.setOrientation(LinearLayout.HORIZONTAL);
+        selector.setGravity(Gravity.CENTER_VERTICAL);
+        selector.setPadding(ui.dp(4), ui.dp(4), ui.dp(4), ui.dp(4));
+        selector.setBackground(ui.borderDrawable(ui.subtle(), ui.border(), ui.dp(10)));
+        selector.setVisibility(View.GONE);
+
+        if (allowedLoadStates == null) {
+            return selector;
         }
-        String[] labels = new String[allowedLoadStates.size()];
-        int checked = 0;
         for (int index = 0; index < allowedLoadStates.size(); index += 1) {
             LoadState state = allowedLoadStates.get(index);
-            labels[index] = loadStateLabel(state);
-            if (state == selectedLoadState[0]) {
-                checked = index;
+            TextView option = ui.text(
+                    loadStateLabel(state),
+                    11,
+                    state == selectedLoadState[0]
+                            ? FitnessUi.COLOR_INVERSE_TEXT
+                            : FitnessUi.COLOR_TEXT,
+                    true
+            );
+            option.setGravity(Gravity.CENTER);
+            option.setMaxLines(2);
+            option.setPadding(ui.dp(4), ui.dp(4), ui.dp(4), ui.dp(4));
+            option.setBackground(state == selectedLoadState[0]
+                    ? ui.vibrantRippleDrawable("load-state-" + state.id(), ui.dp(8))
+                    : ui.flatSurfaceRippleDrawable(ui.dp(8)));
+            option.setClickable(true);
+            option.setFocusable(true);
+            option.setContentDescription("저항 상태 선택: " + loadStateLabel(state));
+            LinearLayout.LayoutParams optionParams = new LinearLayout.LayoutParams(
+                    0,
+                    ui.dp(36),
+                    1f
+            );
+            if (index > 0) {
+                optionParams.setMargins(ui.dp(4), 0, 0, 0);
             }
+            selector.addView(option, optionParams);
+            option.setOnClickListener(view -> {
+                LoadState next = state;
+                if (next == selectedLoadState[0]) {
+                    selector.setVisibility(View.GONE);
+                    openLoadStateSelector = null;
+                    return;
+                }
+                try {
+                    repository().updateTypedSet(
+                            recordId,
+                            set.id,
+                            typedStateChangeInput(
+                                    exercise.recordType,
+                                    selectedLoadState[0],
+                                    next,
+                                    primary,
+                                    secondary,
+                                    rir,
+                                    set.restSeconds,
+                                    set.isCompleted
+                            )
+                    );
+                    selectedLoadState[0] = next;
+                    loadStateCell.setText(loadStateCompactLabel(next));
+                    loadStateCell.setContentDescription("저항 상태: " + loadStateLabel(next));
+                    selector.setVisibility(View.GONE);
+                    openLoadStateSelector = null;
+                    host.rerender();
+                } catch (IllegalArgumentException error) {
+                    host.toast(error.getMessage());
+                }
+            });
         }
-
-        new AlertDialog.Builder(host.activity())
-                .setTitle("세트 저항 상태")
-                .setSingleChoiceItems(labels, checked, (dialog, which) -> {
-                    LoadState next = allowedLoadStates.get(which);
-                    if (next == selectedLoadState[0]) {
-                        dialog.dismiss();
-                        return;
-                    }
-                    try {
-                        repository().updateTypedSet(
-                                recordId,
-                                set.id,
-                                typedStateChangeInput(
-                                        exercise.recordType,
-                                        selectedLoadState[0],
-                                        next,
-                                        primary,
-                                        secondary,
-                                        rir,
-                                        set.restSeconds,
-                                        set.isCompleted
-                                )
-                        );
-                        selectedLoadState[0] = next;
-                        loadStateButton.setText("저항 상태: " + loadStateLabel(next));
-                        dialog.dismiss();
-                        host.rerender();
-                    } catch (IllegalArgumentException error) {
-                        host.toast(error.getMessage());
-                    }
-                })
-                .setNegativeButton("취소", null)
-                .show();
+        return selector;
     }
 
     private static boolean isTimeRecordType(String recordType) {
@@ -829,6 +925,27 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 return "밴드 저항";
             default:
                 return loadState.id();
+        }
+    }
+
+    private static String loadStateCompactLabel(LoadState loadState) {
+        if (loadState == null) {
+            return "기본";
+        }
+        switch (loadState) {
+            case EXTERNAL_LOAD:
+                return "외부";
+            case ADDED_WEIGHT:
+                return "추가";
+            case ASSISTED:
+                return "보조";
+            case BAND_ASSISTED:
+                return "밴드 보조";
+            case BAND_RESISTED:
+                return "밴드 저항";
+            case BODYWEIGHT:
+            default:
+                return "맨몸";
         }
     }
 
@@ -1071,61 +1188,109 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         return FitnessUi.trimDouble(set.weightKg) + "kg\n" + set.actualReps + "회";
     }
 
-    /** 한 세트 박스에 하나씩 표시할 중량×횟수 비교 라벨을 만든다. */
-    private static TextView volumeDeltaLabel(
+    /** 세트 입력 카드 상단에 표시할 전체 세트 누적 중량 비교 라벨을 만든다. */
+    private static TextView totalVolumeComparisonLabel(
             FitnessUi ui,
             String recordType,
-            LoadState loadState,
-            FitnessRepository.SessionSetEntry previousSet
+            FitnessRepository.ExerciseHistory lastHistory
     ) {
-        if (!FitnessRecordContract.WEIGHT_REPS.equals(
-                FitnessRecordContract.normalizeRecordType(recordType))
-                || previousSet == null
-                || (loadState != LoadState.EXTERNAL_LOAD
-                && loadState != LoadState.ADDED_WEIGHT)
-                || effectiveLoadState(recordType, previousSet.loadState, null) != loadState) {
+        if (!supportsLoadRepAnalytics(recordType) || lastHistory == null) {
             return null;
         }
 
         TextView label = ui.num("", 11, FitnessUi.COLOR_MUTED, true);
-        label.setGravity(Gravity.CENTER);
-        label.setPadding(0, 0, 0, ui.dp(2));
+        label.setGravity(Gravity.CENTER_HORIZONTAL);
+        label.setPadding(0, ui.dp(2), 0, ui.dp(4));
         label.setVisibility(View.GONE);
         return label;
     }
 
-    /** 중량과 횟수가 입력될 때마다 한 세트의 총 중량 차이를 갱신한다. */
-    private static void updateVolumeDeltaLabel(
+    /** 모든 세트의 입력값을 합산해 지난 운동의 전체 세트 볼륨과 비교한다. */
+    private static void updateTotalVolumeComparisonLabel(
             TextView label,
             String recordType,
-            LoadState loadState,
-            EditText weightInput,
-            EditText repsInput,
-            FitnessRepository.SessionSetEntry previousSet
+            double previousVolumeKg,
+            List<LiveVolumeInput> liveVolumeInputs
     ) {
-        double currentVolume = volumeFromInputs(recordType, loadState, weightInput, repsInput);
-        if (currentVolume <= 0) {
+        List<Double> currentSetVolumes = new ArrayList<>();
+        for (LiveVolumeInput input : liveVolumeInputs) {
+            currentSetVolumes.add(volumeFromInputs(
+                    recordType,
+                    input.loadState[0],
+                    input.primary,
+                    input.secondary,
+                    input.laterality,
+                    input.implementMultiplier
+            ));
+        }
+        double currentVolumeKg = sumVolumeKg(currentSetVolumes);
+        if (!Double.isFinite(currentVolumeKg) || currentVolumeKg <= 0) {
             label.setVisibility(View.GONE);
             return;
         }
 
-        double previousVolume = volumeFromSet(previousSet);
-        double delta = currentVolume - previousVolume;
-        String direction = delta < 0 ? "덜" : "더";
+        double delta = currentVolumeKg - previousVolumeKg;
+        if (Math.abs(delta) < 0.0001d) {
+            delta = 0;
+        }
         int color = delta > 0
                 ? FitnessUi.COLOR_POSITIVE
                 : delta < 0 ? FitnessUi.COLOR_NEGATIVE : FitnessUi.COLOR_MUTED;
-        label.setText("지난 세트보다 " + FitnessUi.formatVolume(Math.abs(delta))
-                + " KG " + direction + " 들었어요");
+        label.setText(totalVolumeComparisonMessage(currentVolumeKg, previousVolumeKg));
         label.setTextColor(color);
         label.setVisibility(View.VISIBLE);
+    }
+
+    static double sumVolumeKg(List<Double> setVolumes) {
+        double total = 0;
+        for (Double setVolume : setVolumes) {
+            if (setVolume != null && Double.isFinite(setVolume)) {
+                total += setVolume;
+            }
+        }
+        return total;
+    }
+
+    static String totalVolumeComparisonMessage(double currentVolumeKg, double previousVolumeKg) {
+        double delta = currentVolumeKg - previousVolumeKg;
+        if (Math.abs(delta) < 0.0001d) {
+            return "전체 세트 기준, 지난 운동과 같은 볼륨이에요";
+        }
+        String direction = delta < 0 ? "덜" : "더";
+        return "전체 세트 기준, 지난 운동보다 "
+                + FitnessUi.formatVolume(Math.abs(delta))
+                + " KG " + direction + " 들었어요";
+    }
+
+    private static final class LiveVolumeInput {
+        private final LoadState[] loadState;
+        private final EditText primary;
+        private final EditText secondary;
+        private final String laterality;
+        private final int implementMultiplier;
+
+        private LiveVolumeInput(
+                LoadState[] loadState,
+                EditText primary,
+                EditText secondary,
+                String laterality,
+                int implementMultiplier
+        ) {
+            this.loadState = loadState;
+            this.primary = primary;
+            this.secondary = secondary;
+            this.laterality = laterality;
+            this.implementMultiplier = implementMultiplier;
+        }
     }
 
     private static double volumeFromInputs(
             String recordType,
             LoadState loadState,
             EditText primary,
-            EditText secondary
+            EditText secondary,
+            String laterality,
+            int implementMultiplier
     ) {
         if (loadState != LoadState.EXTERNAL_LOAD && loadState != LoadState.ADDED_WEIGHT) {
             return 0;
@@ -1134,20 +1299,18 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         Integer reps = hasNumericLoad(loadState)
                 ? FitnessUi.optionalInt(secondary)
                 : FitnessUi.optionalInt(primary);
-        if (load == null || reps == null || load < 0 || reps <= 0) {
+        if (load == null || !Double.isFinite(load) || reps == null || load < 0 || reps <= 0) {
             return 0;
         }
-        return load * reps;
-    }
-
-    private static double volumeFromSet(FitnessRepository.SessionSetEntry set) {
-        if (set.loadState == LoadState.EXTERNAL_LOAD) {
-            return set.weightKg * set.actualReps;
-        }
-        if (set.loadState == LoadState.ADDED_WEIGHT) {
-            return set.addedWeightKg * set.actualReps;
-        }
-        return 0;
+        return ExerciseVolumeCalculator.calculate(
+                recordType,
+                loadState,
+                loadState == LoadState.EXTERNAL_LOAD ? load : 0d,
+                loadState == LoadState.ADDED_WEIGHT ? load : 0d,
+                reps,
+                laterality,
+                implementMultiplier
+        );
     }
 
     private static FitnessRepository.SetInput emptySetInput(
@@ -1293,7 +1456,9 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     // ── 기록 분석 ─────────────────────────────────────────────────────
 
     /** 개인 기록 카드: 역대 최고 무게 / 추정 1RM / 최고 세션 볼륨. 오늘 갱신 시 PR 뱃지. */
-    private void renderPersonalRecordCard(FitnessRepository.ExerciseBests bests,
+    private void renderPersonalRecordCard(
+                                          FitnessRepository.SessionExerciseEntry exercise,
+                                          FitnessRepository.ExerciseBests bests,
                                           List<FitnessRepository.SessionSetEntry> sets) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
@@ -1311,7 +1476,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             todayMaxWeight = Math.max(todayMaxWeight, load);
             todayBestE1rm = Math.max(todayBestE1rm, FitnessRepository.epleyE1rm(load, set.actualReps));
         }
-        double todayVolume = currentExerciseVolume(sets);
+        double todayVolume = currentExerciseVolume(exercise, sets);
         boolean todayPr = bests.sessionCount > 0
                 && (todayMaxWeight > bests.maxWeightKg
                 || todayBestE1rm > bests.bestE1rmKg
@@ -1394,13 +1559,56 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         add(card);
     }
 
+    private void showVolumeCalculationDialog(FitnessRepository.SessionExerciseEntry exercise) {
+        FitnessUi ui = ui();
+        LinearLayout body = new LinearLayout(host.activity());
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.addView(ui.text("완료 세트의 파생 볼륨을 계산하는 기준입니다.",
+                13, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(8)));
+        TextView formula = ui.num(
+                repository().volumeCalculationFormula(exercise),
+                19,
+                FitnessUi.COLOR_TEXT,
+                true
+        );
+        formula.setGravity(Gravity.CENTER);
+        formula.setPadding(0, ui.dp(12), 0, ui.dp(12));
+        body.addView(formula, ui.fullWidthParams(0));
+        body.addView(ui.text("입력한 중량은 그대로 저장되며, 배수는 파생 볼륨에만 적용됩니다.",
+                12, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(8)));
+        ui.sheet("볼륨 계산 방식", body, "확인", () -> {
+        }, null, null);
+    }
+
     // ── 헬퍼 ─────────────────────────────────────────────────────────
 
-    private double currentExerciseVolume(List<FitnessRepository.SessionSetEntry> sets) {
+    private RuntimeExercisePreset runtimePresetForExercise(
+            FitnessRepository.SessionExerciseEntry exercise
+    ) {
+        if (exercise == null) {
+            return null;
+        }
+        RuntimeExerciseCatalog catalog = host.exerciseMasterRepository().runtimeCatalog();
+        RuntimeExercisePreset preset = exercise.familyIdentity == null
+                ? null
+                : catalog.preset(exercise.familyIdentity.presetId);
+        if (preset == null && exercise.familyIdentity != null) {
+            preset = catalog.preset(exercise.familyIdentity.canonicalPresetId);
+        }
+        if (preset == null) {
+            preset = catalog.presetForStorageExerciseId(exercise.exerciseId);
+        }
+        return preset == null ? catalog.presetForExactName(exercise.name) : preset;
+    }
+
+    private double currentExerciseVolume(
+            FitnessRepository.SessionExerciseEntry exercise,
+            List<FitnessRepository.SessionSetEntry> sets
+    ) {
         double volume = 0;
         for (FitnessRepository.SessionSetEntry set : sets) {
             if (set.isCompleted) {
-                volume += volumeFromSet(set);
+                volume += repository().volumeForSet(exercise, set);
             }
         }
         return volume;
@@ -1468,5 +1676,63 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     repository().deleteExercise(recordId, exercise.id);
                     host.rerender();
                 });
+    }
+
+    private void beginExerciseReplacement(FitnessRepository.SessionExerciseEntry exercise) {
+        ExerciseFamilyIdentity currentIdentity = exercise.familyIdentity;
+        if (currentIdentity == null) {
+            currentIdentity = repository().familyCatalog()
+                    .identityForStorageExerciseId(exercise.exerciseId);
+        }
+        RuntimeExerciseCatalog catalog = host.exerciseMasterRepository().runtimeCatalog();
+        RuntimeExerciseFamily family = currentIdentity == null
+                ? null
+                : catalog.family(currentIdentity.familyId);
+        if (family == null || family.presets.isEmpty()) {
+            host.toast("Family가 등록된 운동만 같은 Family 안에서 교체할 수 있습니다.");
+            return;
+        }
+
+        RuntimeExercisePreset currentPreset = catalog.presetForStorageExerciseId(
+                exercise.exerciseId);
+        if (currentPreset == null && currentIdentity != null) {
+            currentPreset = catalog.preset(currentIdentity.presetId);
+        }
+        List<RuntimeExercisePreset> initiallySelected = new ArrayList<>();
+        if (currentPreset != null) {
+            initiallySelected.add(currentPreset);
+        }
+        final RuntimeExercisePreset previousPreset = currentPreset;
+        exerciseVariantPickerDialog.show(
+                family,
+                family.presets,
+                initiallySelected,
+                true,
+                selected -> {
+                    if (selected.isEmpty()) {
+                        host.toast("교체할 운동을 선택하세요.");
+                        return;
+                    }
+                    RuntimeExercisePreset replacement = selected.get(0);
+                    if (previousPreset != null
+                            && previousPreset.identityId().equals(replacement.identityId())) {
+                        host.toast("현재 운동과 다른 variant를 선택하세요.");
+                        return;
+                    }
+                    boolean replaced = repository().replaceExerciseFromMaster(
+                            host.sessionState().activeRecordId(),
+                            exercise.id,
+                            ExerciseMasterAdapter.toRoutineExercise(replacement)
+                    );
+                    if (!replaced) {
+                        host.toast("같은 운동 Family 안의 variant만 교체할 수 있습니다.");
+                        return;
+                    }
+                    host.sessionState().clearExerciseReplacement();
+                    host.sessionState().setActiveExerciseId(exercise.id);
+                    host.toast(replacement.displayName() + "으로 운동 종목을 교체했습니다.");
+                    host.rerender();
+                }
+        );
     }
 }

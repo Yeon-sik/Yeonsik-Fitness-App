@@ -48,6 +48,55 @@ loadStateRules:
   notes:
   - Do not convert band assistance/resistance into a fake constant kg value.
   - For bodyweight-capable exercises, a set may change load state between sets.
+loadAccounting:
+  defaultImplementMultiplier: 1
+  lateralityOverrides:
+    legs_dumbbell_reverse_lunge: unilateral
+    legs_dumbbell_lunge: unilateral
+    legs_dumbbell_bulgarian_split_squat: unilateral
+    legs_dumbbell_step_up: unilateral
+    legs_dumbbell_walking_lunge: unilateral
+  implementMultiplierOverrides:
+    chest_dumbbell_decline_bench_press: 2
+    chest_dumbbell_decline_fly: 2
+    chest_dumbbell_flat_bench_press: 2
+    chest_dumbbell_flat_fly: 2
+    chest_dumbbell_neutral_grip_press: 2
+    chest_dumbbell_squeeze_press: 2
+    chest_dumbbell_incline_bench_press: 2
+    chest_dumbbell_incline_fly: 2
+    back_dumbbell_chest_supported_row: 2
+    back_dumbbell_renegade_row: 2
+    back_dumbbell_incline_row: 2
+    back_dumbbell_shrug: 2
+    legs_dumbbell_standing_calf_raise: 2
+    legs_dumbbell_reverse_lunge: 2
+    legs_dumbbell_romanian_deadlift: 2
+    legs_dumbbell_stiff_leg_deadlift: 2
+    legs_dumbbell_lunge: 2
+    legs_dumbbell_bulgarian_split_squat: 2
+    legs_dumbbell_squat: 2
+    legs_dumbbell_step_up: 2
+    legs_dumbbell_walking_lunge: 2
+    shoulders_dumbbell_shoulder_press: 2
+    shoulders_dumbbell_front_raise: 2
+    shoulders_dumbbell_seated_shoulder_press: 2
+    shoulders_dumbbell_arnold_press: 2
+    shoulders_dumbbell_rear_delt_fly: 2
+    shoulders_dumbbell_bent_over_lateral_raise: 2
+    shoulders_dumbbell_cuban_press: 2
+    shoulders_dumbbell_lateral_raise: 2
+    shoulders_dumbbell_incline_lateral_raise: 2
+    shoulders_dumbbell_high_pull: 2
+    arms_dumbbell_spider_curl: 2
+    arms_dumbbell_curl: 2
+    arms_dumbbell_hammer_curl: 2
+    arms_dumbbell_incline_curl: 2
+    arms_dumbbell_zottman_curl: 2
+    arms_dumbbell_reverse_wrist_curl: 2
+    arms_dumbbell_wrist_curl: 2
+    arms_dumbbell_farmer_carry: 2
+    arms_dumbbell_skull_crusher: 2
 metricProfiles:
 - reps
 - weight_reps

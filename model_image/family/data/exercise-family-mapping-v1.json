@@ -61,6 +61,58 @@
       "For bodyweight-capable exercises, a set may change load state between sets."
     ]
   },
+  "loadAccounting": {
+    "defaultImplementMultiplier": 1,
+    "lateralityOverrides": {
+      "legs_dumbbell_reverse_lunge": "unilateral",
+      "legs_dumbbell_lunge": "unilateral",
+      "legs_dumbbell_bulgarian_split_squat": "unilateral",
+      "legs_dumbbell_step_up": "unilateral",
+      "legs_dumbbell_walking_lunge": "unilateral"
+    },
+    "implementMultiplierOverrides": {
+      "chest_dumbbell_decline_bench_press": 2,
+      "chest_dumbbell_decline_fly": 2,
+      "chest_dumbbell_flat_bench_press": 2,
+      "chest_dumbbell_flat_fly": 2,
+      "chest_dumbbell_neutral_grip_press": 2,
+      "chest_dumbbell_squeeze_press": 2,
+      "chest_dumbbell_incline_bench_press": 2,
+      "chest_dumbbell_incline_fly": 2,
+      "back_dumbbell_chest_supported_row": 2,
+      "back_dumbbell_renegade_row": 2,
+      "back_dumbbell_incline_row": 2,
+      "back_dumbbell_shrug": 2,
+      "legs_dumbbell_standing_calf_raise": 2,
+      "legs_dumbbell_reverse_lunge": 2,
+      "legs_dumbbell_romanian_deadlift": 2,
+      "legs_dumbbell_stiff_leg_deadlift": 2,
+      "legs_dumbbell_lunge": 2,
+      "legs_dumbbell_bulgarian_split_squat": 2,
+      "legs_dumbbell_squat": 2,
+      "legs_dumbbell_step_up": 2,
+      "legs_dumbbell_walking_lunge": 2,
+      "shoulders_dumbbell_shoulder_press": 2,
+      "shoulders_dumbbell_front_raise": 2,
+      "shoulders_dumbbell_seated_shoulder_press": 2,
+      "shoulders_dumbbell_arnold_press": 2,
+      "shoulders_dumbbell_rear_delt_fly": 2,
+      "shoulders_dumbbell_bent_over_lateral_raise": 2,
+      "shoulders_dumbbell_cuban_press": 2,
+      "shoulders_dumbbell_lateral_raise": 2,
+      "shoulders_dumbbell_incline_lateral_raise": 2,
+      "shoulders_dumbbell_high_pull": 2,
+      "arms_dumbbell_spider_curl": 2,
+      "arms_dumbbell_curl": 2,
+      "arms_dumbbell_hammer_curl": 2,
+      "arms_dumbbell_incline_curl": 2,
+      "arms_dumbbell_zottman_curl": 2,
+      "arms_dumbbell_reverse_wrist_curl": 2,
+      "arms_dumbbell_wrist_curl": 2,
+      "arms_dumbbell_farmer_carry": 2,
+      "arms_dumbbell_skull_crusher": 2
+    }
+  },
   "performance": {
     "familyStats": [
       "frequency",
@@ -1749,6 +1801,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -1802,6 +1856,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -1856,6 +1912,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -1912,6 +1970,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -1966,6 +2026,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -2020,6 +2082,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -2074,6 +2138,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -2128,6 +2194,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -2183,6 +2251,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -2242,6 +2312,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -2299,6 +2371,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -2352,6 +2426,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -2407,6 +2483,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -2457,6 +2535,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -2516,6 +2596,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -2574,6 +2656,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -2627,6 +2711,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -2683,6 +2769,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -2741,6 +2829,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -2797,6 +2887,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -2852,6 +2944,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -2908,6 +3002,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "added_weight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -2963,6 +3059,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -3014,6 +3112,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -3063,6 +3163,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -3115,6 +3217,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -3166,6 +3270,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -3212,6 +3318,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -3265,6 +3373,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -3321,6 +3431,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -3374,6 +3486,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -3423,6 +3537,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -3474,6 +3590,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -3527,6 +3645,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -3578,6 +3698,8 @@
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "plate",
         "laterality": "bilateral",
@@ -3631,6 +3753,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -3687,6 +3811,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -3743,6 +3869,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -3801,6 +3929,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -3857,6 +3987,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -3910,6 +4042,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -3964,6 +4098,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -4017,6 +4153,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -4073,6 +4211,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -4127,6 +4267,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -4182,6 +4324,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -4241,6 +4385,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -4294,6 +4440,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -4347,6 +4495,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -4400,6 +4550,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -4455,6 +4607,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -4512,6 +4666,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -4567,6 +4723,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -4622,6 +4780,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -4678,6 +4838,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -4733,6 +4895,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -4789,6 +4953,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -4842,6 +5008,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -4895,6 +5063,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -4951,6 +5121,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -5004,6 +5176,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -5057,6 +5231,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -5111,6 +5287,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -5162,6 +5340,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "assisted_weight_reps",
       "defaultLoadState": "assisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -5217,6 +5397,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -5275,6 +5457,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -5326,6 +5510,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -5376,6 +5562,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -5431,6 +5619,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -5485,6 +5675,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -5537,6 +5729,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -5590,6 +5784,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -5645,6 +5841,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -5700,6 +5898,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -5751,6 +5951,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -5805,6 +6007,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -5858,6 +6062,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -5911,6 +6117,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -5964,6 +6172,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "assisted_weight_reps",
       "defaultLoadState": "band_assisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -6019,6 +6229,8 @@
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "kettlebell",
         "laterality": "unilateral",
@@ -6074,6 +6286,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -6129,6 +6343,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -6183,6 +6399,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -6240,6 +6458,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -6294,6 +6514,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -6351,6 +6573,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -6407,6 +6631,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -6464,6 +6690,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -6517,6 +6745,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -6571,6 +6801,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -6628,6 +6860,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -6685,6 +6919,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -6742,6 +6978,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -6798,6 +7036,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -6852,6 +7092,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -6903,6 +7145,8 @@
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "plate",
         "laterality": "bilateral",
@@ -6954,6 +7198,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -7003,6 +7249,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -7052,6 +7300,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -7101,6 +7351,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -7150,6 +7402,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -7201,6 +7455,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -7252,6 +7508,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -7303,6 +7561,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "unilateral",
@@ -7350,6 +7610,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -7403,6 +7665,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -7451,6 +7715,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -7498,6 +7764,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -7548,6 +7816,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "unilateral",
@@ -7597,6 +7867,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -7648,6 +7920,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -7698,6 +7972,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -7748,6 +8024,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -7798,6 +8076,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -7847,6 +8127,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -7897,6 +8179,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -7948,6 +8232,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -8001,6 +8287,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "unilateral",
@@ -8051,6 +8339,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "unilateral",
@@ -8104,6 +8394,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "unilateral",
@@ -8155,6 +8447,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -8208,6 +8502,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -8258,6 +8554,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -8309,6 +8607,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -8364,6 +8664,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -8416,6 +8718,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -8469,6 +8773,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "unilateral",
@@ -8519,6 +8825,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -8572,6 +8880,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -8627,6 +8937,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -8679,6 +8991,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -8730,6 +9044,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -8783,6 +9099,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -8836,6 +9154,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -8887,6 +9207,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "unilateral",
@@ -8938,6 +9260,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -8991,6 +9315,8 @@
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "kettlebell",
         "laterality": "bilateral",
@@ -9045,6 +9371,8 @@
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "kettlebell",
         "laterality": "bilateral",
@@ -9094,6 +9422,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -9147,6 +9477,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -9196,6 +9528,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -9246,6 +9580,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "unilateral",
@@ -9295,6 +9631,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "unilateral",
@@ -9345,6 +9683,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -9395,6 +9735,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "unilateral",
@@ -9450,6 +9792,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -9503,6 +9847,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -9556,6 +9902,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -9611,6 +9959,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -9664,6 +10014,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -9717,6 +10069,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -9772,6 +10126,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -9819,6 +10175,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -9866,6 +10224,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -9919,6 +10279,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -9970,6 +10332,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "unilateral",
@@ -10021,6 +10385,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "unilateral",
@@ -10077,6 +10443,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "unilateral",
@@ -10128,6 +10496,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -10179,6 +10549,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "time",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -10232,6 +10604,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -10285,6 +10659,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "unilateral",
@@ -10332,6 +10708,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -10379,6 +10757,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "unilateral",
@@ -10432,6 +10812,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -10485,6 +10867,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "unilateral",
@@ -10536,6 +10920,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -10587,6 +10973,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -10638,6 +11026,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -10689,6 +11079,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -10742,6 +11134,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -10795,6 +11189,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -10846,6 +11242,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -10900,6 +11298,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -10951,6 +11351,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -11004,6 +11406,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -11058,6 +11462,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -11111,6 +11517,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "unilateral",
@@ -11167,6 +11575,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "unilateral",
@@ -11219,6 +11629,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -11271,6 +11683,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -11325,6 +11739,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -11379,6 +11795,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "unilateral",
@@ -11433,6 +11851,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -11484,6 +11904,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "unilateral",
@@ -11535,6 +11957,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -11585,6 +12009,8 @@
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "kettlebell",
         "laterality": "bilateral",
@@ -11636,6 +12062,8 @@
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "plate",
         "laterality": "bilateral",
@@ -11689,6 +12117,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -11744,6 +12174,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -11797,6 +12229,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -11856,6 +12290,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -11911,6 +12347,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -11960,6 +12398,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -12013,6 +12453,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -12071,6 +12513,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -12126,6 +12570,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "unilateral",
@@ -12175,6 +12621,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -12228,6 +12676,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -12284,6 +12734,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -12331,6 +12783,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -12378,6 +12832,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -12433,6 +12889,8 @@
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "kettlebell",
         "laterality": "unilateral",
@@ -12484,6 +12942,8 @@
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "plate",
         "laterality": "bilateral",
@@ -12531,6 +12991,8 @@
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "plate",
         "laterality": "bilateral",
@@ -12586,6 +13048,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -12645,6 +13109,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -12702,6 +13168,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -12758,6 +13226,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -12813,6 +13283,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -12867,6 +13339,8 @@
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "kettlebell",
         "laterality": "unilateral",
@@ -12919,6 +13393,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -12973,6 +13449,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -13021,6 +13499,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -13069,6 +13549,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -13117,6 +13599,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -13168,6 +13652,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -13217,6 +13703,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -13268,6 +13756,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -13321,6 +13811,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -13374,6 +13866,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -13429,6 +13923,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -13482,6 +13978,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -13535,6 +14033,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -13586,6 +14086,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -13633,6 +14135,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -13680,6 +14184,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -13733,6 +14239,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -13780,6 +14288,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -13829,6 +14339,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -13878,6 +14390,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -13934,6 +14448,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -13987,6 +14503,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -14041,6 +14559,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -14093,6 +14613,8 @@
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "smith_machine",
         "laterality": "bilateral",
@@ -14140,6 +14662,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -14191,6 +14715,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -14238,6 +14764,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -14285,6 +14813,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -14332,6 +14862,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -14379,6 +14911,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -14430,6 +14964,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -14481,6 +15017,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -14526,6 +15064,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -14577,6 +15117,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -14624,6 +15166,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -14676,6 +15220,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -14723,6 +15269,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -14770,6 +15318,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -14817,6 +15367,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -14868,6 +15420,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -14917,6 +15471,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -14966,6 +15522,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -15013,6 +15571,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -15060,6 +15620,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -15107,6 +15669,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -15158,6 +15722,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -15211,6 +15777,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -15264,6 +15832,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -15309,6 +15879,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -15356,6 +15928,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -15409,6 +15983,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -15458,6 +16034,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -15511,6 +16089,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "time",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -15558,6 +16138,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -15607,6 +16189,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -15660,6 +16244,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_time",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -15711,6 +16297,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -15762,6 +16350,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -15815,6 +16405,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -15862,6 +16454,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -15915,6 +16509,8 @@
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_time",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "kettlebell",
         "laterality": "bilateral",
@@ -15962,6 +16558,8 @@
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_time",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "plate",
         "laterality": "bilateral",
@@ -16009,6 +16607,8 @@
       "legacyEquipment": "other",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "other",
         "laterality": "bilateral",
@@ -16060,6 +16660,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -16115,6 +16717,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -16164,6 +16768,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -16217,6 +16823,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -16273,6 +16881,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -16320,6 +16930,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -16373,6 +16985,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "assisted_weight_reps",
       "defaultLoadState": "assisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -16420,6 +17034,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 2,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -16467,6 +17083,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -16516,6 +17134,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -16565,6 +17185,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -16610,6 +17232,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -16663,6 +17287,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -16710,6 +17336,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -16757,6 +17385,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -16806,6 +17436,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -16861,6 +17493,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -16911,6 +17545,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -16958,6 +17594,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -17007,6 +17645,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -17058,6 +17698,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -17110,6 +17752,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -17159,6 +17803,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -17209,6 +17855,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -17258,6 +17906,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -17309,6 +17959,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -17356,6 +18008,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -17405,6 +18059,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -17456,6 +18112,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -17509,6 +18167,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "time",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -17560,6 +18220,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "unilateral",
@@ -17615,6 +18277,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "time",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -17668,6 +18332,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -17719,6 +18385,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -17772,6 +18440,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "unilateral",
@@ -17827,6 +18497,8 @@
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "kettlebell",
         "laterality": "unilateral",
@@ -17882,6 +18554,8 @@
       "legacyEquipment": "other",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "other",
         "laterality": "bilateral",
@@ -17935,6 +18609,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -17986,6 +18662,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -18039,6 +18717,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "time",
       "defaultLoadState": "bodyweight",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "unilateral",
@@ -18090,6 +18770,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -18141,6 +18823,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -18188,6 +18872,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "unilateral",
@@ -18239,6 +18925,8 @@
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "barbell",
         "laterality": "bilateral",
@@ -18290,6 +18978,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "unilateral",
@@ -18341,6 +19031,8 @@
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "kettlebell",
         "laterality": "unilateral",
@@ -18390,6 +19082,8 @@
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "plate",
         "laterality": "bilateral",
@@ -18437,6 +19131,8 @@
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "plate",
         "laterality": "unilateral",
@@ -18488,6 +19184,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -18539,6 +19237,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -18590,6 +19290,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -18641,6 +19343,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -18692,6 +19396,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -18743,6 +19449,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -18788,6 +19496,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -18841,6 +19551,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -18896,6 +19608,8 @@
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "bodyweight",
         "laterality": "bilateral",
@@ -18945,6 +19659,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -18996,6 +19712,8 @@
       "legacyEquipment": "machine",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "machine",
         "laterality": "bilateral",
@@ -19047,6 +19765,8 @@
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "dumbbell",
         "laterality": "bilateral",
@@ -19096,6 +19816,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -19148,6 +19870,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -19195,6 +19919,8 @@
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "cable",
         "laterality": "bilateral",
@@ -19240,6 +19966,8 @@
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "band",
         "laterality": "bilateral",
@@ -19285,6 +20013,8 @@
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "plate",
         "laterality": "bilateral",
@@ -19336,6 +20066,8 @@
       "legacyEquipment": "other",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "variant": {
         "equipment": "other",
         "laterality": "bilateral",
@@ -19383,6 +20115,8 @@
         "무릎 푸쉬업",
         "Kneeling Push-Up"
       ],
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"knees\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"knees\"}",
       "illustrationKey": null,
@@ -19400,6 +20134,8 @@
       },
       "defaultLoadState": "external_load",
       "recordType": "weight_reps",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"high\",\"stance\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"high\",\"stance\":\"standard\"}",
       "illustrationKey": null,
@@ -19417,6 +20153,8 @@
       },
       "defaultLoadState": "external_load",
       "recordType": "weight_reps",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"low\",\"stance\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"low\",\"stance\":\"standard\"}",
       "illustrationKey": null,
@@ -19437,6 +20175,8 @@
       "aliases": [
         "사이드 런지"
       ],
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"direction\":\"lateral\",\"equipment\":\"bodyweight\",\"travelMode\":\"stationary\"}",
       "visualVariantKey": "{\"direction\":\"lateral\",\"equipment\":\"bodyweight\",\"travelMode\":\"stationary\"}",
       "illustrationKey": null,
@@ -19454,6 +20194,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"cossack\",\"technique\":\"lateral_shift\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"cossack\",\"technique\":\"lateral_shift\"}",
       "illustrationKey": "barbell-back-squat",
@@ -19471,6 +20213,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"support\":\"wall\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"support\":\"wall\"}",
       "illustrationKey": null,
@@ -19488,6 +20232,8 @@
       },
       "defaultLoadState": "external_load",
       "recordType": "weight_reps",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"support\":\"machine\"}",
       "visualVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"support\":\"machine\"}",
       "illustrationKey": null,
@@ -19505,6 +20251,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": "contralateral",
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"contralateral\",\"limbPattern\":\"opposite_arm_leg\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"contralateral\",\"limbPattern\":\"opposite_arm_leg\"}",
       "illustrationKey": null,
@@ -19523,6 +20271,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "time",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"laterality\":\"unilateral\",\"orientation\":\"side\",\"support\":\"elevated_leg\",\"technique\":\"copenhagen\"}",
       "visualVariantKey": "{\"laterality\":\"unilateral\",\"orientation\":\"side\",\"support\":\"elevated_leg\",\"technique\":\"copenhagen\"}",
       "illustrationKey": null,
@@ -19541,6 +20291,8 @@
       },
       "defaultLoadState": "external_load",
       "recordType": "weight_reps",
+      "laterality": "bilateral",
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"support\":\"prone_bench\",\"torsoAngle\":\"horizontal\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"support\":\"prone_bench\",\"torsoAngle\":\"horizontal\"}",
       "illustrationKey": null,
@@ -19558,6 +20310,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"bodyAngle\":\"inclined\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "visualVariantKey": "{\"bodyAngle\":\"inclined\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "illustrationKey": null,
@@ -19575,6 +20329,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"gymnastic_rings\",\"gripOrientation\":\"dynamic\",\"gripWidth\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"gymnastic_rings\",\"gripOrientation\":\"dynamic\",\"gripWidth\":\"standard\"}",
       "illustrationKey": "pull-up",
@@ -19592,6 +20348,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"emphasis\":\"general\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "visualVariantKey": "{\"emphasis\":\"general\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "illustrationKey": null,
@@ -19609,6 +20367,8 @@
       },
       "defaultLoadState": "external_load",
       "recordType": "weight_time",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\"}",
       "visualVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\"}",
       "illustrationKey": null,
@@ -19626,6 +20386,8 @@
       },
       "defaultLoadState": "external_load",
       "recordType": "weight_time",
+      "laterality": "unilateral",
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"kettlebell\",\"laterality\":\"unilateral\"}",
       "visualVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"kettlebell\",\"laterality\":\"unilateral\"}",
       "illustrationKey": null,
@@ -19642,6 +20404,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"rangeOfMotion\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"rangeOfMotion\":\"standard\"}",
       "illustrationKey": null,
@@ -19658,6 +20422,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"bilateral\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"bilateral\"}",
       "illustrationKey": null,
@@ -19675,6 +20441,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"pull_up_bar\",\"technique\":\"bar\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"pull_up_bar\",\"technique\":\"bar\"}",
       "illustrationKey": null,
@@ -19692,6 +20460,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"gymnastic_rings\",\"support\":\"rings\",\"technique\":\"rings\"}",
       "visualVariantKey": "{\"equipment\":\"gymnastic_rings\",\"support\":\"rings\",\"technique\":\"rings\"}",
       "illustrationKey": null,
@@ -19708,6 +20478,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"bench\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"bench\"}",
       "illustrationKey": null,
@@ -19725,6 +20497,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "time",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"parallel_bars\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"parallel_bars\"}",
       "illustrationKey": null,
@@ -19742,6 +20516,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "time",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"floor\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"floor\"}",
       "illustrationKey": null,
@@ -19759,6 +20535,8 @@
       },
       "defaultLoadState": "bodyweight",
       "recordType": "reps_only",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"kneePosition\":\"straight\",\"support\":\"pull_up_bar\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"kneePosition\":\"straight\",\"support\":\"pull_up_bar\"}",
       "illustrationKey": null,
@@ -19776,6 +20554,8 @@
       },
       "defaultLoadState": "external_load",
       "recordType": "weight_reps",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"clean\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"clean\"}",
       "illustrationKey": null,
@@ -19793,6 +20573,8 @@
       },
       "defaultLoadState": "external_load",
       "recordType": "weight_reps",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_clean\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_clean\"}",
       "illustrationKey": null,
@@ -19810,6 +20592,8 @@
       },
       "defaultLoadState": "external_load",
       "recordType": "weight_reps",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"snatch\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"snatch\"}",
       "illustrationKey": null,
@@ -19827,6 +20611,8 @@
       },
       "defaultLoadState": "external_load",
       "recordType": "weight_reps",
+      "laterality": null,
+      "implementMultiplier": 1,
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_snatch\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_snatch\"}",
       "illustrationKey": null,
