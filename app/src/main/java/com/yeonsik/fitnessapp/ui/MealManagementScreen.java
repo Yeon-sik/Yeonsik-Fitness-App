@@ -76,6 +76,8 @@ public final class MealManagementScreen extends BaseScreen {
     private static final String VERIFIED_SINGLE_FOOD_RESULTS_TAG =
             "verified-single-food-results";
     private static final int SAVED_DINING_OUT_OPTION_RESULT_LIMIT = 20;
+    private static final String NEW_DINING_OUT_OPTION_PROVISION_TYPE =
+            DiningOutProvisionType.PAID.value();
 
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN);
@@ -2725,7 +2727,7 @@ public final class MealManagementScreen extends BaseScreen {
                 }
 
                 // A saved review-event component is reusable nutrition data, not a future
-                // selection instruction. selectDiningOutOption resets provision to INCLUDED.
+                // selection instruction. Adding it as a new option defaults to PAID.
                 if (options.isEmpty()) {
                     status.setText("일치하는 저장 옵션이 없습니다. 직접 입력할 수 있습니다.");
                     return;
@@ -2783,9 +2785,9 @@ public final class MealManagementScreen extends BaseScreen {
                 ? NutritionCalculator.trim(food.carbsGrams) : "";
         selectedDraft.fat = food.profile.isKnown(NutritionProfile.FAT_GRAMS)
                 ? NutritionCalculator.trim(food.fatGrams) : "";
-        // A saved component is reusable nutrition data. A prior review-event selection must not
-        // become the default provision type for this new meal.
-        selectedDraft.provisionType = DiningOutProvisionType.INCLUDED.value();
+        // A saved component is reusable nutrition data. When added as an option, it defaults to
+        // paid addition; the user can change the actual-meal provision type afterward.
+        selectedDraft.provisionType = NEW_DINING_OUT_OPTION_PROVISION_TYPE;
         selectedDraft.sodium = knownNumber(food.profile, NutritionProfile.SODIUM_MG);
         selectedDraft.sugars = knownNumber(food.profile, NutritionProfile.SUGARS_GRAMS);
         selectedDraft.saturatedFat = knownNumber(
@@ -5435,7 +5437,7 @@ public final class MealManagementScreen extends BaseScreen {
 
     private static final class DiningOutOptionDraft {
         private String groupType = CompositionGroupType.OTHER.value();
-        private String provisionType = DiningOutProvisionType.INCLUDED.value();
+        private String provisionType = NEW_DINING_OUT_OPTION_PROVISION_TYPE;
         private NutritionProfile profile = NutritionProfile.empty();
         private String groupKey = "";
         private String name = "";
