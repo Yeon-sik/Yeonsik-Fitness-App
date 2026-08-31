@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 47;
+    public static final int DATABASE_VERSION = 48;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -1022,6 +1022,11 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         if (oldVersion < 45) {
             upgradePackagedFoodHierarchySchema(db);
         }
+        if (oldVersion < 48) {
+            // Some preview builds recorded v45-v47 without applying the packaged-food
+            // hierarchy columns. Repair that state before any index references those columns.
+            upgradePackagedFoodHierarchySchema(db);
+        }
         createNutritionIndexes(db);
         if (oldVersion < 19) {
             reconcileVerifiedFoodCatalog(db);
@@ -1206,7 +1211,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "created_at, updated_at, deleted_at FROM nutrition_foods");
         db.execSQL("DROP TABLE nutrition_foods");
         db.execSQL("ALTER TABLE nutrition_foods_v40 RENAME TO nutrition_foods");
-        createNutritionIndexes(db);
+        // Recreate indexes after all later schema migrations add their referenced columns.
     }
 
     /** Allows an option snapshot to retain unknown nutrition as NULL instead of inventing zero. */
