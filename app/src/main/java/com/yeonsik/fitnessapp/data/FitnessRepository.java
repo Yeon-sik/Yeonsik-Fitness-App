@@ -30,10 +30,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 public final class FitnessRepository {
@@ -84,57 +82,6 @@ public final class FitnessRepository {
         return fallback == null
                 ? Collections.emptyList()
                 : Collections.singletonList(fallback);
-    }
-
-    public void setExercisePickerFavorite(String canonicalPresetId, boolean favorite) {
-        String presetId = emptyToNull(canonicalPresetId);
-        if (presetId == null) {
-            return;
-        }
-        String timestamp = now();
-        ContentValues values = new ContentValues();
-        values.put("user_id", userId);
-        values.put("canonical_preset_id", presetId);
-        values.put("is_favorite", favorite ? 1 : 0);
-        values.put("created_at", timestamp);
-        values.put("updated_at", timestamp);
-        db().insertWithOnConflict(
-                "exercise_picker_preferences",
-                null,
-                values,
-                SQLiteDatabase.CONFLICT_REPLACE
-        );
-    }
-
-    public boolean isExercisePickerFavorite(String canonicalPresetId) {
-        String presetId = emptyToNull(canonicalPresetId);
-        if (presetId == null) {
-            return false;
-        }
-        try (Cursor cursor = db().rawQuery(
-                "SELECT is_favorite FROM exercise_picker_preferences "
-                        + "WHERE user_id = ? AND canonical_preset_id = ? LIMIT 1",
-                new String[]{userId, presetId}
-        )) {
-            return cursor.moveToFirst() && cursor.getInt(0) == 1;
-        }
-    }
-
-    public Set<String> favoriteExercisePickerPresetIds() {
-        Set<String> favorites = new LinkedHashSet<>();
-        try (Cursor cursor = db().rawQuery(
-                "SELECT canonical_preset_id FROM exercise_picker_preferences "
-                        + "WHERE user_id = ? AND is_favorite = 1",
-                new String[]{userId}
-        )) {
-            while (cursor.moveToNext()) {
-                String presetId = emptyToNull(cursor.getString(0));
-                if (presetId != null) {
-                    favorites.add(presetId);
-                }
-            }
-        }
-        return Collections.unmodifiableSet(favorites);
     }
 
     /** Derived from workout history; no separate recent-use state is persisted. */

@@ -79,7 +79,7 @@ public final class RuntimeExerciseCatalogTest {
         RuntimeExercisePicker.Filter filter = new RuntimeExercisePicker.Filter(
                 "", BodyPart.LEGS, null, UiEquipmentCategory.FREE_WEIGHT,
                 RuntimeExercisePicker.SortOrder.NAME,
-                Collections.emptyMap(), Collections.emptySet()
+                Collections.emptyMap()
         );
 
         List<RuntimeExercisePicker.FamilyResult> results = picker.search(filter);
@@ -91,28 +91,16 @@ public final class RuntimeExerciseCatalogTest {
     }
 
     @Test
-    public void ranksFavoritesAndRecentHistoryAtFamilyLevel() throws Exception {
+    public void ranksRecentHistoryAtFamilyLevel() throws Exception {
         RuntimeExercisePicker picker = new RuntimeExercisePicker(fixture());
-        Set<String> favorites = new HashSet<>();
-        favorites.add("push_up");
         Map<String, String> recent = new HashMap<>();
         recent.put("push_up", "2026-08-30");
         recent.put("barbell_squat", "2026-08-29");
 
-        List<RuntimeExercisePicker.FamilyResult> favoriteResults = picker.search(
-                new RuntimeExercisePicker.Filter(
-                        "", null, null, null, RuntimeExercisePicker.SortOrder.FAVORITES,
-                        Collections.emptyMap(), favorites
-                )
-        );
-        assertFalse(favoriteResults.isEmpty());
-        assertEquals("push_up", favoriteResults.get(0).family.familyId);
-        assertTrue(favoriteResults.get(0).favorite);
-
         List<RuntimeExercisePicker.FamilyResult> recentResults = picker.search(
                 new RuntimeExercisePicker.Filter(
                         "", null, null, null, RuntimeExercisePicker.SortOrder.RECENT,
-                        recent, Collections.emptySet()
+                        recent
                 )
         );
         assertEquals("push_up", recentResults.get(0).family.familyId);

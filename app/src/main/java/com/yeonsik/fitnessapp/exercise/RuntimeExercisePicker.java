@@ -60,7 +60,6 @@ public final class RuntimeExercisePicker {
                     family,
                     presets,
                     resultScore,
-                    isFavorite(family, applied.favoritePresetIds),
                     lastPerformedAt(family, applied.lastPerformedAtByPreset),
                     sortName(presets, family)
             ));
@@ -95,12 +94,7 @@ public final class RuntimeExercisePicker {
     }
 
     private static int compareSort(FamilyResult left, FamilyResult right, SortOrder sortOrder) {
-        if (sortOrder == SortOrder.FAVORITES) {
-            int byFavorite = Boolean.compare(right.favorite, left.favorite);
-            if (byFavorite != 0) {
-                return byFavorite;
-            }
-        } else if (sortOrder == SortOrder.RECENT) {
+        if (sortOrder == SortOrder.RECENT) {
             int byRecent = compareNullableDescending(left.lastPerformedAt, right.lastPerformedAt);
             if (byRecent != 0) {
                 return byRecent;
@@ -202,15 +196,6 @@ public final class RuntimeExercisePicker {
         return name == null ? "" : name;
     }
 
-    private static boolean isFavorite(RuntimeExerciseFamily family, Set<String> favoritePresetIds) {
-        for (RuntimeExercisePreset preset : family.presets) {
-            if (favoritePresetIds.contains(preset.identityId())) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     private static String lastPerformedAt(
             RuntimeExerciseFamily family,
             Map<String, String> lastPerformedAtByPreset
@@ -241,7 +226,6 @@ public final class RuntimeExercisePicker {
 
     public enum SortOrder {
         RECENT,
-        FAVORITES,
         NAME
     }
 
@@ -252,7 +236,6 @@ public final class RuntimeExercisePicker {
         public final UiEquipmentCategory equipmentCategory;
         public final SortOrder sortOrder;
         public final Map<String, String> lastPerformedAtByPreset;
-        public final Set<String> favoritePresetIds;
 
         public Filter(
                 String query,
@@ -260,8 +243,7 @@ public final class RuntimeExercisePicker {
                 String primarySubPart,
                 UiEquipmentCategory equipmentCategory,
                 SortOrder sortOrder,
-                Map<String, String> lastPerformedAtByPreset,
-                Set<String> favoritePresetIds
+                Map<String, String> lastPerformedAtByPreset
         ) {
             this.query = query == null ? "" : query;
             this.bodyPart = bodyPart;
@@ -270,18 +252,16 @@ public final class RuntimeExercisePicker {
             this.sortOrder = sortOrder == null ? SortOrder.RECENT : sortOrder;
             this.lastPerformedAtByPreset = lastPerformedAtByPreset == null
                     ? Collections.emptyMap() : lastPerformedAtByPreset;
-            this.favoritePresetIds = favoritePresetIds == null
-                    ? Collections.emptySet() : favoritePresetIds;
         }
 
         public static Filter empty() {
             return new Filter("", null, null, null, SortOrder.RECENT,
-                    Collections.emptyMap(), Collections.emptySet());
+                    Collections.emptyMap());
         }
 
         public static Filter forQuery(String query) {
             return new Filter(query, null, null, null, SortOrder.RECENT,
-                    Collections.emptyMap(), Collections.emptySet());
+                    Collections.emptyMap());
         }
 
         private boolean matches(RuntimeExercisePreset preset, RuntimeExerciseFamily family) {
@@ -309,7 +289,6 @@ public final class RuntimeExercisePicker {
         public final RuntimeExerciseFamily family;
         public final List<RuntimeExercisePreset> presets;
         public final int matchScore;
-        public final boolean favorite;
         public final String lastPerformedAt;
         public final String sortName;
 
@@ -317,14 +296,12 @@ public final class RuntimeExercisePicker {
                 RuntimeExerciseFamily family,
                 List<RuntimeExercisePreset> presets,
                 int matchScore,
-                boolean favorite,
                 String lastPerformedAt,
                 String sortName
         ) {
             this.family = family;
             this.presets = presets;
             this.matchScore = matchScore;
-            this.favorite = favorite;
             this.lastPerformedAt = lastPerformedAt;
             this.sortName = sortName;
         }
