@@ -1079,6 +1079,7 @@ public final class MainActivity extends Activity implements ScreenHost {
             toast("먼저 운동을 시작하세요.");
             return;
         }
+        sessionState.clearExerciseReplacement();
         sessionState.setActiveRecordId(recordId);
         navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
     }

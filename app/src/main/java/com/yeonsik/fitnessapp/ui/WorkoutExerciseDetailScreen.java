@@ -88,6 +88,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         TextView backAction = ui.textAction("‹ 세션으로", FitnessUi.COLOR_MUTED,
                 () -> host.navigate(FitnessScreen.WORKOUT_SESSION));
         topRow.addView(backAction, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        topRow.addView(ui.textAction("종목 교체", FitnessUi.COLOR_MUTED,
+                () -> beginExerciseReplacement(activeExercise)));
         topRow.addView(ui.textAction("종목 삭제", FitnessUi.COLOR_MUTED,
                 () -> confirmDeleteExercise(recordId, activeExercise)));
         add(topRow, ui.fullWidthParams(0));
@@ -1515,5 +1517,11 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     repository().deleteExercise(recordId, exercise.id);
                     host.rerender();
                 });
+    }
+
+    private void beginExerciseReplacement(FitnessRepository.SessionExerciseEntry exercise) {
+        host.sessionState().setReplacementExerciseId(exercise.id);
+        host.sessionState().setActiveExerciseId(exercise.id);
+        host.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
     }
 }

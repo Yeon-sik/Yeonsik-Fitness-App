@@ -11,6 +11,7 @@ import java.util.List;
 public final class WorkoutSessionState {
     private String activeRecordId;
     private String activeExerciseId;
+    private String replacementExerciseId;
     private int generation;
 
     public String activeRecordId() {
@@ -29,10 +30,23 @@ public final class WorkoutSessionState {
         this.activeExerciseId = exerciseId;
     }
 
+    public String replacementExerciseId() {
+        return replacementExerciseId;
+    }
+
+    public void setReplacementExerciseId(String exerciseId) {
+        this.replacementExerciseId = exerciseId;
+    }
+
+    public void clearExerciseReplacement() {
+        replacementExerciseId = null;
+    }
+
     public void clearIfMatches(String recordId) {
         if (recordId != null && recordId.equals(activeRecordId)) {
             activeRecordId = null;
             activeExerciseId = null;
+            replacementExerciseId = null;
         }
     }
 

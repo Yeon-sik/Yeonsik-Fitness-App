@@ -33,7 +33,7 @@ import java.util.Set;
 
 /**
  * 루틴 상세(ROUTINE_DETAIL)와 운동 픽커(ROUTINE_ADD: 루틴에 추가,
- * WORKOUT_EXERCISE_ADD: 진행 중 세션에 추가)를 담당한다.
+ * WORKOUT_EXERCISE_ADD: 진행 중 세션에 추가 또는 기존 종목 교체)를 담당한다.
  * 두 픽커는 대상만 다르고 검색/필터/선택 UI가 같아 하나의 렌더러를 공유한다.
  */
 public final class RoutineEditorScreen extends BaseScreen {
@@ -145,6 +145,10 @@ public final class RoutineEditorScreen extends BaseScreen {
                 : (host.sessionState().activeRecordId() != null
                         ? host.sessionState().activeRecordId()
                         : host.currentWorkoutRecordId());
+        String replacementExerciseId = routineMode
+                ? null
+                : host.sessionState().replacementExerciseId();
+        boolean replacementMode = !routineMode && replacementExerciseId != null;
         RuntimeExerciseCatalog catalog = host.exerciseMasterRepository().runtimeCatalog();
         RuntimeExercisePicker picker = new RuntimeExercisePicker(catalog);
         List<RuntimeExercisePreset> selectedPresets = new ArrayList<>();
@@ -162,6 +166,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                     () -> host.navigate(FitnessScreen.STRENGTH)), ui.fullWidthParams(0));
         } else {
             add(ui.textAction("‹ 운동으로", FitnessUi.COLOR_MUTED, () -> {
+                host.sessionState().clearExerciseReplacement();
                 if (host.sessionState().activeRecordId() != null) {
                     host.navigate(FitnessScreen.WORKOUT_SESSION);
                 } else {
@@ -173,7 +178,13 @@ public final class RoutineEditorScreen extends BaseScreen {
         TextView eyebrowView = ui.caption(routineMode ? "루틴 구성" : "진행 중 운동", FitnessUi.COLOR_MUTED);
         eyebrowView.setPadding(0, ui.dp(16), 0, 0);
         add(eyebrowView);
-        add(ui.titleView(routineMode ? "루틴 추가" : "운동 종목 추가"));
+        add(ui.titleView(routineMode
+                ? "루틴 추가"
+                : (replacementMode ? "운동 종목 교체" : "운동 종목 추가")));
+        if (replacementMode) {
+            add(ui.text("새 운동을 하나 선택하면 기존 세트 기록을 유지한 채 종목만 교체합니다.",
+                    13, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(4)));
+        }
         if (routineMode) {
             add(ui.fieldLabel("루틴 이름"));
             add(routineNameInput, ui.fullWidthParams(0));
@@ -203,7 +214,9 @@ public final class RoutineEditorScreen extends BaseScreen {
         selectedCount.setPadding(0, ui.dp(14), 0, 0);
         add(selectedCount);
 
-        String addLabel = routineMode ? "선택한 운동 추가" : "선택한 종목 추가";
+        String addLabel = routineMode
+                ? "선택한 운동 추가"
+                : (replacementMode ? "선택한 운동으로 교체" : "선택한 종목 추가");
         Button addButton = ui.button(addLabel, true, v -> {
             if (routineMode) {
                 String routineName = FitnessUi.inputText(routineNameInput).trim();
@@ -238,7 +251,28 @@ public final class RoutineEditorScreen extends BaseScreen {
                 return;
             }
             if (selectedPresets.isEmpty()) {
-                host.toast("추가할 운동을 선택하세요.");
+                host.toast(replacementMode ? "교체할 운동을 선택하세요." : "추가할 운동을 선택하세요.");
+                return;
+            }
+            if (replacementMode) {
+                if (selectedPresets.size() != 1) {
+                    host.toast("교체할 운동은 하나만 선택하세요.");
+                    return;
+                }
+                RuntimeExercisePreset replacement = selectedPresets.get(0);
+                boolean replaced = repository().replaceExerciseFromMaster(
+                        recordId,
+                        replacementExerciseId,
+                        ExerciseMasterAdapter.toRoutineExercise(replacement)
+                );
+                if (!replaced) {
+                    host.toast("교체할 운동을 찾지 못했습니다.");
+                    return;
+                }
+                host.sessionState().clearExerciseReplacement();
+                host.sessionState().setActiveExerciseId(replacementExerciseId);
+                host.toast(replacement.displayName() + "으로 운동 종목을 교체했습니다.");
+                host.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
                 return;
             }
             for (RuntimeExercisePreset preset : selectedPresets) {
@@ -253,7 +287,7 @@ public final class RoutineEditorScreen extends BaseScreen {
         add(addButton, ui.fullWidthParams(ui.dp(10)));
 
         Runnable updateSelectionSummary = () -> setRuntimeSelectionSummary(
-                selectedCount, addButton, addLabel, routineMode, selectedPresets);
+                selectedCount, addButton, addLabel, routineMode, replacementMode, selectedPresets);
         LinearLayout listArea = new LinearLayout(host.activity());
         listArea.setOrientation(LinearLayout.VERTICAL);
         Runnable refresh = () -> {
@@ -278,6 +312,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                     )),
                     selectedPresets,
                     favoritePresetIds,
+                    replacementMode,
                     refreshHolder[0]
             );
         };
@@ -306,6 +341,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             List<RuntimeExercisePicker.FamilyResult> results,
             List<RuntimeExercisePreset> selectedPresets,
             Set<String> favoritePresetIds,
+            boolean replacementMode,
             Runnable onSelectionChanged
     ) {
         FitnessUi ui = ui();
@@ -376,10 +412,19 @@ public final class RoutineEditorScreen extends BaseScreen {
             ui.pressFeedback(card);
             card.setOnClickListener(v -> {
                 if (family.presets.size() == 1) {
-                    toggleRuntimePreset(result.presets.get(0), selectedPresets);
+                    if (replacementMode) {
+                        selectReplacementPreset(result.presets.get(0), selectedPresets);
+                    } else {
+                        toggleRuntimePreset(result.presets.get(0), selectedPresets);
+                    }
                     onSelectionChanged.run();
                 } else {
-                    showRuntimeVariantPicker(result.presets, selectedPresets, onSelectionChanged);
+                    showRuntimeVariantPicker(
+                            result.presets,
+                            selectedPresets,
+                            replacementMode,
+                            onSelectionChanged
+                    );
                 }
             });
             listArea.addView(card, ui.fullWidthParams(listArea.getChildCount() == 0 ? 0 : ui.dp(8)));
@@ -389,6 +434,7 @@ public final class RoutineEditorScreen extends BaseScreen {
     private void showRuntimeVariantPicker(
             List<RuntimeExercisePreset> presets,
             List<RuntimeExercisePreset> selectedPresets,
+            boolean replacementMode,
             Runnable onSelectionChanged
     ) {
         String[] labels = new String[presets.size()];
@@ -397,22 +443,42 @@ public final class RoutineEditorScreen extends BaseScreen {
             labels[index] = presets.get(index).displayName();
             checked[index] = containsRuntimePreset(selectedPresets, presets.get(index));
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle("Variant 선택")
-                .setMultiChoiceItems(labels, checked,
-                        (dialog, which, isChecked) -> checked[which] = isChecked)
-                .setNegativeButton("취소", null)
-                .setPositiveButton("적용", (dialog, which) -> {
-                    for (int index = 0; index < presets.size(); index++) {
-                        if (checked[index]) {
-                            addRuntimePreset(presets.get(index), selectedPresets);
-                        } else {
-                            removeRuntimePreset(presets.get(index), selectedPresets);
+        AlertDialog.Builder builder = new AlertDialog.Builder(host.activity())
+                .setTitle(replacementMode ? "교체할 운동 선택" : "Variant 선택")
+                .setNegativeButton("취소", null);
+        if (replacementMode) {
+            int checkedIndex = -1;
+            for (int index = 0; index < checked.length; index++) {
+                if (checked[index]) {
+                    checkedIndex = index;
+                    break;
+                }
+            }
+            final int[] selectedIndex = {checkedIndex};
+            builder.setSingleChoiceItems(labels, checkedIndex,
+                    (dialog, which) -> selectedIndex[0] = which)
+                    .setPositiveButton("선택", (dialog, which) -> {
+                        selectedPresets.clear();
+                        if (selectedIndex[0] >= 0 && selectedIndex[0] < presets.size()) {
+                            selectedPresets.add(presets.get(selectedIndex[0]));
                         }
-                    }
-                    onSelectionChanged.run();
-                })
-                .show();
+                        onSelectionChanged.run();
+                    });
+        } else {
+            builder.setMultiChoiceItems(labels, checked,
+                            (dialog, which, isChecked) -> checked[which] = isChecked)
+                    .setPositiveButton("적용", (dialog, which) -> {
+                        for (int index = 0; index < presets.size(); index++) {
+                            if (checked[index]) {
+                                addRuntimePreset(presets.get(index), selectedPresets);
+                            } else {
+                                removeRuntimePreset(presets.get(index), selectedPresets);
+                            }
+                        }
+                        onSelectionChanged.run();
+                    });
+        }
+        builder.show();
     }
 
     private void showRuntimeFavoritePicker(
@@ -588,14 +654,23 @@ public final class RoutineEditorScreen extends BaseScreen {
             Button addButton,
             String addLabel,
             boolean routineMode,
+            boolean replacementMode,
             List<RuntimeExercisePreset> selectedPresets
     ) {
-        selectedCount.setText("선택한 운동 " + selectedPresets.size() + "개");
-        addButton.setText(selectedPresets.isEmpty()
-                ? addLabel
-                : (routineMode
-                        ? "선택한 운동 " + selectedPresets.size() + "개 추가"
-                        : "선택한 종목 " + selectedPresets.size() + "개 추가"));
+        selectedCount.setText(replacementMode
+                ? "교체할 운동 " + selectedPresets.size() + "개"
+                : "선택한 운동 " + selectedPresets.size() + "개");
+        String selectedAction = addLabel;
+        if (!selectedPresets.isEmpty()) {
+            if (replacementMode) {
+                selectedAction = "선택한 운동으로 교체";
+            } else if (routineMode) {
+                selectedAction = "선택한 운동 " + selectedPresets.size() + "개 추가";
+            } else {
+                selectedAction = "선택한 종목 " + selectedPresets.size() + "개 추가";
+            }
+        }
+        addButton.setText(selectedAction);
         addButton.setEnabled(!selectedPresets.isEmpty());
     }
 
@@ -664,6 +739,14 @@ public final class RoutineEditorScreen extends BaseScreen {
         } else {
             addRuntimePreset(preset, selectedPresets);
         }
+    }
+
+    private static void selectReplacementPreset(
+            RuntimeExercisePreset preset,
+            List<RuntimeExercisePreset> selectedPresets
+    ) {
+        selectedPresets.clear();
+        addRuntimePreset(preset, selectedPresets);
     }
 
     private LinearLayout.LayoutParams exercisePreviewParams(FitnessUi ui) {

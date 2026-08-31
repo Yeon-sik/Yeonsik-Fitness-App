@@ -400,6 +400,77 @@ public final class FitnessRepositoryLoadStateTest {
     }
 
     @Test
+    public void replacesWorkoutExerciseAndKeepsExistingSetProgress() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String recordId = repository.createSession(
+                    "2026-08-30", "Replace exercise", "strength", "", "", ""
+            );
+            String pullUpId = addMasterExercise(
+                    repository, recordId, "back_bodyweight_pull_up"
+            );
+            String bodyweightSetId = repository.addTypedSet(
+                    recordId,
+                    pullUpId,
+                    1,
+                    new FitnessRepository.SetInput(
+                            null, 8, null, null, null, null, null, true,
+                            LoadState.BODYWEIGHT
+                    )
+            );
+            String addedWeightSetId = repository.addTypedSet(
+                    recordId,
+                    pullUpId,
+                    2,
+                    new FitnessRepository.SetInput(
+                            null, 6, null, null, 5d, null, null, true,
+                            LoadState.ADDED_WEIGHT
+                    )
+            );
+
+            RuntimeExercisePreset assistedPullUp = repository.familyCatalog()
+                    .runtimeCatalog()
+                    .presetForStorageExerciseId("back_machine_assisted_pull_up");
+            assertNotNull(assistedPullUp);
+            assertTrue(repository.replaceExerciseFromMaster(
+                    recordId,
+                    pullUpId,
+                    ExerciseMasterAdapter.toRoutineExercise(assistedPullUp)
+            ));
+
+            List<FitnessRepository.SessionExerciseEntry> exercises =
+                    repository.sessionExerciseEntries(recordId);
+            assertEquals(1, exercises.size());
+            FitnessRepository.SessionExerciseEntry replaced = exercises.get(0);
+            assertEquals(pullUpId, replaced.id);
+            assertEquals("back_machine_assisted_pull_up", replaced.exerciseId);
+            assertEquals("어시스트 풀업", replaced.name);
+            assertEquals("assisted_weight_reps", replaced.recordType);
+            assertNotNull(replaced.familyIdentity);
+            assertEquals("pull_up", replaced.familyIdentity.familyId);
+            assertEquals("back_machine_assisted_pull_up", replaced.familyIdentity.presetId);
+
+            List<FitnessRepository.SessionSetEntry> sets = repository.setsForExercise(pullUpId);
+            assertEquals(2, sets.size());
+            assertEquals(bodyweightSetId, sets.get(0).id);
+            assertEquals(8, sets.get(0).actualReps);
+            assertTrue(sets.get(0).isCompleted);
+            assertEquals(LoadState.BODYWEIGHT, sets.get(0).loadState);
+            assertEquals(addedWeightSetId, sets.get(1).id);
+            assertEquals(6, sets.get(1).actualReps);
+            assertTrue(sets.get(1).isCompleted);
+            assertEquals(LoadState.ADDED_WEIGHT, sets.get(1).loadState);
+            assertEquals(5d, sets.get(1).addedWeightKg, 0.001d);
+            assertEquals(30d, repository.sessionMetrics(recordId).totalVolumeKg, 0.001d);
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
     public void readsLegacyNullLoadStateWithoutRewritingTheHistoricalRow() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);

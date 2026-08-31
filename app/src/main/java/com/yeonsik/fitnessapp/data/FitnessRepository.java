@@ -626,6 +626,85 @@ public final class FitnessRepository {
         return id;
     }
 
+    /**
+     * Replaces the master exercise snapshot on an in-progress workout without creating a new
+     * workout exercise row. Set identity and progress therefore remain stable while the new
+     * exercise's metadata and record type are applied.
+     */
+    public boolean replaceExerciseFromMaster(
+            String recordId,
+            String workoutExerciseId,
+            RoutineExercise exercise
+    ) {
+        if (emptyToNull(recordId) == null
+                || emptyToNull(workoutExerciseId) == null
+                || exercise == null) {
+            return false;
+        }
+        requireOwnedWorkoutRecord(recordId);
+        requireOwnedWorkoutExercise(recordId, workoutExerciseId);
+
+        ExerciseFamilyIdentity targetIdentity = resolvedIdentity(
+                exercise.familyIdentity,
+                exercise.masterExerciseId
+        );
+        String targetRecordType = FitnessRecordContract.normalizeRecordType(exercise.recordType);
+        List<SessionSetEntry> existingSets = setsForExercise(workoutExerciseId);
+        SQLiteDatabase database = db();
+        String now = now();
+
+        database.beginTransaction();
+        try {
+            ContentValues exerciseValues = new ContentValues();
+            exerciseValues.put("exercise_id", emptyToDefault(exercise.masterExerciseId, "manual"));
+            exerciseValues.put("exercise_name_snapshot", canonicalExerciseName(
+                    exercise.nameKo,
+                    targetIdentity
+            ));
+            exerciseValues.put("ui_part", exercise.bodyPart == null
+                    ? "chest"
+                    : normalizeCategory(exercise.bodyPart.labelKo()));
+            exerciseValues.put("primary_sub_part_snapshot", emptyToDefault(
+                    exercise.primarySubPart,
+                    displayCategory(exercise.bodyPart == null
+                            ? "chest"
+                            : normalizeCategory(exercise.bodyPart.labelKo()))
+            ));
+            exerciseValues.put("equipment_snapshot", exercise.equipmentType == null
+                    ? null
+                    : exercise.equipmentType.labelKo());
+            exerciseValues.put("record_type", targetRecordType);
+            putFamilyIdentity(exerciseValues, targetIdentity);
+            exerciseValues.put("updated_at", now);
+            int updated = database.update(
+                    "workout_exercises",
+                    exerciseValues,
+                    "id = ? AND record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{workoutExerciseId, recordId, userId}
+            );
+            if (updated == 0) {
+                return false;
+            }
+
+            for (SessionSetEntry set : existingSets) {
+                updateSetForExerciseReplacement(
+                        database,
+                        set,
+                        targetIdentity,
+                        targetRecordType,
+                        now
+                );
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+
+        updateSessionTotalVolume(recordId);
+        updateSharedWorkoutSummary(recordId, false);
+        return true;
+    }
+
     public String addSet(String recordId, String exerciseId, int setIndex, double weightKg, int reps, boolean completed) {
         return addSet(recordId, exerciseId, setIndex, weightKg, reps, null, completed);
     }
@@ -5966,6 +6045,128 @@ public final class FitnessRepository {
                 values.putNull("added_weight_kg");
                 break;
         }
+    }
+
+    private void updateSetForExerciseReplacement(
+            SQLiteDatabase database,
+            SessionSetEntry set,
+            ExerciseFamilyIdentity targetIdentity,
+            String targetRecordType,
+            String updatedAt
+    ) {
+        LoadState loadState = replacementLoadState(
+                targetIdentity,
+                targetRecordType,
+                set.loadState
+        );
+        ContentValues values = new ContentValues();
+        putReplacementLoadStateFields(values, set, loadState);
+        values.put("volume_kg", replacementSetVolume(set, loadState));
+        putLoadState(values, loadState);
+        values.put("is_completed", replacementSetCanRemainCompleted(
+                targetRecordType,
+                set,
+                loadState
+        ) ? 1 : 0);
+        values.put("updated_at", updatedAt);
+        database.update(
+                "workout_sets",
+                values,
+                "id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{set.id, userId}
+        );
+    }
+
+    private LoadState replacementLoadState(
+            ExerciseFamilyIdentity targetIdentity,
+            String targetRecordType,
+            LoadState previousLoadState
+    ) {
+        RuntimeExerciseFamily family = targetIdentity == null
+                ? null
+                : familyCatalog.runtimeCatalog().family(targetIdentity.familyId);
+        if (previousLoadState != null && familySupportsLoadState(family, previousLoadState)) {
+            return previousLoadState;
+        }
+
+        LoadState defaultLoadState = targetIdentity == null
+                ? null
+                : targetIdentity.defaultLoadStateValue();
+        if (defaultLoadState != null && familySupportsLoadState(family, defaultLoadState)) {
+            return defaultLoadState;
+        }
+        if (family != null && !family.allowedLoadStates.isEmpty()) {
+            return family.allowedLoadStates.get(0);
+        }
+        return resolveLoadState(targetRecordType, null, targetIdentity);
+    }
+
+    private static boolean familySupportsLoadState(
+            RuntimeExerciseFamily family,
+            LoadState loadState
+    ) {
+        return family == null
+                || family.allowedLoadStates.isEmpty()
+                || family.supportsLoadState(loadState);
+    }
+
+    private static void putReplacementLoadStateFields(
+            ContentValues values,
+            SessionSetEntry set,
+            LoadState loadState
+    ) {
+        values.putNull("weight_kg");
+        values.putNull("assisted_weight_kg");
+        values.putNull("added_weight_kg");
+        if (loadState == LoadState.EXTERNAL_LOAD && set.weightKg > 0) {
+            values.put("weight_kg", set.weightKg);
+        } else if (loadState == LoadState.ASSISTED && set.assistedWeightKg > 0) {
+            values.put("assisted_weight_kg", set.assistedWeightKg);
+        } else if (loadState == LoadState.ADDED_WEIGHT && set.addedWeightKg > 0) {
+            values.put("added_weight_kg", set.addedWeightKg);
+        }
+    }
+
+    private static double replacementSetVolume(
+            SessionSetEntry set,
+            LoadState loadState
+    ) {
+        if (loadState == LoadState.EXTERNAL_LOAD) {
+            return set.weightKg * set.actualReps;
+        }
+        if (loadState == LoadState.ADDED_WEIGHT) {
+            return set.addedWeightKg * set.actualReps;
+        }
+        return 0;
+    }
+
+    private static boolean replacementSetCanRemainCompleted(
+            String recordType,
+            SessionSetEntry set,
+            LoadState loadState
+    ) {
+        if (!set.isCompleted) {
+            return false;
+        }
+        String normalized = FitnessRecordContract.normalizeRecordType(recordType);
+        if (FitnessRecordContract.TIME.equals(normalized)
+                || FitnessRecordContract.WEIGHT_TIME.equals(normalized)) {
+            if (set.durationSeconds <= 0) {
+                return false;
+            }
+        } else if (set.actualReps <= 0) {
+            return false;
+        }
+        if (loadState == LoadState.EXTERNAL_LOAD) {
+            return set.weightKg > 0;
+        }
+        if (loadState == LoadState.ADDED_WEIGHT) {
+            return set.addedWeightKg > 0;
+        }
+        if (loadState == LoadState.ASSISTED) {
+            return set.assistedWeightKg > 0;
+        }
+        return true;
     }
 
     private static double valueOrZero(Double value) {
