@@ -9,6 +9,7 @@ import android.util.LruCache;
 import android.widget.ImageView;
 
 import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup;
+import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 
 /**
  * 운동 목록용 정적 대표 이미지 생성기.
@@ -36,7 +37,17 @@ public final class ExerciseIllustrationPreview {
 
     /** 이미지가 등록된 운동이면 대표 프레임 ImageView를, 아니면 null을 반환한다. */
     public ImageView create(String exerciseId) {
-        int drawableId = ExerciseIllustrationLookup.listPreviewDrawableFor(activity, exerciseId);
+        return create(ExerciseIllustrationLookup.resolve(activity, exerciseId));
+    }
+
+    public ImageView create(ExerciseFamilyIdentity identity) {
+        return create(ExerciseIllustrationLookup.resolve(activity, identity));
+    }
+
+    private ImageView create(ExerciseIllustrationLookup.IllustrationResolution resolution) {
+        int drawableId = resolution == null || resolution.drawables.length == 0
+                ? 0
+                : resolution.drawables[0];
         if (drawableId == 0) {
             return null;
         }

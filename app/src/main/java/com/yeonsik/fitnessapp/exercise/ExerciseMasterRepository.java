@@ -93,6 +93,14 @@ public final class ExerciseMasterRepository {
         return cachedFamilyCatalog;
     }
 
+    public synchronized RuntimeExerciseCatalog runtimeCatalog() {
+        return familyCatalog().runtimeCatalog();
+    }
+
+    public synchronized RuntimeExerciseCatalog getRuntimeExerciseCatalog() {
+        return runtimeCatalog();
+    }
+
     private ExerciseMasterCatalog catalog() {
         if (cachedCatalog == null) {
             cachedCatalog = loadCatalog();

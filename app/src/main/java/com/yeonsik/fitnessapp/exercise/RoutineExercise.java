@@ -6,6 +6,7 @@ public final class RoutineExercise {
     public final String nameEn;
     public final BodyPart bodyPart;
     public final EquipmentType equipmentType;
+    public final String equipmentVariantId;
     public final String primarySubPart;
     public final String recordType;
     public final ExerciseFamilyIdentity familyIdentity;
@@ -25,6 +26,7 @@ public final class RoutineExercise {
                 nameEn,
                 bodyPart,
                 equipmentType,
+                null,
                 primarySubPart,
                 recordType,
                 null
@@ -37,6 +39,7 @@ public final class RoutineExercise {
             String nameEn,
             BodyPart bodyPart,
             EquipmentType equipmentType,
+            String equipmentVariantId,
             String primarySubPart,
             String recordType,
             ExerciseFamilyIdentity familyIdentity
@@ -46,6 +49,7 @@ public final class RoutineExercise {
         this.nameEn = nameEn;
         this.bodyPart = bodyPart;
         this.equipmentType = equipmentType;
+        this.equipmentVariantId = equipmentVariantId;
         this.primarySubPart = primarySubPart;
         this.recordType = recordType;
         this.familyIdentity = familyIdentity;

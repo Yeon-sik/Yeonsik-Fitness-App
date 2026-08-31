@@ -48,6 +48,8 @@ public final class FitnessDatabaseMigrationTest {
             SQLiteDatabase upgraded = helper.getWritableDatabase();
 
             assertEquals(FitnessDatabaseHelper.DATABASE_VERSION, upgraded.getVersion());
+            assertTrue(hasColumn(upgraded, "workout_sets", "load_state"));
+            assertTrue(tableExists(upgraded, "exercise_picker_preferences"));
             assertTrue(isPrimaryKeyColumn(upgraded, "body_profiles", "user_id"));
             assertTrue(hasColumn(upgraded, "body_profiles", "height_cm"));
             assertTrue(isPrimaryKeyColumn(upgraded, "development_goals", "user_id"));

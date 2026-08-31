@@ -17,6 +17,14 @@
     "band_assisted",
     "band_resisted"
   ],
+  "allowedLoadStates": [
+    "bodyweight",
+    "external_load",
+    "added_weight",
+    "assisted",
+    "band_assisted",
+    "band_resisted"
+  ],
   "loadStateRules": {
     "bodyweightAddedWeightZeroAllowed": true,
     "derivationForLegacyRows": [
@@ -1725,6 +1733,19 @@
       "presetNameEn": "Chest Dip",
       "nameKo": "가슴 딥스",
       "nameEn": "Chest Dip",
+      "primarySubPart": "lower_chest",
+      "primarySubPartNameKo": "하부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
@@ -1767,6 +1788,17 @@
       "presetNameEn": "Incline Push-Up",
       "nameKo": "인클라인 푸쉬업",
       "nameEn": "Incline Push-Up",
+      "primarySubPart": "lower_chest",
+      "primarySubPartNameKo": "하부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -1812,6 +1844,15 @@
       "presetNameEn": "Machine Decline Chest Press",
       "nameKo": "머신 디클라인 체스트 프레스",
       "nameEn": "Machine Decline Chest Press",
+      "primarySubPart": "lower_chest",
+      "primarySubPartNameKo": "하부 가슴",
+      "secondarySubParts": [
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -1857,6 +1898,17 @@
       "presetNameEn": "Dumbbell Decline Bench Press",
       "nameKo": "덤벨 디클라인 벤치 프레스",
       "nameEn": "Dumbbell Decline Bench Press",
+      "primarySubPart": "lower_chest",
+      "primarySubPartNameKo": "하부 가슴",
+      "secondarySubParts": [
+        "triceps",
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두",
+        "가슴 전체"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -1902,6 +1954,15 @@
       "presetNameEn": "Dumbbell Decline Fly",
       "nameKo": "덤벨 디클라인 플라이",
       "nameEn": "Dumbbell Decline Fly",
+      "primarySubPart": "lower_chest",
+      "primarySubPartNameKo": "하부 가슴",
+      "secondarySubParts": [
+        "mid_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 가슴"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -1945,6 +2006,17 @@
       "presetNameEn": "Barbell Decline Bench Press",
       "nameKo": "바벨 디클라인 벤치 프레스",
       "nameEn": "Barbell Decline Bench Press",
+      "primarySubPart": "lower_chest",
+      "primarySubPartNameKo": "하부 가슴",
+      "secondarySubParts": [
+        "triceps",
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두",
+        "가슴 전체"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -1990,6 +2062,15 @@
       "presetNameEn": "Smith Machine Decline Bench Press",
       "nameKo": "스미스머신 디클라인 벤치 프레스",
       "nameEn": "Smith Machine Decline Bench Press",
+      "primarySubPart": "lower_chest",
+      "primarySubPartNameKo": "하부 가슴",
+      "secondarySubParts": [
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2035,6 +2116,15 @@
       "presetNameEn": "Cable High-to-Low Fly",
       "nameKo": "케이블 하이 투 로우 플라이",
       "nameEn": "Cable High-to-Low Fly",
+      "primarySubPart": "lower_chest",
+      "primarySubPartNameKo": "하부 가슴",
+      "secondarySubParts": [
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2081,6 +2171,15 @@
       "presetNameEn": "Single-Arm Cable High-to-Low Fly",
       "nameKo": "원암 케이블 하이 투 로우 플라이",
       "nameEn": "Single-Arm Cable High-to-Low Fly",
+      "primarySubPart": "lower_chest",
+      "primarySubPartNameKo": "하부 가슴",
+      "secondarySubParts": [
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2129,6 +2228,17 @@
       "presetNameEn": "Wide Push-Up",
       "nameKo": "와이드 푸쉬업",
       "nameEn": "Wide Push-Up",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -2173,6 +2283,19 @@
       "presetNameEn": "Machine Chest Press",
       "nameKo": "머신 체스트 프레스",
       "nameEn": "Machine Chest Press",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2215,6 +2338,17 @@
       "presetNameEn": "Iso-Lateral Chest Press",
       "nameKo": "아이소 레터럴 체스트 프레스",
       "nameEn": "Iso-Lateral Chest Press",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2261,6 +2395,15 @@
       "presetNameEn": "Pec Deck Fly",
       "nameKo": "펙덱 플라이",
       "nameEn": "Pec Deck Fly",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2300,6 +2443,17 @@
       "presetNameEn": "Plate-Loaded Chest Press",
       "nameKo": "플레이트 로드 체스트 프레스",
       "nameEn": "Plate-Loaded Chest Press",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2346,6 +2500,19 @@
       "presetNameEn": "Dumbbell Flat Bench Press",
       "nameKo": "덤벨 플랫 벤치 프레스",
       "nameEn": "Dumbbell Flat Bench Press",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2391,6 +2558,19 @@
       "presetNameEn": "Single-Arm Dumbbell Chest Press",
       "nameKo": "원암 덤벨 벤치 프레스",
       "nameEn": "Single-Arm Dumbbell Chest Press",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2435,6 +2615,15 @@
       "presetNameEn": "Dumbbell Flat Fly",
       "nameKo": "덤벨 플랫 플라이",
       "nameEn": "Dumbbell Flat Fly",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2478,6 +2667,19 @@
       "presetNameEn": "Barbell Pause Bench Press",
       "nameKo": "바벨 포즈 벤치 프레스",
       "nameEn": "Barbell Pause Bench Press",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2523,6 +2725,19 @@
       "presetNameEn": "Barbell Flat Bench Press",
       "nameKo": "바벨 플랫 벤치 프레스",
       "nameEn": "Barbell Flat Bench Press",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2568,6 +2783,17 @@
       "presetNameEn": "Barbell Floor Press",
       "nameKo": "바벨 플로어 프레스",
       "nameEn": "Barbell Floor Press",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2610,6 +2836,19 @@
       "presetNameEn": "Smith Machine Flat Bench Press",
       "nameKo": "스미스머신 플랫 벤치 프레스",
       "nameEn": "Smith Machine Flat Bench Press",
+      "primarySubPart": "mid_chest",
+      "primarySubPartNameKo": "중부 가슴",
+      "secondarySubParts": [
+        "overall_chest",
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2655,6 +2894,17 @@
       "presetNameEn": "Weighted Push-Up",
       "nameKo": "중량 푸쉬업",
       "nameEn": "Weighted Push-Up",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "added_weight",
@@ -2699,6 +2949,17 @@
       "presetNameEn": "Push-Up",
       "nameKo": "푸쉬업",
       "nameEn": "Push-Up",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -2741,6 +3002,15 @@
       "presetNameEn": "Machine Chest Fly",
       "nameKo": "머신 체스트 플라이",
       "nameEn": "Machine Chest Fly",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "mid_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 가슴"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2779,6 +3049,17 @@
       "presetNameEn": "Dumbbell Neutral-Grip Press",
       "nameKo": "덤벨 뉴트럴 그립 프레스",
       "nameEn": "Dumbbell Neutral-Grip Press",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2822,6 +3103,15 @@
       "presetNameEn": "Dumbbell Squeeze Press",
       "nameKo": "덤벨 스퀴즈 프레스",
       "nameEn": "Dumbbell Squeeze Press",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2864,6 +3154,15 @@
       "presetNameEn": "Dumbbell Pullover",
       "nameKo": "덤벨 풀오버",
       "nameEn": "Dumbbell Pullover",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "lats"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2901,6 +3200,15 @@
       "presetNameEn": "Single-Arm Cable Fly",
       "nameKo": "원암 케이블 플라이",
       "nameEn": "Single-Arm Cable Fly",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "mid_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 가슴"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2943,6 +3251,17 @@
       "presetNameEn": "Cable Standing Chest Press",
       "nameKo": "케이블 스탠딩 체스트 프레스",
       "nameEn": "Cable Standing Chest Press",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -2988,6 +3307,17 @@
       "presetNameEn": "Single-Arm Cable Chest Press",
       "nameKo": "원암 케이블 체스트 프레스",
       "nameEn": "Single-Arm Cable Chest Press",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3032,6 +3362,15 @@
       "presetNameEn": "Cable Crossover",
       "nameKo": "케이블 크로스오버",
       "nameEn": "Cable Crossover",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "mid_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 가슴"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3072,6 +3411,15 @@
       "presetNameEn": "Band Chest Press",
       "nameKo": "밴드 체스트 프레스",
       "nameEn": "Band Chest Press",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -3114,6 +3462,15 @@
       "presetNameEn": "Band Chest Fly",
       "nameKo": "밴드 체스트 플라이",
       "nameEn": "Band Chest Fly",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "mid_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 가슴"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -3156,6 +3513,17 @@
       "presetNameEn": "Band-Resisted Push-Up",
       "nameKo": "밴드 푸쉬업",
       "nameEn": "Band-Resisted Push-Up",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "triceps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -3198,6 +3566,15 @@
       "presetNameEn": "Plate Squeeze Press",
       "nameKo": "플레이트 스퀴즈 프레스",
       "nameEn": "Plate Squeeze Press",
+      "primarySubPart": "overall_chest",
+      "primarySubPartNameKo": "가슴 전체",
+      "secondarySubParts": [
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "삼두"
+      ],
+      "equipmentNameKo": "플레이트",
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3240,6 +3617,17 @@
       "presetNameEn": "Decline Push-Up",
       "nameKo": "디클라인 푸쉬업",
       "nameEn": "Decline Push-Up",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -3285,6 +3673,17 @@
       "presetNameEn": "Machine Incline Chest Press",
       "nameKo": "머신 인클라인 체스트 프레스",
       "nameEn": "Machine Incline Chest Press",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3330,6 +3729,17 @@
       "presetNameEn": "Plate-Loaded Incline Press",
       "nameKo": "플레이트 로드 인클라인 프레스",
       "nameEn": "Plate-Loaded Incline Press",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3377,6 +3787,17 @@
       "presetNameEn": "Dumbbell Incline Bench Press",
       "nameKo": "덤벨 인클라인 벤치 프레스",
       "nameEn": "Dumbbell Incline Bench Press",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3422,6 +3843,17 @@
       "presetNameEn": "Single-Arm Incline Dumbbell Chest Press",
       "nameKo": "원암 인클라인 덤벨 벤치 프레스",
       "nameEn": "Single-Arm Incline Dumbbell Chest Press",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3466,6 +3898,15 @@
       "presetNameEn": "Dumbbell Incline Fly",
       "nameKo": "덤벨 인클라인 플라이",
       "nameEn": "Dumbbell Incline Fly",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "mid_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 가슴"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3509,6 +3950,17 @@
       "presetNameEn": "Barbell Guillotine Press",
       "nameKo": "바벨 길로틴 프레스",
       "nameEn": "Barbell Guillotine Press",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "mid_chest",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 가슴",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3551,6 +4003,17 @@
       "presetNameEn": "Barbell Incline Bench Press",
       "nameKo": "바벨 인클라인 벤치 프레스",
       "nameEn": "Barbell Incline Bench Press",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3596,6 +4059,17 @@
       "presetNameEn": "Smith Machine Incline Bench Press",
       "nameKo": "스미스머신 인클라인 벤치 프레스",
       "nameEn": "Smith Machine Incline Bench Press",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3641,6 +4115,15 @@
       "presetNameEn": "Cable Low-to-High Fly",
       "nameKo": "케이블 로우 투 하이 플라이",
       "nameEn": "Cable Low-to-High Fly",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3687,6 +4170,15 @@
       "presetNameEn": "Single-Arm Cable Low-to-High Fly",
       "nameKo": "원암 케이블 로우 투 하이 플라이",
       "nameEn": "Single-Arm Cable Low-to-High Fly",
+      "primarySubPart": "upper_chest",
+      "primarySubPartNameKo": "상부 가슴",
+      "secondarySubParts": [
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3735,6 +4227,17 @@
       "presetNameEn": "Bodyweight Reverse Hyperextension",
       "nameKo": "맨몸 리버스 하이퍼익스텐션",
       "nameEn": "Bodyweight Reverse Hyperextension",
+      "primarySubPart": "erector_spinae",
+      "primarySubPartNameKo": "척추기립근",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -3777,6 +4280,17 @@
       "presetNameEn": "Bodyweight Back Extension",
       "nameKo": "맨몸 백 익스텐션",
       "nameEn": "Bodyweight Back Extension",
+      "primarySubPart": "erector_spinae",
+      "primarySubPartNameKo": "척추기립근",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -3819,6 +4333,17 @@
       "presetNameEn": "Reverse Hyperextension Machine",
       "nameKo": "리버스 하이퍼익스텐션 머신",
       "nameEn": "Reverse Hyperextension Machine",
+      "primarySubPart": "erector_spinae",
+      "primarySubPartNameKo": "척추기립근",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3861,6 +4386,17 @@
       "presetNameEn": "Back Extension Machine",
       "nameKo": "백 익스텐션 머신",
       "nameEn": "Back Extension Machine",
+      "primarySubPart": "erector_spinae",
+      "primarySubPartNameKo": "척추기립근",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3903,6 +4439,19 @@
       "presetNameEn": "Rack Pull",
       "nameKo": "랙 풀",
       "nameEn": "Rack Pull",
+      "primarySubPart": "erector_spinae",
+      "primarySubPartNameKo": "척추기립근",
+      "secondarySubParts": [
+        "traps",
+        "overall_back",
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근",
+        "등 전체",
+        "둔근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3945,6 +4494,21 @@
       "presetNameEn": "Barbell Deadlift",
       "nameKo": "바벨 데드리프트",
       "nameEn": "Barbell Deadlift",
+      "primarySubPart": "erector_spinae",
+      "primarySubPartNameKo": "척추기립근",
+      "secondarySubParts": [
+        "overall_back",
+        "glutes",
+        "hamstrings",
+        "traps"
+      ],
+      "secondarySubPartNamesKo": [
+        "등 전체",
+        "둔근",
+        "햄스트링",
+        "승모근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -3985,6 +4549,21 @@
       "presetNameEn": "Snatch-Grip Deadlift",
       "nameKo": "스내치 그립 데드리프트",
       "nameEn": "Snatch-Grip Deadlift",
+      "primarySubPart": "erector_spinae",
+      "primarySubPartNameKo": "척추기립근",
+      "secondarySubParts": [
+        "upper_back",
+        "traps",
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등",
+        "승모근",
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4029,6 +4608,17 @@
       "presetNameEn": "Neutral-Grip Pull-Up",
       "nameKo": "뉴트럴 그립 풀업",
       "nameEn": "Neutral-Grip Pull-Up",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "biceps",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두",
+        "중부 등"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
@@ -4074,6 +4664,17 @@
       "presetNameEn": "Scapular Pull-Up",
       "nameKo": "스캐풀라 풀업",
       "nameEn": "Scapular Pull-Up",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "traps",
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근",
+        "상부 등"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -4118,6 +4719,17 @@
       "presetNameEn": "Wide-Grip Pull-Up",
       "nameKo": "와이드 그립 풀업",
       "nameEn": "Wide-Grip Pull-Up",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "upper_back",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등",
+        "중부 등"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
@@ -4163,6 +4775,17 @@
       "presetNameEn": "Chin-Up",
       "nameKo": "친업",
       "nameEn": "Chin-Up",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "biceps",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두",
+        "중부 등"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
@@ -4205,6 +4828,17 @@
       "presetNameEn": "Pull-Up",
       "nameKo": "풀업",
       "nameEn": "Pull-Up",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "mid_back",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 등",
+        "이두"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
@@ -4247,6 +4881,17 @@
       "presetNameEn": "Neutral-Grip Lat Pulldown",
       "nameKo": "뉴트럴 그립 랫 풀다운",
       "nameEn": "Neutral-Grip Lat Pulldown",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "biceps",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두",
+        "중부 등"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4292,6 +4937,17 @@
       "presetNameEn": "Lat Pulldown",
       "nameKo": "랫 풀다운",
       "nameEn": "Lat Pulldown",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "biceps",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두",
+        "중부 등"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4334,6 +4990,17 @@
       "presetNameEn": "Low Row Machine",
       "nameKo": "로우 로우 머신",
       "nameEn": "Low Row Machine",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "mid_back",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 등",
+        "이두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4376,6 +5043,17 @@
       "presetNameEn": "Reverse-Grip Lat Pulldown",
       "nameKo": "리버스 그립 랫 풀다운",
       "nameEn": "Reverse-Grip Lat Pulldown",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "biceps",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두",
+        "중부 등"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4421,6 +5099,15 @@
       "presetNameEn": "Machine Pullover",
       "nameKo": "머신 풀오버",
       "nameEn": "Machine Pullover",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "overall_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "등 전체"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4461,6 +5148,17 @@
       "presetNameEn": "Assisted Pull-Up",
       "nameKo": "어시스트 풀업",
       "nameEn": "Assisted Pull-Up",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "biceps",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두",
+        "중부 등"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "assisted_weight_reps",
       "defaultLoadState": "assisted",
@@ -4505,6 +5203,17 @@
       "presetNameEn": "Wide-Grip Lat Pulldown",
       "nameKo": "와이드 그립 랫 풀다운",
       "nameEn": "Wide-Grip Lat Pulldown",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "upper_back",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등",
+        "이두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4550,6 +5259,19 @@
       "presetNameEn": "High Row Machine",
       "nameKo": "하이 로우 머신",
       "nameEn": "High Row Machine",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "upper_back",
+        "mid_back",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등",
+        "중부 등",
+        "이두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4592,6 +5314,15 @@
       "presetNameEn": "Dumbbell Lat Pullover",
       "nameKo": "덤벨 랫 풀오버",
       "nameEn": "Dumbbell Lat Pullover",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "overall_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4629,6 +5360,19 @@
       "presetNameEn": "One-Arm Dumbbell Row",
       "nameKo": "원암 덤벨 로우",
       "nameEn": "One-Arm Dumbbell Row",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "mid_back",
+        "biceps",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 등",
+        "이두",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4671,6 +5415,19 @@
       "presetNameEn": "Kroc Row",
       "nameKo": "크록 로우",
       "nameEn": "Kroc Row",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "mid_back",
+        "biceps",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 등",
+        "이두",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4714,6 +5471,17 @@
       "presetNameEn": "Yates Row",
       "nameKo": "예이츠 로우",
       "nameEn": "Yates Row",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "mid_back",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 등",
+        "이두"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4757,6 +5525,15 @@
       "presetNameEn": "Straight-Arm Pulldown",
       "nameKo": "스트레이트 암 풀다운",
       "nameEn": "Straight-Arm Pulldown",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "overall_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "등 전체"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4801,6 +5578,15 @@
       "presetNameEn": "Single-Arm Straight-Arm Cable Pulldown",
       "nameKo": "원암 스트레이트 암 케이블 풀다운",
       "nameEn": "Single-Arm Straight-Arm Cable Pulldown",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "overall_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "등 전체"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4847,6 +5633,15 @@
       "presetNameEn": "Single-Arm Lat Pulldown",
       "nameKo": "원암 랫 풀다운",
       "nameEn": "Single-Arm Lat Pulldown",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4891,6 +5686,17 @@
       "presetNameEn": "Single-Arm Cable Row",
       "nameKo": "원암 케이블 로우",
       "nameEn": "Single-Arm Cable Row",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "mid_back",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 등",
+        "이두"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4933,6 +5739,15 @@
       "presetNameEn": "Kneeling Cable Pullover",
       "nameKo": "케이블 닐링 풀오버",
       "nameEn": "Kneeling Cable Pullover",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "overall_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "등 전체"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -4976,6 +5791,17 @@
       "presetNameEn": "Cable High Row",
       "nameKo": "케이블 하이 로우",
       "nameEn": "Cable High Row",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "upper_back",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등",
+        "중부 등"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5018,6 +5844,17 @@
       "presetNameEn": "Single-Arm Cable High Row",
       "nameKo": "원암 케이블 하이 로우",
       "nameEn": "Single-Arm Cable High Row",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "upper_back",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등",
+        "중부 등"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5062,6 +5899,15 @@
       "presetNameEn": "Band Lat Pulldown",
       "nameKo": "밴드 랫 풀다운",
       "nameEn": "Band Lat Pulldown",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -5104,6 +5950,17 @@
       "presetNameEn": "Band-Assisted Pull-Up",
       "nameKo": "밴드 어시스트 풀업",
       "nameEn": "Band-Assisted Pull-Up",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "biceps",
+        "mid_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두",
+        "중부 등"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "assisted_weight_reps",
       "defaultLoadState": "band_assisted",
@@ -5148,6 +6005,17 @@
       "presetNameEn": "One-Arm Kettlebell Row",
       "nameKo": "원암 케틀벨 로우",
       "nameEn": "One-Arm Kettlebell Row",
+      "primarySubPart": "lats",
+      "primarySubPartNameKo": "광배근",
+      "secondarySubParts": [
+        "mid_back",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 등",
+        "이두"
+      ],
+      "equipmentNameKo": "케틀벨",
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5190,6 +6058,19 @@
       "presetNameEn": "Inverted Row",
       "nameKo": "인버티드 로우",
       "nameEn": "Inverted Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "rear_delt_linked",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "후면 어깨 연계",
+        "이두"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -5232,6 +6113,19 @@
       "presetNameEn": "Machine Chest-Supported Row",
       "nameKo": "머신 체스트 서포티드 로우",
       "nameEn": "Machine Chest-Supported Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "upper_back",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "상부 등",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5275,6 +6169,17 @@
       "presetNameEn": "Machine T-Bar Row",
       "nameKo": "머신 티바 로우",
       "nameEn": "Machine T-Bar Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "상부 등"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5319,6 +6224,19 @@
       "presetNameEn": "Seated Row Machine",
       "nameKo": "시티드 로우 머신",
       "nameEn": "Seated Row Machine",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "rear_delt_linked",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "후면 어깨 연계",
+        "이두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5362,6 +6280,17 @@
       "presetNameEn": "Iso-Lateral Row",
       "nameKo": "아이소 레터럴 로우",
       "nameEn": "Iso-Lateral Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5406,6 +6335,19 @@
       "presetNameEn": "Dumbbell Chest-Supported Row",
       "nameKo": "덤벨 체스트 서포티드 로우",
       "nameEn": "Dumbbell Chest-Supported Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "upper_back",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "상부 등",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5449,6 +6391,19 @@
       "presetNameEn": "Single-Arm Chest-Supported Dumbbell Row",
       "nameKo": "원암 덤벨 체스트 서포티드 로우",
       "nameEn": "Single-Arm Chest-Supported Dumbbell Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "upper_back",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "상부 등",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5493,6 +6448,19 @@
       "presetNameEn": "Renegade Row",
       "nameKo": "레니게이드 로우",
       "nameEn": "Renegade Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "core_stability",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "코어 안정화",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5535,6 +6503,17 @@
       "presetNameEn": "Incline Dumbbell Row",
       "nameKo": "인클라인 덤벨 로우",
       "nameEn": "Incline Dumbbell Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "rear_delt_linked",
+        "lats"
+      ],
+      "secondarySubPartNamesKo": [
+        "후면 어깨 연계",
+        "광배근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5578,6 +6557,17 @@
       "presetNameEn": "Landmine Row",
       "nameKo": "랜드마인 로우",
       "nameEn": "Landmine Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5620,6 +6610,21 @@
       "presetNameEn": "Barbell Bent-Over Row",
       "nameKo": "바벨 벤트오버 로우",
       "nameEn": "Barbell Bent-Over Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "upper_back",
+        "rear_delt_linked",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "상부 등",
+        "후면 어깨 연계",
+        "이두"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5664,6 +6669,19 @@
       "presetNameEn": "Barbell T-Bar Row",
       "nameKo": "바벨 티바 로우",
       "nameEn": "Barbell T-Bar Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "upper_back",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "상부 등",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5708,6 +6726,19 @@
       "presetNameEn": "Pendlay Row",
       "nameKo": "펜들레이 로우",
       "nameEn": "Pendlay Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "upper_back",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "상부 등",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5751,6 +6782,19 @@
       "presetNameEn": "Seated Cable Row",
       "nameKo": "시티드 케이블 로우",
       "nameEn": "Seated Cable Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "rear_delt_linked",
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "후면 어깨 연계",
+        "이두"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5794,6 +6838,17 @@
       "presetNameEn": "Band Row",
       "nameKo": "밴드 로우",
       "nameEn": "Band Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "rear_delt_linked"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "후면 어깨 연계"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -5834,6 +6889,17 @@
       "presetNameEn": "Plate Row",
       "nameKo": "플레이트 로우",
       "nameEn": "Plate Row",
+      "primarySubPart": "mid_back",
+      "primarySubPartNameKo": "중부 등",
+      "secondarySubParts": [
+        "lats",
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "상부 등"
+      ],
+      "equipmentNameKo": "플레이트",
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5876,6 +6942,15 @@
       "presetNameEn": "Machine Shrug",
       "nameKo": "머신 슈러그",
       "nameEn": "Machine Shrug",
+      "primarySubPart": "traps",
+      "primarySubPartNameKo": "승모근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5916,6 +6991,15 @@
       "presetNameEn": "Dumbbell Shrug",
       "nameKo": "덤벨 슈러그",
       "nameEn": "Dumbbell Shrug",
+      "primarySubPart": "traps",
+      "primarySubPartNameKo": "승모근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5956,6 +7040,15 @@
       "presetNameEn": "Barbell Shrug",
       "nameKo": "바벨 슈러그",
       "nameEn": "Barbell Shrug",
+      "primarySubPart": "traps",
+      "primarySubPartNameKo": "승모근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -5996,6 +7089,15 @@
       "presetNameEn": "Cable Shrug",
       "nameKo": "케이블 슈러그",
       "nameEn": "Cable Shrug",
+      "primarySubPart": "traps",
+      "primarySubPartNameKo": "승모근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6036,6 +7138,15 @@
       "presetNameEn": "Hip Abduction Machine",
       "nameKo": "힙 어브덕션 머신",
       "nameEn": "Hip Abduction Machine",
+      "primarySubPart": "abductors",
+      "primarySubPartNameKo": "외전근",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6078,6 +7189,15 @@
       "presetNameEn": "Cable Hip Abduction",
       "nameKo": "케이블 힙 어브덕션",
       "nameEn": "Cable Hip Abduction",
+      "primarySubPart": "abductors",
+      "primarySubPartNameKo": "외전근",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6120,6 +7240,15 @@
       "presetNameEn": "Band Lateral Walk",
       "nameKo": "밴드 레터럴 워크",
       "nameEn": "Band Lateral Walk",
+      "primarySubPart": "abductors",
+      "primarySubPartNameKo": "외전근",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -6162,6 +7291,15 @@
       "presetNameEn": "Band Hip Abduction",
       "nameKo": "밴드 힙 어브덕션",
       "nameEn": "Band Hip Abduction",
+      "primarySubPart": "abductors",
+      "primarySubPartNameKo": "외전근",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -6204,6 +7342,11 @@
       "presetNameEn": "Hip Adduction Machine",
       "nameKo": "힙 어덕션 머신",
       "nameEn": "Hip Adduction Machine",
+      "primarySubPart": "adductors",
+      "primarySubPartNameKo": "내전근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6246,6 +7389,17 @@
       "presetNameEn": "Dumbbell Sumo Squat",
       "nameKo": "덤벨 스모 스쿼트",
       "nameEn": "Dumbbell Sumo Squat",
+      "primarySubPart": "adductors",
+      "primarySubPartNameKo": "내전근",
+      "secondarySubParts": [
+        "glutes",
+        "quads"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "대퇴사두"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6289,6 +7443,11 @@
       "presetNameEn": "Cable Hip Adduction",
       "nameKo": "케이블 힙 어덕션",
       "nameEn": "Cable Hip Adduction",
+      "primarySubPart": "adductors",
+      "primarySubPartNameKo": "내전근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6331,6 +7490,11 @@
       "presetNameEn": "Bodyweight Standing Calf Raise",
       "nameKo": "맨몸 스탠딩 카프 레이즈",
       "nameEn": "Bodyweight Standing Calf Raise",
+      "primarySubPart": "calves",
+      "primarySubPartNameKo": "종아리",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -6376,6 +7540,11 @@
       "presetNameEn": "Single-Leg Calf Raise",
       "nameKo": "싱글 레그 카프 레이즈",
       "nameEn": "Single-Leg Calf Raise",
+      "primarySubPart": "calves",
+      "primarySubPartNameKo": "종아리",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -6420,6 +7589,11 @@
       "presetNameEn": "Leg Press Calf Raise",
       "nameKo": "레그프레스 카프 레이즈",
       "nameEn": "Leg Press Calf Raise",
+      "primarySubPart": "calves",
+      "primarySubPartNameKo": "종아리",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6466,6 +7640,11 @@
       "presetNameEn": "Standing Calf Raise Machine",
       "nameKo": "스탠딩 카프 레이즈 머신",
       "nameEn": "Standing Calf Raise Machine",
+      "primarySubPart": "calves",
+      "primarySubPartNameKo": "종아리",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6511,6 +7690,11 @@
       "presetNameEn": "Seated Calf Raise Machine",
       "nameKo": "시티드 카프 레이즈 머신",
       "nameEn": "Seated Calf Raise Machine",
+      "primarySubPart": "calves",
+      "primarySubPartNameKo": "종아리",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6556,6 +7740,11 @@
       "presetNameEn": "Dumbbell Standing Calf Raise",
       "nameKo": "덤벨 스탠딩 카프 레이즈",
       "nameEn": "Dumbbell Standing Calf Raise",
+      "primarySubPart": "calves",
+      "primarySubPartNameKo": "종아리",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6601,6 +7790,11 @@
       "presetNameEn": "Single-Leg Dumbbell Calf Raise",
       "nameKo": "원레그 덤벨 카프 레이즈",
       "nameEn": "Single-Leg Dumbbell Calf Raise",
+      "primarySubPart": "calves",
+      "primarySubPartNameKo": "종아리",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6645,6 +7839,11 @@
       "presetNameEn": "Barbell Standing Calf Raise",
       "nameKo": "바벨 스탠딩 카프 레이즈",
       "nameEn": "Barbell Standing Calf Raise",
+      "primarySubPart": "calves",
+      "primarySubPartNameKo": "종아리",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6690,6 +7889,11 @@
       "presetNameEn": "Smith Machine Calf Raise",
       "nameKo": "스미스머신 카프 레이즈",
       "nameEn": "Smith Machine Calf Raise",
+      "primarySubPart": "calves",
+      "primarySubPartNameKo": "종아리",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6732,6 +7936,15 @@
       "presetNameEn": "Bodyweight Glute Bridge",
       "nameKo": "맨몸 글루트 브릿지",
       "nameEn": "Bodyweight Glute Bridge",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -6774,6 +7987,17 @@
       "presetNameEn": "Bodyweight Reverse Lunge",
       "nameKo": "맨몸 리버스 런지",
       "nameEn": "Bodyweight Reverse Lunge",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "quads",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "대퇴사두",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -6815,6 +8039,15 @@
       "presetNameEn": "Single-Leg Glute Bridge",
       "nameKo": "싱글 레그 글루트 브릿지",
       "nameEn": "Single-Leg Glute Bridge",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -6859,6 +8092,15 @@
       "presetNameEn": "Glute Kickback Machine",
       "nameKo": "글루트 킥백 머신",
       "nameEn": "Glute Kickback Machine",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6901,6 +8143,15 @@
       "presetNameEn": "Hip Thrust Machine",
       "nameKo": "힙 쓰러스트 머신",
       "nameEn": "Hip Thrust Machine",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6943,6 +8194,17 @@
       "presetNameEn": "Dumbbell Reverse Lunge",
       "nameKo": "덤벨 리버스 런지",
       "nameEn": "Dumbbell Reverse Lunge",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "quads",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "대퇴사두",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -6984,6 +8246,15 @@
       "presetNameEn": "Dumbbell Hip Thrust",
       "nameKo": "덤벨 힙 쓰러스트",
       "nameEn": "Dumbbell Hip Thrust",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7026,6 +8297,15 @@
       "presetNameEn": "Single-Leg Dumbbell Hip Thrust",
       "nameKo": "원레그 덤벨 힙 쓰러스트",
       "nameEn": "Single-Leg Dumbbell Hip Thrust",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7070,6 +8350,17 @@
       "presetNameEn": "Low-Bar Back Squat",
       "nameKo": "로우바 스쿼트",
       "nameEn": "Low-Bar Back Squat",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "quads",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "대퇴사두",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7113,6 +8404,15 @@
       "presetNameEn": "Barbell Glute Bridge",
       "nameKo": "바벨 글루트 브릿지",
       "nameEn": "Barbell Glute Bridge",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7155,6 +8455,17 @@
       "presetNameEn": "Barbell Reverse Lunge",
       "nameKo": "바벨 리버스 런지",
       "nameEn": "Barbell Reverse Lunge",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "quads",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "대퇴사두",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7196,6 +8507,15 @@
       "presetNameEn": "Barbell Hip Thrust",
       "nameKo": "바벨 힙 쓰러스트",
       "nameEn": "Barbell Hip Thrust",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7238,6 +8558,17 @@
       "presetNameEn": "Box Squat",
       "nameKo": "박스 스쿼트",
       "nameEn": "Box Squat",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "quads",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "대퇴사두",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7280,6 +8611,19 @@
       "presetNameEn": "Sumo Deadlift",
       "nameKo": "스모 데드리프트",
       "nameEn": "Sumo Deadlift",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "adductors",
+        "hamstrings",
+        "erector_spinae"
+      ],
+      "secondarySubPartNamesKo": [
+        "내전근",
+        "햄스트링",
+        "척추기립근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7323,6 +8667,15 @@
       "presetNameEn": "Smith Machine Hip Thrust",
       "nameKo": "스미스머신 힙 쓰러스트",
       "nameEn": "Smith Machine Hip Thrust",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7365,6 +8718,15 @@
       "presetNameEn": "Cable Glute Kickback",
       "nameKo": "케이블 글루트 킥백",
       "nameEn": "Cable Glute Kickback",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7407,6 +8769,17 @@
       "presetNameEn": "Cable Pull-Through",
       "nameKo": "케이블 풀 스루",
       "nameEn": "Cable Pull-Through",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings",
+        "erector_spinae"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링",
+        "척추기립근"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7449,6 +8822,17 @@
       "presetNameEn": "Band Glute Bridge",
       "nameKo": "밴드 글루트 브릿지",
       "nameEn": "Band Glute Bridge",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "abductors",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "외전근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -7491,6 +8875,15 @@
       "presetNameEn": "Band Glute Kickback",
       "nameKo": "밴드 글루트 킥백",
       "nameEn": "Band Glute Kickback",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -7531,6 +8924,17 @@
       "presetNameEn": "Band Hip Thrust",
       "nameKo": "밴드 힙 쓰러스트",
       "nameEn": "Band Hip Thrust",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "abductors",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "외전근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -7573,6 +8977,17 @@
       "presetNameEn": "Kettlebell Sumo Deadlift",
       "nameKo": "케틀벨 스모 데드리프트",
       "nameEn": "Kettlebell Sumo Deadlift",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "adductors",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "내전근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "케틀벨",
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7616,6 +9031,17 @@
       "presetNameEn": "Kettlebell Swing",
       "nameKo": "케틀벨 스윙",
       "nameEn": "Kettlebell Swing",
+      "primarySubPart": "glutes",
+      "primarySubPartNameKo": "둔근",
+      "secondarySubParts": [
+        "hamstrings",
+        "erector_spinae"
+      ],
+      "secondarySubPartNamesKo": [
+        "햄스트링",
+        "척추기립근"
+      ],
+      "equipmentNameKo": "케틀벨",
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7656,6 +9082,15 @@
       "presetNameEn": "Nordic Hamstring Curl",
       "nameKo": "노르딕 햄스트링 컬",
       "nameEn": "Nordic Hamstring Curl",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -7700,6 +9135,15 @@
       "presetNameEn": "Glute-Ham Raise",
       "nameKo": "글루트 햄 레이즈",
       "nameEn": "Glute-Ham Raise",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
@@ -7744,6 +9188,11 @@
       "presetNameEn": "Lying Leg Curl",
       "nameKo": "라잉 레그 컬",
       "nameEn": "Lying Leg Curl",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7789,6 +9238,11 @@
       "presetNameEn": "Single-Leg Lying Leg Curl",
       "nameKo": "원레그 라잉 레그 컬",
       "nameEn": "Single-Leg Lying Leg Curl",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7833,6 +9287,11 @@
       "presetNameEn": "Standing Leg Curl",
       "nameKo": "스탠딩 레그 컬",
       "nameEn": "Standing Leg Curl",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7878,6 +9337,11 @@
       "presetNameEn": "Seated Leg Curl",
       "nameKo": "시티드 레그 컬",
       "nameEn": "Seated Leg Curl",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7923,6 +9387,11 @@
       "presetNameEn": "Single-Leg Seated Leg Curl",
       "nameKo": "원레그 시티드 레그 컬",
       "nameEn": "Single-Leg Seated Leg Curl",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -7967,6 +9436,17 @@
       "presetNameEn": "Dumbbell Romanian Deadlift",
       "nameKo": "덤벨 루마니안 데드리프트",
       "nameEn": "Dumbbell Romanian Deadlift",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [
+        "glutes",
+        "erector_spinae"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "척추기립근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8009,6 +9489,17 @@
       "presetNameEn": "Single-Leg Dumbbell Romanian Deadlift",
       "nameKo": "원레그 덤벨 루마니안 데드리프트",
       "nameEn": "Single-Leg Dumbbell Romanian Deadlift",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [
+        "glutes",
+        "erector_spinae"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "척추기립근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8053,6 +9544,15 @@
       "presetNameEn": "Dumbbell Stiff-Leg Deadlift",
       "nameKo": "덤벨 스티프 레그 데드리프트",
       "nameEn": "Dumbbell Stiff-Leg Deadlift",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8097,6 +9597,17 @@
       "presetNameEn": "Barbell Good Morning",
       "nameKo": "바벨 굿모닝",
       "nameEn": "Barbell Good Morning",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [
+        "glutes",
+        "erector_spinae"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "척추기립근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8139,6 +9650,17 @@
       "presetNameEn": "Barbell Romanian Deadlift",
       "nameKo": "바벨 루마니안 데드리프트",
       "nameEn": "Barbell Romanian Deadlift",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [
+        "glutes",
+        "erector_spinae"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "척추기립근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8181,6 +9703,17 @@
       "presetNameEn": "Barbell Stiff-Leg Deadlift",
       "nameKo": "바벨 스티프 레그 데드리프트",
       "nameEn": "Barbell Stiff-Leg Deadlift",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [
+        "glutes",
+        "erector_spinae"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "척추기립근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8225,6 +9758,17 @@
       "presetNameEn": "Smith Machine Romanian Deadlift",
       "nameKo": "스미스머신 루마니안 데드리프트",
       "nameEn": "Smith Machine Romanian Deadlift",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [
+        "glutes",
+        "erector_spinae"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "척추기립근"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8267,6 +9811,11 @@
       "presetNameEn": "Cable Leg Curl",
       "nameKo": "케이블 레그 컬",
       "nameEn": "Cable Leg Curl",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8309,6 +9858,11 @@
       "presetNameEn": "Band Leg Curl",
       "nameKo": "밴드 레그 컬",
       "nameEn": "Band Leg Curl",
+      "primarySubPart": "hamstrings",
+      "primarySubPartNameKo": "햄스트링",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -8351,6 +9905,17 @@
       "presetNameEn": "Bodyweight Squat",
       "nameKo": "맨몸 스쿼트",
       "nameEn": "Bodyweight Squat",
+      "primarySubPart": "overall_legs",
+      "primarySubPartNameKo": "하체 전체",
+      "secondarySubParts": [
+        "quads",
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "대퇴사두",
+        "둔근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -8391,6 +9956,17 @@
       "presetNameEn": "Bodyweight Lunge",
       "nameKo": "맨몸 런지",
       "nameEn": "Bodyweight Lunge",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -8431,6 +10007,17 @@
       "presetNameEn": "Bodyweight Bulgarian Split Squat",
       "nameKo": "맨몸 불가리안 스플릿 스쿼트",
       "nameEn": "Bodyweight Bulgarian Split Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -8476,6 +10063,17 @@
       "presetNameEn": "Bodyweight Step-Up",
       "nameKo": "맨몸 스텝업",
       "nameEn": "Bodyweight Step-Up",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -8518,6 +10116,15 @@
       "presetNameEn": "Sissy Squat",
       "nameKo": "시시 스쿼트",
       "nameEn": "Sissy Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "overall_legs"
+      ],
+      "secondarySubPartNamesKo": [
+        "하체 전체"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -8560,6 +10167,15 @@
       "presetNameEn": "Wall Sit",
       "nameKo": "월 싯",
       "nameEn": "Wall Sit",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "time",
       "defaultLoadState": "bodyweight",
@@ -8602,6 +10218,17 @@
       "presetNameEn": "Jump Squat",
       "nameKo": "점프 스쿼트",
       "nameEn": "Jump Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "calves"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "종아리"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -8644,6 +10271,17 @@
       "presetNameEn": "Pistol Squat",
       "nameKo": "피스톨 스쿼트",
       "nameEn": "Pistol Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -8686,6 +10324,11 @@
       "presetNameEn": "Leg Extension",
       "nameKo": "레그 익스텐션",
       "nameEn": "Leg Extension",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8728,6 +10371,11 @@
       "presetNameEn": "Single-Leg Extension",
       "nameKo": "원레그 레그 익스텐션",
       "nameEn": "Single-Leg Extension",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8770,6 +10418,17 @@
       "presetNameEn": "Leg Press",
       "nameKo": "레그 프레스",
       "nameEn": "Leg Press",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8812,6 +10471,17 @@
       "presetNameEn": "Single-Leg Press",
       "nameKo": "원레그 레그 프레스",
       "nameEn": "Single-Leg Press",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8854,6 +10524,15 @@
       "presetNameEn": "Belt Squat",
       "nameKo": "벨트 스쿼트",
       "nameEn": "Belt Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8896,6 +10575,15 @@
       "presetNameEn": "V-Squat Machine",
       "nameKo": "브이 스쿼트 머신",
       "nameEn": "V-Squat Machine",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8938,6 +10626,15 @@
       "presetNameEn": "Pendulum Squat",
       "nameKo": "펜듈럼 스쿼트",
       "nameEn": "Pendulum Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -8980,6 +10677,15 @@
       "presetNameEn": "Hack Squat Machine",
       "nameKo": "핵 스쿼트 머신",
       "nameEn": "Hack Squat Machine",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9022,6 +10728,17 @@
       "presetNameEn": "Dumbbell Goblet Squat",
       "nameKo": "덤벨 고블릿 스쿼트",
       "nameEn": "Dumbbell Goblet Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "overall_legs"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "하체 전체"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9064,6 +10781,17 @@
       "presetNameEn": "Dumbbell Lunge",
       "nameKo": "덤벨 런지",
       "nameEn": "Dumbbell Lunge",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9104,6 +10832,17 @@
       "presetNameEn": "Dumbbell Bulgarian Split Squat",
       "nameKo": "덤벨 불가리안 스플릿 스쿼트",
       "nameEn": "Dumbbell Bulgarian Split Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9149,6 +10888,15 @@
       "presetNameEn": "Dumbbell Squat",
       "nameKo": "덤벨 스쿼트",
       "nameEn": "Dumbbell Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9189,6 +10937,17 @@
       "presetNameEn": "Dumbbell Step-Up",
       "nameKo": "덤벨 스텝업",
       "nameEn": "Dumbbell Step-Up",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9231,6 +10990,17 @@
       "presetNameEn": "Dumbbell Walking Lunge",
       "nameKo": "덤벨 워킹 런지",
       "nameEn": "Dumbbell Walking Lunge",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9272,6 +11042,19 @@
       "presetNameEn": "Barbell Back Squat",
       "nameKo": "바벨 백 스쿼트",
       "nameEn": "Barbell Back Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings",
+        "overall_legs"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링",
+        "하체 전체"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9314,6 +11097,17 @@
       "presetNameEn": "Barbell Bulgarian Split Squat",
       "nameKo": "바벨 불가리안 스플릿 스쿼트",
       "nameEn": "Barbell Bulgarian Split Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9359,6 +11153,17 @@
       "presetNameEn": "Barbell Walking Lunge",
       "nameKo": "바벨 워킹 런지",
       "nameEn": "Barbell Walking Lunge",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9400,6 +11205,17 @@
       "presetNameEn": "Barbell Front Squat",
       "nameKo": "바벨 프론트 스쿼트",
       "nameEn": "Barbell Front Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "overall_legs"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "하체 전체"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9441,6 +11257,17 @@
       "presetNameEn": "Zercher Squat",
       "nameKo": "저쳐 스쿼트",
       "nameEn": "Zercher Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "core_stability"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "코어 안정화"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9484,6 +11311,17 @@
       "presetNameEn": "High-Bar Back Squat",
       "nameKo": "하이바 스쿼트",
       "nameEn": "High-Bar Back Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "overall_legs"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "하체 전체"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9527,6 +11365,17 @@
       "presetNameEn": "Smith Machine Bulgarian Split Squat",
       "nameKo": "스미스머신 불가리안 스플릿 스쿼트",
       "nameEn": "Smith Machine Bulgarian Split Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9572,6 +11421,15 @@
       "presetNameEn": "Smith Machine Squat",
       "nameKo": "스미스머신 스쿼트",
       "nameEn": "Smith Machine Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9612,6 +11470,17 @@
       "presetNameEn": "Smith Machine Split Squat",
       "nameKo": "스미스머신 스플릿 스쿼트",
       "nameEn": "Smith Machine Split Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes",
+        "hamstrings"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근",
+        "햄스트링"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9654,6 +11523,15 @@
       "presetNameEn": "Smith Machine Front Squat",
       "nameKo": "스미스머신 프론트 스쿼트",
       "nameEn": "Smith Machine Front Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9695,6 +11573,15 @@
       "presetNameEn": "Kettlebell Goblet Squat",
       "nameKo": "케틀벨 고블릿 스쿼트",
       "nameEn": "Kettlebell Goblet Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "케틀벨",
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9737,6 +11624,15 @@
       "presetNameEn": "Plate Goblet Squat",
       "nameKo": "플레이트 고블릿 스쿼트",
       "nameEn": "Plate Goblet Squat",
+      "primarySubPart": "quads",
+      "primarySubPartNameKo": "대퇴사두",
+      "secondarySubParts": [
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "둔근"
+      ],
+      "equipmentNameKo": "플레이트",
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9779,6 +11675,17 @@
       "presetNameEn": "Pike Push-Up",
       "nameKo": "파이크 푸쉬업",
       "nameEn": "Pike Push-Up",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -9823,6 +11730,17 @@
       "presetNameEn": "Machine Shoulder Press",
       "nameKo": "머신 숄더 프레스",
       "nameEn": "Machine Shoulder Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9865,6 +11783,17 @@
       "presetNameEn": "Plate-Loaded Shoulder Press",
       "nameKo": "플레이트 로드 숄더 프레스",
       "nameEn": "Plate-Loaded Shoulder Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9911,6 +11840,19 @@
       "presetNameEn": "Dumbbell Shoulder Press",
       "nameKo": "덤벨 숄더 프레스",
       "nameEn": "Dumbbell Shoulder Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps",
+        "overall_shoulders"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두",
+        "어깨 전체"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9953,6 +11895,19 @@
       "presetNameEn": "Single-Arm Dumbbell Shoulder Press",
       "nameKo": "원암 덤벨 숄더 프레스",
       "nameEn": "Single-Arm Dumbbell Shoulder Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps",
+        "overall_shoulders"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두",
+        "어깨 전체"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -9997,6 +11952,11 @@
       "presetNameEn": "Dumbbell Front Raise",
       "nameKo": "덤벨 프론트 레이즈",
       "nameEn": "Dumbbell Front Raise",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10039,6 +11999,17 @@
       "presetNameEn": "Seated Dumbbell Shoulder Press",
       "nameKo": "시티드 덤벨 숄더 프레스",
       "nameEn": "Seated Dumbbell Shoulder Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10084,6 +12055,19 @@
       "presetNameEn": "Barbell Overhead Press",
       "nameKo": "바벨 오버헤드 프레스",
       "nameEn": "Barbell Overhead Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps",
+        "overall_shoulders"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두",
+        "어깨 전체"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10126,6 +12110,19 @@
       "presetNameEn": "Single-Arm Landmine Press",
       "nameKo": "원암 랜드마인 프레스",
       "nameEn": "Single-Arm Landmine Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps",
+        "overall_shoulders"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두",
+        "어깨 전체"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10170,6 +12167,11 @@
       "presetNameEn": "Barbell Front Raise",
       "nameKo": "바벨 프론트 레이즈",
       "nameEn": "Barbell Front Raise",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10212,6 +12214,17 @@
       "presetNameEn": "Seated Barbell Shoulder Press",
       "nameKo": "시티드 바벨 숄더 프레스",
       "nameEn": "Seated Barbell Shoulder Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10257,6 +12270,17 @@
       "presetNameEn": "Smith Machine Shoulder Press",
       "nameKo": "스미스머신 숄더 프레스",
       "nameEn": "Smith Machine Shoulder Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10299,6 +12323,11 @@
       "presetNameEn": "Cable Front Raise",
       "nameKo": "케이블 프론트 레이즈",
       "nameEn": "Cable Front Raise",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10341,6 +12370,11 @@
       "presetNameEn": "Single-Arm Cable Front Raise",
       "nameKo": "원암 케이블 프론트 레이즈",
       "nameEn": "Single-Arm Cable Front Raise",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10385,6 +12419,17 @@
       "presetNameEn": "Kettlebell Shoulder Press",
       "nameKo": "케틀벨 숄더 프레스",
       "nameEn": "Kettlebell Shoulder Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "케틀벨",
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10425,6 +12470,17 @@
       "presetNameEn": "Plate Overhead Press",
       "nameKo": "플레이트 오버헤드 프레스",
       "nameEn": "Plate Overhead Press",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "플레이트",
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10467,6 +12523,11 @@
       "presetNameEn": "Plate Front Raise",
       "nameKo": "플레이트 프론트 레이즈",
       "nameEn": "Plate Front Raise",
+      "primarySubPart": "front_delts",
+      "primarySubPartNameKo": "전면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "플레이트",
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10509,6 +12570,19 @@
       "presetNameEn": "Wall Handstand Push-Up",
       "nameKo": "월 핸드스탠드 푸쉬업",
       "nameEn": "Wall Handstand Push-Up",
+      "primarySubPart": "overall_shoulders",
+      "primarySubPartNameKo": "어깨 전체",
+      "secondarySubParts": [
+        "front_delts",
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -10555,6 +12629,19 @@
       "presetNameEn": "Handstand Push-Up",
       "nameKo": "핸드스탠드 푸쉬업",
       "nameEn": "Handstand Push-Up",
+      "primarySubPart": "overall_shoulders",
+      "primarySubPartNameKo": "어깨 전체",
+      "secondarySubParts": [
+        "front_delts",
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -10599,6 +12686,19 @@
       "presetNameEn": "Arnold Press",
       "nameKo": "아놀드 프레스",
       "nameEn": "Arnold Press",
+      "primarySubPart": "overall_shoulders",
+      "primarySubPartNameKo": "어깨 전체",
+      "secondarySubParts": [
+        "front_delts",
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10642,6 +12742,19 @@
       "presetNameEn": "Barbell Push Press",
       "nameKo": "바벨 푸쉬 프레스",
       "nameEn": "Barbell Push Press",
+      "primarySubPart": "overall_shoulders",
+      "primarySubPartNameKo": "어깨 전체",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps",
+        "quads"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두",
+        "대퇴사두"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10684,6 +12797,19 @@
       "presetNameEn": "Bradford Press",
       "nameKo": "브래드포드 프레스",
       "nameEn": "Bradford Press",
+      "primarySubPart": "overall_shoulders",
+      "primarySubPartNameKo": "어깨 전체",
+      "secondarySubParts": [
+        "front_delts",
+        "side_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "측면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10727,6 +12853,17 @@
       "presetNameEn": "Kettlebell Bottoms-Up Press",
       "nameKo": "케틀벨 바텀업 프레스",
       "nameEn": "Kettlebell Bottoms-Up Press",
+      "primarySubPart": "overall_shoulders",
+      "primarySubPartNameKo": "어깨 전체",
+      "secondarySubParts": [
+        "front_delts",
+        "core_stability"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "코어 안정화"
+      ],
+      "equipmentNameKo": "케틀벨",
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10770,6 +12907,15 @@
       "presetNameEn": "Prone Y Raise",
       "nameKo": "프론 Y 레이즈",
       "nameEn": "Prone Y Raise",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "traps"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -10815,6 +12961,15 @@
       "presetNameEn": "Reverse Pec Deck",
       "nameKo": "리버스 펙덱",
       "nameEn": "Reverse Pec Deck",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10854,6 +13009,15 @@
       "presetNameEn": "Machine Rear Delt Fly",
       "nameKo": "머신 리어 델트 플라이",
       "nameEn": "Machine Rear Delt Fly",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10893,6 +13057,15 @@
       "presetNameEn": "Dumbbell Rear Delt Fly",
       "nameKo": "덤벨 리어 델트 플라이",
       "nameEn": "Dumbbell Rear Delt Fly",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10932,6 +13105,15 @@
       "presetNameEn": "Dumbbell Cuban Press",
       "nameKo": "덤벨 쿠반 프레스",
       "nameEn": "Dumbbell Cuban Press",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "overall_shoulders"
+      ],
+      "secondarySubPartNamesKo": [
+        "어깨 전체"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -10974,6 +13156,15 @@
       "presetNameEn": "Bent-Over Dumbbell Lateral Raise",
       "nameKo": "벤트오버 덤벨 레터럴 레이즈",
       "nameEn": "Bent-Over Dumbbell Lateral Raise",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11014,6 +13205,15 @@
       "presetNameEn": "Cable Y Raise",
       "nameKo": "케이블 Y 레이즈",
       "nameEn": "Cable Y Raise",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "traps"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11056,6 +13256,15 @@
       "presetNameEn": "Single-Arm Cable Y Raise",
       "nameKo": "원암 케이블 Y 레이즈",
       "nameEn": "Single-Arm Cable Y Raise",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "traps"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11100,6 +13309,15 @@
       "presetNameEn": "Cable Rear Delt Fly",
       "nameKo": "케이블 리어 델트 플라이",
       "nameEn": "Cable Rear Delt Fly",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11144,6 +13362,15 @@
       "presetNameEn": "Single-Arm Cable Rear Delt Fly",
       "nameKo": "원암 케이블 리어 델트 플라이",
       "nameEn": "Single-Arm Cable Rear Delt Fly",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11190,6 +13417,15 @@
       "presetNameEn": "Cable External Rotation",
       "nameKo": "케이블 익스터널 로테이션",
       "nameEn": "Cable External Rotation",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "overall_shoulders"
+      ],
+      "secondarySubPartNamesKo": [
+        "어깨 전체"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11232,6 +13468,17 @@
       "presetNameEn": "Cable Face Pull",
       "nameKo": "케이블 페이스 풀",
       "nameEn": "Cable Face Pull",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "traps",
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근",
+        "상부 등"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11274,6 +13521,17 @@
       "presetNameEn": "Band Face Pull",
       "nameKo": "밴드 페이스 풀",
       "nameEn": "Band Face Pull",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "traps",
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근",
+        "상부 등"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -11316,6 +13574,15 @@
       "presetNameEn": "Band Pull-Apart",
       "nameKo": "밴드 풀 어파트",
       "nameEn": "Band Pull-Apart",
+      "primarySubPart": "rear_delts",
+      "primarySubPartNameKo": "후면 삼각근",
+      "secondarySubParts": [
+        "upper_back"
+      ],
+      "secondarySubPartNamesKo": [
+        "상부 등"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -11358,6 +13625,11 @@
       "presetNameEn": "Machine Lateral Raise",
       "nameKo": "머신 레터럴 레이즈",
       "nameEn": "Machine Lateral Raise",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11400,6 +13672,11 @@
       "presetNameEn": "Dumbbell Lateral Raise",
       "nameKo": "덤벨 사이드 레터럴 레이즈",
       "nameEn": "Dumbbell Lateral Raise",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11442,6 +13719,17 @@
       "presetNameEn": "Dumbbell High Pull",
       "nameKo": "덤벨 하이 풀",
       "nameEn": "Dumbbell High Pull",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [
+        "traps",
+        "rear_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근",
+        "후면 삼각근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11484,6 +13772,11 @@
       "presetNameEn": "Leaning Dumbbell Lateral Raise",
       "nameKo": "리닝 덤벨 레터럴 레이즈",
       "nameEn": "Leaning Dumbbell Lateral Raise",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11528,6 +13821,11 @@
       "presetNameEn": "Single-Arm Dumbbell Lateral Raise",
       "nameKo": "원암 덤벨 사이드 레터럴 레이즈",
       "nameEn": "Single-Arm Dumbbell Lateral Raise",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11572,6 +13870,11 @@
       "presetNameEn": "Incline Dumbbell Lateral Raise",
       "nameKo": "인클라인 덤벨 레터럴 레이즈",
       "nameEn": "Incline Dumbbell Lateral Raise",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11617,6 +13920,17 @@
       "presetNameEn": "Barbell Upright Row",
       "nameKo": "바벨 업라이트 로우",
       "nameEn": "Barbell Upright Row",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [
+        "traps",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11659,6 +13973,17 @@
       "presetNameEn": "Behind-the-Neck Press",
       "nameKo": "비하인드 넥 프레스",
       "nameEn": "Behind-the-Neck Press",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11702,6 +14027,17 @@
       "presetNameEn": "Smith Machine Behind-the-Neck Press",
       "nameKo": "스미스머신 비하인드 넥 프레스",
       "nameEn": "Smith Machine Behind-the-Neck Press",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [
+        "front_delts",
+        "triceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근",
+        "삼두"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11745,6 +14081,15 @@
       "presetNameEn": "Smith Machine Upright Row",
       "nameKo": "스미스머신 업라이트 로우",
       "nameEn": "Smith Machine Upright Row",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [
+        "traps"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근"
+      ],
+      "equipmentNameKo": "스미스머신",
       "legacyEquipment": "smith_machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11787,6 +14132,11 @@
       "presetNameEn": "Single-Arm Cable Lateral Raise",
       "nameKo": "원암 케이블 레터럴 레이즈",
       "nameEn": "Single-Arm Cable Lateral Raise",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11829,6 +14179,15 @@
       "presetNameEn": "Cable Upright Row",
       "nameKo": "케이블 업라이트 로우",
       "nameEn": "Cable Upright Row",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [
+        "traps"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11871,6 +14230,11 @@
       "presetNameEn": "Band Lateral Raise",
       "nameKo": "밴드 레터럴 레이즈",
       "nameEn": "Band Lateral Raise",
+      "primarySubPart": "side_delts",
+      "primarySubPartNameKo": "측면 삼각근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -11913,6 +14277,11 @@
       "presetNameEn": "Machine Biceps Curl",
       "nameKo": "머신 바이셉스 컬",
       "nameEn": "Machine Biceps Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11955,6 +14324,11 @@
       "presetNameEn": "Machine Preacher Curl",
       "nameKo": "머신 프리처 컬",
       "nameEn": "Machine Preacher Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -11997,6 +14371,11 @@
       "presetNameEn": "Dumbbell Spider Curl",
       "nameKo": "덤벨 스파이더 컬",
       "nameEn": "Dumbbell Spider Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12039,6 +14418,15 @@
       "presetNameEn": "Alternating Dumbbell Curl",
       "nameKo": "덤벨 얼터네이팅 컬",
       "nameEn": "Alternating Dumbbell Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12081,6 +14469,15 @@
       "presetNameEn": "Dumbbell Curl",
       "nameKo": "덤벨 컬",
       "nameEn": "Dumbbell Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12121,6 +14518,11 @@
       "presetNameEn": "Dumbbell Preacher Curl",
       "nameKo": "덤벨 프리처 컬",
       "nameEn": "Dumbbell Preacher Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12163,6 +14565,15 @@
       "presetNameEn": "Dumbbell Hammer Curl",
       "nameKo": "덤벨 해머 컬",
       "nameEn": "Dumbbell Hammer Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12205,6 +14616,11 @@
       "presetNameEn": "Incline Dumbbell Curl",
       "nameKo": "인클라인 덤벨 컬",
       "nameEn": "Incline Dumbbell Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12248,6 +14664,15 @@
       "presetNameEn": "Zottman Curl",
       "nameKo": "조트맨 컬",
       "nameEn": "Zottman Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12290,6 +14715,11 @@
       "presetNameEn": "Concentration Curl",
       "nameKo": "컨센트레이션 컬",
       "nameEn": "Concentration Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12332,6 +14762,11 @@
       "presetNameEn": "Barbell Drag Curl",
       "nameKo": "바벨 드래그 컬",
       "nameEn": "Barbell Drag Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12374,6 +14809,11 @@
       "presetNameEn": "Barbell Spider Curl",
       "nameKo": "바벨 스파이더 컬",
       "nameEn": "Barbell Spider Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12416,6 +14856,15 @@
       "presetNameEn": "Barbell Curl",
       "nameKo": "바벨 컬",
       "nameEn": "Barbell Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12456,6 +14905,15 @@
       "presetNameEn": "EZ-Bar Curl",
       "nameKo": "이지바 컬",
       "nameEn": "EZ-Bar Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12500,6 +14958,11 @@
       "presetNameEn": "EZ-Bar Preacher Curl",
       "nameKo": "이지바 프리처 컬",
       "nameEn": "EZ-Bar Preacher Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12542,6 +15005,11 @@
       "presetNameEn": "Bayesian Cable Curl",
       "nameKo": "베이지안 케이블 컬",
       "nameEn": "Bayesian Cable Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12584,6 +15052,11 @@
       "presetNameEn": "Single-Arm Cable Curl",
       "nameKo": "원암 케이블 컬",
       "nameEn": "Single-Arm Cable Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12626,6 +15099,11 @@
       "presetNameEn": "Overhead Cable Curl",
       "nameKo": "오버헤드 케이블 컬",
       "nameEn": "Overhead Cable Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12668,6 +15146,15 @@
       "presetNameEn": "Cable Rope Hammer Curl",
       "nameKo": "케이블 로프 해머 컬",
       "nameEn": "Cable Rope Hammer Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12712,6 +15199,15 @@
       "presetNameEn": "Single-Arm Cable Hammer Curl",
       "nameKo": "원암 케이블 해머 컬",
       "nameEn": "Single-Arm Cable Hammer Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12756,6 +15252,15 @@
       "presetNameEn": "Cable Curl",
       "nameKo": "케이블 컬",
       "nameEn": "Cable Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12796,6 +15301,11 @@
       "presetNameEn": "Cable Preacher Curl",
       "nameKo": "케이블 프리처 컬",
       "nameEn": "Cable Preacher Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12838,6 +15348,11 @@
       "presetNameEn": "Single-Arm Cable Preacher Curl",
       "nameKo": "원암 케이블 프리처 컬",
       "nameEn": "Single-Arm Cable Preacher Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -12882,6 +15397,15 @@
       "presetNameEn": "Band Curl",
       "nameKo": "밴드 컬",
       "nameEn": "Band Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -12922,6 +15446,15 @@
       "presetNameEn": "Band Hammer Curl",
       "nameKo": "밴드 해머 컬",
       "nameEn": "Band Hammer Curl",
+      "primarySubPart": "biceps",
+      "primarySubPartNameKo": "이두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -12964,6 +15497,17 @@
       "presetNameEn": "Dead Hang",
       "nameKo": "데드 행",
       "nameEn": "Dead Hang",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [
+        "lats",
+        "traps"
+      ],
+      "secondarySubPartNamesKo": [
+        "광배근",
+        "승모근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "time",
       "defaultLoadState": "bodyweight",
@@ -13006,6 +15550,11 @@
       "presetNameEn": "Dumbbell Reverse Wrist Curl",
       "nameKo": "덤벨 리버스 리스트 컬",
       "nameEn": "Dumbbell Reverse Wrist Curl",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13050,6 +15599,11 @@
       "presetNameEn": "Dumbbell Wrist Curl",
       "nameKo": "덤벨 리스트 컬",
       "nameEn": "Dumbbell Wrist Curl",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13092,6 +15646,17 @@
       "presetNameEn": "Dumbbell Farmer Carry",
       "nameKo": "덤벨 파머스 캐리",
       "nameEn": "Dumbbell Farmer Carry",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [
+        "traps",
+        "core_stability"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근",
+        "코어 안정화"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_time",
       "defaultLoadState": "external_load",
@@ -13134,6 +15699,15 @@
       "presetNameEn": "Cross-Body Hammer Curl",
       "nameKo": "크로스 바디 해머 컬",
       "nameEn": "Cross-Body Hammer Curl",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13180,6 +15754,11 @@
       "presetNameEn": "Barbell Reverse Wrist Curl",
       "nameKo": "바벨 리버스 리스트 컬",
       "nameEn": "Barbell Reverse Wrist Curl",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13224,6 +15803,15 @@
       "presetNameEn": "Barbell Reverse Curl",
       "nameKo": "바벨 리버스 컬",
       "nameEn": "Barbell Reverse Curl",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [
+        "biceps"
+      ],
+      "secondarySubPartNamesKo": [
+        "이두"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13266,6 +15854,11 @@
       "presetNameEn": "Barbell Wrist Curl",
       "nameKo": "바벨 리스트 컬",
       "nameEn": "Barbell Wrist Curl",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13308,6 +15901,17 @@
       "presetNameEn": "Kettlebell Farmer Carry",
       "nameKo": "케틀벨 파머스 캐리",
       "nameEn": "Kettlebell Farmer Carry",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [
+        "traps",
+        "core_stability"
+      ],
+      "secondarySubPartNamesKo": [
+        "승모근",
+        "코어 안정화"
+      ],
+      "equipmentNameKo": "케틀벨",
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_time",
       "defaultLoadState": "external_load",
@@ -13350,6 +15954,11 @@
       "presetNameEn": "Plate Pinch Hold",
       "nameKo": "플레이트 핀치 홀드",
       "nameEn": "Plate Pinch Hold",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "플레이트",
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_time",
       "defaultLoadState": "external_load",
@@ -13392,6 +16001,11 @@
       "presetNameEn": "Hand Gripper",
       "nameKo": "핸드 그리퍼",
       "nameEn": "Hand Gripper",
+      "primarySubPart": "forearms",
+      "primarySubPartNameKo": "전완",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "기타",
       "legacyEquipment": "other",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
@@ -13432,6 +16046,17 @@
       "presetNameEn": "Diamond Push-Up",
       "nameKo": "다이아몬드 푸쉬업",
       "nameEn": "Diamond Push-Up",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "overall_chest",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -13476,6 +16101,17 @@
       "presetNameEn": "Dip",
       "nameKo": "딥스",
       "nameEn": "Dip",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "lower_chest",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "하부 가슴",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "bodyweight_added_weight_reps",
       "defaultLoadState": "bodyweight",
@@ -13516,6 +16152,15 @@
       "presetNameEn": "Bench Dip",
       "nameKo": "벤치 딥스",
       "nameEn": "Bench Dip",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -13558,6 +16203,17 @@
       "presetNameEn": "Close-Grip Push-Up",
       "nameKo": "클로즈 그립 푸쉬업",
       "nameEn": "Close-Grip Push-Up",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "overall_chest",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "가슴 전체",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -13603,6 +16259,17 @@
       "presetNameEn": "Machine Dip Press",
       "nameKo": "머신 딥 프레스",
       "nameEn": "Machine Dip Press",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "lower_chest",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "하부 가슴",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13645,6 +16312,11 @@
       "presetNameEn": "Machine Triceps Extension",
       "nameKo": "머신 트라이셉스 익스텐션",
       "nameEn": "Machine Triceps Extension",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13687,6 +16359,17 @@
       "presetNameEn": "Assisted Dip",
       "nameKo": "어시스트 딥스",
       "nameEn": "Assisted Dip",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "lower_chest",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "하부 가슴",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "assisted_weight_reps",
       "defaultLoadState": "assisted",
@@ -13729,6 +16412,11 @@
       "presetNameEn": "Dumbbell Skull Crusher",
       "nameKo": "덤벨 스컬 크러셔",
       "nameEn": "Dumbbell Skull Crusher",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13771,6 +16459,11 @@
       "presetNameEn": "Single-Arm Dumbbell Skull Crusher",
       "nameKo": "원암 덤벨 스컬 크러셔",
       "nameEn": "Single-Arm Dumbbell Skull Crusher",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13815,6 +16508,11 @@
       "presetNameEn": "Dumbbell Overhead Triceps Extension",
       "nameKo": "덤벨 오버헤드 트라이셉스 익스텐션",
       "nameEn": "Dumbbell Overhead Triceps Extension",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13859,6 +16557,11 @@
       "presetNameEn": "Dumbbell Kickback",
       "nameKo": "덤벨 킥백",
       "nameEn": "Dumbbell Kickback",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13899,6 +16602,11 @@
       "presetNameEn": "Single-Arm Dumbbell Overhead Extension",
       "nameKo": "원암 덤벨 오버헤드 익스텐션",
       "nameEn": "Single-Arm Dumbbell Overhead Extension",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13943,6 +16651,15 @@
       "presetNameEn": "JM Press",
       "nameKo": "JM 프레스",
       "nameEn": "JM Press",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "mid_chest"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 가슴"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -13985,6 +16702,11 @@
       "presetNameEn": "Barbell Skull Crusher",
       "nameKo": "바벨 스컬 크러셔",
       "nameEn": "Barbell Skull Crusher",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14027,6 +16749,11 @@
       "presetNameEn": "EZ-Bar Skull Crusher",
       "nameKo": "이지바 스컬 크러셔",
       "nameEn": "EZ-Bar Skull Crusher",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14071,6 +16798,11 @@
       "presetNameEn": "EZ-Bar Overhead Triceps Extension",
       "nameKo": "이지바 오버헤드 트라이셉스 익스텐션",
       "nameEn": "EZ-Bar Overhead Triceps Extension",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14115,6 +16847,17 @@
       "presetNameEn": "Close-Grip Bench Press",
       "nameKo": "클로즈 그립 벤치 프레스",
       "nameEn": "Close-Grip Bench Press",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "mid_chest",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "중부 가슴",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14160,6 +16903,11 @@
       "presetNameEn": "Single-Arm Cable Pushdown",
       "nameKo": "원암 케이블 푸쉬다운",
       "nameEn": "Single-Arm Cable Pushdown",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14202,6 +16950,11 @@
       "presetNameEn": "Cross-Body Cable Triceps Extension",
       "nameKo": "크로스바디 케이블 트라이셉스 익스텐션",
       "nameEn": "Cross-Body Cable Triceps Extension",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14246,6 +16999,11 @@
       "presetNameEn": "Cable Rope Pushdown",
       "nameKo": "케이블 로프 푸쉬다운",
       "nameEn": "Cable Rope Pushdown",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14288,6 +17046,15 @@
       "presetNameEn": "Cable Reverse-Grip Pushdown",
       "nameKo": "케이블 리버스 그립 푸쉬다운",
       "nameEn": "Cable Reverse-Grip Pushdown",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14331,6 +17098,15 @@
       "presetNameEn": "Single-Arm Reverse-Grip Cable Pushdown",
       "nameKo": "원암 케이블 리버스 그립 푸쉬다운",
       "nameEn": "Single-Arm Reverse-Grip Cable Pushdown",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "전완"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14375,6 +17151,11 @@
       "presetNameEn": "Cable Straight-Bar Pushdown",
       "nameKo": "케이블 스트레이트바 푸쉬다운",
       "nameEn": "Cable Straight-Bar Pushdown",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14420,6 +17201,11 @@
       "presetNameEn": "Cable Overhead Triceps Extension",
       "nameKo": "케이블 오버헤드 트라이셉스 익스텐션",
       "nameEn": "Cable Overhead Triceps Extension",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14464,6 +17250,11 @@
       "presetNameEn": "Single-Arm Cable Overhead Triceps Extension",
       "nameKo": "원암 케이블 오버헤드 트라이셉스 익스텐션",
       "nameEn": "Single-Arm Cable Overhead Triceps Extension",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14510,6 +17301,11 @@
       "presetNameEn": "Cable Triceps Kickback",
       "nameKo": "케이블 트라이셉스 킥백",
       "nameEn": "Cable Triceps Kickback",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14552,6 +17348,11 @@
       "presetNameEn": "Band Overhead Triceps Extension",
       "nameKo": "밴드 오버헤드 트라이셉스 익스텐션",
       "nameEn": "Band Overhead Triceps Extension",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -14596,6 +17397,11 @@
       "presetNameEn": "Band Triceps Pushdown",
       "nameKo": "밴드 트라이셉스 푸쉬다운",
       "nameEn": "Band Triceps Pushdown",
+      "primarySubPart": "triceps",
+      "primarySubPartNameKo": "삼두",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -14638,6 +17444,15 @@
       "presetNameEn": "Dead Bug",
       "nameKo": "데드 버그",
       "nameEn": "Dead Bug",
+      "primarySubPart": "core_stability",
+      "primarySubPartNameKo": "코어 안정화",
+      "secondarySubParts": [
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -14680,6 +17495,17 @@
       "presetNameEn": "Plank",
       "nameKo": "플랭크",
       "nameEn": "Plank",
+      "primarySubPart": "core_stability",
+      "primarySubPartNameKo": "코어 안정화",
+      "secondarySubParts": [
+        "transverse_abdominis",
+        "rectus_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근",
+        "복직근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "time",
       "defaultLoadState": "bodyweight",
@@ -14720,6 +17546,17 @@
       "presetNameEn": "Plank Shoulder Tap",
       "nameKo": "플랭크 숄더 탭",
       "nameEn": "Plank Shoulder Tap",
+      "primarySubPart": "core_stability",
+      "primarySubPartNameKo": "코어 안정화",
+      "secondarySubParts": [
+        "transverse_abdominis",
+        "front_delts"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근",
+        "전면 삼각근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -14764,6 +17601,17 @@
       "presetNameEn": "Hollow Body Hold",
       "nameKo": "할로우 바디 홀드",
       "nameEn": "Hollow Body Hold",
+      "primarySubPart": "core_stability",
+      "primarySubPartNameKo": "코어 안정화",
+      "secondarySubParts": [
+        "transverse_abdominis",
+        "rectus_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근",
+        "복직근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "time",
       "defaultLoadState": "bodyweight",
@@ -14806,6 +17654,17 @@
       "presetNameEn": "Barbell Rollout",
       "nameKo": "바벨 롤아웃",
       "nameEn": "Barbell Rollout",
+      "primarySubPart": "core_stability",
+      "primarySubPartNameKo": "코어 안정화",
+      "secondarySubParts": [
+        "rectus_abdominis",
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복직근",
+        "복횡근"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
@@ -14846,6 +17705,17 @@
       "presetNameEn": "Cable Pallof Press",
       "nameKo": "케이블 팔로프 프레스",
       "nameEn": "Cable Pallof Press",
+      "primarySubPart": "core_stability",
+      "primarySubPartNameKo": "코어 안정화",
+      "secondarySubParts": [
+        "obliques",
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "외복사근/내복사근",
+        "복횡근"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14888,6 +17758,17 @@
       "presetNameEn": "Band Pallof Press",
       "nameKo": "밴드 팔로프 프레스",
       "nameEn": "Band Pallof Press",
+      "primarySubPart": "core_stability",
+      "primarySubPartNameKo": "코어 안정화",
+      "secondarySubParts": [
+        "obliques",
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "외복사근/내복사근",
+        "복횡근"
+      ],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -14930,6 +17811,19 @@
       "presetNameEn": "Turkish Get-Up",
       "nameKo": "터키시 겟업",
       "nameEn": "Turkish Get-Up",
+      "primarySubPart": "core_stability",
+      "primarySubPartNameKo": "코어 안정화",
+      "secondarySubParts": [
+        "obliques",
+        "overall_shoulders",
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "외복사근/내복사근",
+        "어깨 전체",
+        "둔근"
+      ],
+      "equipmentNameKo": "케틀벨",
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -14974,6 +17868,17 @@
       "presetNameEn": "Ab Wheel Rollout",
       "nameKo": "AB휠 롤아웃",
       "nameEn": "Ab Wheel Rollout",
+      "primarySubPart": "core_stability",
+      "primarySubPartNameKo": "코어 안정화",
+      "secondarySubParts": [
+        "rectus_abdominis",
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복직근",
+        "복횡근"
+      ],
+      "equipmentNameKo": "기타",
       "legacyEquipment": "other",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
@@ -15018,6 +17923,15 @@
       "presetNameEn": "Russian Twist",
       "nameKo": "러시안 트위스트",
       "nameEn": "Russian Twist",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [
+        "rectus_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복직근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15060,6 +17974,15 @@
       "presetNameEn": "Bicycle Crunch",
       "nameKo": "바이시클 크런치",
       "nameEn": "Bicycle Crunch",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [
+        "rectus_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복직근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15102,6 +18025,17 @@
       "presetNameEn": "Side Plank",
       "nameKo": "사이드 플랭크",
       "nameEn": "Side Plank",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [
+        "core_stability",
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "코어 안정화",
+        "복횡근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "time",
       "defaultLoadState": "bodyweight",
@@ -15144,6 +18078,15 @@
       "presetNameEn": "Torso Rotation Machine",
       "nameKo": "토르소 로테이션 머신",
       "nameEn": "Torso Rotation Machine",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [
+        "core_stability"
+      ],
+      "secondarySubPartNamesKo": [
+        "코어 안정화"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -15186,6 +18129,15 @@
       "presetNameEn": "Dumbbell Russian Twist",
       "nameKo": "덤벨 러시안 트위스트",
       "nameEn": "Dumbbell Russian Twist",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [
+        "rectus_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복직근"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -15228,6 +18180,11 @@
       "presetNameEn": "Dumbbell Side Bend",
       "nameKo": "덤벨 사이드 벤드",
       "nameEn": "Dumbbell Side Bend",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -15270,6 +18227,15 @@
       "presetNameEn": "Landmine Rotation",
       "nameKo": "랜드마인 로테이션",
       "nameEn": "Landmine Rotation",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [
+        "core_stability"
+      ],
+      "secondarySubPartNamesKo": [
+        "코어 안정화"
+      ],
+      "equipmentNameKo": "바벨",
       "legacyEquipment": "barbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -15312,6 +18278,15 @@
       "presetNameEn": "Cable Woodchop",
       "nameKo": "케이블 우드찹",
       "nameEn": "Cable Woodchop",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [
+        "core_stability"
+      ],
+      "secondarySubPartNamesKo": [
+        "코어 안정화"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -15352,6 +18327,17 @@
       "presetNameEn": "Kettlebell Windmill",
       "nameKo": "케틀벨 윈드밀",
       "nameEn": "Kettlebell Windmill",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [
+        "core_stability",
+        "glutes"
+      ],
+      "secondarySubPartNamesKo": [
+        "코어 안정화",
+        "둔근"
+      ],
+      "equipmentNameKo": "케틀벨",
       "legacyEquipment": "kettlebell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -15392,6 +18378,15 @@
       "presetNameEn": "Plate Russian Twist",
       "nameKo": "플레이트 러시안 트위스트",
       "nameEn": "Plate Russian Twist",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [
+        "rectus_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복직근"
+      ],
+      "equipmentNameKo": "플레이트",
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -15434,6 +18429,11 @@
       "presetNameEn": "Plate Side Bend",
       "nameKo": "플레이트 사이드 벤드",
       "nameEn": "Plate Side Bend",
+      "primarySubPart": "obliques",
+      "primarySubPartNameKo": "외복사근/내복사근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "플레이트",
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -15476,6 +18476,15 @@
       "presetNameEn": "Leg Raise",
       "nameKo": "레그 레이즈",
       "nameEn": "Leg Raise",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15518,6 +18527,15 @@
       "presetNameEn": "Reverse Crunch",
       "nameKo": "리버스 크런치",
       "nameEn": "Reverse Crunch",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15560,6 +18578,15 @@
       "presetNameEn": "V-Up",
       "nameKo": "브이업",
       "nameEn": "V-Up",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "overall_abs"
+      ],
+      "secondarySubPartNamesKo": [
+        "복근 전체"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15602,6 +18629,15 @@
       "presetNameEn": "Sit-Up",
       "nameKo": "싯업",
       "nameEn": "Sit-Up",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "overall_abs"
+      ],
+      "secondarySubPartNamesKo": [
+        "복근 전체"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15644,6 +18680,15 @@
       "presetNameEn": "Captain’s Chair Knee Raise",
       "nameKo": "캡틴스 체어 니 레이즈",
       "nameEn": "Captain’s Chair Knee Raise",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15690,6 +18735,11 @@
       "presetNameEn": "Crunch",
       "nameKo": "크런치",
       "nameEn": "Crunch",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15730,6 +18780,11 @@
       "presetNameEn": "Toe Touch Crunch",
       "nameKo": "토 터치",
       "nameEn": "Toe Touch Crunch",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15772,6 +18827,17 @@
       "presetNameEn": "Hanging Knee Raise",
       "nameKo": "행잉 니 레이즈",
       "nameEn": "Hanging Knee Raise",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "transverse_abdominis",
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근",
+        "전완"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15816,6 +18882,17 @@
       "presetNameEn": "Hanging Leg Raise",
       "nameKo": "행잉 레그 레이즈",
       "nameEn": "Hanging Leg Raise",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "transverse_abdominis",
+        "forearms"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근",
+        "전완"
+      ],
+      "equipmentNameKo": "맨몸",
       "legacyEquipment": "bodyweight",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "bodyweight",
@@ -15860,6 +18937,11 @@
       "presetNameEn": "Ab Crunch Machine",
       "nameKo": "복근 크런치 머신",
       "nameEn": "Ab Crunch Machine",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -15902,6 +18984,15 @@
       "presetNameEn": "Captain’s Chair Leg Raise",
       "nameKo": "캡틴스 체어 레그 레이즈",
       "nameEn": "Captain’s Chair Leg Raise",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근"
+      ],
+      "equipmentNameKo": "머신",
       "legacyEquipment": "machine",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
@@ -15944,6 +19035,15 @@
       "presetNameEn": "Dumbbell Weighted Sit-Up",
       "nameKo": "덤벨 웨이티드 싯업",
       "nameEn": "Dumbbell Weighted Sit-Up",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "overall_abs"
+      ],
+      "secondarySubPartNamesKo": [
+        "복근 전체"
+      ],
+      "equipmentNameKo": "덤벨",
       "legacyEquipment": "dumbbell",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -15988,6 +19088,11 @@
       "presetNameEn": "Standing Cable Crunch",
       "nameKo": "스탠딩 케이블 크런치",
       "nameEn": "Standing Cable Crunch",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -16031,6 +19136,15 @@
       "presetNameEn": "Cable Reverse Crunch",
       "nameKo": "케이블 리버스 크런치",
       "nameEn": "Cable Reverse Crunch",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "transverse_abdominis"
+      ],
+      "secondarySubPartNamesKo": [
+        "복횡근"
+      ],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -16073,6 +19187,11 @@
       "presetNameEn": "Cable Crunch",
       "nameKo": "케이블 크런치",
       "nameEn": "Cable Crunch",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "케이블",
       "legacyEquipment": "cable",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -16113,6 +19232,11 @@
       "presetNameEn": "Band Crunch",
       "nameKo": "밴드 크런치",
       "nameEn": "Band Crunch",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "밴드",
       "legacyEquipment": "band",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "band_resisted",
@@ -16153,6 +19277,11 @@
       "presetNameEn": "Plate Weighted Crunch",
       "nameKo": "플레이트 웨이티드 크런치",
       "nameEn": "Plate Weighted Crunch",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [],
+      "secondarySubPartNamesKo": [],
+      "equipmentNameKo": "플레이트",
       "legacyEquipment": "plate",
       "legacyRecordType": "weight_reps",
       "defaultLoadState": "external_load",
@@ -16195,6 +19324,15 @@
       "presetNameEn": "Roman Chair Sit-Up",
       "nameKo": "로만 체어 싯업",
       "nameEn": "Roman Chair Sit-Up",
+      "primarySubPart": "rectus_abdominis",
+      "primarySubPartNameKo": "복직근",
+      "secondarySubParts": [
+        "overall_abs"
+      ],
+      "secondarySubPartNamesKo": [
+        "복근 전체"
+      ],
+      "equipmentNameKo": "기타",
       "legacyEquipment": "other",
       "legacyRecordType": "reps_only",
       "defaultLoadState": "external_load",
@@ -16240,6 +19378,7 @@
         "support": "knees"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "aliases": [
         "무릎 푸쉬업",
         "Kneeling Push-Up"
@@ -16260,6 +19399,7 @@
         "stance": "standard"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"high\",\"stance\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"high\",\"stance\":\"standard\"}",
       "illustrationKey": null,
@@ -16276,6 +19416,7 @@
         "stance": "standard"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"low\",\"stance\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"trap_bar\",\"handleHeight\":\"low\",\"stance\":\"standard\"}",
       "illustrationKey": null,
@@ -16292,6 +19433,7 @@
         "travelMode": "stationary"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "aliases": [
         "사이드 런지"
       ],
@@ -16311,6 +19453,7 @@
         "technique": "lateral_shift"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"cossack\",\"technique\":\"lateral_shift\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"cossack\",\"technique\":\"lateral_shift\"}",
       "illustrationKey": "barbell-back-squat",
@@ -16327,6 +19470,7 @@
         "laterality": "bilateral"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"support\":\"wall\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"bilateral\",\"support\":\"wall\"}",
       "illustrationKey": null,
@@ -16343,6 +19487,7 @@
         "laterality": "bilateral"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"support\":\"machine\"}",
       "visualVariantKey": "{\"equipment\":\"machine\",\"laterality\":\"bilateral\",\"support\":\"machine\"}",
       "illustrationKey": null,
@@ -16359,6 +19504,7 @@
         "limbPattern": "opposite_arm_leg"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"contralateral\",\"limbPattern\":\"opposite_arm_leg\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"laterality\":\"contralateral\",\"limbPattern\":\"opposite_arm_leg\"}",
       "illustrationKey": null,
@@ -16376,6 +19522,7 @@
         "technique": "copenhagen"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "time",
       "canonicalVariantKey": "{\"laterality\":\"unilateral\",\"orientation\":\"side\",\"support\":\"elevated_leg\",\"technique\":\"copenhagen\"}",
       "visualVariantKey": "{\"laterality\":\"unilateral\",\"orientation\":\"side\",\"support\":\"elevated_leg\",\"technique\":\"copenhagen\"}",
       "illustrationKey": null,
@@ -16393,6 +19540,7 @@
         "laterality": "bilateral"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"support\":\"prone_bench\",\"torsoAngle\":\"horizontal\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"laterality\":\"bilateral\",\"support\":\"prone_bench\",\"torsoAngle\":\"horizontal\"}",
       "illustrationKey": null,
@@ -16409,6 +19557,7 @@
         "bodyAngle": "inclined"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"bodyAngle\":\"inclined\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "visualVariantKey": "{\"bodyAngle\":\"inclined\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "illustrationKey": null,
@@ -16425,6 +19574,7 @@
         "gripWidth": "standard"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"gymnastic_rings\",\"gripOrientation\":\"dynamic\",\"gripWidth\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"gymnastic_rings\",\"gripOrientation\":\"dynamic\",\"gripWidth\":\"standard\"}",
       "illustrationKey": "pull-up",
@@ -16441,6 +19591,7 @@
         "emphasis": "general"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"emphasis\":\"general\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "visualVariantKey": "{\"emphasis\":\"general\",\"equipment\":\"gymnastic_rings\",\"support\":\"rings\"}",
       "illustrationKey": null,
@@ -16457,6 +19608,7 @@
         "laterality": "unilateral"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_time",
       "canonicalVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\"}",
       "visualVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"dumbbell\",\"laterality\":\"unilateral\"}",
       "illustrationKey": null,
@@ -16473,6 +19625,7 @@
         "laterality": "unilateral"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_time",
       "canonicalVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"kettlebell\",\"laterality\":\"unilateral\"}",
       "visualVariantKey": "{\"carryStyle\":\"suitcase\",\"equipment\":\"kettlebell\",\"laterality\":\"unilateral\"}",
       "illustrationKey": null,
@@ -16488,6 +19641,7 @@
         "rangeOfMotion": "standard"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"rangeOfMotion\":\"standard\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"rangeOfMotion\":\"standard\"}",
       "illustrationKey": null,
@@ -16503,6 +19657,7 @@
         "stance": "bilateral"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"bilateral\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"stance\":\"bilateral\"}",
       "illustrationKey": null,
@@ -16519,6 +19674,7 @@
         "technique": "bar"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"pull_up_bar\",\"technique\":\"bar\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"pull_up_bar\",\"technique\":\"bar\"}",
       "illustrationKey": null,
@@ -16535,6 +19691,7 @@
         "technique": "rings"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"gymnastic_rings\",\"support\":\"rings\",\"technique\":\"rings\"}",
       "visualVariantKey": "{\"equipment\":\"gymnastic_rings\",\"support\":\"rings\",\"technique\":\"rings\"}",
       "illustrationKey": null,
@@ -16550,6 +19707,7 @@
         "support": "bench"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"bench\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"support\":\"bench\"}",
       "illustrationKey": null,
@@ -16566,6 +19724,7 @@
         "legPosition": "straight"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "time",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"parallel_bars\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"parallel_bars\"}",
       "illustrationKey": null,
@@ -16582,6 +19741,7 @@
         "legPosition": "straight"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "time",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"floor\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"legPosition\":\"straight\",\"support\":\"floor\"}",
       "illustrationKey": null,
@@ -16598,6 +19758,7 @@
         "kneePosition": "straight"
       },
       "defaultLoadState": "bodyweight",
+      "recordType": "reps_only",
       "canonicalVariantKey": "{\"equipment\":\"bodyweight\",\"kneePosition\":\"straight\",\"support\":\"pull_up_bar\"}",
       "visualVariantKey": "{\"equipment\":\"bodyweight\",\"kneePosition\":\"straight\",\"support\":\"pull_up_bar\"}",
       "illustrationKey": null,
@@ -16614,6 +19775,7 @@
         "startPosition": "floor"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"clean\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"clean\"}",
       "illustrationKey": null,
@@ -16630,6 +19792,7 @@
         "startPosition": "floor"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_clean\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_clean\"}",
       "illustrationKey": null,
@@ -16646,6 +19809,7 @@
         "startPosition": "floor"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"snatch\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"snatch\"}",
       "illustrationKey": null,
@@ -16662,6 +19826,7 @@
         "startPosition": "floor"
       },
       "defaultLoadState": "external_load",
+      "recordType": "weight_reps",
       "canonicalVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_snatch\"}",
       "visualVariantKey": "{\"equipment\":\"barbell\",\"startPosition\":\"floor\",\"technique\":\"power_snatch\"}",
       "illustrationKey": null,

@@ -1755,6 +1755,7 @@ approvedNewPresets:
     equipment: bodyweight
     support: knees
   defaultLoadState: bodyweight
+  recordType: reps_only
   aliases:
   - 무릎 푸쉬업
   - Kneeling Push-Up
@@ -1767,6 +1768,7 @@ approvedNewPresets:
     handleHeight: high
     stance: standard
   defaultLoadState: external_load
+  recordType: weight_reps
 - presetId: trap_bar_deadlift_low_handles
   familyId: deadlift
   nameKo: 트랩바 데드리프트 - 로우 핸들
@@ -1776,6 +1778,7 @@ approvedNewPresets:
     handleHeight: low
     stance: standard
   defaultLoadState: external_load
+  recordType: weight_reps
 - presetId: lateral_lunge
   familyId: lunge
   nameKo: 라테랄 런지
@@ -1785,6 +1788,7 @@ approvedNewPresets:
     direction: lateral
     travelMode: stationary
   defaultLoadState: bodyweight
+  recordType: reps_only
   aliases:
   - 사이드 런지
 - presetId: cossack_squat
@@ -1796,6 +1800,7 @@ approvedNewPresets:
     stance: cossack
     technique: lateral_shift
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: wall_tibialis_raise
   familyId: tibialis_raise
   nameKo: 월 티비얼리스 레이즈
@@ -1805,6 +1810,7 @@ approvedNewPresets:
     support: wall
     laterality: bilateral
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: machine_tibialis_raise
   familyId: tibialis_raise
   nameKo: 티비얼리스 레이즈 머신
@@ -1814,6 +1820,7 @@ approvedNewPresets:
     support: machine
     laterality: bilateral
   defaultLoadState: external_load
+  recordType: weight_reps
 - presetId: bird_dog
   familyId: bird_dog
   nameKo: 버드독
@@ -1823,6 +1830,7 @@ approvedNewPresets:
     laterality: contralateral
     limbPattern: opposite_arm_leg
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: copenhagen_plank
   familyId: plank
   nameKo: 코펜하겐 플랭크
@@ -1833,6 +1841,7 @@ approvedNewPresets:
     laterality: unilateral
     technique: copenhagen
   defaultLoadState: bodyweight
+  recordType: time
 - presetId: barbell_seal_row
   familyId: row
   nameKo: 바벨 씰 로우
@@ -1843,6 +1852,7 @@ approvedNewPresets:
     torsoAngle: horizontal
     laterality: bilateral
   defaultLoadState: external_load
+  recordType: weight_reps
 - presetId: ring_row
   familyId: inverted_row
   nameKo: 링 로우
@@ -1852,6 +1862,7 @@ approvedNewPresets:
     support: rings
     bodyAngle: inclined
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: ring_pull_up
   familyId: pull_up
   nameKo: 링 풀업
@@ -1861,6 +1872,7 @@ approvedNewPresets:
     gripOrientation: dynamic
     gripWidth: standard
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: ring_dip
   familyId: dip
   nameKo: 링 딥스
@@ -1870,6 +1882,7 @@ approvedNewPresets:
     support: rings
     emphasis: general
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: dumbbell_suitcase_carry
   familyId: loaded_carry
   nameKo: 덤벨 수트케이스 캐리
@@ -1879,6 +1892,7 @@ approvedNewPresets:
     carryStyle: suitcase
     laterality: unilateral
   defaultLoadState: external_load
+  recordType: weight_time
 - presetId: kettlebell_suitcase_carry
   familyId: loaded_carry
   nameKo: 케틀벨 수트케이스 캐리
@@ -1888,6 +1902,7 @@ approvedNewPresets:
     carryStyle: suitcase
     laterality: unilateral
   defaultLoadState: external_load
+  recordType: weight_time
 - presetId: reverse_nordic_curl
   familyId: reverse_nordic_curl
   nameKo: 리버스 노르딕 컬
@@ -1896,6 +1911,7 @@ approvedNewPresets:
     equipment: bodyweight
     rangeOfMotion: standard
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: box_jump
   familyId: box_jump
   nameKo: 박스 점프
@@ -1904,6 +1920,7 @@ approvedNewPresets:
     equipment: bodyweight
     stance: bilateral
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: bar_muscle_up
   familyId: muscle_up
   nameKo: 바 머슬업
@@ -1913,6 +1930,7 @@ approvedNewPresets:
     support: pull_up_bar
     technique: bar
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: ring_muscle_up
   familyId: muscle_up
   nameKo: 링 머슬업
@@ -1922,6 +1940,7 @@ approvedNewPresets:
     support: rings
     technique: rings
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: dragon_flag
   familyId: dragon_flag
   nameKo: 드래곤 플래그
@@ -1930,6 +1949,7 @@ approvedNewPresets:
     equipment: bodyweight
     support: bench
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: parallel_bar_l_sit
   familyId: l_sit
   nameKo: 패러럴바 L-싯
@@ -1939,6 +1959,7 @@ approvedNewPresets:
     support: parallel_bars
     legPosition: straight
   defaultLoadState: bodyweight
+  recordType: time
 - presetId: floor_l_sit
   familyId: l_sit
   nameKo: 플로어 L-싯
@@ -1948,6 +1969,7 @@ approvedNewPresets:
     support: floor
     legPosition: straight
   defaultLoadState: bodyweight
+  recordType: time
 - presetId: hanging_windshield_wiper
   familyId: windshield_wiper
   nameKo: 행잉 윈드실드 와이퍼
@@ -1957,6 +1979,7 @@ approvedNewPresets:
     support: pull_up_bar
     kneePosition: straight
   defaultLoadState: bodyweight
+  recordType: reps_only
 - presetId: barbell_clean
   familyId: clean
   nameKo: 바벨 클린
@@ -1966,6 +1989,7 @@ approvedNewPresets:
     technique: clean
     startPosition: floor
   defaultLoadState: external_load
+  recordType: weight_reps
 - presetId: barbell_power_clean
   familyId: clean
   nameKo: 바벨 파워 클린
@@ -1975,6 +1999,7 @@ approvedNewPresets:
     technique: power_clean
     startPosition: floor
   defaultLoadState: external_load
+  recordType: weight_reps
 - presetId: barbell_snatch
   familyId: snatch
   nameKo: 바벨 스내치
@@ -1984,6 +2009,7 @@ approvedNewPresets:
     technique: snatch
     startPosition: floor
   defaultLoadState: external_load
+  recordType: weight_reps
 - presetId: barbell_power_snatch
   familyId: snatch
   nameKo: 바벨 파워 스내치
@@ -1993,6 +2019,7 @@ approvedNewPresets:
     technique: power_snatch
     startPosition: floor
   defaultLoadState: external_load
+  recordType: weight_reps
 deferredOutOfV1Scope:
 - items:
   - Sled Push

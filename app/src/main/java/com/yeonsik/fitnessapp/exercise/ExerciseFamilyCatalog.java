@@ -21,21 +21,25 @@ public final class ExerciseFamilyCatalog {
     private static final ExerciseFamilyCatalog EMPTY = new ExerciseFamilyCatalog(
             Collections.emptyMap(),
             Collections.emptyMap(),
-            Collections.emptyMap()
+            Collections.emptyMap(),
+            RuntimeExerciseCatalog.empty()
     );
 
     private final Map<String, ExerciseFamilyIdentity> identitiesByLegacyId;
     private final Map<String, ImageAssetRef> imageVariantsByKey;
     private final Map<String, ImageAssetRef> familyDefaultsByFamilyId;
+    private final RuntimeExerciseCatalog runtimeCatalog;
 
     private ExerciseFamilyCatalog(
             Map<String, ExerciseFamilyIdentity> identitiesByLegacyId,
             Map<String, ImageAssetRef> imageVariantsByKey,
-            Map<String, ImageAssetRef> familyDefaultsByFamilyId
+            Map<String, ImageAssetRef> familyDefaultsByFamilyId,
+            RuntimeExerciseCatalog runtimeCatalog
     ) {
         this.identitiesByLegacyId = Collections.unmodifiableMap(new LinkedHashMap<>(identitiesByLegacyId));
         this.imageVariantsByKey = Collections.unmodifiableMap(new LinkedHashMap<>(imageVariantsByKey));
         this.familyDefaultsByFamilyId = Collections.unmodifiableMap(new LinkedHashMap<>(familyDefaultsByFamilyId));
+        this.runtimeCatalog = runtimeCatalog == null ? RuntimeExerciseCatalog.empty() : runtimeCatalog;
     }
 
     public static ExerciseFamilyCatalog empty() {
@@ -125,7 +129,12 @@ public final class ExerciseFamilyCatalog {
                 }
             }
         }
-        return new ExerciseFamilyCatalog(identities, imageVariants, familyDefaults);
+        return new ExerciseFamilyCatalog(
+                identities,
+                imageVariants,
+                familyDefaults,
+                RuntimeExerciseCatalog.fromJson(document)
+        );
     }
 
     public ExerciseFamilyIdentity identityForLegacyId(String legacyExerciseId) {
@@ -175,6 +184,53 @@ public final class ExerciseFamilyCatalog {
 
     public int size() {
         return identitiesByLegacyId.size();
+    }
+
+    public RuntimeExerciseCatalog runtimeCatalog() {
+        return runtimeCatalog;
+    }
+
+    public RuntimeExerciseCatalog getRuntimeCatalog() {
+        return runtimeCatalog();
+    }
+
+    public RuntimeExercisePreset presetForLegacyId(String legacyExerciseId) {
+        return runtimeCatalog.presetForLegacyId(legacyExerciseId);
+    }
+
+    public ExerciseFamilyIdentity identityForStorageExerciseId(String storageExerciseId) {
+        if (storageExerciseId == null || storageExerciseId.trim().isEmpty()) {
+            return null;
+        }
+        ExerciseFamilyIdentity legacyIdentity = identityForLegacyId(storageExerciseId);
+        if (legacyIdentity != null) {
+            return legacyIdentity;
+        }
+        RuntimeExercisePreset preset = runtimeCatalog.presetForStorageExerciseId(storageExerciseId);
+        return identityForPreset(preset);
+    }
+
+    public ExerciseFamilyIdentity identityForPreset(RuntimeExercisePreset preset) {
+        if (preset == null) {
+            return null;
+        }
+        return new ExerciseFamilyIdentity(
+                preset.storageExerciseId,
+                preset.familyId,
+                preset.presetId,
+                preset.canonicalPresetId,
+                preset.nameKo,
+                preset.nameEn,
+                preset.legacyNameKo,
+                preset.legacyNameEn,
+                preset.defaultUiPart,
+                preset.canonicalVariantKey,
+                preset.visualVariantKey,
+                preset.illustrationKey,
+                preset.defaultLoadState == null ? null : preset.defaultLoadState.id(),
+                preset.recordType,
+                preset.variant.isEmpty() ? null : new JSONObject(preset.variant).toString()
+        );
     }
 
     private static String nullableString(JSONObject object, String key) {

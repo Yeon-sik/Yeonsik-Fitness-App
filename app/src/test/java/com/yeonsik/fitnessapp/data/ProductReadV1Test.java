@@ -130,6 +130,27 @@ public final class ProductReadV1Test {
     }
 
     @Test
+    public void packagedPickerLabelOmitsManufacturerButKeepsBrandHierarchy() {
+        ProductReadV1 product = new ProductReadV1(
+                CATALOG_ID,
+                STANDARD_ID,
+                "우삼겹 스키야끼",
+                "청정원",
+                "대상",
+                "호밍스",
+                null,
+                null,
+                null,
+                450.0,
+                "g",
+                1,
+                null
+        );
+
+        assertEquals("청정원 · 호밍스 · 우삼겹 스키야끼", product.standardProductLabel());
+    }
+
+    @Test
     public void adaptsVersionedContractWithSeparateBrandAndProductName() {
         Map<String, Object> standardProduct = new LinkedHashMap<>();
         standardProduct.put("id", STANDARD_ID);

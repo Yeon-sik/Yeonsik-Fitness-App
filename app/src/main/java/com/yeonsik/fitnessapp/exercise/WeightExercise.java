@@ -135,6 +135,12 @@ public final class WeightExercise {
     }
 
     public String displayName() {
+        if (familyIdentity != null) {
+            String canonicalName = familyIdentity.displayName();
+            if (canonicalName != null && !canonicalName.isEmpty()) {
+                return canonicalName;
+            }
+        }
         if (nameKo != null && !nameKo.isEmpty()) {
             return nameKo;
         }

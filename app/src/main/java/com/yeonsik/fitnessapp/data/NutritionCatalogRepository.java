@@ -57,6 +57,13 @@ public final class NutritionCatalogRepository {
             "owner_id",
             "name",
             "brand",
+            "manufacturer_name",
+            "brand_name",
+            "sub_brand_name",
+            "product_name",
+            "package_amount",
+            "package_unit",
+            "package_count",
             "kind",
             "category",
             "basis_amount",
@@ -110,6 +117,7 @@ public final class NutritionCatalogRepository {
     private static final String OCR_DINING_OUT_MENU_SOURCE_TYPE = "food_image_estimate";
     private static final String DINING_OUT_OPTION_SOURCE_TYPE = "manual_option";
     private static final int SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX = 50;
+    private static final int PACKAGED_PRODUCT_RESULT_LIMIT_MAX = 50;
 
     private final FitnessDatabaseHelper dbHelper;
     private volatile String userId;
@@ -210,12 +218,13 @@ public final class NutritionCatalogRepository {
         try (Cursor cursor = database.rawQuery(
                 "SELECT " + String.join(", ", FOOD_COLUMNS) + " " +
                         "FROM nutrition_foods " +
-                        "WHERE deleted_at IS NULL " +
+                "WHERE deleted_at IS NULL " +
                         "AND (visibility = 'public' OR owner_id = ?) " +
+                        "AND COALESCE(source_type, '') <> ? " +
                         "AND (name LIKE ? COLLATE NOCASE " +
                         "OR brand LIKE ? COLLATE NOCASE) " +
                         "ORDER BY kind ASC, brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC LIMIT 100",
-                new String[]{userId, like, like}
+                new String[]{userId, DINING_OUT_OPTION_SOURCE_TYPE, like, like}
         )) {
             while (cursor.moveToNext()) {
                 rows.add(readFoodRow(cursor));
@@ -229,6 +238,143 @@ public final class NutritionCatalogRepository {
             foods.add(buildFood(row, micronutrients.get((String) row[0])));
         }
         return foods;
+    }
+
+    /**
+     * Searches reusable packaged-food products, returning one representative package per
+     * canonical product. Package rows remain available through packagedFoodVariants().
+     */
+    public List<NutritionFood> searchPackagedFoods(String query, int limit) {
+        int safeLimit = Math.max(1, Math.min(limit, PACKAGED_PRODUCT_RESULT_LIMIT_MAX));
+        String like = "%" + (query == null ? "" : query.trim()) + "%";
+        List<NutritionFood> candidates = readFoods(
+                "kind = ? AND (visibility = 'public' OR owner_id = ?) " +
+                        "AND LOWER(COALESCE(source_type, '')) NOT IN (?, ?, ?) " +
+                        "AND (name LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(brand, '') LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(manufacturer_name, '') LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(brand_name, '') LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(sub_brand_name, '') LIKE ? COLLATE NOCASE " +
+                        "OR COALESCE(product_name, '') LIKE ? COLLATE NOCASE)",
+                new String[]{
+                        NutritionFood.KIND_EXTERNAL_MENU,
+                        userId,
+                        "manual_estimate",
+                        "food_image_estimate",
+                        DINING_OUT_OPTION_SOURCE_TYPE,
+                        like,
+                        like,
+                        like,
+                        like,
+                        like,
+                        like
+                },
+                "updated_at DESC, manufacturer_name COLLATE NOCASE ASC, " +
+                        "brand_name COLLATE NOCASE ASC, name COLLATE NOCASE ASC",
+                null
+        );
+        Map<String, NutritionFood> representatives = new LinkedHashMap<>();
+        for (NutritionFood candidate : candidates) {
+            if (!candidate.isPackagedFood()) {
+                continue;
+            }
+            representatives.putIfAbsent(canonicalPackagedProductKey(candidate), candidate);
+            if (representatives.size() >= safeLimit) {
+                break;
+            }
+        }
+        return new ArrayList<>(representatives.values());
+    }
+
+    public List<NutritionFood> searchPackagedFoods(String query) {
+        return searchPackagedFoods(query, PACKAGED_PRODUCT_RESULT_LIMIT_MAX);
+    }
+
+    /** Source-compatible name for callers that treat saved products as a catalog picker. */
+    public List<NutritionFood> savedPackagedFoods(String query, int limit) {
+        return searchPackagedFoods(query, limit);
+    }
+
+    public List<NutritionFood> savedPackagedFoods(String query) {
+        return searchPackagedFoods(query, PACKAGED_PRODUCT_RESULT_LIMIT_MAX);
+    }
+
+    /**
+     * Returns the package/variant rows belonging to one canonical packaged product. Duplicate
+     * rows for the same package are represented by their newest row because readFoods is ordered
+     * by updated_at descending.
+     */
+    public List<NutritionFood> packagedFoodVariants(NutritionFood product) {
+        if (product == null || !product.isPackagedFood()) {
+            return new ArrayList<>();
+        }
+        String canonicalKey = canonicalPackagedProductKey(product);
+        List<NutritionFood> candidates = readFoods(
+                "kind = ? AND (visibility = 'public' OR owner_id = ?) " +
+                        "AND LOWER(COALESCE(source_type, '')) NOT IN (?, ?, ?)",
+                new String[]{
+                        NutritionFood.KIND_EXTERNAL_MENU,
+                        userId,
+                        "manual_estimate",
+                        "food_image_estimate",
+                        DINING_OUT_OPTION_SOURCE_TYPE
+                },
+                "updated_at DESC, id ASC",
+                null
+        );
+        Map<String, NutritionFood> variants = new LinkedHashMap<>();
+        for (NutritionFood candidate : candidates) {
+            if (!candidate.isPackagedFood()
+                    || !canonicalKey.equals(canonicalPackagedProductKey(candidate))) {
+                continue;
+            }
+            variants.putIfAbsent(packagedVariantKey(candidate), candidate);
+        }
+        return new ArrayList<>(variants.values());
+    }
+
+    /** Canonical product identity; package amount/count are deliberately excluded. */
+    public String canonicalPackagedProductKey(NutritionFood food) {
+        if (food == null) {
+            return "unresolved|product";
+        }
+        ProductNutritionLink link = approvedProductLink(food.id);
+        if (link != null) {
+            if (link.standardProductId != null && !link.standardProductId.trim().isEmpty()) {
+                return "pricetrace|standard|" + normalizeIdentityText(link.standardProductId);
+            }
+            if (link.catalogProductId != null && !link.catalogProductId.trim().isEmpty()) {
+                return "pricetrace|catalog|" + normalizeIdentityText(link.catalogProductId);
+            }
+        }
+        return "local|manufacturer|" + normalizeIdentityText(food.manufacturerName)
+                + "|brand|" + normalizeIdentityText(
+                food.brandName == null ? food.brand : food.brandName
+        )
+                + "|sub_brand|" + normalizeIdentityText(food.subBrandName)
+                + "|product|" + normalizeIdentityText(
+                food.productName == null ? food.name : food.productName
+        );
+    }
+
+    private static String packagedVariantKey(NutritionFood food) {
+        String amount = food.packageAmount == null
+                ? ""
+                : NutritionCalculator.trim(food.packageAmount);
+        String unit = normalizeIdentityText(food.packageUnit);
+        String count = food.packageCount == null ? "" : String.valueOf(food.packageCount);
+        if (amount.isEmpty() && unit.isEmpty() && count.isEmpty()) {
+            return "basis|" + NutritionCalculator.trim(food.basisAmount)
+                    + "|" + normalizeIdentityText(food.basisUnit);
+        }
+        return "package|" + amount + "|" + unit + "|" + count;
+    }
+
+    private static String normalizeIdentityText(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 
     public NutritionFood findFoodById(String foodId) {
@@ -312,16 +458,16 @@ public final class NutritionCatalogRepository {
         if (normalizedStoreName.isEmpty()) {
             return new ArrayList<>();
         }
+        String normalizedStoreKey = normalizeDiningOutComponentName(normalizedStoreName);
         int safeLimit = Math.max(1, Math.min(limit, SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX));
         String normalizedQuery = query == null ? "" : query.trim();
         String normalizedGroupType = optionalDiningOutComponentGroupType(groupType);
         List<NutritionFood> candidates = readFoods(
-                "owner_id = ? AND kind = ? AND brand = ? COLLATE NOCASE "
-                        + "AND source_type = ? AND name LIKE ? COLLATE NOCASE",
+                "owner_id = ? AND kind = ? AND source_type = ? "
+                        + "AND name LIKE ? COLLATE NOCASE",
                 new String[]{
                         userId,
                         NutritionFood.KIND_EXTERNAL_MENU,
-                        normalizedStoreName,
                         DINING_OUT_OPTION_SOURCE_TYPE,
                         "%" + normalizedQuery + "%"
                 },
@@ -331,6 +477,9 @@ public final class NutritionCatalogRepository {
         List<NutritionFood> results = new ArrayList<>();
         Set<String> names = new LinkedHashSet<>();
         for (NutritionFood candidate : candidates) {
+            if (!normalizedStoreKey.equals(normalizeDiningOutComponentName(candidate.brand))) {
+                continue;
+            }
             if (normalizedGroupType != null
                     && !normalizedGroupType.equals(optionGroupType(candidate.sourceReference))) {
                 continue;
@@ -338,9 +487,7 @@ public final class NutritionCatalogRepository {
             if (!matchesDiningOutOptionIdentity(candidate, identity)) {
                 continue;
             }
-            String normalizedName = candidate.name == null
-                    ? ""
-                    : candidate.name.trim().toLowerCase(Locale.ROOT);
+            String normalizedName = normalizeDiningOutComponentName(candidate.name);
             String optionKey = optionGroupType(candidate.sourceReference) + "\u0000" + normalizedName;
             if (normalizedName.isEmpty() || !names.add(optionKey)) {
                 continue;
@@ -558,6 +705,11 @@ public final class NutritionCatalogRepository {
         }
     }
 
+    static String normalizeDiningOutComponentName(String value) {
+        String normalized = value == null ? "" : value.trim();
+        return normalized.replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
+    }
+
     private static String requiredId(String value, String label) {
         String normalized = value == null ? "" : value.trim();
         if (normalized.isEmpty()) {
@@ -619,16 +771,20 @@ public final class NutritionCatalogRepository {
         try {
             JSONObject reference = new JSONObject(food.sourceReference);
             String restaurantId = nullableString(reference, "restaurant_id");
-            String locationId = nullableString(reference, "restaurant_location_id");
-            // Options are reusable at restaurant scope, not menu scope. Keep the location
-            // fallback only for historical rows that never stored a restaurant ID.
-            if (restaurantId == null && locationId == null) {
+            String restaurantName = nullableString(reference, "restaurant_name");
+            // Components are reusable at restaurant scope. Branch/location and menu IDs are
+            // snapshots or catalog context, not reusable component identity.
+            if (restaurantId == null && restaurantName == null) {
                 return true;
             }
             if (restaurantId != null) {
-                return identity.restaurantId.equals(restaurantId);
+                return identity.restaurantId.equals(restaurantId)
+                        || (restaurantName != null
+                        && normalizeDiningOutComponentName(identity.restaurantName)
+                        .equals(normalizeDiningOutComponentName(restaurantName)));
             }
-            return identity.restaurantLocationId.equals(locationId);
+            return normalizeDiningOutComponentName(identity.restaurantName)
+                    .equals(normalizeDiningOutComponentName(restaurantName));
         } catch (JSONException error) {
             return false;
         }
@@ -860,6 +1016,150 @@ public final class NutritionCatalogRepository {
     }
 
     /**
+     * Saves one Fitness nutrition row for a packaged-food package/variant.
+     * PriceTrace remains the canonical product owner; an exact product, when supplied, is
+     * recorded only through product_nutrition_links.
+     */
+    public NutritionFood savePackagedFood(
+            String manufacturerName,
+            String brandName,
+            String subBrandName,
+            String productName,
+            Double packageAmount,
+            String packageUnit,
+            Integer packageCount,
+            double basisAmount,
+            String basisUnit,
+            String prepState,
+            NutritionProfile profile,
+            String sourceType,
+            String sourceReference,
+            String sourceVersion
+    ) {
+        return savePackagedFood(
+                manufacturerName,
+                brandName,
+                subBrandName,
+                productName,
+                packageAmount,
+                packageUnit,
+                packageCount,
+                basisAmount,
+                basisUnit,
+                prepState,
+                profile,
+                sourceType,
+                sourceReference,
+                sourceVersion,
+                null
+        );
+    }
+
+    /** Saves a packaged package/variant and optionally creates an exact PriceTrace link. */
+    public NutritionFood savePackagedFood(
+            String manufacturerName,
+            String brandName,
+            String subBrandName,
+            String productName,
+            Double packageAmount,
+            String packageUnit,
+            Integer packageCount,
+            double basisAmount,
+            String basisUnit,
+            String prepState,
+            NutritionProfile profile,
+            String sourceType,
+            String sourceReference,
+            String sourceVersion,
+            ProductReadV1 exactProduct
+    ) {
+        String normalizedProductName = emptyToNull(productName);
+        String normalizedManufacturerName = emptyToNull(manufacturerName);
+        String normalizedBrandName = emptyToNull(brandName);
+        String normalizedSubBrandName = emptyToNull(subBrandName);
+        Double resolvedPackageAmount = packageAmount;
+        String resolvedPackageUnit = normalizePackagedUnit(packageUnit);
+        Integer resolvedPackageCount = packageCount;
+        if (exactProduct != null) {
+            if (normalizedManufacturerName == null) {
+                normalizedManufacturerName = exactProduct.manufacturerName;
+            }
+            if (normalizedBrandName == null) {
+                normalizedBrandName = exactProduct.brand;
+            }
+            if (normalizedSubBrandName == null) {
+                normalizedSubBrandName = exactProduct.subBrandName;
+            }
+            if (productName == null || productName.trim().isEmpty()) {
+                normalizedProductName = exactProduct.name;
+            }
+            if (resolvedPackageAmount == null) {
+                resolvedPackageAmount = exactProduct.contentAmount;
+            }
+            if (resolvedPackageUnit == null) {
+                resolvedPackageUnit = normalizePackagedUnit(exactProduct.contentUnit);
+            }
+            if (resolvedPackageCount == null) {
+                resolvedPackageCount = exactProduct.packageCount;
+            }
+        }
+        normalizedProductName = requireName(normalizedProductName);
+        if (resolvedPackageAmount != null && resolvedPackageAmount <= 0) {
+            throw new IllegalArgumentException("포장 용량은 0보다 커야 합니다.");
+        }
+        if (resolvedPackageAmount != null && resolvedPackageUnit == null) {
+            throw new IllegalArgumentException("포장 용량의 단위를 입력하세요.");
+        }
+        if (resolvedPackageCount != null && resolvedPackageCount <= 0) {
+            throw new IllegalArgumentException("포장 개수는 0보다 커야 합니다.");
+        }
+        if (basisAmount <= 0) {
+            throw new IllegalArgumentException("Basis amount must be greater than zero.");
+        }
+        String normalizedBasisUnit = NutritionUnit.requireSupported(basisUnit);
+        NutritionProfile normalizedProfile = requireRequiredNutrients(profile);
+        String normalizedSourceType = emptyToDefault(
+                sourceType,
+                exactProduct == null ? "manual" : "pricetrace_manual"
+        );
+        NutritionFood food = NutritionFood.builder()
+                .id(UUID.randomUUID().toString())
+                .ownerId(userId)
+                .name(normalizedProductName)
+                .brand(normalizedBrandName)
+                .manufacturerName(normalizedManufacturerName)
+                .brandName(normalizedBrandName)
+                .subBrandName(normalizedSubBrandName)
+                .productName(normalizedProductName)
+                .packageAmount(resolvedPackageAmount)
+                .packageUnit(resolvedPackageUnit)
+                .packageCount(resolvedPackageCount)
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .category(NutritionFood.CATEGORY_PROCESSED)
+                .basis(basisAmount, normalizedBasisUnit)
+                .prepState(emptyToDefault(prepState, NutritionFood.PREP_UNSPECIFIED))
+                .profile(normalizedProfile)
+                .source(normalizedSourceType, emptyToNull(sourceReference))
+                .sourceVersion(emptyToNull(sourceVersion))
+                .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
+                .build();
+
+        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        database.beginTransaction();
+        try {
+            database.insertOrThrow("nutrition_foods", null, foodValues(food, now()));
+            replaceMicronutrients(database, food);
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        if (exactProduct != null) {
+            linkProduct(food.id, exactProduct);
+        }
+        return food;
+    }
+
+    /**
      * Saves a dining-out menu as a private external-menu catalog row.
      *
      * <p>The macro values are user-entered estimates, so this path intentionally stores the
@@ -1018,14 +1318,7 @@ public final class NutritionCatalogRepository {
             String branchName,
             DiningOutIdentity identity
     ) {
-        String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
-        String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
         MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
-        if (!MealEntryPolicy.hasDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams)) {
-            throw new IllegalArgumentException(
-                    "메뉴로 저장하려면 추정 탄수화물·단백질·지방을 입력하세요."
-            );
-        }
         if (calories != null && calories < 0) {
             throw new IllegalArgumentException("칼로리는 0 이상인 숫자로 입력하세요.");
         }
@@ -1046,11 +1339,54 @@ public final class NutritionCatalogRepository {
                 .value(NutritionProfile.SUGARS_GRAMS, sugarsGrams)
                 .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFatGrams)
                 .build();
+        return saveDiningOutMenuWithNutrition(
+                storeName,
+                menuName,
+                profile,
+                branchName,
+                identity
+        );
+    }
+
+    /** Saves a reusable dining-out menu without dropping already-known nutrition fields. */
+    public NutritionFood saveDiningOutMenuWithNutrition(
+            String storeName,
+            String menuName,
+            NutritionProfile profile,
+            String branchName,
+            DiningOutIdentity identity
+    ) {
+        String normalizedStoreName = MealEntryPolicy.requireDiningOutStoreName(storeName);
+        String normalizedMenuName = MealEntryPolicy.requireDiningOutMenuName(menuName);
+        NutritionProfile sourceProfile = profile == null
+                ? NutritionProfile.empty()
+                : profile;
+        Double carbsGrams = sourceProfile.value(NutritionProfile.CARBS_GRAMS);
+        Double proteinGrams = sourceProfile.value(NutritionProfile.PROTEIN_GRAMS);
+        Double fatGrams = sourceProfile.value(NutritionProfile.FAT_GRAMS);
+        MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
+        if (!MealEntryPolicy.hasDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams)) {
+            throw new IllegalArgumentException(
+                    "메뉴로 저장하려면 추정 탄수화물·단백질·지방을 입력하세요."
+            );
+        }
+        Double calories = sourceProfile.value(NutritionProfile.CALORIES_KCAL);
+        double resolvedCalories = calories == null
+                ? MealEntryPolicy.estimatedDiningOutCalories(
+                carbsGrams,
+                proteinGrams,
+                fatGrams
+        )
+                : calories;
+        NutritionProfile normalizedProfile = NutritionProfile.builder()
+                .from(sourceProfile)
+                .value(NutritionProfile.CALORIES_KCAL, resolvedCalories)
+                .build();
         return saveDiningOutMenuCatalogRow(
                 normalizedStoreName,
                 normalizedMenuName,
-                profile,
-                profile.hasAllRequired()
+                normalizedProfile,
+                normalizedProfile.hasAllRequired()
                         ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
                         : NutritionFood.DATA_VERSION_MACROS_ONLY,
                 diningOutMenuSourceReference(
@@ -1124,22 +1460,8 @@ public final class NutritionCatalogRepository {
                     )
             );
         }
-        if (!component.hasCompleteMacros()) {
-            throw new IllegalArgumentException(
-                    "구성품 영양성분은 칼로리와 탄수화물·단백질·지방을 모두 입력해야 합니다."
-            );
-        }
-        Double protein = profile.value(NutritionProfile.PROTEIN_GRAMS);
-        Double carbs = profile.value(NutritionProfile.CARBS_GRAMS);
-        Double fat = profile.value(NutritionProfile.FAT_GRAMS);
-        MealEntryPolicy.requireDiningOutEstimatedMacros(carbs, protein, fat);
-        double calories = profile.isKnown(NutritionProfile.CALORIES_KCAL)
-                ? profile.calories()
-                : MealEntryPolicy.estimatedDiningOutCalories(carbs, protein, fat);
-        profile = NutritionProfile.builder()
-                .from(profile)
-                .value(NutritionProfile.CALORIES_KCAL, calories)
-                .build();
+        // A component profile may be partial or entirely unknown. Never infer a missing value
+        // from the component name or from other macros; NULL and numeric zero are distinct.
         return saveDiningOutOptionCatalogRow(
                 normalizedStoreName,
                 normalizedMenuName,
@@ -1303,13 +1625,11 @@ public final class NutritionCatalogRepository {
             }
         } else {
             List<NutritionFood> candidates = readFoods(
-                    "owner_id = ? AND kind = ? AND name = ? COLLATE NOCASE " +
-                            "AND brand = ? COLLATE NOCASE AND source_type = ?",
+                    "owner_id = ? AND kind = ? " +
+                            "AND source_type = ?",
                     new String[]{
                             userId,
                             NutritionFood.KIND_EXTERNAL_MENU,
-                            normalizedFoodName,
-                            normalizedStoreName,
                             sourceType
                     },
                     "updated_at DESC, id ASC",
@@ -1317,7 +1637,11 @@ public final class NutritionCatalogRepository {
             );
             String requestedGroup = optionGroupType(sourceReference);
             for (NutritionFood candidate : candidates) {
-                if (!requestedGroup.equals(optionGroupType(candidate.sourceReference))
+                if (!normalizeDiningOutComponentName(normalizedStoreName)
+                        .equals(normalizeDiningOutComponentName(candidate.brand))
+                        || !requestedGroup.equals(optionGroupType(candidate.sourceReference))
+                        || !normalizeDiningOutComponentName(normalizedFoodName)
+                        .equals(normalizeDiningOutComponentName(candidate.name))
                         || !sameDiningOutRestaurantScope(
                         sourceReference,
                         candidate.sourceReference
@@ -2208,7 +2532,8 @@ public final class NutritionCatalogRepository {
                         "l.standard_product_id, l.status, l.source_type, l.proposal_reference, " +
                         "l.revision, l.reviewed_at, l.catalog_product_revision, " +
                         "l.catalog_content_amount, l.catalog_content_unit, l.catalog_package_count, " +
-                        "c.standard_product_id, c.product_name, c.brand_name, c.seller_name, " +
+                        "c.standard_product_id, c.product_name, c.brand_name, " +
+                        "c.manufacturer_name, c.sub_brand_name, c.seller_name, " +
                         "c.latest_price_krw, c.price_observed_at, c.content_amount, c.content_unit, " +
                         "c.package_count, c.catalog_product_revision " +
                         "FROM product_nutrition_links l " +
@@ -2226,15 +2551,17 @@ public final class NutritionCatalogRepository {
                         product = new ProductReadV1(
                                 cursor.getString(3),
                                 cursor.isNull(4) ? cursor.isNull(14) ? null : cursor.getString(14) : cursor.getString(4),
-                                cursor.getString(15),
-                                cursor.isNull(16) ? null : cursor.getString(16),
-                                cursor.isNull(17) ? null : cursor.getString(17),
-                                cursor.isNull(18) ? null : cursor.getInt(18),
-                                cursor.isNull(19) ? null : cursor.getString(19),
-                                cursor.isNull(20) ? null : cursor.getDouble(20),
-                                cursor.isNull(21) ? null : cursor.getString(21),
-                                cursor.isNull(22) ? null : cursor.getInt(22),
-                                cursor.isNull(23) ? null : cursor.getString(23)
+                                 cursor.getString(15),
+                                 cursor.isNull(16) ? null : cursor.getString(16),
+                                 cursor.isNull(17) ? null : cursor.getString(17),
+                                 cursor.isNull(18) ? null : cursor.getString(18),
+                                 cursor.isNull(19) ? null : cursor.getString(19),
+                                 cursor.isNull(20) ? null : cursor.getInt(20),
+                                 cursor.isNull(21) ? null : cursor.getString(21),
+                                 cursor.isNull(22) ? null : cursor.getDouble(22),
+                                 cursor.isNull(23) ? null : cursor.getString(23),
+                                 cursor.isNull(24) ? null : cursor.getInt(24),
+                                 cursor.isNull(25) ? null : cursor.getString(25)
                         );
                     } catch (IllegalArgumentException ignored) {
                         // A corrupt cache must not hide the underlying exact link decision.
@@ -2311,6 +2638,8 @@ public final class NutritionCatalogRepository {
         putNullable(values, "standard_product_id", product.standardProductId);
         values.put("product_name", product.name);
         putNullable(values, "brand_name", product.brand);
+        putNullable(values, "manufacturer_name", product.manufacturerName);
+        putNullable(values, "sub_brand_name", product.subBrandName);
         putNullable(values, "seller_name", product.sellerName);
         if (product.latestObservedPriceKrw == null) {
             values.putNull("latest_price_krw");
@@ -2601,6 +2930,17 @@ public final class NutritionCatalogRepository {
                 putNullable(values, "owner_id", nullableString(row, "owner_id"));
                 values.put("name", name);
                 putNullable(values, "brand", nullableString(row, "brand"));
+                putNullable(values, "manufacturer_name", nullableString(row, "manufacturer_name"));
+                putNullable(values, "brand_name", nullableString(row, "brand_name"));
+                putNullable(values, "sub_brand_name", nullableString(row, "sub_brand_name"));
+                putNullable(values, "product_name", nullableString(row, "product_name"));
+                putNullableDouble(values, "package_amount", nullableDouble(row, "package_amount"));
+                putNullable(values, "package_unit", nullableString(row, "package_unit"));
+                if (row.has("package_count") && !row.isNull("package_count")) {
+                    values.put("package_count", row.optInt("package_count"));
+                } else {
+                    values.putNull("package_count");
+                }
                 String kind = NutritionFood.normalizeKind(
                         row.optString("kind", NutritionFood.KIND_EXTERNAL_MENU));
                 values.put("kind", kind);
@@ -2851,6 +3191,17 @@ public final class NutritionCatalogRepository {
         values.put("owner_id", food.ownerId);
         values.put("name", food.name);
         putNullable(values, "brand", food.brand);
+        putNullable(values, "manufacturer_name", food.manufacturerName);
+        putNullable(values, "brand_name", food.brandName);
+        putNullable(values, "sub_brand_name", food.subBrandName);
+        putNullable(values, "product_name", food.productName);
+        putNullableDouble(values, "package_amount", food.packageAmount);
+        putNullable(values, "package_unit", food.packageUnit);
+        if (food.packageCount == null) {
+            values.putNull("package_count");
+        } else {
+            values.put("package_count", food.packageCount);
+        }
         values.put("kind", food.kind);
         values.put("category", food.category);
         values.put("basis_amount", food.basisAmount);
@@ -2951,11 +3302,11 @@ public final class NutritionCatalogRepository {
 
     private NutritionFood buildFood(Object[] row, Map<String, Double> micronutrients) {
         NutritionProfile.Builder profile = NutritionProfile.builder()
-                .value(NutritionProfile.CALORIES_KCAL, doubleAt(row, 10))
-                .value(NutritionProfile.PROTEIN_GRAMS, doubleAt(row, 11))
-                .value(NutritionProfile.CARBS_GRAMS, doubleAt(row, 12))
-                .value(NutritionProfile.FAT_GRAMS, doubleAt(row, 13));
-        int columnIndex = 14;
+                .value(NutritionProfile.CALORIES_KCAL, doubleAt(row, 17))
+                .value(NutritionProfile.PROTEIN_GRAMS, doubleAt(row, 18))
+                .value(NutritionProfile.CARBS_GRAMS, doubleAt(row, 19))
+                .value(NutritionProfile.FAT_GRAMS, doubleAt(row, 20));
+        int columnIndex = 21;
         for (String key : nullableTypedKeys()) {
             profile.value(key, doubleAt(row, columnIndex++));
         }
@@ -2965,21 +3316,28 @@ public final class NutritionCatalogRepository {
             }
         }
 
-        Double dataVersion = doubleAt(row, 24);
-        Double revision = doubleAt(row, 25);
+        Double dataVersion = doubleAt(row, 31);
+        Double revision = doubleAt(row, 32);
         return NutritionFood.builder()
                 .id(stringAt(row, 0))
                 .ownerId(stringAt(row, 1))
                 .name(stringAt(row, 2))
                 .brand(stringAt(row, 3))
-                .kind(stringAt(row, 4))
-                .category(stringAt(row, 5))
-                .basis(positiveOrDefault(doubleAt(row, 6)), emptyToDefault(stringAt(row, 7), "serving"))
-                .prepState(stringAt(row, 8))
-                .cookingMethod(stringAt(row, 9))
+                .manufacturerName(stringAt(row, 4))
+                .brandName(stringAt(row, 5))
+                .subBrandName(stringAt(row, 6))
+                .productName(stringAt(row, 7))
+                .packageAmount(doubleAt(row, 8))
+                .packageUnit(stringAt(row, 9))
+                .packageCount(integerAt(row, 10))
+                .kind(stringAt(row, 11))
+                .category(stringAt(row, 12))
+                .basis(positiveOrDefault(doubleAt(row, 13)), emptyToDefault(stringAt(row, 14), "serving"))
+                .prepState(stringAt(row, 15))
+                .cookingMethod(stringAt(row, 16))
                 .profile(profile.build())
-                .source(emptyToDefault(stringAt(row, 21), "manual"), stringAt(row, 22))
-                .sourceVersion(stringAt(row, 23))
+                .source(emptyToDefault(stringAt(row, 28), "manual"), stringAt(row, 29))
+                .sourceVersion(stringAt(row, 30))
                 .dataVersion(dataVersion == null
                         ? NutritionFood.DATA_VERSION_MACROS_ONLY
                         : (int) Math.round(dataVersion))
@@ -3386,8 +3744,24 @@ public final class NutritionCatalogRepository {
         }
     }
 
+    private static Integer integerAt(Object[] row, int index) {
+        Double value = doubleAt(row, index);
+        return value == null ? null : (int) Math.round(value);
+    }
+
     private static double positiveOrDefault(Double value) {
         return value == null || value <= 0 ? 1.0 : value;
+    }
+
+    private static String normalizePackagedUnit(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        String normalized = NutritionUnit.normalize(value);
+        if ("each".equals(normalized)) {
+            return normalized;
+        }
+        return NutritionUnit.requireSupported(normalized);
     }
 
     private static String nullableString(JSONObject object, String key) {
@@ -3456,18 +3830,15 @@ public final class NutritionCatalogRepository {
      */
     private static final class DiningOutMenuCanonicalIdentity {
         private final String restaurantMenuId;
-        private final String restaurantId;
         private final String normalizedStoreName;
         private final String normalizedMenuName;
 
         private DiningOutMenuCanonicalIdentity(
                 String restaurantMenuId,
-                String restaurantId,
                 String normalizedStoreName,
                 String normalizedMenuName
         ) {
             this.restaurantMenuId = restaurantMenuId;
-            this.restaurantId = restaurantId;
             this.normalizedStoreName = normalizedStoreName;
             this.normalizedMenuName = normalizedMenuName;
         }
@@ -3497,15 +3868,11 @@ public final class NutritionCatalogRepository {
                             nullableString(source, "normalized_menu_name"),
                             nullableString(source, "menu_name")
                     );
-            String sourceRestaurantId = source == null
-                    ? null
-                    : nullableString(source, "restaurant_id");
             String sourceRestaurantMenuId = source == null
                     ? null
                     : nullableString(source, "restaurant_menu_id");
             return new DiningOutMenuCanonicalIdentity(
                     normalizeIdentityToken(sourceRestaurantMenuId),
-                    normalizeIdentityToken(sourceRestaurantId),
                     normalizeDiningOutIdentityText(firstNonBlank(storeName, sourceStoreName)),
                     normalizeDiningOutIdentityText(firstNonBlank(menuName, sourceMenuName))
             );
@@ -3515,34 +3882,13 @@ public final class NutritionCatalogRepository {
             if (!restaurantMenuId.isEmpty()) {
                 return "restaurant_menu_id|" + restaurantMenuId;
             }
-            if (!restaurantId.isEmpty()) {
-                return "restaurant_id|" + restaurantId + "|menu|" + normalizedMenuName;
-            }
             return "store|" + normalizedStoreName + "|menu|" + normalizedMenuName;
         }
 
         private boolean matches(DiningOutMenuCanonicalIdentity candidate) {
-            if (!restaurantMenuId.isEmpty()) {
-                if (!candidate.restaurantMenuId.isEmpty()) {
-                    return restaurantMenuId.equals(candidate.restaurantMenuId);
-                }
-                return !restaurantId.isEmpty()
-                        && restaurantId.equals(candidate.restaurantId)
-                        && normalizedMenuName.equals(candidate.normalizedMenuName);
-            }
-            if (!candidate.restaurantMenuId.isEmpty()) {
-                return false;
-            }
-            if (!restaurantId.isEmpty()) {
-                if (!candidate.restaurantId.isEmpty()) {
-                    return restaurantId.equals(candidate.restaurantId)
-                            && normalizedMenuName.equals(candidate.normalizedMenuName);
-                }
-                return normalizedStoreName.equals(candidate.normalizedStoreName)
-                        && normalizedMenuName.equals(candidate.normalizedMenuName);
-            }
-            if (!candidate.restaurantId.isEmpty()) {
-                return false;
+            if (!restaurantMenuId.isEmpty() || !candidate.restaurantMenuId.isEmpty()) {
+                return !restaurantMenuId.isEmpty()
+                        && restaurantMenuId.equals(candidate.restaurantMenuId);
             }
             return normalizedStoreName.equals(candidate.normalizedStoreName)
                     && normalizedMenuName.equals(candidate.normalizedMenuName);

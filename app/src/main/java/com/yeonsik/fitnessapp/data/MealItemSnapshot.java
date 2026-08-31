@@ -22,6 +22,13 @@ public final class MealItemSnapshot {
     public final String foodId;
     public final String foodNameSnapshot;
     public final String brandSnapshot;
+    public final String manufacturerNameSnapshot;
+    public final String brandNameSnapshot;
+    public final String subBrandNameSnapshot;
+    public final String productNameSnapshot;
+    public final Double packageAmountSnapshot;
+    public final String packageUnitSnapshot;
+    public final Integer packageCountSnapshot;
     public final String foodKindSnapshot;
     public final double quantity;
     public final String unit;
@@ -51,6 +58,13 @@ public final class MealItemSnapshot {
         this.foodId = food.id;
         this.foodNameSnapshot = food.name;
         this.brandSnapshot = food.brand;
+        this.manufacturerNameSnapshot = food.manufacturerName;
+        this.brandNameSnapshot = food.brandName;
+        this.subBrandNameSnapshot = food.subBrandName;
+        this.productNameSnapshot = food.productName;
+        this.packageAmountSnapshot = food.packageAmount;
+        this.packageUnitSnapshot = food.packageUnit;
+        this.packageCountSnapshot = food.packageCount;
         this.foodKindSnapshot = food.kind;
         this.quantity = item.quantity;
         this.unit = food.basisUnit;

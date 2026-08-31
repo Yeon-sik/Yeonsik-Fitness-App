@@ -11,13 +11,34 @@ public final class ExerciseMasterAdapter {
 
         return new RoutineExercise(
                 exercise.id,
-                exercise.nameKo,
+                exercise.displayName(),
                 exercise.nameEn,
                 exercise.bodyPart,
                 exercise.equipmentType,
+                exercise.equipmentType == null ? null : exercise.equipmentType.id(),
                 exercise.primarySubPartNameKo,
                 exercise.recordType,
                 exercise.familyIdentity
+        );
+    }
+
+    public static RoutineExercise toRoutineExercise(RuntimeExercisePreset preset) {
+        if (preset == null) {
+            return null;
+        }
+        BodyPart bodyPart = BodyPart.fromId(preset.defaultUiPart);
+        EquipmentType equipmentType = EquipmentType.fromId(preset.equipmentVariantId);
+        ExerciseFamilyIdentity identity = ExerciseFamilyCatalog.empty().identityForPreset(preset);
+        return new RoutineExercise(
+                preset.storageExerciseId,
+                preset.displayName(),
+                preset.nameEn,
+                bodyPart,
+                equipmentType == null ? EquipmentType.OTHER : equipmentType,
+                preset.equipmentVariantId,
+                preset.primarySubPartNameKo,
+                preset.recordType,
+                identity
         );
     }
 }

@@ -60,13 +60,16 @@ public final class ExerciseFamilyIdentity {
 
     /** Detailed preset/legacy name for routine, workout, and history rows. */
     public String displayName() {
-        if (legacyNameKo != null && !legacyNameKo.trim().isEmpty()) {
-            return legacyNameKo;
-        }
         if (presetNameKo != null && !presetNameKo.trim().isEmpty()) {
             return presetNameKo;
         }
-        return legacyNameEn == null ? presetNameEn : legacyNameEn;
+        if (legacyNameKo != null && !legacyNameKo.trim().isEmpty()) {
+            return legacyNameKo;
+        }
+        if (presetNameEn != null && !presetNameEn.trim().isEmpty()) {
+            return presetNameEn;
+        }
+        return legacyNameEn;
     }
 
     public LoadState defaultLoadStateValue() {
