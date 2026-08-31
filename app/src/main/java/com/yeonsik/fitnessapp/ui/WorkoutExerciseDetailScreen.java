@@ -25,6 +25,7 @@ import com.yeonsik.fitnessapp.exercise.LoadState;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -377,6 +378,16 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         headerRow.addView(restStepper());
         setCard.addView(headerRow);
 
+        TextView totalVolumeComparison = totalVolumeComparisonLabel(
+                ui,
+                activeExercise.recordType,
+                lastHistory
+        );
+        List<LiveVolumeInput> liveVolumeInputs = new ArrayList<>();
+        if (totalVolumeComparison != null) {
+            setCard.addView(totalVolumeComparison, ui.fullWidthParams(ui.dp(8)));
+        }
+
         // 이전 세션의 세트 인덱스별 참조값
         Map<Integer, FitnessRepository.SessionSetEntry> previousBySetIndex = new HashMap<>();
         if (lastHistory != null) {
@@ -408,7 +419,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     recordId,
                     activeExercise,
                     set,
-                    previousBySetIndex.get(set.setIndex)
+                    previousBySetIndex.get(set.setIndex),
+                    totalVolumeComparison,
+                    liveVolumeInputs,
+                    lastHistory == null ? 0 : lastHistory.totalVolumeKg
             );
         }
         setCard.addView(ui.button("+ 세트 추가", false, v -> addSet(recordId, activeExercise, sets)),
@@ -509,7 +523,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             String recordId,
             FitnessRepository.SessionExerciseEntry exercise,
             FitnessRepository.SessionSetEntry set,
-            FitnessRepository.SessionSetEntry previousSet
+            FitnessRepository.SessionSetEntry previousSet,
+            TextView totalVolumeComparison,
+            List<LiveVolumeInput> liveVolumeInputs,
+            double previousVolumeKg
     ) {
         FitnessUi ui = ui();
         LinearLayout setBox = new LinearLayout(host.activity());
@@ -526,16 +543,6 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 allowedLoadStates
         );
         final LoadState[] selectedLoadState = {initialLoadState};
-
-        TextView volumeDelta = volumeDeltaLabel(
-                ui,
-                exercise.recordType,
-                initialLoadState,
-                previousSet
-        );
-        if (volumeDelta != null) {
-            setBox.addView(volumeDelta, ui.fullWidthParams(ui.dp(2)));
-        }
 
         Button loadStateButton = ui.button(
                 "저항 상태: " + loadStateLabel(initialLoadState),
@@ -592,8 +599,14 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             row.addView(rir, compactSetFieldParams(ui, false));
         }
 
-        if (volumeDelta != null) {
-            TextWatcher volumeDeltaWatcher = new TextWatcher() {
+        if (totalVolumeComparison != null) {
+            LiveVolumeInput liveVolumeInput = new LiveVolumeInput(
+                    selectedLoadState,
+                    primary,
+                    secondary
+            );
+            liveVolumeInputs.add(liveVolumeInput);
+            TextWatcher totalVolumeWatcher = new TextWatcher() {
                 @Override
                 public void beforeTextChanged(CharSequence text, int start, int count, int after) {
                     // 입력 중간값은 afterTextChanged에서 다시 계산한다.
@@ -606,25 +619,21 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
                 @Override
                 public void afterTextChanged(Editable editable) {
-                    updateVolumeDeltaLabel(
-                            volumeDelta,
+                    updateTotalVolumeComparisonLabel(
+                            totalVolumeComparison,
                             exercise.recordType,
-                            selectedLoadState[0],
-                            primary,
-                            secondary,
-                            previousSet
+                            previousVolumeKg,
+                            liveVolumeInputs
                     );
                 }
             };
-            primary.addTextChangedListener(volumeDeltaWatcher);
-            secondary.addTextChangedListener(volumeDeltaWatcher);
-            updateVolumeDeltaLabel(
-                    volumeDelta,
+            primary.addTextChangedListener(totalVolumeWatcher);
+            secondary.addTextChangedListener(totalVolumeWatcher);
+            updateTotalVolumeComparisonLabel(
+                    totalVolumeComparison,
                     exercise.recordType,
-                    selectedLoadState[0],
-                    primary,
-                    secondary,
-                    previousSet
+                    previousVolumeKg,
+                    liveVolumeInputs
             );
         }
 
@@ -1071,54 +1080,92 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         return FitnessUi.trimDouble(set.weightKg) + "kg\n" + set.actualReps + "회";
     }
 
-    /** 한 세트 박스에 하나씩 표시할 중량×횟수 비교 라벨을 만든다. */
-    private static TextView volumeDeltaLabel(
+    /** 세트 입력 카드 상단에 표시할 전체 세트 누적 중량 비교 라벨을 만든다. */
+    private static TextView totalVolumeComparisonLabel(
             FitnessUi ui,
             String recordType,
-            LoadState loadState,
-            FitnessRepository.SessionSetEntry previousSet
+            FitnessRepository.ExerciseHistory lastHistory
     ) {
-        if (!FitnessRecordContract.WEIGHT_REPS.equals(
-                FitnessRecordContract.normalizeRecordType(recordType))
-                || previousSet == null
-                || (loadState != LoadState.EXTERNAL_LOAD
-                && loadState != LoadState.ADDED_WEIGHT)
-                || effectiveLoadState(recordType, previousSet.loadState, null) != loadState) {
+        if (!supportsLoadRepAnalytics(recordType) || lastHistory == null) {
             return null;
         }
 
         TextView label = ui.num("", 11, FitnessUi.COLOR_MUTED, true);
-        label.setGravity(Gravity.CENTER);
-        label.setPadding(0, 0, 0, ui.dp(2));
+        label.setGravity(Gravity.CENTER_HORIZONTAL);
+        label.setPadding(0, ui.dp(2), 0, ui.dp(4));
         label.setVisibility(View.GONE);
         return label;
     }
 
-    /** 중량과 횟수가 입력될 때마다 한 세트의 총 중량 차이를 갱신한다. */
-    private static void updateVolumeDeltaLabel(
+    /** 모든 세트의 입력값을 합산해 지난 운동의 전체 세트 볼륨과 비교한다. */
+    private static void updateTotalVolumeComparisonLabel(
             TextView label,
             String recordType,
-            LoadState loadState,
-            EditText weightInput,
-            EditText repsInput,
-            FitnessRepository.SessionSetEntry previousSet
+            double previousVolumeKg,
+            List<LiveVolumeInput> liveVolumeInputs
     ) {
-        double currentVolume = volumeFromInputs(recordType, loadState, weightInput, repsInput);
-        if (currentVolume <= 0) {
+        List<Double> currentSetVolumes = new ArrayList<>();
+        for (LiveVolumeInput input : liveVolumeInputs) {
+            currentSetVolumes.add(volumeFromInputs(
+                    recordType,
+                    input.loadState[0],
+                    input.primary,
+                    input.secondary
+            ));
+        }
+        double currentVolumeKg = sumVolumeKg(currentSetVolumes);
+        if (!Double.isFinite(currentVolumeKg) || currentVolumeKg <= 0) {
             label.setVisibility(View.GONE);
             return;
         }
 
-        double previousVolume = volumeFromSet(previousSet);
-        double delta = currentVolume - previousVolume;
-        String direction = delta < 0 ? "덜" : "더";
+        double delta = currentVolumeKg - previousVolumeKg;
+        if (Math.abs(delta) < 0.0001d) {
+            delta = 0;
+        }
         int color = delta > 0
                 ? FitnessUi.COLOR_POSITIVE
                 : delta < 0 ? FitnessUi.COLOR_NEGATIVE : FitnessUi.COLOR_MUTED;
-        label.setText("지난 세트보다 " + FitnessUi.formatVolume(Math.abs(delta))
-                + " KG " + direction + " 들었어요");
+        label.setText(totalVolumeComparisonMessage(currentVolumeKg, previousVolumeKg));
         label.setTextColor(color);
         label.setVisibility(View.VISIBLE);
+    }
+
+    static double sumVolumeKg(List<Double> setVolumes) {
+        double total = 0;
+        for (Double setVolume : setVolumes) {
+            if (setVolume != null && Double.isFinite(setVolume)) {
+                total += setVolume;
+            }
+        }
+        return total;
+    }
+
+    static String totalVolumeComparisonMessage(double currentVolumeKg, double previousVolumeKg) {
+        double delta = currentVolumeKg - previousVolumeKg;
+        if (Math.abs(delta) < 0.0001d) {
+            return "전체 세트 기준, 지난 운동과 같은 볼륨이에요";
+        }
+        String direction = delta < 0 ? "덜" : "더";
+        return "전체 세트 기준, 지난 운동보다 "
+                + FitnessUi.formatVolume(Math.abs(delta))
+                + " KG " + direction + " 들었어요";
+    }
+
+    private static final class LiveVolumeInput {
+        private final LoadState[] loadState;
+        private final EditText primary;
+        private final EditText secondary;
+
+        private LiveVolumeInput(
+                LoadState[] loadState,
+                EditText primary,
+                EditText secondary
+        ) {
+            this.loadState = loadState;
+            this.primary = primary;
+            this.secondary = secondary;
+        }
     }
 
     private static double volumeFromInputs(
@@ -1134,7 +1181,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         Integer reps = hasNumericLoad(loadState)
                 ? FitnessUi.optionalInt(secondary)
                 : FitnessUi.optionalInt(primary);
-        if (load == null || reps == null || load < 0 || reps <= 0) {
+        if (load == null || !Double.isFinite(load) || reps == null || load < 0 || reps <= 0) {
             return 0;
         }
         return load * reps;
