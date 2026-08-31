@@ -18,6 +18,7 @@ import com.yeonsik.fitnessapp.exercise.ExerciseCategory;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter;
+import com.yeonsik.fitnessapp.exercise.ExercisePrimaryMuscleLabel;
 import com.yeonsik.fitnessapp.exercise.WeightExercise;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
@@ -429,29 +430,53 @@ public final class RoutineEditorScreen extends BaseScreen {
             info.setOrientation(LinearLayout.VERTICAL);
             TextView name = ui.text(family.displayName(), 15,
                     selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
-            info.addView(name);
-            TextView meta = ui.text(
-                    family.presets.size() + "개 variant",
-                    12,
-                    selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED,
-                    false
-            );
-            meta.setPadding(0, ui.dp(4), 0, 0);
-            info.addView(meta);
+            LinearLayout nameRow = new LinearLayout(host.activity());
+            nameRow.setOrientation(LinearLayout.HORIZONTAL);
+            nameRow.setGravity(Gravity.CENTER_VERTICAL);
+            nameRow.addView(name, new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+            ));
+            if (!family.presets.isEmpty()) {
+                String muscleLabel = ExercisePrimaryMuscleLabel.forPreset(family.presets.get(0));
+                if (!muscleLabel.isEmpty()) {
+                    TextView muscle = ui.text(muscleLabel, 12,
+                            selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED,
+                            false);
+                    muscle.setPadding(ui.dp(8), 0, 0, 0);
+                    nameRow.addView(muscle);
+                }
+            }
+            info.addView(nameRow);
+            if (family.presets.size() > 1) {
+                TextView meta = ui.text(
+                        family.presets.size() + "개의 하위 종목",
+                        12,
+                        selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED,
+                        false
+                );
+                meta.setPadding(0, ui.dp(4), 0, 0);
+                info.addView(meta);
+            }
             card.addView(info, new LinearLayout.LayoutParams(
                     0,
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     1f
             ));
 
+            ImageView image = null;
             if (!family.presets.isEmpty()) {
                 RuntimeExercisePreset previewPreset = family.presets.get(0);
-                ImageView image = exerciseIllustrationPreview.create(
+                image = exerciseIllustrationPreview.create(
                         ExerciseFamilyCatalog.empty().identityForPreset(previewPreset));
-                if (image != null) {
-                    card.addView(image, exercisePreviewParams(ui));
-                }
             }
+            if (image == null) {
+                image = new ImageView(host.activity());
+                image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                image.setFocusable(false);
+            }
+            card.addView(image, exercisePreviewParams(ui));
             TextView check = ui.text(selected ? "✓" : "", 16,
                     selected ? FitnessUi.COLOR_INVERSE_TEXT : ui.inkMuted(), true);
             check.setGravity(Gravity.CENTER);

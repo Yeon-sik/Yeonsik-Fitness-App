@@ -34,7 +34,8 @@ import java.util.TreeSet;
 public final class ExerciseMuscleModelRenderer {
     private static final String ASSET_ROOT = "exercise_muscle/";
     private static final String MAPPING_ASSET = ASSET_ROOT + "muscle-layers.json";
-    private static final int MODEL_HEIGHT_DP = 190;
+    // 앞·뒤 모델 표시 영역을 기존 190dp에서 1.5배로 확대한다.
+    private static final int MODEL_HEIGHT_DP = 285;
     private static final int DECODE_SAMPLE_SIZE = 2;
     private static final int BITMAP_CACHE_KB = 12 * 1024;
     private static final int COMPOSITE_CACHE_KB = 12 * 1024;

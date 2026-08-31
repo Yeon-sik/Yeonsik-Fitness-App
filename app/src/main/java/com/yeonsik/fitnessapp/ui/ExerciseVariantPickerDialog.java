@@ -16,6 +16,7 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
+import com.yeonsik.fitnessapp.exercise.ExercisePrimaryMuscleLabel;
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
@@ -149,6 +150,7 @@ public final class ExerciseVariantPickerDialog {
     private final class VariantRow {
         final LinearLayout view;
         final TextView name;
+        final TextView muscle;
         final TextView meta;
         final TextView check;
         final RuntimeExercisePreset preset;
@@ -165,10 +167,25 @@ public final class ExerciseVariantPickerDialog {
 
             LinearLayout textColumn = new LinearLayout(activity);
             textColumn.setOrientation(LinearLayout.VERTICAL);
+            LinearLayout nameRow = new LinearLayout(activity);
+            nameRow.setOrientation(LinearLayout.HORIZONTAL);
+            nameRow.setGravity(Gravity.CENTER_VERTICAL);
             name = ui.text(preset.displayName(), 15, FitnessUi.COLOR_TEXT, true);
+            nameRow.addView(name, new LinearLayout.LayoutParams(
+                    0,
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    1f
+            ));
+            String muscleLabel = ExercisePrimaryMuscleLabel.forPreset(preset);
+            muscle = ui.text(muscleLabel, 12, FitnessUi.COLOR_MUTED, false);
+            if (muscleLabel.isEmpty()) {
+                muscle.setVisibility(android.view.View.GONE);
+            }
+            muscle.setPadding(ui.dp(8), 0, 0, 0);
+            nameRow.addView(muscle);
             meta = ui.text(variantBodyPart(preset), 12, FitnessUi.COLOR_MUTED, false);
             meta.setPadding(0, ui.dp(4), 0, 0);
-            textColumn.addView(name);
+            textColumn.addView(nameRow);
             textColumn.addView(meta);
             view.addView(textColumn, new LinearLayout.LayoutParams(
                     0,
@@ -194,7 +211,7 @@ public final class ExerciseVariantPickerDialog {
             );
             checkParams.setMargins(ui.dp(8), 0, 0, 0);
             view.addView(check, checkParams);
-            view.setContentDescription(preset.displayName() + ", " + variantBodyPart(preset));
+            view.setContentDescription(accessibilityText(false));
             ui.pressFeedback(view);
             applySelection(selected);
         }
@@ -203,14 +220,22 @@ public final class ExerciseVariantPickerDialog {
             view.setBackground(variantRowBackground(selected, preset.identityId()));
             ui.applyDepth(view, selected ? 6 : 3);
             name.setTextColor(selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT);
+            muscle.setTextColor(selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED);
             meta.setTextColor(selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED);
             check.setText(selected ? "✓" : "");
             check.setTextColor(selected ? FitnessUi.COLOR_INVERSE_TEXT : ui.inkMuted());
             check.setBackground(selected
                     ? ui.borderDrawable(ui.chipOnAccent(), ui.chipOnAccent(), ui.dp(999))
                     : ui.borderDrawable(ui.surface(), ui.border(), ui.dp(999)));
-            view.setContentDescription(preset.displayName() + ", " + variantBodyPart(preset)
-                    + (selected ? ", 선택됨" : ", 선택 안 됨"));
+            view.setContentDescription(accessibilityText(selected));
+        }
+
+        private String accessibilityText(boolean selected) {
+            String muscleLabel = ExercisePrimaryMuscleLabel.forPreset(preset);
+            return preset.displayName()
+                    + (muscleLabel.isEmpty() ? "" : ", 대표 부위 " + muscleLabel)
+                    + ", " + variantBodyPart(preset)
+                    + (selected ? ", 선택됨" : ", 선택 안 됨");
         }
     }
 
