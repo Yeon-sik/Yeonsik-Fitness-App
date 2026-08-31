@@ -44,6 +44,11 @@ public final class ExerciseIllustrationPreview {
         return create(ExerciseIllustrationLookup.resolve(activity, identity));
     }
 
+    /** 이미지가 정확히 해당 variant에 등록된 경우에만 대표 프레임을 반환한다. */
+    public ImageView createExact(ExerciseFamilyIdentity identity) {
+        return create(ExerciseIllustrationLookup.resolveExact(activity, identity));
+    }
+
     private ImageView create(ExerciseIllustrationLookup.IllustrationResolution resolution) {
         int drawableId = resolution == null || resolution.drawables.length == 0
                 ? 0

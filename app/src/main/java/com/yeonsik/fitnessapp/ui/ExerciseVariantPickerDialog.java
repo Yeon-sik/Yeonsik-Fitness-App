@@ -2,8 +2,12 @@ package com.yeonsik.fitnessapp.ui;
 
 import android.app.AlertDialog;
 import android.app.Dialog;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
+import android.graphics.drawable.Drawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.view.Gravity;
-import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.widget.ImageView;
@@ -172,18 +176,16 @@ public final class ExerciseVariantPickerDialog {
                     1f
             ));
 
-            ImageView image = illustrationPreview.create(
+            ImageView image = illustrationPreview.createExact(
                     ExerciseFamilyCatalog.empty().identityForPreset(preset));
-            if (image == null) {
-                image = new ImageView(activity);
-                image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            if (image != null) {
+                LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(
+                        ui.dp(VARIANT_IMAGE_SIZE_DP),
+                        ui.dp(VARIANT_IMAGE_SIZE_DP)
+                );
+                imageParams.setMargins(ui.dp(8), 0, 0, 0);
+                view.addView(image, imageParams);
             }
-            LinearLayout.LayoutParams imageParams = new LinearLayout.LayoutParams(
-                    ui.dp(VARIANT_IMAGE_SIZE_DP),
-                    ui.dp(VARIANT_IMAGE_SIZE_DP)
-            );
-            imageParams.setMargins(ui.dp(8), 0, 0, 0);
-            view.addView(image, imageParams);
 
             check = ui.text("", 16, ui.inkMuted(), true);
             check.setGravity(Gravity.CENTER);
@@ -198,9 +200,7 @@ public final class ExerciseVariantPickerDialog {
         }
 
         void applySelection(boolean selected) {
-            view.setBackground(selected
-                    ? ui.vibrantRippleDrawable("variant-" + preset.identityId(), ui.dp(16))
-                    : ui.flatSurfaceRippleDrawable(ui.dp(16)));
+            view.setBackground(variantRowBackground(selected, preset.identityId()));
             ui.applyDepth(view, selected ? 6 : 3);
             name.setTextColor(selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT);
             meta.setTextColor(selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED);
@@ -212,6 +212,24 @@ public final class ExerciseVariantPickerDialog {
             view.setContentDescription(preset.displayName() + ", " + variantBodyPart(preset)
                     + (selected ? ", 선택됨" : ", 선택 안 됨"));
         }
+    }
+
+    private Drawable variantRowBackground(boolean selected, String identity) {
+        if (selected) {
+            return ui.vibrantRippleDrawable("variant-" + identity, ui.dp(16));
+        }
+        GradientDrawable background = new GradientDrawable();
+        background.setColor(ui.surface());
+        background.setCornerRadius(ui.dp(16));
+        background.setStroke(ui.dp(2), ui.border());
+        GradientDrawable mask = new GradientDrawable();
+        mask.setColor(Color.WHITE);
+        mask.setCornerRadius(ui.dp(16));
+        return new RippleDrawable(
+                ColorStateList.valueOf(ui.rippleOnSurface()),
+                background,
+                mask
+        );
     }
 
     private String variantBodyPart(RuntimeExercisePreset preset) {

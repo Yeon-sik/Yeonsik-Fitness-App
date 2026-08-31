@@ -228,6 +228,21 @@ public final class RuntimeExerciseCatalogTest {
     }
 
     @Test
+    public void exactVariantLookupDoesNotUseFamilyDefault() {
+        android.content.Context context = ApplicationProvider.getApplicationContext();
+        ExerciseFamilyCatalog catalog = ExerciseFamilyCatalog.load(context);
+        ExerciseFamilyIdentity pullUp = catalog.identityForLegacyId("back_bodyweight_pull_up");
+        ExerciseFamilyIdentity chinUp = catalog.identityForLegacyId("back_bodyweight_chin_up");
+        assertNotNull(pullUp);
+        assertNotNull(chinUp);
+        assertEquals(
+                "exact_visual_variant",
+                ExerciseIllustrationLookup.resolveExact(context, pullUp).source
+        );
+        assertTrue(ExerciseIllustrationLookup.resolveExact(context, chinUp).isPlaceholder());
+    }
+
+    @Test
     public void resolvesFamilyFallbackForApprovedPresetWithoutLegacyId() {
         android.content.Context context = ApplicationProvider.getApplicationContext();
         ExerciseFamilyCatalog catalog = ExerciseFamilyCatalog.load(context);
