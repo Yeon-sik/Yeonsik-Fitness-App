@@ -190,7 +190,9 @@ public final class RoutineEditorScreen extends BaseScreen {
         RuntimeExercisePicker.SortOrder[] selectedSort =
                 new RuntimeExercisePicker.SortOrder[]{RuntimeExercisePicker.SortOrder.RECENT};
         Map<String, String> lastPerformedAt = repository().lastPerformedAtByCanonicalPreset();
-        Set<String> favoritePresetIds = new LinkedHashSet<>(repository().favoriteExercisePickerPresetIds());
+        Set<String> favoritePresetIds = routineMode
+                ? new LinkedHashSet<>()
+                : new LinkedHashSet<>(repository().favoriteExercisePickerPresetIds());
         EditText routineNameInput = routineMode ? ui.input("루틴 이름", "") : null;
 
         if (routineMode) {
@@ -240,7 +242,7 @@ public final class RoutineEditorScreen extends BaseScreen {
         add(equipmentButton, ui.fullWidthParams(ui.dp(6)));
         Button sortButton = ui.filterButton("정렬: 최근 사용");
         sortButton.setOnClickListener(v -> showRuntimeSortDialog(
-                selectedSort, sortButton, refreshHolder));
+                selectedSort, sortButton, !routineMode, refreshHolder));
         add(sortButton, ui.fullWidthParams(ui.dp(6)));
         TextView selectedCount = ui.text("선택한 운동 0개", 13, FitnessUi.COLOR_MUTED, true);
         selectedCount.setPadding(0, ui.dp(14), 0, 0);
@@ -346,6 +348,8 @@ public final class RoutineEditorScreen extends BaseScreen {
                     favoritePresetIds,
                     replacementMode,
                     fixedReplacementFamilyId,
+                    !routineMode,
+                    !routineMode,
                     refreshHolder[0]
             );
         };
@@ -376,6 +380,8 @@ public final class RoutineEditorScreen extends BaseScreen {
             Set<String> favoritePresetIds,
             boolean replacementMode,
             String replacementFamilyId,
+            boolean showFamilyImages,
+            boolean showFavorites,
             Runnable onSelectionChanged
     ) {
         FitnessUi ui = ui();
@@ -436,36 +442,36 @@ public final class RoutineEditorScreen extends BaseScreen {
                     1f
             ));
 
-            TextView favorite = ui.text(
-                    result.favorite ? "★" : "☆",
-                    18,
-                    result.favorite ? FitnessUi.COLOR_TERTIARY : FitnessUi.COLOR_MUTED,
-                    true
-            );
-            favorite.setGravity(Gravity.CENTER);
-            favorite.setContentDescription("즐겨찾기 " + family.displayName());
-            favorite.setClickable(true);
-            favorite.setFocusable(true);
-            favorite.setOnClickListener(v -> {
-                if (family.presets.size() == 1) {
-                    toggleFavorite(family.presets.get(0), favoritePresetIds);
-                    onSelectionChanged.run();
-                } else {
-                    showRuntimeFavoritePicker(result.presets, favoritePresetIds, onSelectionChanged);
-                }
-            });
-            card.addView(favorite, new LinearLayout.LayoutParams(
-                    ui.dp(36), ui.dp(36)
-            ));
-            if (!result.presets.isEmpty()) {
+            if (showFavorites) {
+                TextView favorite = ui.text(
+                        result.favorite ? "★" : "☆",
+                        18,
+                        result.favorite ? FitnessUi.COLOR_TERTIARY : FitnessUi.COLOR_MUTED,
+                        true
+                );
+                favorite.setGravity(Gravity.CENTER);
+                favorite.setContentDescription("즐겨찾기 " + family.displayName());
+                favorite.setClickable(true);
+                favorite.setFocusable(true);
+                favorite.setOnClickListener(v -> {
+                    if (family.presets.size() == 1) {
+                        toggleFavorite(family.presets.get(0), favoritePresetIds);
+                        onSelectionChanged.run();
+                    } else {
+                        showRuntimeFavoritePicker(result.presets, favoritePresetIds, onSelectionChanged);
+                    }
+                });
+                card.addView(favorite, new LinearLayout.LayoutParams(
+                        ui.dp(36), ui.dp(36)
+                ));
+            }
+            if (showFamilyImages && !result.presets.isEmpty()) {
                 RuntimeExercisePreset previewPreset = result.presets.get(0);
                 ImageView image = exerciseIllustrationPreview.create(
                         ExerciseFamilyCatalog.empty().identityForPreset(previewPreset));
-                if (image == null) {
-                    image = new ImageView(host.activity());
-                    image.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+                if (image != null) {
+                    card.addView(image, exercisePreviewParams(ui));
                 }
-                card.addView(image, exercisePreviewParams(ui));
             }
             TextView check = ui.text(selected ? "✓" : "", 16,
                     selected ? FitnessUi.COLOR_INVERSE_TEXT : ui.inkMuted(), true);
@@ -636,13 +642,20 @@ public final class RoutineEditorScreen extends BaseScreen {
     private void showRuntimeSortDialog(
             RuntimeExercisePicker.SortOrder[] selectedSort,
             Button button,
+            boolean includeFavorites,
             Runnable[] refreshHolder
     ) {
-        String[] labels = {"최근 사용", "즐겨찾기", "가나다순"};
+        String[] labels = includeFavorites
+                ? new String[]{"최근 사용", "즐겨찾기", "가나다순"}
+                : new String[]{"최근 사용", "가나다순"};
         new AlertDialog.Builder(host.activity())
                 .setTitle("정렬")
                 .setItems(labels, (dialog, which) -> {
-                    selectedSort[0] = RuntimeExercisePicker.SortOrder.values()[which];
+                    selectedSort[0] = includeFavorites
+                            ? RuntimeExercisePicker.SortOrder.values()[which]
+                            : (which == 0
+                                    ? RuntimeExercisePicker.SortOrder.RECENT
+                                    : RuntimeExercisePicker.SortOrder.NAME);
                     refreshHolder[0].run();
                 })
                 .show();
