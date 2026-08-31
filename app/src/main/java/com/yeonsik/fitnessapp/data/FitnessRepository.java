@@ -644,10 +644,19 @@ public final class FitnessRepository {
         requireOwnedWorkoutRecord(recordId);
         requireOwnedWorkoutExercise(recordId, workoutExerciseId);
 
+        ExerciseFamilyIdentity currentIdentity = familyIdentityForWorkoutExercise(
+                workoutExerciseId);
         ExerciseFamilyIdentity targetIdentity = resolvedIdentity(
                 exercise.familyIdentity,
                 exercise.masterExerciseId
         );
+        if (currentIdentity == null
+                || targetIdentity == null
+                || emptyToNull(currentIdentity.familyId) == null
+                || emptyToNull(targetIdentity.familyId) == null
+                || !currentIdentity.familyId.equals(targetIdentity.familyId)) {
+            return false;
+        }
         String targetRecordType = FitnessRecordContract.normalizeRecordType(exercise.recordType);
         List<SessionSetEntry> existingSets = setsForExercise(workoutExerciseId);
         SQLiteDatabase database = db();

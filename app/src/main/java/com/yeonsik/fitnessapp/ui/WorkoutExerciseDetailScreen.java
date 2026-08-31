@@ -21,7 +21,12 @@ import android.widget.TextView;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup;
+import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
+import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter;
 import com.yeonsik.fitnessapp.exercise.LoadState;
+import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
+import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
+import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 
@@ -41,9 +46,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
     /** 이번 종목의 기본 휴식(초). 스탬프 시 타이머와 세트 기록에 쓰인다. */
     private final int[] defaultRestSeconds = {DEFAULT_REST_SECONDS};
+    private final ExerciseVariantPickerDialog exerciseVariantPickerDialog;
 
     public WorkoutExerciseDetailScreen(ScreenHost host) {
         super(host);
+        exerciseVariantPickerDialog = new ExerciseVariantPickerDialog(
+                host.activity(),
+                host.ui(),
+                new ExerciseIllustrationPreview(host.activity(), host.ui())
+        );
     }
 
     @Override
@@ -1520,8 +1531,60 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     }
 
     private void beginExerciseReplacement(FitnessRepository.SessionExerciseEntry exercise) {
-        host.sessionState().setReplacementExerciseId(exercise.id);
-        host.sessionState().setActiveExerciseId(exercise.id);
-        host.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
+        ExerciseFamilyIdentity currentIdentity = exercise.familyIdentity;
+        if (currentIdentity == null) {
+            currentIdentity = repository().familyCatalog()
+                    .identityForStorageExerciseId(exercise.exerciseId);
+        }
+        RuntimeExerciseCatalog catalog = host.exerciseMasterRepository().runtimeCatalog();
+        RuntimeExerciseFamily family = currentIdentity == null
+                ? null
+                : catalog.family(currentIdentity.familyId);
+        if (family == null || family.presets.isEmpty()) {
+            host.toast("Family가 등록된 운동만 같은 Family 안에서 교체할 수 있습니다.");
+            return;
+        }
+
+        RuntimeExercisePreset currentPreset = catalog.presetForStorageExerciseId(
+                exercise.exerciseId);
+        if (currentPreset == null && currentIdentity != null) {
+            currentPreset = catalog.preset(currentIdentity.presetId);
+        }
+        List<RuntimeExercisePreset> initiallySelected = new ArrayList<>();
+        if (currentPreset != null) {
+            initiallySelected.add(currentPreset);
+        }
+        final RuntimeExercisePreset previousPreset = currentPreset;
+        exerciseVariantPickerDialog.show(
+                family,
+                family.presets,
+                initiallySelected,
+                true,
+                selected -> {
+                    if (selected.isEmpty()) {
+                        host.toast("교체할 운동을 선택하세요.");
+                        return;
+                    }
+                    RuntimeExercisePreset replacement = selected.get(0);
+                    if (previousPreset != null
+                            && previousPreset.identityId().equals(replacement.identityId())) {
+                        host.toast("현재 운동과 다른 variant를 선택하세요.");
+                        return;
+                    }
+                    boolean replaced = repository().replaceExerciseFromMaster(
+                            host.sessionState().activeRecordId(),
+                            exercise.id,
+                            ExerciseMasterAdapter.toRoutineExercise(replacement)
+                    );
+                    if (!replaced) {
+                        host.toast("같은 운동 Family 안의 variant만 교체할 수 있습니다.");
+                        return;
+                    }
+                    host.sessionState().clearExerciseReplacement();
+                    host.sessionState().setActiveExerciseId(exercise.id);
+                    host.toast(replacement.displayName() + "으로 운동 종목을 교체했습니다.");
+                    host.rerender();
+                }
+        );
     }
 }

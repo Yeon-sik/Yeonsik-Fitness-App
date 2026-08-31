@@ -13,6 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter;
 import com.yeonsik.fitnessapp.exercise.LoadState;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
+import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
@@ -464,6 +465,22 @@ public final class FitnessRepositoryLoadStateTest {
             assertEquals(LoadState.ADDED_WEIGHT, sets.get(1).loadState);
             assertEquals(5d, sets.get(1).addedWeightKg, 0.001d);
             assertEquals(30d, repository.sessionMetrics(recordId).totalVolumeKg, 0.001d);
+
+            RuntimeExercisePreset differentFamilyPreset = null;
+            for (RuntimeExerciseFamily family : repository.familyCatalog().runtimeCatalog().families) {
+                if (!"pull_up".equals(family.familyId) && !family.presets.isEmpty()) {
+                    differentFamilyPreset = family.presets.get(0);
+                    break;
+                }
+            }
+            assertNotNull(differentFamilyPreset);
+            assertFalse(repository.replaceExerciseFromMaster(
+                    recordId,
+                    pullUpId,
+                    ExerciseMasterAdapter.toRoutineExercise(differentFamilyPreset)
+            ));
+            assertEquals("back_machine_assisted_pull_up",
+                    repository.sessionExerciseEntries(recordId).get(0).exerciseId);
         } finally {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
