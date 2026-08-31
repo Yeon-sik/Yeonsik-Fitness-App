@@ -18,6 +18,7 @@ import org.junit.runner.RunWith;
 import java.io.File;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 /** Exercises the historical v8 schema against the current SQLiteOpenHelper on a real device. */
@@ -25,6 +26,15 @@ import static org.junit.Assert.assertTrue;
 public final class FitnessDatabaseMigrationTest {
     private static final String DATABASE_PREFIX = "migration_v8_to_current_";
     private static final String AUTH_USER_ID = "11111111-1111-4111-8111-111111111111";
+    private static final String[] PACKAGED_FOOD_HIERARCHY_COLUMNS = {
+            "manufacturer_name",
+            "brand_name",
+            "sub_brand_name",
+            "product_name",
+            "package_amount",
+            "package_unit",
+            "package_count"
+    };
 
     @Test
     public void testV8UpgradeAddsLateColumnsBeforeTheirIndexesAndPreservesLocalOwnership() {
@@ -60,6 +70,7 @@ public final class FitnessDatabaseMigrationTest {
             assertTrue(hasColumn(upgraded, "nutrition_foods", "brand"));
             assertTrue(hasColumn(upgraded, "nutrition_foods", "category"));
             assertTrue(hasColumn(upgraded, "nutrition_foods", "cooking_method"));
+            assertNutritionHierarchySchema(upgraded);
             assertTrue(isNullableColumn(upgraded, "nutrition_foods", "calories_kcal"));
             assertTrue(isNullableColumn(upgraded, "nutrition_foods", "protein_grams"));
             assertTrue(isNullableColumn(upgraded, "nutrition_foods", "carbs_grams"));
@@ -152,11 +163,103 @@ public final class FitnessDatabaseMigrationTest {
                     upgraded,
                     "SELECT group_type FROM composition_groups LIMIT 1"
             ));
+            NutritionCatalogRepository catalog = new NutritionCatalogRepository(
+                    helper,
+                    "local-user",
+                    SupabaseConfig.empty()
+            );
+            NutritionFood legacyFood = catalog.findFoodById("legacy-option-1");
+            assertNotNull(legacyFood);
+            assertEquals("감자튀김", legacyFood.name);
         } finally {
             if (helper != null) {
                 helper.close();
             }
             isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void testV45ThroughV48IncompletePreviewDatabasesAreRepairedIdempotently() {
+        for (int previewVersion = 45; previewVersion <= 48; previewVersion++) {
+            Context isolatedContext = new IsolatedDatabaseContext(
+                    ApplicationProvider.getApplicationContext(),
+                    "migration_v" + previewVersion + "_incomplete_"
+            );
+            FitnessDatabaseHelper helper = null;
+            FitnessDatabaseHelper creator = null;
+            String diningOutId = "preview-dining-menu-" + previewVersion;
+            String packagedId = "preview-packaged-food-" + previewVersion;
+            try {
+                isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+                creator = new FitnessDatabaseHelper(isolatedContext);
+                SQLiteDatabase complete = creator.getWritableDatabase();
+                insertPreviewRows(complete, diningOutId, packagedId);
+                creator.close();
+                creator = null;
+
+                SQLiteDatabase preview = isolatedContext.openOrCreateDatabase(
+                        FitnessDatabaseHelper.DATABASE_NAME,
+                        0,
+                        null
+                );
+                makeNutritionFoodsIncomplete(preview);
+                preview.setVersion(previewVersion);
+                preview.close();
+
+                helper = new FitnessDatabaseHelper(isolatedContext);
+                SQLiteDatabase upgraded = helper.getWritableDatabase();
+                assertEquals(FitnessDatabaseHelper.DATABASE_VERSION, upgraded.getVersion());
+                assertNutritionHierarchySchema(upgraded);
+                assertEquals("Preview Menu", scalar(
+                        upgraded,
+                        "SELECT name FROM nutrition_foods WHERE id = '" + diningOutId + "'"
+                ));
+                assertEquals("2", scalar(
+                        upgraded,
+                        "SELECT COUNT(*) FROM nutrition_foods WHERE id IN ('" + diningOutId +
+                                "', '" + packagedId + "')"
+                ));
+
+                NutritionCatalogRepository catalog = new NutritionCatalogRepository(
+                        helper,
+                        "preview-user",
+                        SupabaseConfig.empty()
+                );
+                assertNotNull(catalog.findFoodById(diningOutId));
+                assertTrue(catalog.savedDiningOutMenus().stream()
+                        .anyMatch(food -> diningOutId.equals(food.id)));
+                assertEquals(2, catalog.searchFoods("Preview").size());
+                assertEquals(1, catalog.searchPackagedFoods("Preview Product", 20).size());
+
+                // Re-open the repaired shape through the same v48 -> v49 path. IF NOT EXISTS and
+                // addColumnIfMissing must make the repair safe when it is encountered again.
+                helper.close();
+                helper = null;
+                SQLiteDatabase idempotencyFixture = isolatedContext.openOrCreateDatabase(
+                        FitnessDatabaseHelper.DATABASE_NAME,
+                        0,
+                        null
+                );
+                idempotencyFixture.setVersion(48);
+                idempotencyFixture.close();
+                helper = new FitnessDatabaseHelper(isolatedContext);
+                SQLiteDatabase reopened = helper.getWritableDatabase();
+                assertEquals(FitnessDatabaseHelper.DATABASE_VERSION, reopened.getVersion());
+                assertNutritionHierarchySchema(reopened);
+                assertEquals("1", scalar(
+                        reopened,
+                        "SELECT COUNT(*) FROM nutrition_foods WHERE id = '" + diningOutId + "'"
+                ));
+            } finally {
+                if (creator != null) {
+                    creator.close();
+                }
+                if (helper != null) {
+                    helper.close();
+                }
+                isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+            }
         }
     }
 
@@ -276,9 +379,133 @@ public final class FitnessDatabaseMigrationTest {
         }
     }
 
+    private static void assertNutritionHierarchySchema(SQLiteDatabase db) {
+        for (String column : PACKAGED_FOOD_HIERARCHY_COLUMNS) {
+            assertTrue("Missing nutrition_foods column: " + column,
+                    hasColumn(db, "nutrition_foods", column));
+        }
+        assertTrue(indexExists(db, "nutrition_foods_owner_product_hierarchy_idx"));
+    }
+
+    private static void insertPreviewRows(
+            SQLiteDatabase db,
+            String diningOutId,
+            String packagedId
+    ) {
+        db.execSQL("INSERT INTO nutrition_foods (" +
+                "id, owner_id, name, brand, manufacturer_name, brand_name, sub_brand_name, " +
+                "product_name, package_amount, package_unit, package_count, kind, category, " +
+                "basis_amount, basis_unit, calories_kcal, protein_grams, carbs_grams, " +
+                "fat_grams, source_type, source_reference, visibility, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                new Object[]{
+                        diningOutId,
+                        "preview-user",
+                        "Preview Menu",
+                        "Preview Restaurant",
+                        "Preview Restaurant",
+                        "Preview Brand",
+                        null,
+                        "Preview Menu",
+                        1d,
+                        "serving",
+                        1,
+                        NutritionFood.KIND_EXTERNAL_MENU,
+                        NutritionFood.CATEGORY_OTHER,
+                        1d,
+                        NutritionUnit.SERVING,
+                        500d,
+                        20d,
+                        60d,
+                        15d,
+                        "manual_estimate",
+                        "{\"restaurant_name\":\"Preview Restaurant\",\"menu_name\":\"Preview Menu\"}",
+                        "private",
+                        "2026-08-31T00:00:00Z",
+                        "2026-08-31T00:00:00Z"
+                });
+        db.execSQL("INSERT INTO nutrition_foods (" +
+                "id, owner_id, name, brand, manufacturer_name, brand_name, sub_brand_name, " +
+                "product_name, package_amount, package_unit, package_count, kind, category, " +
+                "basis_amount, basis_unit, calories_kcal, protein_grams, carbs_grams, " +
+                "fat_grams, source_type, visibility, created_at, updated_at) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                new Object[]{
+                        packagedId,
+                        "preview-user",
+                        "Preview Product",
+                        "Preview Brand",
+                        "Preview Manufacturer",
+                        "Preview Brand",
+                        "Preview Sub Brand",
+                        "Preview Product",
+                        450d,
+                        "g",
+                        1,
+                        NutritionFood.KIND_EXTERNAL_MENU,
+                        NutritionFood.CATEGORY_PROCESSED,
+                        100d,
+                        NutritionUnit.GRAM,
+                        300d,
+                        12d,
+                        30d,
+                        10d,
+                        "manual",
+                        "private",
+                        "2026-08-31T00:00:00Z",
+                        "2026-08-31T00:00:00Z"
+                });
+    }
+
+    private static void makeNutritionFoodsIncomplete(SQLiteDatabase db) {
+        db.execSQL("DROP INDEX IF EXISTS nutrition_foods_owner_name_idx");
+        db.execSQL("DROP INDEX IF EXISTS nutrition_foods_owner_brand_name_idx");
+        db.execSQL("DROP INDEX IF EXISTS nutrition_foods_owner_product_hierarchy_idx");
+        db.execSQL("DROP INDEX IF EXISTS nutrition_foods_owner_category_idx");
+        db.execSQL("DROP INDEX IF EXISTS nutrition_foods_visibility_name_idx");
+        db.execSQL("DROP TABLE IF EXISTS nutrition_foods_incomplete");
+        db.execSQL("CREATE TABLE nutrition_foods_incomplete AS SELECT " +
+                "id, owner_id, name, brand, kind, category, basis_amount, basis_unit, " +
+                "prep_state, cooking_method, calories_kcal, protein_grams, carbs_grams, " +
+                "fat_grams, sodium_mg, saturated_fat_grams, sugars_grams, fiber_grams, " +
+                "added_sugars_grams, trans_fat_grams, cholesterol_mg, source_type, " +
+                "source_reference, source_version, data_version, revision, visibility, " +
+                "created_at, updated_at, deleted_at FROM nutrition_foods");
+        db.execSQL("DROP TABLE nutrition_foods");
+        db.execSQL("ALTER TABLE nutrition_foods_incomplete RENAME TO nutrition_foods");
+    }
+
     private static void createVersionEightSchema(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE workout_records (id TEXT PRIMARY KEY, user_id TEXT NOT NULL)");
         db.execSQL("INSERT INTO workout_records (id, user_id) VALUES ('record-1', 'local-user')");
+
+        // These tables existed in the v8 application schema. Keep the fixture minimal while
+        // retaining the columns required by later historical migrations.
+        db.execSQL("CREATE TABLE workout_exercises (" +
+                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, record_id TEXT NOT NULL, " +
+                "order_index INTEGER NOT NULL, exercise_id TEXT NOT NULL, " +
+                "exercise_name_snapshot TEXT NOT NULL, ui_part TEXT NOT NULL, " +
+                "primary_sub_part_snapshot TEXT, equipment_snapshot TEXT, " +
+                "record_type TEXT NOT NULL, memo TEXT, created_at TEXT NOT NULL, " +
+                "updated_at TEXT NOT NULL, deleted_at TEXT, device_id TEXT NOT NULL)");
+        db.execSQL("CREATE TABLE workout_sets (" +
+                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, workout_exercise_id TEXT NOT NULL, " +
+                "set_index INTEGER NOT NULL, target_reps INTEGER, actual_reps INTEGER, " +
+                "weight_kg REAL, duration_seconds INTEGER, distance_meters REAL, " +
+                "rest_seconds INTEGER, is_completed INTEGER NOT NULL, rpe INTEGER, memo TEXT, " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, " +
+                "device_id TEXT NOT NULL)");
+        db.execSQL("CREATE TABLE routines (" +
+                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, " +
+                "is_default INTEGER NOT NULL, device_id TEXT NOT NULL, " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT)");
+        db.execSQL("CREATE TABLE routine_exercises (" +
+                "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, routine_id TEXT NOT NULL, " +
+                "exercise_id TEXT NOT NULL, name_ko TEXT NOT NULL, ui_part TEXT NOT NULL, " +
+                "primary_sub_part TEXT NOT NULL, equipment TEXT NOT NULL, " +
+                "record_type TEXT NOT NULL, order_index INTEGER NOT NULL, " +
+                "device_id TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, " +
+                "deleted_at TEXT)");
 
         db.execSQL("CREATE TABLE cardio_sessions (" +
                 "record_id TEXT PRIMARY KEY, activity_type TEXT NOT NULL, status TEXT NOT NULL, " +
@@ -397,13 +624,20 @@ public final class FitnessDatabaseMigrationTest {
     }
 
     private static final class IsolatedDatabaseContext extends ContextWrapper {
+        private final String databasePrefix;
+
         private IsolatedDatabaseContext(Context base) {
+            this(base, DATABASE_PREFIX);
+        }
+
+        private IsolatedDatabaseContext(Context base, String databasePrefix) {
             super(base);
+            this.databasePrefix = databasePrefix;
         }
 
         @Override
         public File getDatabasePath(String name) {
-            return super.getDatabasePath(DATABASE_PREFIX + name);
+            return super.getDatabasePath(databasePrefix + name);
         }
 
         @Override
