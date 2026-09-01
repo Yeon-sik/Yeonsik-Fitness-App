@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
-import android.app.AlertDialog;
 import android.app.DatePickerDialog;
+import android.app.Dialog;
 import android.app.TimePickerDialog;
 import android.text.InputType;
 import android.text.Editable;
@@ -52,6 +52,7 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -175,7 +176,7 @@ public final class MealManagementScreen extends BaseScreen {
         syncDraftFromViews();
 
         add(ui().textAction("‹ 이전 화면", FitnessUi.COLOR_MUTED,
-                () -> host.navigate(returnScreen)), ui().fullWidthParams(0));
+                () -> backOr(returnScreen)), ui().fullWidthParams(0));
         screenHeader("섭취와 회복", "식단 관리");
 
         add(dateNavigator());
@@ -703,13 +704,14 @@ public final class MealManagementScreen extends BaseScreen {
         form.addView(guidance);
 
         Button phase = ui.button(phaseLabels[phaseIndex[0]], false, null);
-        phase.setOnClickListener(v -> new AlertDialog.Builder(host.activity())
-                .setTitle("현재 단계")
-                .setItems(phaseLabels, (dialog, which) -> {
+        phase.setOnClickListener(v -> ui.choiceSheet(
+                "현재 단계",
+                java.util.Arrays.asList(phaseLabels),
+                phaseIndex[0],
+                which -> {
                     phaseIndex[0] = which;
                     phase.setText(phaseLabels[which]);
-                })
-                .show());
+                }));
         form.addView(ui.labeledFieldColumn("현재 단계", phase), ui.fullWidthParams(ui.dp(12)));
 
         EditText calories = ui.decimalInput("kcal", goalValue(current, GoalField.CALORIES));
@@ -856,13 +858,14 @@ public final class MealManagementScreen extends BaseScreen {
     private Button scoreButton(String title, int[] scores, int scoreIndex, String[] options) {
         FitnessUi ui = ui();
         Button button = ui.button(scoreButtonText(scores[scoreIndex]), false, null);
-        button.setOnClickListener(v -> new AlertDialog.Builder(host.activity())
-                .setTitle(title)
-                .setItems(options, (dialog, which) -> {
+        button.setOnClickListener(v -> ui.choiceSheet(
+                title,
+                java.util.Arrays.asList(options),
+                scores[scoreIndex],
+                which -> {
                     scores[scoreIndex] = which;
                     button.setText(scoreButtonText(which));
-                })
-                .show());
+                }));
         return button;
     }
 
@@ -1034,21 +1037,7 @@ public final class MealManagementScreen extends BaseScreen {
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
 
-        AlertDialog dialog = new AlertDialog.Builder(host.activity())
-                .setTitle(recipe.displayName())
-                .setView(scroll)
-                .setNegativeButton("닫기", null)
-                .create();
-        dialog.setOnShowListener(ignored -> {
-            if (dialog.getWindow() == null) {
-                return;
-            }
-            WindowManager.LayoutParams params = dialog.getWindow().getAttributes();
-            params.dimAmount = 0.62f;
-            dialog.getWindow().setAttributes(params);
-            dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-        });
-        dialog.show();
+        ui.sheet(recipe.displayName(), scroll, "닫기", () -> { }, null, null);
     }
 
     private View savedMenuComponentRow(NutritionCatalogRepository.RecipeComponent component) {
@@ -1353,25 +1342,33 @@ public final class MealManagementScreen extends BaseScreen {
             }
         }
 
+        LinearLayout actions = new LinearLayout(host.activity());
+        actions.setOrientation(LinearLayout.VERTICAL);
+        if (entry.timeEditable) {
+            Button editTime = ui.button("시간 수정", false, v -> {
+                ui.dismissActiveDialog();
+                showRecordedMealTimePicker(entry);
+            });
+            actions.addView(editTime, ui.fullWidthParams(ui.dp(6)));
+        }
+        if (!entry.isDiningOut() && !repository().mealItemsForRecord(entry.id).isEmpty()) {
+            Button editMenus = ui.button("메뉴 수정", false, v -> {
+                ui.dismissActiveDialog();
+                showMealMenuEditDialog(entry);
+            });
+            actions.addView(editMenus, ui.fullWidthParams(ui.dp(6)));
+        }
+        if (actions.getChildCount() > 0) {
+            body.addView(actions, ui.fullWidthParams(ui.dp(12)));
+        }
+
         ScrollView scroll = new ScrollView(host.activity());
         scroll.setFillViewport(true);
         scroll.addView(body, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
-        AlertDialog.Builder builder = new AlertDialog.Builder(host.activity())
-                .setTitle(entry.previewTitle)
-                .setView(scroll)
-                .setNegativeButton("닫기", null);
-        if (entry.timeEditable) {
-            builder.setNeutralButton("시간 수정", (dialog, which) ->
-                    showRecordedMealTimePicker(entry));
-        }
-        if (!entry.isDiningOut() && !repository().mealItemsForRecord(entry.id).isEmpty()) {
-            builder.setPositiveButton("메뉴 수정", (dialog, which) ->
-                    showMealMenuEditDialog(entry));
-        }
-        builder.show();
+        ui.sheet(entry.previewTitle, scroll, "닫기", () -> { }, null, null);
     }
 
     /** Allows a recorded meal's top-level menu names and quantities to be corrected in place. */
@@ -1419,55 +1416,48 @@ public final class MealManagementScreen extends BaseScreen {
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
-        AlertDialog dialog = new AlertDialog.Builder(host.activity())
-                .setTitle("끼니 메뉴 수정")
-                .setView(scroll)
-                .setNegativeButton("취소", null)
-                .setPositiveButton("저장", null)
-                .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    List<FitnessRepository.MealMenuEdit> edits = new ArrayList<>();
-                    try {
-                        for (int index = 0; index < menus.size(); index++) {
-                            String name = FitnessUi.inputText(nameInputs.get(index)).trim();
-                            if (name.isEmpty()) {
-                                throw new IllegalArgumentException(
-                                        "메뉴 " + (index + 1) + "의 이름을 입력하세요."
-                                );
-                            }
-                            String quantityText = FitnessUi.inputText(quantityInputs.get(index)).trim();
-                            double quantity;
-                            try {
-                                quantity = Double.parseDouble(quantityText);
-                            } catch (NumberFormatException error) {
-                                throw new IllegalArgumentException(
-                                        "메뉴 " + (index + 1) + "의 섭취량을 숫자로 입력하세요."
-                                );
-                            }
-                            if (!Double.isFinite(quantity) || quantity <= 0d) {
-                                throw new IllegalArgumentException(
-                                        "메뉴 " + (index + 1) + "의 섭취량은 0보다 커야 합니다."
-                                );
-                            }
-                            edits.add(new FitnessRepository.MealMenuEdit(
-                                    menus.get(index).id,
-                                    name,
-                                    quantity
-                            ));
-                        }
-                        if (!repository().updateMealMenus(entry.id, edits)) {
-                            host.toast("끼니 메뉴를 수정하지 못했습니다.");
-                            return;
-                        }
-                        dialog.dismiss();
-                        host.toast("끼니 메뉴를 수정했습니다.");
-                        host.rerender();
-                    } catch (IllegalArgumentException error) {
-                        host.toast(error.getMessage());
+        ui.validatedSheet("끼니 메뉴 수정", scroll, "저장", () -> {
+            List<FitnessRepository.MealMenuEdit> edits = new ArrayList<>();
+            try {
+                for (int index = 0; index < menus.size(); index++) {
+                    String name = FitnessUi.inputText(nameInputs.get(index)).trim();
+                    if (name.isEmpty()) {
+                        throw new IllegalArgumentException(
+                                "메뉴 " + (index + 1) + "의 이름을 입력하세요."
+                        );
                     }
-                }));
-        dialog.show();
+                    String quantityText = FitnessUi.inputText(quantityInputs.get(index)).trim();
+                    double quantity;
+                    try {
+                        quantity = Double.parseDouble(quantityText);
+                    } catch (NumberFormatException error) {
+                        throw new IllegalArgumentException(
+                                "메뉴 " + (index + 1) + "의 섭취량을 숫자로 입력하세요."
+                        );
+                    }
+                    if (!Double.isFinite(quantity) || quantity <= 0d) {
+                        throw new IllegalArgumentException(
+                                "메뉴 " + (index + 1) + "의 섭취량은 0보다 커야 합니다."
+                        );
+                    }
+                    edits.add(new FitnessRepository.MealMenuEdit(
+                            menus.get(index).id,
+                            name,
+                            quantity
+                    ));
+                }
+                if (!repository().updateMealMenus(entry.id, edits)) {
+                    host.toast("끼니 메뉴를 수정하지 못했습니다.");
+                    return false;
+                }
+                host.toast("끼니 메뉴를 수정했습니다.");
+                host.rerender();
+                return true;
+            } catch (IllegalArgumentException error) {
+                host.toast(error.getMessage());
+                return false;
+            }
+        });
     }
 
     private View mealWorkspace() {
@@ -2069,12 +2059,16 @@ public final class MealManagementScreen extends BaseScreen {
             templateButton.setContentDescription(template.name + " 외식 템플릿 선택");
             rows.addView(templateButton, ui.fullWidthParams(ui.dp(5)));
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle("외식 구성 템플릿")
-                .setMessage("고정 메뉴와 그룹별 선택지를 불러옵니다.")
-                .setView(rows)
-                .setNegativeButton("닫기", null)
-                .show();
+        LinearLayout body = new LinearLayout(host.activity());
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.addView(ui.text(
+                "고정 메뉴와 그룹별 선택지를 불러옵니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ), ui.fullWidthParams(ui.dp(8)));
+        body.addView(rows, ui.fullWidthParams(0));
+        ui.sheet("외식 구성 템플릿", body, "닫기", () -> { }, null, null);
     }
 
     private void showDiningOutTemplateSelection(CompositionTemplate template) {
@@ -2106,6 +2100,7 @@ public final class MealManagementScreen extends BaseScreen {
                 ), ui.fullWidthParams(ui.dp(3)));
                 continue;
             }
+            List<Button> memberButtons = new ArrayList<>();
             for (CompositionMember member : group.members) {
                 Button memberButton = ui.button(
                         member.name + " · " + Math.round(member.profile.calories()) + "kcal",
@@ -2122,35 +2117,40 @@ public final class MealManagementScreen extends BaseScreen {
                             || CompositionGroup.MODE_ZERO_OR_ONE.equals(group.selectionMode)) {
                         selected.clear();
                         selected.add(member);
-                        memberButton.setText("✓ " + member.name);
-                    } else if (selected.contains(member)) {
-                        selected.remove(member);
-                        memberButton.setText(member.name + " · "
-                                + Math.round(member.profile.calories()) + "kcal");
                     } else {
-                        selected.add(member);
-                        memberButton.setText("✓ " + member.name);
+                        if (selected.contains(member)) {
+                            selected.remove(member);
+                        } else {
+                            selected.add(member);
+                        }
+                    }
+                    for (int index = 0; index < memberButtons.size(); index++) {
+                        Button candidate = memberButtons.get(index);
+                        CompositionMember candidateMember = group.members.get(index);
+                        boolean candidateSelected = selected.contains(candidateMember);
+                        candidate.setText(candidateSelected
+                                ? "✓ " + candidateMember.name
+                                : candidateMember.name + " · "
+                                + Math.round(candidateMember.profile.calories()) + "kcal");
+                        ui.styleSelection(candidate, candidateSelected, ui.dp(12));
                     }
                 });
+                memberButtons.add(memberButton);
                 panel.addView(memberButton, ui.fullWidthParams(ui.dp(3)));
             }
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle(template.name)
-                .setView(panel)
-                .setNegativeButton("취소", null)
-                .setPositiveButton("적용", (dialog, which) -> {
+        ui.validatedSheet(template.name, panel, "적용", () -> {
                     for (CompositionGroup group : template.groups) {
                         List<CompositionMember> selected = selectedByGroup.get(group.key);
                         int count = selected == null ? 0 : selected.size();
                         if (count < group.minSelected || count > group.maxSelected) {
                             host.toast(group.label + " 선택을 확인하세요.");
-                            return;
+                            return false;
                         }
                     }
                     applyDiningOutTemplate(template, selectedByGroup);
-                })
-                .show();
+                    return true;
+                });
     }
 
     private void applyDiningOutTemplate(
@@ -2448,7 +2448,7 @@ public final class MealManagementScreen extends BaseScreen {
                 false
         ), ui.fullWidthParams(ui.dp(8)));
 
-        final AlertDialog[] dialogHolder = new AlertDialog[1];
+        final Dialog[] dialogHolder = new Dialog[1];
         if (!savedMenus.isEmpty()) {
             panel.addView(ui.text("내 저장 외식 메뉴", 14, FitnessUi.COLOR_TEXT, true),
                     ui.fullWidthParams(ui.dp(5)));
@@ -2474,13 +2474,8 @@ public final class MealManagementScreen extends BaseScreen {
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
-        AlertDialog dialog = new AlertDialog.Builder(host.activity())
-                .setTitle("내 외식 불러오기")
-                .setView(scroll)
-                .setNegativeButton("취소", null)
-                .create();
+        Dialog dialog = ui.sheet("내 외식 불러오기", scroll, "닫기", () -> { }, null, null);
         dialogHolder[0] = dialog;
-        dialog.show();
     }
 
     private String savedDiningOutMenuLabel(NutritionFood menu) {
@@ -2590,14 +2585,11 @@ public final class MealManagementScreen extends BaseScreen {
         for (int index = 0; index < types.length; index++) {
             labels[index] = CompositionGroupType.labelOf(types[index].value());
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle("종류 선택")
-                .setItems(labels, (dialog, which) -> {
-                    if (which >= 0 && which < types.length) {
-                        showDiningOutOptionPicker(-1, types[which].value());
-                    }
-                })
-                .show();
+        ui().choiceSheet("종류 선택", Arrays.asList(labels), -1, which -> {
+            if (which >= 0 && which < types.length) {
+                showDiningOutOptionPicker(-1, types[which].value());
+            }
+        });
     }
 
     private void showDiningOutOptionPicker(int replacementIndex) {
@@ -2655,13 +2647,7 @@ public final class MealManagementScreen extends BaseScreen {
         ));
         panel.addView(resultScroll, ui.fullWidthParams(ui.dp(220)));
 
-        AlertDialog dialog = new AlertDialog.Builder(host.activity())
-                .setTitle(replacementIndex >= 0
-                        ? "외식 옵션 변경 · " + CompositionGroupType.labelOf(selectedGroupType)
-                        : "외식 옵션 추가")
-                .setView(panel)
-                .setNegativeButton("취소", null)
-                .create();
+        final Dialog[] dialogHolder = new Dialog[1];
         Button manualInput = ui.button(
                 replacementIndex >= 0 ? "직접 입력으로 변경" : "저장 옵션 없이 직접 입력",
                 false,
@@ -2675,7 +2661,9 @@ public final class MealManagementScreen extends BaseScreen {
             } else {
                 menu.options.add(manualDraft);
             }
-            dialog.dismiss();
+            if (dialogHolder[0] != null) {
+                dialogHolder[0].dismiss();
+            }
             rerenderDiningOutFromDraft();
         });
         panel.addView(manualInput, ui.fullWidthParams(ui.dp(6)));
@@ -2740,7 +2728,7 @@ public final class MealManagementScreen extends BaseScreen {
                             ignored -> selectDiningOutOption(
                                     replacementIndex,
                                     option,
-                                    dialog
+                                    dialogHolder[0]
                             )
                     );
                     optionButton.setContentDescription(option.name + " 저장 옵션 선택");
@@ -2751,23 +2739,31 @@ public final class MealManagementScreen extends BaseScreen {
             }
         });
 
-        dialog.setOnShowListener(ignored -> {
-            query.requestFocus();
-            if (dialog.getWindow() != null) {
-                dialog.getWindow().setSoftInputMode(
-                        WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
-                );
-            }
-            // The group was selected before this dialog, so an empty query lists only that group.
-            search.performClick();
-        });
-        dialog.show();
+        Dialog dialog = ui.sheet(
+                replacementIndex >= 0
+                        ? "외식 옵션 변경 · " + CompositionGroupType.labelOf(selectedGroupType)
+                        : "외식 옵션 추가",
+                panel,
+                "닫기",
+                () -> { },
+                null,
+                null
+        );
+        dialogHolder[0] = dialog;
+        query.requestFocus();
+        if (dialog.getWindow() != null) {
+            dialog.getWindow().setSoftInputMode(
+                    WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE
+            );
+        }
+        // The group was selected before this dialog, so an empty query lists only that group.
+        search.performClick();
     }
 
     private void selectDiningOutOption(
             int replacementIndex,
             NutritionFood food,
-            AlertDialog dialog
+            Dialog dialog
     ) {
         DiningOutMenuDraft menu = activeDiningOutMenu();
         DiningOutOptionDraft selectedDraft = new DiningOutOptionDraft();
@@ -2874,11 +2870,7 @@ public final class MealManagementScreen extends BaseScreen {
         detail.setOrientation(LinearLayout.VERTICAL);
         panel.addView(detail, ui.fullWidthParams(ui.dp(8)));
 
-        AlertDialog dialog = new AlertDialog.Builder(host.activity())
-                .setTitle("외식 3단 구조 선택")
-                .setView(panel)
-                .setNegativeButton("취소", null)
-                .create();
+        final Dialog[] dialogHolder = new Dialog[1];
         Button search = ui.button("식당 검색", true, v -> {
             String text = FitnessUi.inputText(query).trim();
             status.setText("식당 목록을 조회하는 중입니다.");
@@ -2900,7 +2892,7 @@ public final class MealManagementScreen extends BaseScreen {
                                             value.restaurantId,
                                             status,
                                             detail,
-                                            dialog
+                                            dialogHolder[0]
                                     )
                             );
                             restaurants.addView(restaurantButton, ui.fullWidthParams(ui.dp(4)));
@@ -2917,15 +2909,16 @@ public final class MealManagementScreen extends BaseScreen {
             });
         });
         panel.addView(search, 1, ui.fullWidthParams(ui.dp(6)));
-        dialog.setOnShowListener(ignored -> search.performClick());
-        dialog.show();
+        Dialog dialog = ui.sheet("외식 3단 구조 선택", panel, "닫기", () -> { }, null, null);
+        dialogHolder[0] = dialog;
+        search.performClick();
     }
 
     private void loadPriceTraceDiningOutDetail(
             String restaurantId,
             TextView status,
             LinearLayout detail,
-            AlertDialog dialog
+            Dialog dialog
     ) {
         FitnessUi ui = ui();
         status.setText("2. 지점과 메뉴를 불러오는 중입니다.");
@@ -2966,7 +2959,7 @@ public final class MealManagementScreen extends BaseScreen {
                             for (int index = 0; index < locationRows.getChildCount(); index++) {
                                 View child = locationRows.getChildAt(index);
                                 if (child instanceof Button) {
-                                    child.setSelected(child == ignored);
+                                    ui.styleSelection(child, child == ignored, ui.dp(12));
                                 }
                             }
                             for (int index = 0; index < menuButtons.size()
@@ -3143,21 +3136,17 @@ public final class MealManagementScreen extends BaseScreen {
         }
         CompositionGroupType[] types = CompositionGroupType.values();
         String[] labels = CompositionGroupType.labels();
-        new AlertDialog.Builder(host.activity())
-                .setTitle("외식 구성 그룹")
-                .setItems(labels, (dialog, which) -> {
-                    if (which >= 0 && which < types.length
-                            && optionIndex < activeDiningOutMenu().options.size()) {
-                        DiningOutOptionDraft draft = activeDiningOutMenu().options.get(optionIndex);
-                        draft.groupType = types[which].value();
-                        // A changed type starts a new generated group key. Template-provided
-                        // keys remain intact when a member is merely reloaded.
-                        draft.groupKey = "";
-                        rerenderDiningOutFromDraft();
-                    }
-                })
-                .setNegativeButton("취소", null)
-                .show();
+        ui().choiceSheet("외식 구성 그룹", Arrays.asList(labels), -1, which -> {
+            if (which >= 0 && which < types.length
+                    && optionIndex < activeDiningOutMenu().options.size()) {
+                DiningOutOptionDraft draft = activeDiningOutMenu().options.get(optionIndex);
+                draft.groupType = types[which].value();
+                // A changed type starts a new generated group key. Template-provided
+                // keys remain intact when a member is merely reloaded.
+                draft.groupKey = "";
+                rerenderDiningOutFromDraft();
+            }
+        });
     }
     private void showDiningOutProvisionTypePicker(int optionIndex) {
         syncDraftFromViews();
@@ -3167,18 +3156,14 @@ public final class MealManagementScreen extends BaseScreen {
         }
         DiningOutProvisionType[] types = DiningOutProvisionType.values();
         String[] labels = DiningOutProvisionType.labels();
-        new AlertDialog.Builder(host.activity())
-                .setTitle("제공 방식 선택")
-                .setItems(labels, (dialog, which) -> {
-                    if (which >= 0 && which < types.length
-                            && optionIndex < activeDiningOutMenu().options.size()) {
-                        activeDiningOutMenu().options.get(optionIndex).provisionType =
-                                types[which].value();
-                        rerenderDiningOutFromDraft();
-                    }
-                })
-                .setNegativeButton("취소", null)
-                .show();
+        ui().choiceSheet("제공 방식 선택", Arrays.asList(labels), -1, which -> {
+            if (which >= 0 && which < types.length
+                    && optionIndex < activeDiningOutMenu().options.size()) {
+                activeDiningOutMenu().options.get(optionIndex).provisionType =
+                        types[which].value();
+                rerenderDiningOutFromDraft();
+            }
+        });
     }
 
 
@@ -4020,11 +4005,16 @@ public final class MealManagementScreen extends BaseScreen {
             labels[index] = variant.packagedVariantLabel()
                     + " · " + variant.extendedNutritionLabel();
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle(product.packagedProductLabel() + " · 포장 선택")
-                .setItems(labels, (dialog, which) -> addCatalogFood(variants.get(which)))
-                .setNegativeButton("취소", null)
-                .show();
+        ui().choiceSheet(
+                product.packagedProductLabel() + " · 포장 선택",
+                Arrays.asList(labels),
+                -1,
+                which -> {
+                    if (which >= 0 && which < variants.size()) {
+                        addCatalogFood(variants.get(which));
+                    }
+                }
+        );
     }
 
     private String catalogFoodTypeLabel(NutritionFood food) {
@@ -4565,16 +4555,14 @@ public final class MealManagementScreen extends BaseScreen {
                     ? NutritionFood.categoryLabel(options[index])
                     : NutritionFood.cookingMethodLabel(options[index]);
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle(title)
-                .setItems(labels, (dialog, which) -> {
-                    selected[0] = options[which];
-                    target.setText(category
-                            ? categoryButtonLabel(selected[0])
-                            : cookingMethodButtonLabel(selected[0]));
-                })
-                .setNegativeButton("취소", null)
-                .show();
+        ui().choiceSheet(title, Arrays.asList(labels), -1, which -> {
+            if (which >= 0 && which < options.length) {
+                selected[0] = options[which];
+                target.setText(category
+                        ? categoryButtonLabel(selected[0])
+                        : cookingMethodButtonLabel(selected[0]));
+            }
+        });
     }
 
     private static String categoryButtonLabel(String category) {

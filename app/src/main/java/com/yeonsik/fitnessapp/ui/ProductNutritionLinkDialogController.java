@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -22,7 +22,7 @@ final class ProductNutritionLinkDialogController {
     private final ScreenHost host;
     private final FitnessUi ui;
     private final NutritionCatalogRepository repository;
-    private AlertDialog activeDialog;
+    private Dialog activeDialog;
     private boolean publicationUpdating;
 
     ProductNutritionLinkDialogController(ScreenHost host) {
@@ -161,12 +161,14 @@ final class ProductNutritionLinkDialogController {
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
-        activeDialog = new AlertDialog.Builder(host.activity())
-                .setTitle(food.name + " · PriceTrace 연결")
-                .setView(scroll)
-                .setNegativeButton("닫기", null)
-                .create();
-        activeDialog.show();
+        activeDialog = ui.sheet(
+                food.name + " · PriceTrace 연결",
+                scroll,
+                "닫기",
+                () -> { },
+                null,
+                null
+        );
     }
 
     void showDiningOutPublication(NutritionFood food) {
@@ -228,12 +230,14 @@ final class ProductNutritionLinkDialogController {
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
-        activeDialog = new AlertDialog.Builder(host.activity())
-                .setTitle(food.brand + " · " + food.name + " · PT 공개")
-                .setView(scroll)
-                .setNegativeButton("닫기", null)
-                .create();
-        activeDialog.show();
+        activeDialog = ui.sheet(
+                food.brand + " · " + food.name + " · PT 공개",
+                scroll,
+                "닫기",
+                () -> { },
+                null,
+                null
+        );
     }
 
     private boolean hasExactDiningOutIdentity(NutritionFood food) {
@@ -281,13 +285,15 @@ final class ProductNutritionLinkDialogController {
         String message = publish
                 ? food.brand + " · " + food.name + "을(를) PT에서 공개할까요?"
                 : food.brand + " · " + food.name + "을(를) PT에서 숨길까요?";
-        new AlertDialog.Builder(host.activity())
-                .setTitle(title)
-                .setMessage(message)
-                .setPositiveButton(publish ? "공개" : "공개 취소",
-                        (dialog, which) -> setDiningOutPublication(food, publish))
-                .setNegativeButton("취소", null)
-                .show();
+        ui.confirmSheet(
+                title,
+                message,
+                publish
+                        ? "선택한 식당·메뉴 identity로 공개 상태를 변경합니다."
+                        : "기존 공개 상태만 취소하며 로컬 영양 기록은 유지됩니다.",
+                publish ? "공개" : "공개 취소",
+                () -> setDiningOutPublication(food, publish)
+        );
     }
 
     private void setDiningOutPublication(NutritionFood food, boolean publish) {
@@ -377,13 +383,16 @@ final class ProductNutritionLinkDialogController {
                 food.basisUnit
         );
         if (exactProduct == null) {
-            new AlertDialog.Builder(host.activity())
-                    .setTitle("표준상품 확인")
-                    .setMessage(standardProduct.standardProductLabel()
+            LinearLayout body = ui.form();
+            body.addView(ui.text(
+                    standardProduct.standardProductLabel()
                             + "은 확인했지만 입력된 영양 기준량과 유일하게 일치하는 규격이 없습니다. "
-                            + "하위 규격을 임의로 연결하지 않으며 영양 정보는 그대로 사용할 수 있습니다.")
-                    .setPositiveButton("확인", null)
-                    .show();
+                            + "하위 규격을 임의로 연결하지 않으며 영양 정보는 그대로 사용할 수 있습니다.",
+                    14,
+                    FitnessUi.COLOR_TEXT,
+                    false
+            ));
+            ui.sheet("표준상품 확인", body, "확인", () -> { }, null, null);
             return;
         }
         confirmExactSelection(food, exactProduct);
@@ -394,19 +403,20 @@ final class ProductNutritionLinkDialogController {
             host.toast("PriceTrace 공개를 먼저 취소한 뒤 상품 연결을 변경하세요.");
             return;
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle("표준상품 연결 확인")
-                .setMessage(product.standardProductLabel()
-                        + "\n\n이 PriceTrace 상품을 " + food.displayName() + "에 연결할까요?")
-                .setPositiveButton("연결", (dialog, which) -> {
+        ui.confirmSheet(
+                "표준상품 연결 확인",
+                product.standardProductLabel()
+                        + "\n\n이 PriceTrace 상품을 " + food.displayName() + "에 연결할까요?",
+                "연결 후에도 영양 정보와 과거 식사 기록은 유지됩니다.",
+                "연결",
+                () -> {
                     repository.linkProduct(food.id, product);
                     syncLinksQuietly();
                     host.toast("선택한 표준상품을 연결했습니다.");
                     dismissActiveDialog();
                     host.rerender();
-                })
-                .setNegativeButton("취소", null)
-                .show();
+                }
+        );
     }
 
     private void confirmPublication(
@@ -419,13 +429,15 @@ final class ProductNutritionLinkDialogController {
                 ? food.displayName() + "의 영양정보가 인터넷에서 공개됩니다.\n\n"
                 + approved.displayLabel() + "에 공개할까요?"
                 : food.displayName() + "의 영양정보를 PriceTrace에서 숨길까요?";
-        new AlertDialog.Builder(host.activity())
-                .setTitle(title)
-                .setMessage(message)
-                .setPositiveButton(publish ? "공개" : "공개 취소", (dialog, which) ->
-                        setPublication(food, approved, publish))
-                .setNegativeButton("취소", null)
-                .show();
+        ui.confirmSheet(
+                title,
+                message,
+                publish
+                        ? "공개 후에는 연결과 영양값을 변경하려면 먼저 공개를 취소해야 합니다."
+                        : "공개 상태만 취소하며 로컬 영양 정보와 과거 기록은 유지됩니다.",
+                publish ? "공개" : "공개 취소",
+                () -> setPublication(food, approved, publish)
+        );
     }
 
     private void setPublication(
@@ -531,29 +543,35 @@ final class ProductNutritionLinkDialogController {
             host.toast("PriceTrace 공개를 먼저 취소한 뒤 상품 연결을 변경하세요.");
             return;
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle("PriceTrace 제안 검토")
-                .setMessage(product.exactSelectionLabel()
-                        + "\n\n영양 항목: " + food.name
-                        + "\n제안 참조: " + (suggestion.proposalReference == null
-                        ? "없음" : suggestion.proposalReference))
-                .setPositiveButton("제안 승인", (dialog, which) -> {
+        ui.sheetWithSecondary(
+                "PriceTrace 제안 검토",
+                ui.text(
+                        product.exactSelectionLabel()
+                                + "\n\n영양 항목: " + food.name
+                                + "\n제안 참조: " + (suggestion.proposalReference == null
+                                ? "없음" : suggestion.proposalReference),
+                        14,
+                        FitnessUi.COLOR_TEXT,
+                        false
+                ),
+                "제안 승인",
+                () -> {
                     repository.approveProductSuggestion(suggestion.id, product);
                     syncLinksQuietly();
                     host.toast("PriceTrace 제안을 승인했습니다.");
                     dismissActiveDialog();
                     host.rerender();
-                })
-                .setNeutralButton("제안 거절", (dialog, which) -> {
+                },
+                "제안 거절",
+                () -> {
                     if (repository.rejectProductSuggestion(suggestion.id)) {
                         syncLinksQuietly();
                         host.toast("PriceTrace 제안을 거절했습니다.");
                         dismissActiveDialog();
                         host.rerender();
                     }
-                })
-                .setNegativeButton("닫기", null)
-                .show();
+                }
+        );
     }
 
     private void dismissActiveDialog() {

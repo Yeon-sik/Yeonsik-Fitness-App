@@ -1,11 +1,10 @@
 package com.yeonsik.fitnessapp.ui;
 
-import android.app.Activity;
-import android.app.AlertDialog;
 import android.widget.Button;
 
 import com.yeonsik.fitnessapp.data.NutritionUnit;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 /** List-backed selector that prevents unsupported nutrition basis-unit input. */
@@ -13,10 +12,10 @@ final class NutritionUnitSelector {
     private NutritionUnitSelector() {
     }
 
-    static Button create(FitnessUi ui, Activity activity, String initialValue) {
+    static Button create(FitnessUi ui, android.app.Activity activity, String initialValue) {
         Button selector = ui.button("", false, null);
         setValue(selector, initialValue);
-        selector.setOnClickListener(v -> showChoices(activity, selector));
+        selector.setOnClickListener(v -> showChoices(ui, selector));
         return selector;
     }
 
@@ -36,7 +35,7 @@ final class NutritionUnitSelector {
         selector.setContentDescription("기준 단위 선택: " + NutritionUnit.display(normalized));
     }
 
-    private static void showChoices(Activity activity, Button selector) {
+    private static void showChoices(FitnessUi ui, Button selector) {
         String[] options = NutritionUnit.options();
         int checkedIndex = 0;
         String selected = value(selector);
@@ -46,13 +45,8 @@ final class NutritionUnitSelector {
                 break;
             }
         }
-        new AlertDialog.Builder(activity)
-                .setTitle("기준 단위 선택")
-                .setSingleChoiceItems(options, checkedIndex, (dialog, which) -> {
+        ui.choiceSheet("기준 단위 선택", Arrays.asList(options), checkedIndex, which -> {
                     setValue(selector, options[which]);
-                    dialog.dismiss();
-                })
-                .setNegativeButton("취소", null)
-                .show();
+                });
     }
 }

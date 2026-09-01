@@ -199,14 +199,7 @@ public final class RecordsScreen extends BaseScreen {
                 date.format(DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN))
                         + ", " + recordDescription + (selected ? ", 선택됨" : "")
         );
-        String daySeed = "calendar-" + date.getDayOfWeek();
-        cell.setBackground(selected
-                ? ui.vibrantRippleDrawable(daySeed, ui.dp(10))
-                : ui.flatSurfaceRippleDrawable(ui.dp(10)));
-        if (selected) {
-            ui.setHologramBackground(cell, cell.getBackground(), ui.dp(10));
-        }
-        ui.applyDepth(cell, selected ? 5 : 2);
+        ui.styleSelection(cell, selected, ui.dp(10));
         ui.pressFeedback(cell);
         TextView day = ui.num(String.valueOf(date.getDayOfMonth()), 14,
                 selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);

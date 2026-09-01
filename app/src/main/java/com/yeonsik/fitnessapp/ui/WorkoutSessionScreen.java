@@ -1,6 +1,5 @@
 package com.yeonsik.fitnessapp.ui;
 
-import android.app.AlertDialog;
 import android.graphics.Typeface;
 import android.view.Gravity;
 import android.view.View;
@@ -12,6 +11,7 @@ import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 
 import java.util.List;
+import java.util.Arrays;
 
 /**
  * 운동 세션 화면: 경과시간 히어로 + 메트릭 스트립 + 종목 진행 카드.
@@ -32,7 +32,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
     public void render() {
         String recordId = host.sessionState().activeRecordId();
         if (recordId == null) {
-            host.navigate(FitnessScreen.STRENGTH);
+            host.replace(FitnessScreen.STRENGTH);
             return;
         }
 
@@ -181,22 +181,21 @@ public final class WorkoutSessionScreen extends BaseScreen {
         }
         repository().finishSession(recordId);
         host.toast("운동을 완료했습니다.");
-        host.navigate(FitnessScreen.WORKOUT_SUMMARY);
+        host.replace(FitnessScreen.WORKOUT_SUMMARY);
     }
 
     private void showLeaveSessionDialog() {
         String recordId = host.sessionState().activeRecordId();
-        new AlertDialog.Builder(host.activity())
-                .setTitle("운동 나가기")
-                .setItems(new String[]{"계속 운동하기", "임시 저장하고 나가기", "기록 삭제하고 나가기"}, (dialog, which) -> {
+        ui().choiceSheet("운동 나가기", Arrays.asList(
+                "계속 운동하기", "임시 저장하고 나가기", "기록 삭제하고 나가기"
+        ), -1, which -> {
                     if (which == 1) {
-                        host.navigate(FitnessScreen.STRENGTH);
+                        backOr(FitnessScreen.STRENGTH);
                         host.toast("임시 저장했습니다. 진행 중 운동에서 이어할 수 있습니다.");
                     } else if (which == 2 && recordId != null) {
                         host.confirmDeleteSession(recordId);
                     }
-                })
-                .show();
+                });
     }
 
     private void startElapsedTicker(TextView elapsedView, String startedAt) {

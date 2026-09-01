@@ -15,6 +15,7 @@ import com.yeonsik.fitnessapp.routine.WorkoutRoutineMapper;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +28,7 @@ import java.util.Map;
 public final class WorkoutSummaryScreen extends BaseScreen {
     private static final int SETS_PER_ROW = 6;
     private final ExerciseCardRenderer exerciseCardRenderer;
+    private final ExerciseMuscleModelRenderer exerciseMuscleModelRenderer;
 
     public WorkoutSummaryScreen(ScreenHost host) {
         super(host);
@@ -35,6 +37,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                 host.ui(),
                 new ExerciseIllustrationPreview(host.activity(), host.ui())
         );
+        exerciseMuscleModelRenderer = new ExerciseMuscleModelRenderer(host.activity(), host.ui());
     }
 
     @Override
@@ -48,6 +51,23 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         FitnessRepository.SessionInfo info = repository().sessionInfo(recordId);
         boolean cardio = "cardio".equals(info.workoutType);
         screenHeader("완료 기록", cardio ? "유산소 요약" : "운동 요약");
+        if (!cardio) {
+            Map<String, List<FitnessRepository.SessionSetEntry>> setsByExercise =
+                    new LinkedHashMap<>();
+            List<FitnessRepository.SessionExerciseEntry> exercises = recordId == null
+                    ? Collections.emptyList()
+                    : repository().sessionExerciseEntries(recordId);
+            for (FitnessRepository.SessionExerciseEntry exercise : exercises) {
+                setsByExercise.put(exercise.id, repository().setsForExercise(exercise.id));
+            }
+            Map<String, Double> layerScores = WorkoutSummaryAnalytics.effectiveAnatomicalLayerScores(
+                    exercises,
+                    setsByExercise,
+                    host.exerciseMasterRepository().runtimeCatalog(),
+                    exerciseMuscleModelRenderer.anatomicalLayerIdsByMuscleGroup()
+            );
+            renderMuscleDistribution(layerScores);
+        }
 
         LinearLayout tiles = ui.tileRow();
         if (cardio) {
@@ -86,7 +106,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         buttonRow(
                 ui.button("기록 보기", true, v -> host.navigate(FitnessScreen.RECORDS)),
                 ui.button(cardio ? "유산소로 돌아가기" : "무산소로 돌아가기", false,
-                        v -> host.navigate(cardio ? FitnessScreen.CARDIO : FitnessScreen.STRENGTH)),
+                        v -> backOr(cardio ? FitnessScreen.CARDIO : FitnessScreen.STRENGTH)),
                 ui.dp(6)
         );
         if (cardio) {
@@ -101,10 +121,164 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             add(ui.button("이 운동을 루틴으로 저장", false,
                             v -> showSaveAsRoutineDialog(recordId)),
                     ui.fullWidthParams(ui.dp(6)));
+            renderStrengthProgress(recordId, info, metrics);
         }
 
         section("수행 내역");
         renderPerformance(recordId);
+    }
+
+    private void renderMuscleDistribution(Map<String, Double> effectiveSetsByLayer) {
+        FitnessUi ui = ui();
+        add(exerciseMuscleModelRenderer.renderScores(effectiveSetsByLayer),
+                ui.fullWidthParams(ui.dp(10)));
+        add(ui.text(
+                "근육 자극 분포 · 완료 세트 기준 (주요 부위 1.0, 보조 부위 0.5)",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ), ui.fullWidthParams(ui.dp(2)));
+    }
+
+    private void renderStrengthProgress(
+            String recordId,
+            FitnessRepository.SessionInfo info,
+            FitnessRepository.SessionMetrics currentMetrics
+    ) {
+        if (recordId == null || info == null || currentMetrics == null) {
+            return;
+        }
+        List<FitnessRepository.WorkoutHistoryEntry> previous;
+        String routineId = info.routineId == null ? "" : info.routineId.trim();
+        if (!routineId.isEmpty()) {
+            previous = repository().completedStrengthSessionsForRoutine(
+                    routineId,
+                    recordId,
+                    5
+            );
+            renderRoutineProgress(previous, currentMetrics, recordId);
+            return;
+        }
+
+        previous = repository().recentCompletedFreeStrengthSessions(recordId, 5);
+        add(volumeTrendCard(
+                "총 볼륨 추이",
+                "최근 " + previous.size() + "회 + 현재",
+                volumePoints(previous),
+                currentMetrics.totalVolumeKg
+        ), ui().fullWidthParams(ui().dp(10)));
+        add(ui().text(
+                "루틴으로 운동을 시작하면 루틴별 볼륨 변화를 비교할 수 있습니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        ), ui().fullWidthParams(ui().dp(2)));
+    }
+
+    private void renderRoutineProgress(
+            List<FitnessRepository.WorkoutHistoryEntry> previous,
+            FitnessRepository.SessionMetrics currentMetrics,
+            String recordId
+    ) {
+        FitnessUi ui = ui();
+        if (previous.isEmpty()) {
+            add(ui.emptyStateCard(
+                    "이 루틴의 이전 완료 기록이 없어 비교할 수 없습니다.",
+                    "이번 기록이 첫 완료 기록입니다. 다음 완료부터 변화가 표시됩니다."
+            ), ui.fullWidthParams(ui.dp(10)));
+        } else {
+            FitnessRepository.WorkoutHistoryEntry prior = previous.get(previous.size() - 1);
+            LinearLayout card = ui.card();
+            ui.cardHeader(card, "루틴 변화", "직전 완료 기록과 비교");
+            card.addView(ui.keyValue(
+                    "총 볼륨",
+                    FitnessUi.formatVolume(prior.metrics.totalVolumeKg) + "kg → "
+                            + FitnessUi.formatVolume(currentMetrics.totalVolumeKg) + "kg"
+            ));
+            card.addView(ui.keyValue(
+                    "증감률",
+                    formatChangePercent(
+                            prior.metrics.totalVolumeKg,
+                            currentMetrics.totalVolumeKg
+                    )
+            ));
+            card.addView(ui.keyValue(
+                    "완료 세트",
+                    prior.metrics.setCount + "개 → " + currentMetrics.setCount + "개"
+            ));
+            if (!sameExerciseSnapshot(prior.exercises,
+                    repository().sessionExerciseEntries(recordId))) {
+                TextView warning = ui.text(
+                        "루틴 구성이 이전 기록과 달라 비교값은 참고용입니다.",
+                        12,
+                        FitnessUi.COLOR_TERTIARY,
+                        true
+                );
+                warning.setPadding(0, ui.dp(10), 0, 0);
+                card.addView(warning);
+            }
+            add(card, ui.fullWidthParams(ui.dp(10)));
+        }
+
+        add(volumeTrendCard(
+                "동일 루틴 총 볼륨 추이",
+                "최근 " + previous.size() + "회 + 현재",
+                volumePoints(previous),
+                currentMetrics.totalVolumeKg
+        ), ui.fullWidthParams(ui.dp(10)));
+    }
+
+    private List<FitnessRepository.VolumePoint> volumePoints(
+            List<FitnessRepository.WorkoutHistoryEntry> history
+    ) {
+        if (history == null || history.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<FitnessRepository.VolumePoint> points = new ArrayList<>();
+        for (FitnessRepository.WorkoutHistoryEntry entry : history) {
+            points.add(new FitnessRepository.VolumePoint(
+                    entry.date,
+                    entry.routineId.isEmpty() ? "자유운동" : "루틴",
+                    entry.metrics.totalVolumeKg
+            ));
+        }
+        return points;
+    }
+
+    static String formatChangePercent(double previous, double current) {
+        return WorkoutSummaryAnalytics.formatChangePercent(previous, current);
+    }
+
+    private boolean sameExerciseSnapshot(
+            List<FitnessRepository.SessionExerciseEntry> first,
+            List<FitnessRepository.SessionExerciseEntry> second
+    ) {
+        if (first == null || second == null || first.size() != second.size()) {
+            return false;
+        }
+        for (int index = 0; index < first.size(); index++) {
+            if (!exerciseSnapshotKey(first.get(index)).equals(
+                    exerciseSnapshotKey(second.get(index)))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private String exerciseSnapshotKey(FitnessRepository.SessionExerciseEntry exercise) {
+        if (exercise == null) {
+            return "";
+        }
+        if (exercise.familyIdentity != null
+                && exercise.familyIdentity.familyId != null
+                && exercise.familyIdentity.canonicalVariantKey != null
+                && !exercise.familyIdentity.familyId.trim().isEmpty()
+                && !exercise.familyIdentity.canonicalVariantKey.trim().isEmpty()) {
+            return exercise.familyIdentity.familyId.trim() + "|"
+                    + exercise.familyIdentity.canonicalVariantKey.trim() + "|"
+                    + exercise.recordType;
+        }
+        return exercise.exerciseId + "|" + exercise.name + "|" + exercise.recordType;
     }
 
     private void renderPerformance(String recordId) {

@@ -51,7 +51,7 @@ public final class CardioSummaryScreen extends BaseScreen {
             emptyState("이 기기에서 GPS 세부 기록을 찾지 못했습니다.",
                     "공유된 운동 요약은 일반 운동 기록에서 확인할 수 있습니다.");
             add(ui().button("기록으로 돌아가기", false,
-                    v -> host.navigate(FitnessScreen.RECORDS)), ui().fullWidthParams(0));
+                    v -> backOr(FitnessScreen.RECORDS)), ui().fullWidthParams(0));
             return;
         }
 

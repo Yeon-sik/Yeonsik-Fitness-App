@@ -143,11 +143,7 @@ public final class ExerciseCardRenderer {
 
         public void applySelection(boolean selected) {
             if (selectable) {
-                String cardSeed = "exercise-" + content.name;
-                row.setBackground(selected
-                        ? ui.vibrantRippleDrawable(cardSeed, ui.dp(16))
-                        : ui.flatSurfaceRippleDrawable(ui.dp(16)));
-                ui.applyDepth(row, selected ? 7 : 4);
+                ui.styleSelection(row, selected, ui.dp(16));
             }
             row.setSelected(selected);
             row.setContentDescription(content.accessibilityText(selectable, selected));

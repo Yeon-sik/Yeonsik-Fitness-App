@@ -1,15 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
-import android.app.AlertDialog;
 import android.app.Dialog;
-import android.content.res.ColorStateList;
-import android.graphics.Color;
-import android.graphics.drawable.Drawable;
-import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.RippleDrawable;
 import android.view.Gravity;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -113,11 +105,11 @@ public final class ExerciseVariantPickerDialog {
                 popupHeight
         ));
 
-        AlertDialog dialog = new AlertDialog.Builder(activity)
-                .setTitle(family.displayName() + " · 운동 종류 선택")
-                .setView(body)
-                .setNegativeButton("취소", null)
-                .setPositiveButton(singleChoice ? "선택" : "적용", (ignored, which) -> {
+        Dialog dialog = ui.sheetWithSecondary(
+                family.displayName() + " · 운동 종류 선택",
+                body,
+                singleChoice ? "선택" : "적용",
+                () -> {
                     List<RuntimeExercisePreset> selected = new ArrayList<>();
                     for (int index = 0; index < available.size(); index++) {
                         if (checked[index]) {
@@ -125,26 +117,10 @@ public final class ExerciseVariantPickerDialog {
                         }
                     }
                     listener.onConfirmed(Collections.unmodifiableList(selected));
-                })
-                .create();
-        dialog.setOnShowListener(ignored -> configureWindow(dialog));
-        dialog.show();
-    }
-
-    private void configureWindow(Dialog dialog) {
-        Window window = dialog.getWindow();
-        if (window == null) {
-            return;
-        }
-        window.setBackgroundDrawable(ui.borderDrawable(
-                ui.surface(), ui.border(), ui.dp(24)));
-        WindowManager.LayoutParams attributes = window.getAttributes();
-        attributes.dimAmount = 0.38f;
-        window.setAttributes(attributes);
-        int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
-        int maxWidth = ui.dp(420);
-        window.setLayout(Math.min(maxWidth, screenWidth - ui.dp(28)),
-                WindowManager.LayoutParams.WRAP_CONTENT);
+                },
+                "취소",
+                () -> { }
+        );
     }
 
     private final class VariantRow {
@@ -217,8 +193,7 @@ public final class ExerciseVariantPickerDialog {
         }
 
         void applySelection(boolean selected) {
-            view.setBackground(variantRowBackground(selected, preset.identityId()));
-            ui.applyDepth(view, selected ? 6 : 3);
+            ui.styleSelection(view, selected, ui.dp(16));
             name.setTextColor(selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT);
             muscle.setTextColor(selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED);
             meta.setTextColor(selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED);
@@ -237,24 +212,6 @@ public final class ExerciseVariantPickerDialog {
                     + ", " + variantBodyPart(preset)
                     + (selected ? ", 선택됨" : ", 선택 안 됨");
         }
-    }
-
-    private Drawable variantRowBackground(boolean selected, String identity) {
-        if (selected) {
-            return ui.vibrantRippleDrawable("variant-" + identity, ui.dp(16));
-        }
-        GradientDrawable background = new GradientDrawable();
-        background.setColor(ui.surface());
-        background.setCornerRadius(ui.dp(16));
-        background.setStroke(ui.dp(2), ui.border());
-        GradientDrawable mask = new GradientDrawable();
-        mask.setColor(Color.WHITE);
-        mask.setCornerRadius(ui.dp(16));
-        return new RippleDrawable(
-                ColorStateList.valueOf(ui.rippleOnSurface()),
-                background,
-                mask
-        );
     }
 
     private String variantBodyPart(RuntimeExercisePreset preset) {

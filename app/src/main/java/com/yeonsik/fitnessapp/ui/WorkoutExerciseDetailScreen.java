@@ -1,6 +1,5 @@
 package com.yeonsik.fitnessapp.ui;
 
-import android.app.AlertDialog;
 import android.animation.ValueAnimator;
 import android.graphics.Bitmap;
 import android.graphics.Rect;
@@ -65,13 +64,13 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         openLoadStateSelector = null;
         String recordId = host.sessionState().activeRecordId();
         if (recordId == null) {
-            host.navigate(FitnessScreen.WORKOUT_SESSION);
+            host.replace(FitnessScreen.WORKOUT_SESSION);
             return;
         }
 
         List<FitnessRepository.SessionExerciseEntry> exercises = repository().sessionExerciseEntries(recordId);
         if (exercises.isEmpty()) {
-            host.navigate(FitnessScreen.WORKOUT_SESSION);
+            host.replace(FitnessScreen.WORKOUT_SESSION);
             return;
         }
 
@@ -101,7 +100,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView backAction = ui.textAction("‹ 세션으로", FitnessUi.COLOR_MUTED,
-                () -> host.navigate(FitnessScreen.WORKOUT_SESSION));
+                () -> backOr(FitnessScreen.WORKOUT_SESSION));
         topRow.addView(backAction, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         topRow.addView(ui.textAction("종목 교체", FitnessUi.COLOR_MUTED,
                 () -> beginExerciseReplacement(activeExercise)));
@@ -817,9 +816,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             option.setGravity(Gravity.CENTER);
             option.setMaxLines(2);
             option.setPadding(ui.dp(4), ui.dp(4), ui.dp(4), ui.dp(4));
-            option.setBackground(state == selectedLoadState[0]
-                    ? ui.vibrantRippleDrawable("load-state-" + state.id(), ui.dp(8))
-                    : ui.flatSurfaceRippleDrawable(ui.dp(8)));
+            ui.styleSelection(option, state == selectedLoadState[0], ui.dp(8));
             option.setClickable(true);
             option.setFocusable(true);
             option.setContentDescription("저항 상태 선택: " + loadStateLabel(state));

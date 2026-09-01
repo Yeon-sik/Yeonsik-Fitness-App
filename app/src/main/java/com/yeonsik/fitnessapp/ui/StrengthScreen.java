@@ -18,7 +18,7 @@ public final class StrengthScreen extends BaseScreen {
         List<RoutineRepository.RoutineSummary> routines = host.routineRepository().routines();
 
         add(ui().textAction("‹ 피트니스", FitnessUi.COLOR_MUTED,
-                () -> host.navigate(FitnessScreen.WORKOUT)), ui().fullWidthParams(0));
+                () -> backOr(FitnessScreen.WORKOUT)), ui().fullWidthParams(0));
         screenHeader("루틴과 세트", "무산소");
 
         section("근력 운동 시작");

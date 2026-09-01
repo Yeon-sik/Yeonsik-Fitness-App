@@ -53,6 +53,16 @@ public interface ScreenHost {
 
     void navigate(FitnessScreen screen);
 
+    /** Pops one screen entry. Dialog dismissal is owned by the system Back dispatcher. */
+    default boolean back() {
+        return false;
+    }
+
+    /** Replaces the current history entry for flow transitions such as session → summary. */
+    default void replace(FitnessScreen screen) {
+        navigate(screen);
+    }
+
     void rerender();
 
     void toast(String message);
