@@ -100,6 +100,22 @@ public final class NutritionProfileTest {
     }
 
     @Test
+    public void exposesTheSharedPrimaryNutritionDisplayOrder() {
+        assertEquals(
+                java.util.Arrays.asList(
+                        NutritionProfile.CALORIES_KCAL,
+                        NutritionProfile.CARBS_GRAMS,
+                        NutritionProfile.PROTEIN_GRAMS,
+                        NutritionProfile.FAT_GRAMS,
+                        NutritionProfile.SUGARS_GRAMS,
+                        NutritionProfile.SATURATED_FAT_GRAMS,
+                        NutritionProfile.SODIUM_MG
+                ),
+                NutritionProfile.PRIMARY_DISPLAY_ORDER
+        );
+    }
+
+    @Test
     public void catalogCoversRequestedMineralsAndVitamins() {
         for (String code : new String[]{
                 NutrientCode.CALCIUM,

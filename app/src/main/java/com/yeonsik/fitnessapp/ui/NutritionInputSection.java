@@ -14,7 +14,6 @@ import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,16 +25,6 @@ import java.util.Map;
  * "모름"으로 저장된다. 그 차이를 입력 화면에서부터 분명히 하려고 힌트에 명시한다.</p>
  */
 final class NutritionInputSection {
-    private static final String[] PRIMARY_DISPLAY_ORDER = {
-            NutritionProfile.CALORIES_KCAL,
-            NutritionProfile.CARBS_GRAMS,
-            NutritionProfile.PROTEIN_GRAMS,
-            NutritionProfile.FAT_GRAMS,
-            NutritionProfile.SODIUM_MG,
-            NutritionProfile.SATURATED_FAT_GRAMS,
-            NutritionProfile.SUGARS_GRAMS
-    };
-
     private final FitnessUi ui;
     private final Activity activity;
     private final Map<String, EditText> requiredInputs = new LinkedHashMap<>();
@@ -124,7 +113,7 @@ final class NutritionInputSection {
 
     private void build() {
         ui.addAll(container, ui.text("필수 영양성분", 14, FitnessUi.COLOR_TEXT, true));
-        addFieldGrid(container, Arrays.asList(PRIMARY_DISPLAY_ORDER), requiredInputs);
+        addFieldGrid(container, NutritionProfile.PRIMARY_DISPLAY_ORDER, requiredInputs);
 
         ui.addAll(container, ui.text(
                 "권고 영양성분 · 비워 두면 0이 아니라 '모름'으로 저장됩니다",
@@ -258,7 +247,7 @@ final class NutritionInputSection {
     /** 화면 안내용 필수 영양소 이름 목록. */
     static List<String> requiredLabels() {
         List<String> labels = new ArrayList<>();
-        for (String key : PRIMARY_DISPLAY_ORDER) {
+        for (String key : NutritionProfile.PRIMARY_DISPLAY_ORDER) {
             labels.add(NutritionProfile.labelOf(key));
         }
         return labels;

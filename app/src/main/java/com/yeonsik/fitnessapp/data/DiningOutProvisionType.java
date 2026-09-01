@@ -4,7 +4,7 @@ import java.util.Locale;
 
 /** How a dining-out component was provided for one actual meal. */
 public enum DiningOutProvisionType {
-    INCLUDED("included", "기본 포함"),
+    INCLUDED("included", "기본 제공"),
     PAID("paid", "유료 추가"),
     REVIEW_EVENT("review_event", "리뷰 이벤트"),
     SERVICE("service", "서비스"),
@@ -25,6 +25,16 @@ public enum DiningOutProvisionType {
 
     public String label() {
         return label;
+    }
+
+    /**
+     * Returns the default provision for a newly selected option in one actual meal.
+     * Reusable component records do not persist this value; callers apply it to the meal snapshot.
+     */
+    public static DiningOutProvisionType defaultProvisionForGroup(String groupType) {
+        return CompositionGroupType.SAUCE.value().equals(
+                CompositionGroupType.normalize(groupType)
+        ) ? INCLUDED : PAID;
     }
 
     /** Unknown or blank values default to ordinary included service. */

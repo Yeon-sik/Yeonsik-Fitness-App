@@ -16,8 +16,12 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(AndroidJUnit4.class)
@@ -83,6 +87,111 @@ public final class NutritionCatalogRepositoryDiningOutTest {
                             20
                     ).size()
             );
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void savesAndReloadsOptionNutrientsWhileKeepingBlankValuesUnknown() {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            NutritionCatalogRepository repository = new NutritionCatalogRepository(
+                    helper,
+                    USER_ID,
+                    SupabaseConfig.empty()
+            );
+            NutritionProfile optionProfile = NutritionProfile.builder()
+                    .value(NutritionProfile.CALORIES_KCAL, 120d)
+                    .value(NutritionProfile.CARBS_GRAMS, 12d)
+                    .value(NutritionProfile.PROTEIN_GRAMS, 4d)
+                    .value(NutritionProfile.FAT_GRAMS, 5d)
+                    .value(NutritionProfile.SUGARS_GRAMS, 0d)
+                    .value(NutritionProfile.SATURATED_FAT_GRAMS, 1d)
+                    .build();
+            repository.saveDiningOutOption(
+                    "식당 B",
+                    "메뉴 B",
+                    DiningOutOption.grouped(
+                            "소스",
+                            optionProfile,
+                            null,
+                            null,
+                            "side_1",
+                            CompositionGroupType.SIDE.value(),
+                            CompositionGroupType.SIDE.label(),
+                            DiningOutOption.DEFAULT_ROLE,
+                            null
+                    )
+            );
+
+            List<NutritionFood> reloaded = repository.savedDiningOutComponents(
+                    "식당 B",
+                    null,
+                    CompositionGroupType.SIDE.value(),
+                    "소스",
+                    20
+            );
+            assertEquals(1, reloaded.size());
+            NutritionProfile profile = reloaded.get(0).profile;
+            assertEquals(120d, profile.value(NutritionProfile.CALORIES_KCAL), 0.001d);
+            assertEquals(12d, profile.value(NutritionProfile.CARBS_GRAMS), 0.001d);
+            assertEquals(4d, profile.value(NutritionProfile.PROTEIN_GRAMS), 0.001d);
+            assertEquals(5d, profile.value(NutritionProfile.FAT_GRAMS), 0.001d);
+            assertEquals(0d, profile.value(NutritionProfile.SUGARS_GRAMS), 0.001d);
+            assertEquals(1d, profile.value(NutritionProfile.SATURATED_FAT_GRAMS), 0.001d);
+            assertFalse(profile.isKnown(NutritionProfile.SODIUM_MG));
+            assertNull(profile.value(NutritionProfile.SODIUM_MG));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void reusableMenuSaveRejectsMissingCaloriesButAcceptsRequiredFour() {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            NutritionCatalogRepository repository = new NutritionCatalogRepository(
+                    helper,
+                    USER_ID,
+                    SupabaseConfig.empty()
+            );
+            assertThrows(IllegalArgumentException.class, () ->
+                    repository.saveDiningOutMenuWithNutrition(
+                            "식당 C",
+                            "칼로리 누락",
+                            null,
+                            4d,
+                            12d,
+                            5d,
+                            null,
+                            null,
+                            null
+                    ));
+            NutritionFood saved = repository.saveDiningOutMenuWithNutrition(
+                    "식당 C",
+                    "필수 4종 메뉴",
+                    240,
+                    4d,
+                    12d,
+                    5d,
+                    null,
+                    null,
+                    null
+            );
+            assertEquals(240d, saved.profile.value(NutritionProfile.CALORIES_KCAL), 0.001d);
+            assertEquals(12d, saved.profile.value(NutritionProfile.CARBS_GRAMS), 0.001d);
+            assertFalse(saved.profile.isKnown(NutritionProfile.SODIUM_MG));
         } finally {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);

@@ -123,6 +123,49 @@ public final class DiningOutMultiMenuTest {
     }
 
     @Test
+    public void multiMenuRecordRejectsMissingExplicitCalories() {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            NutritionProfile profile = NutritionProfile.builder()
+                    .value(NutritionProfile.PROTEIN_GRAMS, 20d)
+                    .value(NutritionProfile.CARBS_GRAMS, 50d)
+                    .value(NutritionProfile.FAT_GRAMS, 15d)
+                    .build();
+            MealMenuSelection menu = MealMenuSelection.standalone(
+                    MealCompositionItem.from(foodWithProfile(
+                            "missing-calories",
+                            "칼로리 없는 메뉴",
+                            profile
+                    ), 1d)
+            );
+            String date = LocalDate.now().minusDays(1).toString();
+
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> repository.addDiningOutMealAtTimeWithMenusAndConsumption(
+                            date,
+                            "12:00",
+                            "테스트 식당",
+                            "본점",
+                            null,
+                            Collections.singletonList(menu),
+                            1d,
+                            DiningOutConsumption.equalByDiners(1)
+                    )
+            );
+            assertEquals(0, repository.mealEntriesForDate(date).size());
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
     public void addOnCanLinkToManyMenusButSideCannotCreatePermanentLink() {
         IsolatedDatabaseContext context = new IsolatedDatabaseContext(
                 ApplicationProvider.getApplicationContext()

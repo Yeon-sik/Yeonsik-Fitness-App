@@ -155,6 +155,40 @@ public final class MealEntryPolicyTest {
     }
 
     @Test
+    public void diningOutMenuRequiresCaloriesAndMacrosButAllowsUnknownExtendedValues() {
+        assertEquals(620, MealEntryPolicy.requireDiningOutCaloriesInput("620"));
+        MealEntryPolicy.requireDiningOutMenuNutrition(
+                620,
+                40d,
+                70d,
+                20d,
+                null,
+                null,
+                null
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+                MealEntryPolicy.requireDiningOutMenuNutrition(
+                        null,
+                        40d,
+                        70d,
+                        20d,
+                        null,
+                        null,
+                        null
+                ));
+        assertThrows(IllegalArgumentException.class, () ->
+                MealEntryPolicy.requireDiningOutMenuNutrition(
+                        620,
+                        40d,
+                        null,
+                        20d,
+                        null,
+                        null,
+                        null
+                ));
+    }
+
+    @Test
     public void diningOutMacroEstimatesRejectPartialOrInvalidValues() {
         assertThrows(IllegalArgumentException.class,
                 () -> MealEntryPolicy.requireDiningOutEstimatedMacros(70d, 40d, null));

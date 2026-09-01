@@ -29,7 +29,7 @@ public final class DiningOutProvisionTypeContractTest {
         );
         assertArrayEquals(
                 new String[]{
-                        "기본 포함",
+                        "기본 제공",
                         "유료 추가",
                         "리뷰 이벤트",
                         "서비스",
@@ -38,5 +38,31 @@ public final class DiningOutProvisionTypeContractTest {
                 },
                 DiningOutProvisionType.labels()
         );
+    }
+
+    @Test
+    public void defaultsNewMealOptionsByCompositionGroup() {
+        assertEquals(
+                DiningOutProvisionType.INCLUDED,
+                DiningOutProvisionType.defaultProvisionForGroup(
+                        CompositionGroupType.SAUCE.value()
+                )
+        );
+        for (CompositionGroupType groupType : new CompositionGroupType[]{
+                CompositionGroupType.BANCHAN,
+                CompositionGroupType.SIDE,
+                CompositionGroupType.ADD_ON,
+                CompositionGroupType.BEVERAGE,
+                CompositionGroupType.OTHER
+        }) {
+            assertEquals(
+                    groupType.label(),
+                    CompositionGroupType.labelOf(groupType.value())
+            );
+            assertEquals(
+                    DiningOutProvisionType.PAID,
+                    DiningOutProvisionType.defaultProvisionForGroup(groupType.value())
+            );
+        }
     }
 }

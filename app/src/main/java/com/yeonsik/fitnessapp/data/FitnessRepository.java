@@ -1723,9 +1723,20 @@ public final class FitnessRepository {
         Double sodium = totals.total(NutritionProfile.SODIUM_MG).completeValue();
         Double sugars = totals.total(NutritionProfile.SUGARS_GRAMS).completeValue();
         Double saturatedFat = totals.total(NutritionProfile.SATURATED_FAT_GRAMS).completeValue();
-        Integer calories = totals.total(NutritionProfile.CALORIES_KCAL).completeValue() == null
-                ? null
-                : (int) Math.round(totals.calories());
+        Double calorieTotal = totals.total(NutritionProfile.CALORIES_KCAL).completeValue();
+        if (calorieTotal == null) {
+            throw new IllegalArgumentException("외식 메뉴의 칼로리를 모두 입력하세요.");
+        }
+        Integer calories = (int) Math.round(calorieTotal);
+        MealEntryPolicy.requireDiningOutMenuNutrition(
+                calories,
+                protein,
+                carbs,
+                fat,
+                sodium,
+                sugars,
+                saturatedFat
+        );
         // The parent row is only a legacy representative. Avoid duplicating the restaurant
         // brand that is already held in store_name/branch_name.
         String firstMenuName = menus.get(0).menu.food.name;

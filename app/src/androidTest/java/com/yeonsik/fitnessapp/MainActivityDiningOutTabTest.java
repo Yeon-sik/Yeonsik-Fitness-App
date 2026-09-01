@@ -23,6 +23,7 @@ import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 @RunWith(AndroidJUnit4.class)
 public final class MainActivityDiningOutTabTest {
@@ -88,6 +89,67 @@ public final class MainActivityDiningOutTabTest {
                 assertNotNull(findTextContaining(root, "외식 · 영양 추정"));
                 assertEquals(1, activity.nutritionCatalogRepository()
                         .searchFoods("테스트 메뉴").size());
+            });
+        }
+    }
+
+    @Test
+    public void selectingRestaurantMenuFromMealCatalogOpensDiningOutEditor() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                DiningOutIdentity menuIdentity = identity(
+                        "78111111-1111-4111-8111-111111111111",
+                        "카탈로그 식당",
+                        "78222222-2222-4222-8222-222222222222",
+                        "카탈로그 본점",
+                        "78333333-3333-4333-8333-333333333333",
+                        "카탈로그 메뉴",
+                        "78444444-4444-4444-8444-444444444444"
+                );
+                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                        "카탈로그 식당",
+                        "카탈로그 메뉴",
+                        620,
+                        40d,
+                        70d,
+                        20d,
+                        null,
+                        null,
+                        null,
+                        menuIdentity
+                );
+
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                EditText catalogSearch = findEditTextWithContentDescription(
+                        root,
+                        "식품명 또는 상품명 검색"
+                );
+                assertNotNull(catalogSearch);
+                catalogSearch.setText("카탈로그 메뉴");
+
+                String rowDescription = "식당 : 카탈로그 식당 카탈로그 메뉴, 외식 입력으로 이동";
+                assertNotNull(findViewWithContentDescription(root, rowDescription));
+                clickContentDescription(root, rowDescription);
+
+                assertEquals(
+                        "카탈로그 식당",
+                        findEditTextWithContentDescription(root, "가게 명")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "카탈로그 본점",
+                        findEditTextWithContentDescription(root, "지점")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "카탈로그 메뉴",
+                        findEditTextWithContentDescription(root, "외식 메뉴 1 이름")
+                                .getText().toString()
+                );
+                assertNotNull(findEditTextWithContentDescription(root, "외식 메뉴 1 칼로리"));
+                assertNull(findEditTextWithContentDescription(root, "식품명 또는 상품명 검색"));
             });
         }
     }
