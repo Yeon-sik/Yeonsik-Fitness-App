@@ -1,6 +1,5 @@
 package com.yeonsik.fitnessapp.ui;
 
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.text.InputType;
@@ -22,6 +21,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -227,14 +227,15 @@ public final class SupplementScreen extends BaseScreen {
     }
 
     private void confirmArchive(SupplementPlan plan) {
-        new AlertDialog.Builder(host.activity())
-                .setTitle("복용 계획 종료")
-                .setMessage(plan.typeName + " 계획을 종료할까요? 이전 복용 기록은 유지됩니다.")
-                .setNegativeButton("취소", null)
-                .setPositiveButton("종료", (dialog, which) -> runAction(
+        ui().confirmSheet(
+                "복용 계획 종료",
+                plan.typeName + " 계획을 종료할까요? 이전 복용 기록은 유지됩니다.",
+                "종료 후에도 이전 복용 기록은 유지됩니다.",
+                "종료",
+                () -> runAction(
                         () -> host.supplementRepository().archivePlan(plan.itemId),
-                        "복용 계획을 종료했습니다."))
-                .show();
+                        "복용 계획을 종료했습니다.")
+        );
     }
 
     private void showEvidenceDialog(SupplementPlan plan, SupplementEvidence evidence) {
@@ -286,11 +287,7 @@ public final class SupplementScreen extends BaseScreen {
 
         ScrollView scroll = new ScrollView(host.activity());
         scroll.addView(body);
-        new AlertDialog.Builder(host.activity())
-                .setTitle(plan.typeName + " 논문 근거")
-                .setView(scroll)
-                .setPositiveButton("닫기", null)
-                .show();
+        ui().sheet(plan.typeName + " 논문 근거", scroll, "닫기", () -> { }, null, null);
     }
 
     private void addEvidenceText(LinearLayout body, String label, String value, boolean strong) {
@@ -333,12 +330,20 @@ public final class SupplementScreen extends BaseScreen {
         kindPicker.setOnClickListener(v -> {
             String[] labels = new String[SupplementCatalog.KINDS.size()];
             for (int i = 0; i < labels.length; i++) labels[i] = SupplementCatalog.KINDS.get(i).name;
-            new AlertDialog.Builder(host.activity()).setTitle("영양제 종류")
-                    .setItems(labels, (dialog, which) -> {
-                        SupplementCatalog.Kind selected = SupplementCatalog.KINDS.get(which);
-                        kindCode[0] = selected.code;
-                        kindPicker.setText(selected.name);
-                    }).show();
+            int selectedIndex = 0;
+            for (int i = 0; i < SupplementCatalog.KINDS.size(); i++) {
+                if (SupplementCatalog.KINDS.get(i).code.equals(kindCode[0])) {
+                    selectedIndex = i;
+                    break;
+                }
+            }
+            ui().choiceSheet("영양제 종류", Arrays.asList(labels), selectedIndex, which -> {
+                if (which >= 0 && which < SupplementCatalog.KINDS.size()) {
+                    SupplementCatalog.Kind selected = SupplementCatalog.KINDS.get(which);
+                    kindCode[0] = selected.code;
+                    kindPicker.setText(selected.name);
+                }
+            });
         });
 
         EditText brand = ui().input("예: 제품 라벨의 브랜드", existing == null ? "" : existing.brandName);
@@ -354,12 +359,17 @@ public final class SupplementScreen extends BaseScreen {
 
         Button purposePicker = ui().button(SupplementRepository.purposeLabel(purposeCode[0]), false, null);
         addDialogField(body, "복용 목적", purposePicker);
-        purposePicker.setOnClickListener(v -> new AlertDialog.Builder(host.activity())
-                .setTitle("복용 목적")
-                .setItems(SupplementRepository.PURPOSE_LABELS.toArray(new String[0]), (dialog, which) -> {
+        purposePicker.setOnClickListener(v -> {
+            int selectedIndex = SupplementRepository.PURPOSE_CODES.indexOf(purposeCode[0]);
+            ui().choiceSheet("복용 목적", SupplementRepository.PURPOSE_LABELS,
+                    selectedIndex, which -> {
+                if (which < 0 || which >= SupplementRepository.PURPOSE_CODES.size()) {
+                    return;
+                }
                     purposeCode[0] = SupplementRepository.PURPOSE_CODES.get(which);
                     purposePicker.setText(SupplementRepository.PURPOSE_LABELS.get(which));
-                }).show());
+                    });
+        });
 
         EditText amount = ui().decimalInput("예: 500", existing == null
                 ? "" : SupplementRepository.formatDose(existing.doseAmount, "").trim());
@@ -412,14 +422,11 @@ public final class SupplementScreen extends BaseScreen {
 
         ScrollView scroll = new ScrollView(host.activity());
         scroll.addView(body);
-        AlertDialog dialog = new AlertDialog.Builder(host.activity())
-                .setTitle(existing == null ? "영양제 추가" : "복용 계획 수정")
-                .setView(scroll)
-                .setNegativeButton("취소", null)
-                .setPositiveButton("저장", null)
-                .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
+        ui().validatedSheet(
+                existing == null ? "영양제 추가" : "복용 계획 수정",
+                scroll,
+                "저장",
+                () -> {
                     try {
                         double parsedAmount = Double.parseDouble(amount.getText().toString().trim());
                         int parsedTimes = Integer.parseInt(times.getText().toString().trim());
@@ -432,18 +439,20 @@ public final class SupplementScreen extends BaseScreen {
                                 purposeCode[0], parsedAmount, doseUnit[0], parsedActive, activeUnit[0],
                                 ingredientDetails.getText().toString(), new ArrayList<>(timingValues),
                                 "");
-                        dialog.dismiss();
                         host.toast(existing == null ? "영양제를 추가했습니다."
                                 : result.startsTomorrow ? "오늘 기록을 보존하고 내일부터 새 계획을 적용합니다."
                                 : "복용 계획을 수정했습니다.");
                         host.rerender();
+                        return true;
                     } catch (NumberFormatException error) {
                         host.toast("섭취량·성분량·하루 횟수를 올바른 숫자로 입력하세요.");
+                        return false;
                     } catch (RuntimeException error) {
                         host.toast(error.getMessage() == null ? "저장하지 못했습니다." : error.getMessage());
+                        return false;
                     }
-                }));
-        dialog.show();
+                }
+        );
     }
 
     private void showTimingSlotPicker(int count, ArrayList<String> values, int index, Runnable done) {
@@ -451,14 +460,18 @@ public final class SupplementScreen extends BaseScreen {
             done.run();
             return;
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle((index + 1) + "회차 복용 시점")
-                .setItems(SupplementRepository.TIMING_LABELS.toArray(new String[0]), (dialog, which) -> {
+        ui().choiceSheet(
+                (index + 1) + "회차 복용 시점",
+                SupplementRepository.TIMING_LABELS,
+                -1,
+                which -> {
+                    if (which < 0 || which >= SupplementRepository.TIMING_LABELS.size()) {
+                        return;
+                    }
                     values.set(index, SupplementRepository.TIMING_LABELS.get(which));
                     showTimingSlotPicker(count, values, index + 1, done);
-                })
-                .setNegativeButton("취소", null)
-                .show();
+                }
+        );
     }
 
     private String timingSummary(List<String> values) {
@@ -475,16 +488,19 @@ public final class SupplementScreen extends BaseScreen {
     }
 
     private void showHistoryCorrectionDialog(SupplementRepository.HistoryEntry entry) {
-        new AlertDialog.Builder(host.activity())
-                .setTitle(entry.typeName + " 기록 수정")
-                .setItems(new String[]{"복용으로 변경", "건너뜀으로 변경", "기록 삭제"}, (dialog, which) -> {
+        ui().choiceSheet(
+                entry.typeName + " 기록 수정",
+                Arrays.asList("복용으로 변경", "건너뜀으로 변경", "기록 삭제"),
+                -1,
+                which -> {
                     if (which == 2) {
                         runAction(() -> host.supplementRepository().deleteRecord(entry.id), "기록을 삭제했습니다.");
                     } else {
                         String status = which == 0 ? SupplementRepository.STATUS_TAKEN : SupplementRepository.STATUS_SKIPPED;
                         runAction(() -> host.supplementRepository().updateRecordStatus(entry.id, status), "기록을 수정했습니다.");
                     }
-                }).show();
+                }
+        );
     }
 
     private void showEffectCheckinDialog(SupplementPlan plan) {
@@ -495,12 +511,18 @@ public final class SupplementScreen extends BaseScreen {
         body.setPadding(ui().dp(20), ui().dp(8), ui().dp(20), ui().dp(8));
         Button scorePicker = ui().button(score[0] + "점", false, null);
         addDialogField(body, "최근 체감 (1 낮음 · 5 높음)", scorePicker);
-        scorePicker.setOnClickListener(v -> new AlertDialog.Builder(host.activity())
-                .setTitle("체감 점수")
-                .setItems(new String[]{"1점", "2점", "3점", "4점", "5점"}, (dialog, which) -> {
+        scorePicker.setOnClickListener(v -> ui().choiceSheet(
+                "체감 점수",
+                Arrays.asList("1점", "2점", "3점", "4점", "5점"),
+                score[0] - 1,
+                which -> {
+                    if (which < 0 || which >= 5) {
+                        return;
+                    }
                     score[0] = which + 1;
                     scorePicker.setText(String.format(Locale.KOREAN, "%d점", score[0]));
-                }).show());
+                }
+        ));
         EditText adverse = ui().input("예: 속 불편, 두통 (없으면 비움)",
                 latest == null ? "" : latest.adverseEffects);
         addDialogField(body, "이상반응", adverse);
@@ -511,15 +533,29 @@ public final class SupplementScreen extends BaseScreen {
                 11, FitnessUi.COLOR_TERTIARY, false);
         boundary.setPadding(0, ui().dp(12), 0, 0);
         body.addView(boundary);
-        new AlertDialog.Builder(host.activity())
-                .setTitle(plan.typeName + " 경과 점검")
-                .setView(body)
-                .setNegativeButton("취소", null)
-                .setPositiveButton("저장", (dialog, which) -> runAction(() ->
-                        host.supplementRepository().saveEffectCheckin(plan.itemId,
-                                selectedDate.toString(), score[0], adverse.getText().toString(),
-                                note.getText().toString()), "경과를 저장했습니다."))
-                .show();
+        ui().validatedSheet(
+                plan.typeName + " 경과 점검",
+                body,
+                "저장",
+                () -> {
+                    try {
+                        host.supplementRepository().saveEffectCheckin(
+                                plan.itemId,
+                                selectedDate.toString(),
+                                score[0],
+                                adverse.getText().toString(),
+                                note.getText().toString()
+                        );
+                        host.toast("경과를 저장했습니다.");
+                        host.rerender();
+                        return true;
+                    } catch (RuntimeException error) {
+                        host.toast(error.getMessage() == null
+                                ? "경과를 저장하지 못했습니다." : error.getMessage());
+                        return false;
+                    }
+                }
+        );
     }
 
     private void addDialogField(LinearLayout body, String label, View field) {
@@ -530,11 +566,11 @@ public final class SupplementScreen extends BaseScreen {
     }
 
     private void showStringPicker(String title, List<String> values, ValueConsumer consumer) {
-        new AlertDialog.Builder(host.activity())
-                .setTitle(title)
-                .setItems(values.toArray(new String[0]),
-                        (dialog, which) -> consumer.accept(values.get(which)))
-                .show();
+        ui().choiceSheet(title, values, -1, which -> {
+            if (which >= 0 && which < values.size()) {
+                consumer.accept(values.get(which));
+            }
+        });
     }
 
     private interface ValueConsumer {

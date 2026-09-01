@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
-import android.app.AlertDialog;
+import android.app.Dialog;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.view.View;
@@ -146,11 +146,7 @@ public final class MealDialogController {
         ));
         ui.addAll(body, search, newFood, scroll);
 
-        final AlertDialog picker = new AlertDialog.Builder(host.activity())
-                .setTitle("먹은 음식 추가")
-                .setView(body)
-                .setNegativeButton("닫기", null)
-                .create();
+        final Dialog[] pickerHolder = new Dialog[1];
 
         Runnable populate = () -> {
             results.removeAllViews();
@@ -173,7 +169,9 @@ public final class MealDialogController {
                         null
                 );
                 result.setOnClickListener(v -> {
-                    picker.dismiss();
+                    if (pickerHolder[0] != null) {
+                        pickerHolder[0].dismiss();
+                    }
                     showQuantityDialog(
                             food,
                             compositionItems,
@@ -207,7 +205,9 @@ public final class MealDialogController {
             }
         });
         newFood.setOnClickListener(v -> {
-            picker.dismiss();
+            if (pickerHolder[0] != null) {
+                pickerHolder[0].dismiss();
+            }
             showNewFoodDialog(
                     compositionItems,
                     compositionRows,
@@ -219,7 +219,8 @@ public final class MealDialogController {
             );
         });
 
-        picker.show();
+        Dialog picker = ui.sheet("먹은 음식 추가", body, "닫기", () -> { }, null, null);
+        pickerHolder[0] = picker;
         populate.run();
         host.syncNutritionCatalog(new NutritionCatalogRepository.SyncCallback() {
             @Override
@@ -274,37 +275,30 @@ public final class MealDialogController {
                 false
         ), quantity);
 
-        final AlertDialog dialog = new AlertDialog.Builder(host.activity())
-                .setTitle("섭취량 입력")
-                .setView(body)
-                .setNegativeButton("취소", null)
-                .setPositiveButton("추가", null)
-                .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    try {
-                        double amount = Double.parseDouble(FitnessUi.inputText(quantity).trim());
-                        if (amount <= 0) {
-                            throw new IllegalArgumentException("수량은 0보다 커야 합니다.");
-                        }
-                        compositionItems.add(MealCompositionItem.from(food, amount));
-                        renderComposition(
-                                compositionItems,
-                                compositionRows,
-                                compositionTotal,
-                                calories,
-                                protein,
-                                carbs,
-                                fat
-                        );
-                        dialog.dismiss();
-                    } catch (Exception error) {
-                        host.toast(error.getMessage() == null
-                                ? "수량을 확인하세요."
-                                : error.getMessage());
-                    }
-                }));
-        dialog.show();
+        ui.validatedSheet("섭취량 입력", body, "추가", () -> {
+            try {
+                double amount = Double.parseDouble(FitnessUi.inputText(quantity).trim());
+                if (amount <= 0) {
+                    throw new IllegalArgumentException("수량은 0보다 커야 합니다.");
+                }
+                compositionItems.add(MealCompositionItem.from(food, amount));
+                renderComposition(
+                        compositionItems,
+                        compositionRows,
+                        compositionTotal,
+                        calories,
+                        protein,
+                        carbs,
+                        fat
+                );
+                return true;
+            } catch (Exception error) {
+                host.toast(error.getMessage() == null
+                        ? "수량을 확인하세요."
+                        : error.getMessage());
+                return false;
+            }
+        });
     }
 
     private void showNewFoodDialog(
@@ -369,47 +363,40 @@ public final class MealDialogController {
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
 
-        final AlertDialog dialog = new AlertDialog.Builder(host.activity())
-                .setTitle("음식/재료 저장")
-                .setView(bodyScroll)
-                .setNegativeButton("취소", null)
-                .setPositiveButton("저장 후 추가", null)
-                .create();
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                .setOnClickListener(v -> {
-                    try {
-                        double basis = parseRequired(basisAmount, "기준 수량");
-                        NutritionFood saved = catalogRepository.saveFood(
-                                FitnessUi.inputText(name),
-                                selectedKind[0],
-                                basis,
-                                NutritionUnitSelector.value(basisUnit),
-                                selectedPrepState[0],
-                                nutrients.profile(),
-                                "manual",
-                                "",
-                                ""
-                        );
-                        compositionItems.add(MealCompositionItem.from(saved, saved.basisAmount));
-                        renderComposition(
-                                compositionItems,
-                                compositionRows,
-                                compositionTotal,
-                                calories,
-                                protein,
-                                carbs,
-                                fat
-                        );
-                        syncCatalogQuietly();
-                        host.toast("음식을 저장하고 식사 구성에 추가했습니다.");
-                        dialog.dismiss();
-                    } catch (Exception error) {
-                        host.toast(error.getMessage() == null
-                                ? "음식 정보를 확인하세요."
-                                : error.getMessage());
-                    }
-                }));
-        dialog.show();
+        ui.validatedSheet("음식/재료 저장", bodyScroll, "저장 후 추가", () -> {
+            try {
+                double basis = parseRequired(basisAmount, "기준 수량");
+                NutritionFood saved = catalogRepository.saveFood(
+                        FitnessUi.inputText(name),
+                        selectedKind[0],
+                        basis,
+                        NutritionUnitSelector.value(basisUnit),
+                        selectedPrepState[0],
+                        nutrients.profile(),
+                        "manual",
+                        "",
+                        ""
+                );
+                compositionItems.add(MealCompositionItem.from(saved, saved.basisAmount));
+                renderComposition(
+                        compositionItems,
+                        compositionRows,
+                        compositionTotal,
+                        calories,
+                        protein,
+                        carbs,
+                        fat
+                );
+                syncCatalogQuietly();
+                host.toast("음식을 저장하고 식사 구성에 추가했습니다.");
+                return true;
+            } catch (Exception error) {
+                host.toast(error.getMessage() == null
+                        ? "음식 정보를 확인하세요."
+                        : error.getMessage());
+                return false;
+            }
+        });
     }
 
     private void renderComposition(
@@ -621,9 +608,13 @@ public final class MealDialogController {
         }
 
         String[] labels = labels(presets);
-        new AlertDialog.Builder(host.activity())
-                .setTitle("저장된 메뉴 불러오기")
-                .setItems(labels, (dialog, which) -> {
+        ui.choiceSheet(
+                "저장된 메뉴 불러오기",
+                java.util.Arrays.asList(labels),
+                -1,
+                "메뉴 관리",
+                () -> loadButton.post(() -> showPresetManager(loadButton)),
+                which -> {
                     FitnessRepository.MealMenuPreset preset = presets.get(which);
                     menu.setText(preset.name);
                     calories.setText(preset.calories == null ? "" : String.valueOf(preset.calories));
@@ -631,11 +622,7 @@ public final class MealDialogController {
                     carbs.setText(nullableNumber(preset.carbsGrams));
                     fat.setText(nullableNumber(preset.fatGrams));
                     host.toast("저장된 메뉴를 입력칸에 적용했습니다.");
-                })
-                .setNeutralButton("메뉴 관리", (dialog, which) ->
-                        loadButton.post(() -> showPresetManager(loadButton)))
-                .setNegativeButton("닫기", null)
-                .show();
+                });
     }
 
     private void showPresetManager(Button loadButton) {
@@ -644,26 +631,22 @@ public final class MealDialogController {
             host.toast("관리할 저장 메뉴가 없습니다.");
             return;
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle("저장 메뉴 관리")
-                .setItems(labels(presets), (dialog, which) ->
-                        confirmDeletePreset(loadButton, presets.get(which)))
-                .setNegativeButton("닫기", null)
-                .show();
+        ui.choiceSheet("저장 메뉴 관리", java.util.Arrays.asList(labels(presets)), -1,
+                which -> confirmDeletePreset(loadButton, presets.get(which)));
     }
 
     private void confirmDeletePreset(Button loadButton, FitnessRepository.MealMenuPreset preset) {
-        new AlertDialog.Builder(host.activity())
-                .setTitle("저장 메뉴 삭제")
-                .setMessage(preset.name + " 메뉴를 삭제하시겠습니까? 과거 식단 기록은 유지됩니다.")
-                .setPositiveButton("삭제", (dialog, which) -> {
+        ui.confirmSheet(
+                "저장 메뉴 삭제",
+                preset.name + " 메뉴를 삭제하시겠습니까? 과거 식단 기록은 유지됩니다.",
+                null,
+                "삭제",
+                () -> {
                     if (repository.deleteMealMenuPreset(preset.id)) {
                         updatePresetButton(loadButton);
                         host.toast("저장 메뉴를 삭제했습니다.");
                     }
-                })
-                .setNegativeButton("취소", null)
-                .show();
+                });
     }
 
     private String[] labels(List<FitnessRepository.MealMenuPreset> presets) {

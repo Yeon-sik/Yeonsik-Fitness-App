@@ -1,10 +1,8 @@
 package com.yeonsik.fitnessapp.ui;
 
-import android.app.AlertDialog;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -29,6 +27,7 @@ import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -229,7 +228,15 @@ public final class RoutineEditorScreen extends BaseScreen {
         }
 
         EditText searchInput = ui.searchField("운동명, 영문명, Family 검색");
-        add(searchInput, ui.fullWidthParams(routineMode ? ui.dp(12) : 0));
+        Button searchButton = ui.button("검색", true, null);
+        LinearLayout searchRow = ui.pickerRow();
+        searchRow.addView(searchInput, new LinearLayout.LayoutParams(
+                0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        LinearLayout.LayoutParams searchButtonParams = new LinearLayout.LayoutParams(
+                ui.dp(92), LinearLayout.LayoutParams.WRAP_CONTENT);
+        searchButtonParams.setMargins(ui.dp(8), 0, 0, 0);
+        searchRow.addView(searchButton, searchButtonParams);
+        add(searchRow, ui.fullWidthParams(routineMode ? ui.dp(12) : 0));
         LinearLayout muscleModelContainer = new LinearLayout(host.activity());
         muscleModelContainer.setOrientation(LinearLayout.VERTICAL);
         add(muscleModelContainer, ui.fullWidthParams(ui.dp(8)));
@@ -331,6 +338,30 @@ public final class RoutineEditorScreen extends BaseScreen {
                 selectedCount, addButton, addLabel, routineMode, replacementMode, selectedPresets);
         LinearLayout listArea = new LinearLayout(host.activity());
         listArea.setOrientation(LinearLayout.VERTICAL);
+        String[] appliedSearch = {""};
+        Runnable refreshSelection = () -> {
+            muscleModelContainer.removeAllViews();
+            muscleModelContainer.addView(
+                    exerciseMuscleModelRenderer.render(primarySubParts(selectedPresets)),
+                    ui.fullWidthParams(0)
+            );
+            updateSelectionSummary.run();
+        };
+        Runnable refreshList = () -> renderRuntimePickerList(
+                listArea,
+                picker.search(new RuntimeExercisePicker.Filter(
+                        appliedSearch[0],
+                        selectedBodyPart[0],
+                        selectedSubPart[0],
+                        selectedEquipment[0],
+                        selectedSort[0],
+                        lastPerformedAt
+                )),
+                selectedPresets,
+                replacementMode,
+                fixedReplacementFamilyId,
+                refreshHolder[0]
+        );
         Runnable refresh = () -> {
             bodyPartButton.setText("부위: " + (selectedBodyPart[0] == null
                     ? "전체" : selectedBodyPart[0].labelKo()));
@@ -339,42 +370,20 @@ public final class RoutineEditorScreen extends BaseScreen {
             equipmentButton.setText("장비: " + (selectedEquipment[0] == null
                     ? "전체" : selectedEquipment[0].labelKo()));
             sortButton.setText("정렬: " + sortLabel(selectedSort[0]));
-            muscleModelContainer.removeAllViews();
-            muscleModelContainer.addView(
-                    exerciseMuscleModelRenderer.render(primarySubParts(selectedPresets)),
-                    ui.fullWidthParams(0)
-            );
-            updateSelectionSummary.run();
-            renderRuntimePickerList(
-                    listArea,
-                    picker.search(new RuntimeExercisePicker.Filter(
-                            FitnessUi.inputText(searchInput),
-                            selectedBodyPart[0],
-                            selectedSubPart[0],
-                            selectedEquipment[0],
-                            selectedSort[0],
-                            lastPerformedAt
-                    )),
-                    selectedPresets,
-                    replacementMode,
-                    fixedReplacementFamilyId,
-                    refreshHolder[0]
-            );
+            refreshSelection.run();
+            refreshList.run();
         };
         refreshHolder[0] = refresh;
-        searchInput.addTextChangedListener(new TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+        searchButton.setOnClickListener(v -> {
+            appliedSearch[0] = FitnessUi.inputText(searchInput).trim();
+            refreshList.run();
+        });
+        searchInput.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                searchButton.performClick();
+                return true;
             }
-
-            @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                refresh.run();
-            }
-
-            @Override
-            public void afterTextChanged(Editable s) {
-            }
+            return false;
         });
         section("운동 Family");
         add(listArea, ui.fullWidthParams(0));
@@ -421,10 +430,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             card.setPadding(ui.dp(14), ui.dp(10), ui.dp(10), ui.dp(10));
             card.setClickable(true);
             card.setFocusable(true);
-            card.setBackground(selected
-                    ? ui.vibrantRippleDrawable("family-" + family.familyId, ui.dp(16))
-                    : ui.flatSurfaceRippleDrawable(ui.dp(16)));
-            ui.applyDepth(card, selected ? 7 : 4);
+            ui.styleSelection(card, selected, ui.dp(16));
 
             LinearLayout info = new LinearLayout(host.activity());
             info.setOrientation(LinearLayout.VERTICAL);
@@ -545,14 +551,14 @@ public final class RoutineEditorScreen extends BaseScreen {
         for (int index = 0; index < BodyPart.values().length; index++) {
             labels[index + 1] = BodyPart.values()[index].labelKo();
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle("부위 선택")
-                .setItems(labels, (dialog, which) -> {
+        int selectedIndex = selectedBodyPart[0] == null
+                ? 0
+                : selectedBodyPart[0].ordinal() + 1;
+        ui().choiceSheet("부위 선택", Arrays.asList(labels), selectedIndex, which -> {
                     selectedBodyPart[0] = which == 0 ? null : BodyPart.values()[which - 1];
                     selectedSubPart[0] = null;
                     refreshHolder[0].run();
-                })
-                .show();
+                });
     }
 
     private void showRuntimeSubPartDialog(
@@ -568,13 +574,19 @@ public final class RoutineEditorScreen extends BaseScreen {
         for (int index = 0; index < subParts.size(); index++) {
             labels[index + 1] = subParts.get(index).name;
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle("세부 부위 선택")
-                .setItems(labels, (dialog, which) -> {
+        int selectedIndex = 0;
+        if (selectedSubPart[0] != null) {
+            for (int index = 0; index < subParts.size(); index++) {
+                if (selectedSubPart[0].equals(subParts.get(index).id)) {
+                    selectedIndex = index + 1;
+                    break;
+                }
+            }
+        }
+        ui().choiceSheet("세부 부위 선택", Arrays.asList(labels), selectedIndex, which -> {
                     selectedSubPart[0] = which == 0 ? null : subParts.get(which - 1).id;
                     refreshHolder[0].run();
-                })
-                .show();
+                });
     }
 
     private void showRuntimeEquipmentDialog(
@@ -587,14 +599,14 @@ public final class RoutineEditorScreen extends BaseScreen {
         for (int index = 0; index < UiEquipmentCategory.values().length; index++) {
             labels[index + 1] = UiEquipmentCategory.values()[index].labelKo();
         }
-        new AlertDialog.Builder(host.activity())
-                .setTitle("장비 대분류 선택")
-                .setItems(labels, (dialog, which) -> {
+        int selectedIndex = selectedEquipment[0] == null
+                ? 0
+                : selectedEquipment[0].ordinal() + 1;
+        ui().choiceSheet("장비 대분류 선택", Arrays.asList(labels), selectedIndex, which -> {
                     selectedEquipment[0] = which == 0
                             ? null : UiEquipmentCategory.values()[which - 1];
                     refreshHolder[0].run();
-                })
-                .show();
+                });
     }
 
     private void showRuntimeSortDialog(
@@ -602,15 +614,13 @@ public final class RoutineEditorScreen extends BaseScreen {
             Runnable[] refreshHolder
     ) {
         String[] labels = new String[]{"최근 사용", "가나다순"};
-        new AlertDialog.Builder(host.activity())
-                .setTitle("정렬")
-                .setItems(labels, (dialog, which) -> {
+        int selectedIndex = selectedSort[0] == RuntimeExercisePicker.SortOrder.NAME ? 1 : 0;
+        ui().choiceSheet("정렬", Arrays.asList(labels), selectedIndex, which -> {
                     selectedSort[0] = which == 0
                             ? RuntimeExercisePicker.SortOrder.RECENT
                             : RuntimeExercisePicker.SortOrder.NAME;
                     refreshHolder[0].run();
-                })
-                .show();
+                });
     }
 
     private List<RuntimeSubPart> runtimeSubParts(

@@ -44,6 +44,7 @@ import java.time.OffsetDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -110,6 +111,8 @@ public final class FitnessUi {
     private final Activity activity;
     private final BooleanSupplier inverseSupplier;
     private final Map<View, AnimationBinding> animationBindings = new WeakHashMap<>();
+    private final List<Dialog> dialogStack = new ArrayList<>();
+    private Dialog activeDialog;
 
     public FitnessUi(Activity activity, BooleanSupplier inverseSupplier) {
         this.activity = activity;
@@ -256,6 +259,26 @@ public final class FitnessUi {
                 vibrantBackground(variant, radius),
                 mask
         );
+    }
+
+    /** 모든 선택 상태에서 공유하는 단일 강조 gradient. 선택 대상의 이름은 색 seed가 아니다. */
+    public Drawable selectedStateRippleDrawable(int radius) {
+        return vibrantRippleDrawable(0, radius);
+    }
+
+    /** 선택 가능한 행/박스에 공통 선택 표면과 깊이를 적용한다. */
+    public void styleSelection(View view, boolean selected, int radius) {
+        if (view == null) {
+            return;
+        }
+        view.setSelected(selected);
+        view.setBackground(selected
+                ? selectedStateRippleDrawable(radius)
+                : flatSurfaceRippleDrawable(radius));
+        applyDepth(view, selected ? 7 : 4);
+        if (view instanceof TextView) {
+            ((TextView) view).setTextColor(selected ? onVibrant() : inkMuted());
+        }
     }
 
     public Drawable flatSurfaceDrawable(int radius) {
@@ -864,9 +887,8 @@ public final class FitnessUi {
         button.setSelected(active);
         button.setContentDescription(button.getText() + (active ? ", 선택됨" : ""));
         button.setTextColor(active ? onVibrant() : inkMuted());
-        String seed = String.valueOf(button.getText());
         button.setBackground(active
-                ? vibrantRippleDrawable(seed, dp(999))
+                ? selectedStateRippleDrawable(dp(999))
                 : flatSurfaceRippleDrawable(dp(999)));
     }
 
@@ -1393,6 +1415,21 @@ public final class FitnessUi {
 
     // ── 바텀시트 ──────────────────────────────────────────────────────
 
+    /** 현재 열려 있는 앱 소유 시트를 닫는다. 시스템 권한 창에는 관여하지 않는다. */
+    public boolean dismissActiveDialog() {
+        for (int index = dialogStack.size() - 1; index >= 0; index--) {
+            Dialog dialog = dialogStack.get(index);
+            if (dialog != null && dialog.isShowing()) {
+                dialog.dismiss();
+                activeDialog = topShowingDialog();
+                return true;
+            }
+            dialogStack.remove(index);
+        }
+        activeDialog = null;
+        return false;
+    }
+
     /**
      * 브랜드 바텀시트. 현재 테마의 카드 표면을 따르며,
      * 상단 라운드 24dp + 드래그 핸들 + 하단 고정 Primary CTA, 슬라이드업 진입.
@@ -1409,7 +1446,33 @@ public final class FitnessUi {
                     return true;
                 },
                 dangerText,
-                onDanger
+                onDanger,
+                null,
+                null
+        );
+    }
+
+    /** Primary CTA와 중립적인 보조 액션을 함께 제공하는 공통 시트. */
+    public Dialog sheetWithSecondary(
+            String title,
+            View body,
+            String primaryText,
+            Runnable onPrimary,
+            String secondaryText,
+            Runnable onSecondary
+    ) {
+        return buildSheet(
+                title,
+                body,
+                primaryText,
+                () -> {
+                    onPrimary.run();
+                    return true;
+                },
+                null,
+                null,
+                secondaryText,
+                onSecondary
         );
     }
 
@@ -1420,7 +1483,7 @@ public final class FitnessUi {
             String primaryText,
             BooleanSupplier onPrimary
     ) {
-        return buildSheet(title, body, primaryText, onPrimary, null, null);
+        return buildSheet(title, body, primaryText, onPrimary, null, null, null, null);
     }
 
     /** 입력 검증과 삭제 동작을 함께 제공하는 편집용 바텀시트. */
@@ -1432,7 +1495,8 @@ public final class FitnessUi {
             String dangerText,
             Runnable onDanger
     ) {
-        return buildSheet(title, body, primaryText, onPrimary, dangerText, onDanger);
+        return buildSheet(title, body, primaryText, onPrimary,
+                dangerText, onDanger, null, null);
     }
 
     private Dialog buildSheet(
@@ -1441,7 +1505,9 @@ public final class FitnessUi {
             String primaryText,
             BooleanSupplier onPrimary,
             String dangerText,
-            Runnable onDanger
+            Runnable onDanger,
+            String secondaryText,
+            Runnable onSecondary
     ) {
         Dialog dialog = new Dialog(activity);
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
@@ -1500,9 +1566,21 @@ public final class FitnessUi {
                 dialog.dismiss();
             });
             sheet.addView(danger, fullWidthParams(dp(2)));
+        } else if (secondaryText != null && onSecondary != null) {
+            TextView secondary = text(secondaryText, 14, COLOR_MUTED, true);
+            secondary.setGravity(Gravity.CENTER);
+            secondary.setPadding(0, dp(14), 0, dp(2));
+            secondary.setClickable(true);
+            secondary.setFocusable(true);
+            secondary.setOnClickListener(v -> {
+                onSecondary.run();
+                dialog.dismiss();
+            });
+            sheet.addView(secondary, fullWidthParams(dp(2)));
         }
 
         dialog.setContentView(sheet);
+        trackDialog(dialog);
         Window window = dialog.getWindow();
         if (window != null) {
             window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
@@ -1514,6 +1592,99 @@ public final class FitnessUi {
         }
         dialog.show();
         return dialog;
+    }
+
+    /** 단일 선택용 앱 공통 선택 시트. 행을 고르면 즉시 적용하고 시트를 닫는다. */
+    public Dialog choiceSheet(
+            String title,
+            List<String> options,
+            int selectedIndex,
+            OnChoiceSelected listener
+    ) {
+        return choiceSheet(title, options, selectedIndex, null, null, listener);
+    }
+
+    /** 선택 행과 중립적인 보조 액션을 함께 제공하는 공통 선택 시트. */
+    public Dialog choiceSheet(
+            String title,
+            List<String> options,
+            int selectedIndex,
+            String secondaryText,
+            Runnable onSecondary,
+            OnChoiceSelected listener
+    ) {
+        LinearLayout body = new LinearLayout(activity);
+        body.setOrientation(LinearLayout.VERTICAL);
+        body.setPadding(dp(2), dp(2), dp(2), dp(2));
+        List<String> safeOptions = options == null
+                ? new ArrayList<>()
+                : new ArrayList<>(options);
+        Dialog[] dialogHolder = new Dialog[1];
+        for (int index = 0; index < safeOptions.size(); index++) {
+            final int optionIndex = index;
+            LinearLayout row = new LinearLayout(activity);
+            row.setOrientation(LinearLayout.HORIZONTAL);
+            row.setGravity(Gravity.CENTER_VERTICAL);
+            row.setMinimumHeight(dp(52));
+            row.setPadding(dp(14), dp(9), dp(12), dp(9));
+            boolean selected = index == selectedIndex;
+            styleSelection(row, selected, dp(16));
+
+            TextView label = text(safeOptions.get(index), 14,
+                    selected ? COLOR_INVERSE_TEXT : COLOR_TEXT, true);
+            label.setTextColor(selected ? onVibrant() : ink());
+            row.addView(label, new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+            TextView check = text(selected ? "✓" : "", 16,
+                    selected ? COLOR_INVERSE_TEXT : COLOR_MUTED, true);
+            check.setTextColor(selected ? onVibrant() : inkMuted());
+            check.setGravity(Gravity.CENTER);
+            row.addView(check, new LinearLayout.LayoutParams(dp(28), dp(28)));
+            row.setContentDescription(safeOptions.get(index) + (selected ? ", 선택됨" : ""));
+            row.setClickable(true);
+            row.setFocusable(true);
+            pressFeedback(row);
+            row.setOnClickListener(v -> {
+                if (listener != null) {
+                    listener.onChoice(optionIndex);
+                }
+                Dialog dialog = dialogHolder[0];
+                if (dialog != null && dialog.isShowing()) {
+                    dialog.dismiss();
+                }
+            });
+            body.addView(row, fullWidthParams(index == 0 ? 0 : dp(8)));
+        }
+        Dialog dialog = secondaryText == null || onSecondary == null
+                ? sheet(title, body, "닫기", () -> { }, null, null)
+                : sheetWithSecondary(title, body, "닫기", () -> { },
+                        secondaryText, onSecondary);
+        dialogHolder[0] = dialog;
+        return dialog;
+    }
+
+    private void trackDialog(Dialog dialog) {
+        dialogStack.remove(dialog);
+        dialogStack.add(dialog);
+        activeDialog = dialog;
+        dialog.setOnDismissListener(ignored -> {
+            dialogStack.remove(dialog);
+            activeDialog = topShowingDialog();
+        });
+    }
+
+    private Dialog topShowingDialog() {
+        for (int index = dialogStack.size() - 1; index >= 0; index--) {
+            Dialog dialog = dialogStack.get(index);
+            if (dialog != null && dialog.isShowing()) {
+                return dialog;
+            }
+        }
+        return null;
+    }
+
+    public interface OnChoiceSelected {
+        void onChoice(int index);
     }
 
     /** 파괴적 행동 확인 시트. 결과 문장은 sem.negative로 명시하고 CTA는 블랙 필을 유지한다. */
