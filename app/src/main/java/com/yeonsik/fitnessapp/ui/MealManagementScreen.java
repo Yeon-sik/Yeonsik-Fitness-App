@@ -176,7 +176,7 @@ public final class MealManagementScreen extends BaseScreen {
         syncDraftFromViews();
 
         add(ui().textAction("‹ 이전 화면", FitnessUi.COLOR_MUTED,
-                () -> host.navigate(returnScreen)), ui().fullWidthParams(0));
+                () -> backOr(returnScreen)), ui().fullWidthParams(0));
         screenHeader("섭취와 회복", "식단 관리");
 
         add(dateNavigator());

@@ -618,7 +618,11 @@ public final class MainActivity extends Activity implements ScreenHost {
         back.setClickable(true);
         back.setFocusable(true);
         back.setContentDescription("운동 세션에서 나가기");
-        back.setOnClickListener(v -> replace(FitnessScreen.STRENGTH));
+        back.setOnClickListener(v -> {
+            if (!back()) {
+                replace(FitnessScreen.STRENGTH);
+            }
+        });
         ui.applyDepth(back, 4);
         ui.pressFeedback(back);
         sessionTopBar.addView(back, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
@@ -1068,6 +1072,20 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    public boolean back() {
+        if (ui != null && ui.dismissActiveDialog()) {
+            return true;
+        }
+        FitnessScreen previous = navigationHistory.back();
+        if (previous == null) {
+            return false;
+        }
+        currentScreen = previous;
+        render();
+        return true;
+    }
+
+    @Override
     public void replace(FitnessScreen screen) {
         navigationHistory.replace(screen);
         currentScreen = screen;
@@ -1307,7 +1325,11 @@ public final class MainActivity extends Activity implements ScreenHost {
         }
         sessionState.setActiveRecordId(recordId);
         sessionState.setActiveExerciseId(null);
-        navigate(FitnessScreen.CARDIO_SUMMARY);
+        if (currentScreen == FitnessScreen.CARDIO_SESSION) {
+            replace(FitnessScreen.CARDIO_SUMMARY);
+        } else {
+            navigate(FitnessScreen.CARDIO_SUMMARY);
+        }
     }
 
     @Override
@@ -1346,16 +1368,10 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     private void dispatchBack() {
-        if (ui != null && ui.dismissActiveDialog()) {
+        if (back()) {
             return;
         }
-        FitnessScreen previous = navigationHistory.back();
-        if (previous != null) {
-            currentScreen = previous;
-            render();
-            return;
-        }
-        if (FitnessScreen.HOME.equals(currentScreen)) {
+        if (FitnessScreen.HOME.equals(currentScreen) && !navigationHistory.canBack()) {
             // Only the initial HOME entry is allowed to finish the Activity.
             finish();
             return;
@@ -1447,7 +1463,7 @@ public final class MainActivity extends Activity implements ScreenHost {
                     cardioRepository.cancel(recordId);
                     sessionState.clearIfMatches(recordId);
                     toast("유산소 기록을 취소했습니다.");
-                    navigate(FitnessScreen.CARDIO);
+                    replace(FitnessScreen.CARDIO);
                 }
         );
     }

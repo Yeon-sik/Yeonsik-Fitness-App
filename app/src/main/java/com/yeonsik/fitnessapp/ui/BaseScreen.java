@@ -5,6 +5,7 @@ import android.view.ViewGroup;
 import android.widget.LinearLayout;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -58,6 +59,13 @@ public abstract class BaseScreen {
 
     protected void buttonRow(View first, View second, int topMargin) {
         add(ui().buttonRow(first, second), ui().fullWidthParams(topMargin));
+    }
+
+    /** Returns to the previous history entry, retaining a safe destination for fallback hosts. */
+    protected void backOr(FitnessScreen fallback) {
+        if (!host.back() && fallback != null) {
+            host.replace(fallback);
+        }
     }
 
     protected View volumeTrendCard(String title, List<FitnessRepository.VolumePoint> history, double currentVolume) {

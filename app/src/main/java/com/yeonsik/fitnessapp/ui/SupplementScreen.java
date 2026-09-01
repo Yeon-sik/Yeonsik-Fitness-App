@@ -40,7 +40,7 @@ public final class SupplementScreen extends BaseScreen {
         List<SupplementPlan> plans = repository.activePlans(selectedDate.toString());
 
         add(ui().textAction("‹ 피트니스", FitnessUi.COLOR_MUTED,
-                () -> host.navigate(FitnessScreen.WORKOUT)), ui().fullWidthParams(0));
+                () -> backOr(FitnessScreen.WORKOUT)), ui().fullWidthParams(0));
         screenHeader("매일 복용 기록", "영양제");
 
         TextView localOnly = ui().text(

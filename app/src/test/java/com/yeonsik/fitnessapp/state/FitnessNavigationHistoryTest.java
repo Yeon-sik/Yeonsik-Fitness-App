@@ -32,4 +32,64 @@ public final class FitnessNavigationHistoryTest {
         assertEquals(FitnessScreen.WORKOUT_SUMMARY, history.current());
         assertEquals(FitnessScreen.STRENGTH, history.back());
     }
+
+    @Test
+    public void strengthSessionBackReturnsToStrengthThenWorkout() {
+        FitnessNavigationHistory history = new FitnessNavigationHistory(FitnessScreen.HOME);
+        history.push(FitnessScreen.WORKOUT);
+        history.push(FitnessScreen.STRENGTH);
+        history.push(FitnessScreen.WORKOUT_SESSION);
+
+        assertEquals(FitnessScreen.STRENGTH, history.back());
+        assertEquals(FitnessScreen.WORKOUT, history.back());
+    }
+
+    @Test
+    public void pickerBackPopsAddScreenSoSystemBackCannotReenterIt() {
+        FitnessNavigationHistory history = new FitnessNavigationHistory(FitnessScreen.HOME);
+        history.push(FitnessScreen.WORKOUT);
+        history.push(FitnessScreen.STRENGTH);
+        history.push(FitnessScreen.WORKOUT_SESSION);
+        history.push(FitnessScreen.WORKOUT_EXERCISE_ADD);
+
+        // UI back and Android system back both use the same pop operation.
+        assertEquals(FitnessScreen.WORKOUT_SESSION, history.back());
+        assertEquals(FitnessScreen.STRENGTH, history.back());
+    }
+
+    @Test
+    public void detailBackReturnsToSession() {
+        FitnessNavigationHistory history = new FitnessNavigationHistory(FitnessScreen.HOME);
+        history.push(FitnessScreen.WORKOUT);
+        history.push(FitnessScreen.STRENGTH);
+        history.push(FitnessScreen.WORKOUT_SESSION);
+        history.push(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
+
+        assertEquals(FitnessScreen.WORKOUT_SESSION, history.back());
+    }
+
+    @Test
+    public void summaryReplacementReturnsToStrength() {
+        FitnessNavigationHistory history = new FitnessNavigationHistory(FitnessScreen.HOME);
+        history.push(FitnessScreen.WORKOUT);
+        history.push(FitnessScreen.STRENGTH);
+        history.push(FitnessScreen.WORKOUT_SESSION);
+        history.replace(FitnessScreen.WORKOUT_SUMMARY);
+
+        assertEquals(FitnessScreen.STRENGTH, history.back());
+    }
+
+    @Test
+    public void pushAndReplaceDoNotCreateConsecutiveDuplicateEntries() {
+        FitnessNavigationHistory history = new FitnessNavigationHistory(FitnessScreen.HOME);
+        history.push(FitnessScreen.WORKOUT);
+        int afterFirstPush = history.size();
+        history.push(FitnessScreen.WORKOUT);
+        assertEquals(afterFirstPush, history.size());
+
+        history.replace(FitnessScreen.STRENGTH);
+        int afterFirstReplace = history.size();
+        history.replace(FitnessScreen.STRENGTH);
+        assertEquals(afterFirstReplace, history.size());
+    }
 }

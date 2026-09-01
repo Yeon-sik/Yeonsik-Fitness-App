@@ -53,6 +53,11 @@ public interface ScreenHost {
 
     void navigate(FitnessScreen screen);
 
+    /** Pops the current screen, returning true when a previous history entry was shown. */
+    default boolean back() {
+        return false;
+    }
+
     /** Replaces the current history entry for flow transitions such as session → summary. */
     default void replace(FitnessScreen screen) {
         navigate(screen);

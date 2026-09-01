@@ -78,7 +78,7 @@ public final class RoutineEditorScreen extends BaseScreen {
         String routineName = host.routineRepository().defaultRoutineName();
 
         add(ui.textAction("‹ 무산소로", FitnessUi.COLOR_MUTED,
-                () -> host.navigate(FitnessScreen.STRENGTH)), ui.fullWidthParams(0));
+                () -> backOr(FitnessScreen.STRENGTH)), ui.fullWidthParams(0));
 
         TextView eyebrowView = ui.caption("루틴", FitnessUi.COLOR_MUTED);
         eyebrowView.setPadding(0, ui.dp(16), 0, 0);
@@ -200,15 +200,13 @@ public final class RoutineEditorScreen extends BaseScreen {
 
         if (routineMode) {
             add(ui.textAction("‹ 무산소로", FitnessUi.COLOR_MUTED,
-                    () -> host.navigate(FitnessScreen.STRENGTH)), ui.fullWidthParams(0));
+                    () -> backOr(FitnessScreen.STRENGTH)), ui.fullWidthParams(0));
         } else {
             add(ui.textAction("‹ 운동으로", FitnessUi.COLOR_MUTED, () -> {
                 host.sessionState().clearExerciseReplacement();
-                if (host.sessionState().activeRecordId() != null) {
-                    host.navigate(FitnessScreen.WORKOUT_SESSION);
-                } else {
-                    host.navigate(FitnessScreen.STRENGTH);
-                }
+                backOr(host.sessionState().activeRecordId() != null
+                        ? FitnessScreen.WORKOUT_SESSION
+                        : FitnessScreen.STRENGTH);
             }), ui.fullWidthParams(0));
         }
 
@@ -291,7 +289,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                 }
                 host.routineRepository().selectRoutine(createdRoutineId);
                 host.toast("루틴을 저장했습니다. (" + host.routineRepository().routines().size() + "/5)");
-                host.navigate(FitnessScreen.ROUTINE_DETAIL);
+                host.replace(FitnessScreen.ROUTINE_DETAIL);
                 return;
             }
             if (recordId == null) {
@@ -320,14 +318,14 @@ public final class RoutineEditorScreen extends BaseScreen {
                 host.sessionState().clearExerciseReplacement();
                 host.sessionState().setActiveExerciseId(replacementExerciseId);
                 host.toast(replacement.displayName() + "으로 운동 종목을 교체했습니다.");
-                host.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
+                backOr(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
                 return;
             }
             for (RuntimeExercisePreset preset : selectedPresets) {
                 repository().addExerciseFromMaster(recordId, ExerciseMasterAdapter.toRoutineExercise(preset));
             }
             host.toast(selectedPresets.size() + "개 종목을 운동에 추가했습니다.");
-            host.navigate(host.sessionState().activeRecordId() != null
+            backOr(host.sessionState().activeRecordId() != null
                     ? FitnessScreen.WORKOUT_SESSION
                     : FitnessScreen.STRENGTH);
         });

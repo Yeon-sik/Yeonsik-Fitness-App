@@ -190,7 +190,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
                 "계속 운동하기", "임시 저장하고 나가기", "기록 삭제하고 나가기"
         ), -1, which -> {
                     if (which == 1) {
-                        host.replace(FitnessScreen.STRENGTH);
+                        backOr(FitnessScreen.STRENGTH);
                         host.toast("임시 저장했습니다. 진행 중 운동에서 이어할 수 있습니다.");
                     } else if (which == 2 && recordId != null) {
                         host.confirmDeleteSession(recordId);

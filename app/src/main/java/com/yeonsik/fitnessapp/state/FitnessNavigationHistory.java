@@ -38,6 +38,9 @@ public final class FitnessNavigationHistory {
     /** Replaces the current destination, e.g. an in-progress session with its completion page. */
     public void replace(FitnessScreen screen) {
         requireScreen(screen);
+        if (screen.equals(current())) {
+            return;
+        }
         if (!entries.isEmpty()) {
             entries.removeLast();
         }

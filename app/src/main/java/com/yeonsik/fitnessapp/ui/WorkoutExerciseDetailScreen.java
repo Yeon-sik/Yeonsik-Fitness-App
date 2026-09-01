@@ -100,7 +100,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         topRow.setOrientation(LinearLayout.HORIZONTAL);
         topRow.setGravity(Gravity.CENTER_VERTICAL);
         TextView backAction = ui.textAction("‹ 세션으로", FitnessUi.COLOR_MUTED,
-                () -> host.replace(FitnessScreen.WORKOUT_SESSION));
+                () -> backOr(FitnessScreen.WORKOUT_SESSION));
         topRow.addView(backAction, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         topRow.addView(ui.textAction("종목 교체", FitnessUi.COLOR_MUTED,
                 () -> beginExerciseReplacement(activeExercise)));

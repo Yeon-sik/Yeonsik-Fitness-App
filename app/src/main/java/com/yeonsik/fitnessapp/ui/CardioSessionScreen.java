@@ -28,7 +28,7 @@ public final class CardioSessionScreen extends BaseScreen {
             screenHeader("실시간 기록", "유산소 기록");
             emptyState("진행 중인 GPS 유산소 기록을 찾지 못했습니다.", null);
             add(ui().button("유산소로 돌아가기", false,
-                    v -> host.navigate(FitnessScreen.CARDIO)), ui().fullWidthParams(0));
+                    v -> backOr(FitnessScreen.CARDIO)), ui().fullWidthParams(0));
             return;
         }
 
