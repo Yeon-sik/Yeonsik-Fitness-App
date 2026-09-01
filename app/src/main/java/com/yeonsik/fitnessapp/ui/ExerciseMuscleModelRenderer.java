@@ -4,7 +4,10 @@ import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffColorFilter;
 import android.graphics.Rect;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
@@ -20,9 +23,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
@@ -39,6 +44,8 @@ public final class ExerciseMuscleModelRenderer {
     private static final int DECODE_SAMPLE_SIZE = 2;
     private static final int BITMAP_CACHE_KB = 12 * 1024;
     private static final int COMPOSITE_CACHE_KB = 12 * 1024;
+    private static final int MUSCLE_RED = Color.rgb(239, 68, 68);
+    private static final double MIN_LAYER_ALPHA = 0.18d;
 
     private final Activity activity;
     private final FitnessUi ui;
@@ -74,6 +81,31 @@ public final class ExerciseMuscleModelRenderer {
             }
         }
 
+        return renderContainer(selected, null);
+    }
+
+    /**
+     * Builds the same front/back model using summed effective sets per canonical muscle group.
+     * The map is intentionally keyed by the runtime catalog's primarySubPart IDs.
+     */
+    public LinearLayout renderScores(Map<String, Double> effectiveSetsByPrimarySubPart) {
+        Map<String, Double> scores = new LinkedHashMap<>();
+        if (effectiveSetsByPrimarySubPart != null) {
+            for (Map.Entry<String, Double> entry : effectiveSetsByPrimarySubPart.entrySet()) {
+                String key = entry.getKey() == null ? "" : entry.getKey().trim();
+                Double value = entry.getValue();
+                if (!key.isEmpty() && value != null && Double.isFinite(value) && value > 0d) {
+                    scores.put(key, value);
+                }
+            }
+        }
+        return renderContainer(null, scores);
+    }
+
+    private LinearLayout renderContainer(
+            Set<String> selected,
+            Map<String, Double> effectiveSetsByPrimarySubPart
+    ) {
         LinearLayout container = new LinearLayout(activity);
         container.setOrientation(LinearLayout.HORIZONTAL);
         container.setGravity(android.view.Gravity.CENTER);
@@ -81,7 +113,7 @@ public final class ExerciseMuscleModelRenderer {
         container.setBackground(ui.flatSurfaceDrawable(ui.dp(16)));
         ui.applyDepth(container, 3);
 
-        container.addView(modelColumn("앞", "front", selected),
+        container.addView(modelColumn("앞", "front", selected, effectiveSetsByPrimarySubPart),
                 new LinearLayout.LayoutParams(0, ui.dp(MODEL_HEIGHT_DP), 1f));
         LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(
                 0,
@@ -89,11 +121,16 @@ public final class ExerciseMuscleModelRenderer {
                 1f
         );
         backParams.setMargins(ui.dp(6), 0, 0, 0);
-        container.addView(modelColumn("뒤", "back", selected), backParams);
+        container.addView(modelColumn("뒤", "back", selected, effectiveSetsByPrimarySubPart), backParams);
         return container;
     }
 
-    private LinearLayout modelColumn(String label, String side, Set<String> selected) {
+    private LinearLayout modelColumn(
+            String label,
+            String side,
+            Set<String> selected,
+            Map<String, Double> effectiveSetsByPrimarySubPart
+    ) {
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
@@ -105,13 +142,18 @@ public final class ExerciseMuscleModelRenderer {
                 ui.dp(22)
         ));
 
-        Bitmap model = composite(side, selected);
+        boolean scoreMode = effectiveSetsByPrimarySubPart != null;
+        Bitmap model = scoreMode
+                ? compositeScores(side, effectiveSetsByPrimarySubPart)
+                : composite(side, selected);
         if (model != null) {
             ImageView image = new ImageView(activity);
             image.setScaleType(ImageView.ScaleType.FIT_CENTER);
             image.setAdjustViewBounds(true);
             image.setImageBitmap(model);
-            image.setContentDescription(label + " 인체 근육 모델");
+            image.setContentDescription(scoreMode
+                    ? label + " 근육 자극 분포 모델"
+                    : label + " 인체 근육 모델");
             image.setFocusable(false);
             column.addView(image, new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
@@ -164,6 +206,76 @@ public final class ExerciseMuscleModelRenderer {
         return result;
     }
 
+    private Bitmap compositeScores(String side, Map<String, Double> groupScores) {
+        MuscleLayerSpec currentSpec = spec();
+        Map<String, Double> layerScores = currentSpec.layerScoresFor(side, groupScores);
+        String cacheKey = side + "|scores|" + joinScores(layerScores);
+        Bitmap cached = compositeCache.get(cacheKey);
+        if (cached != null && !cached.isRecycled()) {
+            return cached;
+        }
+
+        Bitmap base = bitmap(assetPath("source/" + side + "-master.png"));
+        if (base == null) {
+            return null;
+        }
+        if (layerScores.isEmpty()) {
+            compositeCache.put(cacheKey, base);
+            return base;
+        }
+
+        Bitmap result;
+        try {
+            result = Bitmap.createBitmap(
+                    base.getWidth(),
+                    base.getHeight(),
+                    Bitmap.Config.ARGB_8888
+            );
+        } catch (IllegalArgumentException error) {
+            return base;
+        }
+        Canvas canvas = new Canvas(result);
+        Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG
+                | Paint.DITHER_FLAG);
+        Rect target = new Rect(0, 0, base.getWidth(), base.getHeight());
+        canvas.drawBitmap(base, null, target, paint);
+        for (Map.Entry<String, Double> entry : layerScores.entrySet()) {
+            Bitmap layer = bitmap(assetPath("layers/" + side + "/" + entry.getKey() + ".png"));
+            if (layer == null) {
+                continue;
+            }
+            double intensity = intensityForEffectiveSets(entry.getValue());
+            int color = lerpColor(Color.WHITE, MUSCLE_RED, intensity);
+            int alpha = (int) Math.round(255d * (MIN_LAYER_ALPHA
+                    + (1d - MIN_LAYER_ALPHA) * intensity));
+            // Existing red PNGs are alpha masks. SRC_IN replaces their RGB while preserving
+            // the generated alpha contour, so no white asset variant is needed.
+            paint.setColorFilter(new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN));
+            paint.setAlpha(alpha);
+            canvas.drawBitmap(layer, null, target, paint);
+        }
+        paint.setColorFilter(null);
+        paint.setAlpha(255);
+        compositeCache.put(cacheKey, result);
+        return result;
+    }
+
+    /** Absolute effective-set saturation: equal sessions remain comparable across days. */
+    static double intensityForEffectiveSets(double effectiveSets) {
+        return WorkoutSummaryAnalytics.intensityForEffectiveSets(effectiveSets);
+    }
+
+    private static int lerpColor(int from, int to, double amount) {
+        double clamped = Math.max(0d, Math.min(1d, amount));
+        int red = (int) Math.round(Color.red(from)
+                + (Color.red(to) - Color.red(from)) * clamped);
+        int green = (int) Math.round(Color.green(from)
+                + (Color.green(to) - Color.green(from)) * clamped);
+        int blue = (int) Math.round(Color.blue(from)
+                + (Color.blue(to) - Color.blue(from)) * clamped);
+        return Color.rgb(red, green, blue);
+    }
+
     private Bitmap bitmap(String path) {
         Bitmap cached = bitmapCache.get(path);
         if (cached != null && !cached.isRecycled()) {
@@ -209,6 +321,18 @@ public final class ExerciseMuscleModelRenderer {
                 result.append(',');
             }
             result.append(value);
+        }
+        return result.toString();
+    }
+
+    private static String joinScores(Map<String, Double> values) {
+        StringBuilder result = new StringBuilder();
+        for (Map.Entry<String, Double> entry : values.entrySet()) {
+            if (result.length() > 0) {
+                result.append(',');
+            }
+            result.append(entry.getKey()).append('=')
+                    .append(Math.round(entry.getValue() * 1000d) / 1000d);
         }
         return result.toString();
     }
@@ -304,6 +428,31 @@ public final class ExerciseMuscleModelRenderer {
                 }
             }
             return new ArrayList<>(ids);
+        }
+
+        Map<String, Double> layerScoresFor(
+                String side,
+                Map<String, Double> groupScores
+        ) {
+            Map<String, Double> scores = new TreeMap<>();
+            if (groupScores == null) {
+                return scores;
+            }
+            for (Map.Entry<String, Double> entry : groupScores.entrySet()) {
+                List<String> groupLayers = exerciseGroups.get(entry.getKey());
+                Double groupScore = entry.getValue();
+                if (groupLayers == null || groupScore == null
+                        || !Double.isFinite(groupScore) || groupScore <= 0d) {
+                    continue;
+                }
+                for (String layerId : groupLayers) {
+                    if (!side.equals(layerViews.get(layerId))) {
+                        continue;
+                    }
+                    scores.put(layerId, scores.getOrDefault(layerId, 0d) + groupScore);
+                }
+            }
+            return scores;
         }
     }
 }

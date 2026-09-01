@@ -902,6 +902,7 @@ public final class FitnessRepository {
                 String metadata = cursor.getString(3);
                 info.startedAt = metadataValue(metadata, "started_at", "");
                 info.status = metadataValue(metadata, "status", "");
+                info.routineId = metadataValue(metadata, "routine_id", "");
                 info.workoutType = emptyToDefault(cursor.getString(4), "other");
                 info.averageHeartRateBpm = cursor.isNull(5) ? null : cursor.getDouble(5);
                 info.durationSeconds = resolvedDurationSeconds(
@@ -4381,6 +4382,72 @@ public final class FitnessRepository {
     }
 
     /**
+     * Completed strength sessions for one routine, returned oldest to newest for charting.
+     * Routine identity is read from the existing workout_records.metadata contract.
+     */
+    public List<WorkoutHistoryEntry> completedStrengthSessionsForRoutine(
+            String routineId,
+            String currentRecordId,
+            int limit
+    ) {
+        String normalizedRoutineId = emptyToNull(routineId);
+        if (normalizedRoutineId == null || limit <= 0) {
+            return new ArrayList<>();
+        }
+        return completedStrengthHistory(normalizedRoutineId, currentRecordId, limit);
+    }
+
+    /** Completed, routine-less strength sessions returned oldest to newest for charting. */
+    public List<WorkoutHistoryEntry> recentCompletedFreeStrengthSessions(
+            String currentRecordId,
+            int limit
+    ) {
+        if (limit <= 0) {
+            return new ArrayList<>();
+        }
+        return completedStrengthHistory(null, currentRecordId, limit);
+    }
+
+    private List<WorkoutHistoryEntry> completedStrengthHistory(
+            String routineId,
+            String currentRecordId,
+            int limit
+    ) {
+        List<WorkoutHistoryEntry> rows = new ArrayList<>();
+        String sql = "SELECT id, date, metadata FROM workout_records "
+                + "WHERE user_id = ? AND deleted_at IS NULL "
+                + "AND scope IN ('fitness', 'both') AND workout_type = 'strength' "
+                + "ORDER BY date DESC, updated_at DESC";
+        try (Cursor cursor = db().rawQuery(sql, new String[]{userId})) {
+            while (cursor.moveToNext() && rows.size() < limit) {
+                String recordId = cursor.getString(0);
+                if (currentRecordId != null && currentRecordId.equals(recordId)) {
+                    continue;
+                }
+                String metadata = cursor.getString(2);
+                if (!"completed".equals(metadataValue(metadata, "status", ""))) {
+                    continue;
+                }
+                String candidateRoutineId = metadataValue(metadata, "routine_id", "");
+                if (routineId == null
+                        ? !candidateRoutineId.isEmpty()
+                        : !routineId.equals(candidateRoutineId)) {
+                    continue;
+                }
+                rows.add(new WorkoutHistoryEntry(
+                        recordId,
+                        emptyToDefault(cursor.getString(1), ""),
+                        candidateRoutineId,
+                        sessionMetrics(recordId),
+                        sessionExerciseEntries(recordId)
+                ));
+            }
+        }
+        Collections.reverse(rows);
+        return rows;
+    }
+
+    /**
      * 종목 매칭 조건. 마스터 종목은 exercise_id로, 수동 추가 종목("manual")은
      * 이름 스냅샷으로 같은 종목을 식별한다. 바인딩 인자 2개: exerciseId, exerciseName.
      */
@@ -6481,6 +6548,31 @@ public final class FitnessRepository {
         }
     }
 
+    /** A completed strength session snapshot used by the summary trend without a new table. */
+    public static final class WorkoutHistoryEntry {
+        public final String id;
+        public final String date;
+        public final String routineId;
+        public final SessionMetrics metrics;
+        public final List<SessionExerciseEntry> exercises;
+
+        public WorkoutHistoryEntry(
+                String id,
+                String date,
+                String routineId,
+                SessionMetrics metrics,
+                List<SessionExerciseEntry> exercises
+        ) {
+            this.id = id;
+            this.date = date;
+            this.routineId = routineId == null ? "" : routineId;
+            this.metrics = metrics == null ? new SessionMetrics() : metrics;
+            this.exercises = Collections.unmodifiableList(new ArrayList<>(
+                    exercises == null ? Collections.emptyList() : exercises
+            ));
+        }
+    }
+
     public static final class DayWorkoutMetrics {
         public int sessionCount;
         public int totalSetCount;
@@ -6726,6 +6818,7 @@ public final class FitnessRepository {
         public String date = "";
         public String startedAt = "";
         public String status = "";
+        public String routineId = "";
         public String workoutType = "other";
         public int durationSeconds;
         public Double averageHeartRateBpm;
