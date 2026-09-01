@@ -2,7 +2,6 @@ package com.yeonsik.fitnessapp;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Insets;
@@ -19,6 +18,8 @@ import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
+import android.window.OnBackInvokedCallback;
+import android.window.OnBackInvokedDispatcher;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -51,6 +52,7 @@ import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
+import com.yeonsik.fitnessapp.state.FitnessNavigationHistory;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.supplement.SupplementRepository;
 import com.yeonsik.fitnessapp.sync.SupabaseSyncManager;
@@ -86,6 +88,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.EnumMap;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -163,6 +166,9 @@ public final class MainActivity extends Activity implements ScreenHost {
     private FitnessUi ui;
     private Map<FitnessScreen, BaseScreen> screens;
     private FitnessScreen currentScreen = FitnessScreen.HOME;
+    private final FitnessNavigationHistory navigationHistory =
+            new FitnessNavigationHistory(FitnessScreen.HOME);
+    private OnBackInvokedCallback backInvokedCallback;
     private String themeMode = THEME_LIGHT;
 
     private LinearLayout rootView;
@@ -236,6 +242,7 @@ public final class MainActivity extends Activity implements ScreenHost {
                 .getString(KEY_THEME_MODE, THEME_LIGHT);
         ui = new FitnessUi(this, this::isDarkTheme);
         screens = buildScreens();
+        registerBackCallback();
 
         configureWindow();
         setContentView(buildRootView());
@@ -442,6 +449,11 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     protected void onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && backInvokedCallback != null) {
+            getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backInvokedCallback);
+            backInvokedCallback = null;
+        }
         BaseScreen activeScreen = screens.get(currentScreen);
         if (activeScreen != null) {
             activeScreen.onDestroy();
@@ -606,7 +618,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         back.setClickable(true);
         back.setFocusable(true);
         back.setContentDescription("운동 세션에서 나가기");
-        back.setOnClickListener(v -> navigate(FitnessScreen.STRENGTH));
+        back.setOnClickListener(v -> replace(FitnessScreen.STRENGTH));
         ui.applyDepth(back, 4);
         ui.pressFeedback(back);
         sessionTopBar.addView(back, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
@@ -814,7 +826,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         area.setMinimumHeight(ui.dp(48));
         area.setClickable(true);
         area.setFocusable(true);
-        area.setOnClickListener(v -> navigate(rootScreenOf(tab)));
+        area.setOnClickListener(v -> replace(rootScreenOf(tab)));
         ui.pressFeedback(area);
 
         TextView textView = new TextView(this);
@@ -898,11 +910,10 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     private void styleNavArea(LinearLayout area, TextView label, boolean active, boolean hologramActive) {
-        String seed = "bottom-nav-" + label.getText();
         area.setSelected(active);
         area.setContentDescription(label.getText() + (active ? ", 선택됨" : ""));
         Drawable background = active
-                ? ui.vibrantRippleDrawable(seed, ui.dp(999))
+                ? ui.selectedStateRippleDrawable(ui.dp(999))
                 : ui.flatSurfaceRippleDrawable(ui.dp(999));
         if (hologramActive) {
             ui.setHologramBackground(area, background, ui.dp(999));
@@ -1051,6 +1062,14 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     public void navigate(FitnessScreen screen) {
+        navigationHistory.push(screen);
+        currentScreen = screen;
+        render();
+    }
+
+    @Override
+    public void replace(FitnessScreen screen) {
+        navigationHistory.replace(screen);
         currentScreen = screen;
         render();
     }
@@ -1095,12 +1114,12 @@ public final class MainActivity extends Activity implements ScreenHost {
             repository.deleteSession(recordId);
             sessionState.clearIfMatches(recordId);
             toast("수행한 세트가 없어 운동을 저장하지 않았습니다.");
-            navigate(FitnessScreen.STRENGTH);
+            replace(FitnessScreen.STRENGTH);
             return;
         }
         repository.finishSession(recordId);
         toast("운동을 완료했습니다.");
-        navigate(FitnessScreen.WORKOUT_SUMMARY);
+        replace(FitnessScreen.WORKOUT_SUMMARY);
     }
 
     @Override
@@ -1159,7 +1178,7 @@ public final class MainActivity extends Activity implements ScreenHost {
                     if (currentScreen == FitnessScreen.RECORDS) {
                         render();
                     } else {
-                        navigate(cardioSession ? FitnessScreen.CARDIO : FitnessScreen.STRENGTH);
+                        replace(cardioSession ? FitnessScreen.CARDIO : FitnessScreen.STRENGTH);
                     }
                 });
     }
@@ -1204,14 +1223,10 @@ public final class MainActivity extends Activity implements ScreenHost {
                     checked = index + 1;
                 }
             }
-            new AlertDialog.Builder(this)
-                    .setTitle("운동 루틴")
-                    .setSingleChoiceItems(labels, checked, (dialog, which) -> {
+            ui.choiceSheet("운동 루틴", Arrays.asList(labels), checked, which -> {
                         selectedRoutine[0] = which == 0 ? null : routines.get(which - 1);
                         routineButton.setText(manualWorkoutRoutineLabel(selectedRoutine[0]));
-                        dialog.dismiss();
-                    })
-                    .show();
+                    });
         });
         ui.addAll(
                 form,
@@ -1317,6 +1332,44 @@ public final class MainActivity extends Activity implements ScreenHost {
             }
             callback.run();
         });
+    }
+
+    private void registerBackCallback() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+        backInvokedCallback = this::dispatchBack;
+        getOnBackInvokedDispatcher().registerOnBackInvokedCallback(
+                OnBackInvokedDispatcher.PRIORITY_DEFAULT,
+                backInvokedCallback
+        );
+    }
+
+    private void dispatchBack() {
+        if (ui != null && ui.dismissActiveDialog()) {
+            return;
+        }
+        FitnessScreen previous = navigationHistory.back();
+        if (previous != null) {
+            currentScreen = previous;
+            render();
+            return;
+        }
+        if (FitnessScreen.HOME.equals(currentScreen)) {
+            // Only the initial HOME entry is allowed to finish the Activity.
+            finish();
+            return;
+        }
+        // Keep the exit invariant even if an external caller replaced the initial entry.
+        navigationHistory.replace(FitnessScreen.HOME);
+        currentScreen = FitnessScreen.HOME;
+        render();
+    }
+
+    @Override
+    @SuppressWarnings("deprecation")
+    public void onBackPressed() {
+        dispatchBack();
     }
 
     @Override
@@ -1789,18 +1842,15 @@ public final class MainActivity extends Activity implements ScreenHost {
                 null
         );
         objectivePicker.setAllCaps(false);
-        objectivePicker.setOnClickListener(v -> new AlertDialog.Builder(this)
-                .setTitle("발전 목표 선택")
-                .setSingleChoiceItems(
-                        objectiveLabels,
-                        indexOf(objectiveCodes, selectedObjective[0]),
-                        (dialog, which) -> {
+        objectivePicker.setOnClickListener(v -> ui.choiceSheet(
+                "발전 목표 선택",
+                Arrays.asList(objectiveLabels),
+                indexOf(objectiveCodes, selectedObjective[0]),
+                which -> {
                             selectedObjective[0] = objectiveCodes[which];
                             objectivePicker.setText("목표 · " + objectiveLabels[which]);
-                            dialog.dismiss();
                         }
-                )
-                .show());
+                ));
         EditText weeklySessionsInput = ui.numberInput(
                 "주간 운동 목표 1~7회",
                 currentGoal.weeklySessionsTarget == null
@@ -1813,18 +1863,15 @@ public final class MainActivity extends Activity implements ScreenHost {
                 null
         );
         focusPicker.setAllCaps(false);
-        focusPicker.setOnClickListener(v -> new AlertDialog.Builder(this)
-                .setTitle("집중 부위 선택")
-                .setSingleChoiceItems(
-                        focusLabels,
-                        indexOf(focusCodes, selectedFocus[0]),
-                        (dialog, which) -> {
+        focusPicker.setOnClickListener(v -> ui.choiceSheet(
+                "집중 부위 선택",
+                Arrays.asList(focusLabels),
+                indexOf(focusCodes, selectedFocus[0]),
+                which -> {
                             selectedFocus[0] = focusCodes[which];
                             focusPicker.setText("집중 부위 · " + focusLabels[which]);
-                            dialog.dismiss();
                         }
-                )
-                .show());
+                ));
         ui.addAll(form, objectivePicker, weeklySessionsInput, focusPicker);
         ui.validatedSheet("발전 목표 수정", form, "저장", () -> {
             try {
