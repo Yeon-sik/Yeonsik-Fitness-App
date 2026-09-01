@@ -38,6 +38,7 @@ import android.view.animation.OvershootInterpolator;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import java.time.OffsetDateTime;
@@ -1616,6 +1617,8 @@ public final class FitnessUi {
         LinearLayout body = new LinearLayout(activity);
         body.setOrientation(LinearLayout.VERTICAL);
         body.setPadding(dp(2), dp(2), dp(2), dp(2));
+        LinearLayout optionsBody = new LinearLayout(activity);
+        optionsBody.setOrientation(LinearLayout.VERTICAL);
         List<String> safeOptions = options == null
                 ? new ArrayList<>()
                 : new ArrayList<>(options);
@@ -1653,14 +1656,41 @@ public final class FitnessUi {
                     dialog.dismiss();
                 }
             });
-            body.addView(row, fullWidthParams(index == 0 ? 0 : dp(8)));
+            optionsBody.addView(row, fullWidthParams(index == 0 ? 0 : dp(8)));
         }
+        ScrollView optionsScroll = new ScrollView(activity) {
+            @Override
+            protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+                int maxHeight = choiceSheetMaxOptionsHeight();
+                int cappedHeightSpec = MeasureSpec.makeMeasureSpec(
+                        maxHeight,
+                        MeasureSpec.AT_MOST
+                );
+                super.onMeasure(widthMeasureSpec, cappedHeightSpec);
+            }
+        };
+        optionsScroll.setFillViewport(false);
+        optionsScroll.setClipToPadding(false);
+        optionsScroll.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
+        optionsScroll.addView(optionsBody, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+        ));
+        body.addView(optionsScroll, fullWidthParams(0));
         Dialog dialog = secondaryText == null || onSecondary == null
                 ? sheet(title, body, "닫기", () -> { }, null, null)
                 : sheetWithSecondary(title, body, "닫기", () -> { },
                         secondaryText, onSecondary);
         dialogHolder[0] = dialog;
         return dialog;
+    }
+
+    private int choiceSheetMaxOptionsHeight() {
+        int screenHeight = activity.getResources().getDisplayMetrics().heightPixels;
+        if (screenHeight <= 0) {
+            return dp(360);
+        }
+        return Math.max(dp(180), screenHeight - dp(260));
     }
 
     private void trackDialog(Dialog dialog) {
