@@ -6,6 +6,7 @@ import org.junit.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -82,6 +83,77 @@ public final class WorkoutSummaryAnalyticsTest {
 
         assertEquals(2d, scores.get("chest"), 0.0001d);
         assertFalse(scores.isEmpty());
+    }
+
+    @Test
+    public void overlappingPrimaryAndSecondaryLayerUsesPrimaryWeightOnce() {
+        Map<String, List<String>> layers = new LinkedHashMap<>();
+        layers.put("upper_chest", Collections.singletonList("pectoralis_major_clavicular"));
+        layers.put("overall_chest", Collections.singletonList("pectoralis_major_clavicular"));
+
+        Map<String, Double> scores = WorkoutSummaryAnalytics.effectiveAnatomicalLayerScores(
+                Collections.singletonList(exercise(
+                        "upper_chest",
+                        Collections.singletonList("overall_chest"),
+                        true
+                )),
+                layers
+        );
+
+        assertEquals(1d, scores.get("pectoralis_major_clavicular"), 0.0001d);
+    }
+
+    @Test
+    public void nonOverlappingSecondaryLayerKeepsHalfWeight() {
+        Map<String, List<String>> layers = new LinkedHashMap<>();
+        layers.put("upper_chest", Collections.singletonList("pectoralis_major_clavicular"));
+        layers.put("front_deltoid", Collections.singletonList("deltoid_anterior"));
+
+        Map<String, Double> scores = WorkoutSummaryAnalytics.effectiveAnatomicalLayerScores(
+                Collections.singletonList(exercise(
+                        "upper_chest",
+                        Collections.singletonList("front_deltoid"),
+                        true
+                )),
+                layers
+        );
+
+        assertEquals(1d, scores.get("pectoralis_major_clavicular"), 0.0001d);
+        assertEquals(0.5d, scores.get("deltoid_anterior"), 0.0001d);
+    }
+
+    @Test
+    public void sameLayerAcrossExercisesIsSummed() {
+        Map<String, List<String>> layers = new LinkedHashMap<>();
+        layers.put("upper_chest", Collections.singletonList("pectoralis_major_clavicular"));
+        layers.put("overall_chest", Collections.singletonList("pectoralis_major_clavicular"));
+
+        Map<String, Double> scores = WorkoutSummaryAnalytics.effectiveAnatomicalLayerScores(
+                Arrays.asList(
+                        exercise("upper_chest", Collections.emptyList(), true),
+                        exercise("overall_chest", Collections.emptyList(), true)
+                ),
+                layers
+        );
+
+        assertEquals(2d, scores.get("pectoralis_major_clavicular"), 0.0001d);
+    }
+
+    @Test
+    public void multipleCompletedSetsAccumulatePerLayer() {
+        Map<String, List<String>> layers = new LinkedHashMap<>();
+        layers.put("upper_chest", Collections.singletonList("pectoralis_major_clavicular"));
+
+        Map<String, Double> scores = WorkoutSummaryAnalytics.effectiveAnatomicalLayerScores(
+                Collections.singletonList(exercise(
+                        "upper_chest",
+                        Collections.emptyList(),
+                        true, false, true
+                )),
+                layers
+        );
+
+        assertEquals(2d, scores.get("pectoralis_major_clavicular"), 0.0001d);
     }
 
     private static WorkoutSummaryAnalytics.MuscleExercise exercise(

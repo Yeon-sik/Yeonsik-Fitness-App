@@ -35,7 +35,10 @@ public final class FitnessNavigationHistory {
         entries.addLast(screen);
     }
 
-    /** Replaces the current destination, e.g. an in-progress session with its completion page. */
+    /**
+     * Replaces the current destination without re-adding a target already below it, e.g. an
+     * in-progress session with its completion page.
+     */
     public void replace(FitnessScreen screen) {
         requireScreen(screen);
         if (screen.equals(current())) {
@@ -44,7 +47,9 @@ public final class FitnessNavigationHistory {
         if (!entries.isEmpty()) {
             entries.removeLast();
         }
-        entries.addLast(screen);
+        if (!screen.equals(current())) {
+            entries.addLast(screen);
+        }
     }
 
     /** Returns the previous screen, or null when the initial HOME entry is current. */

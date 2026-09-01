@@ -76,7 +76,36 @@ public final class FitnessNavigationHistoryTest {
         history.push(FitnessScreen.WORKOUT_SESSION);
         history.replace(FitnessScreen.WORKOUT_SUMMARY);
 
+        assertEquals(4, history.size());
+        assertEquals(FitnessScreen.WORKOUT_SUMMARY, history.current());
         assertEquals(FitnessScreen.STRENGTH, history.back());
+    }
+
+    @Test
+    public void replaceTargetCurrentIsNoOp() {
+        FitnessNavigationHistory history = new FitnessNavigationHistory(FitnessScreen.HOME);
+        history.push(FitnessScreen.WORKOUT);
+        int sizeBeforeReplace = history.size();
+
+        history.replace(FitnessScreen.WORKOUT);
+
+        assertEquals(sizeBeforeReplace, history.size());
+        assertEquals(FitnessScreen.WORKOUT, history.current());
+        assertEquals(FitnessScreen.HOME, history.back());
+    }
+
+    @Test
+    public void replaceTargetPreviousDoesNotReaddDuplicateEntry() {
+        FitnessNavigationHistory history = new FitnessNavigationHistory(FitnessScreen.HOME);
+        history.push(FitnessScreen.WORKOUT);
+        history.push(FitnessScreen.STRENGTH);
+        history.push(FitnessScreen.WORKOUT_SESSION);
+
+        history.replace(FitnessScreen.STRENGTH);
+
+        assertEquals(3, history.size());
+        assertEquals(FitnessScreen.STRENGTH, history.current());
+        assertEquals(FitnessScreen.WORKOUT, history.back());
     }
 
     @Test
@@ -91,5 +120,7 @@ public final class FitnessNavigationHistoryTest {
         int afterFirstReplace = history.size();
         history.replace(FitnessScreen.STRENGTH);
         assertEquals(afterFirstReplace, history.size());
+
+        assertEquals(FitnessScreen.HOME, history.back());
     }
 }

@@ -60,12 +60,13 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             for (FitnessRepository.SessionExerciseEntry exercise : exercises) {
                 setsByExercise.put(exercise.id, repository().setsForExercise(exercise.id));
             }
-            Map<String, Double> scores = WorkoutSummaryAnalytics.effectiveMuscleScores(
+            Map<String, Double> layerScores = WorkoutSummaryAnalytics.effectiveAnatomicalLayerScores(
                     exercises,
                     setsByExercise,
-                    host.exerciseMasterRepository().runtimeCatalog()
+                    host.exerciseMasterRepository().runtimeCatalog(),
+                    exerciseMuscleModelRenderer.anatomicalLayerIdsByMuscleGroup()
             );
-            renderMuscleDistribution(scores);
+            renderMuscleDistribution(layerScores);
         }
 
         LinearLayout tiles = ui.tileRow();
@@ -127,9 +128,10 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         renderPerformance(recordId);
     }
 
-    private void renderMuscleDistribution(Map<String, Double> scores) {
+    private void renderMuscleDistribution(Map<String, Double> effectiveSetsByLayer) {
         FitnessUi ui = ui();
-        add(exerciseMuscleModelRenderer.renderScores(scores), ui.fullWidthParams(ui.dp(10)));
+        add(exerciseMuscleModelRenderer.renderScores(effectiveSetsByLayer),
+                ui.fullWidthParams(ui.dp(10)));
         add(ui.text(
                 "근육 자극 분포 · 완료 세트 기준 (주요 부위 1.0, 보조 부위 0.5)",
                 12,

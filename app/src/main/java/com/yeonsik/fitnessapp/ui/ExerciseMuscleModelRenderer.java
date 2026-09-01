@@ -27,7 +27,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
@@ -85,13 +84,13 @@ public final class ExerciseMuscleModelRenderer {
     }
 
     /**
-     * Builds the same front/back model using summed effective sets per canonical muscle group.
-     * The map is intentionally keyed by the runtime catalog's primarySubPart IDs.
+     * Builds the same front/back model using summed effective sets per anatomical layer ID.
+     * Layer IDs come from the existing exercise_muscle asset mapping.
      */
-    public LinearLayout renderScores(Map<String, Double> effectiveSetsByPrimarySubPart) {
+    public LinearLayout renderScores(Map<String, Double> effectiveSetsByLayer) {
         Map<String, Double> scores = new LinkedHashMap<>();
-        if (effectiveSetsByPrimarySubPart != null) {
-            for (Map.Entry<String, Double> entry : effectiveSetsByPrimarySubPart.entrySet()) {
+        if (effectiveSetsByLayer != null) {
+            for (Map.Entry<String, Double> entry : effectiveSetsByLayer.entrySet()) {
                 String key = entry.getKey() == null ? "" : entry.getKey().trim();
                 Double value = entry.getValue();
                 if (!key.isEmpty() && value != null && Double.isFinite(value) && value > 0d) {
@@ -102,9 +101,14 @@ public final class ExerciseMuscleModelRenderer {
         return renderContainer(null, scores);
     }
 
+    /** Returns the existing asset's muscle-group-to-anatomical-layer mapping for pure analytics. */
+    public Map<String, List<String>> anatomicalLayerIdsByMuscleGroup() {
+        return spec().exerciseGroups;
+    }
+
     private LinearLayout renderContainer(
             Set<String> selected,
-            Map<String, Double> effectiveSetsByPrimarySubPart
+            Map<String, Double> effectiveSetsByLayer
     ) {
         LinearLayout container = new LinearLayout(activity);
         container.setOrientation(LinearLayout.HORIZONTAL);
@@ -113,7 +117,7 @@ public final class ExerciseMuscleModelRenderer {
         container.setBackground(ui.flatSurfaceDrawable(ui.dp(16)));
         ui.applyDepth(container, 3);
 
-        container.addView(modelColumn("앞", "front", selected, effectiveSetsByPrimarySubPart),
+        container.addView(modelColumn("앞", "front", selected, effectiveSetsByLayer),
                 new LinearLayout.LayoutParams(0, ui.dp(MODEL_HEIGHT_DP), 1f));
         LinearLayout.LayoutParams backParams = new LinearLayout.LayoutParams(
                 0,
@@ -121,7 +125,7 @@ public final class ExerciseMuscleModelRenderer {
                 1f
         );
         backParams.setMargins(ui.dp(6), 0, 0, 0);
-        container.addView(modelColumn("뒤", "back", selected, effectiveSetsByPrimarySubPart), backParams);
+        container.addView(modelColumn("뒤", "back", selected, effectiveSetsByLayer), backParams);
         return container;
     }
 
@@ -129,7 +133,7 @@ public final class ExerciseMuscleModelRenderer {
             String label,
             String side,
             Set<String> selected,
-            Map<String, Double> effectiveSetsByPrimarySubPart
+            Map<String, Double> effectiveSetsByLayer
     ) {
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
@@ -142,9 +146,9 @@ public final class ExerciseMuscleModelRenderer {
                 ui.dp(22)
         ));
 
-        boolean scoreMode = effectiveSetsByPrimarySubPart != null;
+        boolean scoreMode = effectiveSetsByLayer != null;
         Bitmap model = scoreMode
-                ? compositeScores(side, effectiveSetsByPrimarySubPart)
+                ? compositeScores(side, effectiveSetsByLayer)
                 : composite(side, selected);
         if (model != null) {
             ImageView image = new ImageView(activity);
@@ -206,9 +210,19 @@ public final class ExerciseMuscleModelRenderer {
         return result;
     }
 
-    private Bitmap compositeScores(String side, Map<String, Double> groupScores) {
+    private Bitmap compositeScores(String side, Map<String, Double> effectiveSetsByLayer) {
         MuscleLayerSpec currentSpec = spec();
-        Map<String, Double> layerScores = currentSpec.layerScoresFor(side, groupScores);
+        Map<String, Double> layerScores = new LinkedHashMap<>();
+        if (effectiveSetsByLayer != null) {
+            for (Map.Entry<String, Double> entry : effectiveSetsByLayer.entrySet()) {
+                String layerId = entry.getKey() == null ? "" : entry.getKey().trim();
+                Double score = entry.getValue();
+                if (!layerId.isEmpty() && score != null && Double.isFinite(score)
+                        && score > 0d && side.equals(currentSpec.layerViews.get(layerId))) {
+                    layerScores.put(layerId, score);
+                }
+            }
+        }
         String cacheKey = side + "|scores|" + joinScores(layerScores);
         Bitmap cached = compositeCache.get(cacheKey);
         if (cached != null && !cached.isRecycled()) {
@@ -430,29 +444,5 @@ public final class ExerciseMuscleModelRenderer {
             return new ArrayList<>(ids);
         }
 
-        Map<String, Double> layerScoresFor(
-                String side,
-                Map<String, Double> groupScores
-        ) {
-            Map<String, Double> scores = new TreeMap<>();
-            if (groupScores == null) {
-                return scores;
-            }
-            for (Map.Entry<String, Double> entry : groupScores.entrySet()) {
-                List<String> groupLayers = exerciseGroups.get(entry.getKey());
-                Double groupScore = entry.getValue();
-                if (groupLayers == null || groupScore == null
-                        || !Double.isFinite(groupScore) || groupScore <= 0d) {
-                    continue;
-                }
-                for (String layerId : groupLayers) {
-                    if (!side.equals(layerViews.get(layerId))) {
-                        continue;
-                    }
-                    scores.put(layerId, scores.getOrDefault(layerId, 0d) + groupScore);
-                }
-            }
-            return scores;
-        }
     }
 }

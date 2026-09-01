@@ -53,7 +53,7 @@ public interface ScreenHost {
 
     void navigate(FitnessScreen screen);
 
-    /** Pops the current screen, returning true when a previous history entry was shown. */
+    /** Pops one screen entry. Dialog dismissal is owned by the system Back dispatcher. */
     default boolean back() {
         return false;
     }

@@ -6,10 +6,12 @@ import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /** Pure summary calculations shared by the renderer and the workout summary screen. */
 public final class WorkoutSummaryAnalytics {
@@ -51,27 +53,24 @@ public final class WorkoutSummaryAnalytics {
             Map<String, ? extends List<FitnessRepository.SessionSetEntry>> setsByExercise,
             RuntimeExerciseCatalog catalog
     ) {
-        if (exercises == null || catalog == null) {
-            return Collections.emptyMap();
-        }
-        List<MuscleExercise> completedExercises = new ArrayList<>();
-        for (FitnessRepository.SessionExerciseEntry exercise : exercises) {
-            if (exercise == null) {
-                continue;
-            }
-            List<FitnessRepository.SessionSetEntry> sets = setsByExercise == null
-                    ? Collections.emptyList()
-                    : setsByExercise.get(exercise.id);
-            RuntimeExercisePreset preset = resolvePreset(catalog, exercise);
-            if (preset != null) {
-                completedExercises.add(new MuscleExercise(
-                        preset.primarySubPart,
-                        preset.secondarySubParts,
-                        sets
-                ));
-            }
-        }
-        return effectiveMuscleScores(completedExercises);
+        return effectiveMuscleScores(toMuscleExercises(exercises, setsByExercise, catalog));
+    }
+
+    /**
+     * Expands effective sets to anatomical layers using the existing asset mapping.
+     * Each completed set claims a layer once: primary weight wins over secondary weight, and
+     * overlapping secondary groups share one half-weight contribution.
+     */
+    public static Map<String, Double> effectiveAnatomicalLayerScores(
+            Iterable<FitnessRepository.SessionExerciseEntry> exercises,
+            Map<String, ? extends List<FitnessRepository.SessionSetEntry>> setsByExercise,
+            RuntimeExerciseCatalog catalog,
+            Map<String, ? extends List<String>> layersByMuscleGroup
+    ) {
+        return effectiveAnatomicalLayerScores(
+                toMuscleExercises(exercises, setsByExercise, catalog),
+                layersByMuscleGroup
+        );
     }
 
     /** Pure effective-set aggregation used by the repository-facing overload and unit tests. */
@@ -106,6 +105,86 @@ public final class WorkoutSummaryAnalytics {
             }
         }
         return scores;
+    }
+
+    /** Pure anatomical-layer aggregation used by the summary renderer and unit tests. */
+    public static Map<String, Double> effectiveAnatomicalLayerScores(
+            List<MuscleExercise> exercises,
+            Map<String, ? extends List<String>> layersByMuscleGroup
+    ) {
+        if (exercises == null || exercises.isEmpty()
+                || layersByMuscleGroup == null || layersByMuscleGroup.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<String, Double> scores = new LinkedHashMap<>();
+        for (MuscleExercise exercise : exercises) {
+            if (exercise == null) {
+                continue;
+            }
+            int completedSetCount = completedSetCount(exercise.sets);
+            if (completedSetCount <= 0) {
+                continue;
+            }
+
+            String primary = normalizeMuscle(exercise.primarySubPart);
+            for (int setIndex = 0; setIndex < completedSetCount; setIndex += 1) {
+                Set<String> claimedLayers = new HashSet<>();
+                addLayerScores(
+                        scores,
+                        claimedLayers,
+                        layersByMuscleGroup.get(primary),
+                        1d
+                );
+
+                if (exercise.secondarySubParts == null) {
+                    continue;
+                }
+                Set<String> countedSecondary = new HashSet<>();
+                for (String secondaryValue : exercise.secondarySubParts) {
+                    String secondary = normalizeMuscle(secondaryValue);
+                    if (secondary.isEmpty()
+                            || secondary.equals(primary)
+                            || !countedSecondary.add(secondary)) {
+                        continue;
+                    }
+                    addLayerScores(
+                            scores,
+                            claimedLayers,
+                            layersByMuscleGroup.get(secondary),
+                            0.5d
+                    );
+                }
+            }
+        }
+        return scores;
+    }
+
+    private static List<MuscleExercise> toMuscleExercises(
+            Iterable<FitnessRepository.SessionExerciseEntry> exercises,
+            Map<String, ? extends List<FitnessRepository.SessionSetEntry>> setsByExercise,
+            RuntimeExerciseCatalog catalog
+    ) {
+        if (exercises == null || catalog == null) {
+            return Collections.emptyList();
+        }
+        List<MuscleExercise> completedExercises = new ArrayList<>();
+        for (FitnessRepository.SessionExerciseEntry exercise : exercises) {
+            if (exercise == null) {
+                continue;
+            }
+            List<FitnessRepository.SessionSetEntry> sets = setsByExercise == null
+                    ? Collections.emptyList()
+                    : setsByExercise.get(exercise.id);
+            RuntimeExercisePreset preset = resolvePreset(catalog, exercise);
+            if (preset != null) {
+                completedExercises.add(new MuscleExercise(
+                        preset.primarySubPart,
+                        preset.secondarySubParts,
+                        sets
+                ));
+            }
+        }
+        return completedExercises;
     }
 
     private static int completedSetCount(List<FitnessRepository.SessionSetEntry> sets) {
@@ -151,6 +230,24 @@ public final class WorkoutSummaryAnalytics {
             return;
         }
         scores.put(muscle, scores.getOrDefault(muscle, 0d) + amount);
+    }
+
+    private static void addLayerScores(
+            Map<String, Double> scores,
+            Set<String> claimedLayers,
+            List<String> layers,
+            double weight
+    ) {
+        if (layers == null || weight <= 0d) {
+            return;
+        }
+        for (String layerValue : layers) {
+            String layer = normalizeMuscle(layerValue);
+            if (layer.isEmpty() || !claimedLayers.add(layer)) {
+                continue;
+            }
+            scores.put(layer, scores.getOrDefault(layer, 0d) + weight);
+        }
     }
 
     private static String normalizeMuscle(String muscle) {

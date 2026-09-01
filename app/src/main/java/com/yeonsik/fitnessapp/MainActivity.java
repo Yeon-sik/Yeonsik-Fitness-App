@@ -1073,9 +1073,6 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     public boolean back() {
-        if (ui != null && ui.dismissActiveDialog()) {
-            return true;
-        }
         FitnessScreen previous = navigationHistory.back();
         if (previous == null) {
             return false;
@@ -1368,6 +1365,10 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     private void dispatchBack() {
+        // Only system Back dismisses an app dialog before consulting screen history.
+        if (ui != null && ui.dismissActiveDialog()) {
+            return;
+        }
         if (back()) {
             return;
         }
