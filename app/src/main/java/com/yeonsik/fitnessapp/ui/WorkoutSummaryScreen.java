@@ -10,7 +10,6 @@ import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
-import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.routine.WorkoutRoutineMapper;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
@@ -53,7 +52,20 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         boolean cardio = "cardio".equals(info.workoutType);
         screenHeader("완료 기록", cardio ? "유산소 요약" : "운동 요약");
         if (!cardio) {
-            renderMuscleDistribution(recordId);
+            Map<String, List<FitnessRepository.SessionSetEntry>> setsByExercise =
+                    new LinkedHashMap<>();
+            List<FitnessRepository.SessionExerciseEntry> exercises = recordId == null
+                    ? Collections.emptyList()
+                    : repository().sessionExerciseEntries(recordId);
+            for (FitnessRepository.SessionExerciseEntry exercise : exercises) {
+                setsByExercise.put(exercise.id, repository().setsForExercise(exercise.id));
+            }
+            Map<String, Double> scores = WorkoutSummaryAnalytics.effectiveMuscleScores(
+                    exercises,
+                    setsByExercise,
+                    host.exerciseMasterRepository().runtimeCatalog()
+            );
+            renderMuscleDistribution(scores);
         }
 
         LinearLayout tiles = ui.tileRow();
@@ -93,7 +105,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         buttonRow(
                 ui.button("기록 보기", true, v -> host.navigate(FitnessScreen.RECORDS)),
                 ui.button(cardio ? "유산소로 돌아가기" : "무산소로 돌아가기", false,
-                        v -> host.navigate(cardio ? FitnessScreen.CARDIO : FitnessScreen.STRENGTH)),
+                        v -> backOr(cardio ? FitnessScreen.CARDIO : FitnessScreen.STRENGTH)),
                 ui.dp(6)
         );
         if (cardio) {
@@ -115,9 +127,8 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         renderPerformance(recordId);
     }
 
-    private void renderMuscleDistribution(String recordId) {
+    private void renderMuscleDistribution(Map<String, Double> scores) {
         FitnessUi ui = ui();
-        Map<String, Double> scores = effectiveMuscleScores(recordId);
         add(exerciseMuscleModelRenderer.renderScores(scores), ui.fullWidthParams(ui.dp(10)));
         add(ui.text(
                 "근육 자극 분포 · 완료 세트 기준 (주요 부위 1.0, 보조 부위 0.5)",
@@ -125,73 +136,6 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                 FitnessUi.COLOR_MUTED,
                 false
         ), ui.fullWidthParams(ui.dp(2)));
-    }
-
-    private Map<String, Double> effectiveMuscleScores(String recordId) {
-        Map<String, Double> scores = new LinkedHashMap<>();
-        if (recordId == null) {
-            return scores;
-        }
-        RuntimeExerciseCatalog catalog = host.exerciseMasterRepository().runtimeCatalog();
-        for (FitnessRepository.SessionExerciseEntry exercise :
-                repository().sessionExerciseEntries(recordId)) {
-            int completedSets = 0;
-            for (FitnessRepository.SessionSetEntry set : repository().setsForExercise(exercise.id)) {
-                if (set.isCompleted) {
-                    completedSets += 1;
-                }
-            }
-            if (completedSets == 0) {
-                continue;
-            }
-
-            RuntimeExercisePreset preset = resolvePreset(catalog, exercise);
-            if (preset == null) {
-                continue;
-            }
-            addMuscleScore(scores, preset.primarySubPart, completedSets);
-            for (String secondary : preset.secondarySubParts) {
-                if (secondary == null || secondary.trim().isEmpty()
-                        || secondary.equals(preset.primarySubPart)) {
-                    continue;
-                }
-                addMuscleScore(scores, secondary, completedSets * 0.5d);
-            }
-        }
-        return scores;
-    }
-
-    private RuntimeExercisePreset resolvePreset(
-            RuntimeExerciseCatalog catalog,
-            FitnessRepository.SessionExerciseEntry exercise
-    ) {
-        if (catalog == null || exercise == null) {
-            return null;
-        }
-        if (exercise.familyIdentity != null) {
-            RuntimeExercisePreset preset = catalog.preset(exercise.familyIdentity.presetId);
-            if (preset == null) {
-                preset = catalog.preset(exercise.familyIdentity.canonicalPresetId);
-            }
-            if (preset == null) {
-                preset = catalog.presetForStorageExerciseId(
-                        exercise.familyIdentity.legacyExerciseId
-                );
-            }
-            if (preset != null) {
-                return preset;
-            }
-        }
-        RuntimeExercisePreset preset = catalog.presetForStorageExerciseId(exercise.exerciseId);
-        return preset == null ? catalog.presetForExactName(exercise.name) : preset;
-    }
-
-    private void addMuscleScore(Map<String, Double> scores, String muscle, double amount) {
-        if (muscle == null || muscle.trim().isEmpty() || amount <= 0d) {
-            return;
-        }
-        String key = muscle.trim();
-        scores.put(key, scores.getOrDefault(key, 0d) + amount);
     }
 
     private void renderStrengthProgress(
