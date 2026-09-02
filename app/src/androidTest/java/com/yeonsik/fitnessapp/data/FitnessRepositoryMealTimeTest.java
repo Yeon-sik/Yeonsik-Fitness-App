@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.data;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import android.content.ContentValues;
@@ -524,6 +525,42 @@ public final class FitnessRepositoryMealTimeTest {
             assertEquals(900d, totals.total(NutritionProfile.SODIUM_MG).knownSum(), 0.001d);
             assertEquals(12d, totals.total(NutritionProfile.SUGARS_GRAMS).knownSum(), 0.001d);
             assertEquals(8d, totals.total(NutritionProfile.SATURATED_FAT_GRAMS).knownSum(), 0.001d);
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void canonicalDiningOutWriteRejectsMissingCaloriesInsteadOfEstimatingFromMacros()
+            throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String date = LocalDate.now().minusDays(1).toString();
+
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> repository.addDiningOutMealAtTimeWithNutrition(
+                            date,
+                            "19:20",
+                            "강남식당",
+                            "칼로리 누락 메뉴",
+                            null,
+                            40d,
+                            70d,
+                            20d,
+                            null,
+                            null,
+                            null,
+                            null
+                    )
+            );
+            assertEquals(0, repository.mealEntriesForDate(date).size());
         } finally {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);

@@ -1160,11 +1160,14 @@ public final class NutritionCatalogRepository {
     }
 
     /**
-     * Saves a dining-out menu as a private external-menu catalog row.
+     * Saves a dining-out menu as a private external-menu catalog row using macro-only data.
      *
-     * <p>The macro values are user-entered estimates, so this path intentionally stores the
-     * macros-only data version and keeps unknown micronutrients as NULL.</p>
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * the explicit-calorie {@code saveDiningOutMenuWithNutrition(...)} API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
      */
+    @Deprecated
     public NutritionFood saveDiningOutMenu(
             String storeName,
             String menuName,
@@ -1183,7 +1186,15 @@ public final class NutritionCatalogRepository {
         );
     }
 
-    /** Saves a dining-out menu and preserves an explicitly selected PriceTrace identity. */
+    /**
+     * Saves a macro-only dining-out menu and preserves a PriceTrace identity.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * the explicit-calorie {@code saveDiningOutMenuWithNutrition(...)} API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
+     */
+    @Deprecated
     public NutritionFood saveDiningOutMenu(
             String storeName,
             String menuName,
@@ -1203,7 +1214,15 @@ public final class NutritionCatalogRepository {
         );
     }
 
-    /** Saves a dining-out menu and preserves an explicitly selected PriceTrace identity. */
+    /**
+     * Saves a macro-only dining-out menu with branch and PriceTrace identity metadata.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * the explicit-calorie {@code saveDiningOutMenuWithNutrition(...)} API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
+     */
+    @Deprecated
     public NutritionFood saveDiningOutMenu(
             String storeName,
             String menuName,

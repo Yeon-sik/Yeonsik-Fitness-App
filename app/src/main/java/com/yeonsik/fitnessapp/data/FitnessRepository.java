@@ -1125,7 +1125,15 @@ public final class FitnessRepository {
         );
     }
 
-    /** Records a dining-out meal without creating a catalog row. */
+    /**
+     * Records a dining-out meal without nutrition values.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * an explicit-calorie dining-out write API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes.
+     */
+    @Deprecated
     public String addDiningOutMealAtTime(
             String date,
             String mealTime,
@@ -1145,9 +1153,15 @@ public final class FitnessRepository {
     }
 
     /**
-     * Records a dining-out meal with optional user-entered macro estimates.
+     * Records a dining-out meal with macro-only user estimates.
      * These values are explicitly marked as estimates and are not catalog snapshots.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * an explicit-calorie dining-out write API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
      */
+    @Deprecated
     public String addDiningOutMealAtTime(
             String date,
             String mealTime,
@@ -1169,7 +1183,15 @@ public final class FitnessRepository {
         );
     }
 
-    /** Records a dining-out meal with option names kept in the meal snapshot. */
+    /**
+     * Records a macro-only dining-out meal with option names kept in the meal snapshot.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * an explicit-calorie dining-out write API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
+     */
+    @Deprecated
     public String addDiningOutMealAtTimeWithOptions(
             String date,
             String mealTime,
@@ -1201,8 +1223,14 @@ public final class FitnessRepository {
     }
 
     /**
-     * Records a dining-out meal and optionally snapshots the saved catalog menu into it.
+     * Records a macro-only dining-out meal and optionally snapshots the saved catalog menu.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * an explicit-calorie dining-out write API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
      */
+    @Deprecated
     public String addDiningOutMealAtTime(
             String date,
             String mealTime,
@@ -1376,7 +1404,15 @@ public final class FitnessRepository {
         );
     }
 
-    /** Records macro nutrition and separately snapshots nutrient-bearing options. */
+    /**
+     * Records macro-only nutrition and separately snapshots nutrient-bearing options.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * an explicit-calorie dining-out write API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
+     */
+    @Deprecated
     public String addDiningOutMealAtTimeWithOptionNutrition(
             String date,
             String mealTime,
@@ -1407,7 +1443,15 @@ public final class FitnessRepository {
         );
     }
 
-    /** Records macro nutrition for a directly registered dining-out branch. */
+    /**
+     * Records macro-only nutrition for a directly registered dining-out branch.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * an explicit-calorie dining-out write API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
+     */
+    @Deprecated
     public String addDiningOutMealAtTimeWithBranchAndOptionNutrition(
             String date,
             String mealTime,
@@ -1474,7 +1518,15 @@ public final class FitnessRepository {
         );
     }
 
-    /** Records macro nutrition and option nutrition with exact PriceTrace identity. */
+    /**
+     * Records macro-only nutrition and option nutrition with exact PriceTrace identity.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * an explicit-calorie dining-out write API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
+     */
+    @Deprecated
     public String addDiningOutMealAtTimeWithIdentityAndOptionNutrition(
             String date,
             String mealTime,
@@ -1538,7 +1590,15 @@ public final class FitnessRepository {
         );
     }
 
-    /** Records a macro-estimate dining-out meal linked to exact PriceTrace identities. */
+    /**
+     * Records a macro-only dining-out meal linked to exact PriceTrace identities.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * an explicit-calorie dining-out write API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
+     */
+    @Deprecated
     public String addDiningOutMealAtTimeWithIdentity(
             String date,
             String mealTime,
@@ -1952,46 +2012,20 @@ public final class FitnessRepository {
                     fatGrams
             )
                     : caloriesInput;
-        } else if (MealEntryPolicy.hasDiningOutEstimatedMacros(
-                carbsGrams,
-                proteinGrams,
-                fatGrams
-        )) {
-            // A multi-menu entry may have calories and all extended nutrients partially
-            // known. Macros remain the validation floor; NULL extended values stay unknown.
-            MealEntryPolicy.requireDiningOutEstimatedMacros(
-                    carbsGrams,
+        } else {
+            // Canonical dining-out writes must carry explicit kcal; only the deprecated legacy
+            // branch above may derive it from macros.
+            MealEntryPolicy.requireDiningOutMenuNutrition(
+                    caloriesInput,
                     proteinGrams,
-                    fatGrams
+                    carbsGrams,
+                    fatGrams,
+                    sodiumMg,
+                    sugarsGrams,
+                    saturatedFatGrams
             );
             hasEstimatedNutrition = true;
-            calories = caloriesInput == null
-                    ? MealEntryPolicy.estimatedDiningOutCalories(
-                    carbsGrams,
-                    proteinGrams,
-                    fatGrams
-            )
-                    : caloriesInput;
-        } else {
-            MealEntryPolicy.requireDiningOutEstimatedNutrition(
-                    caloriesInput,
-                    proteinGrams,
-                    carbsGrams,
-                    fatGrams,
-                    sodiumMg,
-                    sugarsGrams,
-                    saturatedFatGrams
-            );
-            hasEstimatedNutrition = MealEntryPolicy.hasDiningOutEstimatedNutrition(
-                    caloriesInput,
-                    proteinGrams,
-                    carbsGrams,
-                    fatGrams,
-                    sodiumMg,
-                    sugarsGrams,
-                    saturatedFatGrams
-            );
-            calories = hasEstimatedNutrition ? caloriesInput : 0;
+            calories = caloriesInput;
         }
         if (consumption != null && !hasEstimatedNutrition) {
             throw new IllegalArgumentException(

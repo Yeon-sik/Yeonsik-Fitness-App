@@ -17,6 +17,26 @@ import static org.junit.Assert.assertTrue;
 
 public final class MealManagementScreenDisplayTest {
     @Test
+    public void mealPrimaryNutrientDisplayStartsWithCalories() {
+        assertEquals(
+                NutritionProfile.CALORIES_KCAL,
+                NutritionProfile.PRIMARY_DISPLAY_ORDER.get(0)
+        );
+        assertEquals(
+                "칼로리",
+                MealManagementScreen.mealNutrientDisplayLabel(
+                        NutritionProfile.PRIMARY_DISPLAY_ORDER.get(0)
+                )
+        );
+        assertEquals(
+                NutritionProfile.labelOf(NutritionProfile.CARBS_GRAMS),
+                MealManagementScreen.mealNutrientDisplayLabel(
+                        NutritionProfile.CARBS_GRAMS
+                )
+        );
+    }
+
+    @Test
     public void diningOutComponentDisplayIncludesGroupAndProvisionForNonIncludedItems() {
         FitnessRepository.MealComponentEntry reviewEvent = component(
                 "치즈볼",

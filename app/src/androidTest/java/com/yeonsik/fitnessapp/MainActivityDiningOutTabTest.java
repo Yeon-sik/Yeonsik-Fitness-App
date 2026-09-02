@@ -155,6 +155,86 @@ public final class MainActivityDiningOutTabTest {
     }
 
     @Test
+    public void failedCatalogDiningOutMenuApplicationKeepsExistingMealEditorState() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                DiningOutIdentity firstIdentity = identity(
+                        "79111111-1111-4111-8111-111111111111",
+                        "카탈로그 충돌 식당 A",
+                        "79222222-2222-4222-8222-222222222222",
+                        "A 본점",
+                        "79333333-3333-4333-8333-333333333333",
+                        "카탈로그 충돌 메뉴 A",
+                        "79444444-4444-4444-8444-444444444444"
+                );
+                DiningOutIdentity otherIdentity = identity(
+                        "79511111-1111-4111-8111-111111111111",
+                        "카탈로그 충돌 식당 B",
+                        "79622222-2222-4222-8222-222222222222",
+                        "B 본점",
+                        "79733333-3333-4333-8333-333333333333",
+                        "카탈로그 충돌 메뉴 B",
+                        "79844444-4444-4444-8444-444444444444"
+                );
+                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                        "카탈로그 충돌 식당 A",
+                        "카탈로그 충돌 메뉴 A",
+                        500,
+                        20d,
+                        50d,
+                        15d,
+                        null,
+                        null,
+                        null,
+                        firstIdentity
+                );
+                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                        "카탈로그 충돌 식당 B",
+                        "카탈로그 충돌 메뉴 B",
+                        450,
+                        18d,
+                        45d,
+                        14d,
+                        null,
+                        null,
+                        null,
+                        otherIdentity
+                );
+
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+                clickText(root, "저장 메뉴 불러오기");
+                clickContentDescription(
+                        root,
+                        "카탈로그 충돌 식당 A · 카탈로그 충돌 메뉴 A 저장 외식 메뉴 불러오기"
+                );
+                clickText(root, "메뉴 추가");
+
+                clickText(root, "식단");
+                EditText catalogSearch = findEditTextWithContentDescription(
+                        root,
+                        "식품명 또는 상품명 검색"
+                );
+                assertNotNull(catalogSearch);
+                catalogSearch.setText("카탈로그 충돌 메뉴 B");
+                String rowDescription =
+                        "식당 : 카탈로그 충돌 식당 B 카탈로그 충돌 메뉴 B, 외식 입력으로 이동";
+                assertNotNull(findViewWithContentDescription(root, rowDescription));
+                clickContentDescription(root, rowDescription);
+
+                activity.rerender();
+                assertNotNull(findEditTextWithContentDescription(
+                        root,
+                        "식품명 또는 상품명 검색"
+                ));
+                assertNull(findEditTextWithContentDescription(root, "가게 명"));
+            });
+        }
+    }
+
+    @Test
     public void diningOutMenuAddCreatesAnotherTopLevelMenu() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {

@@ -2613,11 +2613,11 @@ public final class MealManagementScreen extends BaseScreen {
     /** Routes a catalog discovery click into the dining-out semantic write workflow. */
     private void openDiningOutMenuFromCatalog(NutritionFood menu) {
         syncDraftFromViews();
-        mealEntryMode = MEAL_ENTRY_MODE_DINING_OUT;
-        mealWorkspaceVisible = true;
         if (!applyDiningOutMenuFood(menu)) {
             return;
         }
+        mealEntryMode = MEAL_ENTRY_MODE_DINING_OUT;
+        mealWorkspaceVisible = true;
         updateDiningOutSelectionSummary();
         host.toast("식단 카탈로그의 식당 메뉴를 외식 입력으로 불러왔습니다.");
         rerenderDiningOutFromDraft();
@@ -5481,12 +5481,18 @@ public final class MealManagementScreen extends BaseScreen {
         for (String key : NutritionProfile.PRIMARY_DISPLAY_ORDER) {
             compositionTotalBox.addView(
                     nutritionSummaryCell(
-                            NutritionProfile.labelOf(key),
+                            mealNutrientDisplayLabel(key),
                             mealNutritionTotalValue(total, key)
                     ),
                     ui.fullWidthParams(ui.dp(4))
             );
         }
+    }
+
+    static String mealNutrientDisplayLabel(String key) {
+        return NutritionProfile.CALORIES_KCAL.equals(key)
+                ? "칼로리"
+                : NutritionProfile.labelOf(key);
     }
 
     private String mealNutritionTotalValue(NutritionTotals total, String key) {
