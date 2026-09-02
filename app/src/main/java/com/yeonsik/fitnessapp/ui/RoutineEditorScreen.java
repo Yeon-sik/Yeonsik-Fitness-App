@@ -217,7 +217,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                 ? "루틴 추가"
                 : (replacementMode ? "운동 종목 교체" : "운동 종목 추가")));
         if (replacementMode) {
-            add(ui.text("같은 운동 Family의 variant를 하나 선택하면 기존 세트 기록을 유지한 채 종목만 교체합니다.",
+            add(ui.text("같은 운동군의 세부 동작을 하나 선택하면 기존 세트 기록을 유지한 채 종목만 교체합니다.",
                     13, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(4)));
         }
         if (routineMode) {
@@ -225,7 +225,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             add(routineNameInput, ui.fullWidthParams(0));
         }
 
-        EditText searchInput = ui.searchInput("운동명, 영문명, Family 검색");
+        EditText searchInput = ui.searchInput("운동명, 영문명, 운동군 검색");
         Button searchButton = ui.button("검색", true, null);
         LinearLayout searchRow = ui.pickerRow();
         searchRow.addView(searchInput, new LinearLayout.LayoutParams(
@@ -383,7 +383,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             }
             return false;
         });
-        section("운동 Family");
+        section("운동군");
         add(listArea, ui.fullWidthParams(0));
         refresh.run();
     }
@@ -410,8 +410,8 @@ public final class RoutineEditorScreen extends BaseScreen {
             LinearLayout empty = ui.card();
             empty.addView(ui.text(
                     replacementMode
-                            ? "현재 운동 Family의 variant가 없습니다."
-                            : "조건에 맞는 운동 Family가 없습니다.",
+                            ? "현재 운동군에 선택 가능한 세부 동작이 없습니다."
+                            : "조건에 맞는 운동군이 없습니다.",
                     14,
                     FitnessUi.COLOR_MUTED,
                     false

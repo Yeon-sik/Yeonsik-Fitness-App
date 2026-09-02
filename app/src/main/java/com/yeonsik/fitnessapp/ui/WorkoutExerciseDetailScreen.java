@@ -1692,7 +1692,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 ? null
                 : catalog.family(currentIdentity.familyId);
         if (family == null || family.presets.isEmpty()) {
-            host.toast("Family가 등록된 운동만 같은 Family 안에서 교체할 수 있습니다.");
+            host.toast("운동군 정보가 등록된 운동만 같은 운동군 안에서 교체할 수 있습니다.");
             return;
         }
 
@@ -1719,7 +1719,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     RuntimeExercisePreset replacement = selected.get(0);
                     if (previousPreset != null
                             && previousPreset.identityId().equals(replacement.identityId())) {
-                        host.toast("현재 운동과 다른 variant를 선택하세요.");
+                        host.toast("현재 운동과 다른 세부 동작을 선택하세요.");
                         return;
                     }
                     boolean replaced = repository().replaceExerciseFromMaster(
@@ -1728,7 +1728,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                             ExerciseMasterAdapter.toRoutineExercise(replacement)
                     );
                     if (!replaced) {
-                        host.toast("같은 운동 Family 안의 variant만 교체할 수 있습니다.");
+                        host.toast("같은 운동군의 세부 동작만 교체할 수 있습니다.");
                         return;
                     }
                     host.sessionState().clearExerciseReplacement();

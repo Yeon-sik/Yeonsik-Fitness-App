@@ -100,6 +100,8 @@ public final class FitnessUi {
     public static final int COLOR_D_BLUE_INK = 0xFFD9F0FF;
     public static final int COLOR_D_ON_PASTEL_BLUE = 0xFF0E2938;
     public static final int COLOR_D_HERO_END = 0xFF214A63;
+    // Dark Hero gradient range (#18384D -> #214A63): minimum normal-text contrast is 4.78:1.
+    public static final int COLOR_D_HERO_MUTED = 0xFFAFBAC4;
     public static final int COLOR_D_HERO_BORDER = 0xFF2A526A;
     public static final int COLOR_D_POSITIVE = 0xFF69D39E;
     public static final int COLOR_D_NEGATIVE = 0xFFFF8A80;
@@ -204,7 +206,7 @@ public final class FitnessUi {
     }
 
     public int heroMuted() {
-        return dark() ? COLOR_D_MUTED : COLOR_BLUE_INK;
+        return dark() ? COLOR_D_HERO_MUTED : COLOR_BLUE_INK;
     }
 
     public int heroBorder() {
