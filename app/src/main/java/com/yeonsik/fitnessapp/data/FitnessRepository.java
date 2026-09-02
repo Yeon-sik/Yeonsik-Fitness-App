@@ -1628,7 +1628,61 @@ public final class FitnessRepository {
         );
     }
 
-    /** Records a whole-menu snapshot and one user's share as a separate local allocation. */
+    /**
+     * Records a shared dining-out meal with explicit calories and required macros.
+     * Optional extended nutrients may remain unknown.
+     */
+    public String addDiningOutMealAtTimeWithConsumption(
+            String date,
+            String mealTime,
+            String storeName,
+            String branchName,
+            String menuName,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams,
+            DiningOutIdentity identity,
+            MealCompositionItem menuSnapshot,
+            List<? extends DiningOutOption> options,
+            double nominalServings,
+            DiningOutConsumption consumption
+    ) {
+        return addDiningOutMealAtTimeWithConsumption(
+                date,
+                mealTime,
+                storeName,
+                branchName,
+                menuName,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams,
+                identity,
+                null,
+                menuSnapshot,
+                options,
+                nominalServings,
+                consumption
+        );
+    }
+
+    /**
+     * Legacy shared dining-out writer with a mode flag.
+     *
+     * <p>Legacy/import/backward compatibility API only. When
+     * {@code hasCompleteNutrition == false}, the macro-only legacy kcal estimation path is
+     * used. New UI and production writes must use the overload without this boolean.</p>
+     *
+     * @deprecated Use the overload without {@code hasCompleteNutrition} for canonical writes.
+     */
+    @Deprecated
     public String addDiningOutMealAtTimeWithConsumption(
             String date,
             String mealTime,
@@ -1672,7 +1726,67 @@ public final class FitnessRepository {
         );
     }
 
-    /** Records a shared dining-out meal with its actual fulfillment mode snapshot. */
+    /**
+     * Records a shared dining-out meal with explicit calories and its fulfillment mode snapshot.
+     * Optional extended nutrients may remain unknown.
+     */
+    public String addDiningOutMealAtTimeWithConsumption(
+            String date,
+            String mealTime,
+            String storeName,
+            String branchName,
+            String menuName,
+            Integer calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams,
+            DiningOutIdentity identity,
+            String fulfillmentMode,
+            MealCompositionItem menuSnapshot,
+            List<? extends DiningOutOption> options,
+            double nominalServings,
+            DiningOutConsumption consumption
+    ) {
+        if (consumption == null) {
+            throw new IllegalArgumentException("공유 외식 섭취 정보가 필요합니다.");
+        }
+        return insertDiningOutMeal(
+                date,
+                mealTime,
+                storeName,
+                menuName,
+                calories,
+                proteinGrams,
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams,
+                branchName,
+                identity,
+                menuSnapshot,
+                options,
+                false,
+                fulfillmentMode,
+                consumption,
+                nominalServings,
+                null
+        );
+    }
+
+    /**
+     * Legacy shared dining-out writer with fulfillment mode and a mode flag.
+     *
+     * <p>Legacy/import/backward compatibility API only. When
+     * {@code hasCompleteNutrition == false}, the macro-only legacy kcal estimation path is
+     * used. New UI and production writes must use the overload without this boolean.</p>
+     *
+     * @deprecated Use the overload without {@code hasCompleteNutrition} for canonical writes.
+     */
+    @Deprecated
     public String addDiningOutMealAtTimeWithConsumption(
             String date,
             String mealTime,
