@@ -90,7 +90,7 @@ final class ProductNutritionLinkDialogController {
             }
         }
 
-        EditText search = ui.searchField("PriceTrace 브랜드·상품명 검색");
+        EditText search = ui.searchInput("PriceTrace 브랜드·상품명 검색");
         search.setText(food.displayName());
         search.setSelection(search.length());
         Button searchButton = ui.button("상품 검색", true, null);
@@ -161,7 +161,7 @@ final class ProductNutritionLinkDialogController {
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
-        activeDialog = ui.sheet(
+        activeDialog = ui.bottomSheet(
                 food.name + " · PriceTrace 연결",
                 scroll,
                 "닫기",
@@ -230,7 +230,7 @@ final class ProductNutritionLinkDialogController {
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
-        activeDialog = ui.sheet(
+        activeDialog = ui.bottomSheet(
                 food.brand + " · " + food.name + " · PT 공개",
                 scroll,
                 "닫기",
@@ -392,7 +392,7 @@ final class ProductNutritionLinkDialogController {
                     FitnessUi.COLOR_TEXT,
                     false
             ));
-            ui.sheet("표준상품 확인", body, "확인", () -> { }, null, null);
+            ui.bottomSheet("표준상품 확인", body, "확인", () -> { }, null, null);
             return;
         }
         confirmExactSelection(food, exactProduct);

@@ -103,7 +103,7 @@ public final class MealDialogController {
                 saveRecipe,
                 savePreset
         );
-        ui.sheet("식단 기록", form,
+        ui.bottomSheet("식단 기록", form,
                 "저장", () -> {
                     if (compositionItems.isEmpty()) {
                         repository.addMeal(selectedMealDate[0], FitnessUi.inputText(menu),
@@ -135,7 +135,7 @@ public final class MealDialogController {
             EditText fat
     ) {
         LinearLayout body = ui.form();
-        EditText search = ui.searchField("음식 이름 검색");
+        EditText search = ui.searchInput("음식 이름 검색");
         Button newFood = ui.button("새 음식/재료 직접 입력", true, null);
         LinearLayout results = new LinearLayout(host.activity());
         results.setOrientation(LinearLayout.VERTICAL);
@@ -219,7 +219,7 @@ public final class MealDialogController {
             );
         });
 
-        Dialog picker = ui.sheet("먹은 음식 추가", body, "닫기", () -> { }, null, null);
+        Dialog picker = ui.bottomSheet("먹은 음식 추가", body, "닫기", () -> { }, null, null);
         pickerHolder[0] = picker;
         populate.run();
         host.syncNutritionCatalog(new NutritionCatalogRepository.SyncCallback() {

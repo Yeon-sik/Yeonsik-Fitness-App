@@ -147,11 +147,11 @@ public final class ExerciseCardRenderer {
             }
             row.setSelected(selected);
             row.setContentDescription(content.accessibilityText(selectable, selected));
-            name.setTextColor(selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT);
-            meta.setTextColor(selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED);
+            name.setTextColor(selected ? ui.selectedInk() : ui.ink());
+            meta.setTextColor(selected ? ui.selectedInk() : ui.inkMuted());
             if (check != null) {
                 check.setText(selected ? "✓" : "");
-                check.setTextColor(selected ? FitnessUi.COLOR_INVERSE_TEXT : ui.inkMuted());
+                check.setTextColor(selected ? ui.selectedInk() : ui.inkMuted());
                 check.setBackground(selected
                         ? ui.borderDrawable(ui.chipOnAccent(), ui.chipOnAccent(), ui.dp(999))
                         : ui.borderDrawable(ui.surface(), ui.border(), ui.dp(999)));

@@ -225,7 +225,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             add(routineNameInput, ui.fullWidthParams(0));
         }
 
-        EditText searchInput = ui.searchField("운동명, 영문명, Family 검색");
+        EditText searchInput = ui.searchInput("운동명, 영문명, Family 검색");
         Button searchButton = ui.button("검색", true, null);
         LinearLayout searchRow = ui.pickerRow();
         searchRow.addView(searchInput, new LinearLayout.LayoutParams(
@@ -433,7 +433,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             LinearLayout info = new LinearLayout(host.activity());
             info.setOrientation(LinearLayout.VERTICAL);
             TextView name = ui.text(family.displayName(), 15,
-                    selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
+                    selected ? ui.selectedInk() : ui.ink(), true);
             LinearLayout nameRow = new LinearLayout(host.activity());
             nameRow.setOrientation(LinearLayout.HORIZONTAL);
             nameRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -446,7 +446,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                 String muscleLabel = ExercisePrimaryMuscleLabel.forPreset(family.presets.get(0));
                 if (!muscleLabel.isEmpty()) {
                     TextView muscle = ui.text(muscleLabel, 12,
-                            selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED,
+                            selected ? ui.selectedInk() : ui.inkMuted(),
                             false);
                     muscle.setPadding(ui.dp(8), 0, 0, 0);
                     nameRow.addView(muscle);
@@ -457,7 +457,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                 TextView meta = ui.text(
                         family.presets.size() + "개의 하위 종목",
                         12,
-                        selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED,
+                        selected ? ui.selectedInk() : ui.inkMuted(),
                         false
                 );
                 meta.setPadding(0, ui.dp(4), 0, 0);
@@ -482,7 +482,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             }
             card.addView(image, exercisePreviewParams(ui));
             TextView check = ui.text(selected ? "✓" : "", 16,
-                    selected ? FitnessUi.COLOR_INVERSE_TEXT : ui.inkMuted(), true);
+                    selected ? ui.selectedInk() : ui.inkMuted(), true);
             check.setGravity(Gravity.CENTER);
             card.addView(check, new LinearLayout.LayoutParams(ui.dp(28), ui.dp(28)));
             ui.pressFeedback(card);

@@ -287,7 +287,7 @@ public final class SupplementScreen extends BaseScreen {
 
         ScrollView scroll = new ScrollView(host.activity());
         scroll.addView(body);
-        ui().sheet(plan.typeName + " 논문 근거", scroll, "닫기", () -> { }, null, null);
+        ui().bottomSheet(plan.typeName + " 논문 근거", scroll, "닫기", () -> { }, null, null);
     }
 
     private void addEvidenceText(LinearLayout body, String label, String value, boolean strong) {

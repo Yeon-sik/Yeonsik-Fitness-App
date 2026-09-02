@@ -115,7 +115,7 @@ public final class ExerciseMuscleModelRenderer {
         container.setGravity(android.view.Gravity.CENTER);
         container.setPadding(ui.dp(8), ui.dp(6), ui.dp(8), ui.dp(6));
         container.setBackground(ui.flatSurfaceDrawable(ui.dp(16)));
-        ui.applyDepth(container, 3);
+        ui.applyDepth(container, FitnessUi.DEPTH_EMPHASIS_DP);
 
         container.addView(modelColumn("앞", "front", selected, effectiveSetsByLayer),
                 new LinearLayout.LayoutParams(0, ui.dp(MODEL_HEIGHT_DP), 1f));

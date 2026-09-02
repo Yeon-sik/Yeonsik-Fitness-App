@@ -33,18 +33,18 @@ public final class WorkoutScreen extends BaseScreen {
 
         section("피트니스 메뉴");
         LinearLayout workoutTypeRow = ui().tileRow();
-        workoutTypeRow.addView(ui().hologramStatTile(
+        workoutTypeRow.addView(ui().tonalStatTile(
                 "무산소", "근력·루틴", "탭하여 들어가기",
                 v -> host.navigate(FitnessScreen.STRENGTH)), ui().tileParams(true));
-        workoutTypeRow.addView(ui().hologramStatTile(
+        workoutTypeRow.addView(ui().tonalStatTile(
                 "유산소", "GPS", "탭하여 들어가기",
                 v -> host.navigate(FitnessScreen.CARDIO)), ui().tileParams(false));
         add(workoutTypeRow, ui().fullWidthParams(0));
 
-        add(ui().button("지난 운동 수동 등록", false, v -> host.showPastWorkoutDialog()),
+        add(ui().secondaryButton("지난 운동 수동 등록", v -> host.showPastWorkoutDialog()),
                 ui().fullWidthParams(ui().dp(10)));
 
-        add(ui().hologramStatTile(
+        add(ui().tonalStatTile(
                 "식단",
                 "오늘 " + repository().mealCountForDate(today) + "건",
                 "음식·메뉴·영양 관리",
@@ -52,7 +52,7 @@ public final class WorkoutScreen extends BaseScreen {
         ), ui().fullWidthParams(ui().dp(10)));
 
         SupplementRepository.Progress supplementProgress = host.supplementRepository().progress(today);
-        add(ui().hologramStatTile(
+        add(ui().tonalStatTile(
                 "영양제",
                 supplementProgress.planned == 0
                         ? "복용 계획 없음"
@@ -64,7 +64,7 @@ public final class WorkoutScreen extends BaseScreen {
         ), ui().fullWidthParams(ui().dp(10)));
 
         section("신체 기록");
-        add(ui().hologramStatTile(
+        add(ui().tonalStatTile(
                 "체중",
                 todayWeightValue(),
                 "탭하여 기록",
@@ -97,8 +97,8 @@ public final class WorkoutScreen extends BaseScreen {
         banner.setOrientation(LinearLayout.HORIZONTAL);
         banner.setGravity(Gravity.CENTER_VERTICAL);
         banner.setPadding(ui.dp(18), ui.dp(16), ui.dp(18), ui.dp(16));
-        banner.setBackground(ui.vibrantRippleDrawable("workout-in-progress", ui.dp(18)));
-        ui.applyDepth(banner, 9);
+        banner.setBackground(ui.tonalRippleDrawable(ui.dp(FitnessUi.CARD_RADIUS_DP)));
+        ui.applyDepth(banner, FitnessUi.DEPTH_SURFACE_DP);
         banner.setClickable(true);
         banner.setFocusable(true);
         ui.pressFeedback(banner);
@@ -106,13 +106,13 @@ public final class WorkoutScreen extends BaseScreen {
 
         LinearLayout column = new LinearLayout(host.activity());
         column.setOrientation(LinearLayout.VERTICAL);
-        column.addView(ui.caption("IN PROGRESS", FitnessUi.COLOR_INVERSE_MUTED));
-        TextView title = ui.text("진행 중인 운동이 있습니다", 16, FitnessUi.COLOR_INVERSE_TEXT, true);
+        column.addView(ui.caption("진행 중", ui.tonalInk()));
+        TextView title = ui.text("진행 중인 운동이 있습니다", 16, ui.tonalInk(), true);
         title.setPadding(0, ui.dp(3), 0, 0);
         column.addView(title);
         banner.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView chevron = ui.text("이어하기 ›", 14, FitnessUi.COLOR_INVERSE_TEXT, true);
+        TextView chevron = ui.text("이어하기 ›", 14, ui.tonalInk(), true);
         banner.addView(chevron);
 
         LinearLayout.LayoutParams params = ui.fullWidthParams(0);

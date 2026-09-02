@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -595,7 +596,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(4));
-        ui.applyDepth(bar, 8);
+        ui.applyDepth(bar, FitnessUi.DEPTH_SURFACE_DP);
         bar.setVisibility(View.GONE);
         return bar;
     }
@@ -603,7 +604,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     private LinearLayout buildSessionBottomBar() {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(10));
-        ui.applyDepth(bar, 10);
+        ui.applyDepth(bar, FitnessUi.DEPTH_SURFACE_DP);
         bar.setVisibility(View.GONE);
         return bar;
     }
@@ -623,7 +624,7 @@ public final class MainActivity extends Activity implements ScreenHost {
                 replace(FitnessScreen.STRENGTH);
             }
         });
-        ui.applyDepth(back, 4);
+        ui.applyDepth(back, FitnessUi.DEPTH_FLAT_DP);
         ui.pressFeedback(back);
         sessionTopBar.addView(back, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
 
@@ -640,7 +641,7 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     /**
      * 세트 완료 시 자동 시작되는 하단 고정 휴식 타이머.
-     * 현재 테마의 강조 표면(라이트=블랙 필, 다크=화이트 필) 위에 뜬다.
+     * 현재 테마의 tonal blue surface 위에 뜬다.
      */
     private LinearLayout buildRestTimerBar() {
         LinearLayout wrapper = new LinearLayout(this);
@@ -657,8 +658,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         LinearLayout inner = new LinearLayout(this);
         inner.setOrientation(LinearLayout.VERTICAL);
         inner.setPadding(ui.dp(18), ui.dp(12), ui.dp(14), ui.dp(14));
-        inner.setBackground(ui.vibrantBackground(2, ui.dp(18)));
-        ui.applyDepth(inner, 10);
+        inner.setBackground(ui.tonalRippleDrawable(ui.dp(FitnessUi.CARD_RADIUS_DP)));
+        ui.applyDepth(inner, FitnessUi.DEPTH_SURFACE_DP);
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -667,7 +668,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         TextView label = new TextView(this);
         label.setText("휴식");
         label.setTextSize(11);
-        label.setTextColor(ui.onVibrantMuted());
+        label.setTextColor(ui.tonalInk());
         label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         label.setLetterSpacing(0.08f);
         row.addView(label, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -675,14 +676,14 @@ public final class MainActivity extends Activity implements ScreenHost {
         restCountdownView = new TextView(this);
         restCountdownView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         restCountdownView.setTextSize(30);
-        restCountdownView.setTextColor(ui.onVibrant());
+        restCountdownView.setTextColor(ui.tonalInk());
         restCountdownView.setFontFeatureSettings("tnum");
         row.addView(restCountdownView);
 
         TextView skip = new TextView(this);
         skip.setText("건너뛰기");
         skip.setTextSize(13);
-        skip.setTextColor(ui.onVibrantMuted());
+        skip.setTextColor(ui.tonalInk());
         skip.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         skip.setPadding(ui.dp(16), ui.dp(10), ui.dp(6), ui.dp(10));
         skip.setClickable(true);
@@ -694,7 +695,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         restProgressTrack = new LinearLayout(this);
         restProgressTrack.setOrientation(LinearLayout.HORIZONTAL);
         restProgressTrack.setBackground(ui.borderDrawable(
-                ui.trackOnVibrant(), ui.trackOnVibrant(), ui.dp(999)));
+                ui.trackOnAccent(), ui.trackOnAccent(), ui.dp(FitnessUi.CHIP_RADIUS_DP)));
         LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(4));
         trackParams.setMargins(0, ui.dp(10), 0, 0);
@@ -768,7 +769,8 @@ public final class MainActivity extends Activity implements ScreenHost {
                 : Math.max(0f, Math.min(1f, remainingMillis / (restTotalSeconds * 1000f)));
         restProgressTrack.removeAllViews();
         View fill = new View(this);
-        fill.setBackground(ui.borderDrawable(ui.onVibrant(), ui.onVibrant(), ui.dp(999)));
+        fill.setBackground(ui.borderDrawable(ui.tonalInk(), ui.tonalInk(),
+                ui.dp(FitnessUi.CHIP_RADIUS_DP)));
         restProgressTrack.addView(fill, new LinearLayout.LayoutParams(0, ui.dp(4), ratio));
         View rest = new View(this);
         restProgressTrack.addView(rest, new LinearLayout.LayoutParams(0, ui.dp(4), 1f - ratio));
@@ -780,7 +782,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
         wrapper.setBackgroundColor(ui.surface());
-        ui.applyDepth(wrapper, 12);
+        ui.applyDepth(wrapper, FitnessUi.DEPTH_SURFACE_DP);
 
         navDivider = new View(this);
         navDivider.setBackgroundColor(ui.border());
@@ -913,19 +915,22 @@ public final class MainActivity extends Activity implements ScreenHost {
         styleNavArea(settingsTabArea, settingsTabLabel, activeTab == Tab.SETTINGS, false);
     }
 
-    private void styleNavArea(LinearLayout area, TextView label, boolean active, boolean hologramActive) {
+    private void styleNavArea(LinearLayout area, TextView label, boolean active, boolean inProgress) {
         area.setSelected(active);
         area.setContentDescription(label.getText() + (active ? ", 선택됨" : ""));
-        Drawable background = active
-                ? ui.selectedStateRippleDrawable(ui.dp(999))
-                : ui.flatSurfaceRippleDrawable(ui.dp(999));
-        if (hologramActive) {
-            ui.setHologramBackground(area, background, ui.dp(999));
+        Drawable background;
+        if (active) {
+            background = ui.selectedStateRippleDrawable(ui.dp(FitnessUi.CHIP_RADIUS_DP));
+        } else if (inProgress) {
+            background = ui.tonalRippleDrawable(ui.dp(FitnessUi.CHIP_RADIUS_DP));
         } else {
-            ui.setComponentBackground(area, background);
+            background = ui.flatSurfaceRippleDrawable(ui.dp(FitnessUi.CHIP_RADIUS_DP));
         }
-        ui.applyDepth(area, hologramActive ? 10 : active ? 7 : 3);
-        label.setTextColor(active ? ui.onVibrant() : ui.inkMuted());
+        ui.setComponentBackground(area, background);
+        ui.applyDepth(area, active || inProgress
+                ? FitnessUi.DEPTH_SURFACE_DP : FitnessUi.DEPTH_FLAT_DP);
+        label.setTextColor(active
+                ? ui.selectedInk() : inProgress ? ui.tonalInk() : ui.inkMuted());
         label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
     }
 
@@ -1384,6 +1389,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    @SuppressLint("GestureBackNavigation")
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
         dispatchBack();

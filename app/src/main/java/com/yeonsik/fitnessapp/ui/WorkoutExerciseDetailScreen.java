@@ -480,7 +480,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         button.setLayoutParams(new LinearLayout.LayoutParams(ui.dp(32), ui.dp(32)));
         button.setClickable(true);
         button.setFocusable(true);
-        ui.applyDepth(button, 3);
+        ui.applyDepth(button, FitnessUi.DEPTH_EMPHASIS_DP);
         ui.pressFeedback(button);
         return button;
     }
@@ -562,7 +562,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         setBox.setOrientation(LinearLayout.VERTICAL);
         if (set.isCompleted) {
             setBox.setBackground(ui.borderDrawable(ui.subtle(), ui.subtle(), ui.dp(12)));
-            ui.applyDepth(setBox, 2);
+            ui.applyDepth(setBox, FitnessUi.DEPTH_SURFACE_DP);
         }
 
         List<LoadState> allowedLoadStates = repository().allowedLoadStatesForExercise(exercise.id);
@@ -637,6 +637,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 public void afterTextChanged(Editable editable) {
                     updateTotalVolumeComparisonLabel(
                             totalVolumeComparison,
+                            ui,
                             exercise.recordType,
                             previousVolumeKg,
                             liveVolumeInputs
@@ -647,6 +648,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             secondary.addTextChangedListener(totalVolumeWatcher);
             updateTotalVolumeComparisonLabel(
                     totalVolumeComparison,
+                    ui,
                     exercise.recordType,
                     previousVolumeKg,
                     liveVolumeInputs
@@ -809,7 +811,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     loadStateLabel(state),
                     11,
                     state == selectedLoadState[0]
-                            ? FitnessUi.COLOR_INVERSE_TEXT
+                            ? ui.selectedInk()
                             : FitnessUi.COLOR_TEXT,
                     true
             );
@@ -1205,6 +1207,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     /** 모든 세트의 입력값을 합산해 지난 운동의 전체 세트 볼륨과 비교한다. */
     private static void updateTotalVolumeComparisonLabel(
             TextView label,
+            FitnessUi ui,
             String recordType,
             double previousVolumeKg,
             List<LiveVolumeInput> liveVolumeInputs
@@ -1234,7 +1237,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 ? FitnessUi.COLOR_POSITIVE
                 : delta < 0 ? FitnessUi.COLOR_NEGATIVE : FitnessUi.COLOR_MUTED;
         label.setText(totalVolumeComparisonMessage(currentVolumeKg, previousVolumeKg));
-        label.setTextColor(color);
+        label.setTextColor(ui.statusColor(color));
         label.setVisibility(View.VISIBLE);
     }
 
@@ -1344,7 +1347,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         row.setPadding(ui.dp(4), ui.dp(6), ui.dp(4), ui.dp(6));
         if (set.isCompleted) {
             row.setBackground(ui.borderDrawable(ui.subtle(), ui.subtle(), ui.dp(12)));
-            ui.applyDepth(row, 2);
+            ui.applyDepth(row, FitnessUi.DEPTH_SURFACE_DP);
         }
 
         EditText weightInput = ui.decimalInput("", set.weightKg == 0 ? "" : FitnessUi.trimDouble(set.weightKg));
@@ -1377,7 +1380,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         row.addView(weightInput, ui.fieldCellParams(false));
         row.addView(repsInput, ui.fieldCellParams(false));
 
-        // 완료 스탬프: 탭 1회 = 완료(반전 채움 + 팝), 재탭 = 해제. 시그니처 인터랙션.
+        // 완료 스탬프: 탭 1회 = success 채움 + 팝, 재탭 = 해제. 시그니처 인터랙션.
         LinearLayout stampCell = new LinearLayout(host.activity());
         stampCell.setGravity(Gravity.CENTER);
         TextView stamp = ui.num("✓", 16, FitnessUi.COLOR_TEXT, true);
@@ -1412,17 +1415,20 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         setCard.addView(row, ui.fullWidthParams(ui.dp(6)));
     }
 
-    /** 완료 = 히어로 팔레트 채움, 미완료 = 옅은 팔레트 링. */
+    /** 완료 = success semantic 채움, 미완료 = 중립 surface. */
     private void styleStamp(TextView stamp, boolean completed) {
         FitnessUi ui = ui();
         if (completed) {
-            stamp.setTextColor(ui.onVibrant());
-            stamp.setBackground(ui.vibrantBackground(0, ui.dp(999)));
+            int success = ui.statusColor(FitnessUi.COLOR_POSITIVE);
+            stamp.setTextColor(ui.onStatus(success));
+            stamp.setBackground(ui.borderDrawable(success, success, ui.dp(FitnessUi.CHIP_RADIUS_DP)));
         } else {
             stamp.setTextColor(ui.inkTertiary());
-            stamp.setBackground(ui.flatSurfaceDrawable(ui.dp(999)));
+            stamp.setBackground(ui.borderDrawable(ui.subtle(), ui.border(),
+                    ui.dp(FitnessUi.CHIP_RADIUS_DP)));
         }
-        ui.applyDepth(stamp, completed ? 5 : 2);
+        ui.applyDepth(stamp, completed
+                ? FitnessUi.DEPTH_SURFACE_DP : FitnessUi.DEPTH_FLAT_DP);
     }
 
     private void saveSet(String recordId, FitnessRepository.SessionSetEntry set,
@@ -1573,7 +1579,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         body.addView(formula, ui.fullWidthParams(0));
         body.addView(ui.text("입력한 중량은 그대로 저장되며, 배수는 파생 볼륨에만 적용됩니다.",
                 12, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(8)));
-        ui.sheet("볼륨 계산 방식", body, "확인", () -> {
+        ui.bottomSheet("볼륨 계산 방식", body, "확인", () -> {
         }, null, null);
     }
 

@@ -364,9 +364,9 @@ public final class MealManagementScreen extends BaseScreen {
         LinearLayout header = new LinearLayout(host.activity());
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.addView(ui.caption("DAILY NUTRITION", FitnessUi.COLOR_FLOW_MUTED),
+        header.addView(ui.caption("오늘 영양", ui.heroMuted()),
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        View goalBadge = ui.flowStatusBadge(
+        View goalBadge = ui.heroStatusBadge(
                 goal == null ? "목표 설정" : goal.phaseLabel(),
                 goal == null ? FitnessUi.COLOR_WARNING : FitnessUi.COLOR_POSITIVE
         );
@@ -381,40 +381,40 @@ public final class MealManagementScreen extends BaseScreen {
         caloriesRow.setGravity(Gravity.BOTTOM);
         caloriesRow.setPadding(0, ui.dp(14), 0, ui.dp(2));
         caloriesRow.addView(ui.num(String.valueOf(Math.round(summary.calories)), 38,
-                FitnessUi.COLOR_FLOW_TEXT, true));
+                ui.heroInk(), true));
         String calorieUnit = goal == null
                 ? " kcal"
                 : " / " + Math.round(goal.caloriesKcal) + " kcal";
-        TextView unit = ui.text(calorieUnit, 16, FitnessUi.COLOR_FLOW_MUTED, true);
+        TextView unit = ui.text(calorieUnit, 16, ui.heroMuted(), true);
         unit.setPadding(0, 0, 0, ui.dp(6));
         caloriesRow.addView(unit);
         caloriesRow.addView(ui.text("  ·  " + summary.mealCount + "끼 기록", 13,
-                FitnessUi.COLOR_FLOW_MUTED, false));
+                ui.heroMuted(), false));
         card.addView(caloriesRow);
 
         if (goal == null) {
             LinearLayout firstMacroRow = ui.tileRow();
-            firstMacroRow.addView(ui.flowMetric(
+            firstMacroRow.addView(ui.heroMetric(
                     "단백질",
                     NutritionCalculator.trim(summary.proteinGrams) + "g"
             ), ui.tileParams(true));
-            firstMacroRow.addView(ui.flowMetric(
+            firstMacroRow.addView(ui.heroMetric(
                     "탄수화물",
                     NutritionCalculator.trim(summary.carbsGrams) + "g"
             ), ui.tileParams(false));
             card.addView(firstMacroRow, ui.fullWidthParams(ui.dp(10)));
 
             LinearLayout secondMacroRow = ui.tileRow();
-            secondMacroRow.addView(ui.flowMetric(
+            secondMacroRow.addView(ui.heroMetric(
                     "지방",
                     NutritionCalculator.trim(summary.fatGrams) + "g"
             ), ui.tileParams(true));
-            secondMacroRow.addView(ui.flowMetric(
+            secondMacroRow.addView(ui.heroMetric(
                     "상태",
                     summary.mealCount == 0 ? "기록 시작" : "목표 미설정"
             ), ui.tileParams(false));
             card.addView(secondMacroRow, ui.fullWidthParams(ui.dp(6)));
-            card.addView(ui.flowHeroButton("일일 영양 목표 설정", v -> showNutritionGoalDialog()),
+            card.addView(ui.primaryButton("일일 영양 목표 설정", v -> showNutritionGoalDialog()),
                     ui.fullWidthParams(ui.dp(14)));
         } else {
             addGoalProgress(card, "열량", summary.calories, goal.caloriesKcal, "kcal");
@@ -431,7 +431,7 @@ public final class MealManagementScreen extends BaseScreen {
                 ? "체중을 기록하면 단백질 g/kg를 표시합니다.  ›"
                 : "체중 " + NutritionCalculator.trim(weight.weightKg) + "kg 기준 · 단백질 "
                 + NutritionCalculator.trim(gramsPerKg) + "g/kg";
-        TextView weightView = ui.text(weightLine, 12, FitnessUi.COLOR_FLOW_MUTED, false);
+        TextView weightView = ui.text(weightLine, 12, ui.heroMuted(), false);
         weightView.setPadding(0, ui.dp(14), 0, 0);
         if (weight == null) {
             weightView.setClickable(true);
@@ -443,7 +443,7 @@ public final class MealManagementScreen extends BaseScreen {
             TextView reference = ui.text(
                     "일반 운동인 참고 1.4–2.0g/kg/일 · 개인 목표가 우선",
                     11,
-                    FitnessUi.COLOR_FLOW_MUTED,
+                    ui.heroMuted(),
                     false
             );
             reference.setPadding(0, ui.dp(3), 0, 0);
@@ -463,7 +463,7 @@ public final class MealManagementScreen extends BaseScreen {
         LinearLayout row = new LinearLayout(host.activity());
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        TextView labelView = ui.text(label, 12, FitnessUi.COLOR_FLOW_MUTED, true);
+        TextView labelView = ui.text(label, 12, ui.heroMuted(), true);
         row.addView(labelView, new LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -477,7 +477,7 @@ public final class MealManagementScreen extends BaseScreen {
                 ? NutritionCalculator.trim(exceeded) + unit + " 초과"
                 : NutritionCalculator.trim(AthleteNutritionPolicy.remaining(consumed, target))
                 + unit + " 남음");
-        row.addView(ui.text(detail, 12, FitnessUi.COLOR_FLOW_TEXT, true));
+        row.addView(ui.text(detail, 12, ui.heroInk(), true));
         card.addView(row, ui.fullWidthParams(ui.dp(9)));
         card.addView(
                 ui.progressBar(AthleteNutritionPolicy.progressRatio(consumed, target), true),
@@ -1038,7 +1038,7 @@ public final class MealManagementScreen extends BaseScreen {
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
 
-        ui.sheet(recipe.displayName(), scroll, "닫기", () -> { }, null, null);
+        ui.bottomSheet(recipe.displayName(), scroll, "닫기", () -> { }, null, null);
     }
 
     private View savedMenuComponentRow(NutritionCatalogRepository.RecipeComponent component) {
@@ -1369,7 +1369,7 @@ public final class MealManagementScreen extends BaseScreen {
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
-        ui.sheet(entry.previewTitle, scroll, "닫기", () -> { }, null, null);
+        ui.bottomSheet(entry.previewTitle, scroll, "닫기", () -> { }, null, null);
     }
 
     /** Allows a recorded meal's top-level menu names and quantities to be corrected in place. */
@@ -2066,7 +2066,7 @@ public final class MealManagementScreen extends BaseScreen {
                 false
         ), ui.fullWidthParams(ui.dp(8)));
         body.addView(rows, ui.fullWidthParams(0));
-        ui.sheet("외식 구성 템플릿", body, "닫기", () -> { }, null, null);
+        ui.bottomSheet("외식 구성 템플릿", body, "닫기", () -> { }, null, null);
     }
 
     private void showDiningOutTemplateSelection(CompositionTemplate template) {
@@ -2539,7 +2539,7 @@ public final class MealManagementScreen extends BaseScreen {
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
-        Dialog dialog = ui.sheet("내 외식 불러오기", scroll, "닫기", () -> { }, null, null);
+        Dialog dialog = ui.bottomSheet("내 외식 불러오기", scroll, "닫기", () -> { }, null, null);
         dialogHolder[0] = dialog;
     }
 
@@ -2714,7 +2714,7 @@ public final class MealManagementScreen extends BaseScreen {
                 FitnessUi.COLOR_MUTED,
                 false
         ), ui.fullWidthParams(ui.dp(8)));
-        EditText query = ui.searchField("저장 옵션 이름 검색");
+        EditText query = ui.searchInput("저장 옵션 이름 검색");
         query.setSingleLine(true);
         query.setContentDescription("외식 저장 옵션 검색");
         panel.addView(query, ui.fullWidthParams(ui.dp(6)));
@@ -2835,7 +2835,7 @@ public final class MealManagementScreen extends BaseScreen {
             }
         });
 
-        Dialog dialog = ui.sheet(
+        Dialog dialog = ui.bottomSheet(
                 replacementIndex >= 0
                         ? "외식 옵션 변경 · " + CompositionGroupType.labelOf(selectedGroupType)
                         : "외식 옵션 추가",
@@ -2967,7 +2967,7 @@ public final class MealManagementScreen extends BaseScreen {
                 FitnessUi.COLOR_MUTED,
                 false
         ), ui.fullWidthParams(ui.dp(8)));
-        EditText query = ui.searchField("식당명 또는 지점명 검색");
+        EditText query = ui.searchInput("식당명 또는 지점명 검색");
         panel.addView(query, ui.fullWidthParams(ui.dp(6)));
         TextView status = ui.text("1. 식당을 검색하세요.", 12, FitnessUi.COLOR_TERTIARY, false);
         panel.addView(status, ui.fullWidthParams(ui.dp(6)));
@@ -3017,7 +3017,7 @@ public final class MealManagementScreen extends BaseScreen {
             });
         });
         panel.addView(search, 1, ui.fullWidthParams(ui.dp(6)));
-        Dialog dialog = ui.sheet("외식 3단 구조 선택", panel, "닫기", () -> { }, null, null);
+        Dialog dialog = ui.bottomSheet("외식 3단 구조 선택", panel, "닫기", () -> { }, null, null);
         dialogHolder[0] = dialog;
         search.performClick();
     }
@@ -3992,7 +3992,7 @@ public final class MealManagementScreen extends BaseScreen {
 
     private void appendCatalogSearch(LinearLayout card) {
         FitnessUi ui = ui();
-        catalogSearchInput = ui.searchField("식품명 또는 상품명 검색");
+        catalogSearchInput = ui.searchInput("식품명 또는 상품명 검색");
         catalogSearchInput.setText(catalogQuery);
         catalogSearchInput.setSelection(catalogSearchInput.length());
         catalogSearchInput.addTextChangedListener(new TextWatcher() {
@@ -4031,7 +4031,7 @@ public final class MealManagementScreen extends BaseScreen {
                         + "선택하면 현재 끼니(또는 메뉴 재료)에 바로 추가"
         );
 
-        verifiedSingleFoodSearchInput = ui.searchField("닭가슴살, 연어, 현미, 브로콜리 검색");
+        verifiedSingleFoodSearchInput = ui.searchInput("닭가슴살, 연어, 현미, 브로콜리 검색");
         verifiedSingleFoodSearchInput.setTag(VERIFIED_SINGLE_FOOD_SEARCH_TAG);
         verifiedSingleFoodSearchInput.setContentDescription("검증 식품 불러오기 검색");
         verifiedSingleFoodSearchInput.setText(verifiedSingleFoodQuery);
@@ -4375,7 +4375,7 @@ public final class MealManagementScreen extends BaseScreen {
         String[] manualBasisUnit = {NutritionUnitSelector.value(basisUnit)};
         LinearLayout priceTraceResults = new LinearLayout(host.activity());
         priceTraceResults.setOrientation(LinearLayout.VERTICAL);
-        EditText priceTraceQuery = ui.searchField("PriceTrace 상품명 검색");
+        EditText priceTraceQuery = ui.searchInput("PriceTrace 상품명 검색");
         Button priceTraceSearch = ui.button("PriceTrace 상품 불러오기", false, null);
         TextView priceTraceSelection = ui.text(
                 "",
@@ -4667,7 +4667,7 @@ public final class MealManagementScreen extends BaseScreen {
         );
     }
 
-    /** Reuses the animated border shown on the selected date in the records calendar. */
+    /** Keeps a PriceTrace-loaded value in the neutral input surface. */
     private void lockPriceTraceLoadedField(EditText field) {
         FitnessUi ui = ui();
         field.setEnabled(false);
@@ -4675,8 +4675,9 @@ public final class MealManagementScreen extends BaseScreen {
         field.setLongClickable(false);
         field.setTextIsSelectable(false);
         field.setContentDescription(field.getText() + " · PriceTrace 선택값, 수정 불가");
-        ui.setHologramBackground(field, ui.flatSurfaceDrawable(ui.dp(12)), ui.dp(12));
-        ui.applyDepth(field, 5);
+        ui.setComponentBackground(field, ui.borderDrawable(
+                ui.surface(), ui.border(), ui.dp(FitnessUi.INPUT_RADIUS_DP)));
+        ui.applyDepth(field, FitnessUi.DEPTH_FLAT_DP);
     }
 
     private void unlockPriceTraceLoadedField(EditText field) {
@@ -4686,8 +4687,9 @@ public final class MealManagementScreen extends BaseScreen {
         field.setLongClickable(true);
         field.setTextIsSelectable(false);
         field.setContentDescription(null);
-        field.setBackground(ui.flatSurfaceDrawable(ui.dp(12)));
-        ui.applyDepth(field, 3);
+        field.setBackground(ui.borderDrawable(
+                ui.surface(), ui.border(), ui.dp(FitnessUi.INPUT_RADIUS_DP)));
+        ui.applyDepth(field, FitnessUi.DEPTH_FLAT_DP);
     }
 
     private void saveDirectFood(

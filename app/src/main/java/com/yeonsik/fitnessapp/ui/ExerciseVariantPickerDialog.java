@@ -194,11 +194,11 @@ public final class ExerciseVariantPickerDialog {
 
         void applySelection(boolean selected) {
             ui.styleSelection(view, selected, ui.dp(16));
-            name.setTextColor(selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT);
-            muscle.setTextColor(selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED);
-            meta.setTextColor(selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED);
+            name.setTextColor(selected ? ui.selectedInk() : ui.ink());
+            muscle.setTextColor(selected ? ui.selectedInk() : ui.inkMuted());
+            meta.setTextColor(selected ? ui.selectedInk() : ui.inkMuted());
             check.setText(selected ? "✓" : "");
-            check.setTextColor(selected ? FitnessUi.COLOR_INVERSE_TEXT : ui.inkMuted());
+            check.setTextColor(selected ? ui.selectedInk() : ui.inkMuted());
             check.setBackground(selected
                     ? ui.borderDrawable(ui.chipOnAccent(), ui.chipOnAccent(), ui.dp(999))
                     : ui.borderDrawable(ui.surface(), ui.border(), ui.dp(999)));

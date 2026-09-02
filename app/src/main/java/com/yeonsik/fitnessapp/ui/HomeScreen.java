@@ -68,7 +68,7 @@ public final class HomeScreen extends BaseScreen {
                         }));
             }
         } else {
-            add(ui().button("루틴 없이 운동 시작", true, v -> host.startEmptyWorkout()),
+            add(ui().primaryButton("루틴 없이 운동 시작", v -> host.startEmptyWorkout()),
                     ui().fullWidthParams(0));
         }
 
@@ -117,16 +117,13 @@ public final class HomeScreen extends BaseScreen {
     private void heroJudgmentCard(List<String> todaySessions, FitnessRepository.DayWorkoutMetrics metrics, boolean inProgress) {
         FitnessUi ui = ui();
         LinearLayout card = ui.heroCard();
-        if (inProgress) {
-            ui.setHologramBackground(card, card.getBackground(), ui.dp(24));
-        }
 
         LinearLayout headerRow = new LinearLayout(host.activity());
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
-        headerRow.addView(ui.caption("TODAY", FitnessUi.COLOR_FLOW_MUTED),
+        headerRow.addView(ui.caption("오늘", ui.heroMuted()),
                 new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        headerRow.addView(ui.flowStatusBadge(inProgress
+        headerRow.addView(ui.heroStatusBadge(inProgress
                         ? "진행 중"
                         : (todaySessions.isEmpty() ? "운동 전" : "완료"),
                 inProgress ? FitnessUi.COLOR_WARNING
@@ -141,7 +138,7 @@ public final class HomeScreen extends BaseScreen {
         } else {
             statusText = "오늘 " + todaySessions.size() + "회 운동했습니다";
         }
-        TextView status = ui.text(statusText, 21, FitnessUi.COLOR_FLOW_TEXT, true);
+        TextView status = ui.text(statusText, 21, ui.heroInk(), true);
         status.setGravity(Gravity.CENTER);
         status.setPadding(0, ui.dp(10), 0, 0);
         card.addView(status);
@@ -150,16 +147,16 @@ public final class HomeScreen extends BaseScreen {
         volumeRow.setOrientation(LinearLayout.HORIZONTAL);
         volumeRow.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         volumeRow.setPadding(0, ui.dp(14), 0, 0);
-        TextView volume = ui.num(FitnessUi.formatVolume(metrics.totalVolumeKg), 40, FitnessUi.COLOR_FLOW_TEXT, true);
+        TextView volume = ui.num(FitnessUi.formatVolume(metrics.totalVolumeKg), 40, ui.heroInk(), true);
         volume.setIncludeFontPadding(false);
         volume.setLetterSpacing(-0.02f);
         ui.animateCount(volume, metrics.totalVolumeKg, null);
-        TextView unit = ui.text("kg", 15, FitnessUi.COLOR_FLOW_MUTED, true);
+        TextView unit = ui.text("kg", 15, ui.heroMuted(), true);
         unit.setPadding(ui.dp(6), 0, 0, ui.dp(5));
         volumeRow.addView(volume);
         volumeRow.addView(unit);
         card.addView(volumeRow);
-        TextView volumeLabel = ui.text("오늘 총 볼륨", 12, FitnessUi.COLOR_FLOW_MUTED, false);
+        TextView volumeLabel = ui.text("오늘 총 볼륨", 12, ui.heroMuted(), false);
         volumeLabel.setGravity(Gravity.CENTER);
         volumeLabel.setPadding(0, ui.dp(2), 0, 0);
         card.addView(volumeLabel);
@@ -178,7 +175,7 @@ public final class HomeScreen extends BaseScreen {
                 ? FitnessUi.formatDuration(metrics.totalDurationSeconds) : "—"), ui.metaCellParams(false));
         card.addView(metaRow);
 
-        card.addView(ui.flowHeroButton(
+        card.addView(ui.primaryButton(
                         inProgress ? "운동 이어가기" : "피트니스 보기",
                         v -> {
                             if (inProgress) {
@@ -193,7 +190,7 @@ public final class HomeScreen extends BaseScreen {
     }
 
     private View heroMetaCell(String label, String value) {
-        return ui().flowMetric(label, value);
+        return ui().heroMetric(label, value);
     }
 
     private void weeklyVolumeCard() {
@@ -255,7 +252,7 @@ public final class HomeScreen extends BaseScreen {
         legend.setOrientation(LinearLayout.HORIZONTAL);
         legend.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         legend.setPadding(0, ui.dp(10), 0, 0);
-        legend.addView(ui.text("● 이번 주", 10, ui.hologramAccentColor(0), true));
+        legend.addView(ui.text("● 이번 주", 10, ui.chartColor(0), true));
         TextView previousLegend = ui.text("● 지난주", 10, FitnessUi.COLOR_MUTED, true);
         previousLegend.setPadding(ui.dp(14), 0, 0, 0);
         legend.addView(previousLegend);
@@ -329,7 +326,7 @@ public final class HomeScreen extends BaseScreen {
         legend.setOrientation(LinearLayout.HORIZONTAL);
         legend.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         legend.setPadding(0, ui.dp(10), 0, 0);
-        legend.addView(ui.text("이번 주", 10, ui.hologramAccentColor(0), true));
+        legend.addView(ui.text("이번 주", 10, ui.chartColor(0), true));
         TextView previousLegend = ui.text("지난주", 10, FitnessUi.COLOR_MUTED, true);
         previousLegend.setPadding(ui.dp(14), 0, 0, 0);
         legend.addView(previousLegend);
@@ -412,7 +409,7 @@ public final class HomeScreen extends BaseScreen {
                     FitnessUi.COLOR_TEXT,
                     false
             ), ui.fullWidthParams(ui.dp(10)));
-            card.addView(ui.flowHeroButton(
+            card.addView(ui.primaryButton(
                     "영양 목표 설정",
                     v -> host.openMealManagement(LocalDate.now().toString(), FitnessScreen.HOME)
             ), ui.fullWidthParams(ui.dp(10)));
@@ -424,14 +421,14 @@ public final class HomeScreen extends BaseScreen {
         legend.setOrientation(LinearLayout.HORIZONTAL);
         legend.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         legend.setPadding(0, ui.dp(10), 0, 0);
-        legend.addView(ui.text("칼로리", 10, ui.vibrantColor(0), true));
-        TextView carbsLegend = ui.text("탄수화물", 10, ui.hologramAccentColor(0), true);
+        legend.addView(ui.text("칼로리", 10, ui.chartColor(0), true));
+        TextView carbsLegend = ui.text("탄수화물", 10, ui.chartColor(1), true);
         carbsLegend.setPadding(ui.dp(12), 0, 0, 0);
         legend.addView(carbsLegend);
-        TextView proteinLegend = ui.text("단백질", 10, ui.hologramAccentColor(1), true);
+        TextView proteinLegend = ui.text("단백질", 10, ui.chartColor(2), true);
         proteinLegend.setPadding(ui.dp(12), 0, 0, 0);
         legend.addView(proteinLegend);
-        TextView fatLegend = ui.text("지방", 10, ui.hologramAccentColor(2), true);
+        TextView fatLegend = ui.text("지방", 10, ui.chartColor(3), true);
         fatLegend.setPadding(ui.dp(12), 0, 0, 0);
         legend.addView(fatLegend);
         card.addView(legend);
@@ -519,13 +516,13 @@ public final class HomeScreen extends BaseScreen {
             dayGroup.setOrientation(LinearLayout.HORIZONTAL);
             dayGroup.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
             addTrendBar(dayGroup, labels[index] + " 칼로리", calories[index], nutritionGoal.caloriesKcal,
-                    caloriesAvailable[index], ui.vibrantColor(0), "kcal");
+                    caloriesAvailable[index], ui.chartColor(0), "kcal");
             addTrendBar(dayGroup, labels[index] + " 탄수화물", carbs[index], nutritionGoal.carbsGrams,
-                    carbsAvailable[index], ui.hologramAccentColor(0), "g");
+                    carbsAvailable[index], ui.chartColor(1), "g");
             addTrendBar(dayGroup, labels[index] + " 단백질", protein[index], nutritionGoal.proteinGrams,
-                    proteinAvailable[index], ui.hologramAccentColor(1), "g");
+                    proteinAvailable[index], ui.chartColor(2), "g");
             addTrendBar(dayGroup, labels[index] + " 지방", fat[index], nutritionGoal.fatGrams,
-                    fatAvailable[index], ui.hologramAccentColor(2), "g");
+                    fatAvailable[index], ui.chartColor(3), "g");
             bars.addView(dayGroup, new LinearLayout.LayoutParams(
                     0, chartHeight, 1f));
         }
@@ -704,11 +701,11 @@ public final class HomeScreen extends BaseScreen {
         legend.setOrientation(LinearLayout.HORIZONTAL);
         legend.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         legend.setPadding(0, ui.dp(10), 0, 0);
-        legend.addView(ui.text("탄수화물", 10, ui.hologramAccentColor(0), true));
-        TextView proteinLegend = ui.text("단백질", 10, ui.hologramAccentColor(1), true);
+        legend.addView(ui.text("탄수화물", 10, ui.chartColor(1), true));
+        TextView proteinLegend = ui.text("단백질", 10, ui.chartColor(2), true);
         proteinLegend.setPadding(ui.dp(12), 0, 0, 0);
         legend.addView(proteinLegend);
-        TextView fatLegend = ui.text("지방", 10, ui.hologramAccentColor(2), true);
+        TextView fatLegend = ui.text("지방", 10, ui.chartColor(3), true);
         fatLegend.setPadding(ui.dp(12), 0, 0, 0);
         legend.addView(fatLegend);
         card.addView(legend);
@@ -765,9 +762,9 @@ public final class HomeScreen extends BaseScreen {
             LinearLayout dayGroup = new LinearLayout(host.activity());
             dayGroup.setOrientation(LinearLayout.HORIZONTAL);
             dayGroup.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-            addMacroBar(dayGroup, carbs[i], max, carbsAvailable[i], ui.hologramAccentColor(0));
-            addMacroBar(dayGroup, protein[i], max, proteinAvailable[i], ui.hologramAccentColor(1));
-            addMacroBar(dayGroup, fat[i], max, fatAvailable[i], ui.hologramAccentColor(2));
+            addMacroBar(dayGroup, carbs[i], max, carbsAvailable[i], ui.chartColor(1));
+            addMacroBar(dayGroup, protein[i], max, proteinAvailable[i], ui.chartColor(2));
+            addMacroBar(dayGroup, fat[i], max, fatAvailable[i], ui.chartColor(3));
             barsRow.addView(dayGroup, new LinearLayout.LayoutParams(
                     0, chartHeight, 1f));
         }
@@ -904,7 +901,7 @@ public final class HomeScreen extends BaseScreen {
             View currentBar = new View(host.activity());
             currentBar.setBackground(values[i] <= 0
                     ? ui.borderDrawable(ui.barEmpty(), ui.barEmpty(), ui.dp(999))
-                    : ui.vibrantBackground(i, ui.dp(999)));
+                    : ui.borderDrawable(ui.chartColor(0), ui.chartColor(0), ui.dp(999)));
             LinearLayout.LayoutParams currentBarParams = new LinearLayout.LayoutParams(ui.dp(8), currentBarHeight);
             currentBarParams.setMargins(0, 0, ui.dp(2), 0);
             pair.addView(currentBar, currentBarParams);

@@ -29,7 +29,7 @@ public final class DevelopmentScreen extends BaseScreen {
         PaperAdviceAssessment paperAssessment = host.developmentRepository()
                 .buildPaperAdviceAssessment(referenceDate);
 
-        screenHeader("NEXT ACTION", "발전");
+        screenHeader("다음 행동", "발전");
         add(heroCard());
 
         section("신체 정보", "수정", host::showDevelopmentBodyProfileDialog);
@@ -76,11 +76,11 @@ public final class DevelopmentScreen extends BaseScreen {
     private View heroCard() {
         FitnessUi ui = ui();
         LinearLayout card = ui.heroCard();
-        card.addView(ui.caption("RECENT RECORDS", FitnessUi.COLOR_FLOW_MUTED));
+        card.addView(ui.caption("최근 기록", ui.heroMuted()));
         TextView title = ui.text(
                 "최근 기록으로 지금 할 일을 정합니다",
                 23,
-                FitnessUi.COLOR_FLOW_TEXT,
+                ui.heroInk(),
                 true
         );
         title.setPadding(0, ui.dp(10), 0, 0);
@@ -88,7 +88,7 @@ public final class DevelopmentScreen extends BaseScreen {
         TextView helper = ui.text(
                 "의료 진단이나 영양 처방이 아니라, 저장된 기록의 우선 행동과 논문 기반 검토 후보를 분리해 제시합니다.",
                 13,
-                FitnessUi.COLOR_FLOW_MUTED,
+                ui.heroMuted(),
                 false
         );
         helper.setPadding(0, ui.dp(8), 0, 0);
