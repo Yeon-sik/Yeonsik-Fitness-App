@@ -1160,11 +1160,14 @@ public final class NutritionCatalogRepository {
     }
 
     /**
-     * Saves a dining-out menu as a private external-menu catalog row.
+     * Saves a dining-out menu as a private external-menu catalog row using macro-only data.
      *
-     * <p>The macro values are user-entered estimates, so this path intentionally stores the
-     * macros-only data version and keeps unknown micronutrients as NULL.</p>
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * the explicit-calorie {@code saveDiningOutMenuWithNutrition(...)} API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
      */
+    @Deprecated
     public NutritionFood saveDiningOutMenu(
             String storeName,
             String menuName,
@@ -1183,7 +1186,15 @@ public final class NutritionCatalogRepository {
         );
     }
 
-    /** Saves a dining-out menu and preserves an explicitly selected PriceTrace identity. */
+    /**
+     * Saves a macro-only dining-out menu and preserves a PriceTrace identity.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * the explicit-calorie {@code saveDiningOutMenuWithNutrition(...)} API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
+     */
+    @Deprecated
     public NutritionFood saveDiningOutMenu(
             String storeName,
             String menuName,
@@ -1203,7 +1214,15 @@ public final class NutritionCatalogRepository {
         );
     }
 
-    /** Saves a dining-out menu and preserves an explicitly selected PriceTrace identity. */
+    /**
+     * Saves a macro-only dining-out menu with branch and PriceTrace identity metadata.
+     *
+     * <p>Legacy/import/backward-compatibility API only. New UI and production writes must use
+     * the explicit-calorie {@code saveDiningOutMenuWithNutrition(...)} API.</p>
+     *
+     * @deprecated Do not use for new UI or production writes; kcal is estimated from macros.
+     */
+    @Deprecated
     public NutritionFood saveDiningOutMenu(
             String storeName,
             String menuName,
@@ -1318,20 +1337,18 @@ public final class NutritionCatalogRepository {
             String branchName,
             DiningOutIdentity identity
     ) {
-        MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
-        if (calories != null && calories < 0) {
-            throw new IllegalArgumentException("칼로리는 0 이상인 숫자로 입력하세요.");
-        }
-        double resolvedCalories = calories == null
-                ? MealEntryPolicy.estimatedDiningOutCalories(
-                carbsGrams,
+        MealEntryPolicy.requireDiningOutMenuNutrition(
+                calories,
                 proteinGrams,
-                fatGrams
-        )
-                : calories.doubleValue();
+                carbsGrams,
+                fatGrams,
+                sodiumMg,
+                sugarsGrams,
+                saturatedFatGrams
+        );
 
         NutritionProfile profile = NutritionProfile.builder()
-                .value(NutritionProfile.CALORIES_KCAL, resolvedCalories)
+                .value(NutritionProfile.CALORIES_KCAL, calories.doubleValue())
                 .value(NutritionProfile.PROTEIN_GRAMS, proteinGrams)
                 .value(NutritionProfile.CARBS_GRAMS, carbsGrams)
                 .value(NutritionProfile.FAT_GRAMS, fatGrams)
@@ -1364,23 +1381,18 @@ public final class NutritionCatalogRepository {
         Double carbsGrams = sourceProfile.value(NutritionProfile.CARBS_GRAMS);
         Double proteinGrams = sourceProfile.value(NutritionProfile.PROTEIN_GRAMS);
         Double fatGrams = sourceProfile.value(NutritionProfile.FAT_GRAMS);
-        MealEntryPolicy.requireDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams);
-        if (!MealEntryPolicy.hasDiningOutEstimatedMacros(carbsGrams, proteinGrams, fatGrams)) {
-            throw new IllegalArgumentException(
-                    "메뉴로 저장하려면 추정 탄수화물·단백질·지방을 입력하세요."
-            );
-        }
         Double calories = sourceProfile.value(NutritionProfile.CALORIES_KCAL);
-        double resolvedCalories = calories == null
-                ? MealEntryPolicy.estimatedDiningOutCalories(
-                carbsGrams,
+        MealEntryPolicy.requireDiningOutMenuNutrition(
+                calories,
                 proteinGrams,
-                fatGrams
-        )
-                : calories;
+                carbsGrams,
+                fatGrams,
+                sourceProfile.value(NutritionProfile.SODIUM_MG),
+                sourceProfile.value(NutritionProfile.SUGARS_GRAMS),
+                sourceProfile.value(NutritionProfile.SATURATED_FAT_GRAMS)
+        );
         NutritionProfile normalizedProfile = NutritionProfile.builder()
                 .from(sourceProfile)
-                .value(NutritionProfile.CALORIES_KCAL, resolvedCalories)
                 .build();
         return saveDiningOutMenuCatalogRow(
                 normalizedStoreName,

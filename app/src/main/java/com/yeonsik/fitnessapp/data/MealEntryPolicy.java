@@ -205,6 +205,52 @@ public final class MealEntryPolicy {
         return parsed;
     }
 
+    /** Parses a required whole-kcal value for a dining-out menu. */
+    public static int requireDiningOutCaloriesInput(String value) {
+        Integer parsed = optionalDiningOutCalories(value);
+        if (parsed == null) {
+            throw new IllegalArgumentException("칼로리는 필수 입력입니다.");
+        }
+        return parsed;
+    }
+
+    /** Validates a dining-out menu: calories and macros are required; extended values are optional. */
+    public static void requireDiningOutMenuNutrition(
+            Number calories,
+            Double proteinGrams,
+            Double carbsGrams,
+            Double fatGrams,
+            Double sodiumMg,
+            Double sugarsGrams,
+            Double saturatedFatGrams
+    ) {
+        if (calories == null) {
+            throw new IllegalArgumentException("칼로리는 필수 입력입니다.");
+        }
+        double calorieValue = calories.doubleValue();
+        if (Double.isNaN(calorieValue) || Double.isInfinite(calorieValue)
+                || calorieValue < 0d) {
+            throw new IllegalArgumentException("칼로리는 0 이상인 숫자로 입력하세요.");
+        }
+        if (proteinGrams == null || carbsGrams == null || fatGrams == null) {
+            throw new IllegalArgumentException(
+                    "외식 메뉴의 탄수화물·단백질·지방은 모두 입력하세요."
+            );
+        }
+        requireNonNegativeDiningOutMacro(proteinGrams, "단백질");
+        requireNonNegativeDiningOutMacro(carbsGrams, "탄수화물");
+        requireNonNegativeDiningOutMacro(fatGrams, "지방");
+        if (sodiumMg != null) {
+            requireNonNegativeDiningOutMacro(sodiumMg, "나트륨");
+        }
+        if (sugarsGrams != null) {
+            requireNonNegativeDiningOutMacro(sugarsGrams, "당류");
+        }
+        if (saturatedFatGrams != null) {
+            requireNonNegativeDiningOutMacro(saturatedFatGrams, "포화지방");
+        }
+    }
+
     /** Ensures estimates are either omitted or complete and non-negative. */
     public static void requireDiningOutEstimatedMacros(
             Double carbsGrams,

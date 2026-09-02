@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,7 +32,7 @@ public final class NutritionProfile {
 
     /** 모든 음식이 반드시 가져야 하는 영양소. 신규 저장 시 null을 허용하지 않는다. */
     public static final List<String> REQUIRED_KEYS = Collections.unmodifiableList(new ArrayList<>(
-            java.util.Arrays.asList(
+            Arrays.asList(
                     CALORIES_KCAL,
                     PROTEIN_GRAMS,
                     CARBS_GRAMS,
@@ -42,9 +43,21 @@ public final class NutritionProfile {
             )
     ));
 
+    /** Shared display order for the seven primary nutrition values. */
+    public static final List<String> PRIMARY_DISPLAY_ORDER =
+            Collections.unmodifiableList(new ArrayList<>(Arrays.asList(
+                    CALORIES_KCAL,
+                    CARBS_GRAMS,
+                    PROTEIN_GRAMS,
+                    FAT_GRAMS,
+                    SUGARS_GRAMS,
+                    SATURATED_FAT_GRAMS,
+                    SODIUM_MG
+            )));
+
     /** 1단계 권고 영양소. typed column으로 저장하되 모르면 NULL로 남긴다. */
     public static final List<String> RECOMMENDED_TYPED_KEYS =
-            Collections.unmodifiableList(new ArrayList<>(java.util.Arrays.asList(
+            Collections.unmodifiableList(new ArrayList<>(Arrays.asList(
                     FIBER_GRAMS,
                     ADDED_SUGARS_GRAMS,
                     TRANS_FAT_GRAMS,

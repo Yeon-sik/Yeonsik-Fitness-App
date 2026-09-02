@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.data;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 
 import android.content.Context;
@@ -75,8 +76,7 @@ public final class DiningOutSharedConsumptionTest {
                     null,
                     Collections.singletonList(option),
                     2d,
-                    DiningOutConsumption.equalByDiners(2),
-                    true
+                    DiningOutConsumption.equalByDiners(2)
             );
 
             assertEquals(1200d, repository.mealNutritionTotalsForDate(legacyDate).calories(), 0.001d);
@@ -127,6 +127,111 @@ public final class DiningOutSharedConsumptionTest {
                             + "WHERE meal_record_id = ? AND deleted_at IS NOT NULL",
                     newId
             ));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void canonicalSharedConsumptionRequiresCaloriesAndAllowsUnknownOptionalNutrients()
+            throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String date = LocalDate.now().minusDays(1).toString();
+
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> repository.addDiningOutMealAtTimeWithConsumption(
+                            date,
+                            "18:00",
+                            "테스트 식당",
+                            "본점",
+                            "칼로리 누락 메뉴",
+                            null,
+                            40d,
+                            70d,
+                            20d,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            Collections.emptyList(),
+                            1d,
+                            DiningOutConsumption.equalByDiners(1)
+                    )
+            );
+            assertEquals(0, repository.mealEntriesForDate(date).size());
+
+            String recordId = repository.addDiningOutMealAtTimeWithConsumption(
+                    date,
+                    "19:00",
+                    "테스트 식당",
+                    "본점",
+                    "명시 칼로리 메뉴",
+                    620,
+                    40d,
+                    70d,
+                    20d,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    Collections.emptyList(),
+                    1d,
+                    DiningOutConsumption.equalByDiners(2)
+            );
+            FitnessRepository.MealItemEntry item = repository.mealItemsForRecord(recordId).get(0);
+            assertEquals(620d, item.profile.value(NutritionProfile.CALORIES_KCAL), 0.001d);
+            assertNull(item.profile.value(NutritionProfile.SODIUM_MG));
+            assertEquals(310d, repository.mealNutritionForDate(date).calories, 0.001d);
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void deprecatedSharedConsumptionWriterKeepsMacroOnlyKcalEstimate() throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String date = LocalDate.now().minusDays(1).toString();
+            String recordId = repository.addDiningOutMealAtTimeWithConsumption(
+                    date,
+                    "20:00",
+                    "레거시 식당",
+                    "본점",
+                    "매크로 메뉴",
+                    null,
+                    40d,
+                    70d,
+                    20d,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    Collections.emptyList(),
+                    1d,
+                    DiningOutConsumption.equalByDiners(2),
+                    false
+            );
+
+            assertEquals(620d, repository.mealItemsForRecord(recordId).get(0)
+                    .profile.value(NutritionProfile.CALORIES_KCAL), 0.001d);
+            assertEquals(310d, repository.mealNutritionForDate(date).calories, 0.001d);
         } finally {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);

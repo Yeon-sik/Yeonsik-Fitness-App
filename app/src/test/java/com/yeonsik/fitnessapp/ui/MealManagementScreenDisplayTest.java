@@ -3,13 +3,39 @@ package com.yeonsik.fitnessapp.ui;
 import com.yeonsik.fitnessapp.data.CompositionGroupType;
 import com.yeonsik.fitnessapp.data.DiningOutProvisionType;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.MealCompositionItem;
+import com.yeonsik.fitnessapp.data.MealMenuSelection;
+import com.yeonsik.fitnessapp.data.NutritionFood;
+import com.yeonsik.fitnessapp.data.NutritionProfile;
+import com.yeonsik.fitnessapp.data.NutritionUnit;
 
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 public final class MealManagementScreenDisplayTest {
+    @Test
+    public void mealPrimaryNutrientDisplayStartsWithCalories() {
+        assertEquals(
+                NutritionProfile.CALORIES_KCAL,
+                NutritionProfile.PRIMARY_DISPLAY_ORDER.get(0)
+        );
+        assertEquals(
+                "칼로리",
+                MealManagementScreen.mealNutrientDisplayLabel(
+                        NutritionProfile.PRIMARY_DISPLAY_ORDER.get(0)
+                )
+        );
+        assertEquals(
+                NutritionProfile.labelOf(NutritionProfile.CARBS_GRAMS),
+                MealManagementScreen.mealNutrientDisplayLabel(
+                        NutritionProfile.CARBS_GRAMS
+                )
+        );
+    }
+
     @Test
     public void diningOutComponentDisplayIncludesGroupAndProvisionForNonIncludedItems() {
         FitnessRepository.MealComponentEntry reviewEvent = component(
@@ -49,6 +75,53 @@ public final class MealManagementScreenDisplayTest {
                 MealManagementScreen.diningOutComponentDisplayLabel(included)
                         .contains("기본 제공")
         );
+    }
+
+    @Test
+    public void servingPercentageIsDerivedFromExistingMenuQuantity() {
+        NutritionFood product = NutritionFood.builder()
+                .id("product")
+                .ownerId("user")
+                .name("상품")
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .category(NutritionFood.CATEGORY_PROCESSED)
+                .basis(1d, NutritionUnit.SERVING)
+                .profile(NutritionProfile.ofMacros(200d, 10d, 20d, 5d))
+                .source("manual", null)
+                .build();
+        MealMenuSelection half = MealMenuSelection.standalone(
+                MealCompositionItem.from(product, MealManagementScreen.quantityForServingPercent(
+                        product,
+                        50d
+                ))
+        );
+
+        assertTrue(MealManagementScreen.supportsServingPercentage(product));
+        assertEquals(0.5d, half.menu.quantity, 0.0001d);
+        assertEquals(50d, MealManagementScreen.servingPercentForQuantity(
+                product,
+                half.menu.quantity
+        ), 0.0001d);
+        assertEquals(100d, half.menu.calories, 0.0001d);
+        assertEquals(5d, half.menu.proteinGrams, 0.0001d);
+        assertEquals(10d, half.menu.carbsGrams, 0.0001d);
+        assertEquals(2.5d, half.menu.fatGrams, 0.0001d);
+    }
+
+    @Test
+    public void servingPercentageIsNotShownForSingleIngredient() {
+        NutritionFood ingredient = NutritionFood.builder()
+                .id("ingredient")
+                .ownerId("user")
+                .name("재료")
+                .kind(NutritionFood.KIND_INGREDIENT)
+                .category(NutritionFood.CATEGORY_OTHER)
+                .basis(1d, NutritionUnit.SERVING)
+                .profile(NutritionProfile.ofMacros(100d, 5d, 10d, 2d))
+                .source("manual", null)
+                .build();
+
+        assertFalse(MealManagementScreen.supportsServingPercentage(ingredient));
     }
 
     private static FitnessRepository.MealComponentEntry component(
