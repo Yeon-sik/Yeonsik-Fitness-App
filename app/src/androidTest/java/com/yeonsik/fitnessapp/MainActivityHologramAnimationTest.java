@@ -1,7 +1,5 @@
 package com.yeonsik.fitnessapp;
 
-import android.graphics.drawable.Animatable;
-import android.graphics.drawable.Drawable;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
@@ -12,49 +10,51 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(AndroidJUnit4.class)
 public final class MainActivityHologramAnimationTest {
     @Test
-    public void workoutAndSelectedDateBordersAnimateAndStopWhenDetached() {
+    public void workoutSelectionUsesStaticMarkerAndClearsOnTabChange() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
                 View root = activity.getWindow().getDecorView();
 
-                clickBottomTab(root, "피트니스");
-                Animatable workoutAnimation = findRunningAnimatedBackground(root);
-                assertNotNull(workoutAnimation);
+                View workoutTab = clickBottomTab(root, "피트니스");
+                assertTrue(workoutTab.isSelected());
+                View workoutMarker = activeMarker(workoutTab);
+                assertNotNull(workoutMarker);
+                assertEquals(View.VISIBLE, workoutMarker.getVisibility());
 
-                clickBottomTab(root, "기록");
-                assertFalse(workoutAnimation.isRunning());
-                assertNotNull(findRunningAnimatedBackground(root));
+                View recordsTab = clickBottomTab(root, "기록");
+                assertFalse(workoutTab.isSelected());
+                assertEquals(View.INVISIBLE, workoutMarker.getVisibility());
+                assertTrue(recordsTab.isSelected());
+                assertEquals(View.VISIBLE, activeMarker(recordsTab).getVisibility());
             });
         }
     }
 
-    private static void clickBottomTab(View root, String label) {
+    private static View clickBottomTab(View root, String label) {
         TextView tab = findTextWithClickableParent(root, label);
         assertNotNull(tab);
-        ((View) tab.getParent()).performClick();
+        View area = (View) tab.getParent();
+        area.performClick();
+        return area;
     }
 
-    private static Animatable findRunningAnimatedBackground(View view) {
-        Drawable background = view.getBackground();
-        if (background instanceof Animatable && ((Animatable) background).isRunning()) {
-            return (Animatable) background;
-        }
-        if (view instanceof ViewGroup) {
-            ViewGroup group = (ViewGroup) view;
-            for (int index = 0; index < group.getChildCount(); index++) {
-                Animatable match = findRunningAnimatedBackground(group.getChildAt(index));
-                if (match != null) {
-                    return match;
-                }
-            }
-        }
-        return null;
+    private static View activeMarker(View area) {
+        assertTrue(area instanceof ViewGroup);
+        ViewGroup group = (ViewGroup) area;
+        assertTrue(group.getChildCount() > 0);
+        View markerSlot = group.getChildAt(0);
+        assertTrue(markerSlot instanceof ViewGroup);
+        ViewGroup slot = (ViewGroup) markerSlot;
+        assertTrue(slot.getChildCount() > 0);
+        return slot.getChildAt(0);
     }
 
     private static TextView findTextWithClickableParent(View view, String text) {

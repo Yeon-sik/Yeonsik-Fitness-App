@@ -129,6 +129,34 @@ public final class FitnessUi {
     private static final int COLOR_SHADOW_LIGHT = 0x26000000;
     private static final int COLOR_SHADOW_DARK = 0x66000000;
 
+    // ── Layout/spacing tokens ─────────────────────────────────────────
+    // Keep shell rhythm in one place so device review changes do not require
+    // editing every screen renderer.
+    public static final int PAGE_HORIZONTAL_PADDING_DP = 20;
+    public static final int PAGE_TOP_PADDING_DP = 40;
+    public static final int PAGE_BOTTOM_PADDING_DP = 28;
+    public static final int SCREEN_TITLE_TOP_SPACING_DP = 4;
+    public static final int SCREEN_TITLE_BOTTOM_SPACING_DP = 18;
+    public static final int SECTION_TOP_SPACING_DP = 26;
+    public static final int SECTION_BOTTOM_SPACING_DP = 10;
+    public static final int CARD_GAP_DP = 12;
+    public static final int FIELD_LABEL_GAP_DP = 6;
+    public static final int FORM_ITEM_GAP_DP = 8;
+    public static final int BUTTON_GAP_DP = 5;
+
+    // Bottom navigation keeps a 48dp touch target but no longer renders each
+    // tab as a prominent pill/card.
+    public static final int NAV_ITEM_RADIUS_DP = 12;
+    public static final int NAV_ITEM_MIN_HEIGHT_DP = 48;
+    public static final int NAV_BAR_HORIZONTAL_PADDING_DP = 8;
+    public static final int NAV_BAR_TOP_PADDING_DP = 8;
+    public static final int NAV_BAR_BOTTOM_PADDING_DP = 12;
+    public static final int NAV_ITEM_GAP_DP = 4;
+    public static final int NAV_MARKER_SLOT_HEIGHT_DP = 14;
+    public static final int NAV_ACTIVE_MARKER_WIDTH_DP = 24;
+    public static final int NAV_ACTIVE_MARKER_HEIGHT_DP = 4;
+    public static final int NAV_PROGRESS_MARKER_SIZE_DP = 6;
+
     private final Activity activity;
     private final BooleanSupplier inverseSupplier;
     private final List<Dialog> dialogStack = new ArrayList<>();
@@ -432,6 +460,19 @@ public final class FitnessUi {
         return Math.round(value * activity.getResources().getDisplayMetrics().density);
     }
 
+    /** Applies the common page rhythm to a newly created scroll content host. */
+    public void applyPageContentPadding(View view) {
+        if (view == null) {
+            return;
+        }
+        view.setPadding(
+                dp(PAGE_HORIZONTAL_PADDING_DP),
+                dp(PAGE_TOP_PADDING_DP),
+                dp(PAGE_HORIZONTAL_PADDING_DP),
+                dp(PAGE_BOTTOM_PADDING_DP)
+        );
+    }
+
     /** 공통 깊이 토큰. 다크 모드도 검은 그림자만 사용해 과도한 밝기를 피한다. */
     public void applyDepth(View view, int elevationDp) {
         if (view == null) {
@@ -518,15 +559,27 @@ public final class FitnessUi {
     public TextView titleView(String value) {
         TextView view = text(value, 27, COLOR_TEXT, true);
         view.setLetterSpacing(-0.02f);
-        view.setPadding(0, dp(4), 0, dp(18));
+        view.setPadding(0, dp(SCREEN_TITLE_TOP_SPACING_DP), 0,
+                dp(SCREEN_TITLE_BOTTOM_SPACING_DP));
         return view;
+    }
+
+    /** Shared page heading with an optional, Korean-first eyebrow. */
+    public LinearLayout screenHeader(String eyebrow, String title) {
+        LinearLayout header = new LinearLayout(activity);
+        header.setOrientation(LinearLayout.VERTICAL);
+        if (eyebrow != null && !eyebrow.trim().isEmpty()) {
+            header.addView(labelView(eyebrow), fullWidthParams(0));
+        }
+        header.addView(titleView(title), fullWidthParams(0));
+        return header;
     }
 
     public View sectionHeader(String labelText, String actionText, Runnable action) {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, dp(26), 0, dp(10));
+        row.setPadding(0, dp(SECTION_TOP_SPACING_DP), 0, dp(SECTION_BOTTOM_SPACING_DP));
 
         TextView labelView = caption(labelText, COLOR_MUTED);
         row.addView(labelView, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -572,7 +625,7 @@ public final class FitnessUi {
         card.setPadding(dp(18), dp(16), dp(18), dp(16));
         card.setBackground(flatSurfaceDrawable(dp(CARD_RADIUS_DP)));
         applyDepth(card, DEPTH_SURFACE_DP);
-        card.setLayoutParams(fullWidthParams(dp(12)));
+        card.setLayoutParams(fullWidthParams(dp(CARD_GAP_DP)));
         return card;
     }
 
@@ -590,7 +643,7 @@ public final class FitnessUi {
         card.setPadding(dp(22), dp(22), dp(22), dp(22));
         card.setBackground(heroBackground());
         applyDepth(card, DEPTH_SURFACE_DP);
-        card.setLayoutParams(fullWidthParams(dp(12)));
+        card.setLayoutParams(fullWidthParams(dp(CARD_GAP_DP)));
         return card;
     }
 
@@ -719,9 +772,9 @@ public final class FitnessUi {
         row.setGravity(Gravity.CENTER);
 
         LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        left.setMargins(0, 0, dp(5), 0);
+        left.setMargins(0, 0, dp(BUTTON_GAP_DP), 0);
         LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        right.setMargins(dp(5), 0, 0, 0);
+        right.setMargins(dp(BUTTON_GAP_DP), 0, 0, 0);
         row.addView(first, left);
         row.addView(second, right);
         return row;
@@ -776,7 +829,7 @@ public final class FitnessUi {
 
     public TextView fieldLabel(String value) {
         TextView label = caption(value, COLOR_MUTED);
-        label.setPadding(0, dp(14), 0, dp(6));
+        label.setPadding(0, dp(14), 0, dp(FIELD_LABEL_GAP_DP));
         return label;
     }
 
@@ -784,7 +837,7 @@ public final class FitnessUi {
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         TextView labelView = caption(label, COLOR_MUTED);
-        labelView.setPadding(0, 0, 0, dp(6));
+        labelView.setPadding(0, 0, 0, dp(FIELD_LABEL_GAP_DP));
         column.addView(labelView);
         column.addView(field, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -806,7 +859,7 @@ public final class FitnessUi {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
             );
-            params.setMargins(0, dp(8), 0, 0);
+            params.setMargins(0, dp(FORM_ITEM_GAP_DP), 0, 0);
             form.addView(view, params);
         }
     }

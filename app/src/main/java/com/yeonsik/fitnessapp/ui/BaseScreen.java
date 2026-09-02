@@ -41,8 +41,7 @@ public abstract class BaseScreen {
     }
 
     protected void screenHeader(String eyebrow, String title) {
-        add(ui().labelView(eyebrow));
-        add(ui().titleView(title));
+        add(ui().screenHeader(eyebrow, title));
     }
 
     protected void section(String label) {
