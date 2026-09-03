@@ -12,6 +12,12 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.yeonsik.fitnessapp.MainActivity;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 
+import java.lang.ref.WeakReference;
+import java.lang.reflect.Field;
+import java.util.List;
+import java.util.Map;
+import java.util.WeakHashMap;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -53,6 +59,82 @@ public final class FormSystemStateTest {
                 assertEquals(0.31f, child.getAlpha(), 0.001f);
                 assertEquals("기존 설명", root.getContentDescription());
                 assertEquals("자식 설명", child.getContentDescription());
+            });
+        }
+    }
+
+    @Test
+    public void repeatedDisabledTogglesRestoreOriginalDescendantState() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                FormSystem forms = new FormSystem(activity.ui(), activity);
+                LinearLayout root = new LinearLayout(activity);
+                TextView child = new TextView(activity);
+                root.setEnabled(true);
+                root.setContentDescription("기존 설명");
+                child.setEnabled(false);
+                root.addView(child);
+
+                forms.disabled(root, true);
+                forms.disabled(root, false);
+                forms.disabled(root, false);
+
+                assertTrue(root.isEnabled());
+                assertFalse(child.isEnabled());
+                assertEquals("기존 설명", root.getContentDescription());
+            });
+        }
+    }
+
+    @Test
+    public void disabledAppliedDuringLoadingRemainsDisabledUntilCleared() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                FormSystem forms = new FormSystem(activity.ui(), activity);
+                LinearLayout root = new LinearLayout(activity);
+                TextView child = new TextView(activity);
+                root.setEnabled(true);
+                root.setAlpha(0.91f);
+                root.setContentDescription("기존 설명");
+                child.setEnabled(true);
+                child.setAlpha(0.37f);
+                child.setContentDescription("자식 설명");
+                root.addView(child);
+
+                forms.loading(root, true, "불러오는 중");
+                forms.disabled(root, true);
+                forms.loading(root, false, null);
+
+                assertFalse(root.isEnabled());
+                assertFalse(child.isEnabled());
+                assertEquals(0.48f, root.getAlpha(), 0.001f);
+                assertEquals("기존 설명 · 사용할 수 없음", root.getContentDescription());
+
+                forms.disabled(root, false);
+
+                assertTrue(root.isEnabled());
+                assertTrue(child.isEnabled());
+                assertEquals(0.91f, root.getAlpha(), 0.001f);
+                assertEquals(0.37f, child.getAlpha(), 0.001f);
+                assertEquals("기존 설명", root.getContentDescription());
+                assertEquals("자식 설명", child.getContentDescription());
+            });
+        }
+    }
+
+    @Test
+    public void stateStoreUsesWeakKeysAndWeakSnapshotViews() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                FormSystem forms = new FormSystem(activity.ui(), activity);
+                LinearLayout root = new LinearLayout(activity);
+                root.addView(new TextView(activity));
+
+                forms.disabled(root, true);
+                forms.loading(root, true, "불러오는 중");
+
+                assertWeakStateStore(forms, "disabledStates");
+                assertWeakStateStore(forms, "loadingStates");
             });
         }
     }
@@ -155,6 +237,40 @@ public final class FormSystemStateTest {
                 input.setText("100");
                 assertEquals(View.GONE, error.getVisibility());
             });
+        }
+    }
+
+    private static void assertWeakStateStore(FormSystem forms, String fieldName) {
+        try {
+            Field storeField = FormSystem.class.getDeclaredField(fieldName);
+            storeField.setAccessible(true);
+            Object store = storeField.get(forms);
+            assertTrue(store instanceof WeakHashMap);
+            Map<?, ?> entries = (Map<?, ?>) store;
+            assertFalse(entries.isEmpty());
+
+            Object snapshot = entries.values().iterator().next();
+            for (Field field : snapshot.getClass().getDeclaredFields()) {
+                assertFalse(
+                        "Snapshot must not strongly store a View: " + field.getName(),
+                        View.class.isAssignableFrom(field.getType())
+                );
+            }
+            Field statesField = snapshot.getClass().getDeclaredField("states");
+            statesField.setAccessible(true);
+            List<?> states = (List<?>) statesField.get(snapshot);
+            assertFalse(states.isEmpty());
+            Object state = states.get(0);
+            Field viewReference = state.getClass().getDeclaredField("viewReference");
+            assertTrue(WeakReference.class.isAssignableFrom(viewReference.getType()));
+            for (Field field : state.getClass().getDeclaredFields()) {
+                assertFalse(
+                        "Snapshot state must not strongly store a View: " + field.getName(),
+                        View.class.isAssignableFrom(field.getType())
+                );
+            }
+        } catch (ReflectiveOperationException error) {
+            throw new AssertionError(error);
         }
     }
 

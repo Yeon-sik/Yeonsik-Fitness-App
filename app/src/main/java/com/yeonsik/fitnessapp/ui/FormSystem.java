@@ -9,9 +9,10 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import java.util.IdentityHashMap;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
+import java.util.WeakHashMap;
 
 /**
  * Shared form composition layer for Android View screens.
@@ -23,8 +24,12 @@ import java.util.Map;
 public final class FormSystem {
     private final FitnessUi ui;
     private final Activity activity;
-    private final Map<View, ViewStateSnapshot> disabledStates = new IdentityHashMap<>();
-    private final Map<View, ViewStateSnapshot> loadingStates = new IdentityHashMap<>();
+    /*
+     * Android View uses object identity for equals/hashCode, so WeakHashMap preserves that
+     * lookup while the snapshot below keeps only weak View references.
+     */
+    private final WeakHashMap<View, ViewStateSnapshot> disabledStates = new WeakHashMap<>();
+    private final WeakHashMap<View, ViewStateSnapshot> loadingStates = new WeakHashMap<>();
 
     public FormSystem(FitnessUi ui, Activity activity) {
         if (ui == null || activity == null) {
@@ -286,7 +291,8 @@ public final class FormSystem {
     }
 
     private void captureState(View view, ViewStateSnapshot snapshot) {
-        snapshot.states.put(view, new ViewState(
+        snapshot.states.add(new ViewState(
+                view,
                 view.isEnabled(),
                 view.getAlpha(),
                 view.getContentDescription()
@@ -321,17 +327,23 @@ public final class FormSystem {
     }
 
     private static final class ViewStateSnapshot {
-        private final IdentityHashMap<View, ViewState> states = new IdentityHashMap<>();
+        private final List<ViewState> states = new ArrayList<>();
 
         private CharSequence contentDescription(View view) {
-            ViewState state = states.get(view);
-            return state == null ? view.getContentDescription() : state.contentDescription;
+            for (ViewState state : states) {
+                if (state.view() == view) {
+                    return state.contentDescription;
+                }
+            }
+            return view.getContentDescription();
         }
 
         private void restore() {
-            for (Map.Entry<View, ViewState> entry : states.entrySet()) {
-                View view = entry.getKey();
-                ViewState state = entry.getValue();
+            for (ViewState state : states) {
+                View view = state.view();
+                if (view == null) {
+                    continue;
+                }
                 view.setEnabled(state.enabled);
                 view.setAlpha(state.alpha);
                 view.setContentDescription(state.contentDescription);
@@ -340,14 +352,25 @@ public final class FormSystem {
     }
 
     private static final class ViewState {
+        private final WeakReference<View> viewReference;
         private final boolean enabled;
         private final float alpha;
         private final CharSequence contentDescription;
 
-        private ViewState(boolean enabled, float alpha, CharSequence contentDescription) {
+        private ViewState(
+                View view,
+                boolean enabled,
+                float alpha,
+                CharSequence contentDescription
+        ) {
+            this.viewReference = new WeakReference<>(view);
             this.enabled = enabled;
             this.alpha = alpha;
             this.contentDescription = contentDescription;
+        }
+
+        private View view() {
+            return viewReference.get();
         }
     }
 }

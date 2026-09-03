@@ -53,7 +53,7 @@ public final class MainActivityDiningOutTabTest {
 
                 clickText(root, "외식만 기록");
 
-                TextView error = findTextContaining(root, "먹은 메뉴을 입력하세요.");
+                TextView error = findTextContaining(root, "먹은 메뉴를 입력하세요.");
                 assertNotNull(error);
                 assertEquals(View.VISIBLE, error.getVisibility());
 
