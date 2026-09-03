@@ -29,22 +29,25 @@ import java.util.List;
 public final class MealDialogController {
     private final ScreenHost host;
     private final FitnessUi ui;
+    private final FormSystem forms;
     private final FitnessRepository repository;
     private final NutritionCatalogRepository catalogRepository;
 
     public MealDialogController(ScreenHost host) {
         this.host = host;
         this.ui = host.ui();
+        this.forms = new FormSystem(ui, host.activity());
         this.repository = host.repository();
         this.catalogRepository = host.nutritionCatalogRepository();
     }
 
     public void show() {
-        LinearLayout form = ui.form();
+        LinearLayout form = forms.column();
+        form.setPadding(ui.dp(4), ui.dp(4), ui.dp(4), ui.dp(4));
         String todayMealDate = host.today();
         String yesterdayMealDate = LocalDate.parse(todayMealDate).minusDays(1).toString();
         String[] selectedMealDate = {todayMealDate};
-        Button mealDay = ui.button("식사일: 오늘 (탭하여 전날로 변경)", false, null);
+        Button mealDay = forms.selector("식사일: 오늘 (탭하여 전날로 변경)", null);
         mealDay.setOnClickListener(v -> {
             boolean isToday = todayMealDate.equals(selectedMealDate[0]);
             selectedMealDate[0] = isToday ? yesterdayMealDate : todayMealDate;
@@ -53,29 +56,28 @@ public final class MealDialogController {
                     : "식사일: 오늘 (탭하여 전날로 변경)");
         });
 
-        EditText menu = ui.input("식단 내용", "닭가슴살 샐러드");
-        EditText calories = ui.numberInput("칼로리 kcal (선택)", "");
-        EditText protein = ui.decimalInput("단백질 g (선택)", "");
-        EditText carbs = ui.decimalInput("탄수화물 g (선택)", "");
-        EditText fat = ui.decimalInput("지방 g (선택)", "");
-        Button loadPreset = ui.button("", false, null);
+        EditText menu = forms.textInput("식단 내용", "닭가슴살 샐러드");
+        EditText calories = forms.numberInput("입력", "");
+        EditText protein = forms.decimalInput("입력", "");
+        EditText carbs = forms.decimalInput("입력", "");
+        EditText fat = forms.decimalInput("입력", "");
+        NutritionRow caloriesRow = forms.nutrientInputRow("칼로리 (선택)", "kcal", calories);
+        NutritionRow proteinRow = forms.nutrientInputRow("단백질 (선택)", "g", protein);
+        NutritionRow carbsRow = forms.nutrientInputRow("탄수화물 (선택)", "g", carbs);
+        NutritionRow fatRow = forms.nutrientInputRow("지방 (선택)", "g", fat);
+        Button loadPreset = ui.secondaryButton("", null);
         updatePresetButton(loadPreset);
         loadPreset.setOnClickListener(v -> showPresetPicker(
                 loadPreset, menu, calories, protein, carbs, fat));
-        Button savePreset = ui.button("현재 입력을 메뉴로 저장", false, null);
+        Button savePreset = ui.secondaryButton("현재 입력을 메뉴로 저장", null);
         savePreset.setOnClickListener(v -> savePreset(
                 loadPreset, menu, calories, protein, carbs, fat));
 
         List<MealCompositionItem> compositionItems = new ArrayList<>();
         LinearLayout compositionRows = new LinearLayout(host.activity());
         compositionRows.setOrientation(LinearLayout.VERTICAL);
-        TextView compositionTotal = ui.text(
-                "음식을 추가하면 영양값을 자동 계산합니다.",
-                13,
-                FitnessUi.COLOR_MUTED,
-                false
-        );
-        Button addFood = ui.button("음식/재료 추가", false, null);
+        LinearLayout compositionTotal = forms.column();
+        Button addFood = ui.secondaryButton("음식/재료 추가", null);
         addFood.setOnClickListener(v -> showFoodPicker(
                 compositionItems,
                 compositionRows,
@@ -85,23 +87,34 @@ public final class MealDialogController {
                 carbs,
                 fat
         ));
-        Button saveRecipe = ui.button("현재 구성을 메뉴로 저장", false, null);
+        Button saveRecipe = ui.secondaryButton("현재 구성을 메뉴로 저장", null);
         saveRecipe.setOnClickListener(v -> saveRecipe(menu, compositionItems));
 
         ui.addAll(
                 form,
-                mealDay,
+                forms.field("식사일", mealDay),
                 loadPreset,
-                menu,
+                forms.field("메뉴명", menu),
                 addFood,
+                forms.sectionTitle("구성 합계"),
                 compositionTotal,
                 compositionRows,
+                forms.sectionTitle("영양정보 (선택)"),
+                caloriesRow.view(),
+                carbsRow.view(),
+                proteinRow.view(),
+                fatRow.view(),
+                saveRecipe,
+                savePreset
+        );
+        renderComposition(
+                compositionItems,
+                compositionRows,
+                compositionTotal,
                 calories,
                 protein,
                 carbs,
-                fat,
-                saveRecipe,
-                savePreset
+                fat
         );
         ui.bottomSheet("식단 기록", form,
                 "저장", () -> {
@@ -128,15 +141,15 @@ public final class MealDialogController {
     private void showFoodPicker(
             List<MealCompositionItem> compositionItems,
             LinearLayout compositionRows,
-            TextView compositionTotal,
+            LinearLayout compositionTotal,
             EditText calories,
             EditText protein,
             EditText carbs,
             EditText fat
     ) {
-        LinearLayout body = ui.form();
+        LinearLayout body = forms.column();
         EditText search = ui.searchInput("음식 이름 검색");
-        Button newFood = ui.button("새 음식/재료 직접 입력", true, null);
+        Button newFood = forms.bottomAction("새 음식/재료 직접 입력", null);
         LinearLayout results = new LinearLayout(host.activity());
         results.setOrientation(LinearLayout.VERTICAL);
         ScrollView scroll = new ScrollView(host.activity());
@@ -144,7 +157,7 @@ public final class MealDialogController {
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
         ));
-        ui.addAll(body, search, newFood, scroll);
+        ui.addAll(body, forms.sectionTitle("음식 선택"), forms.field("음식 검색", search), newFood, scroll);
 
         final Dialog[] pickerHolder = new Dialog[1];
 
@@ -247,14 +260,14 @@ public final class MealDialogController {
             NutritionFood food,
             List<MealCompositionItem> compositionItems,
             LinearLayout compositionRows,
-            TextView compositionTotal,
+            LinearLayout compositionTotal,
             EditText calories,
             EditText protein,
             EditText carbs,
             EditText fat
     ) {
-        LinearLayout body = ui.form();
-        EditText quantity = ui.decimalInput(
+        LinearLayout body = forms.column();
+        EditText quantity = forms.decimalInput(
                 "수량 (" + NutritionUnit.display(food.basisUnit) + ")",
                 NutritionCalculator.trim(food.basisAmount)
         );
@@ -273,7 +286,7 @@ public final class MealDialogController {
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
-        ), quantity);
+        ), forms.field("섭취량 (" + NutritionUnit.display(food.basisUnit) + ")", quantity));
 
         ui.validatedSheet("섭취량 입력", body, "추가", () -> {
             try {
@@ -304,15 +317,15 @@ public final class MealDialogController {
     private void showNewFoodDialog(
             List<MealCompositionItem> compositionItems,
             LinearLayout compositionRows,
-            TextView compositionTotal,
+            LinearLayout compositionTotal,
             EditText calories,
             EditText protein,
             EditText carbs,
             EditText fat
     ) {
-        LinearLayout body = ui.form();
-        EditText name = ui.input("이름", "");
-        Button kindButton = ui.button("유형: 외부 메뉴 (탭하여 재료)", false, null);
+        LinearLayout body = forms.column();
+        EditText name = forms.textInput("이름", "");
+        Button kindButton = forms.selector("유형: 외부 메뉴 (탭하여 재료)", null);
         String[] selectedKind = {NutritionFood.KIND_EXTERNAL_MENU};
         kindButton.setOnClickListener(v -> {
             boolean ingredient = NutritionFood.KIND_EXTERNAL_MENU.equals(selectedKind[0]);
@@ -323,9 +336,9 @@ public final class MealDialogController {
                     ? "유형: 재료 (탭하여 외부 메뉴)"
                     : "유형: 외부 메뉴 (탭하여 재료)");
         });
-        EditText basisAmount = ui.decimalInput("기준 수량", "100");
+        EditText basisAmount = forms.decimalInput("기준 수량", "100");
         Button basisUnit = NutritionUnitSelector.create(ui, host.activity(), NutritionUnit.GRAM);
-        Button prepStateButton = ui.button("", false, null);
+        Button prepStateButton = forms.selector("", null);
         String[] selectedPrepState = {NutritionFood.PREP_UNSPECIFIED};
         prepStateButton.setText(prepStateButtonLabel(selectedPrepState[0]));
         prepStateButton.setOnClickListener(v -> {
@@ -342,11 +355,13 @@ public final class MealDialogController {
         NutritionUnitPreview.bind(unitNutritionPreview, basisAmount, basisUnit, nutrients);
         ui.addAll(
                 body,
-                name,
-                kindButton,
-                basisAmount,
-                basisUnit,
-                prepStateButton,
+                forms.sectionTitle("음식 정보"),
+                forms.field("이름", name),
+                forms.field("유형", kindButton),
+                forms.sectionTitle("분류와 기준량"),
+                forms.field("기준 수량", basisAmount),
+                forms.field("기준 단위", basisUnit),
+                forms.field("조리 상태", prepStateButton),
                 ui.text(
                         "아래 값은 모두 위 기준 수량에 대한 값입니다.",
                         13,
@@ -402,7 +417,7 @@ public final class MealDialogController {
     private void renderComposition(
             List<MealCompositionItem> items,
             LinearLayout rows,
-            TextView totalView,
+            LinearLayout totalView,
             EditText calories,
             EditText protein,
             EditText carbs,
@@ -439,61 +454,38 @@ public final class MealDialogController {
         }
 
         NutritionTotals total = NutritionCalculator.sum(items);
-        totalView.setText(items.isEmpty()
-                ? "음식을 추가하면 영양값을 자동 계산합니다."
-                : totalSummary(total));
+        totalView.removeAllViews();
+        if (items.isEmpty()) {
+            totalView.addView(forms.helper("음식을 추가하면 영양값을 자동 계산합니다."));
+        } else {
+            for (String key : new String[]{
+                    NutritionProfile.CALORIES_KCAL,
+                    NutritionProfile.CARBS_GRAMS,
+                    NutritionProfile.PROTEIN_GRAMS,
+                    NutritionProfile.FAT_GRAMS,
+                    NutritionProfile.SUGARS_GRAMS,
+                    NutritionProfile.SATURATED_FAT_GRAMS,
+                    NutritionProfile.SODIUM_MG
+            }) {
+                totalView.addView(forms.nutrientRow(
+                        key,
+                        NutritionCalculator.describeTotal(total.total(key))
+                ), ui.fullWidthParams(0));
+            }
+            for (String code : total.knownMicronutrientCodes()) {
+                totalView.addView(forms.nutrientRow(
+                        NutrientCode.labelOf(code),
+                        NutritionCalculator.describeTotal(total.total(code)),
+                        NutrientCode.displayUnit(NutrientCode.unitOf(code))
+                ), ui.fullWidthParams(0));
+            }
+        }
         if (!items.isEmpty()) {
             calories.setText(String.valueOf(Math.round(total.calories())));
             protein.setText(NutritionCalculator.trim(total.proteinGrams()));
             carbs.setText(NutritionCalculator.trim(total.carbsGrams()));
             fat.setText(NutritionCalculator.trim(total.fatGrams()));
         }
-    }
-
-    /**
-     * 구성 합계 요약.
-     *
-     * <p>일부 음식이 어떤 영양소를 모르면 합계에 "≥"와 미상 건수를 붙인다. 모름을 0으로
-     * 더해 놓고 정확한 값처럼 보여 주면 장기 기록이 실제보다 낙관적으로 왜곡된다.</p>
-     */
-    private String totalSummary(NutritionTotals total) {
-        StringBuilder summary = new StringBuilder("구성 합계: ")
-                .append(Math.round(total.calories())).append("kcal · ")
-                .append(NutritionCalculator.trim(total.proteinGrams())).append("g P · ")
-                .append(NutritionCalculator.trim(total.carbsGrams())).append("g C · ")
-                .append(NutritionCalculator.trim(total.fatGrams())).append("g F");
-        summary.append("\n나트륨 ")
-                .append(NutritionCalculator.describeTotal(
-                        total.total(NutritionProfile.SODIUM_MG))).append("mg · 포화지방 ")
-                .append(NutritionCalculator.describeTotal(
-                        total.total(NutritionProfile.SATURATED_FAT_GRAMS))).append("g · 당류 ")
-                .append(NutritionCalculator.describeTotal(
-                        total.total(NutritionProfile.SUGARS_GRAMS))).append("g");
-
-        List<String> recommended = new ArrayList<>();
-        for (String key : NutritionProfile.RECOMMENDED_TYPED_KEYS) {
-            NutritionTotals.Total value = total.total(key);
-            if (value.knownCount() > 0) {
-                recommended.add(NutritionProfile.labelOf(key) + " "
-                        + NutritionCalculator.describeTotal(value)
-                        + NutritionProfile.unitOf(key));
-            }
-        }
-        if (!recommended.isEmpty()) {
-            summary.append("\n").append(String.join(" · ", recommended));
-        }
-
-        List<String> micronutrients = new ArrayList<>();
-        for (String code : total.knownMicronutrientCodes()) {
-            NutritionTotals.Total value = total.total(code);
-            micronutrients.add(NutrientCode.labelOf(code) + " "
-                    + NutritionCalculator.describeTotal(value)
-                    + NutrientCode.displayUnit(NutrientCode.unitOf(code)));
-        }
-        if (!micronutrients.isEmpty()) {
-            summary.append("\n").append(String.join(" · ", micronutrients));
-        }
-        return summary.toString();
     }
 
     /** 선택한 음식이 아는 미네랄·비타민을 기준량 기준으로 보여 준다. */

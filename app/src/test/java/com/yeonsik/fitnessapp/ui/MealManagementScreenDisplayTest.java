@@ -34,6 +34,14 @@ public final class MealManagementScreenDisplayTest {
                         NutritionProfile.CARBS_GRAMS
                 )
         );
+        assertEquals(
+                "칼로리",
+                NutritionRow.displayLabel(NutritionProfile.CALORIES_KCAL)
+        );
+        assertEquals(
+                "kcal",
+                NutritionRow.displayUnit(NutritionProfile.CALORIES_KCAL)
+        );
     }
 
     @Test

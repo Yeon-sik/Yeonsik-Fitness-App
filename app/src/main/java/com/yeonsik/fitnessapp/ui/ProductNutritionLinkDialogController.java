@@ -21,6 +21,7 @@ import java.util.List;
 final class ProductNutritionLinkDialogController {
     private final ScreenHost host;
     private final FitnessUi ui;
+    private final FormSystem forms;
     private final NutritionCatalogRepository repository;
     private Dialog activeDialog;
     private boolean publicationUpdating;
@@ -28,12 +29,14 @@ final class ProductNutritionLinkDialogController {
     ProductNutritionLinkDialogController(ScreenHost host) {
         this.host = host;
         this.ui = host.ui();
+        this.forms = new FormSystem(ui, host.activity());
         this.repository = host.nutritionCatalogRepository();
     }
 
     void show(NutritionFood food) {
         dismissActiveDialog();
-        LinearLayout body = ui.form();
+        LinearLayout body = forms.column();
+        body.setPadding(ui.dp(20), ui.dp(4), ui.dp(20), ui.dp(16));
         ProductNutritionLink approved = repository.approvedProductLink(food.id);
         List<ProductNutritionLink> suggestions = repository.pendingProductLinkSuggestions(food.id);
         boolean isPublic = repository.isFoodPublic(food.id);
@@ -54,11 +57,11 @@ final class ProductNutritionLinkDialogController {
         if (approved == null) {
             body.addView(ui.keyValue("현재 연결", "없음 (영양 단독 항목)"));
         } else {
-            body.addView(ui.fieldLabel("현재 승인 연결"));
+            body.addView(forms.sectionTitle("현재 승인 연결"), ui.fullWidthParams(0));
             body.addView(ui.text(approved.displayLabel(), 12, FitnessUi.COLOR_TEXT, false));
-            Button refresh = ui.button("상품·가격 새로고침", false,
+            Button refresh = ui.secondaryButton("상품·가격 새로고침",
                     v -> refreshApprovedProduct(food, approved));
-            refresh.setEnabled(priceTraceConfigured);
+            forms.disabled(refresh, !priceTraceConfigured);
             Button unlink = ui.button("PriceTrace 연결 해제", false,
                     v -> confirmUnlink(food, approved));
             body.addView(ui.buttonRow(refresh, unlink), ui.fullWidthParams(ui.dp(10)));
@@ -79,7 +82,7 @@ final class ProductNutritionLinkDialogController {
         }
 
         if (!suggestions.isEmpty()) {
-            body.addView(ui.fieldLabel("PriceTrace 제안"));
+            body.addView(forms.sectionTitle("PriceTrace 제안"), ui.fullWidthParams(ui.dp(4)));
             for (ProductNutritionLink suggestion : suggestions) {
                 Button review = ui.button(
                         "제안 검토 · " + suggestion.displayLabel(),
@@ -93,7 +96,7 @@ final class ProductNutritionLinkDialogController {
         EditText search = ui.searchInput("PriceTrace 브랜드·상품명 검색");
         search.setText(food.displayName());
         search.setSelection(search.length());
-        Button searchButton = ui.button("상품 검색", true, null);
+        Button searchButton = ui.primaryButton("상품 검색", null);
         TextView resultStatus = ui.text(
                 priceTraceConfigured
                         ? "이름은 후보를 좁히는 용도입니다."
@@ -106,20 +109,20 @@ final class ProductNutritionLinkDialogController {
         results.setOrientation(LinearLayout.VERTICAL);
 
         if (isPublic) {
-            search.setEnabled(false);
-            searchButton.setEnabled(false);
+            forms.disabled(search, true);
+            forms.disabled(searchButton, true);
             resultStatus.setText("상품 연결을 바꾸려면 PriceTrace 공개를 먼저 취소하세요.");
         } else if (!priceTraceConfigured) {
-            search.setEnabled(false);
-            searchButton.setEnabled(false);
+            forms.disabled(search, true);
+            forms.disabled(searchButton, true);
         }
 
-        body.addView(ui.fieldLabel("새 상품 연결 또는 변경"));
-        body.addView(search, ui.fullWidthParams(ui.dp(8)));
+        body.addView(forms.sectionTitle("새 상품 연결 또는 변경"), ui.fullWidthParams(ui.dp(4)));
+        body.addView(forms.field("상품 검색", search), ui.fullWidthParams(ui.dp(4)));
         body.addView(searchButton, ui.fullWidthParams(ui.dp(8)));
         body.addView(resultStatus, ui.fullWidthParams(ui.dp(8)));
         if (!priceTraceConfigured) {
-            body.addView(ui.button("PriceTrace 연결 설정 열기", false, v -> {
+            body.addView(ui.secondaryButton("PriceTrace 연결 설정 열기", v -> {
                 dismissActiveDialog();
                 host.openSettingsConnections();
             }), ui.fullWidthParams(ui.dp(8)));
@@ -132,14 +135,14 @@ final class ProductNutritionLinkDialogController {
                 host.toast("검색할 상품명을 입력하세요.");
                 return;
             }
-            searchButton.setEnabled(false);
+            forms.loading(searchButton, true, "PriceTrace 상품을 불러오는 중");
             resultStatus.setText("product-read.v1 조회 중…");
             results.removeAllViews();
             host.searchPriceTraceProducts(query, new ScreenHost.ProductSearchCallback() {
                 @Override
                 public void onComplete(List<ProductReadV1> products) {
                     host.activity().runOnUiThread(() -> {
-                        searchButton.setEnabled(true);
+                        forms.loading(searchButton, false, null);
                         renderResults(food, products, results, resultStatus);
                     });
                 }
@@ -147,7 +150,7 @@ final class ProductNutritionLinkDialogController {
                 @Override
                 public void onError(Exception error) {
                     host.activity().runOnUiThread(() -> {
-                        searchButton.setEnabled(true);
+                        forms.loading(searchButton, false, null);
                         resultStatus.setText(error.getMessage() == null
                                 ? "PriceTrace 상품 조회에 실패했습니다."
                                 : error.getMessage());
@@ -177,7 +180,8 @@ final class ProductNutritionLinkDialogController {
         boolean hasExactIdentity = hasExactDiningOutIdentity(food);
         boolean needsIdentityRepair = hasPriceTraceIdentity(food) && !hasExactIdentity;
         boolean priceTraceAuthenticated = host.priceTraceSupabaseConfig().isConfigured();
-        LinearLayout body = ui.form();
+        LinearLayout body = forms.column();
+        body.setPadding(ui.dp(20), ui.dp(4), ui.dp(20), ui.dp(16));
         body.addView(ui.text(
                 "식당·메뉴 공개는 일반 완제품 공개와 분리됩니다. 선택한 PriceTrace 식당·지점·메뉴 ID를 그대로 사용하며 이름으로 연결하지 않습니다.",
                 12,
@@ -210,7 +214,7 @@ final class ProductNutritionLinkDialogController {
                 !isPublic && priceTraceAuthenticated,
                 v -> confirmDiningOutPublication(food, !isPublic)
         );
-        publication.setEnabled(isPublic || priceTraceAuthenticated);
+        forms.disabled(publication, !(isPublic || priceTraceAuthenticated));
         body.addView(publication, ui.fullWidthParams(ui.dp(8)));
         body.addView(ui.text(
                 !priceTraceAuthenticated
@@ -383,7 +387,8 @@ final class ProductNutritionLinkDialogController {
                 food.basisUnit
         );
         if (exactProduct == null) {
-            LinearLayout body = ui.form();
+            LinearLayout body = forms.column();
+            body.setPadding(ui.dp(20), ui.dp(4), ui.dp(20), ui.dp(16));
             body.addView(ui.text(
                     standardProduct.standardProductLabel()
                             + "은 확인했지만 입력된 영양 기준량과 유일하게 일치하는 규격이 없습니다. "

@@ -28,9 +28,11 @@ import java.util.Locale;
 /** Supplement plan management and per-dose daily logging. */
 public final class SupplementScreen extends BaseScreen {
     private LocalDate selectedDate;
+    private final FormSystem formSystem;
 
     public SupplementScreen(ScreenHost host) {
         super(host);
+        formSystem = new FormSystem(host.ui(), host.activity());
     }
 
     @Override
@@ -104,9 +106,12 @@ public final class SupplementScreen extends BaseScreen {
             host.rerender();
         });
         boolean canMoveNext = selectedDate.isBefore(LocalDate.parse(host.today()).plusDays(1));
-        next.setEnabled(canMoveNext);
-        next.setAlpha(canMoveNext ? 1f : 0.45f);
+        formSystem.disabled(next, !canMoveNext);
         card.addView(ui().buttonRow(previous, next), ui().fullWidthParams(ui().dp(12)));
+        if (!canMoveNext) {
+            card.addView(formSystem.helper("아직 기록할 수 없는 미래 날짜입니다."),
+                    ui().fullWidthParams(ui().dp(4)));
+        }
         return card;
     }
 
@@ -161,21 +166,17 @@ public final class SupplementScreen extends BaseScreen {
                 v -> record(plan, SupplementRepository.STATUS_SKIPPED));
         boolean canRecord = plan.recordedCount() < plan.timesPerDay
                 && !selectedDate.isAfter(LocalDate.parse(host.today()));
-        taken.setEnabled(canRecord);
-        skipped.setEnabled(canRecord);
-        taken.setAlpha(canRecord ? 1f : 0.45f);
-        skipped.setAlpha(canRecord ? 1f : 0.45f);
+        formSystem.disabled(taken, !canRecord);
+        formSystem.disabled(skipped, !canRecord);
         card.addView(ui().buttonRow(taken, skipped), ui().fullWidthParams(ui().dp(12)));
 
         Button undo = ui().button("마지막 기록 취소", false, v -> {
             runAction(() -> host.supplementRepository().undoLatestRecord(
                     plan.scheduleId, selectedDate.toString()), "마지막 기록을 취소했습니다.");
         });
-        undo.setEnabled(plan.recordedCount() > 0);
-        undo.setAlpha(plan.recordedCount() > 0 ? 1f : 0.45f);
+        formSystem.disabled(undo, plan.recordedCount() <= 0);
         Button edit = ui().button("계획 수정", false, v -> showPlanDialog(plan));
-        edit.setEnabled(plan.currentlyActive);
-        edit.setAlpha(edit.isEnabled() ? 1f : 0.45f);
+        formSystem.disabled(edit, !plan.currentlyActive);
         card.addView(ui().buttonRow(undo, edit), ui().fullWidthParams(ui().dp(8)));
 
         card.addView(ui().button("논문 근거 보기", false,
@@ -239,8 +240,7 @@ public final class SupplementScreen extends BaseScreen {
     }
 
     private void showEvidenceDialog(SupplementPlan plan, SupplementEvidence evidence) {
-        LinearLayout body = new LinearLayout(host.activity());
-        body.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout body = formSystem.column();
         body.setPadding(ui().dp(20), ui().dp(4), ui().dp(20), ui().dp(16));
 
         addEvidenceText(body, "근거 상태", evidence.statusLabel, true);
@@ -321,11 +321,12 @@ public final class SupplementScreen extends BaseScreen {
         if (existing == null) timingValues.add("상관없음");
         else timingValues.addAll(existing.timingLabels);
 
-        LinearLayout body = new LinearLayout(host.activity());
-        body.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout body = formSystem.column();
         body.setPadding(ui().dp(20), ui().dp(8), ui().dp(20), ui().dp(8));
 
-        Button kindPicker = ui().button(initialKind.name, false, null);
+        body.addView(formSystem.sectionTitle("제품 정보"), ui().fullWidthParams(0));
+
+        Button kindPicker = formSystem.selector(initialKind.name, null);
         addDialogField(body, "영양제 종류", kindPicker);
         kindPicker.setOnClickListener(v -> {
             String[] labels = new String[SupplementCatalog.KINDS.size()];
@@ -349,7 +350,7 @@ public final class SupplementScreen extends BaseScreen {
         EditText brand = ui().input("예: 제품 라벨의 브랜드", existing == null ? "" : existing.brandName);
         addDialogField(body, "브랜드", brand);
 
-        Button formPicker = ui().button(productForm[0], false, null);
+        Button formPicker = formSystem.selector(productForm[0], null);
         addDialogField(body, "제품 형태", formPicker);
         formPicker.setOnClickListener(v -> showStringPicker("제품 형태",
                 SupplementRepository.PRODUCT_FORMS, selected -> {
@@ -357,7 +358,8 @@ public final class SupplementScreen extends BaseScreen {
                     formPicker.setText(selected);
                 }));
 
-        Button purposePicker = ui().button(SupplementRepository.purposeLabel(purposeCode[0]), false, null);
+        Button purposePicker = formSystem.selector(
+                SupplementRepository.purposeLabel(purposeCode[0]), null);
         addDialogField(body, "복용 목적", purposePicker);
         purposePicker.setOnClickListener(v -> {
             int selectedIndex = SupplementRepository.PURPOSE_CODES.indexOf(purposeCode[0]);
@@ -371,11 +373,12 @@ public final class SupplementScreen extends BaseScreen {
                     });
         });
 
-        EditText amount = ui().decimalInput("예: 500", existing == null
+        body.addView(formSystem.sectionTitle("섭취량"), ui().fullWidthParams(ui().dp(4)));
+        EditText amount = formSystem.decimalInput("예: 500", existing == null
                 ? "" : SupplementRepository.formatDose(existing.doseAmount, "").trim());
         addDialogField(body, "제품 1회 섭취량", amount);
 
-        Button unitPicker = ui().button(doseUnit[0], false, null);
+        Button unitPicker = formSystem.selector(doseUnit[0], null);
         addDialogField(body, "제품 섭취량 단위", unitPicker);
         unitPicker.setOnClickListener(v -> showStringPicker("제품 섭취량 단위",
                 SupplementRepository.DOSE_UNITS, selected -> {
@@ -383,29 +386,45 @@ public final class SupplementScreen extends BaseScreen {
                     unitPicker.setText(selected);
                 }));
 
-        EditText activeAmount = ui().decimalInput("선택 입력, 예: 500",
+        body.addView(formSystem.sectionTitle("주요 성분"), ui().fullWidthParams(ui().dp(4)));
+        EditText activeAmount = formSystem.decimalInput("선택 입력, 예: 500",
                 existing == null || existing.activeIngredientAmount == null ? ""
                         : SupplementRepository.formatDose(existing.activeIngredientAmount, "").trim());
-        addDialogField(body, "주요 성분량 (선택)", activeAmount);
-
-        Button activeUnitPicker = ui().button(activeUnit[0], false, null);
-        addDialogField(body, "주요 성분 단위", activeUnitPicker);
+        Button activeUnitPicker = formSystem.selector(activeUnit[0], null);
         activeUnitPicker.setOnClickListener(v -> showStringPicker("주요 성분 단위",
                 SupplementRepository.DOSE_UNITS, selected -> {
                     activeUnit[0] = selected;
                     activeUnitPicker.setText(selected);
                 }));
 
-        EditText ingredientDetails = ui().input("예: 크레아틴 모노하이드레이트",
+        EditText ingredientDetails = formSystem.textInput("예: 크레아틴 모노하이드레이트",
                 existing == null ? "" : existing.ingredientDetails);
-        addDialogField(body, "성분 형태·상세 (선택)", ingredientDetails);
+        LinearLayout ingredientFields = formSystem.column();
+        addDialogField(ingredientFields, "주요 성분량 (선택)", activeAmount);
+        addDialogField(ingredientFields, "주요 성분 단위", activeUnitPicker);
+        addDialogField(ingredientFields, "성분 형태·상세 (선택)", ingredientDetails);
+        boolean hasIngredientDetails = existing != null
+                && (existing.activeIngredientAmount != null
+                || !existing.ingredientDetails.trim().isEmpty());
+        ingredientFields.setVisibility(hasIngredientDetails ? View.VISIBLE : View.GONE);
+        Button ingredientToggle = ui().secondaryButton(
+                hasIngredientDetails ? "주요 성분 정보 접기" : "주요 성분 정보 열기",
+                null);
+        ingredientToggle.setOnClickListener(v -> {
+            boolean opening = ingredientFields.getVisibility() == View.GONE;
+            ingredientFields.setVisibility(opening ? View.VISIBLE : View.GONE);
+            ingredientToggle.setText(opening ? "주요 성분 정보 접기" : "주요 성분 정보 열기");
+        });
+        body.addView(ingredientToggle, ui().fullWidthParams(ui().dp(2)));
+        body.addView(ingredientFields, ui().fullWidthParams(0));
 
-        EditText times = ui().numberInput("1~6", existing == null
+        body.addView(formSystem.sectionTitle("복용 계획"), ui().fullWidthParams(ui().dp(4)));
+        EditText times = formSystem.numberInput("1~6", existing == null
                 ? "1" : String.valueOf(existing.timesPerDay));
         times.setInputType(InputType.TYPE_CLASS_NUMBER);
         addDialogField(body, "하루 횟수", times);
 
-        Button timingPicker = ui().button(timingSummary(timingValues), false, null);
+        Button timingPicker = formSystem.selector(timingSummary(timingValues), null);
         addDialogField(body, "회차별 복용 시점", timingPicker);
         timingPicker.setOnClickListener(v -> {
             try {
@@ -506,10 +525,9 @@ public final class SupplementScreen extends BaseScreen {
     private void showEffectCheckinDialog(SupplementPlan plan) {
         SupplementRepository.EffectCheckin latest = host.supplementRepository().latestEffectCheckin(plan.itemId);
         int[] score = {latest == null ? 3 : latest.effectScore};
-        LinearLayout body = new LinearLayout(host.activity());
-        body.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout body = formSystem.column();
         body.setPadding(ui().dp(20), ui().dp(8), ui().dp(20), ui().dp(8));
-        Button scorePicker = ui().button(score[0] + "점", false, null);
+        Button scorePicker = formSystem.selector(score[0] + "점", null);
         addDialogField(body, "최근 체감 (1 낮음 · 5 높음)", scorePicker);
         scorePicker.setOnClickListener(v -> ui().choiceSheet(
                 "체감 점수",
@@ -529,8 +547,9 @@ public final class SupplementScreen extends BaseScreen {
         EditText note = ui().input("수면·회복·운동 변화 등",
                 latest == null ? "" : latest.note);
         addDialogField(body, "메모", note);
-        TextView boundary = ui().text("체감 기록은 인과관계나 의학적 효능을 증명하지 않습니다. 심한 이상반응은 복용을 중단하고 전문가와 상의하세요.",
-                11, FitnessUi.COLOR_TERTIARY, false);
+        TextView boundary = formSystem.helper(
+                "체감 기록은 인과관계나 의학적 효능을 증명하지 않습니다. "
+                        + "심한 이상반응은 복용을 중단하고 전문가와 상의하세요.");
         boundary.setPadding(0, ui().dp(12), 0, 0);
         body.addView(boundary);
         ui().validatedSheet(
@@ -559,10 +578,7 @@ public final class SupplementScreen extends BaseScreen {
     }
 
     private void addDialogField(LinearLayout body, String label, View field) {
-        TextView caption = ui().caption(label, FitnessUi.COLOR_MUTED);
-        caption.setPadding(0, ui().dp(12), 0, ui().dp(6));
-        body.addView(caption);
-        body.addView(field, ui().fullWidthParams(0));
+        body.addView(formSystem.field(label, field), ui().fullWidthParams(ui().dp(6)));
     }
 
     private void showStringPicker(String title, List<String> values, ValueConsumer consumer) {
