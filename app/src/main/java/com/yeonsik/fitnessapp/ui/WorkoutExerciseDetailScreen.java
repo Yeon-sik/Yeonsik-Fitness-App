@@ -403,6 +403,13 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         setCard.addView(ui.button("볼륨 계산 방식", false,
                         v -> showVolumeCalculationDialog(activeExercise)),
                 ui.fullWidthParams(ui.dp(8)));
+        RuntimeExercisePreset volumePreset = runtimePresetForExercise(activeExercise);
+        String inputConventionHint = inputConventionHelper(volumePreset);
+        if (inputConventionHint != null) {
+            TextView hint = ui.text(inputConventionHint, 12, FitnessUi.COLOR_MUTED, false);
+            hint.setPadding(0, ui.dp(2), 0, 0);
+            setCard.addView(hint, ui.fullWidthParams(ui.dp(8)));
+        }
 
         TextView totalVolumeComparison = totalVolumeComparisonLabel(
                 ui,
@@ -1569,6 +1576,11 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         body.setOrientation(LinearLayout.VERTICAL);
         body.addView(ui.text("완료 세트의 파생 볼륨을 계산하는 기준입니다.",
                 13, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(8)));
+        String inputConventionDetail = inputConventionDialogText(runtimePresetForExercise(exercise));
+        if (inputConventionDetail != null) {
+            body.addView(ui.text(inputConventionDetail,
+                    12, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(8)));
+        }
         TextView formula = ui.num(
                 repository().volumeCalculationFormula(exercise),
                 19,
@@ -1582,6 +1594,44 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 12, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(8)));
         ui.bottomSheet("볼륨 계산 방식", body, "확인", () -> {
         }, null, null);
+    }
+
+    private static String inputConventionHelper(RuntimeExercisePreset preset) {
+        if (preset == null) {
+            return null;
+        }
+        boolean unilateral = ExerciseVolumeCalculator.sideMultiplier(preset.laterality()) > 1;
+        boolean independentImplements = preset.implementMultiplier > 1;
+        if (unilateral && independentImplements) {
+            return "편측: 중량·반복은 한쪽 기준 · 독립 중량 "
+                    + preset.implementMultiplier + "개: 중량은 한 개 기준";
+        }
+        if (unilateral) {
+            return "편측 운동: 중량과 반복은 한쪽 기준으로 입력합니다. 양측 수행분은 볼륨에서 자동 반영됩니다.";
+        }
+        if (independentImplements) {
+            return "독립 중량 " + preset.implementMultiplier + "개 사용: 중량은 한 개 기준으로 입력합니다.";
+        }
+        return null;
+    }
+
+    private static String inputConventionDialogText(RuntimeExercisePreset preset) {
+        if (preset == null) {
+            return null;
+        }
+        boolean unilateral = ExerciseVolumeCalculator.sideMultiplier(preset.laterality()) > 1;
+        boolean independentImplements = preset.implementMultiplier > 1;
+        if (unilateral && independentImplements) {
+            return "편측 운동: 중량과 반복은 한쪽 기준으로 입력합니다. 양측 수행분은 볼륨에서 자동 반영됩니다.\n"
+                    + "독립 중량 " + preset.implementMultiplier + "개 사용: 중량은 한 개 기준으로 입력합니다.";
+        }
+        if (unilateral) {
+            return "편측 운동: 중량과 반복은 한쪽 기준으로 입력합니다. 양측 수행분은 볼륨에서 자동 반영됩니다.";
+        }
+        if (independentImplements) {
+            return "독립 중량 " + preset.implementMultiplier + "개 사용: 중량은 한 개 기준으로 입력합니다.";
+        }
+        return null;
     }
 
     // ── 헬퍼 ─────────────────────────────────────────────────────────

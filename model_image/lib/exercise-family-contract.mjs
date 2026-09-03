@@ -21,6 +21,18 @@ const EXPECTED_FALLBACK_ORDER = [
   'family_default',
   'placeholder',
 ];
+const EXPECTED_INPUT_CONVENTION = Object.freeze({
+  storedLoad: 'per_implement_per_side_raw',
+  unilateralReps: 'per_side',
+  bilateralIndependentImplements: 'per_implement',
+  barbellLoad: 'total_including_bar',
+  machineCableSmithLoad: 'displayed_or_reproducible_machine_value',
+  mechanicalAdvantageConversion: false,
+  preMultiplyStoredLoad: false,
+  derivedMultiplierOnly: true,
+  bandFakeKgConversion: false,
+  bodyweightFakeKgConversion: false,
+});
 
 export class ExerciseFamilyContractError extends Error {
   constructor(message, details = []) {
@@ -288,6 +300,20 @@ export function validateExerciseFamilyContract(contract) {
       for (const [exerciseId, multiplier] of Object.entries(loadAccounting.implementMultiplierOverrides)) {
         if (!Number.isInteger(multiplier) || multiplier < 1) {
           errors.push(`loadAccounting.implementMultiplierOverrides.${exerciseId} must be a positive integer`);
+        }
+      }
+    }
+    if (!requireObject(loadAccounting.inputConvention, 'loadAccounting.inputConvention', errors)) {
+      // The map error is already recorded.
+    } else {
+      const unknownFields = Object.keys(loadAccounting.inputConvention)
+        .filter((field) => !Object.prototype.hasOwnProperty.call(EXPECTED_INPUT_CONVENTION, field));
+      if (unknownFields.length > 0) {
+        errors.push(`loadAccounting.inputConvention has unknown field(s): ${unknownFields.join(', ')}`);
+      }
+      for (const [field, expected] of Object.entries(EXPECTED_INPUT_CONVENTION)) {
+        if (loadAccounting.inputConvention[field] !== expected) {
+          errors.push(`loadAccounting.inputConvention.${field} must be ${String(expected)}`);
         }
       }
     }

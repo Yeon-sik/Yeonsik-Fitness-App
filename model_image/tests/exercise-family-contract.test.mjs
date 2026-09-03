@@ -24,6 +24,27 @@ test('normative exercise family contract validates without taxonomy edits', () =
   assert.equal(contract.loadAccounting.defaultImplementMultiplier, 1);
   assert.equal(contract.loadAccounting.implementMultiplierOverrides.chest_dumbbell_flat_bench_press, 2);
   assert.equal(contract.loadAccounting.lateralityOverrides.legs_dumbbell_bulgarian_split_squat, 'unilateral');
+  assert.deepEqual(contract.loadAccounting.inputConvention, {
+    storedLoad: 'per_implement_per_side_raw',
+    unilateralReps: 'per_side',
+    bilateralIndependentImplements: 'per_implement',
+    barbellLoad: 'total_including_bar',
+    machineCableSmithLoad: 'displayed_or_reproducible_machine_value',
+    mechanicalAdvantageConversion: false,
+    preMultiplyStoredLoad: false,
+    derivedMultiplierOnly: true,
+    bandFakeKgConversion: false,
+    bodyweightFakeKgConversion: false,
+  });
+});
+
+test('input convention validation fails closed instead of dropping contract fields', () => {
+  const contract = loadExerciseFamilyContract(contractPath);
+  contract.loadAccounting.inputConvention.storedLoad = 'pre_multiplied';
+  contract.loadAccounting.inputConvention.unreviewedField = true;
+  const errors = validateExerciseFamilyContract(contract);
+  assert.ok(errors.some((error) => error.includes('inputConvention has unknown field(s)')));
+  assert.ok(errors.some((error) => error.includes('inputConvention.storedLoad must be')));
 });
 
 test('the three resolved legacy IDs match exactly one intended family', () => {
@@ -35,6 +56,7 @@ test('the three resolved legacy IDs match exactly one intended family', () => {
 });
 
 test('legacy audit maps the complete catalog and preserves wall-sit time semantics', async () => {
+  const contract = loadExerciseFamilyContract(contractPath);
   const result = await auditLegacyExerciseMapping({ contractPath, legacyPath, noWrite: true });
   assert.equal(result.report.total, 340);
   assert.equal(result.report.mapped, 340);
@@ -69,7 +91,13 @@ test('legacy audit maps the complete catalog and preserves wall-sit time semanti
   assert.equal(singleArmRow.implementMultiplier, 1);
   assert.equal(bulgarianSplitSquat.laterality, 'unilateral');
   assert.equal(bulgarianSplitSquat.implementMultiplier, 2);
-  for (const merge of loadExerciseFamilyContract(contractPath).canonicalAliasMerges) {
+  assert.deepEqual(result.document.loadAccounting.inputConvention, contract.loadAccounting.inputConvention);
+  const generatedProjection = JSON.parse(await fs.readFile(
+    path.join(repositoryRoot, 'model_image', 'family', 'data', 'exercise-family-mapping-v1.json'),
+    'utf8',
+  ));
+  assert.deepEqual(generatedProjection.loadAccounting.inputConvention, contract.loadAccounting.inputConvention);
+  for (const merge of contract.canonicalAliasMerges) {
     const mergedEntries = merge.legacyIds.map((legacyId) => result.document.legacyExercises.find(
       (entry) => entry.legacyExerciseId === legacyId,
     ));

@@ -97,6 +97,17 @@ loadAccounting:
     arms_dumbbell_wrist_curl: 2
     arms_dumbbell_farmer_carry: 2
     arms_dumbbell_skull_crusher: 2
+  inputConvention:
+    storedLoad: per_implement_per_side_raw
+    unilateralReps: per_side
+    bilateralIndependentImplements: per_implement
+    barbellLoad: total_including_bar
+    machineCableSmithLoad: displayed_or_reproducible_machine_value
+    mechanicalAdvantageConversion: false
+    preMultiplyStoredLoad: false
+    derivedMultiplierOnly: true
+    bandFakeKgConversion: false
+    bodyweightFakeKgConversion: false
 metricProfiles:
 - reps
 - weight_reps
