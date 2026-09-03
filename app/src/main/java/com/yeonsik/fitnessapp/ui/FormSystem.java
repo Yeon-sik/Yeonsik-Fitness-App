@@ -23,7 +23,8 @@ import java.util.Map;
 public final class FormSystem {
     private final FitnessUi ui;
     private final Activity activity;
-    private final Map<View, CharSequence> contentDescriptions = new IdentityHashMap<>();
+    private final Map<View, ViewStateSnapshot> disabledStates = new IdentityHashMap<>();
+    private final Map<View, ViewStateSnapshot> loadingStates = new IdentityHashMap<>();
 
     public FormSystem(FitnessUi ui, Activity activity) {
         if (ui == null || activity == null) {
@@ -129,9 +130,23 @@ public final class FormSystem {
     public TextView error(String message) {
         TextView view = ui.text(message == null ? "" : message,
                 12, FitnessUi.COLOR_NEGATIVE, true);
-        view.setContentDescription("오류: " + (message == null ? "" : message));
         view.setLineSpacing(ui.dp(2), 1f);
+        showError(view, message);
         return view;
+    }
+    /** Shows or clears a previously created inline error without changing form structure. */
+    public void showError(TextView view, String message) {
+        if (view == null) {
+            return;
+        }
+        String normalized = message == null ? "" : message.trim();
+        view.setText(normalized);
+        view.setContentDescription(normalized.isEmpty() ? "오류" : "오류: " + normalized);
+        view.setVisibility(normalized.isEmpty() ? View.GONE : View.VISIBLE);
+    }
+
+    public void clearError(TextView view) {
+        showError(view, null);
     }
 
     /** Common single-line read-only total row. */
@@ -198,10 +213,36 @@ public final class FormSystem {
         if (view == null) {
             return;
         }
-        setEnabledRecursively(view, !disabled);
-        view.setAlpha(disabled ? 0.48f : 1f);
-        view.setContentDescription(appendState(view.getContentDescription(),
-                disabled ? "사용할 수 없음" : null));
+        if (!disabled) {
+            if (loadingStates.containsKey(view)) {
+                ViewStateSnapshot snapshot = disabledStates.remove(view);
+                if (snapshot != null) {
+                    // If disabled was cleared during loading, let loading restore the
+                    // state that existed before the disabled presentation.
+                    loadingStates.put(view, snapshot);
+                }
+                return;
+            }
+            ViewStateSnapshot snapshot = disabledStates.remove(view);
+            if (snapshot != null) {
+                snapshot.restore();
+                return;
+            }
+            // Without a snapshot, preserve descendant state so repeated calls stay idempotent.
+            view.setEnabled(true);
+            view.setAlpha(1f);
+            return;
+        }
+        ViewStateSnapshot snapshot = disabledStates.get(view);
+        if (snapshot == null) {
+            snapshot = loadingStates.containsKey(view)
+                    ? loadingStates.get(view)
+                    : captureState(view);
+            disabledStates.put(view, snapshot);
+        }
+        if (!loadingStates.containsKey(view)) {
+            applyDisabledState(view, snapshot);
+        }
     }
 
     /** Applies the shared loading state and restores the original accessibility label. */
@@ -210,16 +251,51 @@ public final class FormSystem {
             return;
         }
         if (loading) {
-            contentDescriptions.put(view, view.getContentDescription());
+            if (!loadingStates.containsKey(view)) {
+                loadingStates.put(view, captureState(view));
+            }
             setEnabledRecursively(view, false);
             view.setAlpha(0.58f);
             view.setContentDescription(message == null || message.trim().isEmpty()
                     ? "불러오는 중" : message);
         } else {
-            setEnabledRecursively(view, true);
-            view.setAlpha(1f);
-            CharSequence original = contentDescriptions.remove(view);
-            view.setContentDescription(original);
+            ViewStateSnapshot snapshot = loadingStates.remove(view);
+            if (snapshot != null) {
+                snapshot.restore();
+                ViewStateSnapshot disabledSnapshot = disabledStates.get(view);
+                if (disabledSnapshot != null) {
+                    applyDisabledState(view, disabledSnapshot);
+                }
+            }
+        }
+    }
+
+    private void applyDisabledState(View view, ViewStateSnapshot snapshot) {
+        setEnabledRecursively(view, false);
+        view.setAlpha(0.48f);
+        view.setContentDescription(appendState(
+                snapshot.contentDescription(view),
+                "사용할 수 없음"
+        ));
+    }
+
+    private ViewStateSnapshot captureState(View root) {
+        ViewStateSnapshot snapshot = new ViewStateSnapshot();
+        captureState(root, snapshot);
+        return snapshot;
+    }
+
+    private void captureState(View view, ViewStateSnapshot snapshot) {
+        snapshot.states.put(view, new ViewState(
+                view.isEnabled(),
+                view.getAlpha(),
+                view.getContentDescription()
+        ));
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                captureState(group.getChildAt(index), snapshot);
+            }
         }
     }
 
@@ -242,5 +318,36 @@ public final class FormSystem {
         }
         String value = original.toString();
         return value.contains(state) ? original : value + " · " + state;
+    }
+
+    private static final class ViewStateSnapshot {
+        private final IdentityHashMap<View, ViewState> states = new IdentityHashMap<>();
+
+        private CharSequence contentDescription(View view) {
+            ViewState state = states.get(view);
+            return state == null ? view.getContentDescription() : state.contentDescription;
+        }
+
+        private void restore() {
+            for (Map.Entry<View, ViewState> entry : states.entrySet()) {
+                View view = entry.getKey();
+                ViewState state = entry.getValue();
+                view.setEnabled(state.enabled);
+                view.setAlpha(state.alpha);
+                view.setContentDescription(state.contentDescription);
+            }
+        }
+    }
+
+    private static final class ViewState {
+        private final boolean enabled;
+        private final float alpha;
+        private final CharSequence contentDescription;
+
+        private ViewState(boolean enabled, float alpha, CharSequence contentDescription) {
+            this.enabled = enabled;
+            this.alpha = alpha;
+            this.contentDescription = contentDescription;
+        }
     }
 }

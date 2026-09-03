@@ -136,7 +136,7 @@ final class ProductNutritionLinkDialogController {
                 return;
             }
             forms.loading(searchButton, true, "PriceTrace 상품을 불러오는 중");
-            resultStatus.setText("product-read.v1 조회 중…");
+            resultStatus.setText("PriceTrace 상품 정보를 조회하는 중…");
             results.removeAllViews();
             host.searchPriceTraceProducts(query, new ScreenHost.ProductSearchCallback() {
                 @Override
@@ -193,11 +193,11 @@ final class ProductNutritionLinkDialogController {
                 isPublic ? "PT 공개" : "개인 식당 메뉴"
         ));
         body.addView(ui.keyValue(
-                "정확 identity",
+                "정확한 연결 정보",
                 hasExactIdentity
                         ? "연결됨"
                         : needsIdentityRepair
-                        ? "연결됨 · 지점 source code 보완 필요"
+                        ? "연결됨 · 지점 원본 코드 확인 필요"
                         : "없음"
         ));
         body.addView(ui.keyValue(
@@ -222,7 +222,7 @@ final class ProductNutritionLinkDialogController {
                         : hasExactIdentity
                         ? "공개하면 기존 PT 식당에 메뉴만 연결합니다."
                         : needsIdentityRepair
-                        ? "기존 PT 지점에서 source code를 확인한 뒤 identity를 보완하고 공개합니다."
+                        ? "기존 PT 지점에서 원본 코드를 확인한 뒤 연결 정보를 보완하고 공개합니다."
                         : "공개하면 PT에 식당·지점·메뉴를 함께 등록한 뒤 공개합니다.",
                 11,
                 FitnessUi.COLOR_TERTIARY,
@@ -293,7 +293,7 @@ final class ProductNutritionLinkDialogController {
                 title,
                 message,
                 publish
-                        ? "선택한 식당·메뉴 identity로 공개 상태를 변경합니다."
+                        ? "선택한 식당·메뉴 연결 정보로 공개 상태를 변경합니다."
                         : "기존 공개 상태만 취소하며 로컬 영양 기록은 유지됩니다.",
                 publish ? "공개" : "공개 취소",
                 () -> setDiningOutPublication(food, publish)

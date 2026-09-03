@@ -7,6 +7,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.NutrientCode;
 import com.yeonsik.fitnessapp.data.NutritionCalculator;
@@ -29,6 +30,7 @@ final class NutritionInputSection {
     private final FormSystem forms;
     private final Map<String, EditText> requiredInputs = new LinkedHashMap<>();
     private final Map<String, EditText> optionalInputs = new LinkedHashMap<>();
+    private final Map<String, TextView> errorViews = new LinkedHashMap<>();
     private final LinearLayout container;
 
     NutritionInputSection(FitnessUi ui, Activity activity) {
@@ -50,23 +52,37 @@ final class NutritionInputSection {
      */
     NutritionProfile profile() {
         NutritionProfile.Builder builder = NutritionProfile.builder();
+        clearErrors();
         for (Map.Entry<String, EditText> entry : requiredInputs.entrySet()) {
             String key = entry.getKey();
             String raw = FitnessUi.inputText(entry.getValue()).trim();
-            if (raw.isEmpty()) {
-                throw new IllegalArgumentException(
-                        NutritionRow.displayLabel(key) + "은(는) 필수 입력입니다."
-                );
+            try {
+                if (raw.isEmpty()) {
+                    throw new IllegalArgumentException(
+                            NutritionRow.displayLabel(key) + "은(는) 필수 입력입니다."
+                    );
+                }
+                builder.value(key, parse(key, raw));
+            } catch (IllegalArgumentException error) {
+                showError(key, error.getMessage());
+                focusInput(key);
+                throw error;
             }
-            builder.value(key, parse(key, raw));
         }
         for (Map.Entry<String, EditText> entry : optionalInputs.entrySet()) {
+            String key = entry.getKey();
             String raw = FitnessUi.inputText(entry.getValue()).trim();
             if (raw.isEmpty()) {
                 // 비워 두면 키를 넣지 않는다. 0으로 채우면 "모름"이 사라진다.
                 continue;
             }
-            builder.value(entry.getKey(), parse(entry.getKey(), raw));
+            try {
+                builder.value(key, parse(key, raw));
+            } catch (IllegalArgumentException error) {
+                showError(key, error.getMessage());
+                focusInput(key);
+                throw error;
+            }
         }
         return builder.build();
     }
@@ -162,13 +178,55 @@ final class NutritionInputSection {
                     NutritionRow.displayLabel(key) + (required ? " 필수" : " 선택")
             );
             target.put(key, input);
-            parent.addView(row.view(), new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-            ));
+            LinearLayout field = forms.column();
+            field.addView(row.view(), ui.fullWidthParams(0));
+            TextView error = forms.error("");
+            error.setPadding(0, 0, 0, ui.dp(2));
+            errorViews.put(key, error);
+            final String errorKey = key;
+            input.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+                }
+                @Override
+                public void onTextChanged(CharSequence text, int start, int before, int count) {
+                    clearError(errorKey);
+                }
+                @Override
+                public void afterTextChanged(Editable editable) {
+                }
+            });
+            field.addView(error, ui.fullWidthParams(0));
+            parent.addView(field, ui.fullWidthParams(0));
         }
     }
 
+    private void showError(String key, String message) {
+        TextView error = errorViews.get(key);
+        if (error != null) {
+            forms.showError(error, message);
+        }
+    }
+    private void clearError(String key) {
+        TextView error = errorViews.get(key);
+        if (error != null) {
+            forms.clearError(error);
+        }
+    }
+    private void clearErrors() {
+        for (TextView error : errorViews.values()) {
+            forms.clearError(error);
+        }
+    }
+    private void focusInput(String key) {
+        EditText input = requiredInputs.get(key);
+        if (input == null) {
+            input = optionalInputs.get(key);
+        }
+        if (input != null) {
+            input.requestFocus();
+        }
+    }
     private LinearLayout column() {
         LinearLayout layout = new LinearLayout(activity);
         layout.setOrientation(LinearLayout.VERTICAL);

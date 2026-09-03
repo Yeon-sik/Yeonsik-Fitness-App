@@ -102,6 +102,7 @@ public final class MealManagementScreen extends BaseScreen {
     private Button mealTimeButton;
     private EditText menuNameInput;
     private TextView diningOutSelectionSummary;
+    private TextView diningOutValidationError;
     private EditText diningOutStoreInput;
     private EditText diningOutBranchInput;
     private EditText diningOutNominalServingsInput;
@@ -1190,7 +1191,7 @@ public final class MealManagementScreen extends BaseScreen {
                 body.addView(ui.caption("공유 섭취", FitnessUi.COLOR_TERTIARY),
                         ui.fullWidthParams(ui.dp(12)));
                 body.addView(ui.text(
-                        "새 계산 계약 · " + consumption.dinerCount + "명 · 내 몫 "
+                        "새 계산 방식 · " + consumption.dinerCount + "명 · 내 몫 "
                                 + Math.round(consumption.percentage()) + "% · "
                                 + (consumption.isEqualSplit() ? "균등 추정" : "직접 입력"),
                         14,
@@ -1721,11 +1722,15 @@ public final class MealManagementScreen extends BaseScreen {
         form.addView(diningOutOptionsSection(), ui.fullWidthParams(ui.dp(12)));
 
         form.addView(ui.text(
-                "각 메뉴는 독립적인 메뉴와 옵션 snapshot으로 기록됩니다. 칼로리·탄수화물·단백질·지방은 메뉴별 필수이며, 당류·포화지방·나트륨은 선택 입력입니다.",
+                "각 메뉴는 독립적인 메뉴와 옵션 구성 정보로 기록됩니다. 칼로리·탄수화물·단백질·지방은 메뉴별 필수이며, 당류·포화지방·나트륨은 선택 입력입니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
         ), ui.fullWidthParams(ui.dp(12)));
+        diningOutValidationError = formSystem.error("");
+        diningOutValidationError.setPadding(0, ui.dp(4), 0, 0);
+        form.addView(diningOutValidationError, ui.fullWidthParams(ui.dp(8)));
+        watchDiningOutValidationInputs();
 
         Button recordDiningOut = ui.secondaryButton("외식만 기록", v -> saveMeal(false));
         Button saveMenuAndRecord = ui.primaryButton(
@@ -1737,6 +1742,72 @@ public final class MealManagementScreen extends BaseScreen {
         return form;
     }
 
+    private void watchDiningOutValidationInputs() {
+        watchDiningOutValidationInput(diningOutStoreInput);
+        watchDiningOutValidationInput(diningOutBranchInput);
+        watchDiningOutValidationInput(diningOutNominalServingsInput);
+        watchDiningOutValidationInput(diningOutDinerCountInput);
+        watchDiningOutValidationInput(diningOutConsumedPercentInput);
+        watchDiningOutValidationInputs(diningOutMenuNameInputs);
+        watchDiningOutValidationInputs(diningOutMenuCaloriesInputs);
+        watchDiningOutValidationInputs(diningOutMenuProteinInputs);
+        watchDiningOutValidationInputs(diningOutMenuCarbsInputs);
+        watchDiningOutValidationInputs(diningOutMenuFatInputs);
+        watchDiningOutValidationInputs(diningOutMenuSodiumInputs);
+        watchDiningOutValidationInputs(diningOutMenuSugarsInputs);
+        watchDiningOutValidationInputs(diningOutMenuSaturatedFatInputs);
+        watchDiningOutValidationInputs(diningOutOptionInputs);
+        watchDiningOutValidationInputs(diningOutOptionCaloriesInputs);
+        watchDiningOutValidationInputs(diningOutOptionProteinInputs);
+        watchDiningOutValidationInputs(diningOutOptionCarbsInputs);
+        watchDiningOutValidationInputs(diningOutOptionFatInputs);
+        watchDiningOutValidationInputs(diningOutOptionSodiumInputs);
+        watchDiningOutValidationInputs(diningOutOptionSugarsInputs);
+        watchDiningOutValidationInputs(diningOutOptionSaturatedFatInputs);
+        watchDiningOutValidationInputs(diningOutOptionConsumedPercentInputs);
+    }
+
+    private void watchDiningOutValidationInputs(List<EditText> inputs) {
+        for (EditText input : inputs) {
+            watchDiningOutValidationInput(input);
+        }
+    }
+
+    private void watchDiningOutValidationInput(EditText input) {
+        if (input == null) {
+            return;
+        }
+        input.addTextChangedListener(new TextWatcher() {
+            @Override
+            public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+            }
+
+            @Override
+            public void onTextChanged(CharSequence text, int start, int before, int count) {
+                clearDiningOutValidationError();
+            }
+
+            @Override
+            public void afterTextChanged(Editable editable) {
+            }
+        });
+    }
+
+    private void showDiningOutValidationError(String message) {
+        if (diningOutValidationError == null) {
+            return;
+        }
+        String copy = message == null || message.trim().isEmpty()
+                ? "입력값을 확인하세요."
+                : message;
+        formSystem.showError(diningOutValidationError, copy);
+    }
+
+    private void clearDiningOutValidationError() {
+        if (diningOutValidationError != null) {
+            formSystem.clearError(diningOutValidationError);
+        }
+    }
     private void addDiningOutMenuDraft() {
         syncDraftFromViews();
         draftDiningOutMenus.add(new DiningOutMenuDraft());
@@ -1835,7 +1906,7 @@ public final class MealManagementScreen extends BaseScreen {
         card.addView(identityActions, ui.fullWidthParams(ui.dp(4)));
         if (menu.hasExactIdentity()) {
             card.addView(ui.text(
-                    "PriceTrace identity 연결됨",
+                    "PriceTrace 연결 정보 확인됨",
                     11,
                     FitnessUi.COLOR_TERTIARY,
                     false
@@ -2333,7 +2404,7 @@ public final class MealManagementScreen extends BaseScreen {
             }
             if (!hasCompleteIdentity) {
                 throw new IllegalArgumentException(
-                        "저장된 외식 메뉴의 PriceTrace identity가 일부만 있습니다."
+                        "저장된 외식 메뉴의 PriceTrace 연결 정보가 일부만 있습니다."
                 );
             }
             String sourceNamespace = jsonValue(source, "namespace");
@@ -2540,7 +2611,7 @@ public final class MealManagementScreen extends BaseScreen {
         panel.setOrientation(LinearLayout.VERTICAL);
         panel.setPadding(ui.dp(16), ui.dp(4), ui.dp(16), ui.dp(8));
         panel.addView(ui.text(
-                "저장 메뉴의 NutritionFood.profile을 이번 기록의 기본 영양성분으로 사용합니다. 이번에 선택한 옵션만 별도로 합산됩니다.",
+                "저장 메뉴의 영양정보를 이번 기록의 기본 영양성분으로 사용합니다. 이번에 선택한 옵션만 별도로 합산됩니다.",
                 12,
                 FitnessUi.COLOR_MUTED,
                 false
@@ -5238,6 +5309,7 @@ public final class MealManagementScreen extends BaseScreen {
                     syncCatalog(false);
                 }
             } catch (IllegalArgumentException error) {
+                showDiningOutValidationError(error.getMessage());
                 host.toast(error.getMessage());
                 return;
             }
@@ -5255,6 +5327,7 @@ public final class MealManagementScreen extends BaseScreen {
             diningOutDinerCountInput = null;
             diningOutConsumedPercentInput = null;
             diningOutOptionsContainer = null;
+            diningOutValidationError = null;
             diningOutOptionInputs.clear();
             diningOutOptionGroupInputs.clear();
             diningOutOptionProvisionInputs.clear();
@@ -5306,6 +5379,7 @@ public final class MealManagementScreen extends BaseScreen {
         diningOutDinerCountInput = null;
         diningOutConsumedPercentInput = null;
         diningOutOptionsContainer = null;
+        diningOutValidationError = null;
         diningOutOptionInputs.clear();
         diningOutOptionProvisionInputs.clear();
         diningOutOptionGroupInputs.clear();
@@ -5355,6 +5429,7 @@ public final class MealManagementScreen extends BaseScreen {
         diningOutDinerCountInput = null;
         diningOutConsumedPercentInput = null;
         diningOutOptionsContainer = null;
+        diningOutValidationError = null;
         diningOutMenusContainer = null;
         diningOutMenuNameInputs.clear();
         diningOutMenuCaloriesInputs.clear();
@@ -5390,6 +5465,7 @@ public final class MealManagementScreen extends BaseScreen {
         diningOutConsumedPercentInput = null;
         diningOutMenusContainer = null;
         diningOutOptionsContainer = null;
+        diningOutValidationError = null;
         diningOutMenuNameInputs.clear();
         diningOutMenuCaloriesInputs.clear();
         diningOutMenuProteinInputs.clear();
