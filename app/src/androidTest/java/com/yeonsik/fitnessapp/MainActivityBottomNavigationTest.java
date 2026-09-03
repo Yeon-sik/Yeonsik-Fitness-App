@@ -16,9 +16,9 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(AndroidJUnit4.class)
-public final class MainActivityHologramAnimationTest {
+public final class MainActivityBottomNavigationTest {
     @Test
-    public void workoutSelectionUsesStaticMarkerAndClearsOnTabChange() {
+    public void activeMarkerAndSelectedStateMoveBetweenTabs() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
                 View root = activity.getWindow().getDecorView();
@@ -38,23 +38,67 @@ public final class MainActivityHologramAnimationTest {
         }
     }
 
+    @Test
+    public void workoutProgressMarkerIsIndependentFromActiveMarker() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                String recordId = activity.repository().createEmptySession(activity.today());
+                try {
+                    activity.rerender();
+                    View root = activity.getWindow().getDecorView();
+                    View homeTab = bottomTab(root, "메인");
+                    View workoutTab = bottomTab(root, "피트니스");
+
+                    assertTrue(homeTab.isSelected());
+                    assertEquals(View.VISIBLE, activeMarker(homeTab).getVisibility());
+                    assertEquals(View.INVISIBLE, progressMarker(homeTab).getVisibility());
+                    assertEquals(View.INVISIBLE, activeMarker(workoutTab).getVisibility());
+                    assertEquals(View.VISIBLE, progressMarker(workoutTab).getVisibility());
+
+                    workoutTab.performClick();
+
+                    assertFalse(homeTab.isSelected());
+                    assertEquals(View.INVISIBLE, activeMarker(homeTab).getVisibility());
+                    assertTrue(workoutTab.isSelected());
+                    assertEquals(View.VISIBLE, activeMarker(workoutTab).getVisibility());
+                    assertEquals(View.VISIBLE, progressMarker(workoutTab).getVisibility());
+                } finally {
+                    activity.repository().deleteSession(recordId);
+                    activity.rerender();
+                }
+            });
+        }
+    }
+
     private static View clickBottomTab(View root, String label) {
-        TextView tab = findTextWithClickableParent(root, label);
-        assertNotNull(tab);
-        View area = (View) tab.getParent();
+        View area = bottomTab(root, label);
         area.performClick();
         return area;
     }
 
+    private static View bottomTab(View root, String label) {
+        TextView tab = findTextWithClickableParent(root, label);
+        assertNotNull(tab);
+        return (View) tab.getParent();
+    }
+
     private static View activeMarker(View area) {
+        return markerAt(area, 0);
+    }
+
+    private static View progressMarker(View area) {
+        return markerAt(area, 1);
+    }
+
+    private static View markerAt(View area, int markerIndex) {
         assertTrue(area instanceof ViewGroup);
         ViewGroup group = (ViewGroup) area;
         assertTrue(group.getChildCount() > 0);
         View markerSlot = group.getChildAt(0);
         assertTrue(markerSlot instanceof ViewGroup);
         ViewGroup slot = (ViewGroup) markerSlot;
-        assertTrue(slot.getChildCount() > 0);
-        return slot.getChildAt(0);
+        assertTrue(slot.getChildCount() > markerIndex);
+        return slot.getChildAt(markerIndex);
     }
 
     private static TextView findTextWithClickableParent(View view, String text) {

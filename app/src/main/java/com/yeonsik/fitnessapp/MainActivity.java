@@ -18,6 +18,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
@@ -256,8 +257,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         screens = buildScreens();
         registerBackCallback();
 
-        configureWindow();
         setContentView(buildRootView());
+        configureWindow();
         render();
         handleDebugSessionProvisioning(getIntent());
         handleCardioIntent(getIntent());
@@ -529,6 +530,16 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     private void configureWindow() {
         applySystemBarAppearance(isDarkTheme(), ui.pageBg(), ui.pageBg());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && rootView != null) {
+            // Apply again after the decor view is attached. This keeps the
+            // launch theme authoritative for the preview while ensuring that
+            // runtime appearance uses WindowInsetsController.
+            rootView.post(() -> applySystemBarAppearance(
+                    isDarkTheme(),
+                    ui.pageBg(),
+                    ui.pageBg()
+            ));
+        }
     }
 
     private View buildRootView() {
@@ -1118,16 +1129,36 @@ public final class MainActivity extends Activity implements ScreenHost {
             int navigationBarColor
     ) {
         Window window = getWindow();
-        window.setStatusBarColor(statusBarColor);
-        window.setNavigationBarColor(navigationBarColor);
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            window.setNavigationBarDividerColor(navigationBarColor);
+        // Android 15+ enforces edge-to-edge for this target SDK. The page/root
+        // surface should show through the bars instead of relying on bar color
+        // APIs that are ignored or transformed by the platform.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            window.setStatusBarColor(statusBarColor);
+            window.setNavigationBarColor(navigationBarColor);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                window.setNavigationBarDividerColor(navigationBarColor);
+            }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             window.setStatusBarContrastEnforced(false);
             window.setNavigationBarContrastEnforced(false);
         }
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsController controller = window.getInsetsController();
+            if (controller != null) {
+                int lightSystemBars = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                controller.setSystemBarsAppearance(
+                        dark ? 0 : lightSystemBars,
+                        lightSystemBars
+                );
+                return;
+            }
+        }
+
+        // API 26~29 fallback. The null-controller branch keeps the appearance
+        // safe if a pre-draw window has no controller yet on a newer API.
         int systemUiVisibility = dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
         if (!dark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             systemUiVisibility |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
