@@ -155,11 +155,11 @@ public final class MealEntryPolicy {
     }
 
     public static String requireDiningOutStoreName(String value) {
-        return requireDiningOutText(value, "가게 명");
+        return requireDiningOutText(value, "가게 명을 입력하세요.");
     }
 
     public static String requireDiningOutMenuName(String value) {
-        return requireDiningOutText(value, "먹은 메뉴");
+        return requireDiningOutText(value, "먹은 메뉴를 입력하세요.");
     }
 
     /** Parses one optional macro estimate entered for a dining-out record. */
@@ -355,7 +355,7 @@ public final class MealEntryPolicy {
     private static String requireDiningOutText(String value, String label) {
         String normalized = normalizedText(value);
         if (normalized.isEmpty()) {
-            throw new IllegalArgumentException(label + "을 입력하세요.");
+            throw new IllegalArgumentException(label);
         }
         return normalized;
     }
