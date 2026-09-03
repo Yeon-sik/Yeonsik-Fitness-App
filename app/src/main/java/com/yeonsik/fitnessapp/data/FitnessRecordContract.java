@@ -35,6 +35,28 @@ public final class FitnessRecordContract {
         }
     }
 
+    /** Maps storage-only record types to Korean display labels without exposing contract values. */
+    public static String displayRecordTypeKo(String value) {
+        String normalized = value == null ? "" : value.trim().toLowerCase(Locale.US);
+        switch (normalized) {
+            case "sets_reps_weight":
+            case WEIGHT_REPS:
+                return "중량 · 반복";
+            case REPS_ONLY:
+                return "반복";
+            case TIME:
+                return "시간";
+            case WEIGHT_TIME:
+                return "중량 · 시간";
+            case ASSISTED_WEIGHT_REPS:
+                return "보조 중량 · 반복";
+            case BODYWEIGHT_ADDED_WEIGHT_REPS:
+                return "체중 + 추가 중량 · 반복";
+            default:
+                return "기록 방식 없음";
+        }
+    }
+
     /**
      * RIR applies to repetition-based strength sets. Time-based records have no remaining-reps
      * estimate, so their set editor intentionally does not render or persist this field.

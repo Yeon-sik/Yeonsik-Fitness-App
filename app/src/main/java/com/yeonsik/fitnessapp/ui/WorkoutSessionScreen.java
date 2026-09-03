@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Arrays;
 
 /**
- * 운동 세션 화면: 경과시간 히어로 + 메트릭 스트립 + 종목 진행 카드.
+ * 운동 세션 화면: 현재 운동 진입 + 세트 진행 + compact 세션 요약 + 종목 분석.
  */
 public final class WorkoutSessionScreen extends BaseScreen {
     private final ExerciseCardRenderer exerciseCardRenderer;
@@ -47,23 +47,36 @@ public final class WorkoutSessionScreen extends BaseScreen {
         screenHeader(manualEntry ? "수동 등록" : "진행 중",
                 info.title.isEmpty() ? "운동 중" : info.title);
 
-        LinearLayout status = ui.card();
-        status.setGravity(Gravity.CENTER_HORIZONTAL);
-        status.addView(ui.caption("경과 시간", FitnessUi.COLOR_MUTED));
+        FitnessRepository.SessionExerciseEntry currentExercise = exercises.isEmpty()
+                ? null
+                : WorkoutSessionState.findActiveExercise(
+                        exercises,
+                        host.sessionState().activeExerciseId()
+                );
+        if (currentExercise != null) {
+            currentExerciseCard(recordId, currentExercise);
+        }
+
+        LinearLayout sessionSummary = ui.card();
+        sessionSummary.setGravity(Gravity.CENTER_HORIZONTAL);
+        sessionSummary.addView(ui.caption("세션 요약", FitnessUi.COLOR_MUTED));
+        TextView elapsedLabel = ui.caption("경과 시간", FitnessUi.COLOR_MUTED);
+        elapsedLabel.setPadding(0, ui.dp(4), 0, 0);
+        sessionSummary.addView(elapsedLabel);
         TextView elapsedView = new TextView(host.activity());
         elapsedView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        elapsedView.setTextSize(46);
+        elapsedView.setTextSize(28);
         elapsedView.setTextColor(ui.mappedTextColor(FitnessUi.COLOR_TEXT));
         elapsedView.setFontFeatureSettings("tnum");
         elapsedView.setGravity(Gravity.CENTER);
-        elapsedView.setPadding(0, ui.dp(6), 0, 0);
+        elapsedView.setPadding(0, ui.dp(2), 0, 0);
         elapsedView.setText("00:00:00");
-        status.addView(elapsedView, ui.fullWidthParams(0));
+        sessionSummary.addView(elapsedView, ui.fullWidthParams(0));
 
         View line = ui.hairline(FitnessUi.COLOR_BORDER);
         LinearLayout.LayoutParams lineParams = ui.fullWidthParams(ui.dp(14));
         lineParams.height = ui.dp(1);
-        status.addView(line, lineParams);
+        sessionSummary.addView(line, lineParams);
 
         LinearLayout strip = new LinearLayout(host.activity());
         strip.setOrientation(LinearLayout.HORIZONTAL);
@@ -72,12 +85,12 @@ public final class WorkoutSessionScreen extends BaseScreen {
         TextView completedSetsView = sessionMetricCell(strip, "완료 세트", false);
         TextView startView = sessionMetricCell(strip, "시작", false);
         strip.setGravity(Gravity.CENTER);
-        status.addView(strip, ui.fullWidthParams(0));
+        sessionSummary.addView(strip, ui.fullWidthParams(0));
 
         volumeView.setText(FitnessUi.formatVolume(metrics.totalVolumeKg) + "kg");
         completedSetsView.setText(metrics.setCount + "개");
         startView.setText(FitnessUi.formatStartTime(info.startedAt));
-        add(status);
+        add(sessionSummary);
 
         if (inProgress && !manualEntry) {
             startElapsedTicker(elapsedView, info.startedAt);
@@ -97,13 +110,6 @@ public final class WorkoutSessionScreen extends BaseScreen {
             ));
             return;
         }
-
-        FitnessRepository.SessionExerciseEntry currentExercise =
-                WorkoutSessionState.findActiveExercise(
-                        exercises,
-                        host.sessionState().activeExerciseId()
-                );
-        currentExerciseCard(recordId, currentExercise);
 
         section("운동 구성");
         for (FitnessRepository.SessionExerciseEntry exercise : exercises) {

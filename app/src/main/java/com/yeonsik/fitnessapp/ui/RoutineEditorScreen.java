@@ -10,6 +10,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.ExerciseCategory;
@@ -139,7 +140,12 @@ public final class RoutineEditorScreen extends BaseScreen {
         column.addView(meta);
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView recordType = ui.text(exercise.recordType, 12, FitnessUi.COLOR_TERTIARY, false);
+        TextView recordType = ui.text(
+                FitnessRecordContract.displayRecordTypeKo(exercise.recordType),
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        );
         recordType.setPadding(ui.dp(8), 0, 0, 0);
         row.addView(recordType);
         ExerciseFamilyIdentity identity = exercise.familyIdentity != null

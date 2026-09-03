@@ -1688,15 +1688,7 @@ public final class FitnessUi {
     }
 
     /** 루틴 카드: 전체 탭은 상세로 이동하고 운동 시작은 보조 메뉴에서 선택한다. */
-    public View routineCard(String routineName, int exerciseCount, boolean showDetailAction,
-                            String latestWorkoutDate,
-                            Runnable onStart, Runnable onDetail) {
-        return routineCard(routineName, exerciseCount, showDetailAction, latestWorkoutDate,
-                onStart, onDetail, null);
-    }
-
-    public View routineCard(String routineName, int exerciseCount, boolean showDetailAction,
-                            String latestWorkoutDate,
+    public View routineCard(String routineName, int exerciseCount, String latestWorkoutDate,
                             Runnable onStart, Runnable onDetail, Runnable onMenu) {
         LinearLayout card = card();
         card.setClickable(true);
@@ -1746,11 +1738,32 @@ public final class FitnessUi {
         return card;
     }
 
+    /**
+     * @deprecated 전체 카드 탭이 상세 보기이므로 showDetailAction은 더 이상 의미가 없다.
+     *             새 호출부는 routineCard(..., latestWorkoutDate, ..., onMenu)를 사용한다.
+     */
+    @Deprecated
+    public View routineCard(String routineName, int exerciseCount, boolean showDetailAction,
+                            String latestWorkoutDate,
+                            Runnable onStart, Runnable onDetail) {
+        return routineCard(routineName, exerciseCount, latestWorkoutDate,
+                onStart, onDetail, null);
+    }
+
+    /** @deprecated showDetailAction은 호환성만 유지하며 무시한다. */
+    @Deprecated
+    public View routineCard(String routineName, int exerciseCount, boolean showDetailAction,
+                            String latestWorkoutDate,
+                            Runnable onStart, Runnable onDetail, Runnable onMenu) {
+        return routineCard(routineName, exerciseCount, latestWorkoutDate,
+                onStart, onDetail, onMenu);
+    }
+
     public View quickStartRoutineCard(String routineName, int exerciseCount, String latestWorkoutDate,
                                       Runnable onStart, Runnable onDetail) {
         LinearLayout card = card();
         card.setPadding(dp(12), dp(8), dp(12), dp(8));
-        card.setBackground(tonalRippleDrawable(dp(CARD_RADIUS_DP)));
+        card.setBackground(flatSurfaceRippleDrawable(dp(CARD_RADIUS_DP)));
         applyDepth(card, DEPTH_SURFACE_DP);
         card.setClickable(true);
         card.setFocusable(true);
@@ -1760,25 +1773,25 @@ public final class FitnessUi {
         LinearLayout headerRow = new LinearLayout(activity);
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
-        TextView routineGlyph = text("루", 12, tonalInk(), true);
+        TextView routineGlyph = text("루", 12, pastelBlue(), true);
         routineGlyph.setGravity(Gravity.CENTER);
-        routineGlyph.setBackground(borderDrawable(withAlpha(tonalInk(), 18),
+        routineGlyph.setBackground(borderDrawable(withAlpha(pastelBlue(), 38),
                 Color.TRANSPARENT, dp(CHIP_RADIUS_DP)));
         routineGlyph.setLayoutParams(new LinearLayout.LayoutParams(dp(30), dp(30)));
         headerRow.addView(routineGlyph);
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(dp(9), 0, 0, 0);
-        TextView nameView = text(routineName, 14, tonalInk(), true);
+        TextView nameView = text(routineName, 14, ink(), true);
         column.addView(nameView);
-        TextView meta = text(exerciseCount + "개 종목 · 탭하여 시작", 10, tonalInk(), false);
+        TextView meta = text(exerciseCount + "개 종목 · 탭하여 시작", 10, inkMuted(), false);
         meta.setPadding(0, dp(2), 0, 0);
         column.addView(meta);
-        TextView recentView = text(recentWorkoutText(latestWorkoutDate), 10, tonalInk(), false);
+        TextView recentView = text(recentWorkoutText(latestWorkoutDate), 10, inkTertiary(), false);
         column.addView(recentView);
         headerRow.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView chevron = text("›", 16, tonalInk(), false);
-        chevron.setTextColor(tonalInk());
+        TextView chevron = text("›", 16, inkTertiary(), false);
+        chevron.setTextColor(inkTertiary());
         headerRow.addView(chevron);
         card.addView(headerRow);
         return card;

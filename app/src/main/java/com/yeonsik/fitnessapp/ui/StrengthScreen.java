@@ -37,7 +37,6 @@ public final class StrengthScreen extends BaseScreen {
                 add(ui().routineCard(
                         routine.name,
                         routine.exerciseCount,
-                        true,
                         repository().latestCompletedWorkoutDateForRoutine(routine.id, routine.name),
                         () -> {
                             host.routineRepository().selectRoutine(routine.id);
@@ -62,7 +61,6 @@ public final class StrengthScreen extends BaseScreen {
             List<RoutineExerciseInstance> exercises
     ) {
         ui().choiceSheet("루틴 관리", Arrays.asList(
-                "루틴 상세 보기",
                 "바로 운동 시작",
                 "이름 변경",
                 "루틴 복사",
@@ -70,15 +68,12 @@ public final class StrengthScreen extends BaseScreen {
         ), -1, which -> {
             if (which == 0) {
                 host.routineRepository().selectRoutine(routine.id);
-                host.navigate(FitnessScreen.ROUTINE_DETAIL);
-            } else if (which == 1) {
-                host.routineRepository().selectRoutine(routine.id);
                 host.startRoutineWorkout(exercises);
-            } else if (which == 2) {
+            } else if (which == 1) {
                 showRenameRoutine(routine);
-            } else if (which == 3) {
+            } else if (which == 2) {
                 showCopyRoutine(routine);
-            } else if (which == 4) {
+            } else if (which == 3) {
                 confirmDeleteRoutine(routine);
             }
         });

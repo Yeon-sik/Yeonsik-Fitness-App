@@ -33,26 +33,29 @@ public final class WorkoutScreen extends BaseScreen {
 
         section("피트니스 메뉴");
         LinearLayout workoutTypeRow = ui().tileRow();
-        workoutTypeRow.addView(ui().tonalStatTile(
+        workoutTypeRow.addView(ui().statTile(
                 "무산소", "근력·루틴", "탭하여 들어가기",
+                false,
                 v -> host.navigate(FitnessScreen.STRENGTH)), ui().tileParams(true));
-        workoutTypeRow.addView(ui().tonalStatTile(
+        workoutTypeRow.addView(ui().statTile(
                 "유산소", "GPS", "탭하여 들어가기",
+                false,
                 v -> host.navigate(FitnessScreen.CARDIO)), ui().tileParams(false));
         add(workoutTypeRow, ui().fullWidthParams(0));
 
         add(ui().secondaryButton("지난 운동 수동 등록", v -> host.showPastWorkoutDialog()),
                 ui().fullWidthParams(ui().dp(10)));
 
-        add(ui().tonalStatTile(
+        add(ui().statTile(
                 "식단",
                 "오늘 " + repository().mealCountForDate(today) + "건",
                 "음식·메뉴·영양 관리",
+                false,
                 v -> host.openMealManagement()
         ), ui().fullWidthParams(ui().dp(10)));
 
         SupplementRepository.Progress supplementProgress = host.supplementRepository().progress(today);
-        add(ui().tonalStatTile(
+        add(ui().statTile(
                 "영양제",
                 supplementProgress.planned == 0
                         ? "복용 계획 없음"
@@ -60,14 +63,16 @@ public final class WorkoutScreen extends BaseScreen {
                 supplementProgress.skipped == 0
                         ? "복용 계획·매일 기록"
                         : "건너뜀 " + supplementProgress.skipped + "회 · 계획 관리",
+                false,
                 v -> host.navigate(FitnessScreen.SUPPLEMENTS)
         ), ui().fullWidthParams(ui().dp(10)));
 
         section("신체 기록");
-        add(ui().tonalStatTile(
+        add(ui().statTile(
                 "체중",
                 todayWeightValue(),
                 "탭하여 기록",
+                false,
                 v -> host.showBodyMetricDialog()
         ), ui().fullWidthParams(0));
 
