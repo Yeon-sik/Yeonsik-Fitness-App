@@ -143,14 +143,25 @@ public final class HomeScreen extends BaseScreen {
         status.setPadding(0, ui.dp(10), 0, 0);
         card.addView(status);
 
+        card.addView(ui.primaryButton(
+                        inProgress ? "운동 이어가기" : "피트니스에서 시작",
+                        v -> {
+                            if (inProgress) {
+                                host.continueWorkoutIfAvailable();
+                            } else {
+                                host.navigate(FitnessScreen.WORKOUT);
+                            }
+                        }),
+                ui.fullWidthParams(ui.dp(14)));
+
         LinearLayout volumeRow = new LinearLayout(host.activity());
         volumeRow.setOrientation(LinearLayout.HORIZONTAL);
         volumeRow.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
-        volumeRow.setPadding(0, ui.dp(14), 0, 0);
-        TextView volume = ui.num(FitnessUi.formatVolume(metrics.totalVolumeKg), 40, ui.heroInk(), true);
+        volumeRow.setPadding(0, ui.dp(4), 0, 0);
+        TextView volume = ui.num(FitnessUi.formatVolume(metrics.totalVolumeKg), 30, ui.heroInk(), true);
         volume.setIncludeFontPadding(false);
         volume.setLetterSpacing(-0.02f);
-        ui.animateCount(volume, metrics.totalVolumeKg, null);
+        volume.setText(FitnessUi.formatVolume(metrics.totalVolumeKg));
         TextView unit = ui.text("kg", 15, ui.heroMuted(), true);
         unit.setPadding(ui.dp(6), 0, 0, ui.dp(5));
         volumeRow.addView(volume);
@@ -174,17 +185,6 @@ public final class HomeScreen extends BaseScreen {
         metaRow.addView(heroMetaCell("시간", metrics.totalDurationSeconds > 0
                 ? FitnessUi.formatDuration(metrics.totalDurationSeconds) : "—"), ui.metaCellParams(false));
         card.addView(metaRow);
-
-        card.addView(ui.primaryButton(
-                        inProgress ? "운동 이어가기" : "피트니스 보기",
-                        v -> {
-                            if (inProgress) {
-                                host.continueWorkoutIfAvailable();
-                            } else {
-                                host.navigate(FitnessScreen.WORKOUT);
-                            }
-                        }),
-                ui.fullWidthParams(ui.dp(18)));
 
         add(card);
     }

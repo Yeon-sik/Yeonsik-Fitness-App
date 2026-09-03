@@ -165,7 +165,8 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                 "총 볼륨 추이",
                 "최근 " + previous.size() + "회 + 현재",
                 volumePoints(previous),
-                currentMetrics.totalVolumeKg
+                currentMetrics.totalVolumeKg,
+                currentMetrics.setCount > 0
         ), ui().fullWidthParams(ui().dp(10)));
         add(ui().text(
                 "루틴으로 운동을 시작하면 루틴별 볼륨 변화를 비교할 수 있습니다.",
@@ -224,7 +225,8 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                 "동일 루틴 총 볼륨 추이",
                 "최근 " + previous.size() + "회 + 현재",
                 volumePoints(previous),
-                currentMetrics.totalVolumeKg
+                currentMetrics.totalVolumeKg,
+                currentMetrics.setCount > 0
         ), ui.fullWidthParams(ui.dp(10)));
     }
 

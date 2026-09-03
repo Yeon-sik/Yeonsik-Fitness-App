@@ -68,20 +68,48 @@ public abstract class BaseScreen {
     }
 
     protected View volumeTrendCard(String title, List<FitnessRepository.VolumePoint> history, double currentVolume) {
-        return volumeTrendCard(title, "최근 4회 + 현재", history, currentVolume);
+        return volumeTrendCard(title, "최근 4회 + 현재", history, currentVolume, true);
+    }
+
+    protected View volumeTrendCard(String title, List<FitnessRepository.VolumePoint> history,
+                                   double currentVolume, boolean includeCurrentPoint) {
+        return volumeTrendCard(title, "최근 4회 + 현재", history, currentVolume,
+                includeCurrentPoint);
     }
 
     protected View volumeTrendCard(String title, String metaLabel,
                                    List<FitnessRepository.VolumePoint> history, double currentVolume) {
+        return volumeTrendCard(title, metaLabel, history, currentVolume, true);
+    }
+
+    /**
+     * Renders persisted history separately from the current in-progress calculation.
+     * An unfinished session must not become a false zero-valued historical point.
+     */
+    protected View volumeTrendCard(String title, String metaLabel,
+                                   List<FitnessRepository.VolumePoint> history,
+                                   double currentVolume,
+                                   boolean includeCurrentPoint) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
-        ui.cardHeader(card, title, metaLabel);
+        String displayMeta = includeCurrentPoint
+                ? metaLabel
+                : "완료 기록 " + (history == null ? 0 : history.size()) + "회 · 현재 진행 중";
+        ui.cardHeader(card, title, displayMeta);
         List<Double> values = new ArrayList<>();
-        for (FitnessRepository.VolumePoint point : history) {
-            values.add(point.volumeKg);
+        if (history != null) {
+            for (FitnessRepository.VolumePoint point : history) {
+                if (point != null) {
+                    values.add(point.volumeKg);
+                }
+            }
         }
-        values.add(currentVolume);
-        card.addView(ui.volumeTrendChart(values), new LinearLayout.LayoutParams(
+        int currentPointIndex = -1;
+        if (includeCurrentPoint) {
+            currentPointIndex = values.size();
+            values.add(currentVolume);
+        }
+        card.addView(ui.volumeTrendChart(values, currentPointIndex), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(116)));
         return card;
     }

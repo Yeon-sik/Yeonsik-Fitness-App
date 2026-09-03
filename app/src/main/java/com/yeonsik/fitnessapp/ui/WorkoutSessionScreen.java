@@ -39,6 +39,8 @@ public final class WorkoutSessionScreen extends BaseScreen {
         FitnessUi ui = ui();
         FitnessRepository.SessionInfo info = repository().sessionInfo(recordId);
         FitnessRepository.SessionMetrics metrics = repository().sessionMetrics(recordId);
+        List<FitnessRepository.SessionExerciseEntry> exercises =
+                repository().sessionExerciseEntries(recordId);
         boolean inProgress = !"completed".equals(info.status);
         boolean manualEntry = inProgress && info.durationSeconds > 0;
 
@@ -84,19 +86,76 @@ public final class WorkoutSessionScreen extends BaseScreen {
                     ? FitnessUi.formatElapsed(info.durationSeconds) : "--:--:--");
         }
 
-        add(volumeTrendCard("최근 4회 총 볼륨",
-                repository().recentSessionVolumes(recordId, 4), metrics.totalVolumeKg));
-
-        section("운동 구성");
-        List<FitnessRepository.SessionExerciseEntry> exercises = repository().sessionExerciseEntries(recordId);
         if (exercises.isEmpty()) {
+            section("운동 구성");
             emptyState("아직 종목이 없습니다.", "종목 추가 버튼으로 시작하세요.");
+            add(volumeTrendCard(
+                    "최근 4회 총 볼륨",
+                    repository().recentSessionVolumes(recordId, 4),
+                    metrics.totalVolumeKg,
+                    false
+            ));
             return;
         }
 
+        FitnessRepository.SessionExerciseEntry currentExercise =
+                WorkoutSessionState.findActiveExercise(
+                        exercises,
+                        host.sessionState().activeExerciseId()
+                );
+        currentExerciseCard(recordId, currentExercise);
+
+        section("운동 구성");
         for (FitnessRepository.SessionExerciseEntry exercise : exercises) {
             workoutExerciseCard(recordId, exercise);
         }
+
+        add(volumeTrendCard(
+                "최근 4회 총 볼륨",
+                repository().recentSessionVolumes(recordId, 4),
+                metrics.totalVolumeKg,
+                metrics.setCount > 0
+        ));
+    }
+
+    private void currentExerciseCard(
+            String recordId,
+            FitnessRepository.SessionExerciseEntry exercise
+    ) {
+        FitnessUi ui = ui();
+        LinearLayout card = ui.card();
+        card.setBackground(ui.tonalRippleDrawable(ui.dp(FitnessUi.CARD_RADIUS_DP)));
+        ui.applyDepth(card, FitnessUi.DEPTH_SURFACE_DP);
+
+        LinearLayout header = new LinearLayout(host.activity());
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.addView(ui.caption("현재 운동", ui.tonalInk()),
+                new LinearLayout.LayoutParams(0,
+                        LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        header.addView(ui.text("세트 기록 우선", 11, ui.tonalInk(), true));
+        card.addView(header);
+
+        TextView name = ui.text(exercise.name, 20, ui.tonalInk(), true);
+        name.setPadding(0, ui.dp(8), 0, 0);
+        card.addView(name);
+
+        List<FitnessRepository.SessionSetEntry> sets = repository().setsForExercise(exercise.id);
+        int completed = WorkoutSessionState.completedSetCount(sets);
+        String progress = sets.isEmpty()
+                ? "첫 세트를 기록하세요"
+                : completed < sets.size()
+                        ? "세트 " + (completed + 1) + " 기록 · " + completed + "/" + sets.size() + " 완료"
+                        : "모든 세트 완료 · 다음 종목을 선택하세요";
+        TextView progressView = ui.text(progress, 13, ui.tonalInk(), false);
+        progressView.setPadding(0, ui.dp(3), 0, 0);
+        card.addView(progressView);
+
+        card.addView(ui.tonalButton("세트 기록 열기", v -> {
+                    host.sessionState().setActiveExerciseId(exercise.id);
+                    host.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
+                }),
+                ui.fullWidthParams(ui.dp(14)));
     }
 
     private void openExercisePicker() {

@@ -1136,7 +1136,18 @@ public final class FitnessUi {
     }
 
     public View volumeTrendChart(List<Double> values) {
+        return volumeTrendChart(values, -1);
+    }
+
+    /**
+     * Draws a volume trend and optionally marks the final point as the current session.
+     * A negative currentPointIndex means every value is persisted history.
+     */
+    public View volumeTrendChart(List<Double> values, int currentPointIndex) {
         final List<Double> points = values == null ? java.util.Collections.emptyList() : new java.util.ArrayList<>(values);
+        final int markedCurrentPoint = currentPointIndex >= 0 && currentPointIndex < points.size()
+                ? currentPointIndex
+                : -1;
         final int axisColor = border();
         final int mutedColor = inkMuted();
         final int strokeColor = accent();
@@ -1192,7 +1203,18 @@ public final class FitnessUi {
                             ? (left + right) / 2f
                             : left + (right - left) * index / (float) (points.size() - 1);
                     float y = bottom - (float) ((bottom - top) * value / max);
-                    canvas.drawCircle(x, y, dp(4), paint);
+                    if (index == markedCurrentPoint) {
+                        paint.setStyle(Paint.Style.STROKE);
+                        paint.setStrokeWidth(dp(2));
+                        paint.setColor(blueInk());
+                        canvas.drawCircle(x, y, dp(6), paint);
+                        paint.setStyle(Paint.Style.FILL);
+                        paint.setColor(strokeColor);
+                        canvas.drawCircle(x, y, dp(3), paint);
+                    } else {
+                        paint.setColor(strokeColor);
+                        canvas.drawCircle(x, y, dp(4), paint);
+                    }
                 }
 
                 paint.setColor(mutedColor);
@@ -1206,12 +1228,17 @@ public final class FitnessUi {
                             ? (left + right) / 2f
                             : left + (right - left) * index / (float) (points.size() - 1);
                     float y = bottom - (float) ((bottom - top) * value / max);
-                    String label = formatVolume(value) + "kg";
+                    String label = (index == markedCurrentPoint ? "현재 " : "")
+                            + formatVolume(value) + "kg";
                     float halfLabelWidth = paint.measureText(label) / 2f;
                     float labelX = Math.max(left + halfLabelWidth,
                             Math.min(right - halfLabelWidth, x));
                     float labelY = Math.max(-fontMetrics.top, y - dp(7));
+                    if (index == markedCurrentPoint) {
+                        paint.setColor(blueInk());
+                    }
                     canvas.drawText(label, labelX, labelY, paint);
+                    paint.setColor(mutedColor);
                 }
             }
         };
@@ -1660,14 +1687,28 @@ public final class FitnessUi {
         card.addView(header);
     }
 
-    /** 루틴 카드: 탭하면 운동 시작, 선택적으로 "세부 보기" 버튼 표시. */
+    /** 루틴 카드: 전체 탭은 상세로 이동하고 운동 시작은 보조 메뉴에서 선택한다. */
     public View routineCard(String routineName, int exerciseCount, boolean showDetailAction,
                             String latestWorkoutDate,
                             Runnable onStart, Runnable onDetail) {
+        return routineCard(routineName, exerciseCount, showDetailAction, latestWorkoutDate,
+                onStart, onDetail, null);
+    }
+
+    public View routineCard(String routineName, int exerciseCount, boolean showDetailAction,
+                            String latestWorkoutDate,
+                            Runnable onStart, Runnable onDetail, Runnable onMenu) {
         LinearLayout card = card();
         card.setClickable(true);
         card.setFocusable(true);
-        card.setOnClickListener(v -> onStart.run());
+        card.setContentDescription(routineName + " 루틴 상세 보기");
+        card.setOnClickListener(v -> {
+            if (onDetail != null) {
+                onDetail.run();
+            } else if (onStart != null) {
+                onStart.run();
+            }
+        });
         applyDepth(card, DEPTH_SURFACE_DP);
         pressFeedback(card);
 
@@ -1679,19 +1720,29 @@ public final class FitnessUi {
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(dp(12), 0, 0, 0);
         column.addView(text(routineName, 16, COLOR_TEXT, true));
-        TextView meta = text(exerciseCount + "개 종목 · 탭하여 시작", 12, COLOR_MUTED, false);
+        TextView meta = text(exerciseCount + "개 종목 · 탭하여 상세 보기", 12, COLOR_MUTED, false);
         meta.setPadding(0, dp(2), 0, 0);
         column.addView(meta);
         column.addView(text(recentWorkoutText(latestWorkoutDate), 11, COLOR_TERTIARY, false));
         headerRow.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView chevron = text("›", 20, COLOR_TERTIARY, false);
-        headerRow.addView(chevron);
-        card.addView(headerRow);
-
-        if (showDetailAction) {
-            Button detailButton = secondaryButton("세부 보기", v -> onDetail.run());
-            card.addView(detailButton, fullWidthParams(dp(14)));
+        if (onMenu != null) {
+            TextView menu = text("⋯", 22, COLOR_MUTED, true);
+            menu.setGravity(Gravity.CENTER);
+            menu.setMinWidth(dp(48));
+            menu.setMinimumWidth(dp(48));
+            menu.setMinHeight(dp(48));
+            menu.setMinimumHeight(dp(48));
+            menu.setContentDescription(routineName + " 루틴 관리");
+            menu.setClickable(true);
+            menu.setFocusable(true);
+            menu.setOnClickListener(v -> onMenu.run());
+            pressFeedback(menu);
+            headerRow.addView(menu);
+        } else {
+            TextView chevron = text("›", 20, COLOR_TERTIARY, false);
+            headerRow.addView(chevron);
         }
+        card.addView(headerRow);
         return card;
     }
 

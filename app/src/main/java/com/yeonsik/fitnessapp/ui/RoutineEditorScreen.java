@@ -99,14 +99,19 @@ public final class RoutineEditorScreen extends BaseScreen {
         summary.addView(summaryRow);
         add(summary);
 
-        add(ui.button("이 루틴으로 운동 시작", true, v -> host.startRoutineWorkout(routineExercises)),
-                ui.fullWidthParams(ui.dp(4)));
-
-        section("세부 운동 종목", "종목 추가", () -> host.navigate(FitnessScreen.ROUTINE_ADD));
         if (routineExercises.isEmpty()) {
+            add(ui.primaryButton("종목 추가",
+                            v -> host.navigate(FitnessScreen.ROUTINE_ADD)),
+                    ui.fullWidthParams(ui.dp(4)));
+            section("세부 운동 종목");
             emptyState("루틴에 추가된 운동 종목이 없습니다.", "종목 추가로 시작하세요.");
             return;
         }
+
+        add(ui.primaryButton("이 루틴으로 운동 시작",
+                        v -> host.startRoutineWorkout(routineExercises)),
+                ui.fullWidthParams(ui.dp(4)));
+        section("세부 운동 종목", "종목 추가", () -> host.navigate(FitnessScreen.ROUTINE_ADD));
 
         List<View> rows = new ArrayList<>();
         for (RoutineExerciseInstance exercise : routineExercises) {

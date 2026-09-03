@@ -126,7 +126,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                             recordId,
                             8
                     ),
-                    currentExerciseVolume(activeExercise, sets)));
+                    currentExerciseVolume(activeExercise, sets),
+                    WorkoutSessionState.completedSetCount(sets) > 0));
         }
         renderLastHistoryCard(activeExercise.recordType, lastHistory);
     }
