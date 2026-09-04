@@ -219,6 +219,36 @@ public final class FormSystemStateTest {
     }
 
     @Test
+    public void sharedNutritionInputFieldOwnsParsingAndAccessibility() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                NutritionInputField field = new NutritionInputField(
+                        activity.ui(),
+                        new FormSystem(activity.ui(), activity),
+                        NutritionProfile.CALORIES_KCAL,
+                        "칼로리",
+                        "",
+                        true,
+                        "외식 메뉴 1 칼로리",
+                        true
+                );
+
+                assertEquals("외식 메뉴 1 칼로리", field.input().getContentDescription());
+                field.input().setText("120");
+                assertEquals(120d, field.parse(), 0.001d);
+
+                field.input().setText("-1");
+                try {
+                    field.parse();
+                    fail("음수 영양성분 입력은 실패해야 합니다.");
+                } catch (IllegalArgumentException expected) {
+                    // The shared field owns the common non-negative validation message.
+                }
+                assertNotNull(findTextViewContaining(field.view(), "음수가 될 수 없습니다."));
+            });
+        }
+    }
+    @Test
     public void nutritionInputShowsInlineErrorAndClearsAfterFieldEdit() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {

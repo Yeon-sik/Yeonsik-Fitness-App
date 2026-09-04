@@ -1,16 +1,11 @@
 package com.yeonsik.fitnessapp.ui;
 
 import android.app.Activity;
-import android.text.Editable;
-import android.text.TextWatcher;
 import android.view.View;
 import android.widget.Button;
-import android.widget.EditText;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.NutrientCode;
-import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 
 import java.util.ArrayList;
@@ -26,18 +21,15 @@ import java.util.Map;
  */
 final class NutritionInputSection {
     private final FitnessUi ui;
-    private final Activity activity;
     private final FormSystem forms;
-    private final Map<String, EditText> requiredInputs = new LinkedHashMap<>();
-    private final Map<String, EditText> optionalInputs = new LinkedHashMap<>();
-    private final Map<String, TextView> errorViews = new LinkedHashMap<>();
+    private final Map<String, NutritionInputField> requiredInputs = new LinkedHashMap<>();
+    private final Map<String, NutritionInputField> optionalInputs = new LinkedHashMap<>();
     private final LinearLayout container;
 
     NutritionInputSection(FitnessUi ui, Activity activity) {
         this.ui = ui;
-        this.activity = activity;
         this.forms = new FormSystem(ui, activity);
-        this.container = column();
+        this.container = forms.column();
         build();
     }
 
@@ -53,35 +45,13 @@ final class NutritionInputSection {
     NutritionProfile profile() {
         NutritionProfile.Builder builder = NutritionProfile.builder();
         clearErrors();
-        for (Map.Entry<String, EditText> entry : requiredInputs.entrySet()) {
-            String key = entry.getKey();
-            String raw = FitnessUi.inputText(entry.getValue()).trim();
-            try {
-                if (raw.isEmpty()) {
-                    throw new IllegalArgumentException(
-                            NutritionRow.displayLabel(key) + "은(는) 필수 입력입니다."
-                    );
-                }
-                builder.value(key, parse(key, raw));
-            } catch (IllegalArgumentException error) {
-                showError(key, error.getMessage());
-                focusInput(key);
-                throw error;
-            }
+        for (Map.Entry<String, NutritionInputField> entry : requiredInputs.entrySet()) {
+            builder.value(entry.getKey(), entry.getValue().parse());
         }
-        for (Map.Entry<String, EditText> entry : optionalInputs.entrySet()) {
-            String key = entry.getKey();
-            String raw = FitnessUi.inputText(entry.getValue()).trim();
-            if (raw.isEmpty()) {
-                // 비워 두면 키를 넣지 않는다. 0으로 채우면 "모름"이 사라진다.
-                continue;
-            }
-            try {
-                builder.value(key, parse(key, raw));
-            } catch (IllegalArgumentException error) {
-                showError(key, error.getMessage());
-                focusInput(key);
-                throw error;
+        for (Map.Entry<String, NutritionInputField> entry : optionalInputs.entrySet()) {
+            Double parsed = entry.getValue().parse();
+            if (parsed != null) {
+                builder.value(entry.getKey(), parsed);
             }
         }
         return builder.build();
@@ -91,24 +61,8 @@ final class NutritionInputSection {
         if (listener == null) {
             return;
         }
-        List<EditText> inputs = new ArrayList<>();
-        inputs.addAll(requiredInputs.values());
-        inputs.addAll(optionalInputs.values());
-        for (EditText input : inputs) {
-            input.addTextChangedListener(new TextWatcher() {
-                @Override
-                public void beforeTextChanged(CharSequence text, int start, int count, int after) {
-                }
-
-                @Override
-                public void onTextChanged(CharSequence text, int start, int before, int count) {
-                    listener.run();
-                }
-
-                @Override
-                public void afterTextChanged(Editable editable) {
-                }
-            });
+        for (NutritionInputField field : allFields()) {
+            field.addChangeListener(listener);
         }
     }
 
@@ -116,22 +70,22 @@ final class NutritionInputSection {
         if (profile == null) {
             return;
         }
-        for (Map.Entry<String, EditText> entry : requiredInputs.entrySet()) {
-            setInputValue(entry.getValue(), profile.value(entry.getKey()));
+        for (Map.Entry<String, NutritionInputField> entry : requiredInputs.entrySet()) {
+            entry.getValue().setNumericValue(profile.value(entry.getKey()));
         }
-        for (Map.Entry<String, EditText> entry : optionalInputs.entrySet()) {
-            setInputValue(entry.getValue(), profile.value(entry.getKey()));
+        for (Map.Entry<String, NutritionInputField> entry : optionalInputs.entrySet()) {
+            entry.getValue().setNumericValue(profile.value(entry.getKey()));
         }
     }
 
     /** Returns the raw values so an unfinished form can be restored without validating it. */
     Map<String, String> inputValues() {
         Map<String, String> values = new LinkedHashMap<>();
-        for (Map.Entry<String, EditText> entry : requiredInputs.entrySet()) {
-            values.put(entry.getKey(), FitnessUi.inputText(entry.getValue()));
+        for (Map.Entry<String, NutritionInputField> entry : requiredInputs.entrySet()) {
+            values.put(entry.getKey(), entry.getValue().rawValue());
         }
-        for (Map.Entry<String, EditText> entry : optionalInputs.entrySet()) {
-            values.put(entry.getKey(), FitnessUi.inputText(entry.getValue()));
+        for (Map.Entry<String, NutritionInputField> entry : optionalInputs.entrySet()) {
+            values.put(entry.getKey(), entry.getValue().rawValue());
         }
         return values;
     }
@@ -141,20 +95,12 @@ final class NutritionInputSection {
         if (values == null) {
             return;
         }
-        for (Map.Entry<String, EditText> entry : requiredInputs.entrySet()) {
-            setRawInputValue(entry.getValue(), values.get(entry.getKey()));
+        for (Map.Entry<String, NutritionInputField> entry : requiredInputs.entrySet()) {
+            entry.getValue().setRawValue(values.get(entry.getKey()));
         }
-        for (Map.Entry<String, EditText> entry : optionalInputs.entrySet()) {
-            setRawInputValue(entry.getValue(), values.get(entry.getKey()));
+        for (Map.Entry<String, NutritionInputField> entry : optionalInputs.entrySet()) {
+            entry.getValue().setRawValue(values.get(entry.getKey()));
         }
-    }
-
-    private void setRawInputValue(EditText input, String value) {
-        input.setText(value == null ? "" : value);
-    }
-
-    private void setInputValue(EditText input, Double value) {
-        input.setText(value == null ? "" : NutritionCalculator.trim(value));
     }
 
     private void build() {
@@ -166,7 +112,7 @@ final class NutritionInputSection {
         ));
         addFieldRows(container, NutritionProfile.RECOMMENDED_TYPED_KEYS, optionalInputs, false);
 
-        LinearLayout micronutrients = column();
+        LinearLayout micronutrients = forms.column();
         micronutrients.setVisibility(View.GONE);
         Button toggle = ui.secondaryButton("미네랄·비타민 입력 열기", null);
         toggle.setOnClickListener(v -> {
@@ -193,90 +139,37 @@ final class NutritionInputSection {
     private void addFieldRows(
             LinearLayout parent,
             List<String> keys,
-            Map<String, EditText> target,
+            Map<String, NutritionInputField> target,
             boolean required
     ) {
         for (String key : keys) {
-            NutritionRow row = forms.nutrientInputRow(
-                    NutritionRow.displayLabel(key) + (required ? " *" : ""),
-                    NutritionRow.displayUnit(key),
-                    ""
+            String label = NutritionRow.displayLabel(key);
+            NutritionInputField field = new NutritionInputField(
+                    ui,
+                    forms,
+                    key,
+                    label,
+                    "",
+                    required,
+                    label + (required ? " 필수" : " 선택"),
+                    false
             );
-            EditText input = row.inputField();
-            input.setContentDescription(
-                    NutritionRow.displayLabel(key) + (required ? " 필수" : " 선택")
-            );
-            target.put(key, input);
-            LinearLayout field = forms.column();
-            field.addView(row.view(), ui.fullWidthParams(0));
-            TextView error = forms.error("");
-            error.setPadding(0, 0, 0, ui.dp(2));
-            errorViews.put(key, error);
-            final String errorKey = key;
-            input.addTextChangedListener(new TextWatcher() {
-                @Override
-                public void beforeTextChanged(CharSequence text, int start, int count, int after) {
-                }
-                @Override
-                public void onTextChanged(CharSequence text, int start, int before, int count) {
-                    clearError(errorKey);
-                }
-                @Override
-                public void afterTextChanged(Editable editable) {
-                }
-            });
-            field.addView(error, ui.fullWidthParams(0));
-            parent.addView(field, ui.fullWidthParams(0));
+            target.put(key, field);
+            parent.addView(field.view(), ui.fullWidthParams(0));
         }
     }
 
-    private void showError(String key, String message) {
-        TextView error = errorViews.get(key);
-        if (error != null) {
-            forms.showError(error, message);
-        }
+    private List<NutritionInputField> allFields() {
+        List<NutritionInputField> fields = new ArrayList<>();
+        fields.addAll(requiredInputs.values());
+        fields.addAll(optionalInputs.values());
+        return fields;
     }
-    private void clearError(String key) {
-        TextView error = errorViews.get(key);
-        if (error != null) {
-            forms.clearError(error);
-        }
-    }
+
     private void clearErrors() {
-        for (TextView error : errorViews.values()) {
-            forms.clearError(error);
+        for (NutritionInputField field : allFields()) {
+            field.clearError();
         }
-    }
-    private void focusInput(String key) {
-        EditText input = requiredInputs.get(key);
-        if (input == null) {
-            input = optionalInputs.get(key);
-        }
-        if (input != null) {
-            input.requestFocus();
-        }
-    }
-    private LinearLayout column() {
-        LinearLayout layout = new LinearLayout(activity);
-        layout.setOrientation(LinearLayout.VERTICAL);
-        return layout;
-    }
-
-    private static double parse(String key, String raw) {
-        double value;
-        try {
-            value = Double.parseDouble(raw);
-        } catch (NumberFormatException error) {
-            throw new IllegalArgumentException(
-                    NutritionRow.displayLabel(key) + " 값이 숫자가 아닙니다."
-            );
-        }
-        if (value < 0) {
-            throw new IllegalArgumentException(
-                    NutritionRow.displayLabel(key) + "은(는) 음수가 될 수 없습니다."
-            );
-        }
-        return value;
     }
 
     /** 화면 안내용 필수 영양소 이름 목록. */
