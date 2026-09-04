@@ -430,9 +430,18 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             }
         }
 
-        addTypedColumnHeader(setCard, activeExercise.recordType);
-
+        List<LoadState> allowedLoadStates = repository().allowedLoadStatesForExercise(activeExercise.id);
+        LoadState previousHeaderState = null;
         for (FitnessRepository.SessionSetEntry set : sets) {
+            LoadState setLoadState = effectiveLoadState(
+                    activeExercise.recordType,
+                    set.loadState,
+                    allowedLoadStates
+            );
+            if (setLoadState != previousHeaderState) {
+                addTypedColumnHeader(setCard, activeExercise.recordType, setLoadState);
+                previousHeaderState = setLoadState;
+            }
             renderTypedSetRow(
                     setCard,
                     recordId,
@@ -530,7 +539,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         row.addView(header, params);
     }
 
-    private void addTypedColumnHeader(LinearLayout card, String recordType) {
+    private void addTypedColumnHeader(LinearLayout card, String recordType, LoadState loadState) {
         FitnessUi ui = ui();
         LinearLayout row = new LinearLayout(host.activity());
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -539,8 +548,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 ui.dp(52),
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
-        addColumnHeader(row, primaryLabel(recordType), compactSetFieldParams(ui, true));
-        addColumnHeader(row, secondaryLabel(recordType), compactSetFieldParams(ui, false));
+        addColumnHeader(row, primaryInputLabel(recordType, loadState), compactSetFieldParams(ui, true));
+        if (hasSecondaryInput(recordType, loadState)) {
+            addColumnHeader(row, secondaryInputLabel(recordType, loadState), compactSetFieldParams(ui, false));
+        }
         if (FitnessRecordContract.supportsRir(recordType)) {
             addColumnHeader(row, "RIR", compactSetFieldParams(ui, false));
         }
@@ -602,9 +613,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         EditText rir = FitnessRecordContract.supportsRir(exercise.recordType)
                 ? ui.numberInput("", set.rir == null ? "" : String.valueOf(set.rir))
                 : null;
-        EditText[] effortInputs = rir == null
-                ? new EditText[]{primary, secondary}
-                : new EditText[]{primary, secondary, rir};
+        boolean hasSecondary = hasSecondaryInput(exercise.recordType, initialLoadState);
+        List<EditText> effortInputs = new ArrayList<>();
+        effortInputs.add(primary);
+        if (hasSecondary) {
+            effortInputs.add(secondary);
+        }
+        if (rir != null) {
+            effortInputs.add(rir);
+        }
         for (EditText input : effortInputs) {
             input.setGravity(Gravity.CENTER);
             input.setTextSize(14);
@@ -612,9 +629,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             input.setMinimumHeight(ui.dp(38));
             input.setPadding(ui.dp(4), ui.dp(3), ui.dp(4), ui.dp(3));
         }
-        secondary.setEnabled(hasSecondaryInput(exercise.recordType, initialLoadState));
         row.addView(primary, compactSetFieldParams(ui, true));
-        row.addView(secondary, compactSetFieldParams(ui, false));
+        if (hasSecondary) {
+            row.addView(secondary, compactSetFieldParams(ui, false));
+        }
         if (rir != null) {
             row.addView(rir, compactSetFieldParams(ui, false));
         }
@@ -888,7 +906,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 || loadState == LoadState.ASSISTED;
     }
 
-    private static boolean hasSecondaryInput(String recordType, LoadState loadState) {
+    static boolean hasSecondaryInput(String recordType, LoadState loadState) {
         return hasNumericLoad(loadState);
     }
 
@@ -1138,34 +1156,27 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         }
     }
 
-    private static String primaryLabel(String recordType) {
-        String type = FitnessRecordContract.normalizeRecordType(recordType);
-        if (FitnessRecordContract.REPS_ONLY.equals(type)) {
-            return "횟수";
+    static String primaryInputLabel(String recordType, LoadState loadState) {
+        if (!hasNumericLoad(loadState)) {
+            return isTimeRecordType(recordType) ? "초" : "횟수";
         }
-        if (FitnessRecordContract.TIME.equals(type)) {
-            return "초";
-        }
-        if (FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)) {
-            return "보조 kg";
-        }
-        if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(type)) {
+        if (loadState == LoadState.ADDED_WEIGHT) {
             return "추가 kg";
         }
-        return "중량 kg";
+        if (loadState == LoadState.ASSISTED) {
+            return "보조 kg";
+        }
+        if (loadState == LoadState.EXTERNAL_LOAD) {
+            return "중량 kg";
+        }
+        return isTimeRecordType(recordType) ? "초" : "횟수";
     }
 
-    private static String secondaryLabel(String recordType) {
-        String type = FitnessRecordContract.normalizeRecordType(recordType);
-        if (FitnessRecordContract.WEIGHT_TIME.equals(type)) {
-            return "초";
+    static String secondaryInputLabel(String recordType, LoadState loadState) {
+        if (!hasSecondaryInput(recordType, loadState)) {
+            return "";
         }
-        if (FitnessRecordContract.WEIGHT_REPS.equals(type)
-                || FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)
-                || FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(type)) {
-            return "횟수";
-        }
-        return "";
+        return isTimeRecordType(recordType) ? "초" : "횟수";
     }
 
     private static boolean supportsLoadRepAnalytics(String recordType) {
