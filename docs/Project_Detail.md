@@ -1,237 +1,240 @@
-# Fitness App | Project Detail
+# Project Detail | FitnessApp 기술·운영 상세
 
-> 이 문서는 현재 `main` 커밋 `d14f49f2dcbbc0f16f51f651fefbdc2311c4bdeb`의 Android 구조, 로컬 우선 데이터 흐름, 발전 탭 MVP, 공식 식품 카탈로그, 검증·운영 경계를 설명한다.
+> 이 문서는 `main`의 현재 코드와 로컬 검증 결과를 기준으로 FitnessApp의 책임, 데이터 흐름, 외부 경계, 미검증 영역을 정리한다.
 
-| 항목 | 내용 |
+| 항목 | 기준 |
 | --- | --- |
-| 문서 상태 | Active — repository verified 기준 |
-| 적용 범위 | `main` `d14f49f2dcbbc0f16f51f651fefbdc2311c4bdeb` |
-| 최종 갱신 | 2026-08-11 |
-| 진실 원천 | Java 코드, SQLite 스키마·migration, asset seed, Android/unit 테스트, Gradle·GitHub Actions 결과 |
-| 운영 경계 | 로컬 빌드·APK 생성은 확인했지만 실기기·운영 Supabase·Notion Actions read-back은 별도 확인 대상 |
+| 기준 커밋 | `main` `89672f52cf4cd5219e6e1cd5df71bcefb3792885` |
+| 기준일 | 2026-09-05 |
+| 플랫폼 | Java 17, Android View, min/target SDK 26/36 |
+| 저장소 | `SQLiteOpenHelper` local schema v49 |
+| 빌드 | Android Gradle Plugin 8.11.0, Gradle 9.0.0 |
+| 앱 surface | `personal`, `test-friends`, `commercial` |
 
-## 1. 문서 목적과 범위
+## 문서 목적과 범위
 
-### 포함
+이 문서는 화면 기능을 나열하는 문서가 아니라, 현재 구현된 데이터 소유권과 검증 가능한 경계를 설명하는 기술 기준이다.
 
-- Java 17 + Android View 기반 화면과 `MainActivity`/`ScreenHost` 전환 구조
-- SQLiteOpenHelper 기반 운동·신체·식단·백업 데이터 모델과 v19 upgrade path
-- `발전` 탭 MVP의 목표·신체정보·최근 기록 분석 규칙
-- 단일 식품 등록과 공식 K-FIND 영양 카탈로그 seed/search 흐름
-- Fitness Record Contract v1 요약 공유, 두 Supabase 연결, Auth·Keystore 경계
-- debug 검증, Android 테스트 APK, lint, 실기기·운영 미검증 범위
+포함 범위:
 
-### 제외
+- `MainActivity`와 하단 탭, 루틴·근력·유산소·기록·발전·식단·보충제·설정 흐름
+- SQLite v49 스키마, local-first 저장, backup/restore, 마이그레이션 호환성
+- 운동 종목 identity, load state, volume·근육 요약, 운동 이미지 lookup
+- 공식 식품·recipe·external menu, 외식 섭취 비율, PriceTrace 상품 영양 연결
+- Supabase Auth·공유 sync·Nutrition 경계, 위치·지도·Android Keystore 경계
+- 실제로 실행한 로컬 테스트와 아직 실행하지 않은 기기·원격·release 검증
 
-- Personal OS 전체 기능과 그 운영 배포
-- 운영 Supabase RLS가 실제로 적용됐다는 주장
-- 의료 진단, 영양 처방, 횟감 안전성 또는 운동 효과 보장
-- Play Store 배포와 signed release 성공 주장
-- `.understand-anything/` 생성 그래프 산출물
+제외 범위:
 
-## 2. 시스템 아키텍처
+- 운영 Supabase/RLS가 실제로 통과했다는 주장
+- release 서명·스토어 배포·실기기 실행 완료 주장
+- 의료 진단, 자동 영양 처방, 보충제 복용 안전 승인
+- `.understand-anything/` 생성물과 문서에 없는 추정 지표
+
+## 시스템 아키텍처
 
 ```text
-MainActivity
-  ├─ ScreenHost / FitnessScreen navigation
-  ├─ Home · Workout · Records · 발전 · Settings screens
-  ├─ FitnessRepository · RoutineRepository · ExerciseMasterRepository
-  ├─ DevelopmentRepository → DevelopmentScreen
-  ├─ NutritionCatalogRepository → MealManagementScreen
-  │    └─ VerifiedFoodCatalogSeed → verified_food_catalog_v3.json
-  └─ FitnessDatabaseHelper v19
-       └─ SQLite (운동·체중·신체 프로필·목표·식단·백업)
-
-Settings / sync boundary
-  ├─ SupabaseAuthManager → SecureTokenStore(Android Keystore)
-  ├─ SupabaseSyncManager → Personal OS shared project
-  └─ Nutrition sync/config → FitnessApp-only Nutrition project
-
-main push
-  └─ project-docs-notion.yml → validate → dry run → Notion mirror publish
+MainActivity / ScreenHost
+  ├─ 메인: 오늘 입력과 주요 진입점
+  ├─ 피트니스: 루틴·근력 세션·유산소 추적
+  ├─ 기록: 날짜별 기록·추세·요약
+  ├─ 발전: 목표·신체 프로필·훈련/영양/회복 근거
+  └─ 설정: 계정·동기화·surface·백업/복원
+        ↓
+  Repository / contract / validation
+        ↓
+  FitnessDatabaseHelper (SQLiteOpenHelper, v49)
+        ├─ workout / routine / cardio
+        ├─ meal / nutrition / dining / product
+        ├─ development / supplement / sync state
+        └─ explicit local backup/restore
+        ↓ 수동 동기화 경계
+  SupabaseSyncManager → shared Supabase tables
+  Nutrition repositories → independent Nutrition Supabase boundary
+  PriceTrace config/cache → external product read boundary
 ```
+
+기본 데이터 흐름은 `입력 → repository/contract 검증 → SQLite`다. 네트워크는 기록 완료의 선행 조건이 아니며, 설정에서 수동 동기화를 실행할 때만 공유 경계를 통과한다.
 
 ### 화면과 책임
 
-| 컴포넌트 | 책임 | 실패 시 영향 |
+| 표면 | 책임 | 데이터 경계 |
 | --- | --- | --- |
-| `MainActivity` | 탭·화면 전환, 발전 입력 dialog, Auth 상태 반영 | 전체 navigation과 입력 흐름 중단 |
-| `ScreenHost` | 화면이 공유하는 repository·navigation·dialog 계약 | 화면 간 결합 오류 |
-| `DevelopmentScreen` | 최근 기록 보고서, 목표·신체정보·우선 행동 UI | 발전 점검만 사용 불가 |
-| `DevelopmentRepository` | SQLite에서 목표·체중·운동·식사·체크인 집계 | 발전 근거 계산 오류 |
-| `MealManagementScreen` | 단일 식품 검색·선택·끼니 추가, 영양·출처 표시 | 식단 입력 흐름 중단 |
-| `NutritionCatalogRepository` | 공식 seed 식품 필터·검색·공개/소유권 필터 | 공식 식품 검색 불가 |
-| `VerifiedFoodCatalogSeed` | asset 파싱, 출처·조리상태·결측·공식 ID 검증, upsert | 카탈로그 생성·migration 실패 |
-| `FitnessRepository` | 운동·체중·끼니·체크인 로컬 기록과 요약 생성 | 기록 무결성 저하 |
-| `FitnessDatabaseHelper` | SQLite 생성·index·migration·v19 seed/repair | 로컬 데이터 접근 불가 |
-| `SupabaseSyncManager` | Auth 사용자 소유 행 pull/push와 충돌 경계 | 원격 반영 지연 |
-| `FitnessUi` | 공통 View, 홀로그램 테두리 drawable lifecycle | 공통 UI·애니메이션 영향 |
+| 메인 | 오늘 기록, 운동·식단·체중으로의 빠른 진입 | local read/write |
+| 피트니스 | 루틴 CRUD, 루틴/자유 세션, 종목·세트, cardio tracking | workout/cardio local tables |
+| 기록 | 월간 날짜, 선택일 운동·식사·체중, 체중 추세 | local aggregation |
+| 발전 | 목표, 키·체중, 최근 기록, 훈련·영양·회복, review insight | local derived view; 처방 아님 |
+| 설정 | shared/Nutrition/PriceTrace config, Auth, manual sync, backup/restore | 외부 연결은 명시적 실행 |
 
-## 3. 데이터 모델과 불변식
+## 데이터 모델과 저장 경계
 
-### 운동과 공유
+`FitnessDatabaseHelper.DATABASE_VERSION`은 49다. `onUpgrade()`는 이전 버전에서 순차적으로 새 열·인덱스·테이블을 추가하고, 기존 local 기록을 삭제하지 않는 방향으로 동작한다.
 
-| 데이터 | 소유 경계 | 공유 여부 |
+| 그룹 | 대표 테이블 | 보존 원칙 |
 | --- | --- | --- |
-| `workout_records` | Fitness App 상세·요약 원천 | 완료 시 요약 계약으로 공유 가능 |
-| `workout_exercises`, `workout_sets` | Fitness App | Personal OS에 상세 직접 노출하지 않음 |
-| `cardio_sessions`, `cardio_route_points` | Fitness App 로컬 상세 | 공유 범위 계약에 따름 |
-| 루틴·루틴 종목 | Fitness App | 앱 내부 사용 |
-| 완료 요약 | Fitness Record Contract v1 | `contract_version`, `category_codes`, `scope`를 가진 요약만 공유 |
+| 공유 요약 후보 | `devices`, `workout_records`, `workout_exercises`, `workout_sets`, `meal_records`, `weight_records` | user/scope/date와 부모-자식 관계를 보존하며 sync allowlist로 제한 |
+| 동기화 상태 | `sync_state` | cursor와 방향을 local에 보존; 원격 전체 재조회로 대체하지 않음 |
+| 루틴·운동 | `routines`, `routine_exercises`, `exercise_picker_preferences` | 루틴과 실제 세션을 분리하고 family/variant를 별도 identity로 보존 |
+| 유산소 | `cardio_sessions`, `cardio_route_points` | 위치 원시 경로는 local 전용; 요약 거리·시간과 분리 |
+| 식단·영양 | `nutrition_foods`, `nutrition_food_nutrients`, `nutrition_food_components`, `meal_records`, `meal_record_items`, `meal_record_item_nutrients`, `meal_record_item_components` | ingredient·recipe·external menu와 영양 snapshot을 분리 |
+| 조합·외식 | `composition_templates`, `composition_groups`, `composition_members`, `dining_out_menu_add_on_links`, `dining_out_menu_component_links`, `meal_record_item_consumptions` | 구성 그룹, 제공 방식, diner count, 실제 섭취 비율을 분리 |
+| 상품·영수증 | `product_nutrition_links`, `pricetrace_product_cache`, `verified_receipt_items` | exact external ID와 local snapshot을 유지; 이름 추정으로 승인하지 않음 |
+| 발전·보충제 | `body_profiles`, `development_goals`, `nutrition_goals`, `nutrition_daily_checkins`, `supplement_items`, `supplement_schedules`, `supplement_schedule_slots`, `supplement_intake_records`, `supplement_effect_checkins` | 원시 기록과 계산된 review 상태를 혼동하지 않음 |
 
-### 발전과 신체정보
+상세 식단 구성·영양값·GPS 경로·발전·보충제 확장은 현재 shared sync table allowlist에 포함되지 않는다. remote migration과 계약이 확인되기 전까지 local에 남기는 것이 현재 호환성 경계다.
 
-`body_profiles`는 사용자별 키를 50~300cm 범위의 정수로 저장한다. 체중은 기존 날짜별 `weight_records` 흐름을 이용하므로 발전 화면은 기준일 이전 가장 최근 체중을 읽는다. `development_goals`는 다음 계약을 SQLite CHECK로 제한한다.
+## 운동 도메인
 
-| 필드 | 허용값 |
-| --- | --- |
-| `objective` | `muscle_gain`, `strength`, `fat_loss`, `endurance`, `maintenance` |
-| `weekly_sessions_target` | 1~7 |
-| `focus_body_part` | `chest`, `back`, `legs`, `shoulders`, `arms`, `abs` |
+### 기록 계약과 입력 상태
 
-`DevelopmentRepository.buildReport()`는 기준일을 중심으로 최근 14일, 현재 주 월요일부터 기준일까지를 집계한다. 화면은 완료된 운동 세트, 집중 부위, 식사 기록일, 체크인 기록일, 에너지/준비도 2 이하 반복, 체중 기록일과 전체 데이터 커버리지를 사용한다. `DevelopmentInsightRules`는 최대 3개의 우선 행동을 만들며 각 항목에 근거와 판단 한계를 붙인다. 기록이 없다는 사실을 의료적 결론이나 영양 처방으로 확장하지 않는다.
+`FitnessRecordContract.VERSION`은 1이다. 기록 유형은 다음 여섯 가지다.
 
-### 영양 카탈로그
+- `weight_reps`
+- `reps_only`
+- `time`
+- `weight_time`
+- `assisted_weight_reps`
+- `bodyweight_added_weight_reps`
 
-`nutrition_foods`와 `nutrition_food_nutrients`는 단일 식품 선택에 사용된다. 공식 asset `app/src/main/assets/verified_food_catalog_v3.json`은 다음 불변식을 가진다.
+`LoadState`는 `BODYWEIGHT`, `EXTERNAL_LOAD`, `ADDED_WEIGHT`, `ASSISTED`, `BAND_ASSISTED`, `BAND_RESISTED`로 구분한다. 최근 입력 화면은 load state에 따라 헤더·필드·필수값을 바꾸며, 상태 전환에서 reps와 load를 섞어 덮어쓰지 않는다. RIR은 rep 기반 기록에만 적용한다.
 
-- 총 55행: 생것 51행, 구이 4행.
-- 각 행의 기준량은 가식부 100g이다.
-- 생것은 `prep_state=raw`, `cooking_method=raw`; 구이는 `prep_state=cooked`, `cooking_method=grilled`다.
-- 공식 ID는 `kfind:<FOOD_CD>`, 소유자는 `NULL`, visibility는 `public`, source type은 `kfind_official`이다.
-- 출처 링크는 K-FIND 상세 URL과 공식 데이터 생성일(`source_version`)을 보존한다.
-- 공식 공란은 `NULL`로 유지한다. 현재 허용된 결측은 생선 당류 6행과 부산 생고등어의 나트륨·포화지방 2개 필드다.
-- 참다랑어 생것처럼 원본에 같은 코드가 중복되는 경우 generator가 대표 공식명 행을 선택한다.
-- raw 생선의 표시명에 `회`를 포함할 수 있지만 이는 검색 별칭이며 횟감·생식 안전성 인증이 아니다.
+완료 세션은 종목·세트·volume·시간·근육 분포를 local에서 계산한다. 근육 분포 요약은 primary 기여를 1.0, secondary 기여를 0.5로 계산하며, 이 계산 결과가 의료적 신체 판단을 뜻하지는 않는다.
 
-현재 생선 7행은 다음처럼 구분된다.
+### 종목 identity와 이미지
 
-| 표시 흐름 | 공식 상태 | 데이터 주의 |
-| --- | --- | --- |
-| 연어회(홍연어·생것 기준) / 연어구이(홍연어) | 생것 / 구운것 | 동일 홍연어 계열의 공식 raw·grilled 행 |
-| 참치회(참다랑어·생것 기준) / 참치구이(참다랑어) | 생것 / 구운것 | 참치는 통칭이므로 종을 표시 |
-| 고등어회(생것·부산 평균) / 고등어구이(수입·일본 평균) | 생것 / 구운것 | 같은 원산지 짝이 아닌 독립 공식 평균값 |
-| 민어구이(대표 평균) | 구운것 | 공식 민어 구이 대표 평균 행 |
+`exercise-family-mapping-v1.json`의 현재 매핑은 legacy 340개 중 340개이며 미매핑·모호 항목은 0개다. family 정의는 103개, 승인 preset은 27개다. 저장·검색에서 이름보다 family/preset/visual variant ID를 기준으로 삼는다.
 
-## 4. 핵심 기술 의사결정
-
-### 결정 1. Java View·SQLiteOpenHelper 경계 유지
-
-현재 앱은 Java 17 단일 Android 모듈과 programmatic View로 구성되어 있다. MVP에서는 Kotlin·Compose·Room 전면 재작성 대신 기존 `ScreenHost`·repository·SQLite 경계를 유지해 기능을 작게 추가했다. 구조 전환은 화면 복잡도와 migration 비용이 현재 생산성을 지속적으로 초과할 때 재검토한다.
-
-### 결정 2. 발전 탭은 처방기가 아니라 기록 기반 지휘판
-
-발전 탭은 최근 기록의 누락·반복·주간 목표 진행률을 보여 주고 사용자가 운동·식사·체크인·기록 화면으로 이동하게 한다. 영양소 권장량이나 질병 판단을 생성하지 않는 이유는 현재 데이터와 검증 범위가 그 결론을 지지하지 않기 때문이다.
-
-### 결정 3. 공식 식품은 로컬 seed + 검색 계약으로 제공
-
-단일 식품 등록의 즉시 검색성과 오프라인 기록을 위해 curated JSON을 앱 asset으로 포함하고 DB v19 create/upgrade/backup restore에서 reconcile한다. Supabase에 공식 owner-null seed 전체를 업로드하는 구조가 아니며, private/manual 식품과 recipe 동기화 경계는 기존 Nutrition repository 계약을 따른다.
-
-### 결정 4. 조리상태를 행별로 보존
-
-모든 식품을 단일 `조리 전 100g`으로 환산하면 공식 구이 행의 의미가 사라진다. 따라서 raw와 grilled를 같은 종의 변환값으로 계산하지 않고, 각 공식 행의 조리상태 기준 100g을 그대로 저장한다. meal snapshot에는 표시명과 preparation state가 남으므로 표시명에도 생것 기준·구이를 포함해 과거 기록의 모호성을 줄였다.
-
-### 결정 5. 완료 요약만 Personal OS에 공유
-
-Fitness App이 상세 세트와 루틴을 소유하고 Personal OS에는 완료 운동의 stable category code·contract version·scope 요약만 발행한다. 두 앱이 동일한 상세 테이블을 수정하지 않게 해 소유권과 UX 책임을 분리한다.
-
-### 결정 6. 직접 Auth·REST와 두 Supabase 연결
-
-앱은 공통 Personal OS shared project와 FitnessApp-only Nutrition project를 분리한다. Java 앱의 작은 의존성 표면을 유지하기 위해 Auth·REST 매핑을 직접 관리하며, 토큰은 Android Keystore 기반 저장소에 둔다. 이 구조는 편리하지만 token refresh·오류·재시도와 운영 RLS를 별도로 검증해야 한다.
-
-## 5. 외부 연동과 실패 경계
-
-| 대상 | 목적 | 인증·비밀값 | 실패 처리 | 현재 검증 |
-| --- | --- | --- | --- | --- |
-| Personal OS shared Supabase | 운동·체중·식사·체크인 공유 | Auth access/refresh token | 로컬 기록 유지, 수동 동기화 결과 표시 | 코드·계약 검증, 운영 미검증 |
-| FitnessApp Nutrition Supabase | private food/recipe와 nutrition 연동 | 별도 URL·anon key·Auth session | 로컬 카탈로그·기록 우선 | 코드 검증, 운영 미검증 |
-| Android Keystore | 세션 token 보호 | 기기별 키 alias | 저장·복호화 실패 처리 | 코드 검증 |
-| K-FIND·공공데이터 원본 | 공식 식품 asset 생성 | generator의 공개 URL | 생성 실패 시 asset 갱신 중단 | 2026-08-11 재생성 통과 |
-| Notion mirror | reviewed Markdown의 generated copy | GitHub Environment secrets | validate 실패 시 publish 차단 | workflow 구성 검증, Actions read-back 필요 |
-
-네트워크가 실패해도 운동·식단의 로컬 기록 자체는 SQLite에 남는다. 원격 read/write 성공을 로컬 build 성공으로 간주하지 않는다.
-
-## 6. 데이터 보호와 보안
-
-- 사용자 ID는 임의 입력이 아니라 Auth 설정과 local account policy에서 결정한다.
-- access/refresh token은 Android Keystore 기반 저장소와 분리된 preferences namespace를 사용한다.
-- Android backup과 cleartext traffic 차단 설정을 유지한다.
-- owner-null 공식 식품 행은 공개 로컬 카탈로그로 사용하고, private/manual 행과 recipe 구성요소는 별도 소유권 필터를 따른다.
-- 백업 복원은 대상 DB transaction 안에서 발전 테이블·공식 카탈로그를 재조정하고, meal snapshot의 과거 영양값을 임의 변경하지 않는다.
-- release signing 값은 `FITNESS_RELEASE_STORE_FILE`, `FITNESS_RELEASE_STORE_PASSWORD`, `FITNESS_RELEASE_KEY_ALIAS`, `FITNESS_RELEASE_KEY_PASSWORD` 환경변수가 없으면 `assembleRelease`가 실패하도록 구성된다.
-- 실제 Supabase RLS 적용, 두 계정 격리, 토큰 만료·재발급, signed release 설치는 별도 운영 게이트다.
-
-## 7. 테스트와 검증 전략
-
-검증 source boundary는 기능 병합 커밋 `25081edf8aa4b656ab084ec9a6b4c120f0e542fb`다. 이후 문서 보정만 포함한 현재 `main`은 `d14f49f2dcbbc0f16f51f651fefbdc2311c4bdeb`이며, 2026-08-11에 다음 명령을 실행했다.
-
-```powershell
-.\gradlew.bat testDebugUnitTest assembleDebug assembleDebugAndroidTest lintDebug --rerun-tasks
-```
-
-| 계층 | 대상 | 결과 | 경계 |
-| --- | --- | --- | --- |
-| Java unit test | 발전 모델·규칙·기존 계산 | 통과 | 로컬 JVM, Android framework 일부 미실행 |
-| Java compile | main + Android test source | 통과 | 기기 런타임 미실행 |
-| Android debug build | manifest·resource·APK | 통과 | 설치·화면 smoke 미실행 |
-| Android test APK | 발전·애니메이션·식품·migration·backup 테스트 패키징 | 통과 | `adb devices -l` 연결 기기 0대 |
-| lint | debug lint 및 test lint model | 통과 | deprecated Gradle warning은 별도 남음 |
-| 공식 카탈로그 generator | 원본 다운로드·행 선택·null 정책 | 55행 생성 통과 | 원본 제공 시점과 API 응답 변화는 재생성 시 확인 |
-| Supabase integration | Auth·RLS·동기화 | 미검증 | 운영 URL·두 계정 필요 |
-| physical device E2E | 발전 입력·식품 선택·animation·backup | 미실행 | 연결 기기 필요 |
-
-Android instrumentation을 실행하려면 먼저 다음 결과에 device가 나타나야 한다.
-
-```powershell
-adb devices -l
-```
-
-## 8. 배포·운영·복구
+이미지 조회 순서는 다음과 같다.
 
 ```text
-feature branch
-  → unit test + debug APK + Android test APK + lint
-  → main merge/push
-  → project-docs workflow validate + render dry run
-  → on-main-push Notion publish job
-  → Actions 결과·두 mirror page·source revision read-back
+exact visual variant → family default → placeholder
 ```
 
-### DB와 백업
+picker는 exact-only 정책을 사용한다. 고정 기구·카메라·인체 비율이 검수되지 않은 장면을 제품 이미지 근거로 승격하지 않는다.
 
-- 현재 `FitnessDatabaseHelper.DATABASE_VERSION`은 19이다.
-- `onCreate()`는 운동·영양·발전 테이블과 curated catalog를 생성한다.
-- `onUpgrade()`는 발전 테이블을 idempotent하게 보장하고 v19 이전 DB의 official catalog를 reconcile한다.
-- backup export/import에는 `body_profiles`, `development_goals`가 포함된다. 이전 backup에 해당 테이블이 없으면 호환 검증에서 선택적으로 생략할 수 있다.
-- restore는 transaction 안에서 catalog seed를 다시 적용한다. 공식 식품 행의 영양값과 meal snapshot을 혼동하지 않는다.
-- DB 버전이 더 높은 backup은 현재 앱에서 거부한다. 운영 migration 전에는 백업과 legacy owner backfill을 확인해야 한다.
+## 유산소·기록·발전
 
-### Release와 Notion
+- `CardioActivityType`은 걷기·달리기·자전거다.
+- foreground location service와 거리 필터가 `cardio_sessions` 및 `cardio_route_points`를 갱신한다.
+- 지도 키가 구성된 경우 Google Map에 route를 투영하며, 지도 오류가 나도 local 거리·시간 요약은 보존한다.
+- `RecordsScreen`은 월간 달력, 선택일 workout/weight/meal, 체중 추세를 제공한다. 추세는 충분한 점이 없을 때 억지로 선을 만들지 않고 목록으로 남긴다.
+- `WorkoutSummaryScreen`은 근력 volume·완료 세트·시간 또는 유산소 거리·시간을 보여 준다.
+- `DevelopmentScreen`은 목표·신체 프로필·최근 기록·훈련/영양/회복 coverage와 최대 3개 review insight를 보여 준다.
+- `PaperAdviceEngine`의 결과 상태는 `ACTIONABLE`, `INFORMATIONAL`, `INSUFFICIENT_DATA`, `SAFETY_REVIEW`다. 근거가 부족한 경우 처방 대신 상태와 한계를 표시한다.
 
-- debug APK는 로컬에서 생성됐지만 signed release APK는 아직 생성하지 않았다.
-- 운영 Supabase migration·RLS는 앱 build와 독립된 검증 단계다.
-- `project-docs.config.json`의 `publicationMode`는 `on-main-push`다. 문서 변경이 canonical `main`에 병합되면 workflow가 먼저 tracked 문서 검증과 Notion render dry run을 수행하고, 조건을 만족하면 `notion-production` environment에서 두 mirror 페이지를 replace-only 방식으로 갱신한다.
-- 문서 branch나 pull request는 Notion에 쓰지 않는다. Actions 실패나 부분 발행 시 mirror를 수동 편집하지 않고 같은 canonical revision을 재실행한다.
+## 영양·외식·상품
 
-## 9. 한계, 기술 부채, 다음 단계
+### 영양 catalog
 
-| 우선순위 | 항목 | 영향 | 다음 행동 |
-| --- | --- | --- | --- |
-| P0 | 실기기 계측·설치 미검증 | 실제 화면·animation·입력·복원 동작 미확인 | ADB 기기 연결 후 targeted instrumentation 실행 |
-| P0 | 운영 RLS·두 계정 격리 미검증 | 원격 개인 데이터 경계 미확인 | shared/Nutrition 프로젝트별 Auth 계정 2개 CRUD 테스트 |
-| P0 | signed release 미검증 | 배포 가능 여부 미확인 | release 환경변수 주입 후 `assembleRelease`·설치 smoke |
-| P1 | 공식 식품 범위 55행 | 사용자 검색 범위 제한 | 같은 provenance·조리·결측 계약으로 curated rows 확장 |
-| P1 | REST 매핑·재시도 직접 관리 | API 변화 시 유지보수 비용 | 오류·재시도·충돌 계약을 추가 테스트로 고정 |
-| P1 | Gradle deprecated feature 경고 | Gradle 10 업그레이드 위험 | `--warning-mode all`로 원인별 갱신 |
-| P1 | 발전 규칙의 기록 의존성 | 기록이 적으면 판단 커버리지 낮음 | 날짜별 기록·신체정보·목표 입력을 먼저 확보하고 규칙을 작은 단위로 확장 |
+`NutritionFood`는 ingredient, recipe, external menu를 구분한다. `NutritionCatalogRepository`는 local verified/public/private catalog, packaged product variant, 저장한 외식 메뉴·구성, recipe와 product link를 한 검색 흐름에서 다루되 소유자·공개 범위를 분리한다.
 
-현재 MVP의 다음 구현 단위는 자동 처방을 추가하는 것이 아니라, 실기기에서 발전 탭·생선 raw/grilled 선택·홀로그램 lifecycle·백업 복원을 하나의 smoke 흐름으로 검증하는 것이다.
+`app/src/main/assets/verified_food_catalog_v3.json`의 현재 공식 catalog는 68행이다.
 
-## 10. 관련 문서와 원본
+| 항목 | 값 |
+| --- | --- |
+| source version | `2025-12-23` |
+| 기준량 | 가식부 100g |
+| raw | 64행 |
+| cooked | 4행 |
+| 결측 정책 | 공식 공란은 `null`; 알 수 없는 값을 0으로 추정하지 않음 |
+
+생것과 조리 행은 독립된 공식 측정값이다. 생선의 `회`는 표시 alias일 뿐 안전성·횟감 등급을 뜻하지 않는다.
+
+### 외식 identity와 섭취량
+
+외식은 `dine_in`/매장, `delivery`/배달, `takeout`/포장을 구분한다. 제공 항목은 included/basic, paid, review event, service, coupon, promotion으로 구분한다.
+
+`DiningOutIdentity`는 `dining-out-identity.v1`을 사용하고, restaurant/location/menu/catalog product의 exact UUID, snapshot name, `locationSourceNamespace`를 보존한다. `pricetrace` namespace의 ID를 이름이나 AI 추정으로 대체하지 않는다.
+
+`DiningOutConsumption`은 `dining-out-sharing.v1`을 사용한다. diner count와 `consumedFraction`, `equal_by_diners`/`manual` 방식을 별도 저장해 메뉴 전체 영양값과 실제 섭취량을 분리한다.
+
+`ProductNutritionLink`의 상태는 suggested/approved/rejected이며, 영양 row마다 승인 연결은 하나만 허용한다. 승인에는 exact PriceTrace product identity와 영양 snapshot이 필요하다.
+
+## 보충제·증거 카드
+
+보충제 흐름은 catalog 선택 → plan/schedule slot → taken/skipped 기록 → correction → effect/side-effect check-in 순서다. `SupplementEvidenceCatalog`의 코드상 검토일은 `2026-08-19`이며, creatine·caffeine·beta-alanine은 직접 검토 카드로, 다른 항목은 제한적·혼합·맥락 필요 상태로 구분한다.
+
+이 기능은 복용량 안전성이나 의료 승인을 자동 생성하지 않는다. 근거 카드는 정보 상태와 검토 범위를 보여 주며, 사용자의 임상 판단을 대체하지 않는다.
+
+## 핵심 기술 의사결정
+
+| 결정 | 이유 | 현재 결과 |
+| --- | --- | --- |
+| Java 17 + Android View 유지 | 기존 제품 코드와 화면 흐름의 호환성 유지 | Kotlin/Compose/Room 전면 재작성 없이 단계적 확장 |
+| SQLite local-first | 오프라인 기록과 데이터 소유권을 네트워크에서 분리 | 기록 완료가 원격 상태에 종속되지 않음 |
+| contract·identity 분리 | 운동·외식·상품을 이름으로 연결할 때의 충돌 방지 | version, exact ID, snapshot, status를 별도 보존 |
+| null과 0 구분 | 공식 결측값의 의미를 보존 | 영양값과 review 상태에서 추측을 차단 |
+| shared sync allowlist | 원격 migration·계약이 없는 local 확장을 보호 | 상세 식단·GPS·일부 운동 확장은 local에 유지 |
+| surface별 설정·token namespace | personal/test-friends/commercial 간 데이터 혼합 방지 | unknown surface는 fail closed; Keystore alias도 분리 |
+| 증거 상태 기반 조언 | 기록만으로 의료·영양 처방을 만들지 않기 위함 | `SAFETY_REVIEW`·`INSUFFICIENT_DATA` 등으로 제한 |
+
+## 테스트와 검증 전략
+
+검증은 build/test, lint, ADB/계측, release 서명, 원격 운영을 별도 축으로 기록한다. 2026-09-05에 `main`과 동일한 코드에서 실행한 결과는 다음과 같다.
+
+| 명령 | 결과 | 의미 |
+| --- | --- | --- |
+| `./gradlew.bat testDebugUnitTest --no-daemon` | 통과 | Java 단위 테스트와 debug test task 완료 |
+| `./gradlew.bat assembleDebug --no-daemon` | 통과 | debug APK 생성 |
+| `./gradlew.bat assembleDebugAndroidTest --no-daemon` | 통과 | Android 테스트 APK 컴파일·패키징; 계측 실행 아님 |
+| `./gradlew.bat lintDebug --no-daemon` | 실패 | API 27 요구 styles resource 오류 4개, warning 54개 |
+| `adb devices -l` | 4개 대상 관찰 | ADB endpoint/emulator가 보였지만 `connectedDebugAndroidTest`는 실행하지 않음 |
+
+아직 실행하지 않은 검증은 release keystore 빌드, 실제 앱 설치·로그인·동기화, Supabase Auth/RLS 두 계정 격리, PriceTrace/Personal OS 원격 read-back이다. 따라서 현재 상태를 release 또는 운영 완료로 표현하지 않는다.
+
+## 외부 연동과 실패 경계
+
+| 연동 | 현재 역할 | 실패 시 보존되는 것 |
+| --- | --- | --- |
+| shared Supabase | `sync_fitness_data_v1` RPC 우선, 불가하면 legacy REST fallback; `devices`, workout 3종, meal/weight summary allowlist | local SQLite와 cursor |
+| Nutrition Supabase | Nutrition catalog·private food/recipe의 독립 원격 대상 | local catalog와 local meal record |
+| PriceTrace | exact product identity·nutrition 후보를 읽는 외부 경계; 이 저장소에는 PriceTrace migration 없음 | local snapshot·pending link |
+| Android location | 유산소 위치 기록 | 세션의 거리·시간; 지도 오류와 분리 |
+| Google Maps | 구성된 key로 route 표현 | local route/session data |
+| Android Keystore | shared/Nutrition/PriceTrace token 암호화 저장 | 로그인 전 local data; token 자체는 평문 저장하지 않음 |
+| GitHub Actions/Notion | canonical `main` 문서가 반영된 뒤 mirror 갱신 | Git Markdown 원본 |
+
+동기화는 RPC batch 500, 최대 RPC call 1000, cursor 기반이다. Auth는 password/refresh session을 사용하며, 반환된 user UUID가 local user와 다르면 계정 전환을 임의로 진행하지 않는다.
+
+## 보안·복구
+
+- access/refresh token은 AES/GCM과 AndroidKeyStore를 사용하고 shared, Nutrition, PriceTrace마다 alias와 preferences namespace를 분리한다.
+- manifest는 `allowBackup=false`, cleartext traffic disabled 정책이다. Android 자동 백업을 제품 복구 경로로 간주하지 않는다.
+- `LocalDataBackupService`는 사용자가 명시적으로 실행한 `fitness-os.local-backup` JSON을 사용한다. format version은 1, 크기 제한은 32 MiB/250,000 rows다.
+- 백업에는 owner/public scope를 구분하고, restore는 transaction으로 적용하며 route 중복 방지와 catalog reconcile을 수행한다. CSV summary export도 별도 제공한다.
+- 설정·로그·문서에 secret, token, 실제 user UUID를 기록하지 않는다.
+
+## 배포·운영·복구
+
+### Build surface와 서명
+
+`personal`, `test-friends`, `commercial` surface가 있고 variant는 debug, qa, release다. qa/release는 외부 signing 설정을 요구하며, release 완료를 말하려면 서명·기기·원격 운영 게이트를 각각 통과시켜야 한다.
+
+업데이트는 기존 설치본의 인증서와 새 APK의 인증서가 일치해야 한다. 데이터 보존이 필요한 QA 검증에서는 먼저 backup과 인증서를 확인하고 호환되는 APK를 `adb install -r`로 설치한다. `INSTALL_FAILED_UPDATE_INCOMPATIBLE`를 우회하려고 uninstall이나 `pm clear`를 routine으로 사용하지 않는다.
+
+### 원격 migration과 문서 발행
+
+공유 Supabase와 Nutrition Supabase는 서로 다른 migration target이다. Nutrition migration을 shared project에 적용하지 않는다. PriceTrace는 이 저장소의 migration 소유 대상이 아니다. 자세한 경계는 [`supabase/README.md`](../supabase/README.md)에 둔다.
+
+Git Markdown의 canonical branch는 `main`이고, configured publication mode는 `on-main-push`다. 문서 브랜치에서는 validator와 Notion render-only dry-run만 수행하며, merge 후 Actions와 Notion read-back을 별도로 확인해야 발행을 완료로 판단한다.
+
+## 한계, 기술 부채, 다음 단계
+
+| 항목 | 현재 한계 | 다음 검증/작업 |
+| --- | --- | --- |
+| lint | API 27 resource 오류 4개와 warning 54개 | styles resource 호환성 수정 후 lint 재실행 |
+| 계측 | 테스트 APK만 컴파일·패키징 | ADB 대상 설치 후 connected instrumentation 실행 |
+| release | 외부 keystore와 `FITNESS_RELEASE_*` 설정 미검증 | QA/release 서명·`adb install -r` 데이터 보존 확인 |
+| remote | Auth/RLS, 두 계정 격리, RPC/fallback read-back 미검증 | 실제 프로젝트에서 독립 계정과 migration 상태 확인 |
+| sync 계약 | local-only 확장이 shared table에 반영되지 않음 | remote schema가 준비될 때만 별도 versioned contract로 확장 |
+| 콘텐츠 | 공식 식품·운동 이미지·보충제 근거가 큐레이션 범위 | 출처·identity·결측·검수 상태를 유지하며 범위 확장 |
+| 조언 | 발전/paper advice는 기록 기반 상태 안내 | 처방·진단으로 확장하지 않고 evidence coverage 개선 |
+| 문서 mirror | 문서 브랜치는 발행 대상이 아님 | `main` 반영 후 Actions 성공과 두 페이지 read-back 확인 |
+
+## 관련 파일과 문서
 
 - [Project Intro](./Project_Intro.md)
 - [README](../README.md)
+- [Supabase migration 경계](../supabase/README.md)
 - [Fitness Record Contract v1](https://github.com/Yeon-sik/Always_Memo/blob/main/docs/FITNESS_RECORD_CONTRACT_V1.md)
-- [Release Readiness](https://github.com/Yeon-sik/Always_Memo/blob/main/docs/RELEASE_READINESS.md)
-- [공식 원재료성 식품 영양성분 표준데이터](https://www.data.go.kr/data/15100065/standard.do)
-- [K-FIND 식품영양성분 DB](https://various.foodsafetykorea.go.kr/nutrient/)
+- [통합 릴리스 준비 기준](https://github.com/Yeon-sik/Always_Memo/blob/main/docs/RELEASE_READINESS.md)
