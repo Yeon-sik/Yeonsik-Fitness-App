@@ -69,66 +69,116 @@ public abstract class BaseScreen {
     }
 
     protected View volumeTrendCard(String title, List<FitnessRepository.VolumePoint> history, double currentVolume) {
-        return volumeTrendCard(title, "최근 4회 + 현재", history, currentVolume, true);
+        return volumeTrendCard(
+                title,
+                "최근 4회 + 현재",
+                history,
+                currentVolume,
+                RecordsAnalysis.TrendCurrentState.COMPLETED,
+                null
+        );
     }
 
     protected View volumeTrendCard(String title, List<FitnessRepository.VolumePoint> history,
                                    double currentVolume, boolean includeCurrentPoint) {
-        return volumeTrendCard(title, "최근 4회 + 현재", history, currentVolume,
-                includeCurrentPoint);
+        return volumeTrendCard(
+                title,
+                "최근 4회 + 현재",
+                history,
+                currentVolume,
+                includeCurrentPoint
+                        ? RecordsAnalysis.TrendCurrentState.COMPLETED
+                        : RecordsAnalysis.TrendCurrentState.IN_PROGRESS,
+                null
+        );
+    }
+
+    protected View volumeTrendCard(String title, List<FitnessRepository.VolumePoint> history,
+                                   double currentVolume,
+                                   RecordsAnalysis.TrendCurrentState currentState) {
+        return volumeTrendCard(title, null, history, currentVolume, currentState, null);
     }
 
     protected View volumeTrendCard(String title, String metaLabel,
                                    List<FitnessRepository.VolumePoint> history, double currentVolume) {
-        return volumeTrendCard(title, metaLabel, history, currentVolume, true);
+        return volumeTrendCard(
+                title,
+                metaLabel,
+                history,
+                currentVolume,
+                RecordsAnalysis.TrendCurrentState.COMPLETED,
+                null
+        );
     }
 
     /**
-     * Renders persisted history separately from the current in-progress calculation.
-     * An unfinished session must not become a false zero-valued historical point.
+     * Keeps completed history, a saved completed current record, and an in-progress value
+     * semantically separate. The latter is never appended to the persisted polyline.
      */
     protected View volumeTrendCard(String title, String metaLabel,
                                    List<FitnessRepository.VolumePoint> history,
                                    double currentVolume,
-                                   boolean includeCurrentPoint) {
+                                   RecordsAnalysis.TrendCurrentState currentState,
+                                   String currentDate) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
         List<Double> values = new ArrayList<>();
+        List<String> historyDates = new ArrayList<>();
         if (history != null) {
             for (FitnessRepository.VolumePoint point : history) {
                 if (point != null) {
                     values.add(point.volumeKg);
+                    historyDates.add(point.date);
                 }
             }
         }
+        RecordsAnalysis.TrendCurrentState state = currentState == null
+                ? RecordsAnalysis.TrendCurrentState.NONE
+                : currentState;
+        boolean includeCompletedCurrent = state == RecordsAnalysis.TrendCurrentState.COMPLETED;
+        int completedHistoryCount = values.size();
         int currentPointIndex = -1;
-        if (includeCurrentPoint) {
+        if (includeCompletedCurrent) {
             currentPointIndex = values.size();
             values.add(currentVolume);
         }
-        if (RecordsAnalysis.hasEnoughTrendPoints(values.size())) {
-            String displayMeta = includeCurrentPoint
-                    ? metaLabel
-                    : "완료 기록 " + values.size() + "회 · 현재 진행 중 · kg";
+        if (RecordsAnalysis.hasEnoughTrendPoints(completedHistoryCount, state)) {
+            String period = RecordsAnalysis.trendPeriodLabel(
+                    historyDates,
+                    includeCompletedCurrent ? currentDate : null
+            );
+            String stateLabel = state == RecordsAnalysis.TrendCurrentState.IN_PROGRESS
+                    ? " · 현재 진행 중"
+                    : "";
+            String displayMeta = period.isEmpty()
+                    ? "완료 기록 " + values.size() + "회 · kg" + stateLabel
+                    : period + " · kg" + stateLabel;
             ui.cardHeader(card, title, displayMeta);
-            card.addView(ui.volumeTrendChart(values, currentPointIndex), new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(116)));
+            card.addView(ui.volumeTrendChart(values, currentPointIndex), ui.trendChartParams(0));
+            if (state == RecordsAnalysis.TrendCurrentState.IN_PROGRESS) {
+                card.addView(ui.recordListRow(
+                        "진",
+                        FitnessUi.formatVolume(currentVolume) + "kg",
+                        "진행 중 · 저장된 추세에는 포함하지 않음",
+                        null
+                ), ui.fullWidthParams(ui.dp(8)));
+            }
             return card;
         }
 
         ui.cardHeader(card, title, "추세 차트 대기");
         List<View> rows = new ArrayList<>();
-        if (includeCurrentPoint) {
+        if (state == RecordsAnalysis.TrendCurrentState.COMPLETED) {
             rows.add(ui.recordListRow(
                     "현",
                     FitnessUi.formatVolume(currentVolume) + "kg",
                     "현재 완료 기록",
                     null
             ));
-        } else {
+        } else if (state == RecordsAnalysis.TrendCurrentState.IN_PROGRESS) {
             rows.add(ui.recordListRow(
                     "진",
-                    "현재 세션",
+                    FitnessUi.formatVolume(currentVolume) + "kg",
                     "진행 중 · 저장된 추세에는 포함하지 않음",
                     null
             ));
@@ -150,9 +200,16 @@ public abstract class BaseScreen {
                 ));
             }
         }
+        if (rows.isEmpty()) {
+            rows.add(ui.recordListRow(
+                    "—",
+                    "완료 기록 없음",
+                    "저장된 완료 기록이 없습니다.",
+                    null
+            ));
+        }
         card.addView(ui.rowsCard(rows), ui.fullWidthParams(ui.dp(8)));
-        int requiredCompletedRecords = RecordsAnalysis.MIN_TREND_POINTS
-                - (includeCurrentPoint ? 1 : 0);
+        int requiredCompletedRecords = RecordsAnalysis.requiredCompletedHistoryPoints(state);
         TextView helper = ui.text(
                 "완료 기록이 " + requiredCompletedRecords
                         + "회 이상 쌓이면 기간과 단위가 표시된 추세 차트를 보여줍니다.",

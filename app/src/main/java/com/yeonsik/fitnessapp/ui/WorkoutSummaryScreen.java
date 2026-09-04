@@ -157,18 +157,19 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                     recordId,
                     5
             );
-            renderRoutineProgress(previous, currentMetrics, recordId);
+            renderRoutineProgress(previous, currentMetrics, recordId, info.date);
             return;
         }
 
             previous = repository().recentCompletedFreeStrengthSessions(recordId, 5);
-        renderVolumeTrendOrFacts("총 볼륨 추이", previous, currentMetrics);
+        renderVolumeTrendOrFacts("총 볼륨 추이", previous, currentMetrics, info.date);
     }
 
     private void renderRoutineProgress(
             List<FitnessRepository.WorkoutHistoryEntry> previous,
             FitnessRepository.SessionMetrics currentMetrics,
-            String recordId
+            String recordId,
+            String currentDate
     ) {
         FitnessUi ui = ui();
         if (previous.isEmpty()) {
@@ -210,7 +211,12 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             add(card, ui.fullWidthParams(ui.dp(10)));
         }
 
-        renderVolumeTrendOrFacts("동일 루틴 총 볼륨 추이", previous, currentMetrics);
+        renderVolumeTrendOrFacts(
+                "동일 루틴 총 볼륨 추이",
+                previous,
+                currentMetrics,
+                currentDate
+        );
     }
 
     private View recordFactNotice(boolean cardio) {
@@ -233,20 +239,23 @@ public final class WorkoutSummaryScreen extends BaseScreen {
     private void renderVolumeTrendOrFacts(
             String title,
             List<FitnessRepository.WorkoutHistoryEntry> history,
-            FitnessRepository.SessionMetrics currentMetrics
+            FitnessRepository.SessionMetrics currentMetrics,
+            String currentDate
     ) {
         FitnessUi ui = ui();
-        boolean includeCurrentPoint = currentMetrics != null && currentMetrics.setCount > 0;
+        RecordsAnalysis.TrendCurrentState currentState = currentMetrics != null
+                && currentMetrics.setCount > 0
+                ? RecordsAnalysis.TrendCurrentState.COMPLETED
+                : RecordsAnalysis.TrendCurrentState.NONE;
         int historyCount = history == null ? 0 : history.size();
-        int pointCount = historyCount + (includeCurrentPoint ? 1 : 0);
-        if (RecordsAnalysis.hasEnoughTrendPoints(pointCount)) {
+        if (RecordsAnalysis.hasEnoughTrendPoints(historyCount, currentState)) {
             add(volumeTrendCard(
                     title,
-                    "완료 기록 " + historyCount + "회"
-                            + (includeCurrentPoint ? " + 현재 · kg" : " · kg"),
+                    null,
                     volumePoints(history),
                     currentMetrics == null ? 0d : currentMetrics.totalVolumeKg,
-                    includeCurrentPoint
+                    currentState,
+                    currentDate
             ), ui.fullWidthParams(ui.dp(10)));
             return;
         }
@@ -254,18 +263,11 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         LinearLayout card = ui.card();
         ui.cardHeader(card, title, "추세 차트 대기");
         List<View> rows = new ArrayList<>();
-        if (includeCurrentPoint) {
+        if (currentState == RecordsAnalysis.TrendCurrentState.COMPLETED) {
             rows.add(ui.recordListRow(
                     "현",
                     FitnessUi.formatVolume(currentMetrics.totalVolumeKg) + "kg",
                     "현재 완료 기록 · " + currentMetrics.setCount + "세트",
-                    null
-            ));
-        } else {
-            rows.add(ui.recordListRow(
-                    "진",
-                    "현재 세션",
-                    "진행 중 · 저장된 추세에는 포함하지 않음",
                     null
             ));
         }
@@ -278,9 +280,16 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                     null
             ));
         }
+        if (rows.isEmpty()) {
+            rows.add(ui.recordListRow(
+                    "—",
+                    "완료 기록 없음",
+                    "저장된 완료 기록이 없습니다.",
+                    null
+            ));
+        }
         card.addView(ui.rowsCard(rows), ui.fullWidthParams(ui.dp(8)));
-        int requiredCompletedRecords = RecordsAnalysis.MIN_TREND_POINTS
-                - (includeCurrentPoint ? 1 : 0);
+        int requiredCompletedRecords = RecordsAnalysis.requiredCompletedHistoryPoints(currentState);
         TextView helper = ui.text(
                 "완료 기록이 " + requiredCompletedRecords
                         + "회 이상 쌓이면 기간과 단위가 표시된 추세 차트를 보여줍니다.",

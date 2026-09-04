@@ -129,17 +129,34 @@ public final class RecordsScreen extends BaseScreen {
         section("체중 변화");
         FitnessRepository.BodyMetricEntry first = entries.get(0);
         FitnessRepository.BodyMetricEntry latest = entries.get(entries.size() - 1);
+        List<String> weightDates = new ArrayList<>();
+        for (FitnessRepository.BodyMetricEntry entry : entries) {
+            weightDates.add(entry.date);
+        }
+        String period = RecordsAnalysis.trendPeriodLabel(weightDates, null);
+        boolean hasTrend = RecordsAnalysis.hasEnoughTrendPoints(
+                entries.size(),
+                RecordsAnalysis.TrendCurrentState.NONE
+        );
         LinearLayout card = ui.card();
-        ui.cardHeader(card, "체중 추이", "최근 " + entries.size() + "회 · kg");
+        ui.cardHeader(
+                card,
+                "체중 추이",
+                period.isEmpty() ? "최근 " + entries.size() + "회 · kg" : period + " · kg"
+        );
 
-        if (RecordsAnalysis.hasEnoughTrendPoints(entries.size())) {
+        if (hasTrend) {
             List<Double> values = new ArrayList<>();
             for (FitnessRepository.BodyMetricEntry entry : entries) {
                 values.add(entry.weightKg);
             }
             card.addView(
-                    ui.trendChart(values, "kg"),
-                    ui.fullWidthParams(ui.dp(10))
+                    ui.trendChart(
+                            values,
+                            "kg",
+                            RecordsAnalysis.TrendScalePolicy.RANGE_PADDED
+                    ),
+                    ui.trendChartParams(ui.dp(10))
             );
         } else {
             List<View> rows = new ArrayList<>();
@@ -154,7 +171,7 @@ public final class RecordsScreen extends BaseScreen {
             card.addView(ui.rowsCard(rows), ui.fullWidthParams(ui.dp(10)));
         }
 
-        card.addView(ui.keyValue("기간", first.date + " ~ " + latest.date));
+        card.addView(ui.keyValue("기간", period.isEmpty() ? "기록 날짜 없음" : period));
         card.addView(ui.keyValue(
                 entries.size() < 2 ? "변화" : "첫 기록 → 최근",
                 entries.size() < 2
@@ -162,7 +179,7 @@ public final class RecordsScreen extends BaseScreen {
                         : RecordsAnalysis.formatSignedDelta(first.weightKg, latest.weightKg, "kg")
         ));
         TextView helper = ui.text(
-                RecordsAnalysis.hasEnoughTrendPoints(entries.size())
+                hasTrend
                         ? "최근 저장 기록만으로 계산한 단순 변화입니다."
                         : "체중 기록이 3개 이상 쌓이면 추세 차트를 표시합니다. 현재는 숫자 목록을 우선합니다.",
                 12,
@@ -292,13 +309,18 @@ public final class RecordsScreen extends BaseScreen {
         LinearLayout markers = new LinearLayout(host.activity());
         markers.setOrientation(LinearLayout.HORIZONTAL);
         markers.setGravity(Gravity.CENTER);
-        int markerCount = 0;
-        markerCount = addMarker(markers, summary.hasMeal, "●",
-                selected ? ui.selectedInk() : ui.chartColor(3), markerCount);
-        markerCount = addMarker(markers, summary.hasWeight, "■",
-                selected ? ui.selectedInk() : ui.chartColor(2), markerCount);
-        addMarker(markers, summary.hasWorkout, "▲",
-                selected ? ui.selectedInk() : ui.chartColor(0), markerCount);
+        int markerLimit = RecordsAnalysis.markerCount(
+                summary.hasWorkout,
+                summary.hasWeight,
+                summary.hasMeal
+        );
+        int renderedMarkers = 0;
+        renderedMarkers = addMarker(markers, summary.hasMeal, "●",
+                selected ? ui.selectedInk() : ui.chartColor(3), renderedMarkers, markerLimit);
+        renderedMarkers = addMarker(markers, summary.hasWeight, "■",
+                selected ? ui.selectedInk() : ui.chartColor(2), renderedMarkers, markerLimit);
+        renderedMarkers = addMarker(markers, summary.hasWorkout, "▲",
+                selected ? ui.selectedInk() : ui.chartColor(0), renderedMarkers, markerLimit);
         cell.addView(markers, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 ui.dp(12)
@@ -322,9 +344,10 @@ public final class RecordsScreen extends BaseScreen {
             boolean visible,
             String symbol,
             int color,
-            int renderedCount
+            int renderedCount,
+            int markerLimit
     ) {
-        if (!visible || renderedCount >= RecordsAnalysis.MAX_CALENDAR_MARKERS) {
+        if (!visible || renderedCount >= markerLimit) {
             return renderedCount;
         }
         TextView marker = ui().text(symbol, 9, color, true);

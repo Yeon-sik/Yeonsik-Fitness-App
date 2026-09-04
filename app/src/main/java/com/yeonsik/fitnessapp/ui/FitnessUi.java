@@ -143,6 +143,7 @@ public final class FitnessUi {
     public static final int FIELD_LABEL_GAP_DP = 6;
     public static final int FORM_ITEM_GAP_DP = 8;
     public static final int BUTTON_GAP_DP = 5;
+    public static final int TREND_CHART_HEIGHT_DP = 128;
 
     // Bottom navigation keeps a 48dp touch target but no longer renders each
     // tab as a prominent pill/card.
@@ -1136,25 +1137,74 @@ public final class FitnessUi {
     }
 
     public View volumeTrendChart(List<Double> values) {
-        return trendChart(values, "kg", -1, "이전 기록 없음");
+        return trendChart(
+                values,
+                "kg",
+                RecordsAnalysis.TrendScalePolicy.ZERO_BASED,
+                -1,
+                "이전 기록 없음"
+        );
     }
 
     /**
-     * Draws a volume trend and optionally marks the final point as the current session.
+     * Draws a volume trend and optionally marks a persisted current point.
      * A negative currentPointIndex means every value is persisted history.
      */
     public View volumeTrendChart(List<Double> values, int currentPointIndex) {
-        return trendChart(values, "kg", currentPointIndex, "이전 기록 없음");
+        return trendChart(
+                values,
+                "kg",
+                RecordsAnalysis.TrendScalePolicy.ZERO_BASED,
+                currentPointIndex,
+                "이전 기록 없음"
+        );
     }
 
     public View trendChart(List<Double> values, String unit) {
-        return trendChart(values, unit, -1, "추세를 표시할 기록이 없습니다.");
+        return trendChart(
+                values,
+                unit,
+                RecordsAnalysis.TrendScalePolicy.ZERO_BASED,
+                -1,
+                "추세를 표시할 기록이 없습니다."
+        );
+    }
+
+    /** Compatibility overload for callers that mark a persisted current point. */
+    public View trendChart(
+            List<Double> values,
+            String unit,
+            int currentPointIndex,
+            String emptyLabel
+    ) {
+        return trendChart(
+                values,
+                unit,
+                RecordsAnalysis.TrendScalePolicy.ZERO_BASED,
+                currentPointIndex,
+                emptyLabel
+        );
+    }
+
+    public View trendChart(
+            List<Double> values,
+            String unit,
+            RecordsAnalysis.TrendScalePolicy scalePolicy
+    ) {
+        return trendChart(
+                values,
+                unit,
+                scalePolicy,
+                -1,
+                "추세를 표시할 기록이 없습니다."
+        );
     }
 
     /** Draws a labeled numeric trend without assuming that the values are workout volume. */
     public View trendChart(
             List<Double> values,
             String unit,
+            RecordsAnalysis.TrendScalePolicy scalePolicy,
             int currentPointIndex,
             String emptyLabel
     ) {
@@ -1166,10 +1216,14 @@ public final class FitnessUi {
         final String displayEmptyLabel = emptyLabel == null || emptyLabel.trim().isEmpty()
                 ? "추세를 표시할 기록이 없습니다."
                 : emptyLabel;
+        final RecordsAnalysis.TrendRange range = RecordsAnalysis.trendRange(
+                points,
+                scalePolicy
+        );
         final int axisColor = border();
         final int mutedColor = inkMuted();
         final int strokeColor = accent();
-        return new View(activity) {
+        View chart = new View(activity) {
             private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
             @Override
@@ -1191,18 +1245,12 @@ public final class FitnessUi {
                     return;
                 }
 
-                double max = 1;
-                for (Double value : points) {
-                    if (value != null) {
-                        max = Math.max(max, value);
-                    }
-                }
                 paint.setStyle(Paint.Style.FILL);
                 paint.setColor(mutedColor);
                 paint.setTextSize(dp(10));
                 paint.setTypeface(Typeface.DEFAULT_BOLD);
                 paint.setTextAlign(Paint.Align.LEFT);
-                canvas.drawText("0" + displayUnit, left, bottom + dp(11), paint);
+                canvas.drawText(valueLabel(range.min), left, bottom + dp(11), paint);
 
                 paint.setColor(strokeColor);
                 paint.setStyle(Paint.Style.STROKE);
@@ -1210,11 +1258,11 @@ public final class FitnessUi {
                 float previousX = 0;
                 float previousY = 0;
                 for (int index = 0; index < points.size(); index++) {
-                    double value = points.get(index) == null ? 0 : points.get(index);
+                    double value = chartValue(points.get(index));
                     float x = points.size() == 1
                             ? (left + right) / 2f
                             : left + (right - left) * index / (float) (points.size() - 1);
-                    float y = bottom - (float) ((bottom - top) * value / max);
+                    float y = chartY(value, top, bottom);
                     if (index > 0) {
                         canvas.drawLine(previousX, previousY, x, y, paint);
                     }
@@ -1223,11 +1271,11 @@ public final class FitnessUi {
                 }
                 paint.setStyle(Paint.Style.FILL);
                 for (int index = 0; index < points.size(); index++) {
-                    double value = points.get(index) == null ? 0 : points.get(index);
+                    double value = chartValue(points.get(index));
                     float x = points.size() == 1
                             ? (left + right) / 2f
                             : left + (right - left) * index / (float) (points.size() - 1);
-                    float y = bottom - (float) ((bottom - top) * value / max);
+                    float y = chartY(value, top, bottom);
                     if (index == markedCurrentPoint) {
                         paint.setStyle(Paint.Style.STROKE);
                         paint.setStrokeWidth(dp(2));
@@ -1248,11 +1296,11 @@ public final class FitnessUi {
                 paint.setTextAlign(Paint.Align.CENTER);
                 Paint.FontMetrics fontMetrics = paint.getFontMetrics();
                 for (int index = 0; index < points.size(); index++) {
-                    double value = points.get(index) == null ? 0 : points.get(index);
+                    double value = chartValue(points.get(index));
                     float x = points.size() == 1
                             ? (left + right) / 2f
                             : left + (right - left) * index / (float) (points.size() - 1);
-                    float y = bottom - (float) ((bottom - top) * value / max);
+                    float y = chartY(value, top, bottom);
                     String label = (index == markedCurrentPoint ? "현재 " : "")
                             + valueLabel(value);
                     float halfLabelWidth = paint.measureText(label) / 2f;
@@ -1273,7 +1321,19 @@ public final class FitnessUi {
                         : trimDouble(value);
                 return number + displayUnit;
             }
+
+            private double chartValue(Double value) {
+                return value != null && Double.isFinite(value) ? value : range.min;
+            }
+
+            private float chartY(double value, int top, int bottom) {
+                double normalized = (value - range.min) / range.span();
+                normalized = Math.max(0d, Math.min(1d, normalized));
+                return bottom - (float) ((bottom - top) * normalized);
+            }
         };
+        chart.setMinimumHeight(dp(TREND_CHART_HEIGHT_DP));
+        return chart;
     }
 
     // ── 모션 ─────────────────────────────────────────────────────────
@@ -1869,6 +1929,15 @@ public final class FitnessUi {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, topMargin, 0, 0);
+        return params;
+    }
+
+    public LinearLayout.LayoutParams trendChartParams(int topMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(TREND_CHART_HEIGHT_DP)
         );
         params.setMargins(0, topMargin, 0, 0);
         return params;

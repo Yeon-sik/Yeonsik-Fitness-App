@@ -104,9 +104,9 @@ public final class WorkoutSessionScreen extends BaseScreen {
             emptyState("아직 종목이 없습니다.", "종목 추가 버튼으로 시작하세요.");
             add(volumeTrendCard(
                     "최근 4회 총 볼륨",
-                    repository().recentSessionVolumes(recordId, 4),
+                    repository().recentCompletedSessionVolumes(recordId, 4),
                     metrics.totalVolumeKg,
-                    false
+                    RecordsAnalysis.TrendCurrentState.IN_PROGRESS
             ));
             return;
         }
@@ -118,9 +118,9 @@ public final class WorkoutSessionScreen extends BaseScreen {
 
         add(volumeTrendCard(
                 "최근 4회 총 볼륨",
-                repository().recentSessionVolumes(recordId, 4),
+                repository().recentCompletedSessionVolumes(recordId, 4),
                 metrics.totalVolumeKg,
-                metrics.setCount > 0
+                RecordsAnalysis.TrendCurrentState.IN_PROGRESS
         ));
     }
 
