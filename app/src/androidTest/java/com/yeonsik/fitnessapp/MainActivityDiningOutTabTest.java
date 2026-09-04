@@ -110,6 +110,39 @@ public final class MainActivityDiningOutTabTest {
         }
     }
     @Test
+    public void diningOutMenuAndOptionUseSharedNutrientRows() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+                clickText(root, "추가 영양정보 펼치기");
+
+                String[] menuNutrients = {
+                        "칼로리", "탄수화물", "단백질", "지방", "당류", "포화지방", "나트륨"
+                };
+                for (String nutrient : menuNutrients) {
+                    assertNotNull(findEditTextWithContentDescription(
+                            root,
+                            "외식 메뉴 1 " + nutrient
+                    ));
+                }
+
+                clickText(root, "옵션 추가");
+                clickText(root, "반찬");
+                clickText(root, "저장 옵션 없이 직접 입력");
+                clickText(root, "영양정보 입력 열기");
+                for (String nutrient : menuNutrients) {
+                    assertNotNull(findEditTextWithContentDescription(
+                            root,
+                            "외식 옵션 1 " + nutrient
+                    ));
+                }
+            });
+        }
+    }
+    @Test
     public void diningOutValidationShowsInlineErrorAndClearsAfterFieldEdit() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {

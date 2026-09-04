@@ -1934,36 +1934,89 @@ public final class MealManagementScreen extends BaseScreen {
             ), ui.fullWidthParams(ui.dp(2)));
         }
 
-        EditText calories = ui.numberInput("kcal", menu.calories);
-        EditText carbs = ui.decimalInput("g", menu.carbs);
-        EditText protein = ui.decimalInput("g", menu.protein);
-        EditText fat = ui.decimalInput("g", menu.fat);
-        EditText sugars = ui.decimalInput("g", menu.sugars);
-        EditText saturatedFat = ui.decimalInput("g", menu.saturatedFat);
-        EditText sodium = ui.decimalInput("mg", menu.sodium);
-        calories.setContentDescription("외식 메뉴 " + (index + 1) + " 칼로리");
-        carbs.setContentDescription("외식 메뉴 " + (index + 1) + " 탄수화물");
-        protein.setContentDescription("외식 메뉴 " + (index + 1) + " 단백질");
-        fat.setContentDescription("외식 메뉴 " + (index + 1) + " 지방");
-        sugars.setContentDescription("외식 메뉴 " + (index + 1) + " 당류");
-        saturatedFat.setContentDescription("외식 메뉴 " + (index + 1) + " 포화지방");
-        sodium.setContentDescription("외식 메뉴 " + (index + 1) + " 나트륨");
-        diningOutMenuCaloriesInputs.add(calories);
-        diningOutMenuCarbsInputs.add(carbs);
-        diningOutMenuProteinInputs.add(protein);
-        diningOutMenuFatInputs.add(fat);
-        diningOutMenuSugarsInputs.add(sugars);
-        diningOutMenuSaturatedFatInputs.add(saturatedFat);
-        diningOutMenuSodiumInputs.add(sodium);
+        String menuPrefix = "외식 메뉴 " + (index + 1);
+        NutritionInputField caloriesField = new NutritionInputField(
+                ui,
+                formSystem,
+                NutritionProfile.CALORIES_KCAL,
+                "칼로리",
+                menu.calories,
+                true,
+                menuPrefix + " 칼로리",
+                true
+        );
+        NutritionInputField carbsField = new NutritionInputField(
+                ui,
+                formSystem,
+                NutritionProfile.CARBS_GRAMS,
+                "탄수화물",
+                menu.carbs,
+                true,
+                menuPrefix + " 탄수화물",
+                false
+        );
+        NutritionInputField proteinField = new NutritionInputField(
+                ui,
+                formSystem,
+                NutritionProfile.PROTEIN_GRAMS,
+                "단백질",
+                menu.protein,
+                true,
+                menuPrefix + " 단백질",
+                false
+        );
+        NutritionInputField fatField = new NutritionInputField(
+                ui,
+                formSystem,
+                NutritionProfile.FAT_GRAMS,
+                "지방",
+                menu.fat,
+                true,
+                menuPrefix + " 지방",
+                false
+        );
+        NutritionInputField sugarsField = new NutritionInputField(
+                ui,
+                formSystem,
+                NutritionProfile.SUGARS_GRAMS,
+                "당류",
+                menu.sugars,
+                false,
+                menuPrefix + " 당류",
+                false
+        );
+        NutritionInputField saturatedFatField = new NutritionInputField(
+                ui,
+                formSystem,
+                NutritionProfile.SATURATED_FAT_GRAMS,
+                "포화지방",
+                menu.saturatedFat,
+                false,
+                menuPrefix + " 포화지방",
+                false
+        );
+        NutritionInputField sodiumField = new NutritionInputField(
+                ui,
+                formSystem,
+                NutritionProfile.SODIUM_MG,
+                "나트륨",
+                menu.sodium,
+                false,
+                menuPrefix + " 나트륨",
+                false
+        );
+        diningOutMenuCaloriesInputs.add(caloriesField.input());
+        diningOutMenuCarbsInputs.add(carbsField.input());
+        diningOutMenuProteinInputs.add(proteinField.input());
+        diningOutMenuFatInputs.add(fatField.input());
+        diningOutMenuSugarsInputs.add(sugarsField.input());
+        diningOutMenuSaturatedFatInputs.add(saturatedFatField.input());
+        diningOutMenuSodiumInputs.add(sodiumField.input());
         card.addView(formSystem.sectionTitle("메뉴 영양성분"), ui.fullWidthParams(ui.dp(2)));
-        card.addView(formSystem.nutrientInputRow("칼로리 *", "kcal", calories).view(),
-                ui.fullWidthParams(ui.dp(2)));
-        card.addView(formSystem.nutrientInputRow("탄수화물 *", "g", carbs).view(),
-                ui.fullWidthParams(0));
-        card.addView(formSystem.nutrientInputRow("단백질 *", "g", protein).view(),
-                ui.fullWidthParams(0));
-        card.addView(formSystem.nutrientInputRow("지방 *", "g", fat).view(),
-                ui.fullWidthParams(0));
+        card.addView(caloriesField.view(), ui.fullWidthParams(ui.dp(2)));
+        card.addView(carbsField.view(), ui.fullWidthParams(0));
+        card.addView(proteinField.view(), ui.fullWidthParams(0));
+        card.addView(fatField.view(), ui.fullWidthParams(0));
 
         LinearLayout secondaryNutrition = formSystem.column();
         boolean showSecondary = hasAnyText(menu.sugars, menu.saturatedFat, menu.sodium);
@@ -1979,15 +2032,9 @@ public final class MealManagementScreen extends BaseScreen {
             secondaryNutrition.setVisibility(opening ? View.VISIBLE : View.GONE);
             secondaryToggle.setText(opening ? "추가 영양정보 접기" : "추가 영양정보 펼치기");
         });
-        secondaryNutrition.addView(
-                formSystem.nutrientInputRow("당류", "g", sugars).view(),
-                ui.fullWidthParams(0));
-        secondaryNutrition.addView(
-                formSystem.nutrientInputRow("포화지방", "g", saturatedFat).view(),
-                ui.fullWidthParams(0));
-        secondaryNutrition.addView(
-                formSystem.nutrientInputRow("나트륨", "mg", sodium).view(),
-                ui.fullWidthParams(0));
+        secondaryNutrition.addView(sugarsField.view(), ui.fullWidthParams(0));
+        secondaryNutrition.addView(saturatedFatField.view(), ui.fullWidthParams(0));
+        secondaryNutrition.addView(sodiumField.view(), ui.fullWidthParams(0));
         card.addView(secondaryNutrition, ui.fullWidthParams(0));
         card.addView(ui.textAction(
                 "옵션 " + menu.options.size() + "개 편집",
@@ -3336,27 +3383,84 @@ public final class MealManagementScreen extends BaseScreen {
             diningOutOptionInputs.add(input);
             row.addView(formSystem.field("옵션명", input), ui.fullWidthParams(ui.dp(2)));
 
-            EditText calories = ui.decimalInput("kcal", draft.calories);
-            EditText carbs = ui.decimalInput("g", draft.carbs);
-            EditText protein = ui.decimalInput("g", draft.protein);
-            EditText fat = ui.decimalInput("g", draft.fat);
-            EditText sugars = ui.decimalInput("g", draft.sugars);
-            EditText saturatedFat = ui.decimalInput("g", draft.saturatedFat);
-            EditText sodium = ui.decimalInput("mg", draft.sodium);
-            calories.setContentDescription("외식 옵션 " + (index + 1) + " 칼로리");
-            carbs.setContentDescription("외식 옵션 " + (index + 1) + " 탄수화물");
-            protein.setContentDescription("외식 옵션 " + (index + 1) + " 단백질");
-            fat.setContentDescription("외식 옵션 " + (index + 1) + " 지방");
-            sugars.setContentDescription("외식 옵션 " + (index + 1) + " 당류");
-            saturatedFat.setContentDescription("외식 옵션 " + (index + 1) + " 포화지방");
-            sodium.setContentDescription("외식 옵션 " + (index + 1) + " 나트륨");
-            diningOutOptionCaloriesInputs.add(calories);
-            diningOutOptionCarbsInputs.add(carbs);
-            diningOutOptionProteinInputs.add(protein);
-            diningOutOptionFatInputs.add(fat);
-            diningOutOptionSugarsInputs.add(sugars);
-            diningOutOptionSaturatedFatInputs.add(saturatedFat);
-            diningOutOptionSodiumInputs.add(sodium);
+            String optionPrefix = "외식 옵션 " + (index + 1);
+            NutritionInputField caloriesField = new NutritionInputField(
+                    ui,
+                    formSystem,
+                    NutritionProfile.CALORIES_KCAL,
+                    "칼로리",
+                    draft.calories,
+                    false,
+                    optionPrefix + " 칼로리",
+                    false
+            );
+            NutritionInputField carbsField = new NutritionInputField(
+                    ui,
+                    formSystem,
+                    NutritionProfile.CARBS_GRAMS,
+                    "탄수화물",
+                    draft.carbs,
+                    false,
+                    optionPrefix + " 탄수화물",
+                    false
+            );
+            NutritionInputField proteinField = new NutritionInputField(
+                    ui,
+                    formSystem,
+                    NutritionProfile.PROTEIN_GRAMS,
+                    "단백질",
+                    draft.protein,
+                    false,
+                    optionPrefix + " 단백질",
+                    false
+            );
+            NutritionInputField fatField = new NutritionInputField(
+                    ui,
+                    formSystem,
+                    NutritionProfile.FAT_GRAMS,
+                    "지방",
+                    draft.fat,
+                    false,
+                    optionPrefix + " 지방",
+                    false
+            );
+            NutritionInputField sugarsField = new NutritionInputField(
+                    ui,
+                    formSystem,
+                    NutritionProfile.SUGARS_GRAMS,
+                    "당류",
+                    draft.sugars,
+                    false,
+                    optionPrefix + " 당류",
+                    false
+            );
+            NutritionInputField saturatedFatField = new NutritionInputField(
+                    ui,
+                    formSystem,
+                    NutritionProfile.SATURATED_FAT_GRAMS,
+                    "포화지방",
+                    draft.saturatedFat,
+                    false,
+                    optionPrefix + " 포화지방",
+                    false
+            );
+            NutritionInputField sodiumField = new NutritionInputField(
+                    ui,
+                    formSystem,
+                    NutritionProfile.SODIUM_MG,
+                    "나트륨",
+                    draft.sodium,
+                    false,
+                    optionPrefix + " 나트륨",
+                    false
+            );
+            diningOutOptionCaloriesInputs.add(caloriesField.input());
+            diningOutOptionCarbsInputs.add(carbsField.input());
+            diningOutOptionProteinInputs.add(proteinField.input());
+            diningOutOptionFatInputs.add(fatField.input());
+            diningOutOptionSugarsInputs.add(sugarsField.input());
+            diningOutOptionSaturatedFatInputs.add(saturatedFatField.input());
+            diningOutOptionSodiumInputs.add(sodiumField.input());
             row.addView(ui.text(
                     "구성 상태: " + DiningOutProvisionType.labelOf(draft.provisionType),
                     12,
@@ -3385,27 +3489,13 @@ public final class MealManagementScreen extends BaseScreen {
                 nutritionToggle.setText(opening ? "영양정보 접기" : "영양정보 입력 열기");
             });
             row.addView(nutritionToggle, ui.fullWidthParams(ui.dp(3)));
-            nutritionFields.addView(
-                    formSystem.nutrientInputRow("칼로리", "kcal", calories).view(),
-                    ui.fullWidthParams(0));
-            nutritionFields.addView(
-                    formSystem.nutrientInputRow("탄수화물", "g", carbs).view(),
-                    ui.fullWidthParams(0));
-            nutritionFields.addView(
-                    formSystem.nutrientInputRow("단백질", "g", protein).view(),
-                    ui.fullWidthParams(0));
-            nutritionFields.addView(
-                    formSystem.nutrientInputRow("지방", "g", fat).view(),
-                    ui.fullWidthParams(0));
-            nutritionFields.addView(
-                    formSystem.nutrientInputRow("당류", "g", sugars).view(),
-                    ui.fullWidthParams(0));
-            nutritionFields.addView(
-                    formSystem.nutrientInputRow("포화지방", "g", saturatedFat).view(),
-                    ui.fullWidthParams(0));
-            nutritionFields.addView(
-                    formSystem.nutrientInputRow("나트륨", "mg", sodium).view(),
-                    ui.fullWidthParams(0));
+            nutritionFields.addView(caloriesField.view(), ui.fullWidthParams(0));
+            nutritionFields.addView(carbsField.view(), ui.fullWidthParams(0));
+            nutritionFields.addView(proteinField.view(), ui.fullWidthParams(0));
+            nutritionFields.addView(fatField.view(), ui.fullWidthParams(0));
+            nutritionFields.addView(sugarsField.view(), ui.fullWidthParams(0));
+            nutritionFields.addView(saturatedFatField.view(), ui.fullWidthParams(0));
+            nutritionFields.addView(sodiumField.view(), ui.fullWidthParams(0));
             row.addView(nutritionFields, ui.fullWidthParams(0));
             EditText consumedPercent = ui.decimalInput("%", draft.consumedPercent);
             consumedPercent.setContentDescription("외식 옵션 내 섭취 비율 " + (index + 1));
