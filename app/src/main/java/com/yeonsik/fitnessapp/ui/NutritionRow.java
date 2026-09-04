@@ -1,7 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
 import android.app.Activity;
-import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.EditText;
@@ -12,15 +11,12 @@ import com.yeonsik.fitnessapp.data.NutrientCode;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 
 /**
- * A compact, one-line nutrition value used by both forms and read-only summaries.
+ * A compact nutrition value row used by both forms and read-only summaries.
  *
  * <p>The row deliberately has no card background. The label, value and unit stay on one
  * scan line so a menu total and an editable menu use the same visual grammar.</p>
  */
 public final class NutritionRow {
-    private static final int VALUE_WIDTH_DP = 96;
-    private static final int UNIT_WIDTH_DP = 36;
-
     private final LinearLayout root;
     private final EditText input;
     private final TextView valueView;
@@ -48,14 +44,16 @@ public final class NutritionRow {
         root = new LinearLayout(activity);
         root.setOrientation(LinearLayout.HORIZONTAL);
         root.setGravity(Gravity.CENTER_VERTICAL);
-        root.setMinimumHeight(ui.dp(56));
-        root.setPadding(0, ui.dp(4), 0, ui.dp(4));
+        root.setMinimumHeight(ui.dp(FitnessUi.NUTRITION_ROW_MIN_HEIGHT_DP));
+        root.setPadding(0, ui.dp(FitnessUi.NUTRITION_ROW_VERTICAL_PADDING_DP), 0,
+                ui.dp(FitnessUi.NUTRITION_ROW_VERTICAL_PADDING_DP));
         root.setContentDescription(label + (editable ? " 입력" : " 값"));
 
         TextView labelView = ui.text(label, 14, FitnessUi.COLOR_TEXT, false);
         labelView.setGravity(Gravity.CENTER_VERTICAL);
-        labelView.setSingleLine(true);
-        labelView.setEllipsize(TextUtils.TruncateAt.END);
+        labelView.setMaxLines(FitnessUi.NUTRITION_LABEL_MAX_LINES);
+        labelView.setHorizontallyScrolling(false);
+        labelView.setLineSpacing(ui.dp(2), 1f);
         root.addView(labelView, new LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -70,8 +68,8 @@ public final class NutritionRow {
             input.setSelectAllOnFocus(true);
             input.setContentDescription(label + " 입력값");
             root.addView(input, new LinearLayout.LayoutParams(
-                    ui.dp(VALUE_WIDTH_DP),
-                    ui.dp(48)
+                    ui.dp(FitnessUi.NUTRITION_VALUE_WIDTH_DP),
+                    ui.dp(FitnessUi.NUTRITION_INPUT_HEIGHT_DP)
             ));
             valueView = null;
         } else {
@@ -82,7 +80,7 @@ public final class NutritionRow {
             valueView.setContentDescription(label + " "
                     + (value == null || value.isEmpty() ? "미기록" : value));
             root.addView(valueView, new LinearLayout.LayoutParams(
-                    ui.dp(VALUE_WIDTH_DP),
+                    ui.dp(FitnessUi.NUTRITION_VALUE_WIDTH_DP),
                     LinearLayout.LayoutParams.WRAP_CONTENT
             ));
         }
@@ -95,7 +93,7 @@ public final class NutritionRow {
         );
         unitView.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
         root.addView(unitView, new LinearLayout.LayoutParams(
-                ui.dp(UNIT_WIDTH_DP),
+                ui.dp(FitnessUi.NUTRITION_UNIT_WIDTH_DP),
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
     }

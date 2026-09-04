@@ -249,6 +249,32 @@ public final class FormSystemStateTest {
         }
     }
     @Test
+    public void nutrientRowKeepsOneValuePerRowAndAllowsWrappedLabels() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                NutritionRow row = NutritionRow.input(
+                        activity.ui(),
+                        activity,
+                        "아주 긴 영양소 표시 이름",
+                        "g",
+                        "12"
+                );
+                LinearLayout root = (LinearLayout) row.view();
+                TextView label = (TextView) root.getChildAt(0);
+
+                assertEquals(LinearLayout.HORIZONTAL, root.getOrientation());
+                assertEquals(3, root.getChildCount());
+                assertEquals(2, label.getMaxLines());
+                assertTrue(label.getEllipsize() == null);
+                assertEquals(
+                        FitnessUi.NUTRITION_VALUE_WIDTH_DP,
+                        Math.round(root.getChildAt(1).getLayoutParams().width
+                                / activity.getResources().getDisplayMetrics().density)
+                );
+            });
+        }
+    }
+    @Test
     public void nutritionInputShowsInlineErrorAndClearsAfterFieldEdit() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {

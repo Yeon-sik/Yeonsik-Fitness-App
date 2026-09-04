@@ -142,6 +142,13 @@ public final class FitnessUi {
     public static final int CARD_GAP_DP = 12;
     public static final int FIELD_LABEL_GAP_DP = 6;
     public static final int FORM_ITEM_GAP_DP = 8;
+    // Nutrition inputs keep one value per compact row across all meal forms.
+    public static final int NUTRITION_ROW_MIN_HEIGHT_DP = 56;
+    public static final int NUTRITION_ROW_VERTICAL_PADDING_DP = 4;
+    public static final int NUTRITION_VALUE_WIDTH_DP = 96;
+    public static final int NUTRITION_UNIT_WIDTH_DP = 36;
+    public static final int NUTRITION_LABEL_MAX_LINES = 2;
+    public static final int NUTRITION_INPUT_HEIGHT_DP = 48;
     public static final int BUTTON_GAP_DP = 5;
     public static final int TREND_CHART_HEIGHT_DP = 128;
 
