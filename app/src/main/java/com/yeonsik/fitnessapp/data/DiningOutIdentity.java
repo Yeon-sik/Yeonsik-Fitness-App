@@ -13,6 +13,12 @@ public final class DiningOutIdentity {
     public final String restaurantId;
     public final String restaurantName;
     public final String restaurantLocationId;
+    /** Location-data provenance, such as the PriceTrace sourceLabel value. */
+    public final String locationSourceNamespace;
+    /**
+     * @deprecated Use {@link #locationSourceNamespace}; this alias is retained for source compatibility.
+     */
+    @Deprecated
     public final String sourceNamespace;
     public final String sourceLocationCode;
     public final String branchName;
@@ -24,7 +30,7 @@ public final class DiningOutIdentity {
             String restaurantId,
             String restaurantName,
             String restaurantLocationId,
-            String sourceNamespace,
+            String locationSourceNamespace,
             String sourceLocationCode,
             String branchName,
             String restaurantMenuId,
@@ -34,7 +40,8 @@ public final class DiningOutIdentity {
         this.restaurantId = requireUuid(restaurantId, "restaurantId");
         this.restaurantName = requireText(restaurantName, "restaurantName");
         this.restaurantLocationId = requireUuid(restaurantLocationId, "restaurantLocationId");
-        this.sourceNamespace = requireText(sourceNamespace, "sourceNamespace");
+        this.locationSourceNamespace = optionalText(locationSourceNamespace);
+        this.sourceNamespace = this.locationSourceNamespace;
         this.sourceLocationCode = optionalText(sourceLocationCode);
         this.branchName = optionalText(branchName);
         this.restaurantMenuId = requireUuid(restaurantMenuId, "restaurantMenuId");
@@ -55,7 +62,7 @@ public final class DiningOutIdentity {
                 restaurantId,
                 restaurantName,
                 restaurantLocationId,
-                NAMESPACE,
+                null,
                 null,
                 branchName,
                 restaurantMenuId,
@@ -68,7 +75,7 @@ public final class DiningOutIdentity {
             String restaurantId,
             String restaurantName,
             String restaurantLocationId,
-            String sourceNamespace,
+            String locationSourceNamespace,
             String sourceLocationCode,
             String branchName,
             String restaurantMenuId,
@@ -79,7 +86,7 @@ public final class DiningOutIdentity {
                 restaurantId,
                 restaurantName,
                 restaurantLocationId,
-                sourceNamespace,
+                locationSourceNamespace,
                 sourceLocationCode,
                 branchName,
                 restaurantMenuId,
@@ -91,7 +98,8 @@ public final class DiningOutIdentity {
     public String metadataJson() {
         return "{"
                 + "\"schema_version\":\"" + CONTRACT_VERSION + "\","
-                + "\"namespace\":\"" + escape(sourceNamespace) + "\","
+                + "\"namespace\":\"" + NAMESPACE + "\","
+                + "\"source_namespace\":" + nullableJson(locationSourceNamespace) + ","
                 + "\"restaurant_id\":\"" + restaurantId + "\","
                 + "\"restaurant_name\":\"" + escape(restaurantName) + "\","
                 + "\"restaurant_location_id\":\"" + restaurantLocationId + "\","

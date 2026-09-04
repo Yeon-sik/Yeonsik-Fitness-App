@@ -216,7 +216,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
                     "91111111-1111-4111-8111-111111111111",
                     "PT 식당 snapshot",
                     "92222222-2222-4222-8222-222222222222",
-                    "pricetrace",
+                    "public-receipt",
                     "seoul-gangnam",
                     "강남점 snapshot",
                     "93333333-3333-4333-8333-333333333333",
@@ -237,7 +237,9 @@ public final class NutritionCatalogRepositoryDiningOutTest {
                     identity
             );
             JSONObject menuSource = new JSONObject(menu.sourceReference);
-            assertEquals(identity.sourceNamespace, menuSource.getString("namespace"));
+            assertEquals(DiningOutIdentity.NAMESPACE, menuSource.getString("namespace"));
+            assertEquals(identity.locationSourceNamespace,
+                    menuSource.getString("source_namespace"));
             assertEquals(identity.restaurantId, menuSource.getString("restaurant_id"));
             assertEquals(identity.restaurantLocationId,
                     menuSource.getString("restaurant_location_id"));
@@ -268,7 +270,9 @@ public final class NutritionCatalogRepositoryDiningOutTest {
                     )
             );
             JSONObject optionSource = new JSONObject(option.sourceReference);
-            assertEquals(identity.sourceNamespace, optionSource.getString("namespace"));
+            assertEquals(DiningOutIdentity.NAMESPACE, optionSource.getString("namespace"));
+            assertEquals(identity.locationSourceNamespace,
+                    optionSource.getString("source_namespace"));
             assertEquals(identity.restaurantId, optionSource.getString("restaurant_id"));
             assertEquals(identity.restaurantLocationId,
                     optionSource.getString("restaurant_location_id"));

@@ -2294,7 +2294,15 @@ public final class FitnessRepository {
             try {
                 JSONObject metadataObject = new JSONObject(metadata);
                 metadataObject.put("identity_contract", DiningOutIdentity.CONTRACT_VERSION);
-                metadataObject.put("identity_namespace", identity.sourceNamespace);
+                metadataObject.put("identity_namespace", DiningOutIdentity.NAMESPACE);
+                if (identity.locationSourceNamespace == null) {
+                    metadataObject.put("location_source_namespace", JSONObject.NULL);
+                } else {
+                    metadataObject.put(
+                            "location_source_namespace",
+                            identity.locationSourceNamespace
+                    );
+                }
                 metadataObject.put("restaurant_id", identity.restaurantId);
                 metadataObject.put("restaurant_name", identity.restaurantName);
                 metadataObject.put("restaurant_location_id", identity.restaurantLocationId);
@@ -3208,13 +3216,24 @@ public final class FitnessRepository {
                     || menuId.isEmpty() || menuName.isEmpty() || productId.isEmpty()) {
                 return null;
             }
-            String sourceNamespace = metadataValue(
+            String identityNamespace = metadataValue(
                     metadata,
                     "identity_namespace",
-                    DiningOutIdentity.NAMESPACE
+                    ""
             );
-            if (sourceNamespace.isEmpty()) {
-                sourceNamespace = DiningOutIdentity.NAMESPACE;
+            String locationSourceNamespace = metadataValue(
+                    metadata,
+                    "location_source_namespace",
+                    ""
+            );
+            if (locationSourceNamespace.isEmpty()) {
+                locationSourceNamespace = metadataValue(metadata, "source_namespace", "");
+            }
+            if (locationSourceNamespace.isEmpty()
+                    && !identityNamespace.isEmpty()
+                    && !DiningOutIdentity.NAMESPACE.equals(identityNamespace)) {
+                // Legacy records stored the location provenance in identity_namespace.
+                locationSourceNamespace = identityNamespace;
             }
             String sourceLocationCode = emptyToNull(
                     metadataValue(metadata, "source_location_code", "")
@@ -3224,7 +3243,7 @@ public final class FitnessRepository {
                         restaurantId,
                         restaurantName,
                         locationId,
-                        sourceNamespace,
+                        emptyToNull(locationSourceNamespace),
                         sourceLocationCode,
                         emptyToNull(branchName),
                         menuId,

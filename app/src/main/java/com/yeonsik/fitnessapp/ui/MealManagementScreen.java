@@ -2475,18 +2475,22 @@ public final class MealManagementScreen extends BaseScreen {
                         "저장된 외식 메뉴의 PriceTrace 연결 정보가 일부만 있습니다."
                 );
             }
-            String sourceNamespace = jsonValue(source, "namespace");
-            if (sourceNamespace.isEmpty()) {
-                sourceNamespace = jsonValue(source, "source_namespace");
+            String locationSourceNamespace = jsonValue(source, "source_namespace");
+            if (locationSourceNamespace.isEmpty()) {
+                locationSourceNamespace = jsonValue(source, "location_source_namespace");
             }
-            if (sourceNamespace.isEmpty()) {
-                sourceNamespace = DiningOutIdentity.NAMESPACE;
+            if (locationSourceNamespace.isEmpty()) {
+                String legacyNamespace = jsonValue(source, "namespace");
+                if (!legacyNamespace.isEmpty()
+                        && !DiningOutIdentity.NAMESPACE.equals(legacyNamespace)) {
+                    locationSourceNamespace = legacyNamespace;
+                }
             }
             return DiningOutIdentity.fromPriceTrace(
                     restaurantId,
                     diningOutSourceValue(source, "restaurant_name", fallbackStoreName),
                     locationId,
-                    sourceNamespace,
+                    locationSourceNamespace.isEmpty() ? null : locationSourceNamespace,
                     jsonValue(source, "source_location_code"),
                     diningOutSourceValue(source, "branch_name", fallbackBranchName),
                     menuId,
@@ -2537,8 +2541,8 @@ public final class MealManagementScreen extends BaseScreen {
         }
         menu.restaurantId = identity.restaurantId;
         menu.restaurantLocationId = identity.restaurantLocationId;
-        menu.sourceNamespace = identity.sourceNamespace == null
-                ? "" : identity.sourceNamespace;
+        menu.locationSourceNamespace = identity.locationSourceNamespace == null
+                ? "" : identity.locationSourceNamespace;
         menu.sourceLocationCode = identity.sourceLocationCode == null
                 ? "" : identity.sourceLocationCode;
         menu.restaurantMenuId = identity.restaurantMenuId;
@@ -3272,8 +3276,7 @@ public final class MealManagementScreen extends BaseScreen {
                                     value.restaurantId,
                                     value.restaurantName,
                                     location.restaurantLocationId,
-                                    location.sourceNamespace == null ? DiningOutIdentity.NAMESPACE
-                                            : location.sourceNamespace,
+                                    location.locationSourceNamespace,
                                     location.sourceLocationCode,
                                     location.branchName,
                                     menu.restaurantMenuId,
@@ -3297,8 +3300,9 @@ public final class MealManagementScreen extends BaseScreen {
                             selectedMenu.name = menu.menuName;
                             selectedMenu.restaurantId = value.restaurantId;
                             selectedMenu.restaurantLocationId = location.restaurantLocationId;
-                            selectedMenu.sourceNamespace = location.sourceNamespace == null
-                                    ? "" : location.sourceNamespace;
+                            selectedMenu.locationSourceNamespace =
+                                    location.locationSourceNamespace == null
+                                            ? "" : location.locationSourceNamespace;
                             selectedMenu.sourceLocationCode = location.sourceLocationCode == null
                                     ? "" : location.sourceLocationCode;
                             selectedMenu.restaurantMenuId = menu.restaurantMenuId;
@@ -5332,7 +5336,7 @@ public final class MealManagementScreen extends BaseScreen {
     private void clearDiningOutPriceTraceIdentity(DiningOutMenuDraft menu) {
         menu.restaurantId = "";
         menu.restaurantLocationId = "";
-        menu.sourceNamespace = "";
+        menu.locationSourceNamespace = "";
         menu.sourceLocationCode = "";
         menu.restaurantMenuId = "";
         menu.catalogProductId = "";
@@ -5376,14 +5380,16 @@ public final class MealManagementScreen extends BaseScreen {
                     "검색한 식당·지점·메뉴를 모두 선택하거나 직접 등록으로 전환하세요."
             );
         }
-        if (!menu.sourceNamespace.trim().isEmpty()
-                && !menu.sourceLocationCode.trim().isEmpty()) {
+        if (!menu.locationSourceNamespace.trim().isEmpty()
+                || !menu.sourceLocationCode.trim().isEmpty()) {
             return DiningOutIdentity.fromPriceTrace(
                     menu.restaurantId,
                     draftDiningOutStoreName,
                     menu.restaurantLocationId,
-                    menu.sourceNamespace,
-                    menu.sourceLocationCode,
+                    menu.locationSourceNamespace.trim().isEmpty()
+                            ? null : menu.locationSourceNamespace,
+                    menu.sourceLocationCode.trim().isEmpty()
+                            ? null : menu.sourceLocationCode,
                     draftDiningOutBranchName,
                     menu.restaurantMenuId,
                     menu.name,
@@ -6236,7 +6242,7 @@ public final class MealManagementScreen extends BaseScreen {
         private String saturatedFat = "";
         private String restaurantId = "";
         private String restaurantLocationId = "";
-        private String sourceNamespace = "";
+        private String locationSourceNamespace = "";
         private String sourceLocationCode = "";
         private String restaurantMenuId = "";
         private String catalogProductId = "";

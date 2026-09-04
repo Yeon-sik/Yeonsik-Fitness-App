@@ -249,18 +249,25 @@ public final class RestaurantMenuReadV1Client {
     public static final class RestaurantLocation {
         public final String restaurantLocationId;
         public final String branchName;
+        /** Location-data provenance mapped from PriceTrace sourceLabel. */
+        public final String locationSourceNamespace;
+        /**
+         * @deprecated Use {@link #locationSourceNamespace}; retained for source compatibility.
+         */
+        @Deprecated
         public final String sourceNamespace;
         public final String sourceLocationCode;
 
         private RestaurantLocation(
                 String restaurantLocationId,
                 String branchName,
-                String sourceNamespace,
+                String locationSourceNamespace,
                 String sourceLocationCode
         ) {
             this.restaurantLocationId = restaurantLocationId;
             this.branchName = branchName;
-            this.sourceNamespace = sourceNamespace;
+            this.locationSourceNamespace = locationSourceNamespace;
+            this.sourceNamespace = locationSourceNamespace;
             this.sourceLocationCode = sourceLocationCode;
         }
     }

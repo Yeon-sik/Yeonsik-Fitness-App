@@ -342,7 +342,7 @@ public final class FitnessRepositoryMealTimeTest {
                     "11111111-1111-4111-8111-111111111111",
                     "텐진라면",
                     "22222222-2222-4222-8222-222222222222",
-                    "pricetrace",
+                    "public-receipt",
                     "gangnam-code",
                     "강남점",
                     "33333333-3333-4333-8333-333333333333",
@@ -375,8 +375,10 @@ public final class FitnessRepositoryMealTimeTest {
                     savedMetadata.getString("identity_contract"));
             assertEquals(identity.restaurantLocationId,
                     savedMetadata.getString("restaurant_location_id"));
-            assertEquals(identity.sourceNamespace,
+            assertEquals(DiningOutIdentity.NAMESPACE,
                     savedMetadata.getString("identity_namespace"));
+            assertEquals(identity.locationSourceNamespace,
+                    savedMetadata.getString("location_source_namespace"));
             assertEquals(identity.sourceLocationCode,
                     savedMetadata.getString("source_location_code"));
             assertEquals("강남점", savedMetadata.getString("branch_name"));
@@ -387,9 +389,27 @@ public final class FitnessRepositoryMealTimeTest {
             assertEquals(identity.restaurantLocationId, restored.restaurantLocationId);
             assertEquals(identity.restaurantMenuId, restored.restaurantMenuId);
             assertEquals(identity.catalogProductId, restored.catalogProductId);
-            assertEquals(identity.sourceNamespace, restored.sourceNamespace);
+            assertEquals(identity.locationSourceNamespace, restored.locationSourceNamespace);
             assertEquals(identity.sourceLocationCode, restored.sourceLocationCode);
             assertEquals("강남점", restored.branchName);
+
+            JSONObject legacyMetadata = new JSONObject(savedMetadata.toString());
+            legacyMetadata.remove("location_source_namespace");
+            legacyMetadata.put("identity_namespace", "public-receipt");
+            ContentValues legacyValues = new ContentValues();
+            legacyValues.put("metadata", legacyMetadata.toString());
+            assertEquals(1, helper.getWritableDatabase().update(
+                    "meal_records",
+                    legacyValues,
+                    "id = ?",
+                    new String[]{recordId}
+            ));
+            DiningOutIdentity legacyRestored = repository.diningOutIdentityForRecord(recordId);
+            assertTrue(legacyRestored != null);
+            assertEquals(DiningOutIdentity.NAMESPACE,
+                    new JSONObject(legacyRestored.metadataJson()).getString("namespace"));
+            assertEquals("public-receipt", legacyRestored.locationSourceNamespace);
+            assertEquals("gangnam-code", legacyRestored.sourceLocationCode);
             assertEquals(recordId, repository.recentDiningOutEntries(10).get(0).id);
         } finally {
             helper.close();

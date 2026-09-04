@@ -1541,7 +1541,9 @@ public final class NutritionCatalogRepository {
                 reference.put("menu_name", menuName);
                 reference.put("catalog_product_id", JSONObject.NULL);
             } else {
-                reference.put("namespace", identity.sourceNamespace);
+                reference.put("namespace", DiningOutIdentity.NAMESPACE);
+                reference.put("source_namespace", identity.locationSourceNamespace == null
+                        ? JSONObject.NULL : identity.locationSourceNamespace);
                 reference.put("restaurant_id", identity.restaurantId);
                 reference.put("restaurant_location_id", identity.restaurantLocationId);
                 reference.put("source_location_code", identity.sourceLocationCode == null
@@ -2056,18 +2058,26 @@ public final class NutritionCatalogRepository {
             throw new IllegalStateException("PT 식당·지점·메뉴 identity가 일부만 저장되어 있습니다.");
         }
 
-        String sourceNamespace = nullableString(identity, "namespace");
+        String locationSourceNamespace = nullableString(identity, "source_namespace");
+        if (locationSourceNamespace == null) {
+            locationSourceNamespace = nullableString(identity, "location_source_namespace");
+        }
+        if (locationSourceNamespace == null) {
+            String legacyNamespace = nullableString(identity, "namespace");
+            locationSourceNamespace = DiningOutIdentity.NAMESPACE.equals(legacyNamespace)
+                    ? null : legacyNamespace;
+        }
         String sourceLocationCode = nullableString(identity, "source_location_code");
         if (hasAllPriceTraceIds) {
             SourceLocationIdentity sourceLocation = resolvePriceTraceLocation(
                     priceTraceConfig,
                     restaurantId,
                     locationId,
-                    sourceNamespace,
+                    locationSourceNamespace,
                     sourceLocationCode
             );
-            sourceNamespace = emptyToDefault(
-                    sourceLocation.namespace,
+            locationSourceNamespace = emptyToDefault(
+                    sourceLocation.locationSourceNamespace,
                     DiningOutIdentity.NAMESPACE
             );
             sourceLocationCode = sourceLocation.code;
@@ -2077,7 +2087,7 @@ public final class NutritionCatalogRepository {
                 );
             }
         } else {
-            sourceNamespace = "fitnessapp";
+            locationSourceNamespace = "fitnessapp";
             sourceLocationCode = "restaurant:" + restaurantName.trim().toLowerCase(Locale.US);
         }
 
@@ -2088,7 +2098,7 @@ public final class NutritionCatalogRepository {
         putNullable(request, "p_restaurant_id", restaurantId);
         request.put("p_restaurant_name", restaurantName);
         putNullable(request, "p_restaurant_location_id", locationId);
-        request.put("p_source_location_namespace", sourceNamespace);
+        request.put("p_source_location_namespace", locationSourceNamespace);
         request.put("p_source_location_code", sourceLocationCode);
         putNullable(request, "p_location_label", nullableString(identity, "branch_name"));
         putNullable(request, "p_restaurant_menu_id", menuId);
@@ -2140,12 +2150,12 @@ public final class NutritionCatalogRepository {
             SupabaseConfig priceTraceConfig,
             String restaurantId,
             String locationId,
-            String storedSourceNamespace,
+            String storedLocationSourceNamespace,
             String storedSourceLocationCode
     ) throws Exception {
         if (storedSourceLocationCode != null && !storedSourceLocationCode.trim().isEmpty()) {
             return new SourceLocationIdentity(
-                    storedSourceNamespace,
+                    storedLocationSourceNamespace,
                     storedSourceLocationCode.trim()
             );
         }
@@ -2158,7 +2168,7 @@ public final class NutritionCatalogRepository {
                         ? ""
                         : location.sourceLocationCode.trim();
                 return new SourceLocationIdentity(
-                        location.sourceNamespace,
+                        location.locationSourceNamespace,
                         sourceLocationCode.isEmpty() ? null : sourceLocationCode
                 );
             }
@@ -2167,11 +2177,11 @@ public final class NutritionCatalogRepository {
     }
 
     private static final class SourceLocationIdentity {
-        private final String namespace;
+        private final String locationSourceNamespace;
         private final String code;
 
-        private SourceLocationIdentity(String namespace, String code) {
-            this.namespace = namespace;
+        private SourceLocationIdentity(String locationSourceNamespace, String code) {
+            this.locationSourceNamespace = locationSourceNamespace;
             this.code = code;
         }
     }
