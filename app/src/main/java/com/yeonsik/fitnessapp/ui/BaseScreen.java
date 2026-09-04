@@ -3,6 +3,7 @@ package com.yeonsik.fitnessapp.ui;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
@@ -92,10 +93,6 @@ public abstract class BaseScreen {
                                    boolean includeCurrentPoint) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
-        String displayMeta = includeCurrentPoint
-                ? metaLabel
-                : "완료 기록 " + (history == null ? 0 : history.size()) + "회 · 현재 진행 중";
-        ui.cardHeader(card, title, displayMeta);
         List<Double> values = new ArrayList<>();
         if (history != null) {
             for (FitnessRepository.VolumePoint point : history) {
@@ -109,8 +106,63 @@ public abstract class BaseScreen {
             currentPointIndex = values.size();
             values.add(currentVolume);
         }
-        card.addView(ui.volumeTrendChart(values, currentPointIndex), new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(116)));
+        if (RecordsAnalysis.hasEnoughTrendPoints(values.size())) {
+            String displayMeta = includeCurrentPoint
+                    ? metaLabel
+                    : "완료 기록 " + values.size() + "회 · 현재 진행 중 · kg";
+            ui.cardHeader(card, title, displayMeta);
+            card.addView(ui.volumeTrendChart(values, currentPointIndex), new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(116)));
+            return card;
+        }
+
+        ui.cardHeader(card, title, "추세 차트 대기");
+        List<View> rows = new ArrayList<>();
+        if (includeCurrentPoint) {
+            rows.add(ui.recordListRow(
+                    "현",
+                    FitnessUi.formatVolume(currentVolume) + "kg",
+                    "현재 완료 기록",
+                    null
+            ));
+        } else {
+            rows.add(ui.recordListRow(
+                    "진",
+                    "현재 세션",
+                    "진행 중 · 저장된 추세에는 포함하지 않음",
+                    null
+            ));
+        }
+        if (history != null) {
+            for (int index = history.size() - 1; index >= 0; index--) {
+                FitnessRepository.VolumePoint point = history.get(index);
+                if (point == null) {
+                    continue;
+                }
+                String date = point.date == null || point.date.trim().isEmpty()
+                        ? "날짜 없음"
+                        : point.date;
+                rows.add(ui.recordListRow(
+                        "완",
+                        FitnessUi.formatVolume(point.volumeKg) + "kg",
+                        "완료 기록 · " + date,
+                        null
+                ));
+            }
+        }
+        card.addView(ui.rowsCard(rows), ui.fullWidthParams(ui.dp(8)));
+        int requiredCompletedRecords = RecordsAnalysis.MIN_TREND_POINTS
+                - (includeCurrentPoint ? 1 : 0);
+        TextView helper = ui.text(
+                "완료 기록이 " + requiredCompletedRecords
+                        + "회 이상 쌓이면 기간과 단위가 표시된 추세 차트를 보여줍니다.",
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        );
+        helper.setPadding(0, ui.dp(10), 0, 0);
+        helper.setLineSpacing(ui.dp(3), 1f);
+        card.addView(helper);
         return card;
     }
 

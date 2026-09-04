@@ -5,6 +5,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
 import com.google.android.gms.maps.GoogleMap;
@@ -95,6 +96,19 @@ public final class CardioSummaryScreen extends BaseScreen {
                 null
         ), ui().tileParams(false));
         add(secondRow, ui().fullWidthParams(ui().dp(10)));
+
+        LinearLayout recordFacts = ui().card();
+        ui().cardHeader(recordFacts, "저장된 기록", "핵심 값 읽기 전용");
+        TextView recordFactsDescription = ui().text(
+                "거리·시간·경로는 완료 시 저장된 값이며 수정할 수 없습니다. "
+                        + "평균 심박수만 아래에서 별도 입력하거나 수정할 수 있습니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        );
+        recordFactsDescription.setLineSpacing(ui().dp(3), 1f);
+        recordFacts.addView(recordFactsDescription);
+        add(recordFacts, ui().fullWidthParams(ui().dp(10)));
 
         section("이동 경로");
         renderRoute(recordId);

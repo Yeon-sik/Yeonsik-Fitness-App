@@ -1136,7 +1136,7 @@ public final class FitnessUi {
     }
 
     public View volumeTrendChart(List<Double> values) {
-        return volumeTrendChart(values, -1);
+        return trendChart(values, "kg", -1, "이전 기록 없음");
     }
 
     /**
@@ -1144,10 +1144,28 @@ public final class FitnessUi {
      * A negative currentPointIndex means every value is persisted history.
      */
     public View volumeTrendChart(List<Double> values, int currentPointIndex) {
+        return trendChart(values, "kg", currentPointIndex, "이전 기록 없음");
+    }
+
+    public View trendChart(List<Double> values, String unit) {
+        return trendChart(values, unit, -1, "추세를 표시할 기록이 없습니다.");
+    }
+
+    /** Draws a labeled numeric trend without assuming that the values are workout volume. */
+    public View trendChart(
+            List<Double> values,
+            String unit,
+            int currentPointIndex,
+            String emptyLabel
+    ) {
         final List<Double> points = values == null ? java.util.Collections.emptyList() : new java.util.ArrayList<>(values);
         final int markedCurrentPoint = currentPointIndex >= 0 && currentPointIndex < points.size()
                 ? currentPointIndex
                 : -1;
+        final String displayUnit = unit == null ? "" : unit;
+        final String displayEmptyLabel = emptyLabel == null || emptyLabel.trim().isEmpty()
+                ? "추세를 표시할 기록이 없습니다."
+                : emptyLabel;
         final int axisColor = border();
         final int mutedColor = inkMuted();
         final int strokeColor = accent();
@@ -1169,7 +1187,7 @@ public final class FitnessUi {
                     paint.setTextSize(dp(12));
                     paint.setColor(mutedColor);
                     paint.setTextAlign(Paint.Align.LEFT);
-                    canvas.drawText("이전 기록 없음", left, top + dp(14), paint);
+                    canvas.drawText(displayEmptyLabel, left, top + dp(14), paint);
                     return;
                 }
 
@@ -1179,6 +1197,13 @@ public final class FitnessUi {
                         max = Math.max(max, value);
                     }
                 }
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(mutedColor);
+                paint.setTextSize(dp(10));
+                paint.setTypeface(Typeface.DEFAULT_BOLD);
+                paint.setTextAlign(Paint.Align.LEFT);
+                canvas.drawText("0" + displayUnit, left, bottom + dp(11), paint);
+
                 paint.setColor(strokeColor);
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(dp(2));
@@ -1229,7 +1254,7 @@ public final class FitnessUi {
                             : left + (right - left) * index / (float) (points.size() - 1);
                     float y = bottom - (float) ((bottom - top) * value / max);
                     String label = (index == markedCurrentPoint ? "현재 " : "")
-                            + formatVolume(value) + "kg";
+                            + valueLabel(value);
                     float halfLabelWidth = paint.measureText(label) / 2f;
                     float labelX = Math.max(left + halfLabelWidth,
                             Math.min(right - halfLabelWidth, x));
@@ -1240,6 +1265,13 @@ public final class FitnessUi {
                     canvas.drawText(label, labelX, labelY, paint);
                     paint.setColor(mutedColor);
                 }
+            }
+
+            private String valueLabel(double value) {
+                String number = "kg".equals(displayUnit)
+                        ? formatVolume(value)
+                        : trimDouble(value);
+                return number + displayUnit;
             }
         };
     }

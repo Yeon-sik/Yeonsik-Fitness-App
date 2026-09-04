@@ -102,6 +102,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                     "총 시간", false, null), ui.tileParams(false));
         }
         add(tiles, ui.fullWidthParams(0));
+        add(recordFactNotice(cardio), ui.fullWidthParams(ui.dp(10)));
 
         buttonRow(
                 ui.button("기록 보기", true, v -> host.navigate(FitnessScreen.RECORDS)),
@@ -124,7 +125,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             renderStrengthProgress(recordId, info, metrics);
         }
 
-        section("수행 내역");
+        section("세트 기록");
         renderPerformance(recordId);
     }
 
@@ -160,20 +161,8 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             return;
         }
 
-        previous = repository().recentCompletedFreeStrengthSessions(recordId, 5);
-        add(volumeTrendCard(
-                "총 볼륨 추이",
-                "최근 " + previous.size() + "회 + 현재",
-                volumePoints(previous),
-                currentMetrics.totalVolumeKg,
-                currentMetrics.setCount > 0
-        ), ui().fullWidthParams(ui().dp(10)));
-        add(ui().text(
-                "루틴으로 운동을 시작하면 루틴별 볼륨 변화를 비교할 수 있습니다.",
-                12,
-                FitnessUi.COLOR_MUTED,
-                false
-        ), ui().fullWidthParams(ui().dp(2)));
+            previous = repository().recentCompletedFreeStrengthSessions(recordId, 5);
+        renderVolumeTrendOrFacts("총 볼륨 추이", previous, currentMetrics);
     }
 
     private void renderRoutineProgress(
@@ -221,13 +210,88 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             add(card, ui.fullWidthParams(ui.dp(10)));
         }
 
-        add(volumeTrendCard(
-                "동일 루틴 총 볼륨 추이",
-                "최근 " + previous.size() + "회 + 현재",
-                volumePoints(previous),
-                currentMetrics.totalVolumeKg,
-                currentMetrics.setCount > 0
-        ), ui.fullWidthParams(ui.dp(10)));
+        renderVolumeTrendOrFacts("동일 루틴 총 볼륨 추이", previous, currentMetrics);
+    }
+
+    private View recordFactNotice(boolean cardio) {
+        FitnessUi ui = ui();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "저장된 기록", "읽기 전용");
+        TextView description = ui.text(
+                cardio
+                        ? "거리·시간·경로는 완료 시 저장된 요약입니다. 평균 심박수는 별도 입력값입니다."
+                        : "세트·시간·볼륨은 완료 시 저장된 값입니다. 수정하려면 아래 기록 수정으로 들어갑니다.",
+                12,
+                FitnessUi.COLOR_MUTED,
+                false
+        );
+        description.setLineSpacing(ui.dp(3), 1f);
+        card.addView(description);
+        return card;
+    }
+
+    private void renderVolumeTrendOrFacts(
+            String title,
+            List<FitnessRepository.WorkoutHistoryEntry> history,
+            FitnessRepository.SessionMetrics currentMetrics
+    ) {
+        FitnessUi ui = ui();
+        boolean includeCurrentPoint = currentMetrics != null && currentMetrics.setCount > 0;
+        int historyCount = history == null ? 0 : history.size();
+        int pointCount = historyCount + (includeCurrentPoint ? 1 : 0);
+        if (RecordsAnalysis.hasEnoughTrendPoints(pointCount)) {
+            add(volumeTrendCard(
+                    title,
+                    "완료 기록 " + historyCount + "회"
+                            + (includeCurrentPoint ? " + 현재 · kg" : " · kg"),
+                    volumePoints(history),
+                    currentMetrics == null ? 0d : currentMetrics.totalVolumeKg,
+                    includeCurrentPoint
+            ), ui.fullWidthParams(ui.dp(10)));
+            return;
+        }
+
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, title, "추세 차트 대기");
+        List<View> rows = new ArrayList<>();
+        if (includeCurrentPoint) {
+            rows.add(ui.recordListRow(
+                    "현",
+                    FitnessUi.formatVolume(currentMetrics.totalVolumeKg) + "kg",
+                    "현재 완료 기록 · " + currentMetrics.setCount + "세트",
+                    null
+            ));
+        } else {
+            rows.add(ui.recordListRow(
+                    "진",
+                    "현재 세션",
+                    "진행 중 · 저장된 추세에는 포함하지 않음",
+                    null
+            ));
+        }
+        if (historyCount > 0) {
+            FitnessRepository.WorkoutHistoryEntry latest = history.get(historyCount - 1);
+            rows.add(ui.recordListRow(
+                    "이",
+                    FitnessUi.formatVolume(latest.metrics.totalVolumeKg) + "kg",
+                    "직전 완료 기록 · " + latest.date,
+                    null
+            ));
+        }
+        card.addView(ui.rowsCard(rows), ui.fullWidthParams(ui.dp(8)));
+        int requiredCompletedRecords = RecordsAnalysis.MIN_TREND_POINTS
+                - (includeCurrentPoint ? 1 : 0);
+        TextView helper = ui.text(
+                "완료 기록이 " + requiredCompletedRecords
+                        + "회 이상 쌓이면 기간과 단위가 표시된 추세 차트를 보여줍니다.",
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        );
+        helper.setPadding(0, ui.dp(10), 0, 0);
+        helper.setLineSpacing(ui.dp(3), 1f);
+        card.addView(helper);
+        add(card, ui.fullWidthParams(ui.dp(10)));
     }
 
     private List<FitnessRepository.VolumePoint> volumePoints(
@@ -395,6 +459,14 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         exerciseCardRenderer.addPreviewOnly(card, content);
         card.addView(ui.text("수행 횟수", 12, FitnessUi.COLOR_MUTED, true),
                 ui.fullWidthParams(ui.dp(12)));
+        card.addView(ui.text(
+                        FitnessRecordContract.displayRecordTypeKo(exercise.recordType)
+                                + " · 완료 세트 " + sets.size() + "개",
+                        11,
+                        FitnessUi.COLOR_TERTIARY,
+                        false
+                ),
+                ui.fullWidthParams(ui.dp(2)));
 
         for (int start = 0; start < sets.size(); start += SETS_PER_ROW) {
             int end = Math.min(start + SETS_PER_ROW, sets.size());
@@ -421,7 +493,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         table.setGravity(Gravity.CENTER_VERTICAL);
         table.setBackground(ui.borderDrawable(ui.subtle(), ui.border(), ui.dp(12)));
         table.setClipToOutline(true);
-        int tableHeight = ui.dp(60);
+        int tableHeight = ui.dp(72);
         int tableWidth = cellWidth * rowSets.size() + ui.dp(Math.max(0, rowSets.size() - 1));
 
         for (int i = 0; i < rowSets.size(); i++) {
@@ -430,8 +502,21 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             cell.setGravity(Gravity.CENTER);
             cell.setPadding(ui.dp(4), ui.dp(3), ui.dp(4), ui.dp(3));
 
+            FitnessRepository.SessionSetEntry set = rowSets.get(i);
+            TextView setNumber = ui.num(
+                    "#" + set.setIndex,
+                    10,
+                    FitnessUi.COLOR_MUTED,
+                    true
+            );
+            setNumber.setGravity(Gravity.CENTER);
+            cell.addView(setNumber, new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    ui.dp(15)
+            ));
+
             TextView primary = ui.num(
-                    primarySetLabel(recordType, rowSets.get(i)),
+                    primarySetLabel(recordType, set),
                     14,
                     FitnessUi.COLOR_TEXT,
                     true
@@ -444,7 +529,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             ));
 
             TextView secondary = ui.num(
-                    secondarySetLabel(recordType, rowSets.get(i)),
+                    secondarySetLabel(recordType, set),
                     12,
                     FitnessUi.COLOR_MUTED,
                     true
