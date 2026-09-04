@@ -4522,14 +4522,36 @@ public final class FitnessRepository {
     }
 
     public List<VolumePoint> recentSessionVolumes(String currentRecordId, int limit) {
+        return recentCompletedSessionVolumes(currentRecordId, limit);
+    }
+
+    /**
+     * Returns only completed-compatible sessions before applying the requested limit.
+     * Personal OS rows remain included through the existing shared completion policy.
+     */
+    public List<VolumePoint> recentCompletedSessionVolumes(String currentRecordId, int limit) {
         List<VolumePoint> rows = new ArrayList<>();
-        String sql = "SELECT id, date, exercise_name FROM workout_records "
-                + "WHERE user_id = ? AND deleted_at IS NULL "
-                + "AND scope IN ('fitness', 'both') AND id != ? "
-                + "ORDER BY date DESC, updated_at DESC LIMIT ?";
+        if (limit <= 0) {
+            return rows;
+        }
+        List<String> arguments = new ArrayList<>();
+        StringBuilder sql = new StringBuilder(
+                "SELECT id, date, exercise_name FROM workout_records "
+                        + "WHERE user_id = ? AND deleted_at IS NULL "
+                        + "AND scope IN ('fitness', 'both') "
+        );
+        arguments.add(userId);
+        String normalizedCurrentRecordId = emptyToNull(currentRecordId);
+        if (normalizedCurrentRecordId != null) {
+            sql.append("AND id != ? ");
+            arguments.add(normalizedCurrentRecordId);
+        }
+        sql.append("AND ").append(COMPLETED_OR_OS_WORKOUT)
+                .append(" ORDER BY date DESC, updated_at DESC LIMIT ?");
+        arguments.add(String.valueOf(limit));
         try (Cursor cursor = db().rawQuery(
-                sql,
-                new String[]{userId, currentRecordId, String.valueOf(limit)}
+                sql.toString(),
+                arguments.toArray(new String[0])
         )) {
             while (cursor.moveToNext()) {
                 rows.add(new VolumePoint(cursor.getString(1), cursor.getString(2),
@@ -4703,6 +4725,7 @@ public final class FitnessRepository {
                 + "WHERE wr.user_id = ? AND we.user_id = ? AND " + matchClause
                 + " AND we.record_id != ? AND we.deleted_at IS NULL "
                 + "AND we.record_type = 'weight_reps' "
+                + "AND " + COMPLETED_OR_OS_WORKOUT + " "
                 + "ORDER BY wr.date DESC, wr.updated_at DESC, wr.id DESC, "
                 + "we.order_index ASC, ws.set_index ASC";
         List<String> arguments = new ArrayList<>();

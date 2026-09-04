@@ -115,6 +115,11 @@ public interface ScreenHost {
 
     void openSettingsConnections();
 
+    /** True only for the personal/developer surface that may show topology controls. */
+    default boolean isDeveloperSurfaceAllowed() {
+        return false;
+    }
+
     DevelopmentRepository developmentRepository();
 
     void showDevelopmentBodyProfileDialog();

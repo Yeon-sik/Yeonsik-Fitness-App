@@ -43,7 +43,8 @@ public final class ExerciseMuscleModelRenderer {
     private static final int DECODE_SAMPLE_SIZE = 2;
     private static final int BITMAP_CACHE_KB = 12 * 1024;
     private static final int COMPOSITE_CACHE_KB = 12 * 1024;
-    private static final int MUSCLE_RED = Color.rgb(239, 68, 68);
+    // Analysis uses a separate red scale; picker selection always uses the Pastel Blue token.
+    private static final int ANALYSIS_MUSCLE_RED = Color.rgb(239, 68, 68);
     private static final double MIN_LAYER_ALPHA = 0.18d;
 
     private final Activity activity;
@@ -115,7 +116,7 @@ public final class ExerciseMuscleModelRenderer {
         container.setGravity(android.view.Gravity.CENTER);
         container.setPadding(ui.dp(8), ui.dp(6), ui.dp(8), ui.dp(6));
         container.setBackground(ui.flatSurfaceDrawable(ui.dp(16)));
-        ui.applyDepth(container, 3);
+        ui.applyDepth(container, FitnessUi.DEPTH_EMPHASIS_DP);
 
         container.addView(modelColumn("앞", "front", selected, effectiveSetsByLayer),
                 new LinearLayout.LayoutParams(0, ui.dp(MODEL_HEIGHT_DP), 1f));
@@ -170,7 +171,8 @@ public final class ExerciseMuscleModelRenderer {
     private Bitmap composite(String side, Set<String> selected) {
         MuscleLayerSpec currentSpec = spec();
         List<String> layerIds = currentSpec.layerIdsFor(side, selected);
-        String cacheKey = side + "|" + join(layerIds);
+        int selectionColor = ui.pastelBlue();
+        String cacheKey = side + "|selection|" + selectionColor + "|" + join(layerIds);
         Bitmap cached = compositeCache.get(cacheKey);
         if (cached != null && !cached.isRecycled()) {
             return cached;
@@ -200,12 +202,16 @@ public final class ExerciseMuscleModelRenderer {
                 | Paint.DITHER_FLAG);
         Rect target = new Rect(0, 0, base.getWidth(), base.getHeight());
         canvas.drawBitmap(base, null, target, paint);
+        // The generated PNGs are alpha contours. Replace only their RGB color and preserve the
+        // contour so picker selection has the same meaning in light and dark themes.
+        paint.setColorFilter(new PorterDuffColorFilter(selectionColor, PorterDuff.Mode.SRC_IN));
         for (String layerId : layerIds) {
             Bitmap layer = bitmap(assetPath("layers/" + side + "/" + layerId + ".png"));
             if (layer != null) {
                 canvas.drawBitmap(layer, null, target, paint);
             }
         }
+        paint.setColorFilter(null);
         compositeCache.put(cacheKey, result);
         return result;
     }
@@ -259,7 +265,7 @@ public final class ExerciseMuscleModelRenderer {
                 continue;
             }
             double intensity = intensityForEffectiveSets(entry.getValue());
-            int color = lerpColor(Color.WHITE, MUSCLE_RED, intensity);
+            int color = lerpColor(Color.WHITE, ANALYSIS_MUSCLE_RED, intensity);
             int alpha = (int) Math.round(255d * (MIN_LAYER_ALPHA
                     + (1d - MIN_LAYER_ALPHA) * intensity));
             // Existing red PNGs are alpha masks. SRC_IN replaces their RGB while preserving

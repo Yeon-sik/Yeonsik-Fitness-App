@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ic_launcher_background">#04050C</color>
+
+    <color name="ui_background">#F7F9FC</color>
+    <color name="ui_surface">#FFFFFF</color>
+    <color name="ui_surface_subtle">#F0F5F9</color>
+    <color name="ui_text_primary">#111827</color>
+    <color name="ui_text_secondary">#667085</color>
+    <color name="ui_border_subtle">#DCE5EC</color>
+    <color name="ui_pastel_blue">#A9D6F5</color>
+    <color name="ui_blue_container">#EAF6FF</color>
+    <color name="ui_blue_ink">#173B55</color>
+    <color name="ui_status_positive">#2E7D5B</color>
+    <color name="ui_status_negative">#C0453E</color>
+    <color name="ui_status_warning">#8A5A00</color>
 </resources>

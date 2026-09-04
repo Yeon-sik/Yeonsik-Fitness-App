@@ -8,6 +8,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.exercise.WeightExercise;
@@ -147,11 +148,11 @@ public final class ExerciseCardRenderer {
             }
             row.setSelected(selected);
             row.setContentDescription(content.accessibilityText(selectable, selected));
-            name.setTextColor(selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT);
-            meta.setTextColor(selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED);
+            name.setTextColor(selected ? ui.selectedInk() : ui.ink());
+            meta.setTextColor(selected ? ui.selectedInk() : ui.inkMuted());
             if (check != null) {
                 check.setText(selected ? "✓" : "");
-                check.setTextColor(selected ? FitnessUi.COLOR_INVERSE_TEXT : ui.inkMuted());
+                check.setTextColor(selected ? ui.selectedInk() : ui.inkMuted());
                 check.setBackground(selected
                         ? ui.borderDrawable(ui.chipOnAccent(), ui.chipOnAccent(), ui.dp(999))
                         : ui.borderDrawable(ui.surface(), ui.border(), ui.dp(999)));
@@ -259,25 +260,7 @@ public final class ExerciseCardRenderer {
     }
 
     private static String displayRecordType(String recordType) {
-        if (isBlank(recordType)) {
-            return "기록 방식 없음";
-        }
-        switch (recordType) {
-            case "weight_reps":
-                return "무게 + 횟수";
-            case "reps_only":
-                return "횟수";
-            case "time":
-                return "시간";
-            case "weight_time":
-                return "무게 + 시간";
-            case "assisted_weight_reps":
-                return "보조 중량 + 횟수";
-            case "bodyweight_added_weight_reps":
-                return "체중 + 추가 중량 + 횟수";
-            default:
-                return recordType;
-        }
+        return FitnessRecordContract.displayRecordTypeKo(recordType);
     }
 
     private static String valueOrDefault(String value, String fallback) {

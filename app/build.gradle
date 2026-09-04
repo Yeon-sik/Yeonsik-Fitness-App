@@ -45,6 +45,23 @@ def localOrEnvironment = { String propertyName, String environmentName ->
 
 def mapsApiKey = localOrEnvironment("MAPS_API_KEY", "MAPS_API_KEY").trim()
 
+def configuredFitnessSurface = localProperties.containsKey("FITNESS_SURFACE")
+        ? localProperties.getProperty("FITNESS_SURFACE")
+        : (System.getenv().containsKey("FITNESS_SURFACE")
+                ? System.getenv("FITNESS_SURFACE")
+                : null)
+def fitnessSurface = configuredFitnessSurface == null
+        ? "personal"
+        : configuredFitnessSurface.trim().toLowerCase(java.util.Locale.ROOT)
+def allowedFitnessSurfaces = ["personal", "test-friends", "commercial"]
+if (configuredFitnessSurface != null && !(fitnessSurface in allowedFitnessSurfaces)) {
+    throw new GradleException(
+            "Invalid FITNESS_SURFACE '" + configuredFitnessSurface + "'. "
+                    + "Allowed values: personal, test-friends, commercial."
+    )
+}
+def allowManagedSupabaseDefaults = fitnessSurface == "personal"
+
 // The QA keystore is intentionally supplied outside the repository. Keep one
 // per application and move it between trusted build machines when needed.
 def defaultQaStorePath = new File(
@@ -146,6 +163,9 @@ android {
         versionName "1.0.0"
         manifestPlaceholders = [MAPS_API_KEY: mapsApiKey]
         buildConfigField "boolean", "MAPS_API_KEY_CONFIGURED", mapsApiKey ? "true" : "false"
+        buildConfigField "String", "FITNESS_SURFACE", buildConfigString(fitnessSurface)
+        buildConfigField "boolean", "ALLOW_MANAGED_SUPABASE_DEFAULTS",
+                allowManagedSupabaseDefaults ? "true" : "false"
         buildConfigField "String", "SUPABASE_URL", buildConfigString(supabaseUrl)
         buildConfigField "String", "SUPABASE_ANON_KEY", buildConfigString(supabaseAnonKey)
         buildConfigField "String", "NUTRITION_SUPABASE_URL", buildConfigString(nutritionSupabaseUrl)
@@ -181,10 +201,26 @@ android {
         qa {
             initWith debug
             debuggable true
+            buildConfigField "String", "FITNESS_SURFACE", buildConfigString("test-friends")
+            buildConfigField "boolean", "ALLOW_MANAGED_SUPABASE_DEFAULTS", "false"
+            buildConfigField "String", "SUPABASE_URL", buildConfigString("")
+            buildConfigField "String", "SUPABASE_ANON_KEY", buildConfigString("")
+            buildConfigField "String", "NUTRITION_SUPABASE_URL", buildConfigString("")
+            buildConfigField "String", "NUTRITION_SUPABASE_ANON_KEY", buildConfigString("")
+            buildConfigField "String", "PRICETRACE_SUPABASE_URL", buildConfigString("")
+            buildConfigField "String", "PRICETRACE_SUPABASE_ANON_KEY", buildConfigString("")
             signingConfig signingConfigs.qa
         }
         release {
             debuggable false
+            buildConfigField "String", "FITNESS_SURFACE", buildConfigString("commercial")
+            buildConfigField "boolean", "ALLOW_MANAGED_SUPABASE_DEFAULTS", "false"
+            buildConfigField "String", "SUPABASE_URL", buildConfigString("")
+            buildConfigField "String", "SUPABASE_ANON_KEY", buildConfigString("")
+            buildConfigField "String", "NUTRITION_SUPABASE_URL", buildConfigString("")
+            buildConfigField "String", "NUTRITION_SUPABASE_ANON_KEY", buildConfigString("")
+            buildConfigField "String", "PRICETRACE_SUPABASE_URL", buildConfigString("")
+            buildConfigField "String", "PRICETRACE_SUPABASE_ANON_KEY", buildConfigString("")
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"

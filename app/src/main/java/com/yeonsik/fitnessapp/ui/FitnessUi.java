@@ -7,20 +7,11 @@ import android.app.Dialog;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Canvas;
-import android.graphics.ColorFilter;
-import android.graphics.Matrix;
-import android.graphics.Outline;
 import android.graphics.Paint;
-import android.graphics.PixelFormat;
-import android.graphics.Rect;
-import android.graphics.RectF;
-import android.graphics.SweepGradient;
 import android.graphics.Typeface;
-import android.graphics.drawable.Animatable;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
-import android.graphics.drawable.LayerDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.text.InputType;
@@ -33,7 +24,6 @@ import android.view.ViewOutlineProvider;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.animation.DecelerateInterpolator;
-import android.view.animation.LinearInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.Button;
 import android.widget.EditText;
@@ -48,70 +38,128 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.WeakHashMap;
 import java.util.function.BooleanSupplier;
 
 /**
- * 테마 메인 색상과 Flowstate 팔레트를 결합한 공통 UI 팩토리.
+ * Fitness 앱의 semantic token과 공통 View를 제공하는 UI 팩토리.
  * 색 토큰, 타이포그래피, 표면(카드/타일), 버튼/칩, 입력창, 리스트 행, 포맷터를 담당한다.
  * 화면 상태를 소유하지 않으며, 다크 테마 여부는 생성 시 주입된 supplier로 판단한다.
- * 다크 테마에서도 "반전 = 강조" 문법을 유지하되, 홀로그램 팔레트는 라이트 테마 색상을 고정 사용한다.
+ * 일반 컴포넌트는 평면 surface와 Pastel Blue semantic을 사용하고, Hero만 tonal blue gradient를 사용한다.
  */
 public final class FitnessUi {
-    // ── 라이트 토큰 (design-system §2.1) ─────────────────────────────
-    public static final int COLOR_BACKGROUND = Color.WHITE;
-    public static final int COLOR_SURFACE = Color.WHITE;
-    public static final int COLOR_TEXT = Color.rgb(21, 22, 26);
-    public static final int COLOR_MUTED = Color.rgb(106, 110, 118);
-    public static final int COLOR_TERTIARY = Color.rgb(110, 114, 123);
-    public static final int COLOR_BORDER = Color.BLACK;
-    public static final int COLOR_PRIMARY = Color.BLACK;
-    public static final int COLOR_SUBTLE = Color.WHITE;
+    // ── Light semantic tokens ─────────────────────────────────────────
+    public static final int COLOR_BACKGROUND = 0xFFF7F9FC;
+    public static final int COLOR_SURFACE = 0xFFFFFFFF;
+    public static final int COLOR_SUBTLE = 0xFFF0F5F9;
+    public static final int COLOR_TEXT = 0xFF111827;
+    public static final int COLOR_MUTED = 0xFF667085;
+    // Legacy tertiary text is kept as an alias so old callers use the same semantic secondary token.
+    public static final int COLOR_TERTIARY = COLOR_MUTED;
+    public static final int COLOR_BORDER = 0xFFDCE5EC;
+    public static final int COLOR_PASTEL_BLUE = 0xFFA9D6F5;
+    public static final int COLOR_BLUE_CONTAINER = 0xFFEAF6FF;
+    public static final int COLOR_BLUE_INK = 0xFF173B55;
+
+    // Compatibility names for the previous API. New code should use pastelBlue()/blueContainer().
+    public static final int COLOR_PRIMARY = COLOR_PASTEL_BLUE;
     public static final int COLOR_INVERSE_TEXT = Color.WHITE;
-    public static final int COLOR_INVERSE_MUTED = Color.argb(230, 255, 255, 255);
-    public static final int COLOR_POSITIVE = Color.rgb(46, 125, 91);
-    public static final int COLOR_NEGATIVE = Color.rgb(192, 69, 62);
-    public static final int COLOR_WARNING = Color.rgb(168, 118, 31);
-    public static final int COLOR_RIPPLE_LIGHT = Color.argb(24, 21, 22, 26);
-    public static final int COLOR_RIPPLE_DARK = Color.argb(36, 255, 255, 255);
-    public static final int COLOR_BAR_MUTED = Color.argb(56, 21, 22, 26);
-    public static final int COLOR_BAR_EMPTY = Color.argb(22, 21, 22, 26);
-    public static final int COLOR_TRACK_LIGHT = Color.argb(18, 21, 22, 26);
-    public static final int COLOR_TRACK_DARK = Color.argb(46, 255, 255, 255);
-    public static final int COLOR_INVERSE_CHIP = Color.argb(30, 255, 255, 255);
-    public static final int COLOR_INVERSE_LINE = Color.argb(26, 255, 255, 255);
+    public static final int COLOR_INVERSE_MUTED = 0xE6FFFFFF;
 
-    // ── 홈 Flowstate에서 출발한 전역 컬러 팔레트 ──────────────────────
-    // 히어로는 원색 glow를, 일반 컴포넌트는 테마 메인 색상과 혼합한 파생색을 사용한다.
-    public static final int COLOR_FLOW_BASE = Color.rgb(4, 5, 12);
-    public static final int COLOR_FLOW_CYAN = Color.rgb(0, 216, 255);
-    public static final int COLOR_FLOW_VIOLET = Color.rgb(91, 70, 255);
-    public static final int COLOR_FLOW_MAGENTA = Color.rgb(242, 54, 255);
-    public static final int COLOR_FLOW_TEXT = Color.rgb(238, 240, 246);
-    public static final int COLOR_FLOW_MUTED = Color.rgb(185, 190, 207);
-    public static final int COLOR_FLOW_GLASS_FILL = Color.argb(20, 255, 255, 255);
-    public static final int COLOR_FLOW_GLASS_BORDER = Color.argb(41, 255, 255, 255);
+    // Status colors intentionally remain separate from brand/selection colors.
+    public static final int COLOR_POSITIVE = 0xFF2E7D5B;
+    public static final int COLOR_NEGATIVE = 0xFFC0453E;
+    // Amber chosen to keep normal-size warning text above WCAG AA on light surfaces.
+    public static final int COLOR_WARNING = 0xFF8A5A00;
 
-    // ── 다크 토큰 (design-system §2.3: 다크에서는 화이트가 강조 표면) ──
-    public static final int COLOR_D_BACKGROUND = Color.BLACK;
-    public static final int COLOR_D_SURFACE = Color.BLACK;
-    public static final int COLOR_D_SUBTLE = Color.BLACK;
-    public static final int COLOR_D_ACCENT = Color.WHITE;
-    public static final int COLOR_D_TEXT = Color.rgb(237, 238, 240);
-    public static final int COLOR_D_MUTED = Color.rgb(154, 158, 166);
-    public static final int COLOR_D_TERTIARY = Color.rgb(132, 136, 146);
-    public static final int COLOR_D_BORDER = Color.WHITE;
-    public static final int COLOR_D_ON_ACCENT_MUTED = Color.argb(230, 21, 22, 26);
-    public static final int COLOR_D_CHIP_ON_ACCENT = Color.argb(20, 21, 22, 26);
-    public static final int COLOR_D_LINE_ON_ACCENT = Color.argb(30, 21, 22, 26);
-    public static final int COLOR_D_TRACK_ON_ACCENT = Color.argb(30, 21, 22, 26);
-    public static final int COLOR_D_BAR_MUTED = Color.argb(120, 237, 238, 240);
-    public static final int COLOR_D_BAR_EMPTY = Color.argb(26, 255, 255, 255);
+    // Chart semantic colors are independent from interaction/selection state.
+    public static final int COLOR_CHART_CALORIES = 0xFF2F6F9F;
+    public static final int COLOR_CHART_CARBS = 0xFF2B7A78;
+    public static final int COLOR_CHART_PROTEIN = 0xFF8B5E3C;
+    public static final int COLOR_CHART_FAT = 0xFF8A5A83;
+
+    public static final int COLOR_RIPPLE_LIGHT = 0x18111827;
+    public static final int COLOR_RIPPLE_DARK = 0x24F5F8FA;
+    public static final int COLOR_BAR_MUTED = 0x38111827;
+    public static final int COLOR_BAR_EMPTY = 0x16111827;
+    public static final int COLOR_TRACK_LIGHT = 0x12111827;
+    public static final int COLOR_TRACK_DARK = 0x2EF5F8FA;
+    public static final int COLOR_INVERSE_CHIP = 0x1EFFFFFF;
+    public static final int COLOR_INVERSE_LINE = 0x1AFFFFFF;
+
+    // ── Dark semantic tokens ──────────────────────────────────────────
+    public static final int COLOR_D_BACKGROUND = 0xFF0E141A;
+    public static final int COLOR_D_SURFACE = 0xFF151C23;
+    public static final int COLOR_D_SUBTLE = 0xFF1B2530;
+    public static final int COLOR_D_TEXT = 0xFFF5F8FA;
+    public static final int COLOR_D_MUTED = 0xFFA6B0BA;
+    public static final int COLOR_D_TERTIARY = COLOR_D_MUTED;
+    public static final int COLOR_D_BORDER = 0xFF2A3742;
+    public static final int COLOR_D_PASTEL_BLUE = 0xFF8FC8EE;
+    public static final int COLOR_D_BLUE_CONTAINER = 0xFF18384D;
+    // Verified against COLOR_D_BLUE_CONTAINER: contrast is above WCAG AA for normal text.
+    public static final int COLOR_D_BLUE_INK = 0xFFD9F0FF;
+    public static final int COLOR_D_ON_PASTEL_BLUE = 0xFF0E2938;
+    public static final int COLOR_D_HERO_END = 0xFF214A63;
+    // Dark Hero gradient range (#18384D -> #214A63): minimum normal-text contrast is 4.78:1.
+    public static final int COLOR_D_HERO_MUTED = 0xFFAFBAC4;
+    public static final int COLOR_D_HERO_BORDER = 0xFF2A526A;
+    public static final int COLOR_D_POSITIVE = 0xFF69D39E;
+    public static final int COLOR_D_NEGATIVE = 0xFFFF8A80;
+    public static final int COLOR_D_WARNING = 0xFFFFCA68;
+
+    // Compatibility names for the previous API.
+    public static final int COLOR_D_ACCENT = COLOR_D_PASTEL_BLUE;
+    public static final int COLOR_D_ON_ACCENT_MUTED = 0xB80E2938;
+    public static final int COLOR_D_CHIP_ON_ACCENT = 0x1E0E2938;
+    public static final int COLOR_D_LINE_ON_ACCENT = 0x1E0E2938;
+    public static final int COLOR_D_TRACK_ON_ACCENT = 0x300E2938;
+    public static final int COLOR_D_BAR_MUTED = 0x78F5F8FA;
+    public static final int COLOR_D_BAR_EMPTY = 0x1AF5F8FA;
+
+    // ── Shape/depth tokens ─────────────────────────────────────────────
+    public static final int CARD_RADIUS_DP = 16;
+    public static final int HERO_RADIUS_DP = 24;
+    public static final int INPUT_RADIUS_DP = 12;
+    public static final int BUTTON_RADIUS_DP = 12;
+    public static final int CHIP_RADIUS_DP = 999;
+    public static final int SHEET_RADIUS_DP = 24;
+    public static final int DEPTH_FLAT_DP = 0;
+    public static final int DEPTH_SURFACE_DP = 1;
+    public static final int DEPTH_EMPHASIS_DP = 3;
+    private static final int COLOR_SHADOW_LIGHT = 0x26000000;
+    private static final int COLOR_SHADOW_DARK = 0x66000000;
+
+    // ── Layout/spacing tokens ─────────────────────────────────────────
+    // Keep shell rhythm in one place so device review changes do not require
+    // editing every screen renderer.
+    public static final int PAGE_HORIZONTAL_PADDING_DP = 20;
+    public static final int PAGE_TOP_PADDING_DP = 40;
+    public static final int PAGE_BOTTOM_PADDING_DP = 28;
+    public static final int SCREEN_TITLE_TOP_SPACING_DP = 4;
+    public static final int SCREEN_TITLE_BOTTOM_SPACING_DP = 18;
+    public static final int SECTION_TOP_SPACING_DP = 26;
+    public static final int SECTION_BOTTOM_SPACING_DP = 10;
+    public static final int CARD_GAP_DP = 12;
+    public static final int FIELD_LABEL_GAP_DP = 6;
+    public static final int FORM_ITEM_GAP_DP = 8;
+    public static final int BUTTON_GAP_DP = 5;
+    public static final int TREND_CHART_HEIGHT_DP = 128;
+
+    // Bottom navigation keeps a 48dp touch target but no longer renders each
+    // tab as a prominent pill/card.
+    public static final int NAV_ITEM_RADIUS_DP = 12;
+    public static final int NAV_ITEM_MIN_HEIGHT_DP = 48;
+    public static final int NAV_BAR_HORIZONTAL_PADDING_DP = 8;
+    public static final int NAV_BAR_TOP_PADDING_DP = 8;
+    public static final int NAV_BAR_BOTTOM_PADDING_DP = 12;
+    public static final int NAV_ITEM_GAP_DP = 4;
+    public static final int NAV_MARKER_SLOT_HEIGHT_DP = 14;
+    public static final int NAV_ACTIVE_MARKER_WIDTH_DP = 24;
+    public static final int NAV_ACTIVE_MARKER_HEIGHT_DP = 4;
+    public static final int NAV_PROGRESS_MARKER_SIZE_DP = 6;
 
     private final Activity activity;
     private final BooleanSupplier inverseSupplier;
-    private final Map<View, AnimationBinding> animationBindings = new WeakHashMap<>();
     private final List<Dialog> dialogStack = new ArrayList<>();
     private Dialog activeDialog;
 
@@ -129,10 +177,14 @@ public final class FitnessUi {
         return inverse();
     }
 
-    // ── 테마 시맨틱 접근자 ────────────────────────────────────────────
+    // ── Semantic accessors ─────────────────────────────────────────────
 
     public int pageBg() {
         return dark() ? COLOR_D_BACKGROUND : COLOR_BACKGROUND;
+    }
+
+    public int background() {
+        return pageBg();
     }
 
     public int surface() {
@@ -143,35 +195,88 @@ public final class FitnessUi {
         return dark() ? COLOR_D_SUBTLE : COLOR_SUBTLE;
     }
 
-    /** 강조(반전) 표면: 라이트=블랙, 다크=화이트. */
-    public int accent() {
-        return dark() ? COLOR_D_ACCENT : COLOR_PRIMARY;
+    public int pastelBlue() {
+        return dark() ? COLOR_D_PASTEL_BLUE : COLOR_PASTEL_BLUE;
     }
 
-    /** 강조 표면 위 텍스트. */
+    public int blueContainer() {
+        return dark() ? COLOR_D_BLUE_CONTAINER : COLOR_BLUE_CONTAINER;
+    }
+
+    public int blueInk() {
+        return dark() ? COLOR_D_BLUE_INK : COLOR_BLUE_INK;
+    }
+
+    /** Pastel Blue 표면 위에서 사용하는 대비 잉크. */
+    public int onPastelBlue() {
+        return dark() ? COLOR_D_ON_PASTEL_BLUE : COLOR_BLUE_INK;
+    }
+
+    /** 선택 상태의 배경과 전경은 테마별 Blue Container/Blue Ink 쌍으로 고정한다. */
+    public int selectedSurface() {
+        return blueContainer();
+    }
+
+    public int selectedInk() {
+        return blueInk();
+    }
+
+    public int tonalSurface() {
+        return blueContainer();
+    }
+
+    public int tonalInk() {
+        return blueInk();
+    }
+
+    /** Hero에서만 사용하는 정적 tonal blue gradient의 전경색. */
+    public int heroInk() {
+        return dark() ? COLOR_D_TEXT : COLOR_BLUE_INK;
+    }
+
+    public int heroMuted() {
+        return dark() ? COLOR_D_HERO_MUTED : COLOR_BLUE_INK;
+    }
+
+    public int heroBorder() {
+        return dark() ? COLOR_D_HERO_BORDER : COLOR_BORDER;
+    }
+
+    /** 강조 표면은 더 이상 흑백 반전이 아니라 Pastel Blue semantic이다. */
+    public int accent() {
+        return pastelBlue();
+    }
+
     public int onAccent() {
-        return dark() ? COLOR_TEXT : COLOR_INVERSE_TEXT;
+        return onPastelBlue();
     }
 
     public int onAccentMuted() {
-        return dark() ? COLOR_D_ON_ACCENT_MUTED : COLOR_INVERSE_MUTED;
+        return dark() ? COLOR_D_ON_ACCENT_MUTED : 0xB8173B55;
     }
 
-    /** 테마와 무관하게 라이트 홀로그램 표면 위에서 사용하는 고정 전경색. */
+    /** @deprecated 일반 surface에는 hologram 전경색을 사용하지 않는다. */
+    @Deprecated
     public int onVibrant() {
-        return COLOR_INVERSE_TEXT;
+        return onAccent();
     }
 
+    /** @deprecated 일반 surface에는 hologram 전경색을 사용하지 않는다. */
+    @Deprecated
     public int onVibrantMuted() {
-        return COLOR_INVERSE_MUTED;
+        return onAccentMuted();
     }
 
+    /** @deprecated tonalSurfaceDrawable() 또는 chip()을 사용한다. */
+    @Deprecated
     public int chipOnVibrant() {
-        return COLOR_INVERSE_CHIP;
+        return withAlpha(onAccent(), 30);
     }
 
+    /** @deprecated tonal surface 전용 progress API를 사용한다. */
+    @Deprecated
     public int trackOnVibrant() {
-        return COLOR_TRACK_DARK;
+        return withAlpha(onAccent(), 46);
     }
 
     public int ink() {
@@ -191,7 +296,7 @@ public final class FitnessUi {
     }
 
     public int chipOnAccent() {
-        return dark() ? COLOR_D_CHIP_ON_ACCENT : COLOR_INVERSE_CHIP;
+        return withAlpha(onAccent(), 30);
     }
 
     public int trackOnSurface() {
@@ -199,7 +304,7 @@ public final class FitnessUi {
     }
 
     public int trackOnAccent() {
-        return dark() ? COLOR_D_TRACK_ON_ACCENT : COLOR_TRACK_DARK;
+        return withAlpha(onAccent(), 46);
     }
 
     public int rippleOnSurface() {
@@ -218,53 +323,72 @@ public final class FitnessUi {
         return dark() ? COLOR_D_BAR_EMPTY : COLOR_BAR_EMPTY;
     }
 
-    /**
-     * 히어로 팔레트를 라이트 테마와 동일한 검정 베이스에 섞은 강조색.
-     * 테마가 바뀌어도 홀로그램의 cyan/violet/magenta 색상은 변하지 않는다.
-     */
+    public int statusColor(int color) {
+        if (color == COLOR_MUTED || color == COLOR_TERTIARY) {
+            return dark() ? COLOR_D_MUTED : COLOR_MUTED;
+        }
+        if (color == COLOR_POSITIVE) {
+            return dark() ? COLOR_D_POSITIVE : COLOR_POSITIVE;
+        }
+        if (color == COLOR_NEGATIVE) {
+            return dark() ? COLOR_D_NEGATIVE : COLOR_NEGATIVE;
+        }
+        if (color == COLOR_WARNING) {
+            return dark() ? COLOR_D_WARNING : COLOR_WARNING;
+        }
+        return color;
+    }
+
+    public int onStatus(int color) {
+        return dark() ? COLOR_D_BACKGROUND : COLOR_SURFACE;
+    }
+
+    /** 차트 계열은 상호작용 상태와 분리된 semantic 색상이다. */
+    public int chartColor(int variant) {
+        switch (Math.floorMod(variant, 4)) {
+            case 1:
+                return dark() ? 0xFF6CD5C7 : COLOR_CHART_CARBS;
+            case 2:
+                return dark() ? 0xFFF2B880 : COLOR_CHART_PROTEIN;
+            case 3:
+                return dark() ? 0xFFD6A5D8 : COLOR_CHART_FAT;
+            default:
+                return dark() ? COLOR_D_PASTEL_BLUE : COLOR_CHART_CALORIES;
+        }
+    }
+
+    /** @deprecated 차트는 chartColor()를 사용하며 seed로 색을 정하지 않는다. */
+    @Deprecated
     public int vibrantColor(int variant) {
-        return mix(COLOR_PRIMARY, rawFlowColor(variant), 0.50f);
+        return chartColor(variant);
     }
 
-    /** 어두운 표면에서는 원색을, 밝은 표면에서는 대비를 높인 홀로그램 색을 반환한다. */
+    /** @deprecated 차트는 chartColor()를 사용한다. */
+    @Deprecated
     public int hologramAccentColor(int variant) {
-        return dark() ? rawFlowColor(variant) : vibrantColor(variant);
+        return chartColor(variant);
     }
 
+    /** @deprecated 일반 상태에는 tonal surface를 사용한다. */
+    @Deprecated
     public Drawable vibrantBackground(int variant, int radius) {
-        int normalized = normalizeVariant(variant);
-        GradientDrawable gradient = new GradientDrawable(
-                gradientOrientation(normalized),
-                new int[]{vibrantColor(normalized), vibrantColor(normalized + 1)}
-        );
-        gradient.setCornerRadius(radius);
-
-        GradientDrawable border = borderDrawable(Color.TRANSPARENT, border(), radius);
-        return new LayerDrawable(new Drawable[]{gradient, border});
+        return tonalSurfaceDrawable(radius);
     }
 
+    /** @deprecated seed 기반 색상 선택을 제거했다. */
+    @Deprecated
     public Drawable vibrantRippleDrawable(String seed, int radius) {
-        int variant = variantFor(seed);
-        GradientDrawable mask = borderDrawable(Color.WHITE, Color.WHITE, radius);
-        return new RippleDrawable(
-                ColorStateList.valueOf(COLOR_RIPPLE_DARK),
-                vibrantBackground(variant, radius),
-                mask
-        );
+        return tonalRippleDrawable(radius);
     }
 
+    /** @deprecated 일반 상태에는 tonal surface를 사용한다. */
+    @Deprecated
     public Drawable vibrantRippleDrawable(int variant, int radius) {
-        GradientDrawable mask = borderDrawable(Color.WHITE, Color.WHITE, radius);
-        return new RippleDrawable(
-                ColorStateList.valueOf(COLOR_RIPPLE_DARK),
-                vibrantBackground(variant, radius),
-                mask
-        );
+        return tonalRippleDrawable(radius);
     }
 
-    /** 모든 선택 상태에서 공유하는 단일 강조 gradient. 선택 대상의 이름은 색 seed가 아니다. */
     public Drawable selectedStateRippleDrawable(int radius) {
-        return vibrantRippleDrawable(0, radius);
+        return tonalRippleDrawable(radius);
     }
 
     /** 선택 가능한 행/박스에 공통 선택 표면과 깊이를 적용한다. */
@@ -275,10 +399,10 @@ public final class FitnessUi {
         view.setSelected(selected);
         view.setBackground(selected
                 ? selectedStateRippleDrawable(radius)
-                : flatSurfaceRippleDrawable(radius));
-        applyDepth(view, selected ? 7 : 4);
+                : outlinedSurfaceRippleDrawable(radius));
+        applyDepth(view, selected ? DEPTH_SURFACE_DP : DEPTH_FLAT_DP);
         if (view instanceof TextView) {
-            ((TextView) view).setTextColor(selected ? onVibrant() : inkMuted());
+            ((TextView) view).setTextColor(selected ? selectedInk() : inkMuted());
         }
     }
 
@@ -286,386 +410,50 @@ public final class FitnessUi {
         return borderDrawable(surface(), Color.TRANSPARENT, radius);
     }
 
+    public Drawable tonalSurfaceDrawable(int radius) {
+        return borderDrawable(tonalSurface(), Color.TRANSPARENT, radius);
+    }
+
+    private Drawable selectedSurfaceDrawable(int radius) {
+        return borderDrawable(selectedSurface(), pastelBlue(), radius);
+    }
+
     public Drawable flatSurfaceRippleDrawable(int radius) {
-        GradientDrawable mask = borderDrawable(Color.WHITE, Color.WHITE, radius);
-        return new RippleDrawable(
-                ColorStateList.valueOf(rippleOnSurface()),
-                flatSurfaceDrawable(radius),
-                mask
-        );
+        return rippleFor(flatSurfaceDrawable(radius), radius, rippleOnSurface());
     }
 
-    /** 일반 배경으로 돌아갈 때 기존 홀로그램 애니메이션과 attach listener를 함께 정리한다. */
+    public Drawable outlinedSurfaceRippleDrawable(int radius) {
+        return rippleFor(borderDrawable(surface(), border(), radius), radius, rippleOnSurface());
+    }
+
+    public Drawable tonalRippleDrawable(int radius) {
+        return rippleFor(selectedSurfaceDrawable(radius), radius, rippleOnAccent());
+    }
+
+    private Drawable rippleFor(Drawable background, int radius, int rippleColor) {
+        GradientDrawable mask = borderDrawable(Color.WHITE, Color.TRANSPARENT, radius);
+        return new RippleDrawable(ColorStateList.valueOf(rippleColor), background, mask);
+    }
+
+    /** 일반 배경을 적용한다. 애니메이션 listener를 등록하지 않는다. */
     public void setComponentBackground(View view, Drawable background) {
-        clearAnimationBinding(view);
-        view.setBackground(background);
+        if (view != null) {
+            view.setBackground(background);
+        }
     }
 
-    /** 기존 배경 위에 회전하는 cyan/violet/magenta 홀로그램 테두리를 겹친다. */
+    /** @deprecated 일반 상태의 hologram/glow를 제거했으며 semantic 배경만 적용한다. */
+    @Deprecated
     public void setHologramBackground(View view, Drawable background, int radius) {
-        clearAnimationBinding(view);
-        if (view.getBackground() == background) {
-            view.setBackground(null);
-        }
-        HologramBorderDrawable hologram = new HologramBorderDrawable(
-                background, radius, dp(3));
-        bindAnimatedBackground(view, hologram, hologram);
+        setComponentBackground(view, background);
     }
 
-    private void bindAnimatedBackground(View view, Drawable background, Animatable animatable) {
-        AnimationBinding binding = new AnimationBinding(animatable);
-        animationBindings.put(view, binding);
-        view.addOnAttachStateChangeListener(binding);
-        view.setBackground(background);
-        if (view.isAttachedToWindow() && view.isShown()) {
-            animatable.start();
-        }
-    }
-
-    private void clearAnimationBinding(View view) {
-        AnimationBinding binding = animationBindings.remove(view);
-        if (binding == null) {
-            return;
-        }
-        view.removeOnAttachStateChangeListener(binding);
-        binding.drawable.stop();
-    }
-
-    private static final class AnimationBinding implements View.OnAttachStateChangeListener {
-        private final Animatable drawable;
-
-        private AnimationBinding(Animatable drawable) {
-            this.drawable = drawable;
-        }
-
-        @Override
-        public void onViewAttachedToWindow(View view) {
-            if (view.isShown()) {
-                drawable.start();
-            }
-        }
-
-        @Override
-        public void onViewDetachedFromWindow(View view) {
-            drawable.stop();
-        }
-    }
-
-    private static final class HologramBorderDrawable extends Drawable
-            implements Animatable, Drawable.Callback {
-        private final Drawable content;
-        private final float radius;
-        private final Paint glowPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint edgePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF borderRect = new RectF();
-        private final Matrix gradientMatrix = new Matrix();
-        private final ValueAnimator animator;
-        private SweepGradient glowGradient;
-        private SweepGradient edgeGradient;
-        private float rotation;
-
-        private HologramBorderDrawable(Drawable content, float radius, float edgeWidth) {
-            this.content = (content == null ? new ColorDrawable(Color.TRANSPARENT) : content).mutate();
-            this.content.setCallback(this);
-            this.radius = radius;
-
-            glowPaint.setStyle(Paint.Style.STROKE);
-            glowPaint.setStrokeWidth(edgeWidth * 3f);
-            edgePaint.setStyle(Paint.Style.STROKE);
-            edgePaint.setStrokeWidth(edgeWidth);
-
-            animator = ValueAnimator.ofFloat(0f, 360f);
-            animator.setDuration(2200L);
-            animator.setRepeatCount(ValueAnimator.INFINITE);
-            animator.setRepeatMode(ValueAnimator.RESTART);
-            animator.setInterpolator(new LinearInterpolator());
-            animator.addUpdateListener(valueAnimator -> {
-                rotation = (float) valueAnimator.getAnimatedValue();
-                invalidateSelf();
-            });
-        }
-
-        @Override
-        protected void onBoundsChange(Rect bounds) {
-            super.onBoundsChange(bounds);
-            content.setBounds(bounds);
-            float inset = edgePaint.getStrokeWidth() / 2f;
-            borderRect.set(bounds.left + inset, bounds.top + inset,
-                    bounds.right - inset, bounds.bottom - inset);
-            float centerX = bounds.exactCenterX();
-            float centerY = bounds.exactCenterY();
-            float[] stops = new float[]{0f, 0.22f, 0.48f, 0.72f, 1f};
-            glowGradient = new SweepGradient(centerX, centerY, new int[]{
-                    Color.argb(105, 0, 216, 255),
-                    Color.argb(95, 91, 70, 255),
-                    Color.argb(110, 242, 54, 255),
-                    Color.argb(190, 255, 255, 255),
-                    Color.argb(105, 0, 216, 255)
-            }, stops);
-            edgeGradient = new SweepGradient(centerX, centerY, new int[]{
-                    COLOR_FLOW_CYAN,
-                    COLOR_FLOW_VIOLET,
-                    COLOR_FLOW_MAGENTA,
-                    Color.WHITE,
-                    COLOR_FLOW_CYAN
-            }, stops);
-        }
-
-        @Override
-        public void draw(Canvas canvas) {
-            content.draw(canvas);
-            if (glowGradient == null || edgeGradient == null || borderRect.isEmpty()) {
-                return;
-            }
-            gradientMatrix.setRotate(rotation, borderRect.centerX(), borderRect.centerY());
-            glowGradient.setLocalMatrix(gradientMatrix);
-            edgeGradient.setLocalMatrix(gradientMatrix);
-            glowPaint.setShader(glowGradient);
-            edgePaint.setShader(edgeGradient);
-            float cornerRadius = Math.max(0f, radius - edgePaint.getStrokeWidth() / 2f);
-            canvas.drawRoundRect(borderRect, cornerRadius, cornerRadius, glowPaint);
-            canvas.drawRoundRect(borderRect, cornerRadius, cornerRadius, edgePaint);
-        }
-
-        @Override
-        public void start() {
-            if (content instanceof Animatable) {
-                ((Animatable) content).start();
-            }
-            if (!animator.isStarted()) {
-                animator.start();
-            }
-        }
-
-        @Override
-        public void stop() {
-            animator.cancel();
-            if (content instanceof Animatable) {
-                ((Animatable) content).stop();
-            }
-        }
-
-        @Override
-        public boolean isRunning() {
-            return animator.isRunning()
-                    || (content instanceof Animatable && ((Animatable) content).isRunning());
-        }
-
-        @Override
-        public boolean setVisible(boolean visible, boolean restart) {
-            boolean changed = super.setVisible(visible, restart);
-            content.setVisible(visible, restart);
-            if (!visible) {
-                stop();
-            } else if (getCallback() != null && (restart || changed)) {
-                start();
-            }
-            return changed;
-        }
-
-        @Override
-        protected boolean onStateChange(int[] state) {
-            boolean changed = content.setState(state);
-            if (changed) {
-                invalidateSelf();
-            }
-            return changed;
-        }
-
-        @Override
-        protected boolean onLevelChange(int level) {
-            return content.setLevel(level);
-        }
-
-        @Override
-        public boolean isStateful() {
-            return content.isStateful();
-        }
-
-        @Override
-        public boolean getPadding(Rect padding) {
-            return content.getPadding(padding);
-        }
-
-        @Override
-        public void getOutline(Outline outline) {
-            Rect bounds = getBounds();
-            float outlineRadius = Math.min(radius,
-                    Math.min(bounds.width(), bounds.height()) / 2f);
-            outline.setRoundRect(bounds, outlineRadius);
-            outline.setAlpha(1f);
-        }
-
-        @Override
-        public void setHotspot(float x, float y) {
-            content.setHotspot(x, y);
-        }
-
-        @Override
-        public void setHotspotBounds(int left, int top, int right, int bottom) {
-            content.setHotspotBounds(left, top, right, bottom);
-        }
-
-        @Override
-        public void setAlpha(int alpha) {
-            content.setAlpha(alpha);
-            glowPaint.setAlpha(alpha);
-            edgePaint.setAlpha(alpha);
-        }
-
-        @Override
-        public void setColorFilter(ColorFilter colorFilter) {
-            content.setColorFilter(colorFilter);
-            glowPaint.setColorFilter(colorFilter);
-            edgePaint.setColorFilter(colorFilter);
-        }
-
-        @Override
-        public void invalidateDrawable(Drawable drawable) {
-            invalidateSelf();
-        }
-
-        @Override
-        public void scheduleDrawable(Drawable drawable, Runnable runnable, long when) {
-            scheduleSelf(runnable, when);
-        }
-
-        @Override
-        public void unscheduleDrawable(Drawable drawable, Runnable runnable) {
-            unscheduleSelf(runnable);
-        }
-
-        @Override
-        public int getOpacity() {
-            return PixelFormat.TRANSLUCENT;
-        }
-    }
-
-    /** 홈 히어로의 cyan/violet/magenta 팔레트를 움직임 없는 정적 면으로 그린다. */
-    private static final class HeroBackgroundDrawable extends Drawable {
-        private final float radius;
-        private final Paint basePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint colorPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint scrimPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint borderPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF surfaceRect = new RectF();
-        private final RectF borderRect = new RectF();
-        private SweepGradient colorGradient;
-
-        private HeroBackgroundDrawable(float radius, float borderWidth, int borderColor) {
-            this.radius = radius;
-            basePaint.setColor(COLOR_FLOW_BASE);
-            colorPaint.setAlpha(210);
-            scrimPaint.setColor(Color.rgb(4, 5, 12));
-            scrimPaint.setAlpha(92);
-            borderPaint.setStyle(Paint.Style.STROKE);
-            borderPaint.setStrokeWidth(borderWidth);
-            borderPaint.setColor(borderColor);
-        }
-
-        @Override
-        protected void onBoundsChange(Rect bounds) {
-            super.onBoundsChange(bounds);
-            surfaceRect.set(bounds);
-            float borderInset = borderPaint.getStrokeWidth() / 2f;
-            borderRect.set(bounds.left + borderInset, bounds.top + borderInset,
-                    bounds.right - borderInset, bounds.bottom - borderInset);
-            colorGradient = new SweepGradient(
-                    bounds.exactCenterX(),
-                    bounds.exactCenterY(),
-                    new int[]{
-                            COLOR_FLOW_CYAN,
-                            COLOR_FLOW_VIOLET,
-                            COLOR_FLOW_MAGENTA,
-                            COLOR_FLOW_CYAN,
-                            COLOR_FLOW_VIOLET,
-                            COLOR_FLOW_MAGENTA,
-                            COLOR_FLOW_CYAN
-                    },
-                    new float[]{0f, 0.17f, 0.34f, 0.5f, 0.67f, 0.84f, 1f}
-            );
-            colorPaint.setShader(colorGradient);
-        }
-
-        @Override
-        public void draw(Canvas canvas) {
-            canvas.drawRoundRect(surfaceRect, radius, radius, basePaint);
-            if (colorGradient != null) {
-                canvas.drawRoundRect(surfaceRect, radius, radius, colorPaint);
-            }
-            canvas.drawRoundRect(surfaceRect, radius, radius, scrimPaint);
-            float borderRadius = Math.max(0f, radius - borderPaint.getStrokeWidth() / 2f);
-            canvas.drawRoundRect(borderRect, borderRadius, borderRadius, borderPaint);
-        }
-
-        @Override
-        public void getOutline(Outline outline) {
-            Rect bounds = getBounds();
-            float outlineRadius = Math.min(radius,
-                    Math.min(bounds.width(), bounds.height()) / 2f);
-            outline.setRoundRect(bounds, outlineRadius);
-            outline.setAlpha(1f);
-        }
-
-        @Override
-        public void setAlpha(int alpha) {
-            basePaint.setAlpha(alpha);
-            colorPaint.setAlpha(Math.round(alpha * 0.82f));
-            scrimPaint.setAlpha(Math.round(alpha * 0.36f));
-            borderPaint.setAlpha(alpha);
-        }
-
-        @Override
-        public void setColorFilter(ColorFilter colorFilter) {
-            basePaint.setColorFilter(colorFilter);
-            colorPaint.setColorFilter(colorFilter);
-            scrimPaint.setColorFilter(colorFilter);
-            borderPaint.setColorFilter(colorFilter);
-        }
-
-        @Override
-        public int getOpacity() {
-            return PixelFormat.OPAQUE;
-        }
-    }
-
-    private int rawFlowColor(int variant) {
-        switch (normalizeVariant(variant)) {
-            case 1:
-                return COLOR_FLOW_VIOLET;
-            case 2:
-                return COLOR_FLOW_MAGENTA;
-            default:
-                return COLOR_FLOW_CYAN;
-        }
-    }
-
-    private int variantFor(String seed) {
-        return Math.floorMod(seed == null ? 0 : seed.hashCode(), 3);
-    }
-
-    private int normalizeVariant(int variant) {
-        return Math.floorMod(variant, 3);
-    }
-
-    private GradientDrawable.Orientation gradientOrientation(int variant) {
-        switch (normalizeVariant(variant)) {
-            case 1:
-                return GradientDrawable.Orientation.TL_BR;
-            case 2:
-                return GradientDrawable.Orientation.BL_TR;
-            default:
-                return GradientDrawable.Orientation.LEFT_RIGHT;
-        }
-    }
-
-    private int mix(int base, int color, float colorWeight) {
-        float weight = Math.max(0f, Math.min(1f, colorWeight));
-        float baseWeight = 1f - weight;
-        return Color.rgb(
-                Math.round(Color.red(base) * baseWeight + Color.red(color) * weight),
-                Math.round(Color.green(base) * baseWeight + Color.green(color) * weight),
-                Math.round(Color.blue(base) * baseWeight + Color.blue(color) * weight)
+    private static int withAlpha(int color, int alpha) {
+        return Color.argb(
+                Math.max(0, Math.min(255, alpha)),
+                Color.red(color),
+                Color.green(color),
+                Color.blue(color)
         );
     }
 
@@ -673,21 +461,34 @@ public final class FitnessUi {
         return Math.round(value * activity.getResources().getDisplayMetrics().density);
     }
 
-    /** 공통 깊이 토큰. 다크 모드에서는 흰 그림자를 사용해 검은 배경에서도 층위를 유지한다. */
+    /** Applies the common page rhythm to a newly created scroll content host. */
+    public void applyPageContentPadding(View view) {
+        if (view == null) {
+            return;
+        }
+        view.setPadding(
+                dp(PAGE_HORIZONTAL_PADDING_DP),
+                dp(PAGE_TOP_PADDING_DP),
+                dp(PAGE_HORIZONTAL_PADDING_DP),
+                dp(PAGE_BOTTOM_PADDING_DP)
+        );
+    }
+
+    /** 공통 깊이 토큰. 다크 모드도 검은 그림자만 사용해 과도한 밝기를 피한다. */
     public void applyDepth(View view, int elevationDp) {
-        view.setElevation(dp(elevationDp));
+        if (view == null) {
+            return;
+        }
+        int clampedElevation = Math.max(DEPTH_FLAT_DP,
+                Math.min(DEPTH_EMPHASIS_DP, elevationDp));
+        view.setElevation(dp(clampedElevation));
         view.setTranslationZ(0f);
         view.setOutlineProvider(ViewOutlineProvider.BACKGROUND);
         view.setClipToOutline(false);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            int ambient = dark()
-                    ? Color.argb(72, 255, 255, 255)
-                    : Color.argb(72, 0, 0, 0);
-            int spot = dark()
-                    ? Color.argb(132, 255, 255, 255)
-                    : Color.argb(138, 0, 0, 0);
-            view.setOutlineAmbientShadowColor(ambient);
-            view.setOutlineSpotShadowColor(spot);
+            int shadow = dark() ? COLOR_SHADOW_DARK : COLOR_SHADOW_LIGHT;
+            view.setOutlineAmbientShadowColor(shadow);
+            view.setOutlineSpotShadowColor(shadow);
         }
     }
 
@@ -726,23 +527,28 @@ public final class FitnessUi {
      * INVERSE_* 계열은 "강조 표면 위 텍스트"를 의미하므로 다크에서는 다크 잉크가 된다.
      */
     public int mappedTextColor(int color) {
-        if (!dark()) {
-            return color;
-        }
-        if (color == COLOR_TEXT) {
-            return COLOR_D_TEXT;
-        }
-        if (color == COLOR_MUTED) {
-            return COLOR_D_MUTED;
-        }
-        if (color == COLOR_TERTIARY) {
-            return COLOR_D_TERTIARY;
-        }
-        if (color == COLOR_INVERSE_TEXT) {
-            return COLOR_TEXT;
-        }
-        if (color == COLOR_INVERSE_MUTED) {
-            return COLOR_D_ON_ACCENT_MUTED;
+        if (dark()) {
+            if (color == COLOR_TEXT) {
+                return COLOR_D_TEXT;
+            }
+            if (color == COLOR_MUTED || color == COLOR_TERTIARY) {
+                return COLOR_D_MUTED;
+            }
+            if (color == COLOR_INVERSE_TEXT) {
+                return COLOR_D_BLUE_INK;
+            }
+            if (color == COLOR_INVERSE_MUTED) {
+                return COLOR_D_ON_ACCENT_MUTED;
+            }
+            if (color == COLOR_POSITIVE) {
+                return COLOR_D_POSITIVE;
+            }
+            if (color == COLOR_NEGATIVE) {
+                return COLOR_D_NEGATIVE;
+            }
+            if (color == COLOR_WARNING) {
+                return COLOR_D_WARNING;
+            }
         }
         return color;
     }
@@ -754,15 +560,27 @@ public final class FitnessUi {
     public TextView titleView(String value) {
         TextView view = text(value, 27, COLOR_TEXT, true);
         view.setLetterSpacing(-0.02f);
-        view.setPadding(0, dp(4), 0, dp(18));
+        view.setPadding(0, dp(SCREEN_TITLE_TOP_SPACING_DP), 0,
+                dp(SCREEN_TITLE_BOTTOM_SPACING_DP));
         return view;
+    }
+
+    /** Shared page heading with an optional, Korean-first eyebrow. */
+    public LinearLayout screenHeader(String eyebrow, String title) {
+        LinearLayout header = new LinearLayout(activity);
+        header.setOrientation(LinearLayout.VERTICAL);
+        if (eyebrow != null && !eyebrow.trim().isEmpty()) {
+            header.addView(labelView(eyebrow), fullWidthParams(0));
+        }
+        header.addView(titleView(title), fullWidthParams(0));
+        return header;
     }
 
     public View sectionHeader(String labelText, String actionText, Runnable action) {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(0, dp(26), 0, dp(10));
+        row.setPadding(0, dp(SECTION_TOP_SPACING_DP), 0, dp(SECTION_BOTTOM_SPACING_DP));
 
         TextView labelView = caption(labelText, COLOR_MUTED);
         row.addView(labelView, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -806,9 +624,17 @@ public final class FitnessUi {
         LinearLayout card = new LinearLayout(activity);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(18), dp(16), dp(18), dp(16));
-        card.setBackground(borderDrawable(surface(), Color.TRANSPARENT, dp(16)));
-        applyDepth(card, 5);
-        card.setLayoutParams(fullWidthParams(dp(12)));
+        card.setBackground(flatSurfaceDrawable(dp(CARD_RADIUS_DP)));
+        applyDepth(card, DEPTH_SURFACE_DP);
+        card.setLayoutParams(fullWidthParams(dp(CARD_GAP_DP)));
+        return card;
+    }
+
+    /** 기본 카드보다 outline 의미가 필요한 surface. */
+    public LinearLayout outlinedCard() {
+        LinearLayout card = card();
+        card.setBackground(borderDrawable(surface(), border(), dp(CARD_RADIUS_DP)));
+        applyDepth(card, DEPTH_FLAT_DP);
         return card;
     }
 
@@ -817,28 +643,35 @@ public final class FitnessUi {
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(22), dp(22), dp(22), dp(22));
         card.setBackground(heroBackground());
-        applyDepth(card, 12);
-        card.setLayoutParams(fullWidthParams(dp(12)));
+        applyDepth(card, DEPTH_SURFACE_DP);
+        card.setLayoutParams(fullWidthParams(dp(CARD_GAP_DP)));
         return card;
     }
 
-    private HeroBackgroundDrawable heroBackground() {
-        return new HeroBackgroundDrawable(dp(24), dp(1), border());
+    private GradientDrawable heroBackground() {
+        GradientDrawable background = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                dark()
+                        ? new int[]{COLOR_D_BLUE_CONTAINER, COLOR_D_HERO_END}
+                        : new int[]{COLOR_BLUE_CONTAINER, COLOR_PASTEL_BLUE}
+        );
+        background.setCornerRadius(dp(HERO_RADIUS_DP));
+        background.setStroke(dp(1), heroBorder());
+        return background;
     }
 
     public GradientDrawable borderDrawable(int fill, int stroke, int radius) {
         GradientDrawable drawable = new GradientDrawable();
         drawable.setColor(fill);
-        // 기존 호출부 호환을 위해 stroke 인자는 유지하고 실제 테두리는 테마 색으로 통일한다.
-        drawable.setStroke(dp(1), border());
+        if (stroke != Color.TRANSPARENT) {
+            drawable.setStroke(dp(1), stroke);
+        }
         drawable.setCornerRadius(radius);
         return drawable;
     }
 
     public Drawable rippleDrawable(int fill, int stroke, int radius, int rippleColor) {
-        GradientDrawable background = borderDrawable(fill, stroke, radius);
-        GradientDrawable mask = borderDrawable(Color.WHITE, Color.WHITE, radius);
-        return new RippleDrawable(ColorStateList.valueOf(rippleColor), background, mask);
+        return rippleFor(borderDrawable(fill, stroke, radius), radius, rippleColor);
     }
 
     public View hairline(int color) {
@@ -856,9 +689,12 @@ public final class FitnessUi {
 
     // ── 버튼 / 칩 ─────────────────────────────────────────────────────
 
-    public Button button(String text, boolean primary, View.OnClickListener listener) {
+    private Button buildButton(String text, int fill, int stroke, int textColor,
+                               int radius, int depth, int rippleColor,
+                               View.OnClickListener listener) {
         Button button = new Button(activity);
         button.setText(text);
+        button.setContentDescription(text == null ? "버튼" : text);
         button.setAllCaps(false);
         button.setTextSize(15);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -866,31 +702,70 @@ public final class FitnessUi {
         button.setMinimumHeight(dp(52));
         button.setPadding(dp(18), 0, dp(18), 0);
         button.setStateListAnimator(null);
-        button.setTextColor(primary ? onVibrant() : ink());
-        button.setBackground(primary
-                ? vibrantRippleDrawable(text, dp(999))
-                : flatSurfaceRippleDrawable(dp(999)));
-        applyDepth(button, primary ? 7 : 4);
+        button.setTextColor(textColor);
+        button.setBackground(rippleDrawable(fill, stroke, dp(radius), rippleColor));
+        applyDepth(button, depth);
         button.setOnClickListener(listener);
         pressFeedback(button);
         return button;
     }
 
-    public Button filterButton(String text) {
-        Button button = button(text, false, null);
+    public Button primaryButton(String text, View.OnClickListener listener) {
+        return buildButton(text, pastelBlue(), Color.TRANSPARENT, onPastelBlue(),
+                BUTTON_RADIUS_DP, DEPTH_SURFACE_DP, rippleOnAccent(), listener);
+    }
+
+    public Button secondaryButton(String text, View.OnClickListener listener) {
+        return buildButton(text, surface(), border(), ink(),
+                BUTTON_RADIUS_DP, DEPTH_FLAT_DP, rippleOnSurface(), listener);
+    }
+
+    public Button tonalButton(String text, View.OnClickListener listener) {
+        return buildButton(text, tonalSurface(), pastelBlue(), tonalInk(),
+                BUTTON_RADIUS_DP, DEPTH_SURFACE_DP, rippleOnAccent(), listener);
+    }
+
+    public Button textButton(String text, View.OnClickListener listener) {
+        return buildButton(text, Color.TRANSPARENT, Color.TRANSPARENT, blueInk(),
+                BUTTON_RADIUS_DP, DEPTH_FLAT_DP, rippleOnSurface(), listener);
+    }
+
+    /** @deprecated 신규 코드는 primaryButton()/secondaryButton()을 사용한다. */
+    @Deprecated
+    public Button button(String text, boolean primary, View.OnClickListener listener) {
+        return primary ? primaryButton(text, listener) : secondaryButton(text, listener);
+    }
+
+    public Button chip(String text, boolean selected, View.OnClickListener listener) {
+        Button button = buildButton(text,
+                selected ? selectedSurface() : surface(),
+                selected ? pastelBlue() : border(),
+                selected ? selectedInk() : inkMuted(),
+                CHIP_RADIUS_DP, selected ? DEPTH_SURFACE_DP : DEPTH_FLAT_DP,
+                selected ? rippleOnAccent() : rippleOnSurface(), listener);
         button.setTextSize(13);
         button.setMinHeight(dp(48));
         button.setMinimumHeight(dp(48));
+        button.setContentDescription(text + (selected ? ", 선택됨" : ""));
         return button;
+    }
+
+    public Button chip(String text, boolean selected) {
+        return chip(text, selected, null);
+    }
+
+    public Button filterButton(String text) {
+        return chip(text, false, null);
     }
 
     public void styleFilterButton(Button button, boolean active) {
         button.setSelected(active);
         button.setContentDescription(button.getText() + (active ? ", 선택됨" : ""));
-        button.setTextColor(active ? onVibrant() : inkMuted());
+        button.setTextColor(active ? selectedInk() : inkMuted());
         button.setBackground(active
-                ? selectedStateRippleDrawable(dp(999))
-                : flatSurfaceRippleDrawable(dp(999)));
+                ? selectedStateRippleDrawable(dp(CHIP_RADIUS_DP))
+                : outlinedSurfaceRippleDrawable(dp(CHIP_RADIUS_DP)));
+        applyDepth(button, active ? DEPTH_SURFACE_DP : DEPTH_FLAT_DP);
     }
 
     public View buttonRow(View first, View second) {
@@ -899,9 +774,9 @@ public final class FitnessUi {
         row.setGravity(Gravity.CENTER);
 
         LinearLayout.LayoutParams left = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        left.setMargins(0, 0, dp(5), 0);
+        left.setMargins(0, 0, dp(BUTTON_GAP_DP), 0);
         LinearLayout.LayoutParams right = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        right.setMargins(dp(5), 0, 0, 0);
+        right.setMargins(dp(BUTTON_GAP_DP), 0, 0, 0);
         row.addView(first, left);
         row.addView(second, right);
         return row;
@@ -921,17 +796,23 @@ public final class FitnessUi {
         input.setHintTextColor(inkTertiary());
         input.setMinHeight(dp(48));
         input.setPadding(dp(16), dp(10), dp(16), dp(10));
-        input.setBackground(flatSurfaceDrawable(dp(12)));
-        applyDepth(input, 3);
+        input.setBackground(borderDrawable(surface(), border(), dp(INPUT_RADIUS_DP)));
+        applyDepth(input, DEPTH_FLAT_DP);
         return input;
     }
 
-    public EditText searchField(String hint) {
+    public EditText searchInput(String hint) {
         EditText input = input(hint, "");
         input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
         input.setImeOptions(EditorInfo.IME_ACTION_SEARCH);
-        input.setBackground(flatSurfaceDrawable(dp(999)));
+        input.setBackground(borderDrawable(surface(), border(), dp(INPUT_RADIUS_DP)));
         return input;
+    }
+
+    /** @deprecated 신규 코드는 searchInput()을 사용한다. */
+    @Deprecated
+    public EditText searchField(String hint) {
+        return searchInput(hint);
     }
 
     public EditText numberInput(String hint, String value) {
@@ -950,7 +831,7 @@ public final class FitnessUi {
 
     public TextView fieldLabel(String value) {
         TextView label = caption(value, COLOR_MUTED);
-        label.setPadding(0, dp(14), 0, dp(6));
+        label.setPadding(0, dp(14), 0, dp(FIELD_LABEL_GAP_DP));
         return label;
     }
 
@@ -958,7 +839,7 @@ public final class FitnessUi {
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         TextView labelView = caption(label, COLOR_MUTED);
-        labelView.setPadding(0, 0, 0, dp(6));
+        labelView.setPadding(0, 0, 0, dp(FIELD_LABEL_GAP_DP));
         column.addView(labelView);
         column.addView(field, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -980,7 +861,7 @@ public final class FitnessUi {
                     ViewGroup.LayoutParams.MATCH_PARENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
             );
-            params.setMargins(0, dp(8), 0, 0);
+            params.setMargins(0, dp(FORM_ITEM_GAP_DP), 0, 0);
             form.addView(view, params);
         }
     }
@@ -1004,8 +885,8 @@ public final class FitnessUi {
     public View inlineStat(String label, String value, boolean onAccentSurface) {
         LinearLayout cell = new LinearLayout(activity);
         cell.setOrientation(LinearLayout.VERTICAL);
-        cell.addView(caption(label, onAccentSurface ? COLOR_INVERSE_MUTED : COLOR_MUTED));
-        TextView valueView = num(value, 16, onAccentSurface ? COLOR_INVERSE_TEXT : COLOR_TEXT, true);
+        cell.addView(caption(label, onAccentSurface ? onAccentMuted() : COLOR_MUTED));
+        TextView valueView = num(value, 16, onAccentSurface ? onAccent() : COLOR_TEXT, true);
         valueView.setPadding(0, dp(3), 0, 0);
         cell.addView(valueView);
         return cell;
@@ -1015,84 +896,116 @@ public final class FitnessUi {
         LinearLayout badge = new LinearLayout(activity);
         badge.setOrientation(LinearLayout.HORIZONTAL);
         badge.setGravity(Gravity.CENTER_VERTICAL);
-        if (onAccentSurface) {
-            badge.setBackground(borderDrawable(chipOnAccent(), chipOnAccent(), dp(999)));
-        } else {
-            badge.setBackground(flatSurfaceDrawable(dp(999)));
-        }
+        badge.setContentDescription("상태: " + (labelText == null ? "알 수 없음" : labelText));
+        badge.setBackground(onAccentSurface
+                ? tonalSurfaceDrawable(dp(CHIP_RADIUS_DP))
+                : borderDrawable(subtle(), border(), dp(CHIP_RADIUS_DP)));
         badge.setPadding(dp(10), dp(5), dp(12), dp(5));
-        applyDepth(badge, 2);
+        applyDepth(badge, DEPTH_FLAT_DP);
 
         View dot = new View(activity);
-        dot.setBackground(borderDrawable(dotColor, dotColor, dp(999)));
+        dot.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        dot.setBackground(borderDrawable(statusColor(dotColor), Color.TRANSPARENT,
+                dp(CHIP_RADIUS_DP)));
         LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(dp(7), dp(7));
         dotParams.setMargins(0, 0, dp(6), 0);
         badge.addView(dot, dotParams);
 
-        badge.addView(text(labelText, 12, onAccentSurface ? COLOR_INVERSE_TEXT : COLOR_TEXT, true));
+        badge.addView(text(labelText, 12,
+                onAccentSurface ? tonalInk() : COLOR_TEXT, true));
         return badge;
     }
 
-    /** 고정 다크 히어로 위 상태 배지. 앱의 light/dark 반전 매핑을 적용하지 않는다. */
-    public View flowStatusBadge(String labelText, int dotColor) {
+    /** Shared state badge so status is communicated with text as well as color. */
+    public View stateBadge(UiState state) {
+        UiState safeState = state == null ? UiState.EMPTY : state;
+        return statusDotBadge(safeState.label(), stateColor(safeState), false);
+    }
+
+    private int stateColor(UiState state) {
+        if (state == UiState.SUCCESS) {
+            return COLOR_POSITIVE;
+        }
+        if (state == UiState.SERVER_ERROR || state == UiState.VALIDATION_ERROR) {
+            return COLOR_NEGATIVE;
+        }
+        if (state == UiState.LOADING
+                || state == UiState.OFFLINE
+                || state == UiState.PERMISSION_REQUIRED
+                || state == UiState.SYNC_DELAYED
+                || state == UiState.DESTRUCTIVE_CONFIRMATION) {
+            return COLOR_WARNING;
+        }
+        return COLOR_TERTIARY;
+    }
+
+    public View statusBadge(String labelText, int dotColor) {
+        return statusDotBadge(labelText, dotColor, false);
+    }
+
+    public View statusBadge(String labelText, int dotColor, boolean onAccentSurface) {
+        return statusDotBadge(labelText, dotColor, onAccentSurface);
+    }
+
+    /** Hero 전용 상태 배지. Hero 이외의 상태 표현에는 statusBadge()를 사용한다. */
+    public View heroStatusBadge(String labelText, int dotColor) {
         LinearLayout badge = new LinearLayout(activity);
         badge.setOrientation(LinearLayout.HORIZONTAL);
         badge.setGravity(Gravity.CENTER_VERTICAL);
         badge.setBackground(borderDrawable(
-                COLOR_FLOW_GLASS_FILL, COLOR_FLOW_GLASS_BORDER, dp(999)));
+                withAlpha(heroInk(), 18), withAlpha(heroInk(), 52), dp(CHIP_RADIUS_DP)));
         badge.setPadding(dp(10), dp(5), dp(12), dp(5));
-        applyDepth(badge, 3);
+        applyDepth(badge, DEPTH_FLAT_DP);
 
         View dot = new View(activity);
         dot.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        dot.setBackground(borderDrawable(dotColor, dotColor, dp(999)));
+        dot.setBackground(borderDrawable(statusColor(dotColor), Color.TRANSPARENT,
+                dp(CHIP_RADIUS_DP)));
         LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(dp(7), dp(7));
         dotParams.setMargins(0, 0, dp(6), 0);
         badge.addView(dot, dotParams);
-        badge.addView(text(labelText, 12, COLOR_FLOW_TEXT, true));
+        badge.addView(text(labelText, 12, heroInk(), true));
         return badge;
     }
 
-    /** 고정 다크 히어로의 지표 셀. 실제 blur 대신 반투명 fill과 border만 사용한다. */
-    public View flowMetric(String label, String value) {
+    /** Hero 내부 지표 셀. blur나 glow 없이 Hero tonal surface만 사용한다. */
+    public View heroMetric(String label, String value) {
         LinearLayout cell = new LinearLayout(activity);
         cell.setOrientation(LinearLayout.VERTICAL);
         cell.setGravity(Gravity.CENTER);
         cell.setMinimumHeight(dp(64));
         cell.setPadding(dp(8), dp(10), dp(8), dp(10));
         cell.setBackground(borderDrawable(
-                COLOR_FLOW_GLASS_FILL, COLOR_FLOW_GLASS_BORDER, dp(14)));
-        applyDepth(cell, 4);
+                withAlpha(heroInk(), 18), withAlpha(heroInk(), 52), dp(14)));
+        applyDepth(cell, DEPTH_FLAT_DP);
 
-        TextView labelView = caption(label, COLOR_FLOW_MUTED);
+        TextView labelView = caption(label, heroMuted());
         labelView.setGravity(Gravity.CENTER);
         cell.addView(labelView);
 
-        TextView valueView = num(value, 15, COLOR_FLOW_TEXT, true);
+        TextView valueView = num(value, 15, heroInk(), true);
         valueView.setGravity(Gravity.CENTER);
         valueView.setPadding(0, dp(3), 0, 0);
         cell.addView(valueView);
         return cell;
     }
 
-    /** Flowstate의 white pill을 기존 화면 이동에 연결하는 홈 전용 CTA. */
+    /** @deprecated Hero CTA도 primaryButton()의 semantic을 사용한다. */
+    @Deprecated
+    public View flowStatusBadge(String labelText, int dotColor) {
+        return heroStatusBadge(labelText, dotColor);
+    }
+
+    /** @deprecated Hero 지표는 heroMetric()을 사용한다. */
+    @Deprecated
+    public View flowMetric(String label, String value) {
+        return heroMetric(label, value);
+    }
+
+    /** @deprecated 신규 코드는 primaryButton()을 사용한다. */
+    @Deprecated
     public Button flowHeroButton(String text, View.OnClickListener listener) {
-        Button button = new Button(activity);
-        button.setText(text);
-        button.setAllCaps(false);
-        button.setTextSize(15);
-        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setMinHeight(dp(52));
-        button.setMinimumHeight(dp(52));
-        button.setPadding(dp(20), 0, dp(20), 0);
-        button.setStateListAnimator(null);
-        button.setTextColor(Color.rgb(47, 47, 51));
-        button.setBackground(rippleDrawable(
-                Color.WHITE, Color.WHITE, dp(999), Color.argb(36, 47, 47, 51)));
-        applyDepth(button, 7);
-        button.setOnClickListener(listener);
-        pressFeedback(button);
-        return button;
+        return primaryButton(text, listener);
     }
 
     public View statTile(String label, String value, String meta, boolean inverseTile, View.OnClickListener listener) {
@@ -1102,7 +1015,7 @@ public final class FitnessUi {
         tile.setMinimumHeight(dp(92));
         if (listener != null) {
             tile.setBackground(inverseTile
-                    ? vibrantRippleDrawable(label, dp(14))
+                    ? tonalRippleDrawable(dp(14))
                     : flatSurfaceRippleDrawable(dp(14)));
             tile.setClickable(true);
             tile.setFocusable(true);
@@ -1110,72 +1023,68 @@ public final class FitnessUi {
             pressFeedback(tile);
         } else {
             tile.setBackground(inverseTile
-                    ? vibrantBackground(variantFor(label), dp(14))
+                    ? tonalSurfaceDrawable(dp(14))
                     : flatSurfaceDrawable(dp(14)));
         }
-        applyDepth(tile, inverseTile ? 7 : 4);
+        applyDepth(tile, inverseTile ? DEPTH_SURFACE_DP : DEPTH_FLAT_DP);
 
-        TextView labelView = caption(label, inverseTile ? COLOR_INVERSE_MUTED : COLOR_MUTED);
-        if (inverseTile) {
-            labelView.setTextColor(onVibrantMuted());
-        }
+        TextView labelView = caption(label, inverseTile ? tonalInk() : COLOR_MUTED);
         tile.addView(labelView);
-        TextView valueView = num(value, 21, inverseTile ? COLOR_INVERSE_TEXT : COLOR_TEXT, true);
-        if (inverseTile) {
-            valueView.setTextColor(onVibrant());
-        }
+        TextView valueView = num(value, 21, inverseTile ? tonalInk() : COLOR_TEXT, true);
         valueView.setPadding(0, dp(7), 0, 0);
         tile.addView(valueView);
         if (meta != null) {
-            TextView metaView = text(meta, 11, inverseTile ? COLOR_INVERSE_MUTED : COLOR_TERTIARY, false);
-            if (inverseTile) {
-                metaView.setTextColor(onVibrantMuted());
-            }
+            TextView metaView = text(meta, 11, inverseTile ? tonalInk() : COLOR_TERTIARY, false);
             metaView.setPadding(0, dp(3), 0, 0);
             tile.addView(metaView);
         }
         return tile;
     }
 
-    /**
-     * 기본 표면과 텍스트 대비는 유지하고, 탭 가능한 상태 카드의 외곽만 홀로그램으로 강조한다.
-     */
+    public View tonalStatTile(String label, String value, String meta, View.OnClickListener listener) {
+        return statTile(label, value, meta, true, listener);
+    }
+
+    /** @deprecated 선택 가능한 강조 타일은 tonal surface로 표시한다. */
+    @Deprecated
     public View hologramStatTile(String label, String value, String meta, View.OnClickListener listener) {
-        View tile = statTile(label, value, meta, false, listener);
-        setHologramBackground(tile, tile.getBackground(), dp(14));
-        applyDepth(tile, 7);
-        return tile;
+        return statTile(label, value, meta, true, listener);
     }
 
     public View glyphCircle(String glyph, boolean onAccentSurface) {
-        TextView circle = text(glyph, 14, onAccentSurface ? COLOR_INVERSE_TEXT : COLOR_MUTED, true);
+        TextView circle = text(glyph, 14, onAccentSurface ? tonalInk() : COLOR_MUTED, true);
         circle.setGravity(Gravity.CENTER);
         circle.setBackground(onAccentSurface
-                ? borderDrawable(chipOnAccent(), chipOnAccent(), dp(999))
-                : flatSurfaceDrawable(dp(999)));
-        applyDepth(circle, 2);
+                ? tonalSurfaceDrawable(dp(CHIP_RADIUS_DP))
+                : flatSurfaceDrawable(dp(CHIP_RADIUS_DP)));
+        applyDepth(circle, DEPTH_FLAT_DP);
         circle.setLayoutParams(new LinearLayout.LayoutParams(dp(40), dp(40)));
         return circle;
     }
 
-    /** 데이터 기록의 시작점을 작고 선명한 홀로그램 배지로 표시한다. */
-    public View vibrantGlyphCircle(String glyph, String seed) {
-        TextView circle = text(glyph, 14, COLOR_INVERSE_TEXT, true);
-        circle.setTextColor(onVibrant());
+    public View tonalGlyphCircle(String glyph) {
+        TextView circle = text(glyph, 14, tonalInk(), true);
         circle.setGravity(Gravity.CENTER);
-        circle.setBackground(vibrantBackground(variantFor(seed), dp(999)));
-        applyDepth(circle, 4);
+        circle.setBackground(tonalSurfaceDrawable(dp(CHIP_RADIUS_DP)));
+        applyDepth(circle, DEPTH_FLAT_DP);
         circle.setLayoutParams(new LinearLayout.LayoutParams(dp(40), dp(40)));
         return circle;
+    }
+
+    /** @deprecated seed 기반 강조를 제거했으며 tonalGlyphCircle()을 사용한다. */
+    @Deprecated
+    public View vibrantGlyphCircle(String glyph, String seed) {
+        return tonalGlyphCircle(glyph);
     }
 
     public View orderBadge(int order, boolean onAccentSurface) {
-        TextView badge = num(String.valueOf(order), 13, onAccentSurface ? COLOR_INVERSE_TEXT : COLOR_TEXT, true);
+        TextView badge = num(String.valueOf(order), 13,
+                onAccentSurface ? tonalInk() : COLOR_TEXT, true);
         badge.setGravity(Gravity.CENTER);
         badge.setBackground(onAccentSurface
-                ? borderDrawable(chipOnAccent(), chipOnAccent(), dp(999))
-                : flatSurfaceDrawable(dp(999)));
-        applyDepth(badge, 2);
+                ? tonalSurfaceDrawable(dp(CHIP_RADIUS_DP))
+                : flatSurfaceDrawable(dp(CHIP_RADIUS_DP)));
+        applyDepth(badge, DEPTH_FLAT_DP);
         badge.setLayoutParams(new LinearLayout.LayoutParams(dp(28), dp(28)));
         return badge;
     }
@@ -1183,8 +1092,8 @@ public final class FitnessUi {
     public View compactOrderBadge(int order) {
         TextView badge = num(String.valueOf(order), 11, COLOR_TEXT, true);
         badge.setGravity(Gravity.CENTER);
-        badge.setBackground(flatSurfaceDrawable(dp(999)));
-        applyDepth(badge, 2);
+        badge.setBackground(flatSurfaceDrawable(dp(CHIP_RADIUS_DP)));
+        applyDepth(badge, DEPTH_FLAT_DP);
         badge.setLayoutParams(new LinearLayout.LayoutParams(dp(22), dp(22)));
         return badge;
     }
@@ -1202,19 +1111,36 @@ public final class FitnessUi {
             pressFeedback(row);
         }
 
-        row.addView(glyphCircle(glyph, false));
+        View glyphView = glyphCircle(glyph, false);
+        if (listener != null) {
+            glyphView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        }
+        row.addView(glyphView);
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(dp(12), 0, 0, 0);
         TextView primary = text(primaryText, 14, COLOR_TEXT, true);
         primary.setLineSpacing(dp(2), 1f);
+        if (listener != null) {
+            primary.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        }
         column.addView(primary);
         if (captionText != null) {
             TextView captionView = text(captionText, 12, COLOR_TERTIARY, false);
             captionView.setPadding(0, dp(2), 0, 0);
+            if (listener != null) {
+                captionView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            }
             column.addView(captionView);
         }
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        if (listener != null) {
+            String description = primaryText == null ? "항목" : primaryText;
+            if (captionText != null && !captionText.trim().isEmpty()) {
+                description += ", " + captionText;
+            }
+            row.setContentDescription(description);
+        }
         return row;
     }
 
@@ -1254,11 +1180,93 @@ public final class FitnessUi {
     }
 
     public View volumeTrendChart(List<Double> values) {
+        return trendChart(
+                values,
+                "kg",
+                RecordsAnalysis.TrendScalePolicy.ZERO_BASED,
+                -1,
+                "이전 기록 없음"
+        );
+    }
+
+    /**
+     * Draws a volume trend and optionally marks a persisted current point.
+     * A negative currentPointIndex means every value is persisted history.
+     */
+    public View volumeTrendChart(List<Double> values, int currentPointIndex) {
+        return trendChart(
+                values,
+                "kg",
+                RecordsAnalysis.TrendScalePolicy.ZERO_BASED,
+                currentPointIndex,
+                "이전 기록 없음"
+        );
+    }
+
+    public View trendChart(List<Double> values, String unit) {
+        return trendChart(
+                values,
+                unit,
+                RecordsAnalysis.TrendScalePolicy.ZERO_BASED,
+                -1,
+                "추세를 표시할 기록이 없습니다."
+        );
+    }
+
+    /** Compatibility overload for callers that mark a persisted current point. */
+    public View trendChart(
+            List<Double> values,
+            String unit,
+            int currentPointIndex,
+            String emptyLabel
+    ) {
+        return trendChart(
+                values,
+                unit,
+                RecordsAnalysis.TrendScalePolicy.ZERO_BASED,
+                currentPointIndex,
+                emptyLabel
+        );
+    }
+
+    public View trendChart(
+            List<Double> values,
+            String unit,
+            RecordsAnalysis.TrendScalePolicy scalePolicy
+    ) {
+        return trendChart(
+                values,
+                unit,
+                scalePolicy,
+                -1,
+                "추세를 표시할 기록이 없습니다."
+        );
+    }
+
+    /** Draws a labeled numeric trend without assuming that the values are workout volume. */
+    public View trendChart(
+            List<Double> values,
+            String unit,
+            RecordsAnalysis.TrendScalePolicy scalePolicy,
+            int currentPointIndex,
+            String emptyLabel
+    ) {
         final List<Double> points = values == null ? java.util.Collections.emptyList() : new java.util.ArrayList<>(values);
+        final int markedCurrentPoint = currentPointIndex >= 0 && currentPointIndex < points.size()
+                ? currentPointIndex
+                : -1;
+        final String displayUnit = unit == null ? "" : unit;
+        final String displayEmptyLabel = emptyLabel == null || emptyLabel.trim().isEmpty()
+                ? "추세를 표시할 기록이 없습니다."
+                : emptyLabel;
+        final RecordsAnalysis.TrendRange range = RecordsAnalysis.trendRange(
+                points,
+                scalePolicy
+        );
         final int axisColor = border();
         final int mutedColor = inkMuted();
         final int strokeColor = accent();
-        return new View(activity) {
+        View chart = new View(activity) {
             private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
 
             @Override
@@ -1276,27 +1284,28 @@ public final class FitnessUi {
                     paint.setTextSize(dp(12));
                     paint.setColor(mutedColor);
                     paint.setTextAlign(Paint.Align.LEFT);
-                    canvas.drawText("이전 기록 없음", left, top + dp(14), paint);
+                    canvas.drawText(displayEmptyLabel, left, top + dp(14), paint);
                     return;
                 }
 
-                double max = 1;
-                for (Double value : points) {
-                    if (value != null) {
-                        max = Math.max(max, value);
-                    }
-                }
+                paint.setStyle(Paint.Style.FILL);
+                paint.setColor(mutedColor);
+                paint.setTextSize(dp(10));
+                paint.setTypeface(Typeface.DEFAULT_BOLD);
+                paint.setTextAlign(Paint.Align.LEFT);
+                canvas.drawText(valueLabel(range.min), left, bottom + dp(11), paint);
+
                 paint.setColor(strokeColor);
                 paint.setStyle(Paint.Style.STROKE);
                 paint.setStrokeWidth(dp(2));
                 float previousX = 0;
                 float previousY = 0;
                 for (int index = 0; index < points.size(); index++) {
-                    double value = points.get(index) == null ? 0 : points.get(index);
+                    double value = chartValue(points.get(index));
                     float x = points.size() == 1
                             ? (left + right) / 2f
                             : left + (right - left) * index / (float) (points.size() - 1);
-                    float y = bottom - (float) ((bottom - top) * value / max);
+                    float y = chartY(value, top, bottom);
                     if (index > 0) {
                         canvas.drawLine(previousX, previousY, x, y, paint);
                     }
@@ -1305,12 +1314,23 @@ public final class FitnessUi {
                 }
                 paint.setStyle(Paint.Style.FILL);
                 for (int index = 0; index < points.size(); index++) {
-                    double value = points.get(index) == null ? 0 : points.get(index);
+                    double value = chartValue(points.get(index));
                     float x = points.size() == 1
                             ? (left + right) / 2f
                             : left + (right - left) * index / (float) (points.size() - 1);
-                    float y = bottom - (float) ((bottom - top) * value / max);
-                    canvas.drawCircle(x, y, dp(4), paint);
+                    float y = chartY(value, top, bottom);
+                    if (index == markedCurrentPoint) {
+                        paint.setStyle(Paint.Style.STROKE);
+                        paint.setStrokeWidth(dp(2));
+                        paint.setColor(blueInk());
+                        canvas.drawCircle(x, y, dp(6), paint);
+                        paint.setStyle(Paint.Style.FILL);
+                        paint.setColor(strokeColor);
+                        canvas.drawCircle(x, y, dp(3), paint);
+                    } else {
+                        paint.setColor(strokeColor);
+                        canvas.drawCircle(x, y, dp(4), paint);
+                    }
                 }
 
                 paint.setColor(mutedColor);
@@ -1319,20 +1339,44 @@ public final class FitnessUi {
                 paint.setTextAlign(Paint.Align.CENTER);
                 Paint.FontMetrics fontMetrics = paint.getFontMetrics();
                 for (int index = 0; index < points.size(); index++) {
-                    double value = points.get(index) == null ? 0 : points.get(index);
+                    double value = chartValue(points.get(index));
                     float x = points.size() == 1
                             ? (left + right) / 2f
                             : left + (right - left) * index / (float) (points.size() - 1);
-                    float y = bottom - (float) ((bottom - top) * value / max);
-                    String label = formatVolume(value) + "kg";
+                    float y = chartY(value, top, bottom);
+                    String label = (index == markedCurrentPoint ? "현재 " : "")
+                            + valueLabel(value);
                     float halfLabelWidth = paint.measureText(label) / 2f;
                     float labelX = Math.max(left + halfLabelWidth,
                             Math.min(right - halfLabelWidth, x));
                     float labelY = Math.max(-fontMetrics.top, y - dp(7));
+                    if (index == markedCurrentPoint) {
+                        paint.setColor(blueInk());
+                    }
                     canvas.drawText(label, labelX, labelY, paint);
+                    paint.setColor(mutedColor);
                 }
             }
+
+            private String valueLabel(double value) {
+                String number = "kg".equals(displayUnit)
+                        ? formatVolume(value)
+                        : trimDouble(value);
+                return number + displayUnit;
+            }
+
+            private double chartValue(Double value) {
+                return value != null && Double.isFinite(value) ? value : range.min;
+            }
+
+            private float chartY(double value, int top, int bottom) {
+                double normalized = (value - range.min) / range.span();
+                normalized = Math.max(0d, Math.min(1d, normalized));
+                return bottom - (float) ((bottom - top) * normalized);
+            }
         };
+        chart.setMinimumHeight(dp(TREND_CHART_HEIGHT_DP));
+        return chart;
     }
 
     // ── 모션 ─────────────────────────────────────────────────────────
@@ -1431,13 +1475,10 @@ public final class FitnessUi {
         return false;
     }
 
-    /**
-     * 브랜드 바텀시트. 현재 테마의 카드 표면을 따르며,
-     * 상단 라운드 24dp + 드래그 핸들 + 하단 고정 Primary CTA, 슬라이드업 진입.
-     */
-    public Dialog sheet(String title, View body,
-                        String primaryText, Runnable onPrimary,
-                        String dangerText, Runnable onDanger) {
+    /** 공통 바텀시트. 상단 라운드 24dp와 하단 고정 Primary CTA를 사용한다. */
+    public Dialog bottomSheet(String title, View body,
+                              String primaryText, Runnable onPrimary,
+                              String dangerText, Runnable onDanger) {
         return buildSheet(
                 title,
                 body,
@@ -1451,6 +1492,14 @@ public final class FitnessUi {
                 null,
                 null
         );
+    }
+
+    /** @deprecated 신규 코드는 bottomSheet()를 사용한다. */
+    @Deprecated
+    public Dialog sheet(String title, View body,
+                        String primaryText, Runnable onPrimary,
+                        String dangerText, Runnable onDanger) {
+        return bottomSheet(title, body, primaryText, onPrimary, dangerText, onDanger);
     }
 
     /** Primary CTA와 중립적인 보조 액션을 함께 제공하는 공통 시트. */
@@ -1522,7 +1571,7 @@ public final class FitnessUi {
         float r = dp(24);
         background.setCornerRadii(new float[]{r, r, r, r, 0, 0, 0, 0});
         sheet.setBackground(background);
-        applyDepth(sheet, 16);
+        applyDepth(sheet, DEPTH_EMPHASIS_DP);
 
         View handle = new View(activity);
         handle.setBackground(borderDrawable(inkTertiary(), inkTertiary(), dp(999)));
@@ -1556,7 +1605,7 @@ public final class FitnessUi {
             TextView danger = new TextView(activity);
             danger.setText(dangerText);
             danger.setTextSize(14);
-            danger.setTextColor(COLOR_NEGATIVE);
+            danger.setTextColor(statusColor(COLOR_NEGATIVE));
             danger.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             danger.setGravity(Gravity.CENTER);
             danger.setPadding(0, dp(14), 0, dp(2));
@@ -1634,13 +1683,13 @@ public final class FitnessUi {
             styleSelection(row, selected, dp(16));
 
             TextView label = text(safeOptions.get(index), 14,
-                    selected ? COLOR_INVERSE_TEXT : COLOR_TEXT, true);
-            label.setTextColor(selected ? onVibrant() : ink());
+                    selected ? selectedInk() : ink(), true);
+            label.setTextColor(selected ? selectedInk() : ink());
             row.addView(label, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             TextView check = text(selected ? "✓" : "", 16,
-                    selected ? COLOR_INVERSE_TEXT : COLOR_MUTED, true);
-            check.setTextColor(selected ? onVibrant() : inkMuted());
+                    selected ? selectedInk() : inkMuted(), true);
+            check.setTextColor(selected ? selectedInk() : inkMuted());
             check.setGravity(Gravity.CENTER);
             row.addView(check, new LinearLayout.LayoutParams(dp(28), dp(28)));
             row.setContentDescription(safeOptions.get(index) + (selected ? ", 선택됨" : ""));
@@ -1678,7 +1727,7 @@ public final class FitnessUi {
         ));
         body.addView(optionsScroll, fullWidthParams(0));
         Dialog dialog = secondaryText == null || onSecondary == null
-                ? sheet(title, body, "닫기", () -> { }, null, null)
+                ? bottomSheet(title, body, "닫기", () -> { }, null, null)
                 : sheetWithSecondary(title, body, "닫기", () -> { },
                         secondaryText, onSecondary);
         dialogHolder[0] = dialog;
@@ -1717,7 +1766,7 @@ public final class FitnessUi {
         void onChoice(int index);
     }
 
-    /** 파괴적 행동 확인 시트. 결과 문장은 sem.negative로 명시하고 CTA는 블랙 필을 유지한다. */
+    /** 파괴적 행동 확인 시트. 결과 문장은 sem.negative로 명시하고 CTA는 공통 Primary를 사용한다. */
     public void confirmSheet(String title, String message, String consequence,
                              String actionText, Runnable onConfirm) {
         LinearLayout body = new LinearLayout(activity);
@@ -1733,30 +1782,17 @@ public final class FitnessUi {
             TextView consequenceView = new TextView(activity);
             consequenceView.setText(consequence);
             consequenceView.setTextSize(12);
-            consequenceView.setTextColor(COLOR_NEGATIVE);
+            consequenceView.setTextColor(statusColor(COLOR_NEGATIVE));
             consequenceView.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
             consequenceView.setPadding(0, dp(10), 0, 0);
             body.addView(consequenceView);
         }
-        sheet(title, body, actionText, onConfirm, null, null);
+        bottomSheet(title, body, actionText, onConfirm, null, null);
     }
 
-    /** 시트 전용 Primary 버튼: 현재 테마의 강조 필(라이트=블랙, 다크=화이트). */
+    /** 시트 전용 Primary 버튼도 전역 Pastel Blue 버튼 토큰을 사용한다. */
     private Button sheetPrimaryButton(String text, Runnable action) {
-        Button button = new Button(activity);
-        button.setText(text);
-        button.setAllCaps(false);
-        button.setTextSize(15);
-        button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
-        button.setMinHeight(dp(52));
-        button.setMinimumHeight(dp(52));
-        button.setPadding(dp(18), 0, dp(18), 0);
-        button.setStateListAnimator(null);
-        button.setTextColor(onVibrant());
-        button.setBackground(vibrantRippleDrawable("sheet-primary-" + text, dp(999)));
-        button.setOnClickListener(v -> action.run());
-        pressFeedback(button);
-        return button;
+        return primaryButton(text, v -> action.run());
     }
 
     public View emptyStateCard(String message, String hint) {
@@ -1786,15 +1822,21 @@ public final class FitnessUi {
         card.addView(header);
     }
 
-    /** 루틴 카드: 탭하면 운동 시작, 선택적으로 "세부 보기" 버튼 표시. */
-    public View routineCard(String routineName, int exerciseCount, boolean showDetailAction,
-                            String latestWorkoutDate,
-                            Runnable onStart, Runnable onDetail) {
+    /** 루틴 카드: 전체 탭은 상세로 이동하고 운동 시작은 보조 메뉴에서 선택한다. */
+    public View routineCard(String routineName, int exerciseCount, String latestWorkoutDate,
+                            Runnable onStart, Runnable onDetail, Runnable onMenu) {
         LinearLayout card = card();
         card.setClickable(true);
         card.setFocusable(true);
-        card.setOnClickListener(v -> onStart.run());
-        applyDepth(card, 6);
+        card.setContentDescription(routineName + " 루틴 상세 보기");
+        card.setOnClickListener(v -> {
+            if (onDetail != null) {
+                onDetail.run();
+            } else if (onStart != null) {
+                onStart.run();
+            }
+        });
+        applyDepth(card, DEPTH_SURFACE_DP);
         pressFeedback(card);
 
         LinearLayout headerRow = new LinearLayout(activity);
@@ -1805,28 +1847,59 @@ public final class FitnessUi {
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(dp(12), 0, 0, 0);
         column.addView(text(routineName, 16, COLOR_TEXT, true));
-        TextView meta = text(exerciseCount + "개 종목 · 탭하여 시작", 12, COLOR_MUTED, false);
+        TextView meta = text(exerciseCount + "개 종목 · 탭하여 상세 보기", 12, COLOR_MUTED, false);
         meta.setPadding(0, dp(2), 0, 0);
         column.addView(meta);
         column.addView(text(recentWorkoutText(latestWorkoutDate), 11, COLOR_TERTIARY, false));
         headerRow.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView chevron = text("›", 20, COLOR_TERTIARY, false);
-        headerRow.addView(chevron);
-        card.addView(headerRow);
-
-        if (showDetailAction) {
-            Button detailButton = button("세부 보기", false, v -> onDetail.run());
-            card.addView(detailButton, fullWidthParams(dp(14)));
+        if (onMenu != null) {
+            TextView menu = text("⋯", 22, COLOR_MUTED, true);
+            menu.setGravity(Gravity.CENTER);
+            menu.setMinWidth(dp(48));
+            menu.setMinimumWidth(dp(48));
+            menu.setMinHeight(dp(48));
+            menu.setMinimumHeight(dp(48));
+            menu.setContentDescription(routineName + " 루틴 관리");
+            menu.setClickable(true);
+            menu.setFocusable(true);
+            menu.setOnClickListener(v -> onMenu.run());
+            pressFeedback(menu);
+            headerRow.addView(menu);
+        } else {
+            TextView chevron = text("›", 20, COLOR_TERTIARY, false);
+            headerRow.addView(chevron);
         }
+        card.addView(headerRow);
         return card;
+    }
+
+    /**
+     * @deprecated 전체 카드 탭이 상세 보기이므로 showDetailAction은 더 이상 의미가 없다.
+     *             새 호출부는 routineCard(..., latestWorkoutDate, ..., onMenu)를 사용한다.
+     */
+    @Deprecated
+    public View routineCard(String routineName, int exerciseCount, boolean showDetailAction,
+                            String latestWorkoutDate,
+                            Runnable onStart, Runnable onDetail) {
+        return routineCard(routineName, exerciseCount, latestWorkoutDate,
+                onStart, onDetail, null);
+    }
+
+    /** @deprecated showDetailAction은 호환성만 유지하며 무시한다. */
+    @Deprecated
+    public View routineCard(String routineName, int exerciseCount, boolean showDetailAction,
+                            String latestWorkoutDate,
+                            Runnable onStart, Runnable onDetail, Runnable onMenu) {
+        return routineCard(routineName, exerciseCount, latestWorkoutDate,
+                onStart, onDetail, onMenu);
     }
 
     public View quickStartRoutineCard(String routineName, int exerciseCount, String latestWorkoutDate,
                                       Runnable onStart, Runnable onDetail) {
         LinearLayout card = card();
         card.setPadding(dp(12), dp(8), dp(12), dp(8));
-        card.setBackground(vibrantRippleDrawable("routine-" + routineName, dp(16)));
-        applyDepth(card, 9);
+        card.setBackground(flatSurfaceRippleDrawable(dp(CARD_RADIUS_DP)));
+        applyDepth(card, DEPTH_SURFACE_DP);
         card.setClickable(true);
         card.setFocusable(true);
         card.setOnClickListener(v -> onStart.run());
@@ -1835,28 +1908,25 @@ public final class FitnessUi {
         LinearLayout headerRow = new LinearLayout(activity);
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
-        TextView routineGlyph = text("루", 12, COLOR_INVERSE_TEXT, true);
-        routineGlyph.setTextColor(onVibrant());
+        TextView routineGlyph = text("루", 12, pastelBlue(), true);
         routineGlyph.setGravity(Gravity.CENTER);
-        routineGlyph.setBackground(borderDrawable(chipOnVibrant(), chipOnVibrant(), dp(999)));
+        routineGlyph.setBackground(borderDrawable(withAlpha(pastelBlue(), 38),
+                Color.TRANSPARENT, dp(CHIP_RADIUS_DP)));
         routineGlyph.setLayoutParams(new LinearLayout.LayoutParams(dp(30), dp(30)));
         headerRow.addView(routineGlyph);
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(dp(9), 0, 0, 0);
-        TextView nameView = text(routineName, 14, COLOR_INVERSE_TEXT, true);
-        nameView.setTextColor(onVibrant());
+        TextView nameView = text(routineName, 14, ink(), true);
         column.addView(nameView);
-        TextView meta = text(exerciseCount + "개 종목 · 탭하여 시작", 10, COLOR_INVERSE_MUTED, false);
-        meta.setTextColor(onVibrantMuted());
+        TextView meta = text(exerciseCount + "개 종목 · 탭하여 시작", 10, inkMuted(), false);
         meta.setPadding(0, dp(2), 0, 0);
         column.addView(meta);
-        TextView recentView = text(recentWorkoutText(latestWorkoutDate), 10, COLOR_INVERSE_MUTED, false);
-        recentView.setTextColor(onVibrantMuted());
+        TextView recentView = text(recentWorkoutText(latestWorkoutDate), 10, inkTertiary(), false);
         column.addView(recentView);
         headerRow.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-        TextView chevron = text("›", 16, COLOR_INVERSE_MUTED, false);
-        chevron.setTextColor(onVibrantMuted());
+        TextView chevron = text("›", 16, inkTertiary(), false);
+        chevron.setTextColor(inkTertiary());
         headerRow.addView(chevron);
         card.addView(headerRow);
         return card;
@@ -1902,6 +1972,15 @@ public final class FitnessUi {
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
+        );
+        params.setMargins(0, topMargin, 0, 0);
+        return params;
+    }
+
+    public LinearLayout.LayoutParams trendChartParams(int topMargin) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dp(TREND_CHART_HEIGHT_DP)
         );
         params.setMargins(0, topMargin, 0, 0);
         return params;

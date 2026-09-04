@@ -1,12 +1,13 @@
 package com.yeonsik.fitnessapp;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.graphics.Insets;
 import android.graphics.Typeface;
-import android.graphics.drawable.Drawable;
 import android.net.Uri;
 import android.location.LocationManager;
 import android.os.Build;
@@ -17,11 +18,13 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowInsets;
+import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -32,6 +35,7 @@ import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
 import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
+import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
@@ -195,6 +199,16 @@ public final class MainActivity extends Activity implements ScreenHost {
     private TextView recordsTabLabel;
     private TextView developmentTabLabel;
     private TextView settingsTabLabel;
+    private View homeTabMarker;
+    private View workoutTabMarker;
+    private View recordsTabMarker;
+    private View developmentTabMarker;
+    private View settingsTabMarker;
+    private View homeTabProgressMarker;
+    private View workoutTabProgressMarker;
+    private View recordsTabProgressMarker;
+    private View developmentTabProgressMarker;
+    private View settingsTabProgressMarker;
 
     private boolean isManualSyncing = false;
     private boolean isDataImporting = false;
@@ -244,8 +258,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         screens = buildScreens();
         registerBackCallback();
 
-        configureWindow();
         setContentView(buildRootView());
+        configureWindow();
         render();
         handleDebugSessionProvisioning(getIntent());
         handleCardioIntent(getIntent());
@@ -266,6 +280,7 @@ public final class MainActivity extends Activity implements ScreenHost {
      */
     private void handleDebugSessionProvisioning(Intent intent) {
         if (!BuildConfig.DEBUG
+                || !AppSurfacePolicy.allowsDebugSessionProvisioning()
                 || intent == null
                 || !DEBUG_PROVISION_SESSION_ACTION.equals(intent.getAction())) {
             return;
@@ -516,11 +531,17 @@ public final class MainActivity extends Activity implements ScreenHost {
     // ── 창 / 루트 뷰 ──────────────────────────────────────────────────
 
     private void configureWindow() {
-        Window window = getWindow();
-        window.setStatusBarColor(ui.pageBg());
-        window.setNavigationBarColor(ui.pageBg());
-        window.getDecorView().setSystemUiVisibility(
-                isDarkTheme() ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        applySystemBarAppearance(isDarkTheme(), ui.pageBg(), ui.pageBg());
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && rootView != null) {
+            // Apply again after the decor view is attached. This keeps the
+            // launch theme authoritative for the preview while ensuring that
+            // runtime appearance uses WindowInsetsController.
+            rootView.post(() -> applySystemBarAppearance(
+                    isDarkTheme(),
+                    ui.pageBg(),
+                    ui.pageBg()
+            ));
+        }
     }
 
     private View buildRootView() {
@@ -547,7 +568,7 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(ui.dp(20), ui.dp(40), ui.dp(20), ui.dp(28));
+        ui.applyPageContentPadding(content);
         scrollView.addView(content, new ScrollView.LayoutParams(
                 ScrollView.LayoutParams.MATCH_PARENT,
                 ScrollView.LayoutParams.WRAP_CONTENT
@@ -589,13 +610,14 @@ public final class MainActivity extends Activity implements ScreenHost {
             );
             return windowInsets;
         });
+        root.post(root::requestApplyInsets);
     }
 
     private LinearLayout buildSessionTopBar() {
         LinearLayout bar = new LinearLayout(this);
         bar.setGravity(Gravity.CENTER_VERTICAL);
         bar.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(4));
-        ui.applyDepth(bar, 8);
+        ui.applyDepth(bar, FitnessUi.DEPTH_SURFACE_DP);
         bar.setVisibility(View.GONE);
         return bar;
     }
@@ -603,7 +625,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     private LinearLayout buildSessionBottomBar() {
         LinearLayout bar = new LinearLayout(this);
         bar.setPadding(ui.dp(12), ui.dp(8), ui.dp(12), ui.dp(10));
-        ui.applyDepth(bar, 10);
+        ui.applyDepth(bar, FitnessUi.DEPTH_SURFACE_DP);
         bar.setVisibility(View.GONE);
         return bar;
     }
@@ -623,15 +645,15 @@ public final class MainActivity extends Activity implements ScreenHost {
                 replace(FitnessScreen.STRENGTH);
             }
         });
-        ui.applyDepth(back, 4);
+        ui.applyDepth(back, FitnessUi.DEPTH_FLAT_DP);
         ui.pressFeedback(back);
         sessionTopBar.addView(back, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(48)));
 
         sessionBottomBar.setBackgroundColor(ui.surface());
         sessionBottomBar.removeAllViews();
         sessionBottomBar.addView(ui.buttonRow(
-                ui.button("종목 추가", false, v -> openWorkoutExercisePicker()),
-                ui.button("운동 완료", true, v -> finishActiveWorkout())
+                ui.secondaryButton("종목 추가", v -> openWorkoutExercisePicker()),
+                ui.primaryButton("운동 완료", v -> finishActiveWorkout())
         ), new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT));
     }
@@ -640,7 +662,7 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     /**
      * 세트 완료 시 자동 시작되는 하단 고정 휴식 타이머.
-     * 현재 테마의 강조 표면(라이트=블랙 필, 다크=화이트 필) 위에 뜬다.
+     * 현재 테마의 tonal blue surface 위에 뜬다.
      */
     private LinearLayout buildRestTimerBar() {
         LinearLayout wrapper = new LinearLayout(this);
@@ -657,8 +679,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         LinearLayout inner = new LinearLayout(this);
         inner.setOrientation(LinearLayout.VERTICAL);
         inner.setPadding(ui.dp(18), ui.dp(12), ui.dp(14), ui.dp(14));
-        inner.setBackground(ui.vibrantBackground(2, ui.dp(18)));
-        ui.applyDepth(inner, 10);
+        inner.setBackground(ui.tonalRippleDrawable(ui.dp(FitnessUi.CARD_RADIUS_DP)));
+        ui.applyDepth(inner, FitnessUi.DEPTH_SURFACE_DP);
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -667,7 +689,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         TextView label = new TextView(this);
         label.setText("휴식");
         label.setTextSize(11);
-        label.setTextColor(ui.onVibrantMuted());
+        label.setTextColor(ui.tonalInk());
         label.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         label.setLetterSpacing(0.08f);
         row.addView(label, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -675,14 +697,14 @@ public final class MainActivity extends Activity implements ScreenHost {
         restCountdownView = new TextView(this);
         restCountdownView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         restCountdownView.setTextSize(30);
-        restCountdownView.setTextColor(ui.onVibrant());
+        restCountdownView.setTextColor(ui.tonalInk());
         restCountdownView.setFontFeatureSettings("tnum");
         row.addView(restCountdownView);
 
         TextView skip = new TextView(this);
         skip.setText("건너뛰기");
         skip.setTextSize(13);
-        skip.setTextColor(ui.onVibrantMuted());
+        skip.setTextColor(ui.tonalInk());
         skip.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
         skip.setPadding(ui.dp(16), ui.dp(10), ui.dp(6), ui.dp(10));
         skip.setClickable(true);
@@ -694,7 +716,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         restProgressTrack = new LinearLayout(this);
         restProgressTrack.setOrientation(LinearLayout.HORIZONTAL);
         restProgressTrack.setBackground(ui.borderDrawable(
-                ui.trackOnVibrant(), ui.trackOnVibrant(), ui.dp(999)));
+                ui.trackOnAccent(), ui.trackOnAccent(), ui.dp(FitnessUi.CHIP_RADIUS_DP)));
         LinearLayout.LayoutParams trackParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(4));
         trackParams.setMargins(0, ui.dp(10), 0, 0);
@@ -768,7 +790,8 @@ public final class MainActivity extends Activity implements ScreenHost {
                 : Math.max(0f, Math.min(1f, remainingMillis / (restTotalSeconds * 1000f)));
         restProgressTrack.removeAllViews();
         View fill = new View(this);
-        fill.setBackground(ui.borderDrawable(ui.onVibrant(), ui.onVibrant(), ui.dp(999)));
+        fill.setBackground(ui.borderDrawable(ui.tonalInk(), ui.tonalInk(),
+                ui.dp(FitnessUi.CHIP_RADIUS_DP)));
         restProgressTrack.addView(fill, new LinearLayout.LayoutParams(0, ui.dp(4), ratio));
         View rest = new View(this);
         restProgressTrack.addView(rest, new LinearLayout.LayoutParams(0, ui.dp(4), 1f - ratio));
@@ -780,7 +803,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         LinearLayout wrapper = new LinearLayout(this);
         wrapper.setOrientation(LinearLayout.VERTICAL);
         wrapper.setBackgroundColor(ui.surface());
-        ui.applyDepth(wrapper, 12);
+        ui.applyDepth(wrapper, FitnessUi.DEPTH_SURFACE_DP);
 
         navDivider = new View(this);
         navDivider.setBackgroundColor(ui.border());
@@ -788,7 +811,12 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         LinearLayout nav = new LinearLayout(this);
         nav.setOrientation(LinearLayout.HORIZONTAL);
-        nav.setPadding(ui.dp(8), ui.dp(8), ui.dp(8), ui.dp(12));
+        nav.setPadding(
+                ui.dp(FitnessUi.NAV_BAR_HORIZONTAL_PADDING_DP),
+                ui.dp(FitnessUi.NAV_BAR_TOP_PADDING_DP),
+                ui.dp(FitnessUi.NAV_BAR_HORIZONTAL_PADDING_DP),
+                ui.dp(FitnessUi.NAV_BAR_BOTTOM_PADDING_DP)
+        );
 
         homeTabArea = navArea("메인", Tab.HOME);
         workoutTabArea = navArea("피트니스", Tab.WORKOUT);
@@ -819,7 +847,8 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     private View navGap() {
         View gap = new View(this);
-        gap.setLayoutParams(new LinearLayout.LayoutParams(ui.dp(4), ui.dp(1)));
+        gap.setLayoutParams(new LinearLayout.LayoutParams(
+                ui.dp(FitnessUi.NAV_ITEM_GAP_DP), ui.dp(1)));
         return gap;
     }
 
@@ -827,17 +856,40 @@ public final class MainActivity extends Activity implements ScreenHost {
         LinearLayout area = new LinearLayout(this);
         area.setOrientation(LinearLayout.VERTICAL);
         area.setGravity(Gravity.CENTER);
-        area.setMinimumHeight(ui.dp(48));
+        area.setMinimumHeight(ui.dp(FitnessUi.NAV_ITEM_MIN_HEIGHT_DP));
         area.setClickable(true);
         area.setFocusable(true);
         area.setOnClickListener(v -> replace(rootScreenOf(tab)));
         ui.pressFeedback(area);
 
+        FrameLayout markerSlot = new FrameLayout(this);
+        markerSlot.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        View activeMarker = new View(this);
+        activeMarker.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        activeMarker.setVisibility(View.INVISIBLE);
+        markerSlot.addView(activeMarker, new FrameLayout.LayoutParams(
+                ui.dp(FitnessUi.NAV_ACTIVE_MARKER_WIDTH_DP),
+                ui.dp(FitnessUi.NAV_ACTIVE_MARKER_HEIGHT_DP),
+                Gravity.TOP | Gravity.CENTER_HORIZONTAL
+        ));
+        View progressMarker = new View(this);
+        progressMarker.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        progressMarker.setVisibility(View.INVISIBLE);
+        markerSlot.addView(progressMarker, new FrameLayout.LayoutParams(
+                ui.dp(FitnessUi.NAV_PROGRESS_MARKER_SIZE_DP),
+                ui.dp(FitnessUi.NAV_PROGRESS_MARKER_SIZE_DP),
+                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL
+        ));
+        area.addView(markerSlot, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                ui.dp(FitnessUi.NAV_MARKER_SLOT_HEIGHT_DP)
+        ));
+
         TextView textView = new TextView(this);
         textView.setText(label);
         textView.setTextSize(12);
         textView.setGravity(Gravity.CENTER);
-        textView.setPadding(0, ui.dp(12), 0, ui.dp(12));
+        textView.setPadding(0, ui.dp(2), 0, ui.dp(6));
         textView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
 
         area.addView(textView, new LinearLayout.LayoutParams(
@@ -847,14 +899,24 @@ public final class MainActivity extends Activity implements ScreenHost {
 
         if (tab == Tab.HOME) {
             homeTabLabel = textView;
+            homeTabMarker = activeMarker;
+            homeTabProgressMarker = progressMarker;
         } else if (tab == Tab.WORKOUT) {
             workoutTabLabel = textView;
+            workoutTabMarker = activeMarker;
+            workoutTabProgressMarker = progressMarker;
         } else if (tab == Tab.RECORDS) {
             recordsTabLabel = textView;
+            recordsTabMarker = activeMarker;
+            recordsTabProgressMarker = progressMarker;
         } else if (tab == Tab.DEVELOPMENT) {
             developmentTabLabel = textView;
+            developmentTabMarker = activeMarker;
+            developmentTabProgressMarker = progressMarker;
         } else {
             settingsTabLabel = textView;
+            settingsTabMarker = activeMarker;
+            settingsTabProgressMarker = progressMarker;
         }
 
         return area;
@@ -896,37 +958,108 @@ public final class MainActivity extends Activity implements ScreenHost {
         Tab activeTab = tabOf(currentScreen);
         boolean workoutInProgress = repository != null
                 && repository.latestInProgressSessionId() != null;
-        boolean activationVisible = currentScreen != FitnessScreen.WORKOUT_SESSION
-                && currentScreen != FitnessScreen.WORKOUT_EXERCISE_DETAIL
-                && currentScreen != FitnessScreen.WORKOUT_SUMMARY
-                && currentScreen != FitnessScreen.CARDIO_SESSION
-                && currentScreen != FitnessScreen.CARDIO_SUMMARY
-                && !(currentScreen == FitnessScreen.WORKOUT_EXERCISE_ADD
-                && sessionState.activeRecordId() != null);
         bottomNav.setBackgroundColor(ui.surface());
         navDivider.setBackgroundColor(ui.border());
-        styleNavArea(homeTabArea, homeTabLabel, activeTab == Tab.HOME, false);
-        styleNavArea(workoutTabArea, workoutTabLabel, activeTab == Tab.WORKOUT,
-                workoutInProgress && activationVisible);
-        styleNavArea(recordsTabArea, recordsTabLabel, activeTab == Tab.RECORDS, false);
-        styleNavArea(developmentTabArea, developmentTabLabel, activeTab == Tab.DEVELOPMENT, false);
-        styleNavArea(settingsTabArea, settingsTabLabel, activeTab == Tab.SETTINGS, false);
+        boolean navigationVisible = isBottomNavigationVisible(currentScreen);
+        styleNavArea(homeTabArea, homeTabLabel, homeTabMarker, homeTabProgressMarker,
+                activeTab == Tab.HOME, false);
+        styleNavArea(workoutTabArea, workoutTabLabel, workoutTabMarker, workoutTabProgressMarker,
+                activeTab == Tab.WORKOUT,
+                workoutInProgress && navigationVisible);
+        styleNavArea(recordsTabArea, recordsTabLabel, recordsTabMarker, recordsTabProgressMarker,
+                activeTab == Tab.RECORDS, false);
+        styleNavArea(developmentTabArea, developmentTabLabel, developmentTabMarker,
+                developmentTabProgressMarker,
+                activeTab == Tab.DEVELOPMENT, false);
+        styleNavArea(settingsTabArea, settingsTabLabel, settingsTabMarker,
+                settingsTabProgressMarker,
+                activeTab == Tab.SETTINGS, false);
     }
 
-    private void styleNavArea(LinearLayout area, TextView label, boolean active, boolean hologramActive) {
+    private void styleNavArea(
+            LinearLayout area,
+            TextView label,
+            View activeMarker,
+            View progressMarker,
+            boolean active,
+            boolean inProgress
+    ) {
         area.setSelected(active);
-        area.setContentDescription(label.getText() + (active ? ", 선택됨" : ""));
-        Drawable background = active
-                ? ui.selectedStateRippleDrawable(ui.dp(999))
-                : ui.flatSurfaceRippleDrawable(ui.dp(999));
-        if (hologramActive) {
-            ui.setHologramBackground(area, background, ui.dp(999));
-        } else {
-            ui.setComponentBackground(area, background);
+        String contentDescription = label.getText().toString();
+        if (active) {
+            contentDescription += ", 선택됨";
         }
-        ui.applyDepth(area, hologramActive ? 10 : active ? 7 : 3);
-        label.setTextColor(active ? ui.onVibrant() : ui.inkMuted());
+        if (inProgress) {
+            contentDescription += ", 운동 진행 중";
+        }
+        area.setContentDescription(contentDescription);
+
+        // Keep the whole nav surface quiet. Selection is conveyed by the
+        // label and active bar; progress gets only a dot on the workout tab.
+        ui.setComponentBackground(area,
+                ui.flatSurfaceRippleDrawable(ui.dp(FitnessUi.NAV_ITEM_RADIUS_DP)));
+        ui.applyDepth(area, FitnessUi.DEPTH_FLAT_DP);
+        label.setTextColor(active ? ui.selectedInk() : ui.inkMuted());
         label.setTypeface(Typeface.DEFAULT, active ? Typeface.BOLD : Typeface.NORMAL);
+        styleNavMarkers(activeMarker, progressMarker, active, inProgress);
+    }
+
+    private void styleNavMarkers(
+            View activeMarker,
+            View progressMarker,
+            boolean active,
+            boolean inProgress
+    ) {
+        if (activeMarker == null || progressMarker == null
+                || !(activeMarker.getLayoutParams() instanceof FrameLayout.LayoutParams)
+                || !(progressMarker.getLayoutParams() instanceof FrameLayout.LayoutParams)) {
+            return;
+        }
+        FrameLayout.LayoutParams activeParams =
+                (FrameLayout.LayoutParams) activeMarker.getLayoutParams();
+        activeParams.width = ui.dp(FitnessUi.NAV_ACTIVE_MARKER_WIDTH_DP);
+        activeParams.height = ui.dp(FitnessUi.NAV_ACTIVE_MARKER_HEIGHT_DP);
+        if (active) {
+            activeMarker.setBackground(ui.borderDrawable(
+                    ui.pastelBlue(), Color.TRANSPARENT, ui.dp(FitnessUi.CHIP_RADIUS_DP)));
+            activeMarker.setVisibility(View.VISIBLE);
+        } else {
+            activeMarker.setBackgroundColor(Color.TRANSPARENT);
+            activeMarker.setVisibility(View.INVISIBLE);
+        }
+        activeMarker.setLayoutParams(activeParams);
+
+        FrameLayout.LayoutParams progressParams =
+                (FrameLayout.LayoutParams) progressMarker.getLayoutParams();
+        progressParams.width = ui.dp(FitnessUi.NAV_PROGRESS_MARKER_SIZE_DP);
+        progressParams.height = ui.dp(FitnessUi.NAV_PROGRESS_MARKER_SIZE_DP);
+        if (inProgress) {
+            progressMarker.setBackground(ui.borderDrawable(
+                    ui.pastelBlue(), Color.TRANSPARENT, ui.dp(FitnessUi.CHIP_RADIUS_DP)));
+            progressMarker.setVisibility(View.VISIBLE);
+        } else {
+            progressMarker.setBackgroundColor(Color.TRANSPARENT);
+            progressMarker.setVisibility(View.INVISIBLE);
+        }
+        progressMarker.setLayoutParams(progressParams);
+    }
+
+    private boolean isBottomNavigationVisible(FitnessScreen screen) {
+        if (screen == null) {
+            return true;
+        }
+        switch (screen) {
+            case WORKOUT_SESSION:
+            case WORKOUT_EXERCISE_DETAIL:
+            case WORKOUT_SUMMARY:
+            case CARDIO_SESSION:
+            case CARDIO_SUMMARY:
+                return false;
+            case WORKOUT_EXERCISE_ADD:
+                return sessionState.activeRecordId() == null;
+            default:
+                return true;
+        }
     }
 
     // ── 화면 디스패치 ─────────────────────────────────────────────────
@@ -957,17 +1090,9 @@ public final class MainActivity extends Activity implements ScreenHost {
             restTimerBar.removeCallbacks(restTick);
             restTimerBar.postDelayed(restTick, 250);
         }
-        boolean fullscreenPicker = currentScreen == FitnessScreen.WORKOUT_EXERCISE_ADD
-                && sessionState.activeRecordId() != null;
         applyScreenChrome(isDarkTheme());
-        bottomNav.setVisibility(sessionScreen
-                || currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL
-                || currentScreen == FitnessScreen.WORKOUT_SUMMARY
-                || currentScreen == FitnessScreen.CARDIO_SESSION
-                || currentScreen == FitnessScreen.CARDIO_SUMMARY
-                || fullscreenPicker
-                ? View.GONE
-                : View.VISIBLE);
+        bottomNav.setVisibility(isBottomNavigationVisible(currentScreen)
+                ? View.VISIBLE : View.GONE);
 
         BaseScreen screen = screens.get(currentScreen);
         if (screen != null) {
@@ -988,18 +1113,59 @@ public final class MainActivity extends Activity implements ScreenHost {
             mainScrollView.setBackgroundColor(background);
         }
         content.setBackgroundColor(background);
-        Window window = getWindow();
-        window.setStatusBarColor(background);
-        window.setNavigationBarColor(background);
-        window.getDecorView().setSystemUiVisibility(dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR);
+        applySystemBarAppearance(dark, background, background);
         // 운동 수행 화면에서는 테마와 무관하게 화면이 꺼지지 않는다.
         boolean workoutActive = currentScreen == FitnessScreen.WORKOUT_SESSION
                 || currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL;
+        Window window = getWindow();
         if (workoutActive) {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
+    }
+
+    private void applySystemBarAppearance(
+            boolean dark,
+            int statusBarColor,
+            int navigationBarColor
+    ) {
+        Window window = getWindow();
+        // Android 15+ enforces edge-to-edge for this target SDK. The page/root
+        // surface should show through the bars instead of relying on bar color
+        // APIs that are ignored or transformed by the platform.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            window.setStatusBarColor(statusBarColor);
+            window.setNavigationBarColor(navigationBarColor);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                window.setNavigationBarDividerColor(navigationBarColor);
+            }
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.setStatusBarContrastEnforced(false);
+            window.setNavigationBarContrastEnforced(false);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            WindowInsetsController controller = window.getInsetsController();
+            if (controller != null) {
+                int lightSystemBars = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                        | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+                controller.setSystemBarsAppearance(
+                        dark ? 0 : lightSystemBars,
+                        lightSystemBars
+                );
+                return;
+            }
+        }
+
+        // API 26~29 fallback. The null-controller branch keeps the appearance
+        // safe if a pre-draw window has no controller yet on a newer API.
+        int systemUiVisibility = dark ? 0 : View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
+        if (!dark && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            systemUiVisibility |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        }
+        window.getDecorView().setSystemUiVisibility(systemUiVisibility);
     }
 
     // ── ScreenHost 구현 ───────────────────────────────────────────────
@@ -1384,6 +1550,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    @SuppressLint("GestureBackNavigation")
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
         dispatchBack();
@@ -1764,11 +1931,20 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     public void openSettingsConnections() {
+        if (!isDeveloperSurfaceAllowed()) {
+            navigate(FitnessScreen.SETTINGS);
+            return;
+        }
         BaseScreen settings = screens.get(FitnessScreen.SETTINGS);
         if (settings instanceof SettingsScreen) {
             ((SettingsScreen) settings).showAdvancedConnections();
         }
         navigate(FitnessScreen.SETTINGS);
+    }
+
+    @Override
+    public boolean isDeveloperSurfaceAllowed() {
+        return AppSurfacePolicy.allowsDeveloperSurface();
     }
 
     @Override

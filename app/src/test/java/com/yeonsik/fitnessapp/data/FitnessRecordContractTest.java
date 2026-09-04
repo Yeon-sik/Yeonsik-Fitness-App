@@ -18,6 +18,25 @@ public final class FitnessRecordContractTest {
     }
 
     @Test
+    public void mapsRecordTypesToKoreanDisplayLabelsWithoutLeakingUnknownValues() {
+        assertEquals("중량 · 반복",
+                FitnessRecordContract.displayRecordTypeKo(FitnessRecordContract.WEIGHT_REPS));
+        assertEquals("반복",
+                FitnessRecordContract.displayRecordTypeKo(FitnessRecordContract.REPS_ONLY));
+        assertEquals("시간",
+                FitnessRecordContract.displayRecordTypeKo(FitnessRecordContract.TIME));
+        assertEquals("중량 · 시간",
+                FitnessRecordContract.displayRecordTypeKo(FitnessRecordContract.WEIGHT_TIME));
+        assertEquals("보조 중량 · 반복",
+                FitnessRecordContract.displayRecordTypeKo(FitnessRecordContract.ASSISTED_WEIGHT_REPS));
+        assertEquals("체중 + 추가 중량 · 반복",
+                FitnessRecordContract.displayRecordTypeKo(
+                        FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS));
+        assertEquals("기록 방식 없음",
+                FitnessRecordContract.displayRecordTypeKo("internal_future_record_type"));
+    }
+
+    @Test
     public void mapsSharedStrengthCategoryToStableCode() {
         assertEquals("chest", FitnessRecordContract.categoryCode("가슴운동"));
         assertEquals("back", FitnessRecordContract.categoryCode("back"));

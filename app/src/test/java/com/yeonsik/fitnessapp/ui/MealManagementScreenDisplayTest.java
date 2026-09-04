@@ -34,6 +34,42 @@ public final class MealManagementScreenDisplayTest {
                         NutritionProfile.CARBS_GRAMS
                 )
         );
+        assertEquals(
+                "칼로리",
+                NutritionRow.displayLabel(NutritionProfile.CALORIES_KCAL)
+        );
+        assertEquals(
+                "kcal",
+                NutritionRow.displayUnit(NutritionProfile.CALORIES_KCAL)
+        );
+        assertEquals(
+                java.util.Arrays.asList(
+                        NutritionProfile.CALORIES_KCAL,
+                        NutritionProfile.CARBS_GRAMS,
+                        NutritionProfile.PROTEIN_GRAMS,
+                        NutritionProfile.FAT_GRAMS,
+                        NutritionProfile.SUGARS_GRAMS,
+                        NutritionProfile.SATURATED_FAT_GRAMS,
+                        NutritionProfile.SODIUM_MG
+                ),
+                NutritionProfile.PRIMARY_DISPLAY_ORDER
+        );
+        assertEquals(
+                "탄수화물",
+                NutritionRow.displayLabel(NutritionProfile.CARBS_GRAMS)
+        );
+        assertEquals(
+                "g",
+                NutritionRow.displayUnit(NutritionProfile.CARBS_GRAMS)
+        );
+        assertEquals(
+                "나트륨",
+                NutritionRow.displayLabel(NutritionProfile.SODIUM_MG)
+        );
+        assertEquals(
+                "mg",
+                NutritionRow.displayUnit(NutritionProfile.SODIUM_MG)
+        );
     }
 
     @Test

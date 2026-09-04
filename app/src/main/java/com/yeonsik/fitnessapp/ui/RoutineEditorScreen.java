@@ -10,6 +10,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.ExerciseCategory;
@@ -99,14 +100,19 @@ public final class RoutineEditorScreen extends BaseScreen {
         summary.addView(summaryRow);
         add(summary);
 
-        add(ui.button("이 루틴으로 운동 시작", true, v -> host.startRoutineWorkout(routineExercises)),
-                ui.fullWidthParams(ui.dp(4)));
-
-        section("세부 운동 종목", "종목 추가", () -> host.navigate(FitnessScreen.ROUTINE_ADD));
         if (routineExercises.isEmpty()) {
+            add(ui.primaryButton("종목 추가",
+                            v -> host.navigate(FitnessScreen.ROUTINE_ADD)),
+                    ui.fullWidthParams(ui.dp(4)));
+            section("세부 운동 종목");
             emptyState("루틴에 추가된 운동 종목이 없습니다.", "종목 추가로 시작하세요.");
             return;
         }
+
+        add(ui.primaryButton("이 루틴으로 운동 시작",
+                        v -> host.startRoutineWorkout(routineExercises)),
+                ui.fullWidthParams(ui.dp(4)));
+        section("세부 운동 종목", "종목 추가", () -> host.navigate(FitnessScreen.ROUTINE_ADD));
 
         List<View> rows = new ArrayList<>();
         for (RoutineExerciseInstance exercise : routineExercises) {
@@ -134,7 +140,12 @@ public final class RoutineEditorScreen extends BaseScreen {
         column.addView(meta);
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView recordType = ui.text(exercise.recordType, 12, FitnessUi.COLOR_TERTIARY, false);
+        TextView recordType = ui.text(
+                FitnessRecordContract.displayRecordTypeKo(exercise.recordType),
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        );
         recordType.setPadding(ui.dp(8), 0, 0, 0);
         row.addView(recordType);
         ExerciseFamilyIdentity identity = exercise.familyIdentity != null
@@ -217,7 +228,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                 ? "루틴 추가"
                 : (replacementMode ? "운동 종목 교체" : "운동 종목 추가")));
         if (replacementMode) {
-            add(ui.text("같은 운동 Family의 variant를 하나 선택하면 기존 세트 기록을 유지한 채 종목만 교체합니다.",
+            add(ui.text("같은 운동군의 세부 동작을 하나 선택하면 기존 세트 기록을 유지한 채 종목만 교체합니다.",
                     13, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(4)));
         }
         if (routineMode) {
@@ -225,7 +236,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             add(routineNameInput, ui.fullWidthParams(0));
         }
 
-        EditText searchInput = ui.searchField("운동명, 영문명, Family 검색");
+        EditText searchInput = ui.searchInput("운동명, 영문명, 운동군 검색");
         Button searchButton = ui.button("검색", true, null);
         LinearLayout searchRow = ui.pickerRow();
         searchRow.addView(searchInput, new LinearLayout.LayoutParams(
@@ -383,7 +394,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             }
             return false;
         });
-        section("운동 Family");
+        section("운동군");
         add(listArea, ui.fullWidthParams(0));
         refresh.run();
     }
@@ -410,8 +421,8 @@ public final class RoutineEditorScreen extends BaseScreen {
             LinearLayout empty = ui.card();
             empty.addView(ui.text(
                     replacementMode
-                            ? "현재 운동 Family의 variant가 없습니다."
-                            : "조건에 맞는 운동 Family가 없습니다.",
+                            ? "현재 운동군에 선택 가능한 세부 동작이 없습니다."
+                            : "조건에 맞는 운동군이 없습니다.",
                     14,
                     FitnessUi.COLOR_MUTED,
                     false
@@ -433,7 +444,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             LinearLayout info = new LinearLayout(host.activity());
             info.setOrientation(LinearLayout.VERTICAL);
             TextView name = ui.text(family.displayName(), 15,
-                    selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
+                    selected ? ui.selectedInk() : ui.ink(), true);
             LinearLayout nameRow = new LinearLayout(host.activity());
             nameRow.setOrientation(LinearLayout.HORIZONTAL);
             nameRow.setGravity(Gravity.CENTER_VERTICAL);
@@ -446,7 +457,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                 String muscleLabel = ExercisePrimaryMuscleLabel.forPreset(family.presets.get(0));
                 if (!muscleLabel.isEmpty()) {
                     TextView muscle = ui.text(muscleLabel, 12,
-                            selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED,
+                            selected ? ui.selectedInk() : ui.inkMuted(),
                             false);
                     muscle.setPadding(ui.dp(8), 0, 0, 0);
                     nameRow.addView(muscle);
@@ -457,7 +468,7 @@ public final class RoutineEditorScreen extends BaseScreen {
                 TextView meta = ui.text(
                         family.presets.size() + "개의 하위 종목",
                         12,
-                        selected ? FitnessUi.COLOR_INVERSE_MUTED : FitnessUi.COLOR_MUTED,
+                        selected ? ui.selectedInk() : ui.inkMuted(),
                         false
                 );
                 meta.setPadding(0, ui.dp(4), 0, 0);
@@ -482,7 +493,7 @@ public final class RoutineEditorScreen extends BaseScreen {
             }
             card.addView(image, exercisePreviewParams(ui));
             TextView check = ui.text(selected ? "✓" : "", 16,
-                    selected ? FitnessUi.COLOR_INVERSE_TEXT : ui.inkMuted(), true);
+                    selected ? ui.selectedInk() : ui.inkMuted(), true);
             check.setGravity(Gravity.CENTER);
             card.addView(check, new LinearLayout.LayoutParams(ui.dp(28), ui.dp(28)));
             ui.pressFeedback(card);

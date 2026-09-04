@@ -96,7 +96,7 @@ public final class CardioSessionScreen extends BaseScreen {
         LinearLayout card = ui.card();
         card.setGravity(Gravity.CENTER_HORIZONTAL);
         card.addView(ui.caption(
-                CardioRepository.STATUS_PAUSED.equals(snapshot.status) ? "PAUSED" : "TRACKING",
+                CardioRepository.STATUS_PAUSED.equals(snapshot.status) ? "일시정지" : "기록 중",
                 CardioRepository.STATUS_PAUSED.equals(snapshot.status)
                         ? FitnessUi.COLOR_WARNING : FitnessUi.COLOR_POSITIVE
         ));
@@ -119,7 +119,7 @@ public final class CardioSessionScreen extends BaseScreen {
         tile.setOrientation(LinearLayout.VERTICAL);
         tile.setPadding(ui.dp(14), ui.dp(14), ui.dp(14), ui.dp(14));
         tile.setBackground(ui.borderDrawable(ui.surface(), ui.border(), ui.dp(16)));
-        ui.applyDepth(tile, 4);
+        ui.applyDepth(tile, FitnessUi.DEPTH_EMPHASIS_DP);
         tile.addView(ui.caption(label, FitnessUi.COLOR_MUTED));
         value.setPadding(0, ui.dp(6), 0, 0);
         tile.addView(value);

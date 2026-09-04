@@ -43,6 +43,28 @@ public final class MainActivityDiningOutTabTest {
     }
 
     @Test
+    public void diningOutValidationShowsInlineErrorAndClearsAfterFieldEdit() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+
+                clickText(root, "외식만 기록");
+
+                TextView error = findTextContaining(root, "먹은 메뉴를 입력하세요.");
+                assertNotNull(error);
+                assertEquals(View.VISIBLE, error.getVisibility());
+
+                EditText menu = findEditTextWithContentDescription(root, "외식 메뉴 1 이름");
+                assertNotNull(menu);
+                menu.setText("테스트 메뉴");
+                assertEquals(View.GONE, error.getVisibility());
+            });
+        }
+    }
+    @Test
     public void diningOutTabSeparatesStoreAndMenuAndSavesTheEntry() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {

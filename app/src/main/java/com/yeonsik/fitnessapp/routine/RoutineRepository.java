@@ -171,16 +171,111 @@ public final class RoutineRepository {
     }
 
     public void renameDefaultRoutine(String name) {
-        String routineId = ensureDefaultRoutine();
+        renameRoutine(ensureDefaultRoutine(), name);
+    }
+
+    public boolean renameRoutine(String routineId, String name) {
+        if (!ownsRoutine(routineId)) {
+            return false;
+        }
         ContentValues values = new ContentValues();
         values.put("name", emptyToDefault(name, DEFAULT_ROUTINE_NAME));
         values.put("updated_at", now());
-        db().update(
+        return db().update(
                 "routines",
                 values,
                 "id = ? AND user_id = ? AND deleted_at IS NULL",
                 new String[]{routineId, userId}
-        );
+        ) > 0;
+    }
+
+    /**
+     * Copies only the routine definition. Workout records and set history remain independent
+     * snapshots and are never copied into the new routine.
+     */
+    public String copyRoutine(String sourceRoutineId, String name) {
+        if (!canCreateRoutine() || !ownsRoutine(sourceRoutineId)) {
+            return null;
+        }
+
+        String sourceName = routineName(sourceRoutineId);
+        String targetId = newId();
+        String now = now();
+        SQLiteDatabase database = db();
+        database.beginTransaction();
+        try {
+            ContentValues routineValues = baseValues(targetId, now);
+            routineValues.put("name", emptyToDefault(name, sourceName + " 복사"));
+            routineValues.put("is_default", 0);
+            database.insertOrThrow("routines", null, routineValues);
+
+            try (Cursor cursor = database.rawQuery(
+                    "SELECT exercise_id, name_ko, ui_part, primary_sub_part, equipment, " +
+                            "record_type, family_id, preset_id, canonical_variant_key, " +
+                            "visual_variant_key, order_index " +
+                            "FROM routine_exercises WHERE routine_id = ? AND user_id = ? " +
+                            "AND deleted_at IS NULL ORDER BY order_index, created_at",
+                    new String[]{sourceRoutineId, userId})) {
+                while (cursor.moveToNext()) {
+                    ContentValues exerciseValues = baseValues(newId(), now);
+                    exerciseValues.put("routine_id", targetId);
+                    exerciseValues.put("exercise_id", cursor.getString(0));
+                    exerciseValues.put("name_ko", cursor.getString(1));
+                    exerciseValues.put("ui_part", cursor.getString(2));
+                    exerciseValues.put("primary_sub_part", cursor.getString(3));
+                    exerciseValues.put("equipment", cursor.getString(4));
+                    exerciseValues.put("record_type", cursor.getString(5));
+                    putNullable(exerciseValues, "family_id", cursor.getString(6));
+                    putNullable(exerciseValues, "preset_id", cursor.getString(7));
+                    putNullable(exerciseValues, "canonical_variant_key", cursor.getString(8));
+                    putNullable(exerciseValues, "visual_variant_key", cursor.getString(9));
+                    exerciseValues.put("order_index", cursor.getInt(10));
+                    database.insertOrThrow("routine_exercises", null, exerciseValues);
+                }
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        activeRoutineId = targetId;
+        return targetId;
+    }
+
+    /**
+     * Soft-deletes a routine definition and its exercises without touching completed workouts.
+     */
+    public boolean deleteRoutine(String routineId) {
+        if (!ownsRoutine(routineId)) {
+            return false;
+        }
+        String now = now();
+        ContentValues values = new ContentValues();
+        values.put("deleted_at", now);
+        values.put("updated_at", now);
+        SQLiteDatabase database = db();
+        database.beginTransaction();
+        int updated;
+        try {
+            database.update(
+                    "routine_exercises",
+                    values,
+                    "routine_id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{routineId, userId}
+            );
+            updated = database.update(
+                    "routines",
+                    values,
+                    "id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{routineId, userId}
+            );
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        if (routineId.equals(activeRoutineId)) {
+            activeRoutineId = null;
+        }
+        return updated > 0;
     }
 
     public RoutineExerciseInstance addToDefaultRoutine(RoutineExercise exercise) {

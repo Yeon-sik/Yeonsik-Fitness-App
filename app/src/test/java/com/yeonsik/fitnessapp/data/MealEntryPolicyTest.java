@@ -79,10 +79,12 @@ public final class MealEntryPolicyTest {
                 MealEntryPolicy.previewDiningOutTitle("강남식당", "강남점", "제육볶음"));
         assertEquals("강남식당", MealEntryPolicy.requireDiningOutStoreName(" 강남식당 "));
         assertEquals("제육볶음", MealEntryPolicy.requireDiningOutMenuName(" 제육볶음 "));
-        assertThrows(IllegalArgumentException.class,
+        IllegalArgumentException storeError = assertThrows(IllegalArgumentException.class,
                 () -> MealEntryPolicy.requireDiningOutStoreName("   "));
-        assertThrows(IllegalArgumentException.class,
+        assertEquals("가게 명을 입력하세요.", storeError.getMessage());
+        IllegalArgumentException menuError = assertThrows(IllegalArgumentException.class,
                 () -> MealEntryPolicy.requireDiningOutMenuName(""));
+        assertEquals("먹은 메뉴를 입력하세요.", menuError.getMessage());
     }
 
     @Test

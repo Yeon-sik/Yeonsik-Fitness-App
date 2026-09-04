@@ -3,11 +3,11 @@ package com.yeonsik.fitnessapp.ui;
 import android.app.Activity;
 import android.text.Editable;
 import android.text.TextWatcher;
-import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.NutrientCode;
 import com.yeonsik.fitnessapp.data.NutritionCalculator;
@@ -27,13 +27,16 @@ import java.util.Map;
 final class NutritionInputSection {
     private final FitnessUi ui;
     private final Activity activity;
+    private final FormSystem forms;
     private final Map<String, EditText> requiredInputs = new LinkedHashMap<>();
     private final Map<String, EditText> optionalInputs = new LinkedHashMap<>();
+    private final Map<String, TextView> errorViews = new LinkedHashMap<>();
     private final LinearLayout container;
 
     NutritionInputSection(FitnessUi ui, Activity activity) {
         this.ui = ui;
         this.activity = activity;
+        this.forms = new FormSystem(ui, activity);
         this.container = column();
         build();
     }
@@ -49,23 +52,37 @@ final class NutritionInputSection {
      */
     NutritionProfile profile() {
         NutritionProfile.Builder builder = NutritionProfile.builder();
+        clearErrors();
         for (Map.Entry<String, EditText> entry : requiredInputs.entrySet()) {
             String key = entry.getKey();
             String raw = FitnessUi.inputText(entry.getValue()).trim();
-            if (raw.isEmpty()) {
-                throw new IllegalArgumentException(
-                        NutritionProfile.labelOf(key) + "은(는) 필수 입력입니다."
-                );
+            try {
+                if (raw.isEmpty()) {
+                    throw new IllegalArgumentException(
+                            NutritionRow.displayLabel(key) + "은(는) 필수 입력입니다."
+                    );
+                }
+                builder.value(key, parse(key, raw));
+            } catch (IllegalArgumentException error) {
+                showError(key, error.getMessage());
+                focusInput(key);
+                throw error;
             }
-            builder.value(key, parse(key, raw));
         }
         for (Map.Entry<String, EditText> entry : optionalInputs.entrySet()) {
+            String key = entry.getKey();
             String raw = FitnessUi.inputText(entry.getValue()).trim();
             if (raw.isEmpty()) {
                 // 비워 두면 키를 넣지 않는다. 0으로 채우면 "모름"이 사라진다.
                 continue;
             }
-            builder.value(entry.getKey(), parse(entry.getKey(), raw));
+            try {
+                builder.value(key, parse(key, raw));
+            } catch (IllegalArgumentException error) {
+                showError(key, error.getMessage());
+                focusInput(key);
+                throw error;
+            }
         }
         return builder.build();
     }
@@ -112,20 +129,17 @@ final class NutritionInputSection {
     }
 
     private void build() {
-        ui.addAll(container, ui.text("필수 영양성분", 14, FitnessUi.COLOR_TEXT, true));
-        addFieldGrid(container, NutritionProfile.PRIMARY_DISPLAY_ORDER, requiredInputs);
+        ui.addAll(container, forms.sectionTitle("필수 영양성분"));
+        addFieldRows(container, NutritionProfile.PRIMARY_DISPLAY_ORDER, requiredInputs, true);
 
-        ui.addAll(container, ui.text(
-                "권고 영양성분 · 비워 두면 0이 아니라 '모름'으로 저장됩니다",
-                13,
-                FitnessUi.COLOR_MUTED,
-                false
+        ui.addAll(container, forms.helper(
+                "권고 영양성분 · 비워 두면 0이 아니라 '모름'으로 저장됩니다"
         ));
-        addFieldGrid(container, NutritionProfile.RECOMMENDED_TYPED_KEYS, optionalInputs);
+        addFieldRows(container, NutritionProfile.RECOMMENDED_TYPED_KEYS, optionalInputs, false);
 
         LinearLayout micronutrients = column();
         micronutrients.setVisibility(View.GONE);
-        Button toggle = ui.button("미네랄·비타민 입력 열기", false, null);
+        Button toggle = ui.secondaryButton("미네랄·비타민 입력 열기", null);
         toggle.setOnClickListener(v -> {
             boolean opening = micronutrients.getVisibility() == View.GONE;
             micronutrients.setVisibility(opening ? View.VISIBLE : View.GONE);
@@ -138,89 +152,81 @@ final class NutritionInputSection {
     }
 
     private void addMicronutrientGroup(LinearLayout parent, String group, String title) {
-        ui.addAll(parent, ui.text(title, 14, FitnessUi.COLOR_TEXT, true));
+        ui.addAll(parent, forms.sectionTitle(title));
         List<String> keys = new ArrayList<>();
         for (NutrientCode nutrient : NutrientCode.group(group)) {
             keys.add(nutrient.code);
         }
-        addFieldGrid(parent, keys, optionalInputs);
+        addFieldRows(parent, keys, optionalInputs, false);
     }
 
-    private void addFieldGrid(
+    /** Adds one compact row per nutrient so the form is vertically scannable. */
+    private void addFieldRows(
             LinearLayout parent,
             List<String> keys,
-            Map<String, EditText> target
+            Map<String, EditText> target,
+            boolean required
     ) {
-        for (int index = 0; index < keys.size(); index += 2) {
-            LinearLayout row = new LinearLayout(activity);
-            row.setOrientation(LinearLayout.HORIZONTAL);
-            row.setGravity(Gravity.CENTER_VERTICAL);
-            row.setBaselineAligned(false);
-            row.setClipChildren(false);
-            row.setClipToPadding(false);
-
-            View first = fieldTile(keys.get(index), target);
-            row.addView(first, cellParams(true));
-
-            if (index + 1 < keys.size()) {
-                View second = fieldTile(keys.get(index + 1), target);
-                row.addView(second, cellParams(false));
-            } else {
-                View spacer = new View(activity);
-                row.addView(spacer, cellParams(false));
-            }
-            parent.addView(row, new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-            ));
+        for (String key : keys) {
+            NutritionRow row = forms.nutrientInputRow(
+                    NutritionRow.displayLabel(key) + (required ? " *" : ""),
+                    NutritionRow.displayUnit(key),
+                    ""
+            );
+            EditText input = row.inputField();
+            input.setContentDescription(
+                    NutritionRow.displayLabel(key) + (required ? " 필수" : " 선택")
+            );
+            target.put(key, input);
+            LinearLayout field = forms.column();
+            field.addView(row.view(), ui.fullWidthParams(0));
+            TextView error = forms.error("");
+            error.setPadding(0, 0, 0, ui.dp(2));
+            errorViews.put(key, error);
+            final String errorKey = key;
+            input.addTextChangedListener(new TextWatcher() {
+                @Override
+                public void beforeTextChanged(CharSequence text, int start, int count, int after) {
+                }
+                @Override
+                public void onTextChanged(CharSequence text, int start, int before, int count) {
+                    clearError(errorKey);
+                }
+                @Override
+                public void afterTextChanged(Editable editable) {
+                }
+            });
+            field.addView(error, ui.fullWidthParams(0));
+            parent.addView(field, ui.fullWidthParams(0));
         }
     }
 
-    private View fieldTile(String key, Map<String, EditText> target) {
-        LinearLayout tile = column();
-        tile.setMinimumHeight(ui.dp(82));
-        tile.setPadding(ui.dp(10), ui.dp(6), ui.dp(10), ui.dp(4));
-        tile.setClipChildren(false);
-        tile.setClipToPadding(false);
-        tile.setBackground(ui.flatSurfaceDrawable(ui.dp(12)));
-
-        String unit = NutrientCode.displayUnit(NutritionProfile.unitOf(key));
-        android.widget.TextView labelView = ui.text(
-                NutritionProfile.labelOf(key) + " · " + unit,
-                10,
-                FitnessUi.COLOR_MUTED,
-                true
-        );
-        labelView.setIncludeFontPadding(false);
-        tile.addView(labelView);
-
-        EditText input = ui.decimalInput("내용량", "");
-        input.setBackground(null);
-        input.setMinHeight(ui.dp(48));
-        input.setMinimumHeight(ui.dp(48));
-        input.setPadding(0, ui.dp(2), 0, 0);
-        input.setGravity(Gravity.CENTER_VERTICAL);
-        input.setIncludeFontPadding(false);
-        target.put(key, input);
-        tile.addView(input, new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT
-        ));
-        return tile;
+    private void showError(String key, String message) {
+        TextView error = errorViews.get(key);
+        if (error != null) {
+            forms.showError(error, message);
+        }
     }
-
-    private LinearLayout.LayoutParams cellParams(boolean first) {
-        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                0,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1f
-        );
-        int gap = ui.dp(4);
-        // Keep the rounded bottom stroke inside the row instead of clipping it at the row edge.
-        params.setMargins(first ? 0 : gap, ui.dp(4), first ? gap : 0, ui.dp(2));
-        return params;
+    private void clearError(String key) {
+        TextView error = errorViews.get(key);
+        if (error != null) {
+            forms.clearError(error);
+        }
     }
-
+    private void clearErrors() {
+        for (TextView error : errorViews.values()) {
+            forms.clearError(error);
+        }
+    }
+    private void focusInput(String key) {
+        EditText input = requiredInputs.get(key);
+        if (input == null) {
+            input = optionalInputs.get(key);
+        }
+        if (input != null) {
+            input.requestFocus();
+        }
+    }
     private LinearLayout column() {
         LinearLayout layout = new LinearLayout(activity);
         layout.setOrientation(LinearLayout.VERTICAL);
@@ -233,12 +239,12 @@ final class NutritionInputSection {
             value = Double.parseDouble(raw);
         } catch (NumberFormatException error) {
             throw new IllegalArgumentException(
-                    NutritionProfile.labelOf(key) + " 값이 숫자가 아닙니다."
+                    NutritionRow.displayLabel(key) + " 값이 숫자가 아닙니다."
             );
         }
         if (value < 0) {
             throw new IllegalArgumentException(
-                    NutritionProfile.labelOf(key) + "은(는) 음수가 될 수 없습니다."
+                    NutritionRow.displayLabel(key) + "은(는) 음수가 될 수 없습니다."
             );
         }
         return value;
@@ -248,7 +254,7 @@ final class NutritionInputSection {
     static List<String> requiredLabels() {
         List<String> labels = new ArrayList<>();
         for (String key : NutritionProfile.PRIMARY_DISPLAY_ORDER) {
-            labels.add(NutritionProfile.labelOf(key));
+            labels.add(NutritionRow.displayLabel(key));
         }
         return labels;
     }

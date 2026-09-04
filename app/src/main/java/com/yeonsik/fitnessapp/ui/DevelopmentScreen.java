@@ -29,19 +29,25 @@ public final class DevelopmentScreen extends BaseScreen {
         PaperAdviceAssessment paperAssessment = host.developmentRepository()
                 .buildPaperAdviceAssessment(referenceDate);
 
-        screenHeader("NEXT ACTION", "발전");
+        screenHeader("다음 행동", "발전");
         add(heroCard());
 
+        section("기록된 사실");
         section("신체 정보", "수정", host::showDevelopmentBodyProfileDialog);
         add(bodyProfileCard(report));
-
         section("발전 목표", "수정", host::showDevelopmentGoalDialog);
         add(goalCard(report));
 
-        section("우선 행동");
+        section("계산된 추세");
+        add(calculatedTrendCard(report, paperAssessment.input));
+        add(trainingEvidenceCard(report));
+        add(nutritionRecoveryCard(report));
+        add(paperReadinessCard(paperAssessment.input));
+
+        section("검토 후보");
         if (report.insights.isEmpty()) {
             emptyState(
-                    "현재 기록에서 추가로 경고할 우선 행동이 없습니다.",
+                "현재 기록에서 추가로 경고할 우선 행동이 없습니다.",
                     "운동, 체중, 식사, 체크인을 계속 남기면 같은 기준으로 다시 점검합니다."
             );
         } else {
@@ -49,18 +55,9 @@ public final class DevelopmentScreen extends BaseScreen {
                 add(insightCard(index + 1, report.insights.get(index)));
             }
         }
-
-        section("훈련 부위 근거");
-        add(trainingEvidenceCard(report));
-
-        section("영양·회복 근거");
-        add(nutritionRecoveryCard(report));
-
-        section("논문 기반 점검");
-        add(paperReadinessCard(paperAssessment.input));
         if (paperAssessment.advice.isEmpty()) {
             emptyState(
-                    "현재 적용 가능한 논문 규칙에서 조정 후보가 없습니다.",
+                "현재 적용 가능한 논문 규칙에서 조정 후보가 없습니다.",
                     "준비도 카드에서 기록이 부족한 항목은 정상 판정이 아니라 아직 판단하지 않은 항목입니다."
             );
         } else {
@@ -76,19 +73,20 @@ public final class DevelopmentScreen extends BaseScreen {
     private View heroCard() {
         FitnessUi ui = ui();
         LinearLayout card = ui.heroCard();
-        card.addView(ui.caption("RECENT RECORDS", FitnessUi.COLOR_FLOW_MUTED));
+        card.addView(ui.caption("최근 기록", ui.heroMuted()));
         TextView title = ui.text(
                 "최근 기록으로 지금 할 일을 정합니다",
                 23,
-                FitnessUi.COLOR_FLOW_TEXT,
+                ui.heroInk(),
                 true
         );
         title.setPadding(0, ui.dp(10), 0, 0);
         card.addView(title);
         TextView helper = ui.text(
-                "의료 진단이나 영양 처방이 아니라, 저장된 기록의 우선 행동과 논문 기반 검토 후보를 분리해 제시합니다.",
+                "저장된 사실, 기록에서 계산한 추세, 앱이 제안하는 검토 후보를 분리해 보여줍니다. "
+                        + "의료 진단이나 영양 처방은 제공하지 않습니다.",
                 13,
-                FitnessUi.COLOR_FLOW_MUTED,
+                ui.heroMuted(),
                 false
         );
         helper.setPadding(0, ui.dp(8), 0, 0);
@@ -97,10 +95,58 @@ public final class DevelopmentScreen extends BaseScreen {
         return card;
     }
 
+    private View calculatedTrendCard(DevelopmentReport report, PaperAdviceInput input) {
+        FitnessUi ui = ui();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "기록에서 계산한 변화", "계산값");
+
+        String weightValue = input == null || input.weeklyWeightChangePct == null
+                ? "비교 대기"
+                : signedPercent(input.weeklyWeightChangePct);
+        String weightMeta = input == null || input.weeklyWeightChangePct == null
+                ? "연속된 두 7일 구간이 아직 준비되지 않음"
+                : "최근 " + weightWindowLabel(
+                input.currentWeight7DayAverageKg,
+                input.currentWeightRecordedDays
+        ) + " · 이전 " + weightWindowLabel(
+                input.previousWeight7DayAverageKg,
+                input.previousWeightRecordedDays
+        );
+
+        List<View> rows = new ArrayList<>();
+        rows.add(ui.recordListRow(
+                "운",
+                report.currentWeekCompletedWorkoutSessions + "회",
+                report.currentWeekStart + " ~ " + report.referenceDate + " · 완료 세션",
+                null
+        ));
+        rows.add(ui.recordListRow("체", weightValue, weightMeta, null));
+        rows.add(ui.recordListRow(
+                "범",
+                report.dataCoverage.daysWithAnyData + " / "
+                        + report.dataCoverage.windowDays + "일",
+                "최근 " + report.dataCoverage.windowDays + "일 · 기록이 있는 날짜",
+                null
+        ));
+        card.addView(ui.rowsCard(rows), ui.fullWidthParams(ui.dp(10)));
+
+        TextView helper = ui.text(
+                "완료 기록만 집계하며, 진행 중인 세션은 과거 추세에 포함하지 않습니다. "
+                        + "체중 비교가 대기 중이면 숫자를 추정하지 않습니다.",
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        );
+        helper.setPadding(0, ui.dp(12), 0, 0);
+        helper.setLineSpacing(ui.dp(3), 1f);
+        card.addView(helper);
+        return card;
+    }
+
     private View paperReadinessCard(PaperAdviceInput input) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
-        ui.cardHeader(card, "적용 준비도", "로컬 기록만 사용");
+        ui.cardHeader(card, "적용 준비도", "계산값 · 로컬 기록만 사용");
 
         String proteinValue = input.proteinGPerKg == null
                 ? "계산 대기"
@@ -304,7 +350,7 @@ public final class DevelopmentScreen extends BaseScreen {
     private View goalCard(DevelopmentReport report) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
-        ui.cardHeader(card, "이번 집중", null);
+        ui.cardHeader(card, "이번 집중", "저장 목표");
 
         if (!report.goal.isConfigured()) {
             TextView empty = ui.text(
@@ -399,7 +445,7 @@ public final class DevelopmentScreen extends BaseScreen {
         ui.cardHeader(
                 card,
                 "최근 14일 완료 세트",
-                report.recentWindowStart + " ~ " + report.recentWindowEnd
+                report.recentWindowStart + " ~ " + report.recentWindowEnd + " · 계산값"
         );
 
         List<View> rows = new ArrayList<>();
@@ -434,7 +480,7 @@ public final class DevelopmentScreen extends BaseScreen {
     private View nutritionRecoveryCard(DevelopmentReport report) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
-        ui.cardHeader(card, "최근 14일 기록", null);
+        ui.cardHeader(card, "최근 14일 기록", "계산값 · 저장 기록");
 
         List<View> rows = new ArrayList<>();
         rows.add(ui.recordListRow("식", report.mealRecordedDays + "일", "식사 기록일", null));
@@ -458,7 +504,8 @@ public final class DevelopmentScreen extends BaseScreen {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
         DevelopmentReport.DataCoverage coverage = report.dataCoverage;
-        ui.cardHeader(card, "기록 커버리지", coverage.daysWithAnyData + " / " + coverage.windowDays + "일");
+        ui.cardHeader(card, "기록 커버리지",
+                coverage.daysWithAnyData + " / " + coverage.windowDays + "일 · 계산 범위");
 
         double ratio = coverage.windowDays == 0
                 ? 0d

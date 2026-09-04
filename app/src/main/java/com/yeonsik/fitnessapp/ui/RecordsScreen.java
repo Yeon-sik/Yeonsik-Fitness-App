@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
+import android.graphics.Color;
+import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -13,6 +15,7 @@ import com.yeonsik.fitnessapp.state.FitnessScreen;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -60,48 +63,133 @@ public final class RecordsScreen extends BaseScreen {
         List<FitnessRepository.BodyMetricEntry> bodyMetrics =
                 repository().bodyMetricEntriesForDate(selectedDate);
         List<FitnessRepository.MealEntry> meals = repository().mealEntriesForDate(selectedDate);
-        if (sessions.isEmpty() && bodyMetrics.isEmpty() && meals.isEmpty()) {
-            emptyState("선택한 날짜의 기록이 없습니다.", "운동, 체중, 식사를 기록하면 여기에 모입니다.");
+        boolean selectedDateEmpty = sessions.isEmpty() && bodyMetrics.isEmpty() && meals.isEmpty();
+        if (selectedDateEmpty) {
+            emptyState("선택한 날짜에 기록이 없습니다.", "달력에서 다른 날짜를 선택하세요.");
+        } else {
+            if (!sessions.isEmpty()) {
+                section("운동 기록");
+                renderSessionRecords(sessions);
+            }
+
+            if (!bodyMetrics.isEmpty()) {
+                section("체중 기록");
+                List<View> weightRows = new ArrayList<>();
+                for (FitnessRepository.BodyMetricEntry metric : bodyMetrics) {
+                    weightRows.add(weightRow(metric));
+                }
+                add(ui.rowsCard(weightRows));
+            }
+
+            if (!meals.isEmpty()) {
+                section("식사 기록", "식단 열기", () ->
+                        host.openMealManagement(selectedDate, FitnessScreen.RECORDS));
+                List<View> mealRows = new ArrayList<>();
+                for (FitnessRepository.MealEntry meal : meals) {
+                    String mealTitle = meal.isDiningOut()
+                            ? meal.storeName + " - " + meal.menuName
+                            : meal.previewTitle;
+                    String accessibilityLabel = meal.isDiningOut()
+                            ? mealTitle + ", " + meal.previewSubtitle()
+                            : meal.previewAccessibilityLabel();
+                    String editState = meal.timeEditable
+                            ? "시간 수정 가능"
+                            : "시간 읽기 전용";
+                    View row = ui.recordListRow(
+                            "식",
+                            mealTitle,
+                            meal.previewSubtitle() + " · " + editState,
+                            v -> host.openMealManagement(selectedDate, FitnessScreen.RECORDS)
+                    );
+                    row.setContentDescription(accessibilityLabel + ". " + editState
+                            + ". 탭하여 식단 관리를 엽니다.");
+                    mealRows.add(row);
+                }
+                add(ui.rowsCard(mealRows));
+            }
+        }
+
+        renderWeightTrend(selectedDateEmpty);
+    }
+
+    private void renderWeightTrend(boolean selectedDateEmpty) {
+        FitnessUi ui = ui();
+        List<FitnessRepository.BodyMetricEntry> entries = new ArrayList<>(
+                repository().bodyMetricEntriesForDate(null)
+        );
+        Collections.reverse(entries);
+        if (entries.isEmpty()) {
+            if (!selectedDateEmpty) {
+                section("체중 변화");
+                emptyState("체중 기록이 없습니다.", "체중을 기록하면 날짜별 목록과 변화를 확인할 수 있습니다.");
+            }
             return;
         }
 
-        if (!sessions.isEmpty()) {
-            section("운동");
-            renderSessionRecords(sessions);
+        section("체중 변화");
+        FitnessRepository.BodyMetricEntry first = entries.get(0);
+        FitnessRepository.BodyMetricEntry latest = entries.get(entries.size() - 1);
+        List<String> weightDates = new ArrayList<>();
+        for (FitnessRepository.BodyMetricEntry entry : entries) {
+            weightDates.add(entry.date);
+        }
+        String period = RecordsAnalysis.trendPeriodLabel(weightDates, null);
+        boolean hasTrend = RecordsAnalysis.hasEnoughTrendPoints(
+                entries.size(),
+                RecordsAnalysis.TrendCurrentState.NONE
+        );
+        LinearLayout card = ui.card();
+        ui.cardHeader(
+                card,
+                "체중 추이",
+                period.isEmpty() ? "최근 " + entries.size() + "회 · kg" : period + " · kg"
+        );
+
+        if (hasTrend) {
+            List<Double> values = new ArrayList<>();
+            for (FitnessRepository.BodyMetricEntry entry : entries) {
+                values.add(entry.weightKg);
+            }
+            card.addView(
+                    ui.trendChart(
+                            values,
+                            "kg",
+                            RecordsAnalysis.TrendScalePolicy.RANGE_PADDED
+                    ),
+                    ui.trendChartParams(ui.dp(10))
+            );
+        } else {
+            List<View> rows = new ArrayList<>();
+            for (FitnessRepository.BodyMetricEntry entry : entries) {
+                rows.add(ui.recordListRow(
+                        "체",
+                        FitnessUi.trimDouble(entry.weightKg) + "kg",
+                        entry.date,
+                        null
+                ));
+            }
+            card.addView(ui.rowsCard(rows), ui.fullWidthParams(ui.dp(10)));
         }
 
-        if (!bodyMetrics.isEmpty()) {
-            section("체중");
-            List<View> weightRows = new ArrayList<>();
-            for (FitnessRepository.BodyMetricEntry metric : bodyMetrics) {
-                weightRows.add(weightRow(metric));
-            }
-            add(ui.rowsCard(weightRows));
-        }
-
-        if (!meals.isEmpty()) {
-            section("식단", "상세 보기", () ->
-                    host.openMealManagement(selectedDate, FitnessScreen.RECORDS));
-            List<View> mealRows = new ArrayList<>();
-            for (FitnessRepository.MealEntry meal : meals) {
-                String mealTitle = meal.isDiningOut()
-                        ? meal.storeName + " - " + meal.menuName
-                        : meal.previewTitle;
-                String accessibilityLabel = meal.isDiningOut()
-                        ? mealTitle + ", " + meal.previewSubtitle()
-                        : meal.previewAccessibilityLabel();
-                View row = ui.recordListRow(
-                        "식",
-                        mealTitle,
-                        meal.previewSubtitle(),
-                        v -> host.openMealManagement(selectedDate, FitnessScreen.RECORDS)
-                );
-                row.setContentDescription(accessibilityLabel
-                        + ". 탭하여 식단 관리를 엽니다.");
-                mealRows.add(row);
-            }
-            add(ui.rowsCard(mealRows));
-        }
+        card.addView(ui.keyValue("기간", period.isEmpty() ? "기록 날짜 없음" : period));
+        card.addView(ui.keyValue(
+                entries.size() < 2 ? "변화" : "첫 기록 → 최근",
+                entries.size() < 2
+                        ? "이전 기록 없음"
+                        : RecordsAnalysis.formatSignedDelta(first.weightKg, latest.weightKg, "kg")
+        ));
+        TextView helper = ui.text(
+                hasTrend
+                        ? "최근 저장 기록만으로 계산한 단순 변화입니다."
+                        : "체중 기록이 3개 이상 쌓이면 추세 차트를 표시합니다. 현재는 숫자 목록을 우선합니다.",
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        );
+        helper.setPadding(0, ui.dp(10), 0, 0);
+        helper.setLineSpacing(ui.dp(3), 1f);
+        card.addView(helper);
+        add(card, ui.fullWidthParams(ui.dp(10)));
     }
 
     private View calendar() {
@@ -178,6 +266,7 @@ public final class RecordsScreen extends BaseScreen {
 
         DaySummary summary = summarize(date);
         boolean selected = date.toString().equals(selectedDate);
+        boolean today = date.toString().equals(host.today());
         cell.setSelected(selected);
         List<String> recordTypes = new ArrayList<>();
         if (summary.hasWorkout) {
@@ -197,39 +286,51 @@ public final class RecordsScreen extends BaseScreen {
         }
         cell.setContentDescription(
                 date.format(DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN))
-                        + ", " + recordDescription + (selected ? ", 선택됨" : "")
+                        + ", " + recordDescription
+                        + (today ? ", 오늘" : "")
+                        + (selected ? ", 선택됨" : "")
         );
-        ui.styleSelection(cell, selected, ui.dp(10));
+        int strokeColor = selected
+                ? ui.pastelBlue()
+                : today ? ui.border() : Color.TRANSPARENT;
+        cell.setBackground(ui.rippleDrawable(
+                selected ? ui.selectedSurface() : Color.TRANSPARENT,
+                strokeColor,
+                ui.dp(10),
+                ui.rippleOnSurface()
+        ));
+        ui.applyDepth(cell, selected ? FitnessUi.DEPTH_SURFACE_DP : FitnessUi.DEPTH_FLAT_DP);
         ui.pressFeedback(cell);
         TextView day = ui.num(String.valueOf(date.getDayOfMonth()), 14,
-                selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_TEXT, true);
-        if (selected) {
-            day.setTextColor(ui.onVibrant());
-        }
+                selected ? ui.selectedInk() : FitnessUi.COLOR_TEXT, true);
         day.setGravity(Gravity.CENTER);
         cell.addView(day, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(21)));
 
         LinearLayout markers = new LinearLayout(host.activity());
         markers.setOrientation(LinearLayout.HORIZONTAL);
         markers.setGravity(Gravity.CENTER);
-        addMarker(markers, summary.hasMeal, "●",
-                selected ? ui.onVibrant() : ui.hologramAccentColor(2));
-        addMarker(markers, summary.hasWeight, "■",
-                selected ? ui.onVibrant() : ui.hologramAccentColor(1));
-        addMarker(markers, summary.hasWorkout, "▲",
-                selected ? ui.onVibrant() : ui.hologramAccentColor(0));
+        int markerLimit = RecordsAnalysis.markerCount(
+                summary.hasWorkout,
+                summary.hasWeight,
+                summary.hasMeal
+        );
+        int renderedMarkers = 0;
+        renderedMarkers = addMarker(markers, summary.hasMeal, "●",
+                selected ? ui.selectedInk() : ui.chartColor(3), renderedMarkers, markerLimit);
+        renderedMarkers = addMarker(markers, summary.hasWeight, "■",
+                selected ? ui.selectedInk() : ui.chartColor(2), renderedMarkers, markerLimit);
+        renderedMarkers = addMarker(markers, summary.hasWorkout, "▲",
+                selected ? ui.selectedInk() : ui.chartColor(0), renderedMarkers, markerLimit);
         cell.addView(markers, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 ui.dp(12)
         ));
 
         TextView muscle = ui.text(summary.muscles, 9,
-                selected ? FitnessUi.COLOR_INVERSE_TEXT : FitnessUi.COLOR_MUTED, false);
-        if (selected) {
-            muscle.setTextColor(ui.onVibrantMuted());
-        }
+                selected ? ui.selectedInk() : FitnessUi.COLOR_MUTED, false);
         muscle.setGravity(Gravity.CENTER);
         muscle.setMaxLines(1);
+        muscle.setEllipsize(TextUtils.TruncateAt.END);
         cell.addView(muscle, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, ui.dp(15)));
         cell.setOnClickListener(v -> {
             selectedDate = date.toString();
@@ -238,9 +339,16 @@ public final class RecordsScreen extends BaseScreen {
         return cell;
     }
 
-    private void addMarker(LinearLayout row, boolean visible, String symbol, int color) {
-        if (!visible) {
-            return;
+    private int addMarker(
+            LinearLayout row,
+            boolean visible,
+            String symbol,
+            int color,
+            int renderedCount,
+            int markerLimit
+    ) {
+        if (!visible || renderedCount >= markerLimit) {
+            return renderedCount;
         }
         TextView marker = ui().text(symbol, 9, color, true);
         marker.setGravity(Gravity.CENTER);
@@ -248,6 +356,7 @@ public final class RecordsScreen extends BaseScreen {
         row.addView(marker, new LinearLayout.LayoutParams(ui().dp(10), ui().dp(12)));
         View gap = new View(host.activity());
         row.addView(gap, new LinearLayout.LayoutParams(ui().dp(2), ui().dp(1)));
+        return renderedCount + 1;
     }
 
     private void addCalendarLegend(LinearLayout card) {
@@ -256,9 +365,9 @@ public final class RecordsScreen extends BaseScreen {
         legend.setOrientation(LinearLayout.HORIZONTAL);
         legend.setGravity(Gravity.CENTER_VERTICAL);
         legend.setPadding(0, ui.dp(12), 0, 0);
-        legend.addView(ui.text("● 식단", 11, ui.hologramAccentColor(2), false), ui.fieldCellParams(true));
-        legend.addView(ui.text("■ 체중", 11, ui.hologramAccentColor(1), false), ui.fieldCellParams(false));
-        legend.addView(ui.text("▲ 운동", 11, ui.hologramAccentColor(0), false), ui.fieldCellParams(false));
+        legend.addView(ui.text("● 식단", 11, ui.chartColor(3), false), ui.fieldCellParams(true));
+        legend.addView(ui.text("■ 체중", 11, ui.chartColor(2), false), ui.fieldCellParams(false));
+        legend.addView(ui.text("▲ 운동", 11, ui.chartColor(0), false), ui.fieldCellParams(false));
         card.addView(legend);
     }
 
@@ -323,7 +432,11 @@ public final class RecordsScreen extends BaseScreen {
         if (!metric.memo.isEmpty()) {
             column.addView(ui.text(metric.memo, 12, FitnessUi.COLOR_MUTED, false));
         }
+        column.addView(ui.text("저장된 값 · 수정 가능", 11, FitnessUi.COLOR_TERTIARY, false));
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        row.setContentDescription(
+                FitnessUi.trimDouble(metric.weightKg) + "kg, 저장된 값, 수정 가능"
+        );
         row.addView(ui.textAction("수정", FitnessUi.COLOR_TERTIARY,
                 () -> host.showBodyMetricDialog(metric.date, metric.id)));
         return row;
@@ -334,9 +447,11 @@ public final class RecordsScreen extends BaseScreen {
      * 종목·세트 상세는 요약 화면에서 확인한다. 삭제는 카드 우측 액션으로 유지한다.
      */
     private void renderSessionRecords(List<FitnessRepository.SessionRecordEntry> sessions) {
+        List<View> rows = new ArrayList<>();
         for (FitnessRepository.SessionRecordEntry session : sessions) {
-            add(sessionSummaryCard(session));
+            rows.add(sessionSummaryCard(session));
         }
+        add(ui().rowsCard(rows));
     }
 
     private View sessionSummaryCard(FitnessRepository.SessionRecordEntry session) {
@@ -356,12 +471,16 @@ public final class RecordsScreen extends BaseScreen {
                 ? " · 평균 " + CardioMetrics.formatAverageHeartRate(averageHeartRateBpm) + "bpm"
                 : "";
 
-        LinearLayout card = ui.card();
+        LinearLayout row = new LinearLayout(host.activity());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setMinimumHeight(ui.dp(72));
+        row.setPadding(0, ui.dp(9), 0, ui.dp(9));
         if (!personalOsRecord) {
-            card.setClickable(true);
-            card.setFocusable(true);
-            ui.pressFeedback(card);
-            card.setOnClickListener(v -> {
+            row.setClickable(true);
+            row.setFocusable(true);
+            ui.pressFeedback(row);
+            row.setOnClickListener(v -> {
                 if (cardio != null) {
                     host.openCardioSummary(session.id);
                     return;
@@ -372,11 +491,7 @@ public final class RecordsScreen extends BaseScreen {
             });
         }
 
-        LinearLayout row = new LinearLayout(host.activity());
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-
-        row.addView(ui.vibrantGlyphCircle(cardioRecord ? "유" : "운", "session-" + session.id));
+        row.addView(ui.tonalGlyphCircle(cardioRecord ? "유" : "운"));
 
         LinearLayout column = new LinearLayout(host.activity());
         column.setOrientation(LinearLayout.VERTICAL);
@@ -403,10 +518,15 @@ public final class RecordsScreen extends BaseScreen {
             metaText = "총 볼륨 " + FitnessUi.formatVolume(metrics.totalVolumeKg)
                     + "kg · " + metrics.setCount + "세트";
         }
+        metaText += personalOsRecord ? " · 읽기 전용" : " · 저장된 기록";
         TextView meta = ui.text(metaText, 12, FitnessUi.COLOR_MUTED, false);
         meta.setPadding(0, ui.dp(2), 0, 0);
         column.addView(meta);
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        row.setContentDescription(
+                routineName + ", " + metaText
+                        + (personalOsRecord ? "" : ". 탭하여 상세 기록을 엽니다.")
+        );
 
         if (!personalOsRecord) {
             row.addView(ui.textAction("삭제", FitnessUi.COLOR_TERTIARY,
@@ -416,8 +536,7 @@ public final class RecordsScreen extends BaseScreen {
             row.addView(chevron);
         }
 
-        card.addView(row);
-        return card;
+        return row;
     }
 
 }

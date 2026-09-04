@@ -10,7 +10,7 @@ public final class PriceTraceSupabaseConfigStore extends SupabaseConfigStore {
         super(
                 context,
                 SupabaseStoreScope.PRICETRACE,
-                true,
+                AppSurfacePolicy.allowsManagedSupabaseDefaults(),
                 BuildConfig.PRICETRACE_SUPABASE_URL,
                 BuildConfig.PRICETRACE_SUPABASE_ANON_KEY
         );
