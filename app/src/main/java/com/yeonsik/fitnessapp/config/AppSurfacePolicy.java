@@ -35,10 +35,14 @@ public final class AppSurfacePolicy {
         if ("test-friends".equals(normalized) || "test_friends".equals(normalized)) {
             return Surface.TEST_FRIENDS;
         }
+        if ("personal".equals(normalized)) {
+            return Surface.PERSONAL;
+        }
         if ("commercial".equals(normalized)) {
             return Surface.COMMERCIAL;
         }
-        return Surface.PERSONAL;
+        // Unknown configuration must never grant personal/developer privileges.
+        return Surface.COMMERCIAL;
     }
 
     public static boolean allowsDeveloperSurface() {
@@ -58,13 +62,13 @@ public final class AppSurfacePolicy {
         return surface == Surface.PERSONAL;
     }
 
-    /** Debug provisioning remains useful for an isolated QA build, never commercial. */
+    /** Debug provisioning is a Personal-only developer convenience. */
     public static boolean allowsDebugSessionProvisioning() {
         return allowsDebugSessionProvisioning(current());
     }
 
     static boolean allowsDebugSessionProvisioning(Surface surface) {
-        return surface != Surface.COMMERCIAL;
+        return surface == Surface.PERSONAL;
     }
 
     /** Personal storage keeps its historic names; other surfaces get isolated namespaces. */

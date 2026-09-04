@@ -10,10 +10,13 @@ public final class AppSurfacePolicyTest {
     @Test
     public void parsesOnlyKnownProductSurfaces() {
         assertEquals(AppSurfacePolicy.Surface.PERSONAL, AppSurfacePolicy.from("personal"));
+        assertEquals(AppSurfacePolicy.Surface.TEST_FRIENDS, AppSurfacePolicy.from("test-friends"));
         assertEquals(AppSurfacePolicy.Surface.TEST_FRIENDS, AppSurfacePolicy.from("TEST_FRIENDS"));
         assertEquals(AppSurfacePolicy.Surface.COMMERCIAL, AppSurfacePolicy.from(" commercial "));
-        assertEquals(AppSurfacePolicy.Surface.PERSONAL, AppSurfacePolicy.from("unknown"));
-        assertEquals(AppSurfacePolicy.Surface.PERSONAL, AppSurfacePolicy.from(null));
+        assertEquals(AppSurfacePolicy.Surface.COMMERCIAL, AppSurfacePolicy.from("unknown"));
+        assertEquals(AppSurfacePolicy.Surface.COMMERCIAL, AppSurfacePolicy.from(""));
+        assertEquals(AppSurfacePolicy.Surface.COMMERCIAL, AppSurfacePolicy.from(" "));
+        assertEquals(AppSurfacePolicy.Surface.COMMERCIAL, AppSurfacePolicy.from(null));
     }
 
     @Test
@@ -27,9 +30,9 @@ public final class AppSurfacePolicyTest {
     }
 
     @Test
-    public void commercialSurfaceCannotReceiveDebugSessionProvisioning() {
+    public void onlyPersonalSurfaceCanReceiveDebugSessionProvisioning() {
         assertTrue(AppSurfacePolicy.allowsDebugSessionProvisioning(AppSurfacePolicy.Surface.PERSONAL));
-        assertTrue(AppSurfacePolicy.allowsDebugSessionProvisioning(AppSurfacePolicy.Surface.TEST_FRIENDS));
+        assertFalse(AppSurfacePolicy.allowsDebugSessionProvisioning(AppSurfacePolicy.Surface.TEST_FRIENDS));
         assertFalse(AppSurfacePolicy.allowsDebugSessionProvisioning(AppSurfacePolicy.Surface.COMMERCIAL));
     }
 

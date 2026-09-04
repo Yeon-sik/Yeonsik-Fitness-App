@@ -45,11 +45,20 @@ def localOrEnvironment = { String propertyName, String environmentName ->
 
 def mapsApiKey = localOrEnvironment("MAPS_API_KEY", "MAPS_API_KEY").trim()
 
-def fitnessSurface = (localProperties.getProperty("FITNESS_SURFACE")
-        ?: System.getenv("FITNESS_SURFACE")
-        ?: "personal").trim().toLowerCase(java.util.Locale.ROOT)
-if (!(fitnessSurface in ["personal", "test-friends", "commercial"])) {
-    fitnessSurface = "personal"
+def configuredFitnessSurface = localProperties.containsKey("FITNESS_SURFACE")
+        ? localProperties.getProperty("FITNESS_SURFACE")
+        : (System.getenv().containsKey("FITNESS_SURFACE")
+                ? System.getenv("FITNESS_SURFACE")
+                : null)
+def fitnessSurface = configuredFitnessSurface == null
+        ? "personal"
+        : configuredFitnessSurface.trim().toLowerCase(java.util.Locale.ROOT)
+def allowedFitnessSurfaces = ["personal", "test-friends", "commercial"]
+if (configuredFitnessSurface != null && !(fitnessSurface in allowedFitnessSurfaces)) {
+    throw new GradleException(
+            "Invalid FITNESS_SURFACE '" + configuredFitnessSurface + "'. "
+                    + "Allowed values: personal, test-friends, commercial."
+    )
 }
 def allowManagedSupabaseDefaults = fitnessSurface == "personal"
 
