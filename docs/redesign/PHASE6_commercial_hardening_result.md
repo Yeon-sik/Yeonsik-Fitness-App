@@ -3,8 +3,10 @@
 ## 문서 상태와 근거 경계
 
 - 대상 브랜치: **feat/redesign_all**
-- 범위: PHASE 6의 설정 사용자화, surface 분리, 공통 상태, 접근성 기반 보강
-- 근거 경계: Phase 6 구현 커밋 d6e21a2와 아래에 기록한 로컬 명령
+- 범위: PHASE 6의 설정 사용자화, surface 분리, 공통 상태, 접근성 기반 보강 및
+  P6 security hardening 보정
+- 근거 경계: Phase 6 구현 커밋 d6e21a2, security 보정 커밋 4b718ad와
+  아래에 기록한 로컬 명령
 - 이 문서는 실기기·스토어·운영 환경의 성공을 주장하지 않는다.
 
 ## 반영한 내용
@@ -13,16 +15,26 @@
 
 AppSurfacePolicy가 BuildConfig의 FITNESS_SURFACE를 읽어 다음 정책을 적용한다.
 
-| Surface | 기본 variant | 개발자 연결 UI | managed Supabase 기본값 | 로컬 설정/세션 저장 |
-| --- | --- | --- | --- | --- |
-| Personal | debug | 허용 | 허용 | 기존 namespace 유지 |
-| Test-Friends | qa | 차단 | 차단 | test-friends 별도 namespace |
-| Commercial | release | 차단 | 차단 | commercial 별도 namespace |
+| Surface | 기본 variant | 개발자 연결 UI | managed Supabase 기본값 | debug session provisioning | 로컬 설정/세션 저장 |
+| --- | --- | --- | --- | --- | --- |
+| Personal | debug | 허용 | 허용 | 허용 | 기존 namespace 유지 |
+| Test-Friends | qa | 차단 | 차단 | 차단 | test-friends 별도 namespace |
+| Commercial | release | 차단 | 차단 | 차단 | commercial 별도 namespace |
 
 QA/release variant에는 Supabase, Nutrition, PriceTrace 연결값을 빈 BuildConfig 값으로
 넣는다. 따라서 개인 환경값을 빌드 결과에 재사용하지 않으며, DB schema·migration·sync
 contract는 변경하지 않았다. Personal OS, Nutrition, PriceTrace의 기존 ownership 경계도
 그대로 둔다.
+
+debug session provisioning은 Personal surface에서만 허용한다. MainActivity의 기존
+BuildConfig.DEBUG와 AppSurfacePolicy 조합 가드는 유지하며, QA가 debuggable
+variant여도 Test-Friends 정책이 경로를 차단한다. Commercial도 동일하게 차단한다.
+
+FITNESS_SURFACE는 미지정일 때만 personal을 기본값으로 사용한다. 명시된 값이
+허용 목록(personal, test-friends, commercial)에 없거나 빈 값이면 Gradle
+configuration 단계에서 실제 입력값과 허용 목록을 포함한 오류를 내고 중단한다.
+Runtime의 unknown, null, blank 값도 PERSONAL로 fallback하지 않고 COMMERCIAL의
+최소 권한 정책으로 처리한다.
 
 ### 2. 일반 사용자 설정 화면
 
@@ -70,15 +82,17 @@ P1~P4에서 확립한 Pastel Blue 중심의 semantic token과 White/Dark surface
 | .\gradlew.bat testDebugUnitTest | 통과 | 기존 unit test와 AppSurfacePolicy/SettingsScreen/UiState 테스트 |
 | .\gradlew.bat generateQaBuildConfig generateReleaseBuildConfig | 통과 | QA/release BuildConfig 생성 |
 | .\gradlew.bat compileQaJavaWithJavac compileReleaseJavaWithJavac | 통과 | QA/release Java 컴파일 |
+| FITNESS_SURFACE=prod로 Gradle configuration 실행 | 의도된 실패 | Invalid FITNESS_SURFACE 'prod'. Allowed values: personal, test-friends, commercial. |
 | git diff --check | 통과 | whitespace/patch 검사 |
 
 생성된 variant 값은 debug=personal, qa=test-friends, release=commercial이며,
-qa/release의 managed-default 허용값은 false다. 이는 로컬 소스·생성 결과 확인이지
-실제 설치·실기기·운영 DB 연결 검증은 아니다.
+qa/release의 managed-default 허용값은 false이고 Supabase/Nutrition/PriceTrace
+연결값은 빈 문자열이다. 이는 로컬 소스·생성 결과 확인이지 실제 설치·실기기·운영
+DB 연결 검증은 아니다.
 
 ## Screenshot / device QA
 
-아래 항목은 d6e21a2 기준으로 실행하지 않았고 실기기 확인이 필요하다.
+아래 항목은 d6e21a2 및 4b718ad 기준으로 실행하지 않았고 실기기 확인이 필요하다.
 
 - 홈, 피트니스, 루틴 목록·상세, 운동 세션, 종목 선택
 - 식단, 외식 입력, 영양제
