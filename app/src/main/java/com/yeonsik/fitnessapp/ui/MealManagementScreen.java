@@ -5121,11 +5121,7 @@ public final class MealManagementScreen extends BaseScreen {
                 );
             }
             if (addToMeal) {
-                if (menuBuilderVisible) {
-                    draftIngredients.add(MealCompositionItem.from(saved, saved.basisAmount));
-                } else {
-                    draftMenus.add(menuSelectionForFood(saved));
-                }
+                addFoodToMealDraft(saved);
             }
             syncCatalog(true);
             clearDirectFoodDraft(ingredientMode);
@@ -5185,16 +5181,27 @@ public final class MealManagementScreen extends BaseScreen {
             openDiningOutMenuFromCatalog(food);
             return;
         }
+        if (addFoodToMealDraft(food)) {
+            host.rerender();
+        }
+    }
+
+    /** Adds a saved or catalog food through the same meal-entry path. */
+    private boolean addFoodToMealDraft(NutritionFood food) {
+        if (food == null) {
+            host.toast("추가할 식품을 찾을 수 없습니다.");
+            return false;
+        }
         if (menuBuilderVisible) {
             if (!NutritionFood.canBeRecipeComponent(food.kind)) {
                 host.toast("저장 메뉴는 다른 메뉴의 재료로 넣을 수 없습니다.");
-                return;
+                return false;
             }
             draftIngredients.add(MealCompositionItem.from(food, food.basisAmount));
         } else {
             draftMenus.add(menuSelectionForFood(food));
         }
-        host.rerender();
+        return true;
     }
 
     private MealMenuSelection menuSelectionForFood(NutritionFood food) {

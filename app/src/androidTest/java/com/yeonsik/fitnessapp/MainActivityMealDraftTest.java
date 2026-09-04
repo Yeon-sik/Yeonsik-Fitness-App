@@ -101,6 +101,66 @@ public final class MainActivityMealDraftTest {
         }
     }
 
+
+    @Test
+    public void savedFinishedProductUsesServingPercentageAndScalesAtFiftyPercent() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickLastButtonWithText(root, "완제품");
+
+                EditText name = findEditTextWithHint(root, FINISHED_PRODUCT_HINT);
+                assertNotNull(name);
+                name.setText("즉시 추가 완제품");
+                setRequiredNutrition(root, new String[]{
+                        "200", "20", "10", "5", "4", "2", "300"
+                });
+
+                clickText(root, "저장 후 끼니에 추가");
+
+                EditText servingPercent = findEditTextWithContentDescriptionContaining(
+                        root,
+                        "섭취 비율 (%)"
+                );
+                assertNotNull(servingPercent);
+                servingPercent.setText("50");
+
+                EditText quantity = findEditTextWithContentDescriptionContaining(
+                        root,
+                        "섭취량, 단위"
+                );
+                assertNotNull(quantity);
+                assertEquals("0.5", quantity.getText().toString());
+                assertNutritionValue(root, "칼로리 값 100");
+                assertNutritionValue(root, "탄수화물 값 10");
+                assertNutritionValue(root, "단백질 값 5");
+                assertNutritionValue(root, "지방 값 2.5");
+                assertNutritionValue(root, "당류 값 2");
+                assertNutritionValue(root, "포화지방 값 1");
+                assertNutritionValue(root, "나트륨 값 150");
+            });
+        }
+    }
+
+    private static void setRequiredNutrition(View root, String[] values) {
+        String[] descriptions = {
+                "칼로리 필수",
+                "탄수화물 필수",
+                "단백질 필수",
+                "지방 필수",
+                "당류 필수",
+                "포화지방 필수",
+                "나트륨 필수"
+        };
+        assertEquals(descriptions.length, values.length);
+        for (int index = 0; index < descriptions.length; index++) {
+            EditText input = findEditTextWithContentDescription(root, descriptions[index]);
+            assertNotNull(input);
+            input.setText(values[index]);
+        }
+    }
     private static void clickText(View root, String text) {
         TextView target = findText(root, text);
         assertNotNull(target);
@@ -175,6 +235,59 @@ public final class MainActivityMealDraftTest {
                 EditText match = findEditTextWithContentDescription(
                         group.getChildAt(index),
                         description
+                );
+                if (match != null) {
+                    return match;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static EditText findEditTextWithContentDescriptionContaining(
+            View view,
+            String description
+    ) {
+        if (view instanceof EditText
+                && view.getContentDescription() != null
+                && view.getContentDescription().toString().contains(description)) {
+            return (EditText) view;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                EditText match = findEditTextWithContentDescriptionContaining(
+                        group.getChildAt(index),
+                        description
+                );
+                if (match != null) {
+                    return match;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static void assertNutritionValue(View view, String contentDescription) {
+        TextView value = findTextViewWithContentDescription(view, contentDescription);
+        assertNotNull(value);
+    }
+
+    private static TextView findTextViewWithContentDescription(
+            View view,
+            String contentDescription
+    ) {
+        if (view instanceof TextView
+                && !(view instanceof EditText)
+                && contentDescription.contentEquals(view.getContentDescription())) {
+            return (TextView) view;
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                TextView match = findTextViewWithContentDescription(
+                        group.getChildAt(index),
+                        contentDescription
                 );
                 if (match != null) {
                     return match;
