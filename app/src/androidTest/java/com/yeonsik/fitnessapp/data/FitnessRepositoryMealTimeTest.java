@@ -342,6 +342,8 @@ public final class FitnessRepositoryMealTimeTest {
                     "11111111-1111-4111-8111-111111111111",
                     "텐진라면",
                     "22222222-2222-4222-8222-222222222222",
+                    "pricetrace",
+                    "gangnam-code",
                     "강남점",
                     "33333333-3333-4333-8333-333333333333",
                     "텐진라멘",
@@ -373,6 +375,10 @@ public final class FitnessRepositoryMealTimeTest {
                     savedMetadata.getString("identity_contract"));
             assertEquals(identity.restaurantLocationId,
                     savedMetadata.getString("restaurant_location_id"));
+            assertEquals(identity.sourceNamespace,
+                    savedMetadata.getString("identity_namespace"));
+            assertEquals(identity.sourceLocationCode,
+                    savedMetadata.getString("source_location_code"));
             assertEquals("강남점", savedMetadata.getString("branch_name"));
             assertEquals("텐진라멘", savedMetadata.getString("menu_name"));
             DiningOutIdentity restored = repository.diningOutIdentityForRecord(recordId);
@@ -381,6 +387,8 @@ public final class FitnessRepositoryMealTimeTest {
             assertEquals(identity.restaurantLocationId, restored.restaurantLocationId);
             assertEquals(identity.restaurantMenuId, restored.restaurantMenuId);
             assertEquals(identity.catalogProductId, restored.catalogProductId);
+            assertEquals(identity.sourceNamespace, restored.sourceNamespace);
+            assertEquals(identity.sourceLocationCode, restored.sourceLocationCode);
             assertEquals("강남점", restored.branchName);
             assertEquals(recordId, repository.recentDiningOutEntries(10).get(0).id);
         } finally {

@@ -1498,7 +1498,9 @@ public final class NutritionCatalogRepository {
         try {
             reference.put("contract_version", "dining-out-component.v1");
             reference.put("composition_contract", CompositionTemplate.CONTRACT_VERSION);
-            reference.put("restaurant_name", storeName);
+            reference.put("restaurant_name", identity == null
+                    ? storeName
+                    : identity.restaurantName);
             reference.put("composition_group_key", option.groupKey);
             reference.put("composition_group_type", option.groupType);
             reference.put("composition_group_label", option.groupLabel);
@@ -1530,12 +1532,25 @@ public final class NutritionCatalogRepository {
                 reference.put("composition_member_id", option.memberId);
             }
             if (identity == null) {
+                reference.put("namespace", "fitnessapp");
                 reference.put("restaurant_id", JSONObject.NULL);
                 reference.put("restaurant_location_id", JSONObject.NULL);
+                reference.put("source_location_code", JSONObject.NULL);
+                reference.put("branch_name", JSONObject.NULL);
                 reference.put("restaurant_menu_id", JSONObject.NULL);
+                reference.put("menu_name", menuName);
+                reference.put("catalog_product_id", JSONObject.NULL);
             } else {
+                reference.put("namespace", identity.sourceNamespace);
                 reference.put("restaurant_id", identity.restaurantId);
                 reference.put("restaurant_location_id", identity.restaurantLocationId);
+                reference.put("source_location_code", identity.sourceLocationCode == null
+                        ? JSONObject.NULL : identity.sourceLocationCode);
+                reference.put("branch_name", identity.branchName == null
+                        ? JSONObject.NULL : identity.branchName);
+                reference.put("restaurant_menu_id", identity.restaurantMenuId);
+                reference.put("menu_name", identity.menuName);
+                reference.put("catalog_product_id", identity.catalogProductId);
             }
             return reference.toString();
         } catch (JSONException error) {

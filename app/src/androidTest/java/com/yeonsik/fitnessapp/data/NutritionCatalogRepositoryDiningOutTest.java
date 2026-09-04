@@ -10,6 +10,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 
+import org.json.JSONObject;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -192,6 +193,94 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             assertEquals(240d, saved.profile.value(NutritionProfile.CALORIES_KCAL), 0.001d);
             assertEquals(12d, saved.profile.value(NutritionProfile.CARBS_GRAMS), 0.001d);
             assertFalse(saved.profile.isKnown(NutritionProfile.SODIUM_MG));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void preservesPriceTraceIdentityForReusableMenuAndOptionSnapshots() throws Exception {
+        IsolatedDatabaseContext context = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext()
+        );
+        context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            NutritionCatalogRepository repository = new NutritionCatalogRepository(
+                    helper,
+                    USER_ID,
+                    SupabaseConfig.empty()
+            );
+            DiningOutIdentity identity = DiningOutIdentity.fromPriceTrace(
+                    "91111111-1111-4111-8111-111111111111",
+                    "PT 식당 snapshot",
+                    "92222222-2222-4222-8222-222222222222",
+                    "pricetrace",
+                    "seoul-gangnam",
+                    "강남점 snapshot",
+                    "93333333-3333-4333-8333-333333333333",
+                    "PT 메뉴 snapshot",
+                    "94444444-4444-4444-8444-444444444444"
+            );
+
+            NutritionFood menu = repository.saveDiningOutMenuWithNutrition(
+                    "PT 식당 snapshot",
+                    "PT 메뉴 snapshot",
+                    620,
+                    40d,
+                    70d,
+                    20d,
+                    900d,
+                    12d,
+                    8d,
+                    identity
+            );
+            JSONObject menuSource = new JSONObject(menu.sourceReference);
+            assertEquals(identity.sourceNamespace, menuSource.getString("namespace"));
+            assertEquals(identity.restaurantId, menuSource.getString("restaurant_id"));
+            assertEquals(identity.restaurantLocationId,
+                    menuSource.getString("restaurant_location_id"));
+            assertEquals(identity.restaurantMenuId,
+                    menuSource.getString("restaurant_menu_id"));
+            assertEquals(identity.catalogProductId,
+                    menuSource.getString("catalog_product_id"));
+            assertEquals(identity.restaurantName, menuSource.getString("restaurant_name"));
+            assertEquals(identity.branchName, menuSource.getString("branch_name"));
+            assertEquals(identity.menuName, menuSource.getString("menu_name"));
+            assertEquals(identity.sourceLocationCode,
+                    menuSource.getString("source_location_code"));
+
+            NutritionFood option = repository.saveDiningOutComponent(
+                    "PT 식당 snapshot",
+                    "PT 메뉴 snapshot",
+                    identity,
+                    DiningOutComponent.grouped(
+                            "PT 옵션 snapshot",
+                            NutritionProfile.ofMacros(120, 4, 12, 5),
+                            null,
+                            null,
+                            "side_1",
+                            CompositionGroupType.SIDE.value(),
+                            CompositionGroupType.SIDE.label(),
+                            DiningOutOption.DEFAULT_ROLE,
+                            null
+                    )
+            );
+            JSONObject optionSource = new JSONObject(option.sourceReference);
+            assertEquals(identity.sourceNamespace, optionSource.getString("namespace"));
+            assertEquals(identity.restaurantId, optionSource.getString("restaurant_id"));
+            assertEquals(identity.restaurantLocationId,
+                    optionSource.getString("restaurant_location_id"));
+            assertEquals(identity.restaurantMenuId,
+                    optionSource.getString("restaurant_menu_id"));
+            assertEquals(identity.catalogProductId,
+                    optionSource.getString("catalog_product_id"));
+            assertEquals(identity.restaurantName, optionSource.getString("restaurant_name"));
+            assertEquals(identity.branchName, optionSource.getString("branch_name"));
+            assertEquals(identity.menuName, optionSource.getString("menu_name"));
+            assertEquals(identity.sourceLocationCode,
+                    optionSource.getString("source_location_code"));
         } finally {
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);

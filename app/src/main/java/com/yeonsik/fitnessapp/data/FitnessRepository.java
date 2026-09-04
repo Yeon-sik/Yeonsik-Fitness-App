@@ -2294,10 +2294,15 @@ public final class FitnessRepository {
             try {
                 JSONObject metadataObject = new JSONObject(metadata);
                 metadataObject.put("identity_contract", DiningOutIdentity.CONTRACT_VERSION);
-                metadataObject.put("identity_namespace", DiningOutIdentity.NAMESPACE);
+                metadataObject.put("identity_namespace", identity.sourceNamespace);
                 metadataObject.put("restaurant_id", identity.restaurantId);
                 metadataObject.put("restaurant_name", identity.restaurantName);
                 metadataObject.put("restaurant_location_id", identity.restaurantLocationId);
+                if (identity.sourceLocationCode == null) {
+                    metadataObject.put("source_location_code", JSONObject.NULL);
+                } else {
+                    metadataObject.put("source_location_code", identity.sourceLocationCode);
+                }
                 if (identity.branchName == null) {
                     metadataObject.put("branch_name", JSONObject.NULL);
                 } else {
