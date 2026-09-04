@@ -35,6 +35,7 @@ import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
 import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
+import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
@@ -279,6 +280,7 @@ public final class MainActivity extends Activity implements ScreenHost {
      */
     private void handleDebugSessionProvisioning(Intent intent) {
         if (!BuildConfig.DEBUG
+                || !AppSurfacePolicy.allowsDebugSessionProvisioning()
                 || intent == null
                 || !DEBUG_PROVISION_SESSION_ACTION.equals(intent.getAction())) {
             return;
@@ -1929,11 +1931,20 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     public void openSettingsConnections() {
+        if (!isDeveloperSurfaceAllowed()) {
+            navigate(FitnessScreen.SETTINGS);
+            return;
+        }
         BaseScreen settings = screens.get(FitnessScreen.SETTINGS);
         if (settings instanceof SettingsScreen) {
             ((SettingsScreen) settings).showAdvancedConnections();
         }
         navigate(FitnessScreen.SETTINGS);
+    }
+
+    @Override
+    public boolean isDeveloperSurfaceAllowed() {
+        return AppSurfacePolicy.allowsDeveloperSurface();
     }
 
     @Override

@@ -10,7 +10,7 @@ public final class NutritionSupabaseConfigStore extends SupabaseConfigStore {
         super(
                 context,
                 SupabaseStoreScope.NUTRITION,
-                true,
+                AppSurfacePolicy.allowsManagedSupabaseDefaults(),
                 BuildConfig.NUTRITION_SUPABASE_URL,
                 BuildConfig.NUTRITION_SUPABASE_ANON_KEY
         );

@@ -19,7 +19,7 @@ public class SupabaseConfigStore {
         this(
                 context,
                 SupabaseStoreScope.SHARED,
-                true,
+                AppSurfacePolicy.allowsManagedSupabaseDefaults(),
                 BuildConfig.SUPABASE_URL,
                 BuildConfig.SUPABASE_ANON_KEY
         );
@@ -32,14 +32,15 @@ public class SupabaseConfigStore {
             String managedUrl,
             String managedAnonKey
     ) {
+        String storageSuffix = AppSurfacePolicy.storageSuffix();
         preferences = context.getSharedPreferences(
-                scope.configPreferencesName,
+                scope.configPreferencesName + storageSuffix,
                 Context.MODE_PRIVATE
         );
         tokenStore = new SecureTokenStore(
                 context,
-                scope.tokenKeyAlias,
-                scope.tokenPreferencesName
+                scope.tokenKeyAlias + AppSurfacePolicy.keyAliasSuffix(),
+                scope.tokenPreferencesName + storageSuffix
         );
         connectionPolicy = new SupabaseConnectionPolicy(
                 allowManagedConnection,

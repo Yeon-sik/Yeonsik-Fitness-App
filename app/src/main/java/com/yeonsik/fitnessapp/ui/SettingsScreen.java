@@ -8,6 +8,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import com.yeonsik.fitnessapp.BuildConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 
 /** 설정, 두 Supabase 연결, 두 인증 세션을 한 화면에서 명확히 보여 준다. */
@@ -19,32 +20,142 @@ public final class SettingsScreen extends BaseScreen {
     }
 
     public void showAdvancedConnections() {
-        advancedConnectionsVisible = true;
+        if (host.isDeveloperSurfaceAllowed()) {
+            advancedConnectionsVisible = true;
+        }
     }
 
     @Override
     public void render() {
         screenHeader("앱 환경", "설정");
-        renderThemeCard();
-        renderDataSafetyCard();
-        renderDataImportCard();
 
         SupabaseConfig sharedConfig = host.supabaseConfig();
         SupabaseConfig nutritionConfig = host.nutritionSupabaseConfig();
         SupabaseConfig priceTraceConfig = host.priceTraceSupabaseConfig();
-        renderConnectionStatus(sharedConfig, nutritionConfig, priceTraceConfig);
-        section("연결 및 계정", advancedConnectionsVisible ? "접기" : "고급 설정", () -> {
-            advancedConnectionsVisible = !advancedConnectionsVisible;
-            host.rerender();
-        });
-        if (advancedConnectionsVisible) {
-            renderSharedConnectionCard(sharedConfig);
-            renderNutritionConnectionCard(nutritionConfig);
-            renderPriceTraceConnectionCard(priceTraceConfig);
-            renderSharedAuthCard(sharedConfig);
-            renderNutritionAuthCard(nutritionConfig);
-            renderPriceTraceAuthCard(priceTraceConfig);
+        if (!host.isDeveloperSurfaceAllowed()) {
+            renderUserAccountCard(sharedConfig);
+            renderUserSyncCard(sharedConfig);
         }
+        renderThemeCard();
+        renderDataSafetyCard();
+        renderDataImportCard();
+
+        if (host.isDeveloperSurfaceAllowed()) {
+            renderConnectionStatus(sharedConfig, nutritionConfig, priceTraceConfig);
+            section("연결 및 계정", advancedConnectionsVisible ? "접기" : "고급 설정", () -> {
+                advancedConnectionsVisible = !advancedConnectionsVisible;
+                host.rerender();
+            });
+            if (advancedConnectionsVisible) {
+                renderSharedConnectionCard(sharedConfig);
+                renderNutritionConnectionCard(nutritionConfig);
+                renderPriceTraceConnectionCard(priceTraceConfig);
+                renderSharedAuthCard(sharedConfig);
+                renderNutritionAuthCard(nutritionConfig);
+                renderPriceTraceAuthCard(priceTraceConfig);
+            }
+        }
+        renderPrivacySecurityCard();
+        renderAppInfoCard();
+    }
+
+    private void renderUserAccountCard(SupabaseConfig config) {
+        FitnessUi ui = ui();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "계정", accountStatus(config));
+        card.addView(ui.text(
+                "로그인하면 기기 간 기록 동기화를 사용할 수 있습니다. 로그인하지 않아도 기록과 백업은 이 기기에서 계속 사용할 수 있습니다.",
+                13,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        if (config.isConfigured()) {
+            card.addView(ui.keyValue(
+                    "로그인 계정",
+                    config.email.isEmpty() ? "로그인됨" : config.email
+            ));
+            card.addView(ui.button("로그아웃", false, v -> host.signOutFromSupabase()),
+                    ui.fullWidthParams(ui.dp(12)));
+        } else if (config.isConnectionConfigured()) {
+            renderAuthControls(
+                    card,
+                    config,
+                    "서비스 연결을 확인한 뒤 로그인할 수 있습니다.",
+                    host::signInToSupabase,
+                    host::signUpToSupabase,
+                    host::signOutFromSupabase
+            );
+        } else {
+            card.addView(ui.text(
+                    "현재는 로컬 전용 모드입니다. 서비스 연결이 준비되면 계정 기능을 사용할 수 있습니다.",
+                    12,
+                    FitnessUi.COLOR_TERTIARY,
+                    false
+            ), ui.fullWidthParams(ui.dp(10)));
+        }
+        add(card);
+    }
+
+    private void renderUserSyncCard(SupabaseConfig sharedConfig) {
+        FitnessUi ui = ui();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "동기화 상태", syncStatusLabel(host.syncLabel()));
+        card.addView(ui.stateBadge(syncStateForLabel(host.syncLabel())),
+                ui.fullWidthParams(ui.dp(8)));
+        card.addView(ui.text(
+                safeSyncDetailForSurface(host.syncLabel()),
+                13,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        if (sharedConfig.isConfigured()) {
+            Button syncButton = ui.button(
+                    host.isManualSyncing() ? "동기화 중" : "지금 동기화",
+                    false,
+                    v -> host.runManualSync()
+            );
+            syncButton.setEnabled(!host.isManualSyncing());
+            card.addView(syncButton, ui.fullWidthParams(ui.dp(14)));
+        }
+        add(card);
+    }
+
+    private void renderPrivacySecurityCard() {
+        FitnessUi ui = ui();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "개인정보 및 보안", "기기 보호");
+        card.addView(ui.text(
+                "로그인 세션은 기기 보안 저장소에 보관하며 백업 파일에는 포함하지 않습니다.",
+                13,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        card.addView(ui.text(
+                "연결 주소와 API 키는 일반 사용자 화면이나 백업 파일에 표시하지 않습니다.",
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        ), ui.fullWidthParams(ui.dp(8)));
+        add(card);
+    }
+
+    private void renderAppInfoCard() {
+        FitnessUi ui = ui();
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "앱 정보", BuildConfig.VERSION_NAME);
+        card.addView(ui.text(
+                "FitnessApp · 로컬 우선 기록 앱",
+                13,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        card.addView(ui.text(
+                "기록의 소유권과 백업 의미를 유지한 채 화면 상태를 안내합니다.",
+                12,
+                FitnessUi.COLOR_TERTIARY,
+                false
+        ), ui.fullWidthParams(ui.dp(8)));
+        add(card);
     }
 
     private void renderConnectionStatus(
@@ -509,6 +620,63 @@ public final class SettingsScreen extends BaseScreen {
             return "동기화 실패";
         }
         return "로컬 전용";
+    }
+
+    static UiState syncStateForLabel(String label) {
+        if ("synced".equals(label) || "configured".equals(label)) {
+            return UiState.SUCCESS;
+        }
+        if ("syncing".equals(label) || "authenticating".equals(label)) {
+            return UiState.LOADING;
+        }
+        if ("login required".equals(label) || "confirmation required".equals(label)) {
+            return UiState.PERMISSION_REQUIRED;
+        }
+        if ("partial".equals(label)) {
+            return UiState.SYNC_DELAYED;
+        }
+        if ("authentication failed".equals(label)
+                || "local ownership failed".equals(label)
+                || "nutrition ownership failed".equals(label)
+                || "sync failed".equals(label)) {
+            return UiState.SERVER_ERROR;
+        }
+        return UiState.OFFLINE;
+    }
+
+    static String safeSyncDetailForSurface(String label) {
+        if ("synced".equals(label)) {
+            return "최근 동기화가 완료되었습니다.";
+        }
+        if ("configured".equals(label)) {
+            return "계정 연결이 완료되었습니다.";
+        }
+        if ("syncing".equals(label)) {
+            return "기록을 서비스와 맞추는 중입니다.";
+        }
+        if ("authenticating".equals(label)) {
+            return "계정을 확인하는 중입니다.";
+        }
+        if ("partial".equals(label)) {
+            return "일부 기록만 동기화되었습니다. 다시 시도해 주세요.";
+        }
+        if ("login required".equals(label)) {
+            return "계정에 로그인하면 동기화를 사용할 수 있습니다.";
+        }
+        if ("confirmation required".equals(label)) {
+            return "가입 확인 메일을 확인한 뒤 로그인하세요.";
+        }
+        if ("authentication failed".equals(label)) {
+            return "로그인 정보를 확인한 뒤 다시 시도하세요.";
+        }
+        if ("local ownership failed".equals(label)
+                || "nutrition ownership failed".equals(label)) {
+            return "기록 소유권을 확인하지 못했습니다. 로컬 기록은 유지됩니다.";
+        }
+        if ("sync failed".equals(label)) {
+            return "연결을 확인한 뒤 다시 시도하세요.";
+        }
+        return "현재 기록은 이 기기에 안전하게 보관됩니다.";
     }
 
     private interface ConnectionSaver {

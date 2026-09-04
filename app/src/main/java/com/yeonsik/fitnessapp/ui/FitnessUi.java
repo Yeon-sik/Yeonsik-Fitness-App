@@ -694,6 +694,7 @@ public final class FitnessUi {
                                View.OnClickListener listener) {
         Button button = new Button(activity);
         button.setText(text);
+        button.setContentDescription(text == null ? "버튼" : text);
         button.setAllCaps(false);
         button.setTextSize(15);
         button.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
@@ -895,6 +896,7 @@ public final class FitnessUi {
         LinearLayout badge = new LinearLayout(activity);
         badge.setOrientation(LinearLayout.HORIZONTAL);
         badge.setGravity(Gravity.CENTER_VERTICAL);
+        badge.setContentDescription("상태: " + (labelText == null ? "알 수 없음" : labelText));
         badge.setBackground(onAccentSurface
                 ? tonalSurfaceDrawable(dp(CHIP_RADIUS_DP))
                 : borderDrawable(subtle(), border(), dp(CHIP_RADIUS_DP)));
@@ -902,6 +904,7 @@ public final class FitnessUi {
         applyDepth(badge, DEPTH_FLAT_DP);
 
         View dot = new View(activity);
+        dot.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         dot.setBackground(borderDrawable(statusColor(dotColor), Color.TRANSPARENT,
                 dp(CHIP_RADIUS_DP)));
         LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(dp(7), dp(7));
@@ -911,6 +914,29 @@ public final class FitnessUi {
         badge.addView(text(labelText, 12,
                 onAccentSurface ? tonalInk() : COLOR_TEXT, true));
         return badge;
+    }
+
+    /** Shared state badge so status is communicated with text as well as color. */
+    public View stateBadge(UiState state) {
+        UiState safeState = state == null ? UiState.EMPTY : state;
+        return statusDotBadge(safeState.label(), stateColor(safeState), false);
+    }
+
+    private int stateColor(UiState state) {
+        if (state == UiState.SUCCESS) {
+            return COLOR_POSITIVE;
+        }
+        if (state == UiState.SERVER_ERROR || state == UiState.VALIDATION_ERROR) {
+            return COLOR_NEGATIVE;
+        }
+        if (state == UiState.LOADING
+                || state == UiState.OFFLINE
+                || state == UiState.PERMISSION_REQUIRED
+                || state == UiState.SYNC_DELAYED
+                || state == UiState.DESTRUCTIVE_CONFIRMATION) {
+            return COLOR_WARNING;
+        }
+        return COLOR_TERTIARY;
     }
 
     public View statusBadge(String labelText, int dotColor) {
@@ -1085,19 +1111,36 @@ public final class FitnessUi {
             pressFeedback(row);
         }
 
-        row.addView(glyphCircle(glyph, false));
+        View glyphView = glyphCircle(glyph, false);
+        if (listener != null) {
+            glyphView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        }
+        row.addView(glyphView);
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(dp(12), 0, 0, 0);
         TextView primary = text(primaryText, 14, COLOR_TEXT, true);
         primary.setLineSpacing(dp(2), 1f);
+        if (listener != null) {
+            primary.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        }
         column.addView(primary);
         if (captionText != null) {
             TextView captionView = text(captionText, 12, COLOR_TERTIARY, false);
             captionView.setPadding(0, dp(2), 0, 0);
+            if (listener != null) {
+                captionView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            }
             column.addView(captionView);
         }
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        if (listener != null) {
+            String description = primaryText == null ? "항목" : primaryText;
+            if (captionText != null && !captionText.trim().isEmpty()) {
+                description += ", " + captionText;
+            }
+            row.setContentDescription(description);
+        }
         return row;
     }
 
