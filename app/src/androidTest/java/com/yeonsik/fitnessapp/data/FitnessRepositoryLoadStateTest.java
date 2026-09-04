@@ -105,6 +105,66 @@ public final class FitnessRepositoryLoadStateTest {
     }
 
     @Test
+    public void pullUpLoadStateTransitionKeepsRepsSeparateFromAddedWeight() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String recordId = repository.createSession(
+                    "2026-08-30", "Pull-up load state", "strength", "", "", ""
+            );
+            String pullUpId = addMasterExercise(
+                    repository, recordId, "back_bodyweight_pull_up"
+            );
+            String setId = repository.addTypedSet(
+                    recordId,
+                    pullUpId,
+                    1,
+                    new FitnessRepository.SetInput(
+                            null, 8, null, null, null, null, null, true,
+                            LoadState.BODYWEIGHT
+                    )
+            );
+
+            FitnessRepository.SessionSetEntry set =
+                    repository.setsForExercise(pullUpId).get(0);
+            assertEquals(setId, set.id);
+            assertEquals(LoadState.BODYWEIGHT, set.loadState);
+            assertEquals(8, set.actualReps);
+            assertEquals(0d, set.addedWeightKg, 0.001d);
+
+            repository.updateTypedSet(
+                    recordId,
+                    setId,
+                    new FitnessRepository.SetInput(
+                            null, 8, null, null, 5d, null, null, true,
+                            LoadState.ADDED_WEIGHT
+                    )
+            );
+            set = repository.setsForExercise(pullUpId).get(0);
+            assertEquals(LoadState.ADDED_WEIGHT, set.loadState);
+            assertEquals(8, set.actualReps);
+            assertEquals(5d, set.addedWeightKg, 0.001d);
+
+            repository.updateTypedSet(
+                    recordId,
+                    setId,
+                    new FitnessRepository.SetInput(
+                            null, 8, null, null, 5d, null, null, true,
+                            LoadState.BODYWEIGHT
+                    )
+            );
+            set = repository.setsForExercise(pullUpId).get(0);
+            assertEquals(LoadState.BODYWEIGHT, set.loadState);
+            assertEquals(8, set.actualReps);
+            assertEquals(0d, set.addedWeightKg, 0.001d);
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
     public void rejectsDisallowedStatesAndIncompleteCompletedLoad() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
