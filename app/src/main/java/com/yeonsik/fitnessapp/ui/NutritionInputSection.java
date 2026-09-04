@@ -124,6 +124,35 @@ final class NutritionInputSection {
         }
     }
 
+    /** Returns the raw values so an unfinished form can be restored without validating it. */
+    Map<String, String> inputValues() {
+        Map<String, String> values = new LinkedHashMap<>();
+        for (Map.Entry<String, EditText> entry : requiredInputs.entrySet()) {
+            values.put(entry.getKey(), FitnessUi.inputText(entry.getValue()));
+        }
+        for (Map.Entry<String, EditText> entry : optionalInputs.entrySet()) {
+            values.put(entry.getKey(), FitnessUi.inputText(entry.getValue()));
+        }
+        return values;
+    }
+
+    /** Restores raw values without changing the required/optional validation policy. */
+    void applyInputValues(Map<String, String> values) {
+        if (values == null) {
+            return;
+        }
+        for (Map.Entry<String, EditText> entry : requiredInputs.entrySet()) {
+            setRawInputValue(entry.getValue(), values.get(entry.getKey()));
+        }
+        for (Map.Entry<String, EditText> entry : optionalInputs.entrySet()) {
+            setRawInputValue(entry.getValue(), values.get(entry.getKey()));
+        }
+    }
+
+    private void setRawInputValue(EditText input, String value) {
+        input.setText(value == null ? "" : value);
+    }
+
     private void setInputValue(EditText input, Double value) {
         input.setText(value == null ? "" : NutritionCalculator.trim(value));
     }

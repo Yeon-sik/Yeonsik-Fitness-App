@@ -149,6 +149,9 @@ public final class MealManagementScreen extends BaseScreen {
     private boolean mealWorkspaceVisible;
     private int mealEntryMode = MEAL_ENTRY_MODE_FOOD;
     private boolean menuBuilderVisible;
+    private final DirectFoodDraft singleFoodDraft = DirectFoodDraft.forSingleFood();
+    private final DirectFoodDraft finishedProductDraft = DirectFoodDraft.forFinishedProduct();
+    private Runnable activeDirectFoodDraftSync;
     private boolean recoveryDetailsVisible;
     private boolean nutritionAnalysisVisible;
     private FitnessScreen returnScreen = FitnessScreen.WORKOUT;
@@ -217,6 +220,20 @@ public final class MealManagementScreen extends BaseScreen {
             initialSyncRequested = true;
             syncCatalog(false);
         }
+    }
+
+    @Override
+    public void onHidden() {
+        // MainActivity removes the old content after this hook. Capture the live EditText values
+        // while they are still available so navigation does not discard an unfinished meal.
+        syncDraftFromViews();
+        clearMealInputViewReferences();
+    }
+
+    @Override
+    public void onPause() {
+        // Keep the same process-local draft when another Activity temporarily covers the app.
+        syncDraftFromViews();
     }
 
     private View dateNavigator() {
@@ -291,7 +308,9 @@ public final class MealManagementScreen extends BaseScreen {
 
     private void toggleMealWorkspace() {
         if (mealWorkspaceVisible) {
+            syncDraftFromViews();
             mealWorkspaceVisible = false;
+            clearMealInputViewReferences();
         } else {
             openMealWorkspace();
             return;
@@ -1515,6 +1534,10 @@ public final class MealManagementScreen extends BaseScreen {
                 draftIngredients.clear();
                 draftMenuName = "";
                 menuBuilderVisible = false;
+                menuNameInput = null;
+                menuBuilderTotalBox = null;
+                ingredientQuantityInputs.clear();
+                clearDirectFoodDrafts();
                 host.rerender();
             }));
             card.addView(compositionHeader, ui.fullWidthParams(ui.dp(16)));
@@ -3892,6 +3915,13 @@ public final class MealManagementScreen extends BaseScreen {
     private void toggleMenuBuilder() {
         syncDraftFromViews();
         menuBuilderVisible = !menuBuilderVisible;
+        if (menuBuilderVisible) {
+            activeDirectFoodDraftSync = null;
+        } else {
+            menuNameInput = null;
+            menuBuilderTotalBox = null;
+            ingredientQuantityInputs.clear();
+        }
         catalogMode = CATALOG_MODE_SEARCH;
         catalogKindFilter = CATALOG_FILTER_ALL;
         catalogQuery = "";
@@ -3943,6 +3973,9 @@ public final class MealManagementScreen extends BaseScreen {
             draftIngredients.clear();
             draftMenuName = "";
             menuBuilderVisible = false;
+            menuNameInput = null;
+            menuBuilderTotalBox = null;
+            ingredientQuantityInputs.clear();
             catalogMode = CATALOG_MODE_SINGLE_FOOD;
             catalogKindFilter = CATALOG_FILTER_ALL;
             host.rerender();
@@ -4065,6 +4098,9 @@ public final class MealManagementScreen extends BaseScreen {
             draftIngredients.clear();
             draftMenuName = "";
             menuBuilderVisible = false;
+            menuNameInput = null;
+            menuBuilderTotalBox = null;
+            ingredientQuantityInputs.clear();
             catalogMode = CATALOG_MODE_SINGLE_FOOD;
             catalogKindFilter = CATALOG_FILTER_ALL;
             catalogQuery = "";
@@ -4160,6 +4196,7 @@ public final class MealManagementScreen extends BaseScreen {
         ui.styleFilterButton(tab, catalogMode == mode);
         tab.setOnClickListener(v -> {
             if (catalogMode != mode) {
+                syncDraftFromViews();
                 catalogMode = mode;
                 host.rerender();
             }
@@ -4504,6 +4541,7 @@ public final class MealManagementScreen extends BaseScreen {
 
     private View directFoodForm(boolean ingredientMode) {
         FitnessUi ui = ui();
+        DirectFoodDraft draft = ingredientMode ? singleFoodDraft : finishedProductDraft;
         LinearLayout form = formSystem.column();
         form.setPadding(ui.dp(4), ui.dp(4), ui.dp(4), ui.dp(4));
         form.addView(formSystem.sectionTitle(ingredientMode ? "단일 식품 정보" : "완제품 정보"),
@@ -4517,28 +4555,24 @@ public final class MealManagementScreen extends BaseScreen {
                 ingredientMode
                         ? "단일 식품 이름 (예: 현미밥, 구운 닭가슴살)"
                         : "예: 포카칩 오리지널",
-                ""
+                draft.name
         );
         EditText manufacturer = ingredientMode
                 ? null
-                : formSystem.textInput("예: 오리온, CJ제일제당", "");
-        EditText brand = ingredientMode ? null : formSystem.textInput("예: 포카칩", "");
+                : formSystem.textInput("예: 오리온, CJ제일제당", draft.manufacturer);
+        EditText brand = ingredientMode ? null : formSystem.textInput("예: 포카칩", draft.brand);
         EditText subBrand = ingredientMode
-                ? null : formSystem.textInput("예: 오!감자, 솥반", "");
+                ? null : formSystem.textInput("예: 오!감자, 솥반", draft.subBrand);
         EditText packageAmount = ingredientMode
                 ? null
-                : formSystem.decimalInput("포장 용량 (선택)", "");
+                : formSystem.decimalInput("포장 용량 (선택)", draft.packageAmount);
         Button packageUnit = ingredientMode
                 ? null
-                : NutritionUnitSelector.create(ui, host.activity(), NutritionUnit.GRAM);
+                : NutritionUnitSelector.create(ui, host.activity(), draft.packageUnit);
         EditText packageCount = ingredientMode
                 ? null
-                : formSystem.decimalInput("포장 개수 (선택)", "");
-        String[] selectedCategory = {
-                ingredientMode
-                        ? NutritionFood.CATEGORY_OTHER
-                        : NutritionFood.CATEGORY_PROCESSED
-        };
+                : formSystem.decimalInput("포장 개수 (선택)", draft.packageCount);
+        String[] selectedCategory = {draft.category};
         Button categoryButton = formSystem.selector(
                 categoryButtonLabel(selectedCategory[0]),
                 null
@@ -4550,7 +4584,7 @@ public final class MealManagementScreen extends BaseScreen {
                 categoryButton,
                 true
         ));
-        String[] selectedCookingMethod = {NutritionFood.COOKING_METHOD_UNSPECIFIED};
+        String[] selectedCookingMethod = {draft.cookingMethod};
         Button cookingMethodButton = formSystem.selector(
                 cookingMethodButtonLabel(selectedCookingMethod[0]),
                 null
@@ -4564,14 +4598,15 @@ public final class MealManagementScreen extends BaseScreen {
         ));
         EditText basisAmount = formSystem.decimalInput(
                 "기준 수량",
-                ingredientMode ? "100" : "1"
+                draft.basisAmount
         );
         Button basisUnit = NutritionUnitSelector.create(
                 ui,
                 host.activity(),
-                ingredientMode ? "g" : "serving"
+                draft.basisUnit
         );
         NutritionInputSection nutrients = new NutritionInputSection(ui, host.activity());
+        nutrients.applyInputValues(draft.nutrientValues);
         TextView unitNutritionPreview = ui.text(
                 "단위 영양성분: 기준량과 필수 영양성분을 입력하면 자동 계산됩니다.",
                 12,
@@ -4579,16 +4614,17 @@ public final class MealManagementScreen extends BaseScreen {
                 false
         );
         NutritionUnitPreview.bind(unitNutritionPreview, basisAmount, basisUnit, nutrients);
-        ProductReadV1[] selectedProduct = {null};
-        String[] manualManufacturer = {""};
-        String[] manualName = {""};
-        String[] manualBrand = {""};
-        String[] manualSubBrand = {""};
-        String[] manualBasisAmount = {""};
-        String[] manualBasisUnit = {NutritionUnitSelector.value(basisUnit)};
+        ProductReadV1[] selectedProduct = {draft.selectedProduct};
+        String[] manualManufacturer = {draft.manualManufacturer};
+        String[] manualName = {draft.manualName};
+        String[] manualBrand = {draft.manualBrand};
+        String[] manualSubBrand = {draft.manualSubBrand};
+        String[] manualBasisAmount = {draft.manualBasisAmount};
+        String[] manualBasisUnit = {draft.manualBasisUnit};
         LinearLayout priceTraceResults = new LinearLayout(host.activity());
         priceTraceResults.setOrientation(LinearLayout.VERTICAL);
         EditText priceTraceQuery = ui.searchInput("PriceTrace 상품명 검색");
+        priceTraceQuery.setText(draft.priceTraceQuery);
         Button priceTraceSearch = ui.secondaryButton("PriceTrace 상품 불러오기", null);
         TextView priceTraceSelection = ui.text(
                 "",
@@ -4679,6 +4715,17 @@ public final class MealManagementScreen extends BaseScreen {
                 }
             });
         });
+        if (!ingredientMode && selectedProduct[0] != null) {
+            restorePriceTraceSelection(
+                    selectedProduct[0],
+                    priceTraceSelection,
+                    clearPriceTraceSelection,
+                    name,
+                    brand,
+                    manufacturer,
+                    subBrand
+            );
+        }
         if (ingredientMode) {
             form.addView(formSystem.field("식품명 *", name), ui.fullWidthParams(ui.dp(6)));
         } else {
@@ -4741,6 +4788,45 @@ public final class MealManagementScreen extends BaseScreen {
                 )
         );
         form.addView(ui.buttonRow(saveOnly, saveAndAdd), ui.fullWidthParams(ui.dp(10)));
+        Runnable draftSync = () -> {
+            draft.name = FitnessUi.inputText(name);
+            draft.category = selectedCategory[0];
+            draft.cookingMethod = selectedCookingMethod[0];
+            draft.basisAmount = FitnessUi.inputText(basisAmount);
+            draft.basisUnit = NutritionUnitSelector.value(basisUnit);
+            draft.nutrientValues.clear();
+            draft.nutrientValues.putAll(nutrients.inputValues());
+            draft.priceTraceQuery = FitnessUi.inputText(priceTraceQuery);
+            draft.selectedProduct = selectedProduct[0];
+            if (brand != null) {
+                draft.brand = FitnessUi.inputText(brand);
+            }
+            if (manufacturer != null) {
+                draft.manufacturer = FitnessUi.inputText(manufacturer);
+            }
+            if (subBrand != null) {
+                draft.subBrand = FitnessUi.inputText(subBrand);
+            }
+            if (packageAmount != null) {
+                draft.packageAmount = FitnessUi.inputText(packageAmount);
+            }
+            if (packageUnit != null) {
+                draft.packageUnit = NutritionUnitSelector.value(packageUnit);
+            }
+            if (packageCount != null) {
+                draft.packageCount = FitnessUi.inputText(packageCount);
+            }
+            if (selectedProduct[0] == null) {
+                draft.manualName = draft.name;
+                draft.manualBrand = draft.brand;
+                draft.manualManufacturer = draft.manufacturer;
+                draft.manualSubBrand = draft.subBrand;
+                draft.manualBasisAmount = draft.basisAmount;
+                draft.manualBasisUnit = draft.basisUnit;
+            }
+        };
+        activeDirectFoodDraftSync = draftSync;
+        nutrients.addChangeListener(draftSync);
         return form;
     }
 
@@ -4893,6 +4979,33 @@ public final class MealManagementScreen extends BaseScreen {
         );
     }
 
+    private void restorePriceTraceSelection(
+            ProductReadV1 product,
+            TextView selection,
+            Button clearSelection,
+            EditText name,
+            EditText brand,
+            EditText manufacturer,
+            EditText subBrand
+    ) {
+        if (product == null) {
+            return;
+        }
+        selection.setVisibility(View.VISIBLE);
+        selection.setText("선택됨 · " + product.standardProductLabel());
+        clearSelection.setVisibility(View.VISIBLE);
+        lockPriceTraceLoadedField(name);
+        if (brand != null) {
+            lockPriceTraceLoadedField(brand);
+        }
+        if (manufacturer != null) {
+            lockPriceTraceLoadedField(manufacturer);
+        }
+        if (subBrand != null) {
+            lockPriceTraceLoadedField(subBrand);
+        }
+    }
+
     /** Keeps a PriceTrace-loaded value in the neutral input surface. */
     private void lockPriceTraceLoadedField(EditText field) {
         FitnessUi ui = ui();
@@ -5015,6 +5128,7 @@ public final class MealManagementScreen extends BaseScreen {
                 }
             }
             syncCatalog(true);
+            clearDirectFoodDraft(ingredientMode);
             host.toast(
                     (ingredientMode ? "단일 식품" : "완제품") + "을 저장했습니다."
                             + (selectedProduct == null
@@ -5340,6 +5454,9 @@ public final class MealManagementScreen extends BaseScreen {
             diningOutOptionSaturatedFatInputs.clear();
             diningOutOptionConsumedPercentInputs.clear();
             mealEntryMode = MEAL_ENTRY_MODE_FOOD;
+            menuBuilderVisible = false;
+            clearMealInputViewReferences();
+            clearDirectFoodDrafts();
             draftMealTime = currentMealTime();
             mealWorkspaceVisible = false;
             host.toast(saveDiningOutMenu
@@ -5393,6 +5510,8 @@ public final class MealManagementScreen extends BaseScreen {
         diningOutOptionConsumedPercentInputs.clear();
         mealEntryMode = MEAL_ENTRY_MODE_FOOD;
         menuBuilderVisible = false;
+        clearMealInputViewReferences();
+        clearDirectFoodDrafts();
         draftMealTime = currentMealTime();
         mealWorkspaceVisible = false;
         host.toast("끼니를 " + dateLabel() + " " + recordedMealTime + "에 기록했습니다.");
@@ -5518,7 +5637,57 @@ public final class MealManagementScreen extends BaseScreen {
         });
     }
 
+    private void syncDirectFoodDraft() {
+        if (activeDirectFoodDraftSync != null) {
+            activeDirectFoodDraftSync.run();
+        }
+    }
+
+    private void clearMealInputViewReferences() {
+        activeDirectFoodDraftSync = null;
+        mealTimeButton = null;
+        menuNameInput = null;
+        diningOutSelectionSummary = null;
+        diningOutValidationError = null;
+        diningOutStoreInput = null;
+        diningOutBranchInput = null;
+        diningOutNominalServingsInput = null;
+        diningOutDinerCountInput = null;
+        diningOutConsumedPercentInput = null;
+        diningOutOptionsContainer = null;
+        diningOutMenusContainer = null;
+        catalogSearchInput = null;
+        verifiedSingleFoodSearchInput = null;
+        compositionRows = null;
+        catalogResults = null;
+        verifiedSingleFoodResults = null;
+        compositionTotalBox = null;
+        menuBuilderTotalBox = null;
+        diningOutMenuNameInputs.clear();
+        diningOutMenuCaloriesInputs.clear();
+        diningOutMenuProteinInputs.clear();
+        diningOutMenuCarbsInputs.clear();
+        diningOutMenuFatInputs.clear();
+        diningOutMenuSodiumInputs.clear();
+        diningOutMenuSugarsInputs.clear();
+        diningOutMenuSaturatedFatInputs.clear();
+        diningOutOptionInputs.clear();
+        diningOutOptionProvisionInputs.clear();
+        diningOutOptionGroupInputs.clear();
+        diningOutOptionCaloriesInputs.clear();
+        diningOutOptionProteinInputs.clear();
+        diningOutOptionCarbsInputs.clear();
+        diningOutOptionFatInputs.clear();
+        diningOutOptionSodiumInputs.clear();
+        diningOutOptionSugarsInputs.clear();
+        diningOutOptionSaturatedFatInputs.clear();
+        diningOutOptionConsumedPercentInputs.clear();
+        menuQuantityInputs.clear();
+        ingredientQuantityInputs.clear();
+    }
+
     private void syncDraftFromViews() {
+        syncDirectFoodDraft();
         if (catalogSearchInput != null) {
             catalogQuery = FitnessUi.inputText(catalogSearchInput);
         }
@@ -5535,7 +5704,7 @@ public final class MealManagementScreen extends BaseScreen {
         if (diningOutConsumedPercentInput != null) {
             draftDiningOutConsumedPercent = FitnessUi.inputText(diningOutConsumedPercentInput);
         }
-        if (menuNameInput != null) {
+        if (menuBuilderVisible && menuNameInput != null) {
             draftMenuName = FitnessUi.inputText(menuNameInput);
         }
         syncDiningOutMenuInputs();
@@ -5878,6 +6047,84 @@ public final class MealManagementScreen extends BaseScreen {
             throw new IllegalArgumentException(label + "은 0보다 커야 합니다.");
         }
         return parsed;
+    }
+
+    private void clearDirectFoodDraft(boolean ingredientMode) {
+        DirectFoodDraft draft = ingredientMode ? singleFoodDraft : finishedProductDraft;
+        draft.clear(ingredientMode);
+        activeDirectFoodDraftSync = null;
+    }
+
+    private void clearDirectFoodDrafts() {
+        singleFoodDraft.clear(true);
+        finishedProductDraft.clear(false);
+        activeDirectFoodDraftSync = null;
+    }
+
+    private static final class DirectFoodDraft {
+        private String name = "";
+        private String manufacturer = "";
+        private String brand = "";
+        private String subBrand = "";
+        private String packageAmount = "";
+        private String packageUnit = NutritionUnit.GRAM;
+        private String packageCount = "";
+        private String category;
+        private String cookingMethod = NutritionFood.COOKING_METHOD_UNSPECIFIED;
+        private String basisAmount;
+        private String basisUnit;
+        private final Map<String, String> nutrientValues = new LinkedHashMap<>();
+        private String priceTraceQuery = "";
+        private String manualManufacturer = "";
+        private String manualName = "";
+        private String manualBrand = "";
+        private String manualSubBrand = "";
+        private String manualBasisAmount = "";
+        private String manualBasisUnit = NutritionUnit.SERVING;
+        private ProductReadV1 selectedProduct;
+
+        private static DirectFoodDraft forSingleFood() {
+            DirectFoodDraft draft = new DirectFoodDraft();
+            draft.category = NutritionFood.CATEGORY_OTHER;
+            draft.basisAmount = "100";
+            draft.basisUnit = NutritionUnit.GRAM;
+            draft.manualBasisUnit = NutritionUnit.GRAM;
+            return draft;
+        }
+
+        private static DirectFoodDraft forFinishedProduct() {
+            DirectFoodDraft draft = new DirectFoodDraft();
+            draft.category = NutritionFood.CATEGORY_PROCESSED;
+            draft.basisAmount = "1";
+            draft.basisUnit = NutritionUnit.SERVING;
+            draft.manualBasisUnit = NutritionUnit.SERVING;
+            return draft;
+        }
+
+        private void clear(boolean ingredientMode) {
+            name = "";
+            manufacturer = "";
+            brand = "";
+            subBrand = "";
+            packageAmount = "";
+            packageUnit = NutritionUnit.GRAM;
+            packageCount = "";
+            category = ingredientMode
+                    ? NutritionFood.CATEGORY_OTHER
+                    : NutritionFood.CATEGORY_PROCESSED;
+            cookingMethod = NutritionFood.COOKING_METHOD_UNSPECIFIED;
+            basisAmount = ingredientMode ? "100" : "1";
+            basisUnit = ingredientMode ? NutritionUnit.GRAM : NutritionUnit.SERVING;
+            nutrientValues.clear();
+            priceTraceQuery = "";
+            manualManufacturer = "";
+            manualName = "";
+            manualBrand = "";
+            manualSubBrand = "";
+            manualBasisAmount = "";
+            manualBasisUnit = basisUnit;
+            selectedProduct = null;
+        }
     }
 
     private static final class DiningOutMenuDraft {
