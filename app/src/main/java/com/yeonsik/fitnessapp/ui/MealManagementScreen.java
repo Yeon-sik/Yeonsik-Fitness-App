@@ -138,7 +138,7 @@ public final class MealManagementScreen extends BaseScreen {
     private LinearLayout menuBuilderTotalBox;
     private final List<EditText> menuQuantityInputs = new ArrayList<>();
     private final List<EditText> ingredientQuantityInputs = new ArrayList<>();
-    private int catalogMode = CATALOG_MODE_SEARCH;
+    private int catalogMode = CATALOG_MODE_SINGLE_FOOD;
     private String catalogKindFilter = CATALOG_FILTER_ALL;
     private boolean initialSyncRequested;
     private boolean catalogSyncing;
@@ -319,10 +319,6 @@ public final class MealManagementScreen extends BaseScreen {
     }
 
     private void openMealWorkspace() {
-        if (draftMenus.isEmpty()) {
-            draftMealTime = currentMealTime();
-        }
-        catalogMode = CATALOG_MODE_SINGLE_FOOD;
         catalogKindFilter = CATALOG_FILTER_ALL;
         mealWorkspaceVisible = true;
         host.rerender();
@@ -1533,6 +1529,8 @@ public final class MealManagementScreen extends BaseScreen {
                 draftMenus.clear();
                 draftIngredients.clear();
                 draftMenuName = "";
+                draftMealTime = currentMealTime();
+                catalogMode = CATALOG_MODE_SINGLE_FOOD;
                 menuBuilderVisible = false;
                 menuNameInput = null;
                 menuBuilderTotalBox = null;
@@ -5465,6 +5463,7 @@ public final class MealManagementScreen extends BaseScreen {
             clearMealInputViewReferences();
             clearDirectFoodDrafts();
             draftMealTime = currentMealTime();
+            catalogMode = CATALOG_MODE_SINGLE_FOOD;
             mealWorkspaceVisible = false;
             host.toast(saveDiningOutMenu
                     ? "외식 메뉴를 저장하고 " + dateLabel() + " " + recordedMealTime + "에 기록했습니다."
@@ -5520,6 +5519,7 @@ public final class MealManagementScreen extends BaseScreen {
         clearMealInputViewReferences();
         clearDirectFoodDrafts();
         draftMealTime = currentMealTime();
+        catalogMode = CATALOG_MODE_SINGLE_FOOD;
         mealWorkspaceVisible = false;
         host.toast("끼니를 " + dateLabel() + " " + recordedMealTime + "에 기록했습니다.");
         host.rerender();

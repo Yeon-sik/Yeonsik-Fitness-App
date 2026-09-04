@@ -15,6 +15,7 @@ import com.yeonsik.fitnessapp.data.CompositionTemplate;
 import com.yeonsik.fitnessapp.data.DiningOutIdentity;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionUnit;
+import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -42,6 +43,72 @@ public final class MainActivityDiningOutTabTest {
         }
     }
 
+    @Test
+    public void diningOutDraftSurvivesNavigationWithMenuOptionAndConsumedPercent() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                activity.openMealManagement();
+                View root = activity.getWindow().getDecorView();
+                clickText(root, "새 끼니 기록");
+                clickText(root, "외식");
+
+                EditText store = findEditTextWithContentDescription(root, "가게 명");
+                EditText branch = findEditTextWithContentDescription(root, "지점");
+                EditText menu = findEditTextWithContentDescription(root, "외식 메뉴 1 이름");
+                assertNotNull(store);
+                assertNotNull(branch);
+                assertNotNull(menu);
+                store.setText("navigation 식당");
+                branch.setText("navigation 지점");
+                menu.setText("navigation 메뉴");
+
+                clickText(root, "옵션 추가");
+                clickText(root, "반찬");
+                clickText(root, "저장 옵션 없이 직접 입력");
+                EditText option = findEditTextWithContentDescription(root, "외식 옵션 1");
+                EditText consumedPercent = findEditTextWithContentDescription(
+                        root,
+                        "외식 옵션 내 섭취 비율 1"
+                );
+                assertNotNull(option);
+                assertNotNull(consumedPercent);
+                option.setText("navigation 옵션");
+                consumedPercent.setText("60");
+
+                activity.navigate(FitnessScreen.WORKOUT);
+                activity.openMealManagement();
+                root = activity.getWindow().getDecorView();
+
+                assertEquals(
+                        "navigation 식당",
+                        findEditTextWithContentDescription(root, "가게 명")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "navigation 지점",
+                        findEditTextWithContentDescription(root, "지점")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "navigation 메뉴",
+                        findEditTextWithContentDescription(root, "외식 메뉴 1 이름")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "navigation 옵션",
+                        findEditTextWithContentDescription(root, "외식 옵션 1")
+                                .getText().toString()
+                );
+                assertEquals(
+                        "60",
+                        findEditTextWithContentDescription(
+                                root,
+                                "외식 옵션 내 섭취 비율 1"
+                        ).getText().toString()
+                );
+            });
+        }
+    }
     @Test
     public void diningOutValidationShowsInlineErrorAndClearsAfterFieldEdit() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
