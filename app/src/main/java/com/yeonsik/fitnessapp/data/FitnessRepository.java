@@ -4325,6 +4325,8 @@ public final class FitnessRepository {
 
     /**
      * Builds the narrow v2 projection for every completed Fitness-owned session.
+     * Soft-deleted completed sessions remain included so an existing shared row can
+     * receive its deletion tombstone.
      *
      * <p>This method is read-only with respect to workout data. It does not update
      * workout_records, workout_exercises, workout_sets, or any snapshot. The existing
@@ -4337,7 +4339,6 @@ public final class FitnessRepository {
                 + "created_at, is_backfilled, backfilled_at, backfill_reason, "
                 + "updated_at, deleted_at FROM workout_records "
                 + "WHERE source_app = 'fitness' AND user_id = ? "
-                + "AND deleted_at IS NULL "
                 + "AND metadata LIKE '%\"status\":\"completed\"%' "
                 + "ORDER BY date DESC, updated_at DESC, id ASC";
 
