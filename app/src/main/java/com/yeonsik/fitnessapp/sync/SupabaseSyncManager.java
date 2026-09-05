@@ -7,6 +7,7 @@ import android.database.sqlite.SQLiteDatabase;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.FitnessSummaryProjectionV2;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -36,6 +37,8 @@ public final class SupabaseSyncManager {
     private static final int RPC_BATCH_SIZE = 500;
     private static final int RPC_CONTRACT_VERSION = 1;
     private static final int MAX_RPC_CALLS = 1000;
+    private static final String SUMMARY_PROJECTION_V2_RPC =
+            "/rest/v1/rpc/upsert_fitness_summary_projection_v2";
     private static final String PULL_DIRECTION = "pull";
     private static final String PUSH_DIRECTION = "push";
     static final List<String> TABLES = Arrays.asList(
@@ -96,6 +99,8 @@ public final class SupabaseSyncManager {
             JSONArray rows = fetchTable(table, config);
             pulledRows += applyRows(database, table, rows, config.effectiveUserId());
         }
+
+        pushedRows += pushSummaryProjectionV2(config, repository);
 
         return new SyncResult(pushedRows, pulledRows, OffsetDateTime.now().toString());
     }
@@ -180,7 +185,40 @@ public final class SupabaseSyncManager {
         } while (hasMore);
 
         repository.reconcileSharedWorkoutSummaries();
+        pushedRows += pushSummaryProjectionV2(config, repository);
         return new SyncResult(pushedRows, pulledRows, syncedAt);
+    }
+
+    /**
+     * Publishes only the completed Fitness-owned Summary Projection v2 contract.
+     * The v1 table sync above remains intact for legacy compatibility; this RPC is
+     * deliberately separate and never sends exercise or set-detail fields.
+     */
+    private int pushSummaryProjectionV2(
+            SupabaseConfig config,
+            FitnessRepository repository
+    ) throws Exception {
+        int pushed = 0;
+        for (FitnessSummaryProjectionV2 projection
+                : repository.completedFitnessSummaryProjectionsV2()) {
+            String endpoint = joinUrl(config.supabaseUrl, SUMMARY_PROJECTION_V2_RPC);
+            HttpURLConnection connection = openConnection(endpoint, "POST", config);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setDoOutput(true);
+
+            JSONObject request = new JSONObject();
+            request.put("p_projection", projection.toRpcJson());
+            try (OutputStream output = connection.getOutputStream()) {
+                output.write(request.toString().getBytes(StandardCharsets.UTF_8));
+            }
+
+            String body = readResponseOrThrow(connection, 200);
+            if (!body.isEmpty() && new JSONArray(body).length() > 0) {
+                pushed += 1;
+            }
+        }
+        return pushed;
     }
 
     private int checkedRpcCalls(int rpcCalls) throws IOException {

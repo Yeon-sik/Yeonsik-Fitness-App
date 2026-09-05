@@ -4323,6 +4323,141 @@ public final class FitnessRepository {
         return changedCount;
     }
 
+    /**
+     * Builds the narrow v2 projection for every completed Fitness-owned session.
+     *
+     * <p>This method is read-only with respect to workout data. It does not update
+     * workout_records, workout_exercises, workout_sets, or any snapshot. The existing
+     * {@link #reconcileSharedWorkoutSummaries()} call above remains the separate v1
+     * compatibility path.</p>
+     */
+    public List<FitnessSummaryProjectionV2> completedFitnessSummaryProjectionsV2() {
+        List<FitnessSummaryProjectionV2> projections = new ArrayList<>();
+        String sql = "SELECT id, date, workout_type, duration_seconds, metadata, "
+                + "created_at, is_backfilled, backfilled_at, backfill_reason, "
+                + "updated_at, deleted_at FROM workout_records "
+                + "WHERE source_app = 'fitness' AND user_id = ? "
+                + "AND deleted_at IS NULL "
+                + "AND metadata LIKE '%\"status\":\"completed\"%' "
+                + "ORDER BY date DESC, updated_at DESC, id ASC";
+
+        try (Cursor cursor = db().rawQuery(sql, new String[]{userId})) {
+            while (cursor.moveToNext()) {
+                String metadata = cursor.getString(4);
+                if (!"completed".equals(metadataValue(metadata, "status", ""))) {
+                    continue;
+                }
+
+                String recordId = cursor.getString(0);
+                String workoutType = cursor.getString(2);
+                Integer totalDurationSeconds = cursor.isNull(3)
+                        ? null
+                        : cursor.getInt(3);
+                if (totalDurationSeconds == null) {
+                    int derivedDuration = resolvedDurationSeconds(
+                            cursor.getString(1),
+                            null,
+                            metadata
+                    );
+                    totalDurationSeconds = derivedDuration > 0 ? derivedDuration : null;
+                }
+
+                Map<String, Integer> completedSets = completedSetCountsByPart(recordId);
+                Integer cardioDurationSeconds = "cardio".equals(workoutType)
+                        ? totalDurationSeconds
+                        : null;
+                String updatedAt = cursor.getString(9);
+                String createdAt = cursor.isNull(5) ? updatedAt : cursor.getString(5);
+
+                projections.add(new FitnessSummaryProjectionV2(
+                        recordId,
+                        recordId,
+                        cursor.getString(1),
+                        "completed",
+                        setCount(completedSets, "chest"),
+                        setCount(completedSets, "back"),
+                        setCount(completedSets, "legs"),
+                        setCount(completedSets, "shoulders"),
+                        setCount(completedSets, "abs"),
+                        setCount(completedSets, "triceps"),
+                        setCount(completedSets, "biceps"),
+                        totalDurationSeconds,
+                        cardioDurationSeconds,
+                        createdAt,
+                        cursor.getInt(6) == 1,
+                        cursor.isNull(7) ? null : cursor.getString(7),
+                        cursor.isNull(8) ? null : cursor.getString(8),
+                        updatedAt,
+                        cursor.isNull(10) ? null : cursor.getString(10),
+                        DEVICE_ID
+                ));
+            }
+        }
+        return projections;
+    }
+
+    private Map<String, Integer> completedSetCountsByPart(String recordId) {
+        Map<String, Integer> counts = new HashMap<>();
+        String sql = "SELECT we.ui_part, we.primary_sub_part_snapshot, COUNT(ws.id) FROM workout_sets ws "
+                + "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id "
+                + "WHERE we.record_id = ? AND we.user_id = ? AND ws.user_id = ? "
+                + "AND we.deleted_at IS NULL AND ws.deleted_at IS NULL "
+                + "AND ws.is_completed = 1 "
+                + "GROUP BY we.ui_part, we.primary_sub_part_snapshot";
+        try (Cursor cursor = db().rawQuery(sql, new String[]{recordId, userId, userId})) {
+            while (cursor.moveToNext()) {
+                String uiPart = cursor.isNull(0) ? null : cursor.getString(0);
+                String part = summaryPartKey(uiPart);
+                if ("arms".equals(part)) {
+                    part = summaryPartKey(cursor.isNull(1) ? null : cursor.getString(1));
+                }
+                if (part != null) {
+                    counts.put(part, counts.getOrDefault(part, 0) + cursor.getInt(2));
+                }
+            }
+        }
+        return counts;
+    }
+
+    private static int setCount(Map<String, Integer> counts, String part) {
+        Integer count = counts.get(part);
+        return count == null ? 0 : Math.max(count, 0);
+    }
+
+    /** Maps existing Fitness body-part codes to the fixed v2 field names. */
+    private static String summaryPartKey(String value) {
+        String normalized = value == null ? "" : value.trim().toLowerCase();
+        switch (normalized) {
+            case "가슴":
+            case "chest":
+                return "chest";
+            case "등":
+            case "back":
+                return "back";
+            case "하체":
+            case "legs":
+                return "legs";
+            case "어깨":
+            case "shoulders":
+                return "shoulders";
+            case "복부":
+            case "복근":
+            case "abs":
+                return "abs";
+            case "삼두":
+            case "triceps":
+                return "triceps";
+            case "이두":
+            case "biceps":
+                return "biceps";
+            case "팔":
+            case "arms":
+                return "arms";
+            default:
+                return null;
+        }
+    }
+
     public void deleteSession(String recordId) {
         if (emptyToNull(recordId) == null) {
             return;
