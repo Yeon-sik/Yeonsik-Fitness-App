@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node canonical-import.integration.mjs"
+    "test": "node canonical-import.integration.mjs",
+    "test:meal": "node meal-import.integration.mjs"
   },
   "devDependencies": {
     "dotenv": "^16.4.7"

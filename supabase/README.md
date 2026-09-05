@@ -6,7 +6,9 @@ FitnessApp has two independent remote database targets:
   by CashOS, FitnessApp, and PersonalOSApp. FitnessApp does not own or deploy
   shared-project migrations from this directory.
 - `nutrition/supabase/`: migrations for the FitnessApp-only Nutrition project.
-  It contains food, recipe, and nutrient catalog tables only.
+  It contains the Fitness-owned food, recipe, nutrient catalog, and authenticated
+  detailed Meal ingest tables. Catalog synchronization remains limited to the
+  catalog tables; Meal/MealItem snapshots are written only by their verified RPC.
 - `.env`: ignored build configuration containing both independent URL/key pairs.
 
 Never link `supabase/nutrition` to the Personal OS shared project. The first

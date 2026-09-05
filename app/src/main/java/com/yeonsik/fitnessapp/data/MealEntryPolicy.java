@@ -48,6 +48,23 @@ public final class MealEntryPolicy {
         return recordDate;
     }
 
+    /**
+     * Validates an imported offset timestamp and applies the same record-date rule as manual
+     * meal entry. The supplied offset's local calendar date is authoritative; the timestamp is
+     * never converted through the device or database default timezone before this check.
+     */
+    public static OffsetDateTime requireImportedEatenAt(String value, LocalDate today) {
+        String normalized = value == null ? "" : value.trim();
+        final OffsetDateTime eatenAt;
+        try {
+            eatenAt = OffsetDateTime.parse(normalized);
+        } catch (DateTimeParseException error) {
+            throw new IllegalArgumentException("섭취 시각은 offset timestamp 형식이어야 합니다.");
+        }
+        requireRecordDate(eatenAt.toLocalDate().toString(), today);
+        return eatenAt;
+    }
+
     public static boolean isBackfilled(LocalDate recordDate, LocalDate today) {
         return recordDate != null && today != null && recordDate.isBefore(today);
     }

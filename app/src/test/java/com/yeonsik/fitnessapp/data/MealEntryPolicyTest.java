@@ -8,6 +8,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Test;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
 public final class MealEntryPolicyTest {
@@ -39,6 +40,18 @@ public final class MealEntryPolicyTest {
     public void futureDateIsRejected() {
         assertThrows(IllegalArgumentException.class,
                 () -> MealEntryPolicy.requireRecordDate("2026-08-10", TODAY));
+    }
+
+    @Test
+    public void importedEatenAtUsesItsOffsetLocalDateAndRejectsNaiveOrFutureValues() {
+        assertEquals(
+                OffsetDateTime.parse("2026-08-09T07:05:00+09:00"),
+                MealEntryPolicy.requireImportedEatenAt("2026-08-09T07:05:00+09:00", TODAY)
+        );
+        assertThrows(IllegalArgumentException.class,
+                () -> MealEntryPolicy.requireImportedEatenAt("2026-08-10T00:05:00+00:00", TODAY));
+        assertThrows(IllegalArgumentException.class,
+                () -> MealEntryPolicy.requireImportedEatenAt("2026-08-09T07:05:00", TODAY));
     }
 
     @Test
