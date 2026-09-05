@@ -9,6 +9,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.BuildConfig;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 
 /** 설정, 두 Supabase 연결, 두 인증 세션을 한 화면에서 명확히 보여 준다. */
@@ -37,6 +38,7 @@ public final class SettingsScreen extends BaseScreen {
             renderUserSyncCard(sharedConfig);
         }
         renderThemeCard();
+        renderMassUnitCard();
         renderDataSafetyCard();
         renderDataImportCard();
 
@@ -435,7 +437,7 @@ public final class SettingsScreen extends BaseScreen {
         FitnessUi ui = ui();
         boolean busy = host.isDataImporting() || host.isDataTransferInProgress();
         LinearLayout card = ui.card();
-        ui.cardHeader(card, "데이터 가져오기", busy ? "처리 중" : "FLEEK CSV");
+        ui.cardHeader(card, "데이터 가져오기", busy ? "처리 중" : "로컬 파일");
         card.addView(ui.text(
                 "FLEEK에서 내보낸 CSV의 날짜·운동·중량·횟수를 로컬 기록으로 가져옵니다. "
                         + "같은 파일을 다시 선택하면 기존 세션은 건너뜁니다.",
@@ -455,6 +457,32 @@ public final class SettingsScreen extends BaseScreen {
         );
         importButton.setEnabled(!busy);
         card.addView(importButton, ui.fullWidthParams(ui.dp(14)));
+
+        View divider = ui.hairline(FitnessUi.COLOR_BORDER);
+        LinearLayout.LayoutParams dividerParams = ui.fullWidthParams(ui.dp(16));
+        dividerParams.height = ui.dp(1);
+        card.addView(divider, dividerParams);
+        card.addView(ui.text(
+                "Workout Transfer v2 JSON은 운동 세트·저항 상태·입력 중량 단위를 다른 FitnessApp으로 옮깁니다. "
+                        + "운동 ID는 현재 앱 catalog와 정확히 일치해야 합니다.",
+                13,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        Button transferImport = ui.button(
+                busy ? "처리 중" : "운동 기록 가져오기 (JSON)",
+                false,
+                v -> host.openWorkoutTransferImport()
+        );
+        transferImport.setEnabled(!busy);
+        card.addView(transferImport, ui.fullWidthParams(ui.dp(12)));
+        Button transferExport = ui.button(
+                busy ? "처리 중" : "운동 기록 공유 내보내기 (JSON)",
+                false,
+                v -> host.exportWorkoutTransfer()
+        );
+        transferExport.setEnabled(!busy);
+        card.addView(transferExport, ui.fullWidthParams(ui.dp(10)));
         add(card);
     }
 
@@ -526,6 +554,32 @@ public final class SettingsScreen extends BaseScreen {
                 12, FitnessUi.COLOR_TERTIARY, false);
         hint.setPadding(0, ui.dp(10), 0, 0);
         card.addView(hint);
+        add(card);
+    }
+
+    private void renderMassUnitCard() {
+        FitnessUi ui = ui();
+        MassUnit selected = MassUnit.orDefault(host.preferredMassUnit());
+        LinearLayout card = ui.card();
+        ui.cardHeader(card, "중량 단위", selected.symbol().toUpperCase(java.util.Locale.ROOT));
+        card.addView(ui.text(
+                "운동 입력과 일반 화면의 표시 단위입니다. 저장·볼륨 계산은 항상 kg 기준입니다.",
+                13,
+                FitnessUi.COLOR_MUTED,
+                false
+        ));
+        LinearLayout chipRow = new LinearLayout(host.activity());
+        chipRow.setOrientation(LinearLayout.HORIZONTAL);
+        MassUnit[] units = {MassUnit.KG, MassUnit.LB};
+        for (int index = 0; index < units.length; index += 1) {
+            MassUnit unit = units[index];
+            Button chip = ui.filterButton(unit.symbol().toUpperCase(java.util.Locale.ROOT));
+            ui.styleFilterButton(chip, unit == selected);
+            chip.setContentDescription(unit.labelKo() + " 단위");
+            chip.setOnClickListener(v -> host.setPreferredMassUnit(unit));
+            chipRow.addView(chip, ui.pickerCellParams(index == 0));
+        }
+        card.addView(chipRow, ui.fullWidthParams(ui.dp(12)));
         add(card);
     }
 

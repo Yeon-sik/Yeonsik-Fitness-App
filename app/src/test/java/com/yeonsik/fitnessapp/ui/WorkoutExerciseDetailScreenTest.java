@@ -153,4 +153,29 @@ public final class WorkoutExerciseDetailScreenTest {
                 )
         );
     }
+
+    @Test
+    public void numericHeadersDoNotUseTheGlobalMassUnit() {
+        assertEquals(
+                "중량",
+                WorkoutExerciseDetailScreen.primaryColumnHeaderLabel(
+                        FitnessRecordContract.WEIGHT_REPS,
+                        LoadState.EXTERNAL_LOAD
+                )
+        );
+        assertEquals(
+                "추가",
+                WorkoutExerciseDetailScreen.primaryColumnHeaderLabel(
+                        FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS,
+                        LoadState.ADDED_WEIGHT
+                )
+        );
+        assertEquals(
+                "보조",
+                WorkoutExerciseDetailScreen.primaryColumnHeaderLabel(
+                        FitnessRecordContract.ASSISTED_WEIGHT_REPS,
+                        LoadState.ASSISTED
+                )
+        );
+    }
 }

@@ -9,6 +9,8 @@ import android.widget.TextView;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.routine.WorkoutRoutineMapper;
@@ -43,6 +45,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
     @Override
     public void render() {
         FitnessUi ui = ui();
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         String recordId = host.sessionState().activeRecordId();
         FitnessRepository.SessionMetrics metrics = recordId == null
                 ? new FitnessRepository.SessionMetrics()
@@ -93,7 +96,13 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                     null
             ), ui.tileParams(false));
         } else {
-            tiles.addView(ui.statTile("외부 중량 볼륨", FitnessUi.formatVolume(metrics.totalVolumeKg), "kg", true, null),
+            tiles.addView(ui.statTile(
+                            "외부 중량 볼륨",
+                            MassFormatter.format(metrics.totalVolumeKg, displayUnit),
+                            displayUnit.symbol(),
+                            true,
+                            null
+                    ),
                     ui.tileParams(true));
             tiles.addView(ui.statTile("완료 세트", String.valueOf(metrics.setCount), "개", false, null),
                     ui.tileParams(false));
@@ -172,6 +181,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             String currentDate
     ) {
         FitnessUi ui = ui();
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         if (previous.isEmpty()) {
             add(ui.emptyStateCard(
                     "이 루틴의 이전 완료 기록이 없어 비교할 수 없습니다.",
@@ -183,8 +193,8 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             ui.cardHeader(card, "루틴 변화", "직전 완료 기록과 비교");
             card.addView(ui.keyValue(
                     "총 볼륨",
-                    FitnessUi.formatVolume(prior.metrics.totalVolumeKg) + "kg → "
-                            + FitnessUi.formatVolume(currentMetrics.totalVolumeKg) + "kg"
+                    MassFormatter.withUnit(prior.metrics.totalVolumeKg, displayUnit) + " → "
+                            + MassFormatter.withUnit(currentMetrics.totalVolumeKg, displayUnit)
             ));
             card.addView(ui.keyValue(
                     "증감률",
@@ -243,6 +253,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             String currentDate
     ) {
         FitnessUi ui = ui();
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         RecordsAnalysis.TrendCurrentState currentState = currentMetrics != null
                 && currentMetrics.setCount > 0
                 ? RecordsAnalysis.TrendCurrentState.COMPLETED
@@ -255,7 +266,8 @@ public final class WorkoutSummaryScreen extends BaseScreen {
                     volumePoints(history),
                     currentMetrics == null ? 0d : currentMetrics.totalVolumeKg,
                     currentState,
-                    currentDate
+                    currentDate,
+                    displayUnit
             ), ui.fullWidthParams(ui.dp(10)));
             return;
         }
@@ -266,7 +278,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         if (currentState == RecordsAnalysis.TrendCurrentState.COMPLETED) {
             rows.add(ui.recordListRow(
                     "현",
-                    FitnessUi.formatVolume(currentMetrics.totalVolumeKg) + "kg",
+                    MassFormatter.withUnit(currentMetrics.totalVolumeKg, displayUnit),
                     "현재 완료 기록 · " + currentMetrics.setCount + "세트",
                     null
             ));
@@ -275,7 +287,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             FitnessRepository.WorkoutHistoryEntry latest = history.get(historyCount - 1);
             rows.add(ui.recordListRow(
                     "이",
-                    FitnessUi.formatVolume(latest.metrics.totalVolumeKg) + "kg",
+                    MassFormatter.withUnit(latest.metrics.totalVolumeKg, displayUnit),
                     "직전 완료 기록 · " + latest.date,
                     null
             ));
@@ -525,7 +537,7 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             ));
 
             TextView primary = ui.num(
-                    primarySetLabel(recordType, set),
+                    primarySetLabel(recordType, set, host.preferredMassUnit()),
                     14,
                     FitnessUi.COLOR_TEXT,
                     true
@@ -565,12 +577,13 @@ public final class WorkoutSummaryScreen extends BaseScreen {
         if (weightKg <= 0) {
             return "맨몸";
         }
-        return FitnessUi.trimDouble(weightKg);
+        return MassFormatter.withUnit(weightKg, host.preferredMassUnit());
     }
 
     private String primarySetLabel(
             String recordType,
-            FitnessRepository.SessionSetEntry set
+            FitnessRepository.SessionSetEntry set,
+            MassUnit displayUnit
     ) {
         String type = FitnessRecordContract.normalizeRecordType(recordType);
         if (FitnessRecordContract.REPS_ONLY.equals(type)) {
@@ -580,10 +593,10 @@ public final class WorkoutSummaryScreen extends BaseScreen {
             return set.durationSeconds + "초";
         }
         if (FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)) {
-            return "보조 " + FitnessUi.trimDouble(set.assistedWeightKg);
+            return "보조 " + MassFormatter.withUnit(set.assistedWeightKg, displayUnit);
         }
         if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(type)) {
-            return "추가 " + FitnessUi.trimDouble(set.addedWeightKg);
+            return "추가 " + MassFormatter.withUnit(set.addedWeightKg, displayUnit);
         }
         return weightLabel(set.weightKg);
     }

@@ -19,6 +19,8 @@ import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter;
@@ -44,6 +46,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private static final int REST_STEP_SECONDS = 15;
     private static final int ILLUSTRATION_DISPLAY_SCALE_PERCENT = 120;
     private static final int LOAD_STATE_CELL_WIDTH_DP = 64;
+    private static final int MASS_UNIT_CELL_WIDTH_DP = 42;
 
     /** 이번 종목의 기본 휴식(초). 스탬프 시 타이머와 세트 기록에 쓰인다. */
     private final int[] defaultRestSeconds = {DEFAULT_REST_SECONDS};
@@ -128,7 +131,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     ),
                     currentExerciseVolume(activeExercise, sets),
                     RecordsAnalysis.TrendCurrentState.IN_PROGRESS,
-                    null));
+                    null,
+                    host.preferredMassUnit()));
         }
         renderLastHistoryCard(activeExercise.recordType, lastHistory);
     }
@@ -533,6 +537,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         return params;
     }
 
+    private static LinearLayout.LayoutParams massUnitCellParams(FitnessUi ui) {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                ui.dp(MASS_UNIT_CELL_WIDTH_DP),
+                ui.dp(40)
+        );
+        params.setMargins(ui.dp(4), 0, 0, 0);
+        return params;
+    }
+
     private void addColumnHeader(LinearLayout row, String label, LinearLayout.LayoutParams params) {
         TextView header = ui().caption(label, FitnessUi.COLOR_MUTED);
         header.setGravity(Gravity.CENTER);
@@ -548,7 +561,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 ui.dp(52),
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
-        addColumnHeader(row, primaryInputLabel(recordType, loadState), compactSetFieldParams(ui, true));
+        addColumnHeader(row, primaryColumnHeaderLabel(recordType, loadState), compactSetFieldParams(ui, true));
+        if (hasNumericLoad(loadState)) {
+            addColumnHeader(row, "단위", massUnitCellParams(ui));
+        }
         if (hasSecondaryInput(recordType, loadState)) {
             addColumnHeader(row, secondaryInputLabel(recordType, loadState), compactSetFieldParams(ui, false));
         }
@@ -599,7 +615,9 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         row.setPadding(ui.dp(2), ui.dp(3), ui.dp(2), ui.dp(3));
 
         TextView previous = ui.num(
-                previousSet == null ? "--" : setSummary(exercise.recordType, previousSet),
+                previousSet == null
+                        ? "--"
+                        : setSummary(exercise.recordType, previousSet, host.preferredMassUnit()),
                 10,
                 FitnessUi.COLOR_TERTIARY,
                 true
@@ -608,7 +626,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         previous.setMaxLines(2);
         row.addView(previous, new LinearLayout.LayoutParams(ui.dp(52), ui.dp(44)));
 
-        EditText primary = typedPrimaryInput(exercise.recordType, set, initialLoadState);
+        final MassUnit[] selectedInputUnit = {
+                inputUnitForSet(set, initialLoadState)
+        };
+        EditText primary = typedPrimaryInput(
+                exercise.recordType,
+                set,
+                initialLoadState,
+                selectedInputUnit[0]
+        );
         EditText secondary = typedSecondaryInput(exercise.recordType, set, initialLoadState);
         EditText rir = FitnessRecordContract.supportsRir(exercise.recordType)
                 ? ui.numberInput("", set.rir == null ? "" : String.valueOf(set.rir))
@@ -630,6 +656,19 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             input.setPadding(ui.dp(4), ui.dp(3), ui.dp(4), ui.dp(3));
         }
         row.addView(primary, compactSetFieldParams(ui, true));
+        if (hasNumericLoad(initialLoadState)) {
+            TextView unitControl = massUnitControl(
+                    recordId,
+                    exercise,
+                    set,
+                    selectedLoadState,
+                    selectedInputUnit,
+                    primary,
+                    secondary,
+                    rir
+            );
+            row.addView(unitControl, massUnitCellParams(ui));
+        }
         if (hasSecondary) {
             row.addView(secondary, compactSetFieldParams(ui, false));
         }
@@ -641,6 +680,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             RuntimeExercisePreset volumePreset = runtimePresetForExercise(exercise);
             LiveVolumeInput liveVolumeInput = new LiveVolumeInput(
                     selectedLoadState,
+                    selectedInputUnit,
                     primary,
                     secondary,
                     volumePreset == null ? null : volumePreset.laterality(),
@@ -667,7 +707,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                             ui,
                             exercise.recordType,
                             previousVolumeKg,
-                            liveVolumeInputs
+                            liveVolumeInputs,
+                            host.preferredMassUnit()
                     );
                 }
             };
@@ -678,7 +719,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     ui,
                     exercise.recordType,
                     previousVolumeKg,
-                    liveVolumeInputs
+                    liveVolumeInputs,
+                    host.preferredMassUnit()
             );
         }
 
@@ -731,7 +773,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                                 secondary,
                                 rir,
                                 completed ? defaultRestSeconds[0] : set.restSeconds,
-                                completed
+                                completed,
+                                selectedInputUnit[0]
                         )
                 );
                 styleStamp(stamp, completed);
@@ -808,6 +851,108 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         setBox.addView(row, ui.fullWidthParams(0));
         setBox.addView(inlineSelector, ui.fullWidthParams(ui.dp(2)));
         card.addView(setBox, ui.fullWidthParams(ui.dp(6)));
+    }
+
+    private MassUnit inputUnitForSet(
+            FitnessRepository.SessionSetEntry set,
+            LoadState loadState
+    ) {
+        if (hasNumericLoad(loadState)
+                && set != null
+                && set.inputLoadValue != null
+                && set.inputLoadUnit != null) {
+            return set.inputLoadUnit;
+        }
+        if (hasCanonicalLoad(set, loadState)) {
+            return MassUnit.orDefault(host.preferredMassUnit());
+        }
+        return host.sessionState().inputMassUnitForNewSet(
+                null,
+                host.preferredMassUnit()
+        );
+    }
+
+    private static boolean hasCanonicalLoad(
+            FitnessRepository.SessionSetEntry set,
+            LoadState loadState
+    ) {
+        if (set == null) {
+            return false;
+        }
+        if (loadState == LoadState.EXTERNAL_LOAD) {
+            return set.weightKg > 0d;
+        }
+        if (loadState == LoadState.ADDED_WEIGHT) {
+            return set.addedWeightKg > 0d;
+        }
+        if (loadState == LoadState.ASSISTED) {
+            return set.assistedWeightKg > 0d;
+        }
+        return set.weightKg > 0d
+                || set.addedWeightKg > 0d
+                || set.assistedWeightKg > 0d;
+    }
+
+    private TextView massUnitControl(
+            String recordId,
+            FitnessRepository.SessionExerciseEntry exercise,
+            FitnessRepository.SessionSetEntry set,
+            LoadState[] selectedLoadState,
+            MassUnit[] selectedInputUnit,
+            EditText primary,
+            EditText secondary,
+            EditText rir
+    ) {
+        FitnessUi ui = ui();
+        TextView control = ui.text(
+                selectedInputUnit[0].symbol().toUpperCase(java.util.Locale.ROOT),
+                10,
+                FitnessUi.COLOR_TEXT,
+                true
+        );
+        control.setGravity(Gravity.CENTER);
+        control.setPadding(ui.dp(2), ui.dp(2), ui.dp(2), ui.dp(2));
+        control.setBackground(ui.flatSurfaceRippleDrawable(ui.dp(8)));
+        control.setClickable(true);
+        control.setFocusable(true);
+        control.setContentDescription("입력 중량 단위: " + selectedInputUnit[0].symbol());
+        control.setOnClickListener(view -> {
+            MassUnit previousUnit = selectedInputUnit[0];
+            MassUnit nextUnit = previousUnit == MassUnit.KG ? MassUnit.LB : MassUnit.KG;
+            Double enteredValue = FitnessUi.optionalDouble(primary);
+            String previousText = primary.getText().toString();
+            try {
+                if (enteredValue != null) {
+                    double kilograms = MassUnit.toKg(enteredValue, previousUnit);
+                    primary.setText(MassFormatter.formatInput(kilograms, nextUnit));
+                    primary.setSelection(primary.length());
+                    repository().updateTypedSet(
+                            recordId,
+                            set.id,
+                            typedSetInput(
+                                    exercise.recordType,
+                                    selectedLoadState[0],
+                                    primary,
+                                    secondary,
+                                    rir,
+                                    set.restSeconds,
+                                    set.isCompleted,
+                                    nextUnit,
+                                    kilograms,
+                                    MassUnit.fromKg(kilograms, nextUnit)
+                            )
+                    );
+                }
+                selectedInputUnit[0] = nextUnit;
+                control.setText(nextUnit.symbol().toUpperCase(java.util.Locale.ROOT));
+                control.setContentDescription("입력 중량 단위: " + nextUnit.symbol());
+            } catch (IllegalArgumentException error) {
+                primary.setText(previousText);
+                selectedInputUnit[0] = previousUnit;
+                host.toast(error.getMessage());
+            }
+        });
+        return control;
     }
 
     private LinearLayout inlineLoadStateSelector(
@@ -978,10 +1123,11 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private EditText typedPrimaryInput(
             String recordType,
             FitnessRepository.SessionSetEntry set,
-            LoadState loadState
+            LoadState loadState,
+            MassUnit inputUnit
     ) {
         if (hasNumericLoad(loadState)) {
-            return loadInput(loadState, set);
+            return loadInput(loadState, set, inputUnit);
         }
         if (isTimeRecordType(recordType)) {
             return ui().numberInput("", zeroToBlank(set.durationSeconds));
@@ -1005,15 +1151,37 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
     private EditText loadInput(
             LoadState loadState,
-            FitnessRepository.SessionSetEntry set
+            FitnessRepository.SessionSetEntry set,
+            MassUnit inputUnit
     ) {
         if (loadState == LoadState.ADDED_WEIGHT) {
-            return ui().decimalInput("", zeroToBlank(set.addedWeightKg));
+            return ui().decimalInput(
+                    MassUnit.orDefault(inputUnit).symbol(),
+                    inputValueForSet(set.addedWeightKg, set, inputUnit)
+            );
         }
         if (loadState == LoadState.ASSISTED) {
-            return ui().decimalInput("", zeroToBlank(set.assistedWeightKg));
+            return ui().decimalInput(
+                    MassUnit.orDefault(inputUnit).symbol(),
+                    inputValueForSet(set.assistedWeightKg, set, inputUnit)
+            );
         }
-        return ui().decimalInput("", zeroToBlank(set.weightKg));
+        return ui().decimalInput(
+                MassUnit.orDefault(inputUnit).symbol(),
+                inputValueForSet(set.weightKg, set, inputUnit)
+        );
+    }
+
+    private static String inputValueForSet(
+            double canonicalLoadKg,
+            FitnessRepository.SessionSetEntry set,
+            MassUnit inputUnit
+    ) {
+        MassUnit effectiveUnit = MassUnit.orDefault(inputUnit);
+        double value = set != null && set.inputLoadValue != null && set.inputLoadUnit != null
+                ? MassUnit.convert(set.inputLoadValue, set.inputLoadUnit, effectiveUnit)
+                : MassUnit.fromKg(canonicalLoadKg, effectiveUnit);
+        return zeroToBlank(value);
     }
 
     private FitnessRepository.SetInput typedSetInput(
@@ -1023,14 +1191,45 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             EditText secondary,
             EditText rir,
             Integer restSeconds,
-            boolean completed
+            boolean completed,
+            MassUnit inputUnit
+    ) {
+        return typedSetInput(
+                recordType,
+                loadState,
+                primary,
+                secondary,
+                rir,
+                restSeconds,
+                completed,
+                inputUnit,
+                null,
+                null
+        );
+    }
+
+    /** Builds a set with canonical kg while optionally preserving an exact pre-display-toggle value. */
+    private FitnessRepository.SetInput typedSetInput(
+            String recordType,
+            LoadState loadState,
+            EditText primary,
+            EditText secondary,
+            EditText rir,
+            Integer restSeconds,
+            boolean completed,
+            MassUnit inputUnit,
+            Double canonicalLoadKgOverride,
+            Double inputLoadValueOverride
     ) {
         LoadState effectiveState = effectiveLoadState(recordType, loadState, null);
+        MassUnit effectiveUnit = MassUnit.orDefault(inputUnit);
         Double weight = null;
         Integer reps = null;
         Integer duration = null;
         Double assisted = null;
         Double added = null;
+        Double inputLoadValue = null;
+        Double enteredLoad = null;
 
         if (isTimeRecordType(recordType)) {
             duration = hasNumericLoad(effectiveState)
@@ -1042,24 +1241,36 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     : FitnessUi.optionalInt(primary);
         }
 
-        if (effectiveState == LoadState.EXTERNAL_LOAD) {
-            weight = FitnessUi.optionalDouble(primary);
-        } else if (effectiveState == LoadState.ADDED_WEIGHT) {
-            added = FitnessUi.optionalDouble(primary);
-        } else if (effectiveState == LoadState.ASSISTED) {
-            assisted = FitnessUi.optionalDouble(primary);
+        if (hasNumericLoad(effectiveState)) {
+            enteredLoad = FitnessUi.optionalDouble(primary);
+            inputLoadValue = inputLoadValueOverride == null
+                    ? enteredLoad
+                    : inputLoadValueOverride;
+            Double canonicalLoadKg = canonicalLoadKgOverride == null
+                    ? enteredLoad == null ? null : MassUnit.toKg(enteredLoad, effectiveUnit)
+                    : canonicalLoadKgOverride;
+            if (effectiveState == LoadState.EXTERNAL_LOAD) {
+                weight = canonicalLoadKg;
+            } else if (effectiveState == LoadState.ADDED_WEIGHT) {
+                added = canonicalLoadKg;
+            } else if (effectiveState == LoadState.ASSISTED) {
+                assisted = canonicalLoadKg;
+            }
         }
 
         return new FitnessRepository.SetInput(
                 weight,
                 reps,
                 duration,
+                null,
                 assisted,
                 added,
                 rir == null ? null : FitnessUi.optionalInt(rir),
                 restSeconds,
                 completed,
-                effectiveState
+                effectiveState,
+                inputLoadValue,
+                inputLoadValue == null ? null : effectiveUnit
         );
     }
 
@@ -1113,16 +1324,38 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         Double added = effectiveState == LoadState.ADDED_WEIGHT
                 ? set.addedWeightKg
                 : null;
+        Double inputLoadValue = null;
+        MassUnit inputLoadUnit = null;
+        if (hasNumericLoad(effectiveState)) {
+            double canonicalLoad = effectiveState == LoadState.EXTERNAL_LOAD
+                    ? set.weightKg
+                    : effectiveState == LoadState.ADDED_WEIGHT
+                    ? set.addedWeightKg
+                    : set.assistedWeightKg;
+            if (set.inputLoadValue != null && set.inputLoadUnit != null) {
+                inputLoadValue = set.inputLoadValue;
+                inputLoadUnit = set.inputLoadUnit;
+            } else if (canonicalLoad > 0d) {
+                inputLoadUnit = host.sessionState().inputMassUnitForNewSet(
+                        null,
+                        host.preferredMassUnit()
+                );
+                inputLoadValue = MassUnit.fromKg(canonicalLoad, inputLoadUnit);
+            }
+        }
         return new FitnessRepository.SetInput(
                 weight,
                 isTimeRecordType(recordType) ? null : set.actualReps,
                 set.durationSeconds == 0 ? null : set.durationSeconds,
+                null,
                 assisted,
                 added,
                 set.rir,
                 restSeconds,
                 completed,
-                effectiveState
+                effectiveState,
+                inputLoadValue,
+                inputLoadUnit
         );
     }
 
@@ -1139,16 +1372,16 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         } else if (FitnessRecordContract.TIME.equals(type)) {
             primary.setText(zeroToBlank(previous.durationSeconds));
         } else if (FitnessRecordContract.WEIGHT_TIME.equals(type)) {
-            primary.setText(zeroToBlank(previous.weightKg));
+            primary.setText(inputValueForPreviousSet(previous.weightKg, previous));
             secondary.setText(zeroToBlank(previous.durationSeconds));
         } else if (FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)) {
-            primary.setText(zeroToBlank(previous.assistedWeightKg));
+            primary.setText(inputValueForPreviousSet(previous.assistedWeightKg, previous));
             secondary.setText(zeroToBlank(previous.actualReps));
         } else if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(type)) {
-            primary.setText(zeroToBlank(previous.addedWeightKg));
+            primary.setText(inputValueForPreviousSet(previous.addedWeightKg, previous));
             secondary.setText(zeroToBlank(previous.actualReps));
         } else {
-            primary.setText(zeroToBlank(previous.weightKg));
+            primary.setText(inputValueForPreviousSet(previous.weightKg, previous));
             secondary.setText(zeroToBlank(previous.actualReps));
         }
         if (rir != null) {
@@ -1156,18 +1389,59 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         }
     }
 
+    private String inputValueForPreviousSet(
+            double canonicalLoadKg,
+            FitnessRepository.SessionSetEntry previous
+    ) {
+        if (previous != null
+                && previous.inputLoadValue != null
+                && previous.inputLoadUnit != null) {
+            return zeroToBlank(previous.inputLoadValue);
+        }
+        MassUnit inputUnit = host.sessionState().inputMassUnitForNewSet(
+                null,
+                host.preferredMassUnit()
+        );
+        return zeroToBlank(MassUnit.fromKg(canonicalLoadKg, inputUnit));
+    }
+
     static String primaryInputLabel(String recordType, LoadState loadState) {
+        return primaryInputLabel(recordType, loadState, MassUnit.KG);
+    }
+
+    static String primaryColumnHeaderLabel(String recordType, LoadState loadState) {
         if (!hasNumericLoad(loadState)) {
             return isTimeRecordType(recordType) ? "초" : "횟수";
         }
         if (loadState == LoadState.ADDED_WEIGHT) {
-            return "추가 kg";
+            return "추가";
         }
         if (loadState == LoadState.ASSISTED) {
-            return "보조 kg";
+            return "보조";
         }
         if (loadState == LoadState.EXTERNAL_LOAD) {
-            return "중량 kg";
+            return "중량";
+        }
+        return isTimeRecordType(recordType) ? "초" : "횟수";
+    }
+
+    static String primaryInputLabel(
+            String recordType,
+            LoadState loadState,
+            MassUnit inputUnit
+    ) {
+        if (!hasNumericLoad(loadState)) {
+            return isTimeRecordType(recordType) ? "초" : "횟수";
+        }
+        String unit = MassUnit.orDefault(inputUnit).symbol();
+        if (loadState == LoadState.ADDED_WEIGHT) {
+            return "추가 " + unit;
+        }
+        if (loadState == LoadState.ASSISTED) {
+            return "보조 " + unit;
+        }
+        if (loadState == LoadState.EXTERNAL_LOAD) {
+            return "중량 " + unit;
         }
         return isTimeRecordType(recordType) ? "초" : "횟수";
     }
@@ -1188,6 +1462,14 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             String recordType,
             FitnessRepository.SessionSetEntry set
     ) {
+        return setSummary(recordType, set, MassUnit.KG);
+    }
+
+    private static String setSummary(
+            String recordType,
+            FitnessRepository.SessionSetEntry set,
+            MassUnit displayUnit
+    ) {
         String type = FitnessRecordContract.normalizeRecordType(recordType);
         if (FitnessRecordContract.REPS_ONLY.equals(type)) {
             return set.actualReps + "회";
@@ -1196,15 +1478,19 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             return set.durationSeconds + "초";
         }
         if (FitnessRecordContract.WEIGHT_TIME.equals(type)) {
-            return FitnessUi.trimDouble(set.weightKg) + "kg\n" + set.durationSeconds + "초";
+            return MassFormatter.withUnit(set.weightKg, displayUnit)
+                    + "\n" + set.durationSeconds + "초";
         }
         if (FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)) {
-            return "보조 " + FitnessUi.trimDouble(set.assistedWeightKg) + "kg\n" + set.actualReps + "회";
+            return "보조 " + MassFormatter.withUnit(set.assistedWeightKg, displayUnit)
+                    + "\n" + set.actualReps + "회";
         }
         if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(type)) {
-            return "추가 " + FitnessUi.trimDouble(set.addedWeightKg) + "kg\n" + set.actualReps + "회";
+            return "추가 " + MassFormatter.withUnit(set.addedWeightKg, displayUnit)
+                    + "\n" + set.actualReps + "회";
         }
-        return FitnessUi.trimDouble(set.weightKg) + "kg\n" + set.actualReps + "회";
+        return MassFormatter.withUnit(set.weightKg, displayUnit)
+                + "\n" + set.actualReps + "회";
     }
 
     /** 세트 입력 카드 상단에 표시할 전체 세트 누적 중량 비교 라벨을 만든다. */
@@ -1230,13 +1516,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             FitnessUi ui,
             String recordType,
             double previousVolumeKg,
-            List<LiveVolumeInput> liveVolumeInputs
+            List<LiveVolumeInput> liveVolumeInputs,
+            MassUnit displayUnit
     ) {
         List<Double> currentSetVolumes = new ArrayList<>();
         for (LiveVolumeInput input : liveVolumeInputs) {
             currentSetVolumes.add(volumeFromInputs(
                     recordType,
                     input.loadState[0],
+                    input.inputUnit[0],
                     input.primary,
                     input.secondary,
                     input.laterality,
@@ -1256,7 +1544,11 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         int color = delta > 0
                 ? FitnessUi.COLOR_POSITIVE
                 : delta < 0 ? FitnessUi.COLOR_NEGATIVE : FitnessUi.COLOR_MUTED;
-        label.setText(totalVolumeComparisonMessage(currentVolumeKg, previousVolumeKg));
+        label.setText(totalVolumeComparisonMessage(
+                currentVolumeKg,
+                previousVolumeKg,
+                displayUnit
+        ));
         label.setTextColor(ui.statusColor(color));
         label.setVisibility(View.VISIBLE);
     }
@@ -1282,8 +1574,25 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 + " KG " + direction + " 들었어요";
     }
 
+    static String totalVolumeComparisonMessage(
+            double currentVolumeKg,
+            double previousVolumeKg,
+            MassUnit displayUnit
+    ) {
+        double delta = currentVolumeKg - previousVolumeKg;
+        if (Math.abs(delta) < 0.0001d) {
+            return "전체 세트 기준, 지난 운동과 같은 볼륨이에요";
+        }
+        String direction = delta < 0 ? "덜" : "더";
+        return "전체 세트 기준, 지난 운동보다 "
+                + MassFormatter.withUnit(Math.abs(delta), displayUnit)
+                + " " + direction + " 들었어요";
+    }
+
+
     private static final class LiveVolumeInput {
         private final LoadState[] loadState;
+        private final MassUnit[] inputUnit;
         private final EditText primary;
         private final EditText secondary;
         private final String laterality;
@@ -1291,12 +1600,14 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
         private LiveVolumeInput(
                 LoadState[] loadState,
+                MassUnit[] inputUnit,
                 EditText primary,
                 EditText secondary,
                 String laterality,
                 int implementMultiplier
         ) {
             this.loadState = loadState;
+            this.inputUnit = inputUnit;
             this.primary = primary;
             this.secondary = secondary;
             this.laterality = laterality;
@@ -1307,6 +1618,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private static double volumeFromInputs(
             String recordType,
             LoadState loadState,
+            MassUnit inputUnit,
             EditText primary,
             EditText secondary,
             String laterality,
@@ -1322,11 +1634,12 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         if (load == null || !Double.isFinite(load) || reps == null || load < 0 || reps <= 0) {
             return 0;
         }
+        double loadKg = MassUnit.toKg(load, inputUnit);
         return ExerciseVolumeCalculator.calculate(
                 recordType,
                 loadState,
-                loadState == LoadState.EXTERNAL_LOAD ? load : 0d,
-                loadState == LoadState.ADDED_WEIGHT ? load : 0d,
+                loadState == LoadState.EXTERNAL_LOAD ? loadKg : 0d,
+                loadState == LoadState.ADDED_WEIGHT ? loadKg : 0d,
                 reps,
                 laterality,
                 implementMultiplier
@@ -1370,7 +1683,11 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             ui.applyDepth(row, FitnessUi.DEPTH_SURFACE_DP);
         }
 
-        EditText weightInput = ui.decimalInput("", set.weightKg == 0 ? "" : FitnessUi.trimDouble(set.weightKg));
+        MassUnit displayUnit = inputUnitForSet(set, set.loadState);
+        EditText weightInput = ui.decimalInput(
+                displayUnit.symbol(),
+                set.weightKg == 0 ? "" : inputValueForSet(set.weightKg, set, displayUnit)
+        );
         EditText repsInput = ui.numberInput("", set.actualReps == 0 ? "" : String.valueOf(set.actualReps));
         weightInput.setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10));
         repsInput.setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10));
@@ -1380,7 +1697,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         // "이전" 참조 셀: 지난 세션 같은 세트의 값. 탭하면 이 세트에 즉시 적용된다.
         TextView prevCell = ui.num(previousSet == null
                         ? "—"
-                        : FitnessUi.trimDouble(previousSet.weightKg) + "×" + previousSet.actualReps,
+                        : MassFormatter.withUnit(previousSet.weightKg, displayUnit)
+                                + "×" + previousSet.actualReps,
                 11, FitnessUi.COLOR_TERTIARY, true);
         prevCell.setGravity(Gravity.CENTER);
         prevCell.setMaxLines(1);
@@ -1389,10 +1707,40 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             prevCell.setClickable(true);
             prevCell.setFocusable(true);
             prevCell.setOnClickListener(v -> {
-                weightInput.setText(prev.weightKg == 0 ? "" : FitnessUi.trimDouble(prev.weightKg));
+                MassUnit previousUnit = prev.inputLoadValue != null && prev.inputLoadUnit != null
+                        ? prev.inputLoadUnit
+                        : displayUnit;
+                Double previousRawValue = prev.inputLoadValue != null
+                        && prev.inputLoadUnit != null
+                        ? prev.inputLoadValue
+                        : prev.weightKg == 0
+                        ? null
+                        : MassUnit.fromKg(prev.weightKg, previousUnit);
+                Double displayedValue = previousRawValue == null
+                        ? null
+                        : MassUnit.convert(previousRawValue, previousUnit, displayUnit);
+                weightInput.setText(displayedValue == null
+                        ? ""
+                        : MassFormatter.formatInput(displayedValue, displayUnit));
                 repsInput.setText(prev.actualReps == 0 ? "" : String.valueOf(prev.actualReps));
-                repository().updateSet(recordId, set.id, prev.weightKg, prev.actualReps,
-                        null, set.restSeconds, set.isCompleted, set.loadState);
+                repository().updateTypedSet(
+                        recordId,
+                        set.id,
+                        new FitnessRepository.SetInput(
+                                prev.weightKg == 0 ? null : prev.weightKg,
+                                prev.actualReps,
+                                null,
+                                null,
+                                null,
+                                null,
+                                null,
+                                set.restSeconds,
+                                set.isCompleted,
+                                set.loadState,
+                                previousRawValue,
+                                previousRawValue == null ? null : previousUnit
+                        )
+                );
             });
         }
         row.addView(prevCell, new LinearLayout.LayoutParams(ui.dp(56), ui.dp(48)));
@@ -1414,7 +1762,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             boolean nowCompleted = !set.isCompleted;
             styleStamp(stamp, nowCompleted);
             ui.stampPop(stamp);
-            saveSet(recordId, set, weightInput, repsInput, nowCompleted);
+            saveSet(recordId, set, weightInput, repsInput, nowCompleted, displayUnit);
         });
         row.addView(stampCell, new LinearLayout.LayoutParams(ui.dp(48), ui.dp(52)));
 
@@ -1453,14 +1801,27 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
     private void saveSet(String recordId, FitnessRepository.SessionSetEntry set,
                          EditText weightInput, EditText repsInput,
-                         boolean completed) {
-        repository().updateSet(recordId, set.id,
-                FitnessUi.parseDouble(weightInput, 0),
-                Math.max(0, FitnessUi.parseInt(repsInput, 0)),
-                null,
-                completed ? defaultRestSeconds[0] : set.restSeconds,
-                completed,
-                set.loadState);
+                         boolean completed,
+                         MassUnit inputUnit) {
+        Double inputLoad = FitnessUi.optionalDouble(weightInput);
+        repository().updateTypedSet(
+                recordId,
+                set.id,
+                new FitnessRepository.SetInput(
+                        inputLoad == null ? null : MassUnit.toKg(inputLoad, inputUnit),
+                        Math.max(0, FitnessUi.parseInt(repsInput, 0)),
+                        null,
+                        null,
+                        null,
+                        null,
+                        null,
+                        completed ? defaultRestSeconds[0] : set.restSeconds,
+                        completed,
+                        set.loadState,
+                        inputLoad,
+                        inputLoad == null ? null : inputUnit
+                )
+        );
         if (completed) {
             host.startRestTimer(defaultRestSeconds[0]);
         }
@@ -1528,19 +1889,22 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         LinearLayout statRow = new LinearLayout(host.activity());
         statRow.setOrientation(LinearLayout.HORIZONTAL);
         statRow.setPadding(0, ui.dp(12), 0, 0);
+        MassUnit displayUnit = host.preferredMassUnit();
         statRow.addView(ui.inlineStat("최고 무게",
-                FitnessUi.trimDouble(bests.maxWeightKg) + "kg × " + bests.repsAtMaxWeight + "회", false),
+                MassFormatter.withUnit(bests.maxWeightKg, displayUnit)
+                        + " × " + bests.repsAtMaxWeight + "회", false),
                 ui.metaCellParams(true));
         statRow.addView(ui.inlineStat("추정 1RM",
-                FitnessUi.formatVolume(round1(bests.bestE1rmKg)) + "kg", false),
+                MassFormatter.withUnit(round1(bests.bestE1rmKg), displayUnit), false),
                 ui.metaCellParams(false));
         statRow.addView(ui.inlineStat("최고 볼륨",
-                FitnessUi.formatVolume(bests.bestSessionVolumeKg) + "kg", false),
+                MassFormatter.withUnit(bests.bestSessionVolumeKg, displayUnit), false),
                 ui.metaCellParams(false));
         card.addView(statRow);
 
         if (todayBestE1rm > 0) {
-            TextView todayLine = ui.num("오늘 추정 1RM " + FitnessUi.formatVolume(round1(todayBestE1rm)) + "kg",
+            TextView todayLine = ui.num("오늘 추정 1RM "
+                            + MassFormatter.withUnit(round1(todayBestE1rm), displayUnit),
                     12, FitnessUi.COLOR_MUTED, false);
             todayLine.setPadding(0, ui.dp(10), 0, 0);
             card.addView(todayLine);
@@ -1567,7 +1931,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
 
         for (FitnessRepository.SessionSetEntry set : lastHistory.sets) {
             card.addView(ui.keyValue(set.setIndex + "세트",
-                    setSummary(recordType, set)));
+                    setSummary(recordType, set, host.preferredMassUnit())));
         }
         if (supportsLoadRepAnalytics(recordType)) {
             View line = ui.hairline(ui.border());
@@ -1576,7 +1940,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             card.addView(line, lineParams);
             card.addView(ui.keyValue(
                     "외부 중량 볼륨",
-                    FitnessUi.formatVolume(lastHistory.totalVolumeKg) + "kg"
+                    MassFormatter.withUnit(lastHistory.totalVolumeKg, host.preferredMassUnit())
             ));
         }
         add(card);
@@ -1715,6 +2079,25 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                         List<FitnessRepository.SessionSetEntry> sets) {
         FitnessRepository.SessionSetEntry last = sets.isEmpty() ? null : sets.get(sets.size() - 1);
         int nextIndex = last == null ? 1 : last.setIndex + 1;
+        LoadState loadState = last == null ? null : last.loadState;
+        MassUnit inputUnit = host.sessionState().inputMassUnitForNewSet(
+                last,
+                host.preferredMassUnit()
+        );
+        Double canonicalLoad = loadState == LoadState.EXTERNAL_LOAD
+                ? last == null ? null : last.weightKg
+                : loadState == LoadState.ADDED_WEIGHT
+                ? last == null ? null : last.addedWeightKg
+                : loadState == LoadState.ASSISTED
+                ? last == null ? null : last.assistedWeightKg
+                : null;
+        Double inputLoadValue = last != null
+                && last.inputLoadValue != null
+                && last.inputLoadUnit != null
+                ? last.inputLoadValue
+                : canonicalLoad == null || canonicalLoad <= 0d
+                ? null
+                : MassUnit.fromKg(canonicalLoad, inputUnit);
         repository().addTypedSet(
                 recordId,
                 exercise.id,
@@ -1723,12 +2106,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                         last == null || last.weightKg == 0 ? null : last.weightKg,
                         last == null || last.actualReps == 0 ? null : last.actualReps,
                         last == null || last.durationSeconds == 0 ? null : last.durationSeconds,
+                        null,
                         last == null || last.assistedWeightKg == 0 ? null : last.assistedWeightKg,
                         last == null || last.addedWeightKg == 0 ? null : last.addedWeightKg,
                         last == null ? null : last.rir,
                         defaultRestSeconds[0],
                         false,
-                        last == null ? null : last.loadState
+                        loadState,
+                        inputLoadValue,
+                        inputLoadValue == null ? null : inputUnit
                 )
         );
         host.rerender();

@@ -10,6 +10,8 @@ import android.widget.TextView;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.time.LocalDate;
@@ -114,6 +116,7 @@ public final class RecordsScreen extends BaseScreen {
 
     private void renderWeightTrend(boolean selectedDateEmpty) {
         FitnessUi ui = ui();
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         List<FitnessRepository.BodyMetricEntry> entries = new ArrayList<>(
                 repository().bodyMetricEntriesForDate(null)
         );
@@ -142,18 +145,20 @@ public final class RecordsScreen extends BaseScreen {
         ui.cardHeader(
                 card,
                 "체중 추이",
-                period.isEmpty() ? "최근 " + entries.size() + "회 · kg" : period + " · kg"
+                period.isEmpty()
+                        ? "최근 " + entries.size() + "회 · " + displayUnit.symbol()
+                        : period + " · " + displayUnit.symbol()
         );
 
         if (hasTrend) {
             List<Double> values = new ArrayList<>();
             for (FitnessRepository.BodyMetricEntry entry : entries) {
-                values.add(entry.weightKg);
+                values.add(MassUnit.fromKg(entry.weightKg, displayUnit));
             }
             card.addView(
                     ui.trendChart(
                             values,
-                            "kg",
+                            displayUnit.symbol(),
                             RecordsAnalysis.TrendScalePolicy.RANGE_PADDED
                     ),
                     ui.trendChartParams(ui.dp(10))
@@ -163,7 +168,7 @@ public final class RecordsScreen extends BaseScreen {
             for (FitnessRepository.BodyMetricEntry entry : entries) {
                 rows.add(ui.recordListRow(
                         "체",
-                        FitnessUi.trimDouble(entry.weightKg) + "kg",
+                        MassFormatter.withUnit(entry.weightKg, displayUnit),
                         entry.date,
                         null
                 ));
@@ -176,7 +181,11 @@ public final class RecordsScreen extends BaseScreen {
                 entries.size() < 2 ? "변화" : "첫 기록 → 최근",
                 entries.size() < 2
                         ? "이전 기록 없음"
-                        : RecordsAnalysis.formatSignedDelta(first.weightKg, latest.weightKg, "kg")
+                        : RecordsAnalysis.formatSignedDelta(
+                                MassUnit.fromKg(first.weightKg, displayUnit),
+                                MassUnit.fromKg(latest.weightKg, displayUnit),
+                                displayUnit.symbol()
+                        )
         ));
         TextView helper = ui.text(
                 hasTrend
@@ -428,14 +437,20 @@ public final class RecordsScreen extends BaseScreen {
         LinearLayout column = new LinearLayout(host.activity());
         column.setOrientation(LinearLayout.VERTICAL);
         column.setPadding(ui.dp(12), 0, 0, 0);
-        column.addView(ui.text(FitnessUi.trimDouble(metric.weightKg) + "kg", 16, FitnessUi.COLOR_TEXT, true));
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
+        column.addView(ui.text(
+                MassFormatter.withUnit(metric.weightKg, displayUnit),
+                16,
+                FitnessUi.COLOR_TEXT,
+                true
+        ));
         if (!metric.memo.isEmpty()) {
             column.addView(ui.text(metric.memo, 12, FitnessUi.COLOR_MUTED, false));
         }
         column.addView(ui.text("저장된 값 · 수정 가능", 11, FitnessUi.COLOR_TERTIARY, false));
         row.addView(column, new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         row.setContentDescription(
-                FitnessUi.trimDouble(metric.weightKg) + "kg, 저장된 값, 수정 가능"
+                MassFormatter.withUnit(metric.weightKg, displayUnit) + ", 저장된 값, 수정 가능"
         );
         row.addView(ui.textAction("수정", FitnessUi.COLOR_TERTIARY,
                 () -> host.showBodyMetricDialog(metric.date, metric.id)));
@@ -515,8 +530,9 @@ public final class RecordsScreen extends BaseScreen {
                     + heartRateSuffix
                     + (cardio == null ? " · 경로 없음" : "");
         } else {
-            metaText = "총 볼륨 " + FitnessUi.formatVolume(metrics.totalVolumeKg)
-                    + "kg · " + metrics.setCount + "세트";
+            MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
+            metaText = "총 볼륨 " + MassFormatter.withUnit(metrics.totalVolumeKg, displayUnit)
+                    + " · " + metrics.setCount + "세트";
         }
         metaText += personalOsRecord ? " · 읽기 전용" : " · 저장된 기록";
         TextView meta = ui.text(metaText, 12, FitnessUi.COLOR_MUTED, false);

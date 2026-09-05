@@ -11,6 +11,8 @@ import com.yeonsik.fitnessapp.development.DevelopmentReport;
 import com.yeonsik.fitnessapp.development.PaperAdvice;
 import com.yeonsik.fitnessapp.development.PaperAdviceAssessment;
 import com.yeonsik.fitnessapp.development.PaperAdviceInput;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitnessapp.data.MassUnit;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -97,6 +99,7 @@ public final class DevelopmentScreen extends BaseScreen {
 
     private View calculatedTrendCard(DevelopmentReport report, PaperAdviceInput input) {
         FitnessUi ui = ui();
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         LinearLayout card = ui.card();
         ui.cardHeader(card, "기록에서 계산한 변화", "계산값");
 
@@ -107,10 +110,12 @@ public final class DevelopmentScreen extends BaseScreen {
                 ? "연속된 두 7일 구간이 아직 준비되지 않음"
                 : "최근 " + weightWindowLabel(
                 input.currentWeight7DayAverageKg,
-                input.currentWeightRecordedDays
+                input.currentWeightRecordedDays,
+                displayUnit
         ) + " · 이전 " + weightWindowLabel(
                 input.previousWeight7DayAverageKg,
-                input.previousWeightRecordedDays
+                input.previousWeightRecordedDays,
+                displayUnit
         );
 
         List<View> rows = new ArrayList<>();
@@ -145,6 +150,7 @@ public final class DevelopmentScreen extends BaseScreen {
 
     private View paperReadinessCard(PaperAdviceInput input) {
         FitnessUi ui = ui();
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         LinearLayout card = ui.card();
         ui.cardHeader(card, "적용 준비도", "계산값 · 로컬 기록만 사용");
 
@@ -174,10 +180,12 @@ public final class DevelopmentScreen extends BaseScreen {
                 "7일 평균 체중 " + weightValue,
                 "최근 " + weightWindowLabel(
                         input.currentWeight7DayAverageKg,
-                        input.currentWeightRecordedDays
+                        input.currentWeightRecordedDays,
+                        displayUnit
                 ) + " · 이전 " + weightWindowLabel(
                         input.previousWeight7DayAverageKg,
-                        input.previousWeightRecordedDays
+                        input.previousWeightRecordedDays,
+                        displayUnit
                 ),
                 null
         ));
@@ -273,8 +281,16 @@ public final class DevelopmentScreen extends BaseScreen {
     }
 
     private static String weightWindowLabel(Double averageKg, int recordedDays) {
+        return weightWindowLabel(averageKg, recordedDays, MassUnit.KG);
+    }
+
+    private static String weightWindowLabel(
+            Double averageKg,
+            int recordedDays,
+            MassUnit displayUnit
+    ) {
         if (averageKg == null) return "없음 (" + recordedDays + "/7일)";
-        return FitnessUi.trimDouble(averageKg) + "kg (" + recordedDays + "/7일)";
+        return MassFormatter.withUnit(averageKg, displayUnit) + " (" + recordedDays + "/7일)";
     }
 
     private static String joinEvidenceRefs(List<String> refs) {
@@ -311,6 +327,7 @@ public final class DevelopmentScreen extends BaseScreen {
 
     private View bodyProfileCard(DevelopmentReport report) {
         FitnessUi ui = ui();
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         LinearLayout card = ui.card();
         ui.cardHeader(card, "기준 신체 정보", "로컬 저장");
 
@@ -319,7 +336,7 @@ public final class DevelopmentScreen extends BaseScreen {
                 : String.valueOf(report.bodyProfile.heightCm);
         String weight = report.latestWeightKg == null
                 ? "미기록"
-                : FitnessUi.trimDouble(report.latestWeightKg);
+                : MassFormatter.format(report.latestWeightKg, displayUnit);
         LinearLayout stats = ui.tileRow();
         stats.addView(
                 ui.statTile("키", height, report.bodyProfile.heightCm == null ? "" : "cm", false,
@@ -327,7 +344,8 @@ public final class DevelopmentScreen extends BaseScreen {
                 ui.tileParams(true)
         );
         stats.addView(
-                ui.statTile("최근 체중", weight, report.latestWeightKg == null ? "" : "kg", false,
+                ui.statTile("최근 체중", weight,
+                        report.latestWeightKg == null ? "" : displayUnit.symbol(), false,
                         v -> host.showDevelopmentBodyProfileDialog()),
                 ui.tileParams(false)
         );

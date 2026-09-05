@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.state;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.MassUnit;
 
 import java.util.List;
 
@@ -12,7 +13,40 @@ public final class WorkoutSessionState {
     private String activeRecordId;
     private String activeExerciseId;
     private String replacementExerciseId;
+    private MassUnit sessionInputMassUnit;
     private int generation;
+
+    /** Starts the transient input-unit context for one workout session. */
+    public void startSession(MassUnit preferredUnit) {
+        sessionInputMassUnit = MassUnit.orDefault(preferredUnit);
+    }
+
+    /** Returns null only before a workout session has been initialized. */
+    public MassUnit sessionInputMassUnit() {
+        return sessionInputMassUnit;
+    }
+
+    public void setSessionInputMassUnit(MassUnit unit) {
+        sessionInputMassUnit = MassUnit.orDefault(unit);
+    }
+
+    /**
+     * Chooses the unit for a new row without changing the unit of an existing row.
+     * Per-set provenance has priority over the transient session convenience default.
+     */
+    public MassUnit inputMassUnitForNewSet(
+            FitnessRepository.SessionSetEntry previous,
+            MassUnit preferredUnit
+    ) {
+        if (previous != null
+                && previous.inputLoadValue != null
+                && previous.inputLoadUnit != null) {
+            return previous.inputLoadUnit;
+        }
+        return sessionInputMassUnit == null
+                ? MassUnit.orDefault(preferredUnit)
+                : sessionInputMassUnit;
+    }
 
     public String activeRecordId() {
         return activeRecordId;
@@ -47,6 +81,7 @@ public final class WorkoutSessionState {
             activeRecordId = null;
             activeExerciseId = null;
             replacementExerciseId = null;
+            sessionInputMassUnit = null;
         }
     }
 

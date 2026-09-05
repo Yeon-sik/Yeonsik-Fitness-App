@@ -317,6 +317,114 @@ public final class FitnessRepositoryLoadStateTest {
     }
 
     @Test
+    public void preservesInputMassUnitsAndClearsProvenanceWhenLoadIsDiscarded() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        try {
+            FitnessRepository repository = new FitnessRepository(helper, USER_ID);
+            String recordId = repository.createSession(
+                    "2026-09-05", "Input units", "strength", "", "", ""
+            );
+
+            String externalExerciseId = addMasterExercise(
+                    repository, recordId, "chest_dumbbell_decline_bench_press"
+            );
+            repository.addTypedSet(
+                    recordId,
+                    externalExerciseId,
+                    1,
+                    new FitnessRepository.SetInput(
+                            MassUnit.toKg(225d, MassUnit.LB),
+                            1,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            true,
+                            LoadState.EXTERNAL_LOAD,
+                            225d,
+                            MassUnit.LB
+                    )
+            );
+            FitnessRepository.SessionSetEntry external = repository
+                    .setsForExercise(externalExerciseId).get(0);
+            assertEquals(LoadState.EXTERNAL_LOAD, external.loadState);
+            assertEquals(225d, external.inputLoadValue, 0d);
+            assertEquals(MassUnit.LB, external.inputLoadUnit);
+            assertEquals(MassUnit.toKg(225d, MassUnit.LB), external.weightKg, 0d);
+
+            String bodyweightExerciseId = addMasterExercise(
+                    repository, recordId, "chest_bodyweight_chest_dip"
+            );
+            repository.addTypedSet(
+                    recordId,
+                    bodyweightExerciseId,
+                    1,
+                    new FitnessRepository.SetInput(
+                            null,
+                            1,
+                            null,
+                            null,
+                            null,
+                            MassUnit.toKg(44.0924524d, MassUnit.LB),
+                            null,
+                            null,
+                            true,
+                            LoadState.ADDED_WEIGHT,
+                            44.0924524d,
+                            MassUnit.LB
+                    )
+            );
+            FitnessRepository.SessionSetEntry added = repository
+                    .setsForExercise(bodyweightExerciseId).get(0);
+            assertEquals(LoadState.ADDED_WEIGHT, added.loadState);
+            assertEquals(44.0924524d, added.inputLoadValue, 0d);
+            assertEquals(MassUnit.LB, added.inputLoadUnit);
+            assertEquals(MassUnit.toKg(44.0924524d, MassUnit.LB), added.addedWeightKg, 0d);
+
+            repository.updateTypedSet(
+                    recordId,
+                    added.id,
+                    new FitnessRepository.SetInput(
+                            null,
+                            1,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            true,
+                            LoadState.BODYWEIGHT,
+                            null,
+                            null
+                    )
+            );
+            FitnessRepository.SessionSetEntry reset = repository
+                    .setsForExercise(bodyweightExerciseId).get(0);
+            assertEquals(LoadState.BODYWEIGHT, reset.loadState);
+            assertNull(reset.inputLoadValue);
+            assertNull(reset.inputLoadUnit);
+            assertEquals(0d, reset.addedWeightKg, 0d);
+            assertNull(scalarNullable(
+                    helper.getReadableDatabase(),
+                    "SELECT input_load_value FROM workout_sets WHERE id = ?",
+                    added.id
+            ));
+            assertNull(scalarNullable(
+                    helper.getReadableDatabase(),
+                    "SELECT input_load_unit FROM workout_sets WHERE id = ?",
+                    added.id
+            ));
+        } finally {
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
     public void persistsApprovedPresetIdentityAndRestoresFromSavedSnapshot() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
