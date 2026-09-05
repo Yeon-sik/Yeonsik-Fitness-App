@@ -1296,6 +1296,11 @@ public final class MainActivity extends Activity implements ScreenHost {
 
     @Override
     public void openWorkoutSession(String recordId) {
+        if (recordId == null
+                || !recordId.equals(sessionState.activeRecordId())
+                || sessionState.sessionInputMassUnit() == null) {
+            sessionState.startSession(preferredMassUnit());
+        }
         sessionState.setActiveRecordId(recordId);
         sessionState.setActiveExerciseId(null);
         navigate(FitnessScreen.WORKOUT_SESSION);

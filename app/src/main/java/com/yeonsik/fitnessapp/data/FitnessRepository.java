@@ -6631,6 +6631,7 @@ public final class FitnessRepository {
                         metadataValue(metadata, "status", ""),
                         metadataValue(metadata, "started_at", ""),
                         metadataValue(metadata, "ended_at", ""),
+                        emptyToNull(metadataValue(metadata, "memo", "")),
                         exportWorkoutTransferExercises(recordId)
                 ));
             }
@@ -6665,8 +6666,9 @@ public final class FitnessRepository {
                 );
                 exercises.add(new WorkoutTransferCodec.Exercise(
                         cursor.getString(1),
-                        identity == null ? null : identity.legacyExerciseId,
+                        identity == null ? null : identity.presetId,
                         identity == null ? null : identity.canonicalPresetId,
+                        identity == null ? null : identity.legacyExerciseId,
                         canonicalExerciseName(cursor.getString(3), identity),
                         cursor.getInt(2),
                         cursor.getString(6),
@@ -6686,7 +6688,7 @@ public final class FitnessRepository {
     ) {
         List<WorkoutTransferCodec.SetData> sets = new ArrayList<>();
         try (Cursor cursor = db().rawQuery(
-                "SELECT set_index, target_reps, actual_reps, weight_kg, volume_kg, "
+                "SELECT id, set_index, target_reps, actual_reps, weight_kg, volume_kg, "
                         + "duration_seconds, distance_meters, rest_seconds, assisted_weight_kg, "
                         + "added_weight_kg, load_state, is_completed, rpe, rir, memo, "
                         + "input_load_value, input_load_unit FROM workout_sets "
@@ -6695,27 +6697,28 @@ public final class FitnessRepository {
                 new String[]{workoutExerciseId, userId}
         )) {
             while (cursor.moveToNext()) {
-                String inputUnit = cursor.isNull(16) ? null : cursor.getString(16);
+                String inputUnit = cursor.isNull(17) ? null : cursor.getString(17);
                 if (inputUnit != null && MassUnit.parse(inputUnit) == null) {
                     throw new IllegalStateException("저장된 입력 중량 단위를 해석하지 못했습니다.");
                 }
                 sets.add(new WorkoutTransferCodec.SetData(
-                        cursor.getInt(0),
-                        cursor.isNull(1) ? null : cursor.getInt(1),
+                        cursor.getString(0),
+                        cursor.getInt(1),
                         cursor.isNull(2) ? null : cursor.getInt(2),
-                        cursor.isNull(3) ? null : cursor.getDouble(3),
+                        cursor.isNull(3) ? null : cursor.getInt(3),
                         cursor.isNull(4) ? null : cursor.getDouble(4),
-                        cursor.isNull(5) ? null : cursor.getInt(5),
-                        cursor.isNull(6) ? null : cursor.getDouble(6),
-                        cursor.isNull(7) ? null : cursor.getInt(7),
-                        cursor.isNull(8) ? null : cursor.getDouble(8),
+                        cursor.isNull(5) ? null : cursor.getDouble(5),
+                        cursor.isNull(6) ? null : cursor.getInt(6),
+                        cursor.isNull(7) ? null : cursor.getDouble(7),
+                        cursor.isNull(8) ? null : cursor.getInt(8),
                         cursor.isNull(9) ? null : cursor.getDouble(9),
-                        cursor.isNull(10) ? null : cursor.getString(10),
-                        cursor.getInt(11) == 1,
-                        cursor.isNull(12) ? null : cursor.getInt(12),
+                        cursor.isNull(10) ? null : cursor.getDouble(10),
+                        cursor.isNull(11) ? null : cursor.getString(11),
+                        cursor.getInt(12) == 1,
                         cursor.isNull(13) ? null : cursor.getInt(13),
-                        cursor.isNull(14) ? null : cursor.getString(14),
-                        cursor.isNull(15) ? null : cursor.getDouble(15),
+                        cursor.isNull(14) ? null : cursor.getInt(14),
+                        cursor.isNull(15) ? null : cursor.getString(15),
+                        cursor.isNull(16) ? null : cursor.getDouble(16),
                         inputUnit
                 ));
             }
@@ -6889,6 +6892,7 @@ public final class FitnessRepository {
         preset = mergeTransferPreset(preset, catalog.presetForStorageExerciseId(
                 exercise.canonicalExerciseId
         ));
+        preset = mergeTransferPreset(preset, catalog.preset(exercise.presetId));
         preset = mergeTransferPreset(preset, catalog.preset(exercise.canonicalPresetId));
         if (preset == null) {
             throw new IllegalArgumentException(
@@ -6952,6 +6956,7 @@ public final class FitnessRepository {
             ));
             object.put("started_at", emptyToDefault(session.startedAt, ""));
             object.put("ended_at", emptyToDefault(session.endedAt, ""));
+            object.put("memo", emptyToDefault(session.memo, ""));
             object.put("transfer_format", WorkoutTransferCodec.FORMAT);
             object.put("transfer_format_version", formatVersion);
             object.put("transfer_source_app", session.sourceApp);

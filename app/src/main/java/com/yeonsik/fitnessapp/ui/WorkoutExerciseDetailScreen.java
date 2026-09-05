@@ -561,7 +561,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 ui.dp(52),
                 LinearLayout.LayoutParams.WRAP_CONTENT
         ));
-        addColumnHeader(row, primaryInputLabel(recordType, loadState, host.preferredMassUnit()), compactSetFieldParams(ui, true));
+        addColumnHeader(row, primaryColumnHeaderLabel(recordType, loadState), compactSetFieldParams(ui, true));
         if (hasNumericLoad(loadState)) {
             addColumnHeader(row, "단위", massUnitCellParams(ui));
         }
@@ -863,7 +863,34 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 && set.inputLoadUnit != null) {
             return set.inputLoadUnit;
         }
-        return MassUnit.orDefault(host.preferredMassUnit());
+        if (hasCanonicalLoad(set, loadState)) {
+            return MassUnit.orDefault(host.preferredMassUnit());
+        }
+        return host.sessionState().inputMassUnitForNewSet(
+                null,
+                host.preferredMassUnit()
+        );
+    }
+
+    private static boolean hasCanonicalLoad(
+            FitnessRepository.SessionSetEntry set,
+            LoadState loadState
+    ) {
+        if (set == null) {
+            return false;
+        }
+        if (loadState == LoadState.EXTERNAL_LOAD) {
+            return set.weightKg > 0d;
+        }
+        if (loadState == LoadState.ADDED_WEIGHT) {
+            return set.addedWeightKg > 0d;
+        }
+        if (loadState == LoadState.ASSISTED) {
+            return set.assistedWeightKg > 0d;
+        }
+        return set.weightKg > 0d
+                || set.addedWeightKg > 0d
+                || set.assistedWeightKg > 0d;
     }
 
     private TextView massUnitControl(
@@ -1300,24 +1327,20 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         Double inputLoadValue = null;
         MassUnit inputLoadUnit = null;
         if (hasNumericLoad(effectiveState)) {
-            inputLoadUnit = set.inputLoadUnit == null
-                    ? MassUnit.orDefault(host.preferredMassUnit())
-                    : set.inputLoadUnit;
             double canonicalLoad = effectiveState == LoadState.EXTERNAL_LOAD
                     ? set.weightKg
                     : effectiveState == LoadState.ADDED_WEIGHT
                     ? set.addedWeightKg
                     : set.assistedWeightKg;
             if (set.inputLoadValue != null && set.inputLoadUnit != null) {
-                inputLoadValue = MassUnit.convert(
-                        set.inputLoadValue,
-                        set.inputLoadUnit,
-                        inputLoadUnit
-                );
+                inputLoadValue = set.inputLoadValue;
+                inputLoadUnit = set.inputLoadUnit;
             } else if (canonicalLoad > 0d) {
+                inputLoadUnit = host.sessionState().inputMassUnitForNewSet(
+                        null,
+                        host.preferredMassUnit()
+                );
                 inputLoadValue = MassUnit.fromKg(canonicalLoad, inputLoadUnit);
-            } else {
-                inputLoadUnit = null;
             }
         }
         return new FitnessRepository.SetInput(
@@ -1349,16 +1372,16 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         } else if (FitnessRecordContract.TIME.equals(type)) {
             primary.setText(zeroToBlank(previous.durationSeconds));
         } else if (FitnessRecordContract.WEIGHT_TIME.equals(type)) {
-            primary.setText(zeroToBlank(previous.weightKg));
+            primary.setText(inputValueForPreviousSet(previous.weightKg, previous));
             secondary.setText(zeroToBlank(previous.durationSeconds));
         } else if (FitnessRecordContract.ASSISTED_WEIGHT_REPS.equals(type)) {
-            primary.setText(zeroToBlank(previous.assistedWeightKg));
+            primary.setText(inputValueForPreviousSet(previous.assistedWeightKg, previous));
             secondary.setText(zeroToBlank(previous.actualReps));
         } else if (FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS.equals(type)) {
-            primary.setText(zeroToBlank(previous.addedWeightKg));
+            primary.setText(inputValueForPreviousSet(previous.addedWeightKg, previous));
             secondary.setText(zeroToBlank(previous.actualReps));
         } else {
-            primary.setText(zeroToBlank(previous.weightKg));
+            primary.setText(inputValueForPreviousSet(previous.weightKg, previous));
             secondary.setText(zeroToBlank(previous.actualReps));
         }
         if (rir != null) {
@@ -1366,8 +1389,40 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         }
     }
 
+    private String inputValueForPreviousSet(
+            double canonicalLoadKg,
+            FitnessRepository.SessionSetEntry previous
+    ) {
+        if (previous != null
+                && previous.inputLoadValue != null
+                && previous.inputLoadUnit != null) {
+            return zeroToBlank(previous.inputLoadValue);
+        }
+        MassUnit inputUnit = host.sessionState().inputMassUnitForNewSet(
+                null,
+                host.preferredMassUnit()
+        );
+        return zeroToBlank(MassUnit.fromKg(canonicalLoadKg, inputUnit));
+    }
+
     static String primaryInputLabel(String recordType, LoadState loadState) {
         return primaryInputLabel(recordType, loadState, MassUnit.KG);
+    }
+
+    static String primaryColumnHeaderLabel(String recordType, LoadState loadState) {
+        if (!hasNumericLoad(loadState)) {
+            return isTimeRecordType(recordType) ? "초" : "횟수";
+        }
+        if (loadState == LoadState.ADDED_WEIGHT) {
+            return "추가";
+        }
+        if (loadState == LoadState.ASSISTED) {
+            return "보조";
+        }
+        if (loadState == LoadState.EXTERNAL_LOAD) {
+            return "중량";
+        }
+        return isTimeRecordType(recordType) ? "초" : "횟수";
     }
 
     static String primaryInputLabel(
@@ -1628,10 +1683,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             ui.applyDepth(row, FitnessUi.DEPTH_SURFACE_DP);
         }
 
-        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
+        MassUnit displayUnit = inputUnitForSet(set, set.loadState);
         EditText weightInput = ui.decimalInput(
                 displayUnit.symbol(),
-                set.weightKg == 0 ? "" : MassFormatter.formatInput(set.weightKg, displayUnit)
+                set.weightKg == 0 ? "" : inputValueForSet(set.weightKg, set, displayUnit)
         );
         EditText repsInput = ui.numberInput("", set.actualReps == 0 ? "" : String.valueOf(set.actualReps));
         weightInput.setPadding(ui.dp(10), ui.dp(10), ui.dp(10), ui.dp(10));
@@ -1652,15 +1707,27 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             prevCell.setClickable(true);
             prevCell.setFocusable(true);
             prevCell.setOnClickListener(v -> {
-                weightInput.setText(prev.weightKg == 0
+                MassUnit previousUnit = prev.inputLoadValue != null && prev.inputLoadUnit != null
+                        ? prev.inputLoadUnit
+                        : displayUnit;
+                Double previousRawValue = prev.inputLoadValue != null
+                        && prev.inputLoadUnit != null
+                        ? prev.inputLoadValue
+                        : prev.weightKg == 0
+                        ? null
+                        : MassUnit.fromKg(prev.weightKg, previousUnit);
+                Double displayedValue = previousRawValue == null
+                        ? null
+                        : MassUnit.convert(previousRawValue, previousUnit, displayUnit);
+                weightInput.setText(displayedValue == null
                         ? ""
-                        : MassFormatter.formatInput(prev.weightKg, displayUnit));
+                        : MassFormatter.formatInput(displayedValue, displayUnit));
                 repsInput.setText(prev.actualReps == 0 ? "" : String.valueOf(prev.actualReps));
                 repository().updateTypedSet(
                         recordId,
                         set.id,
                         new FitnessRepository.SetInput(
-                                MassUnit.toKg(FitnessUi.optionalDouble(weightInput), displayUnit),
+                                prev.weightKg == 0 ? null : prev.weightKg,
                                 prev.actualReps,
                                 null,
                                 null,
@@ -1670,8 +1737,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                                 set.restSeconds,
                                 set.isCompleted,
                                 set.loadState,
-                                FitnessUi.optionalDouble(weightInput),
-                                displayUnit
+                                previousRawValue,
+                                previousRawValue == null ? null : previousUnit
                         )
                 );
             });
@@ -2013,9 +2080,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         FitnessRepository.SessionSetEntry last = sets.isEmpty() ? null : sets.get(sets.size() - 1);
         int nextIndex = last == null ? 1 : last.setIndex + 1;
         LoadState loadState = last == null ? null : last.loadState;
-        MassUnit inputUnit = last == null || last.inputLoadUnit == null
-                ? MassUnit.orDefault(host.preferredMassUnit())
-                : last.inputLoadUnit;
+        MassUnit inputUnit = host.sessionState().inputMassUnitForNewSet(
+                last,
+                host.preferredMassUnit()
+        );
         Double canonicalLoad = loadState == LoadState.EXTERNAL_LOAD
                 ? last == null ? null : last.weightKg
                 : loadState == LoadState.ADDED_WEIGHT
@@ -2023,7 +2091,11 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 : loadState == LoadState.ASSISTED
                 ? last == null ? null : last.assistedWeightKg
                 : null;
-        Double inputLoadValue = canonicalLoad == null || canonicalLoad <= 0d
+        Double inputLoadValue = last != null
+                && last.inputLoadValue != null
+                && last.inputLoadUnit != null
+                ? last.inputLoadValue
+                : canonicalLoad == null || canonicalLoad <= 0d
                 ? null
                 : MassUnit.fromKg(canonicalLoad, inputUnit);
         repository().addTypedSet(

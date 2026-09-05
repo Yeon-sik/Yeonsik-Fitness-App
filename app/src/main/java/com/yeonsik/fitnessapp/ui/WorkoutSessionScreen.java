@@ -49,6 +49,9 @@ public final class WorkoutSessionScreen extends BaseScreen {
 
         screenHeader(manualEntry ? "수동 등록" : "진행 중",
                 info.title.isEmpty() ? "운동 중" : info.title);
+        if (inProgress) {
+            add(sessionInputMassUnitControl(), ui.fullWidthParams(ui.dp(4)));
+        }
 
         FitnessRepository.SessionExerciseEntry currentExercise = exercises.isEmpty()
                 ? null
@@ -127,6 +130,52 @@ public final class WorkoutSessionScreen extends BaseScreen {
                 RecordsAnalysis.TrendCurrentState.IN_PROGRESS,
                 displayUnit
         ));
+    }
+
+    private View sessionInputMassUnitControl() {
+        FitnessUi ui = ui();
+        MassUnit selectedUnit = host.sessionState().sessionInputMassUnit();
+        if (selectedUnit == null) {
+            selectedUnit = MassUnit.orDefault(host.preferredMassUnit());
+            host.sessionState().setSessionInputMassUnit(selectedUnit);
+        }
+        final MassUnit[] selected = {selectedUnit};
+
+        LinearLayout row = new LinearLayout(host.activity());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        TextView label = ui.caption("기본 단위", FitnessUi.COLOR_MUTED);
+        row.addView(label, new LinearLayout.LayoutParams(
+                0,
+                ui.dp(36),
+                1f
+        ));
+        for (MassUnit unit : MassUnit.values()) {
+            TextView option = ui.text(
+                    unit.symbol().toUpperCase(java.util.Locale.ROOT),
+                    11,
+                    unit == selected[0] ? ui.selectedInk() : FitnessUi.COLOR_TEXT,
+                    true
+            );
+            option.setGravity(Gravity.CENTER);
+            option.setContentDescription("새 세트 기본 단위: " + unit.symbol());
+            option.setPadding(ui.dp(10), ui.dp(4), ui.dp(10), ui.dp(4));
+            ui.styleSelection(option, unit == selected[0], ui.dp(8));
+            option.setOnClickListener(view -> {
+                selected[0] = unit;
+                host.sessionState().setSessionInputMassUnit(unit);
+                host.rerender();
+            });
+            LinearLayout.LayoutParams optionParams = new LinearLayout.LayoutParams(
+                    ui.dp(54),
+                    ui.dp(36)
+            );
+            if (unit != MassUnit.KG) {
+                optionParams.setMargins(ui.dp(6), 0, 0, 0);
+            }
+            row.addView(option, optionParams);
+        }
+        return row;
     }
 
     private void currentExerciseCard(

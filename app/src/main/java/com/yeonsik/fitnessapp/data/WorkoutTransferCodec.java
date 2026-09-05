@@ -5,6 +5,11 @@ import com.yeonsik.fitnessapp.exercise.LoadState;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -14,6 +19,7 @@ public final class WorkoutTransferCodec {
     public static final String FORMAT = "yeonsik.workout-transfer";
     public static final int V1 = 1;
     public static final int V2 = 2;
+    private static final ZoneId TRANSFER_DATE_ZONE = ZoneId.of("Asia/Seoul");
 
     private WorkoutTransferCodec() {
     }
@@ -29,11 +35,11 @@ public final class WorkoutTransferCodec {
             root.put("formatVersion", document.formatVersion);
             root.put("sourceApp", document.sourceApp);
             putNullable(root, "exportedAt", document.exportedAt);
-            JSONArray sessions = new JSONArray();
+            JSONArray workouts = new JSONArray();
             for (Session session : document.sessions) {
-                sessions.put(encodeSession(session, document.formatVersion));
+                workouts.put(encodeSession(session, document.formatVersion));
             }
-            root.put("sessions", sessions);
+            root.put("workouts", workouts);
             return root.toString();
         } catch (Exception error) {
             throw new IllegalArgumentException("운동 전송 JSON을 만들지 못했습니다.", error);
@@ -49,19 +55,14 @@ public final class WorkoutTransferCodec {
             if (!FORMAT.equals(requiredString(root, "format"))) {
                 throw new IllegalArgumentException("지원하지 않는 운동 전송 format입니다.");
             }
-            int version = root.has("formatVersion")
-                    ? requiredInt(root, "formatVersion")
-                    : root.optInt("version", 0);
+            int version = requiredInt(root, "formatVersion", "version");
             if (version != V1 && version != V2) {
                 throw new IllegalArgumentException("지원하지 않는 운동 전송 버전입니다: " + version);
             }
             String sourceApp = requiredString(root, "sourceApp");
-            JSONArray sessionArray = root.optJSONArray("sessions");
+            JSONArray sessionArray = optionalArray(root, "workouts", "sessions");
             if (sessionArray == null) {
-                sessionArray = root.optJSONArray("workouts");
-            }
-            if (sessionArray == null) {
-                throw new IllegalArgumentException("운동 전송 sessions가 없습니다.");
+                throw new IllegalArgumentException("운동 전송 workouts가 없습니다.");
             }
             List<Session> sessions = new ArrayList<>();
             for (int index = 0; index < sessionArray.length(); index += 1) {
@@ -88,16 +89,12 @@ public final class WorkoutTransferCodec {
 
     private static JSONObject encodeSession(Session session, int version) throws Exception {
         JSONObject object = new JSONObject();
-        object.put("sourceApp", session.sourceApp);
         object.put("sourceRecordId", session.sourceRecordId);
-        putNullable(object, "date", session.date);
-        putNullable(object, "title", session.title);
-        putNullable(object, "workoutType", session.workoutType);
-        putNullable(object, "category", session.category);
-        putNullable(object, "durationSeconds", session.durationSeconds);
         putNullable(object, "status", session.status);
+        putNullable(object, "title", session.title);
         putNullable(object, "startedAt", session.startedAt);
         putNullable(object, "endedAt", session.endedAt);
+        putNullable(object, "memo", session.memo);
         JSONArray exercises = new JSONArray();
         for (Exercise exercise : session.exercises) {
             exercises.put(encodeExercise(exercise, version));
@@ -108,14 +105,14 @@ public final class WorkoutTransferCodec {
 
     private static JSONObject encodeExercise(Exercise exercise, int version) throws Exception {
         JSONObject object = new JSONObject();
-        object.put("exerciseId", exercise.exerciseId);
-        putNullable(object, "canonicalExerciseId", exercise.canonicalExerciseId);
+        object.put("storageExerciseId", exercise.exerciseId);
+        putNullable(object, "presetId", exercise.presetId);
         putNullable(object, "canonicalPresetId", exercise.canonicalPresetId);
-        putNullable(object, "exerciseName", exercise.exerciseName);
-        object.put("orderIndex", exercise.orderIndex);
+        putNullable(object, "nameSnapshot", exercise.exerciseName);
+        putNullable(object, "defaultUiPart", exercise.uiPart);
+        putNullable(object, "equipmentSnapshot", exercise.equipment);
         putNullable(object, "recordType", exercise.recordType);
-        putNullable(object, "uiPart", exercise.uiPart);
-        putNullable(object, "equipment", exercise.equipment);
+        putNullable(object, "orderIndex", exercise.orderIndex);
         JSONArray sets = new JSONArray();
         for (SetData set : exercise.sets) {
             sets.put(encodeSet(set, version));
@@ -126,21 +123,18 @@ public final class WorkoutTransferCodec {
 
     private static JSONObject encodeSet(SetData set, int version) throws Exception {
         JSONObject object = new JSONObject();
+        putNullable(object, "sourceSetId", set.sourceSetId);
         object.put("setIndex", set.setIndex);
-        putNullable(object, "targetReps", set.targetReps);
-        putNullable(object, "actualReps", set.actualReps);
         putNullable(object, "weightKg", set.weightKg);
-        putNullable(object, "volumeKg", set.volumeKg);
-        putNullable(object, "durationSeconds", set.durationSeconds);
-        putNullable(object, "distanceMeters", set.distanceMeters);
-        putNullable(object, "restSeconds", set.restSeconds);
-        putNullable(object, "assistedWeightKg", set.assistedWeightKg);
         putNullable(object, "addedWeightKg", set.addedWeightKg);
+        putNullable(object, "assistedWeightKg", set.assistedWeightKg);
+        putNullable(object, "reps", set.actualReps);
+        putNullable(object, "durationSeconds", set.durationSeconds);
+        putNullable(object, "restSeconds", set.restSeconds);
         putNullable(object, "loadState", set.loadState);
-        object.put("isCompleted", set.isCompleted);
         putNullable(object, "rpe", set.rpe);
         putNullable(object, "rir", set.rir);
-        putNullable(object, "memo", set.memo);
+        object.put("completed", set.isCompleted);
         if (version >= V2) {
             putNullable(object, "inputLoadValue", set.inputLoadValue);
             putNullable(object, "inputLoadUnit", set.inputLoadUnit);
@@ -153,17 +147,11 @@ public final class WorkoutTransferCodec {
         if (sourceApp == null) {
             sourceApp = rootSourceApp;
         }
-        String sourceRecordId = optionalString(object, "sourceRecordId");
-        if (sourceRecordId == null) {
-            sourceRecordId = optionalString(object, "recordId");
-        }
+        String sourceRecordId = optionalString(object, "sourceRecordId", "recordId");
         if (sourceRecordId == null) {
             throw new IllegalArgumentException("운동 전송 세션의 sourceRecordId가 없습니다.");
         }
-        JSONArray exerciseArray = object.optJSONArray("exercises");
-        if (exerciseArray == null) {
-            exerciseArray = object.optJSONArray("workoutExercises");
-        }
+        JSONArray exerciseArray = optionalArray(object, "exercises", "workoutExercises");
         if (exerciseArray == null) {
             throw new IllegalArgumentException("운동 전송 세션의 exercises가 없습니다.");
         }
@@ -175,30 +163,29 @@ public final class WorkoutTransferCodec {
             }
             exercises.add(decodeExercise(item, version));
         }
+        String startedAt = optionalString(object, "startedAt");
         return new Session(
                 sourceApp,
                 sourceRecordId,
-                optionalString(object, "date"),
+                resolveDate(optionalString(object, "date"), startedAt),
                 optionalString(object, "title", "exerciseName"),
                 optionalString(object, "workoutType"),
                 optionalString(object, "category"),
                 optionalInteger(object, "durationSeconds"),
                 optionalString(object, "status"),
-                optionalString(object, "startedAt"),
+                startedAt,
                 optionalString(object, "endedAt"),
+                optionalString(object, "memo"),
                 exercises
         );
     }
 
     private static Exercise decodeExercise(JSONObject object, int version) {
-        String exerciseId = optionalString(object, "exerciseId");
+        String exerciseId = optionalString(object, "storageExerciseId", "exerciseId", "id");
         if (exerciseId == null) {
-            exerciseId = optionalString(object, "id");
+            throw new IllegalArgumentException("운동 전송 종목의 storageExerciseId가 없습니다.");
         }
-        if (exerciseId == null) {
-            throw new IllegalArgumentException("운동 전송 종목의 exerciseId가 없습니다.");
-        }
-        JSONArray setArray = object.optJSONArray("sets");
+        JSONArray setArray = optionalArray(object, "sets");
         if (setArray == null) {
             throw new IllegalArgumentException("운동 전송 종목의 sets가 없습니다.");
         }
@@ -212,13 +199,14 @@ public final class WorkoutTransferCodec {
         }
         return new Exercise(
                 exerciseId,
-                optionalString(object, "canonicalExerciseId"),
+                optionalString(object, "presetId"),
                 optionalString(object, "canonicalPresetId"),
-                optionalString(object, "exerciseName", "name"),
+                optionalString(object, "canonicalExerciseId"),
+                optionalString(object, "nameSnapshot", "exerciseName", "name"),
                 optionalInteger(object, "orderIndex", "order"),
                 optionalString(object, "recordType"),
-                optionalString(object, "uiPart"),
-                optionalString(object, "equipment"),
+                optionalString(object, "defaultUiPart", "uiPart"),
+                optionalString(object, "equipmentSnapshot", "equipment"),
                 sets
         );
     }
@@ -231,9 +219,10 @@ public final class WorkoutTransferCodec {
                 ? optionalString(object, "inputLoadUnit")
                 : null;
         return new SetData(
+                optionalString(object, "sourceSetId"),
                 requiredInt(object, "setIndex", "index"),
                 optionalInteger(object, "targetReps"),
-                optionalInteger(object, "actualReps", "reps"),
+                optionalInteger(object, "reps", "actualReps"),
                 optionalDouble(object, "weightKg"),
                 optionalDouble(object, "volumeKg"),
                 optionalInteger(object, "durationSeconds"),
@@ -242,9 +231,7 @@ public final class WorkoutTransferCodec {
                 optionalDouble(object, "assistedWeightKg"),
                 optionalDouble(object, "addedWeightKg"),
                 optionalString(object, "loadState"),
-                object.has("isCompleted")
-                        ? requiredBoolean(object, "isCompleted")
-                        : object.optBoolean("completed", false),
+                optionalBoolean(object, false, "completed", "isCompleted"),
                 optionalInteger(object, "rpe"),
                 optionalInteger(object, "rir"),
                 optionalString(object, "memo"),
@@ -266,7 +253,7 @@ public final class WorkoutTransferCodec {
         }
         requireNonBlank(document.sourceApp, "sourceApp");
         if (document.sessions == null) {
-            throw new IllegalArgumentException("운동 전송 sessions가 없습니다.");
+            throw new IllegalArgumentException("운동 전송 workouts가 없습니다.");
         }
         for (Session session : document.sessions) {
             if (session == null) {
@@ -274,13 +261,22 @@ public final class WorkoutTransferCodec {
             }
             requireNonBlank(session.sourceApp, "sourceApp");
             requireNonBlank(session.sourceRecordId, "sourceRecordId");
-            requireNonBlank(session.date, "date");
+            requireDate(session.date);
             if (session.exercises == null) {
                 throw new IllegalArgumentException("운동 전송 exercises가 없습니다.");
             }
             for (Exercise exercise : session.exercises) {
                 validateExercise(exercise, document.formatVersion);
             }
+        }
+    }
+
+    private static void requireDate(String date) {
+        requireNonBlank(date, "date");
+        try {
+            LocalDate.parse(date);
+        } catch (DateTimeException error) {
+            throw new IllegalArgumentException("운동 전송 date 형식이 올바르지 않습니다.");
         }
     }
 
@@ -399,15 +395,25 @@ public final class WorkoutTransferCodec {
     }
 
     private static String optionalString(JSONObject object, String... keys) {
+        String selected = null;
         for (String key : keys) {
-            if (object != null && object.has(key) && !object.isNull(key)) {
-                String value = object.optString(key, null);
-                if (value != null && !value.trim().isEmpty()) {
-                    return value.trim();
-                }
+            if (object == null || !object.has(key) || object.isNull(key)) {
+                continue;
             }
+            Object raw = object.opt(key);
+            if (!(raw instanceof String)) {
+                throw new IllegalArgumentException(key + "은 문자열이어야 합니다.");
+            }
+            String value = ((String) raw).trim();
+            if (value.isEmpty()) {
+                continue;
+            }
+            if (selected != null && !selected.equals(value)) {
+                throw new IllegalArgumentException("운동 전송 alias 값이 충돌합니다: " + keys[0]);
+            }
+            selected = value;
         }
-        return null;
+        return selected;
     }
 
     private static Integer optionalInteger(JSONObject object, String... keys) {
@@ -447,22 +453,124 @@ public final class WorkoutTransferCodec {
         return number;
     }
 
-    private static boolean requiredBoolean(JSONObject object, String key) {
-        Object value = optionalValue(object, key);
+    private static boolean optionalBoolean(
+            JSONObject object,
+            boolean defaultValue,
+            String... keys
+    ) {
+        Object value = optionalValue(object, keys);
+        if (value == null) {
+            return defaultValue;
+        }
         if (!(value instanceof Boolean)) {
-            throw new IllegalArgumentException(key + "은 boolean이어야 합니다.");
+            throw new IllegalArgumentException(keys[0] + "은 boolean이어야 합니다.");
         }
         return (Boolean) value;
     }
 
     private static Object optionalValue(JSONObject object, String... keys) {
         if (object == null) return null;
+        Object selected = null;
         for (String key : keys) {
-            if (object.has(key) && !object.isNull(key)) {
-                return object.opt(key);
+            if (!object.has(key) || object.isNull(key)) {
+                continue;
+            }
+            Object value = object.opt(key);
+            if (selected != null && !sameValue(selected, value)) {
+                throw new IllegalArgumentException("운동 전송 alias 값이 충돌합니다: " + keys[0]);
+            }
+            selected = value;
+        }
+        return selected;
+    }
+
+    private static JSONArray optionalArray(JSONObject object, String... keys) {
+        if (object == null) return null;
+        JSONArray selected = null;
+        for (String key : keys) {
+            if (!object.has(key) || object.isNull(key)) {
+                continue;
+            }
+            Object raw = object.opt(key);
+            if (!(raw instanceof JSONArray)) {
+                throw new IllegalArgumentException(key + "은 배열이어야 합니다.");
+            }
+            JSONArray value = (JSONArray) raw;
+            if (selected != null && !sameValue(selected, value)) {
+                throw new IllegalArgumentException(
+                        "운동 전송 배열 alias 값이 충돌합니다: " + keys[0]
+                );
+            }
+            selected = value;
+        }
+        return selected;
+    }
+
+    private static boolean sameValue(Object first, Object second) {
+        if (first == second) return true;
+        if (first == null || second == null
+                || first == JSONObject.NULL || second == JSONObject.NULL) {
+            return first == second || first == JSONObject.NULL && second == null
+                    || second == JSONObject.NULL && first == null;
+        }
+        if (first instanceof Number && second instanceof Number) {
+            return Double.compare(
+                    ((Number) first).doubleValue(),
+                    ((Number) second).doubleValue()
+            ) == 0;
+        }
+        if (first instanceof JSONArray && second instanceof JSONArray) {
+            JSONArray left = (JSONArray) first;
+            JSONArray right = (JSONArray) second;
+            if (left.length() != right.length()) return false;
+            for (int index = 0; index < left.length(); index += 1) {
+                if (!sameValue(left.opt(index), right.opt(index))) return false;
+            }
+            return true;
+        }
+        if (first instanceof JSONObject && second instanceof JSONObject) {
+            JSONObject left = (JSONObject) first;
+            JSONObject right = (JSONObject) second;
+            if (left.length() != right.length()) return false;
+            java.util.Iterator<String> keys = left.keys();
+            while (keys.hasNext()) {
+                String key = keys.next();
+                if (!right.has(key) || !sameValue(left.opt(key), right.opt(key))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return first.equals(second);
+    }
+
+    private static String resolveDate(String explicitDate, String startedAt) {
+        if (explicitDate != null) {
+            return explicitDate;
+        }
+        if (startedAt == null) {
+            throw new IllegalArgumentException(
+                    "운동 전송 date 또는 timezone 포함 startedAt이 필요합니다."
+            );
+        }
+        try {
+            return Instant.parse(startedAt)
+                    .atZone(TRANSFER_DATE_ZONE)
+                    .toLocalDate()
+                    .toString();
+        } catch (DateTimeException ignored) {
+            try {
+                return OffsetDateTime.parse(startedAt)
+                        .toInstant()
+                        .atZone(TRANSFER_DATE_ZONE)
+                        .toLocalDate()
+                        .toString();
+            } catch (DateTimeException error) {
+                throw new IllegalArgumentException(
+                        "startedAt은 Instant 또는 timezone 포함 OffsetDateTime이어야 합니다."
+                );
             }
         }
-        return null;
     }
 
     private static void putNullable(JSONObject object, String key, Object value) throws Exception {
@@ -494,6 +602,7 @@ public final class WorkoutTransferCodec {
         public final String status;
         public final String startedAt;
         public final String endedAt;
+        public final String memo;
         public final List<Exercise> exercises;
 
         public Session(
@@ -507,11 +616,12 @@ public final class WorkoutTransferCodec {
                 String status,
                 String startedAt,
                 String endedAt,
+                String memo,
                 List<Exercise> exercises
         ) {
             this.sourceApp = sourceApp;
             this.sourceRecordId = sourceRecordId;
-            this.date = date;
+            this.date = date == null ? resolveDate(null, startedAt) : date;
             this.title = title;
             this.workoutType = workoutType;
             this.category = category;
@@ -519,6 +629,7 @@ public final class WorkoutTransferCodec {
             this.status = status;
             this.startedAt = startedAt;
             this.endedAt = endedAt;
+            this.memo = memo;
             this.exercises = immutable(exercises);
         }
 
@@ -545,6 +656,36 @@ public final class WorkoutTransferCodec {
                     null,
                     startedAt,
                     endedAt,
+                    null,
+                    exercises
+            );
+        }
+
+        public Session(
+                String sourceApp,
+                String sourceRecordId,
+                String date,
+                String title,
+                String workoutType,
+                String category,
+                Integer durationSeconds,
+                String status,
+                String startedAt,
+                String endedAt,
+                List<Exercise> exercises
+        ) {
+            this(
+                    sourceApp,
+                    sourceRecordId,
+                    date,
+                    title,
+                    workoutType,
+                    category,
+                    durationSeconds,
+                    status,
+                    startedAt,
+                    endedAt,
+                    null,
                     exercises
             );
         }
@@ -552,14 +693,39 @@ public final class WorkoutTransferCodec {
 
     public static final class Exercise {
         public final String exerciseId;
-        public final String canonicalExerciseId;
+        public final String presetId;
         public final String canonicalPresetId;
+        public final String canonicalExerciseId;
         public final String exerciseName;
         public final Integer orderIndex;
         public final String recordType;
         public final String uiPart;
         public final String equipment;
         public final List<SetData> sets;
+
+        public Exercise(
+                String exerciseId,
+                String presetId,
+                String canonicalPresetId,
+                String canonicalExerciseId,
+                String exerciseName,
+                Integer orderIndex,
+                String recordType,
+                String uiPart,
+                String equipment,
+                List<SetData> sets
+        ) {
+            this.exerciseId = exerciseId;
+            this.presetId = presetId;
+            this.canonicalPresetId = canonicalPresetId;
+            this.canonicalExerciseId = canonicalExerciseId;
+            this.exerciseName = exerciseName;
+            this.orderIndex = orderIndex;
+            this.recordType = recordType;
+            this.uiPart = uiPart;
+            this.equipment = equipment;
+            this.sets = immutable(sets);
+        }
 
         public Exercise(
                 String exerciseId,
@@ -572,19 +738,23 @@ public final class WorkoutTransferCodec {
                 String equipment,
                 List<SetData> sets
         ) {
-            this.exerciseId = exerciseId;
-            this.canonicalExerciseId = canonicalExerciseId;
-            this.canonicalPresetId = canonicalPresetId;
-            this.exerciseName = exerciseName;
-            this.orderIndex = orderIndex;
-            this.recordType = recordType;
-            this.uiPart = uiPart;
-            this.equipment = equipment;
-            this.sets = immutable(sets);
+            this(
+                    exerciseId,
+                    null,
+                    canonicalPresetId,
+                    canonicalExerciseId,
+                    exerciseName,
+                    orderIndex,
+                    recordType,
+                    uiPart,
+                    equipment,
+                    sets
+            );
         }
     }
 
     public static final class SetData {
+        public final String sourceSetId;
         public final int setIndex;
         public final Integer targetReps;
         public final Integer actualReps;
@@ -602,6 +772,46 @@ public final class WorkoutTransferCodec {
         public final String memo;
         public final Double inputLoadValue;
         public final String inputLoadUnit;
+
+        public SetData(
+                String sourceSetId,
+                int setIndex,
+                Integer targetReps,
+                Integer actualReps,
+                Double weightKg,
+                Double volumeKg,
+                Integer durationSeconds,
+                Double distanceMeters,
+                Integer restSeconds,
+                Double assistedWeightKg,
+                Double addedWeightKg,
+                String loadState,
+                boolean isCompleted,
+                Integer rpe,
+                Integer rir,
+                String memo,
+                Double inputLoadValue,
+                String inputLoadUnit
+        ) {
+            this.sourceSetId = sourceSetId;
+            this.setIndex = setIndex;
+            this.targetReps = targetReps;
+            this.actualReps = actualReps;
+            this.weightKg = weightKg;
+            this.volumeKg = volumeKg;
+            this.durationSeconds = durationSeconds;
+            this.distanceMeters = distanceMeters;
+            this.restSeconds = restSeconds;
+            this.assistedWeightKg = assistedWeightKg;
+            this.addedWeightKg = addedWeightKg;
+            this.loadState = loadState;
+            this.isCompleted = isCompleted;
+            this.rpe = rpe;
+            this.rir = rir;
+            this.memo = memo;
+            this.inputLoadValue = inputLoadValue;
+            this.inputLoadUnit = inputLoadUnit;
+        }
 
         public SetData(
                 int setIndex,
@@ -622,23 +832,26 @@ public final class WorkoutTransferCodec {
                 Double inputLoadValue,
                 String inputLoadUnit
         ) {
-            this.setIndex = setIndex;
-            this.targetReps = targetReps;
-            this.actualReps = actualReps;
-            this.weightKg = weightKg;
-            this.volumeKg = volumeKg;
-            this.durationSeconds = durationSeconds;
-            this.distanceMeters = distanceMeters;
-            this.restSeconds = restSeconds;
-            this.assistedWeightKg = assistedWeightKg;
-            this.addedWeightKg = addedWeightKg;
-            this.loadState = loadState;
-            this.isCompleted = isCompleted;
-            this.rpe = rpe;
-            this.rir = rir;
-            this.memo = memo;
-            this.inputLoadValue = inputLoadValue;
-            this.inputLoadUnit = inputLoadUnit;
+            this(
+                    null,
+                    setIndex,
+                    targetReps,
+                    actualReps,
+                    weightKg,
+                    volumeKg,
+                    durationSeconds,
+                    distanceMeters,
+                    restSeconds,
+                    assistedWeightKg,
+                    addedWeightKg,
+                    loadState,
+                    isCompleted,
+                    rpe,
+                    rir,
+                    memo,
+                    inputLoadValue,
+                    inputLoadUnit
+            );
         }
     }
 
