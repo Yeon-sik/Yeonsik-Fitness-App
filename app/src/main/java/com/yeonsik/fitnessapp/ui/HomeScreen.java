@@ -7,6 +7,8 @@ import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.AthleteNutritionGoal;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionTotals;
@@ -116,6 +118,7 @@ public final class HomeScreen extends BaseScreen {
 
     private void heroJudgmentCard(List<String> todaySessions, FitnessRepository.DayWorkoutMetrics metrics, boolean inProgress) {
         FitnessUi ui = ui();
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         LinearLayout card = ui.heroCard();
 
         LinearLayout headerRow = new LinearLayout(host.activity());
@@ -158,11 +161,11 @@ public final class HomeScreen extends BaseScreen {
         volumeRow.setOrientation(LinearLayout.HORIZONTAL);
         volumeRow.setGravity(Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
         volumeRow.setPadding(0, ui.dp(4), 0, 0);
-        TextView volume = ui.num(FitnessUi.formatVolume(metrics.totalVolumeKg), 30, ui.heroInk(), true);
+        TextView volume = ui.num(MassFormatter.format(metrics.totalVolumeKg, displayUnit), 30, ui.heroInk(), true);
         volume.setIncludeFontPadding(false);
         volume.setLetterSpacing(-0.02f);
-        volume.setText(FitnessUi.formatVolume(metrics.totalVolumeKg));
-        TextView unit = ui.text("kg", 15, ui.heroMuted(), true);
+        volume.setText(MassFormatter.format(metrics.totalVolumeKg, displayUnit));
+        TextView unit = ui.text(displayUnit.symbol(), 15, ui.heroMuted(), true);
         unit.setPadding(ui.dp(6), 0, 0, ui.dp(5));
         volumeRow.addView(volume);
         volumeRow.addView(unit);
@@ -195,6 +198,7 @@ public final class HomeScreen extends BaseScreen {
 
     private void weeklyVolumeCard() {
         FitnessUi ui = ui();
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         LocalDate weekStart = LocalDate.now().with(DayOfWeek.MONDAY);
         LocalDate previousWeekStart = weekStart.minusWeeks(1);
         double[] values = new double[7];
@@ -233,8 +237,8 @@ public final class HomeScreen extends BaseScreen {
         valueRow.setOrientation(LinearLayout.HORIZONTAL);
         valueRow.setGravity(Gravity.BOTTOM);
         valueRow.setPadding(0, ui.dp(4), 0, 0);
-        valueRow.addView(ui.num(FitnessUi.formatVolume(weekVolume), 24, FitnessUi.COLOR_TEXT, true));
-        TextView unit = ui.text("kg", 13, FitnessUi.COLOR_MUTED, true);
+        valueRow.addView(ui.num(MassFormatter.format(weekVolume, displayUnit), 24, FitnessUi.COLOR_TEXT, true));
+        TextView unit = ui.text(displayUnit.symbol(), 13, FitnessUi.COLOR_MUTED, true);
         unit.setPadding(ui.dp(4), 0, 0, ui.dp(3));
         valueRow.addView(unit);
         titleColumn.addView(valueRow);
@@ -243,7 +247,7 @@ public final class HomeScreen extends BaseScreen {
         header.addView(meta);
         card.addView(header);
 
-        TextView comparison = ui.text(weeklyComparison(weekVolume, previousWeekVolume),
+        TextView comparison = ui.text(weeklyComparison(weekVolume, previousWeekVolume, displayUnit),
                 12, weekVolume >= previousWeekVolume ? FitnessUi.COLOR_POSITIVE : FitnessUi.COLOR_NEGATIVE, true);
         comparison.setPadding(0, ui.dp(10), 0, 0);
         card.addView(comparison);
@@ -258,12 +262,18 @@ public final class HomeScreen extends BaseScreen {
         legend.addView(previousLegend);
         card.addView(legend);
 
+        double[] displayValues = new double[values.length];
+        double[] displayPreviousValues = new double[previousValues.length];
+        for (int index = 0; index < values.length; index += 1) {
+            displayValues[index] = MassUnit.fromKg(values[index], displayUnit);
+            displayPreviousValues[index] = MassUnit.fromKg(previousValues[index], displayUnit);
+        }
         card.addView(weeklyBarChart(
-                values,
-                previousValues,
+                displayValues,
+                displayPreviousValues,
                 labels,
                 "주간 운동 볼륨",
-                "kg"
+                displayUnit.symbol()
         ), ui.fullWidthParams(ui.dp(8)));
         add(card);
     }
@@ -840,16 +850,24 @@ public final class HomeScreen extends BaseScreen {
     }
 
     private String weeklyComparison(double currentVolume, double previousVolume) {
-        double difference = currentVolume - previousVolume;
+        return weeklyComparison(currentVolume, previousVolume, MassUnit.KG);
+    }
+
+    private String weeklyComparison(
+            double currentVolumeKg,
+            double previousVolumeKg,
+            MassUnit displayUnit
+    ) {
+        double difference = currentVolumeKg - previousVolumeKg;
         if (Math.abs(difference) < 0.01) {
             return "지난주와 동일한 볼륨";
         }
         String direction = difference > 0 ? "증가" : "감소";
-        String amount = FitnessUi.formatVolume(Math.abs(difference)) + "kg " + direction;
-        if (previousVolume <= 0.01) {
+        String amount = MassFormatter.withUnit(Math.abs(difference), displayUnit) + " " + direction;
+        if (previousVolumeKg <= 0.01) {
             return "지난주 대비 " + amount;
         }
-        double percent = Math.abs(difference) / previousVolume * 100.0;
+        double percent = Math.abs(difference) / previousVolumeKg * 100.0;
         return "지난주 대비 " + amount + " (" + FitnessUi.formatVolume(percent) + "%)";
     }
 
@@ -879,10 +897,10 @@ public final class HomeScreen extends BaseScreen {
             }
             chartDescription.append(labels[index])
                     .append(" 이번 주 ")
-                    .append(FitnessUi.formatVolume(values[index]))
+                    .append(formatWeeklyChartValue(values[index], unit))
                     .append(unit)
                     .append(", 지난주 ")
-                    .append(FitnessUi.formatVolume(previousValues[index]))
+                    .append(formatWeeklyChartValue(previousValues[index], unit))
                     .append(unit);
         }
         wrapper.setContentDescription(chartDescription.toString());
@@ -948,18 +966,23 @@ public final class HomeScreen extends BaseScreen {
         return wrapper;
     }
 
+    private static String formatWeeklyChartValue(double value, String unit) {
+        MassUnit massUnit = MassUnit.parse(unit);
+        return massUnit == null
+                ? FitnessUi.formatVolume(value)
+                : MassFormatter.formatValue(value, massUnit);
+    }
+
     private String todayEyebrow() {
         return LocalDate.now().format(DateTimeFormatter.ofPattern("M월 d일 EEEE", Locale.KOREAN));
     }
 
     private String todayWeightValue() {
-        List<String> rows = repository().bodyMetricsForDate(host.today());
-        if (rows.isEmpty()) {
+        FitnessRepository.BodyMetricEntry metric = repository().bodyMetricForDate(host.today());
+        if (metric == null) {
             return "—";
         }
-        String first = rows.get(0);
-        int split = first.lastIndexOf("  ");
-        return split >= 0 ? first.substring(split + 2) : first;
+        return MassFormatter.withUnit(metric.weightKg, host.preferredMassUnit());
     }
 
     private void renderTodayRecordRows(List<String> todaySessions) {
@@ -968,8 +991,14 @@ public final class HomeScreen extends BaseScreen {
         for (String session : todaySessions) {
             rows.add(ui.recordListRow("운", FitnessUi.stripLeadingDate(session), "운동", null));
         }
-        for (String metric : repository().bodyMetricsForDate(host.today())) {
-            rows.add(ui.recordListRow("체", FitnessUi.stripLeadingDate(metric), "체중", null));
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
+        for (FitnessRepository.BodyMetricEntry metric : repository().bodyMetricEntriesForDate(host.today())) {
+            rows.add(ui.recordListRow(
+                    "체",
+                    MassFormatter.withUnit(metric.weightKg, displayUnit),
+                    metric.memo.isEmpty() ? "체중" : "체중 · " + metric.memo,
+                    null
+            ));
         }
         for (FitnessRepository.MealEntry meal : repository().mealEntriesForDate(host.today())) {
             View row = ui.recordListRow(

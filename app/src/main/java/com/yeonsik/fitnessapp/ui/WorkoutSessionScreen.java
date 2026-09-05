@@ -7,6 +7,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 
@@ -37,6 +39,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
         }
 
         FitnessUi ui = ui();
+        MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         FitnessRepository.SessionInfo info = repository().sessionInfo(recordId);
         FitnessRepository.SessionMetrics metrics = repository().sessionMetrics(recordId);
         List<FitnessRepository.SessionExerciseEntry> exercises =
@@ -87,7 +90,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
         strip.setGravity(Gravity.CENTER);
         sessionSummary.addView(strip, ui.fullWidthParams(0));
 
-        volumeView.setText(FitnessUi.formatVolume(metrics.totalVolumeKg) + "kg");
+        volumeView.setText(MassFormatter.withUnit(metrics.totalVolumeKg, displayUnit));
         completedSetsView.setText(metrics.setCount + "개");
         startView.setText(FitnessUi.formatStartTime(info.startedAt));
         add(sessionSummary);
@@ -106,7 +109,8 @@ public final class WorkoutSessionScreen extends BaseScreen {
                     "최근 4회 총 볼륨",
                     repository().recentCompletedSessionVolumes(recordId, 4),
                     metrics.totalVolumeKg,
-                    RecordsAnalysis.TrendCurrentState.IN_PROGRESS
+                    RecordsAnalysis.TrendCurrentState.IN_PROGRESS,
+                    displayUnit
             ));
             return;
         }
@@ -120,7 +124,8 @@ public final class WorkoutSessionScreen extends BaseScreen {
                 "최근 4회 총 볼륨",
                 repository().recentCompletedSessionVolumes(recordId, 4),
                 metrics.totalVolumeKg,
-                RecordsAnalysis.TrendCurrentState.IN_PROGRESS
+                RecordsAnalysis.TrendCurrentState.IN_PROGRESS,
+                displayUnit
         ));
     }
 

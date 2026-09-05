@@ -115,6 +115,18 @@ public final class SupabaseSyncManagerTest {
     }
 
     @Test
+    public void keepsWorkoutInputProvenanceLocalUntilRemoteSchemaExists() {
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
+                "workout_sets",
+                "input_load_value"
+        ));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn(
+                "workout_sets",
+                "input_load_unit"
+        ));
+    }
+
+    @Test
     public void fallsBackOnlyWhenSyncRpcIsMissing() {
         assertTrue(SupabaseSyncManager.isRpcUnavailable(
                 404,

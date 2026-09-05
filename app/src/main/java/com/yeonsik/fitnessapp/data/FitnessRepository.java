@@ -446,6 +446,7 @@ public final class FitnessRepository {
                         putNullable(setValues, "target_reps", set.reps);
                         putNullable(setValues, "actual_reps", set.reps);
                         putLoadStateFields(setValues, input, loadState);
+                        putInputLoadProvenance(setValues, input, loadState);
                         setValues.put(
                                 "volume_kg",
                                 setVolume(identity, exercise.recordType, input, loadState)
@@ -728,6 +729,7 @@ public final class FitnessRepository {
         putNullable(values, "target_reps", input.reps);
         putNullable(values, "actual_reps", input.reps);
         putLoadStateFields(values, input, loadState);
+        putInputLoadProvenance(values, input, loadState);
         values.put("volume_kg", setVolume(identity, recordType, input, loadState));
         putNullable(values, "duration_seconds", input.durationSeconds);
         putNullable(values, "distance_meters", input.distanceMeters);
@@ -778,6 +780,7 @@ public final class FitnessRepository {
         validateSetInput(recordType, input, identity, loadState);
         ContentValues values = new ContentValues();
         putLoadStateFields(values, input, loadState);
+        putInputLoadProvenance(values, input, loadState);
         putNullable(values, "target_reps", input.reps);
         putNullable(values, "actual_reps", input.reps);
         values.put("volume_kg", setVolume(identity, recordType, input, loadState));
@@ -851,11 +854,23 @@ public final class FitnessRepository {
                 "SELECT id, set_index, COALESCE(weight_kg, 0), COALESCE(actual_reps, 0), "
                         + "rir, rest_seconds, is_completed, COALESCE(duration_seconds, 0), "
                         + "COALESCE(distance_meters, 0), COALESCE(assisted_weight_kg, 0), "
-                        + "COALESCE(added_weight_kg, 0), load_state FROM workout_sets " +
+                        + "COALESCE(added_weight_kg, 0), load_state, input_load_value, input_load_unit " +
+                        "FROM workout_sets " +
                         "WHERE workout_exercise_id = ? AND user_id = ? " +
                         "AND deleted_at IS NULL ORDER BY set_index",
                 new String[]{workoutExerciseId, userId})) {
             while (cursor.moveToNext()) {
+                Double inputLoadValue = cursor.isNull(12) ? null : cursor.getDouble(12);
+                MassUnit inputLoadUnit = cursor.isNull(13)
+                        ? null
+                        : MassUnit.parse(cursor.getString(13));
+                if (inputLoadValue == null
+                        || inputLoadUnit == null
+                        || !Double.isFinite(inputLoadValue)
+                        || inputLoadValue < 0d) {
+                    inputLoadValue = null;
+                    inputLoadUnit = null;
+                }
                 rows.add(new SessionSetEntry(
                         cursor.getString(0),
                         cursor.getInt(1),
@@ -867,14 +882,16 @@ public final class FitnessRepository {
                         cursor.getInt(7),
                         cursor.getDouble(8),
                         cursor.getDouble(9),
-                        cursor.getDouble(10),
-                        loadStateForRead(
+                                cursor.getDouble(10),
+                                loadStateForRead(
                                 recordType,
                                 identity,
                                 cursor.isNull(11) ? null : cursor.getString(11),
-                                cursor.getDouble(10)
-                        )
-                ));
+                                        cursor.getDouble(10)
+                                ),
+                                inputLoadValue,
+                                inputLoadUnit
+                        ));
             }
         }
         return rows;
@@ -6521,6 +6538,7 @@ public final class FitnessRepository {
             throw new IllegalArgumentException("세트 입력이 없습니다.");
         }
         validateCommonSetInput(input);
+        validateInputLoadProvenance(input, loadState);
         if (!input.completed) {
             return;
         }
@@ -6559,6 +6577,7 @@ public final class FitnessRepository {
         validateNonNegative(input.distanceMeters, "거리");
         validateNonNegative(input.assistedWeightKg, "보조 중량");
         validateNonNegative(input.addedWeightKg, "추가 중량");
+        validateInputLoadProvenance(input, input.loadState);
         if (input.reps != null && input.reps < 0) {
             throw new IllegalArgumentException("횟수는 음수일 수 없습니다.");
         }
@@ -6584,6 +6603,416 @@ public final class FitnessRepository {
         if (value != null && (!Double.isFinite(value) || value < 0)) {
             throw new IllegalArgumentException(label + "은 0 이상의 유한한 값이어야 합니다.");
         }
+    }
+
+    /** Exports the local workout hierarchy without exposing backup-specific table internals. */
+    public WorkoutTransferCodec.Document exportWorkoutTransferDocument() {
+        ensureCanonicalVolumesReconciled();
+        List<WorkoutTransferCodec.Session> sessions = new ArrayList<>();
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, date, workout_type, category, exercise_name, duration_seconds, "
+                        + "metadata, source_app FROM workout_records "
+                        + "WHERE user_id = ? AND deleted_at IS NULL "
+                        + "AND scope IN ('fitness', 'both') "
+                        + "ORDER BY date ASC, created_at ASC",
+                new String[]{userId}
+        )) {
+            while (cursor.moveToNext()) {
+                String recordId = cursor.getString(0);
+                String metadata = cursor.getString(6);
+                sessions.add(new WorkoutTransferCodec.Session(
+                        emptyToDefault(cursor.getString(7), "fitness"),
+                        recordId,
+                        cursor.getString(1),
+                        cursor.getString(4),
+                        cursor.getString(2),
+                        cursor.getString(3),
+                        cursor.isNull(5) ? null : cursor.getInt(5),
+                        metadataValue(metadata, "status", ""),
+                        metadataValue(metadata, "started_at", ""),
+                        metadataValue(metadata, "ended_at", ""),
+                        exportWorkoutTransferExercises(recordId)
+                ));
+            }
+        }
+        return new WorkoutTransferCodec.Document(
+                WorkoutTransferCodec.V2,
+                "yeonsik.fitnessapp",
+                now(),
+                sessions
+        );
+    }
+
+    private List<WorkoutTransferCodec.Exercise> exportWorkoutTransferExercises(String recordId) {
+        List<WorkoutTransferCodec.Exercise> exercises = new ArrayList<>();
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id, exercise_id, order_index, exercise_name_snapshot, ui_part, "
+                        + "equipment_snapshot, record_type, family_id, preset_id, "
+                        + "canonical_variant_key, visual_variant_key FROM workout_exercises "
+                        + "WHERE record_id = ? AND user_id = ? AND deleted_at IS NULL "
+                        + "ORDER BY order_index",
+                new String[]{recordId, userId}
+        )) {
+            while (cursor.moveToNext()) {
+                ExerciseFamilyIdentity identity = identityForRow(
+                        cursor.getString(1),
+                        cursor.getString(3),
+                        cursor.getString(7),
+                        cursor.getString(8),
+                        cursor.getString(9),
+                        cursor.getString(10),
+                        cursor.getString(6)
+                );
+                exercises.add(new WorkoutTransferCodec.Exercise(
+                        cursor.getString(1),
+                        identity == null ? null : identity.legacyExerciseId,
+                        identity == null ? null : identity.canonicalPresetId,
+                        canonicalExerciseName(cursor.getString(3), identity),
+                        cursor.getInt(2),
+                        cursor.getString(6),
+                        cursor.getString(4),
+                        cursor.isNull(5) ? null : cursor.getString(5),
+                        exportWorkoutTransferSets(cursor.getString(0), cursor.getString(6), identity)
+                ));
+            }
+        }
+        return exercises;
+    }
+
+    private List<WorkoutTransferCodec.SetData> exportWorkoutTransferSets(
+            String workoutExerciseId,
+            String recordType,
+            ExerciseFamilyIdentity identity
+    ) {
+        List<WorkoutTransferCodec.SetData> sets = new ArrayList<>();
+        try (Cursor cursor = db().rawQuery(
+                "SELECT set_index, target_reps, actual_reps, weight_kg, volume_kg, "
+                        + "duration_seconds, distance_meters, rest_seconds, assisted_weight_kg, "
+                        + "added_weight_kg, load_state, is_completed, rpe, rir, memo, "
+                        + "input_load_value, input_load_unit FROM workout_sets "
+                        + "WHERE workout_exercise_id = ? AND user_id = ? AND deleted_at IS NULL "
+                        + "ORDER BY set_index",
+                new String[]{workoutExerciseId, userId}
+        )) {
+            while (cursor.moveToNext()) {
+                String inputUnit = cursor.isNull(16) ? null : cursor.getString(16);
+                if (inputUnit != null && MassUnit.parse(inputUnit) == null) {
+                    throw new IllegalStateException("저장된 입력 중량 단위를 해석하지 못했습니다.");
+                }
+                sets.add(new WorkoutTransferCodec.SetData(
+                        cursor.getInt(0),
+                        cursor.isNull(1) ? null : cursor.getInt(1),
+                        cursor.isNull(2) ? null : cursor.getInt(2),
+                        cursor.isNull(3) ? null : cursor.getDouble(3),
+                        cursor.isNull(4) ? null : cursor.getDouble(4),
+                        cursor.isNull(5) ? null : cursor.getInt(5),
+                        cursor.isNull(6) ? null : cursor.getDouble(6),
+                        cursor.isNull(7) ? null : cursor.getInt(7),
+                        cursor.isNull(8) ? null : cursor.getDouble(8),
+                        cursor.isNull(9) ? null : cursor.getDouble(9),
+                        cursor.isNull(10) ? null : cursor.getString(10),
+                        cursor.getInt(11) == 1,
+                        cursor.isNull(12) ? null : cursor.getInt(12),
+                        cursor.isNull(13) ? null : cursor.getInt(13),
+                        cursor.isNull(14) ? null : cursor.getString(14),
+                        cursor.isNull(15) ? null : cursor.getDouble(15),
+                        inputUnit
+                ));
+            }
+        }
+        return sets;
+    }
+
+    /** Imports one transfer document atomically and skips the same source identity on repeats. */
+    public WorkoutTransferImportResult importWorkoutTransferDocument(
+            WorkoutTransferCodec.Document document
+    ) {
+        WorkoutTransferCodec.validate(document);
+        if (document.sessions.isEmpty()) {
+            throw new IllegalArgumentException("가져올 운동 전송 기록이 없습니다.");
+        }
+
+        List<RuntimeExercisePreset> resolvedPresets = new ArrayList<>();
+        for (WorkoutTransferCodec.Session session : document.sessions) {
+            for (WorkoutTransferCodec.Exercise exercise : session.exercises) {
+                resolvedPresets.add(requireTransferPreset(exercise));
+            }
+        }
+
+        WorkoutTransferImportResult result = new WorkoutTransferImportResult();
+        SQLiteDatabase database = db();
+        database.beginTransaction();
+        try {
+            int presetIndex = 0;
+            for (WorkoutTransferCodec.Session session : document.sessions) {
+                if (hasImportedWorkoutTransferSession(
+                        database,
+                        session.sourceApp,
+                        session.sourceRecordId
+                )) {
+                    result.skippedDuplicateSessions += 1;
+                    presetIndex += session.exercises.size();
+                    continue;
+                }
+
+                String date = requireRecordDate(session.date);
+                String recordId = newId();
+                String importedAt = now();
+                ContentValues record = baseValues(recordId, importedAt);
+                record.put("date", date);
+                record.put("workout_type", emptyToDefault(session.workoutType, "strength"));
+                record.put("category", emptyToDefault(
+                        session.category,
+                        session.exercises.isEmpty() ? "other" : emptyToDefault(
+                                session.exercises.get(0).uiPart,
+                                "other"
+                        )
+                ));
+                record.put("exercise_name", emptyToDefault(session.title, "Imported workout"));
+                Integer durationSeconds = session.durationSeconds;
+                if (durationSeconds == null) {
+                    durationSeconds = computeDurationSeconds(date, session.startedAt, session.endedAt);
+                }
+                putNullable(record, "duration_seconds", durationSeconds);
+                record.put("total_volume_kg", 0d);
+                record.putNull("average_heart_rate");
+                record.put("is_backfilled", 1);
+                record.put("backfilled_at", importedAt);
+                record.put("backfill_reason", "Workout Transfer JSON import");
+                record.put("source_app", session.sourceApp);
+                record.put("scope", "fitness");
+                record.put("metadata", importedTransferMetadata(session, document.formatVersion));
+                database.insertOrThrow("workout_records", null, record);
+
+                int fallbackOrder = 1;
+                for (WorkoutTransferCodec.Exercise exercise : session.exercises) {
+                    RuntimeExercisePreset preset = resolvedPresets.get(presetIndex++);
+                    ExerciseFamilyIdentity identity = familyCatalog.identityForPreset(preset);
+                    String exerciseId = emptyToDefault(preset.storageExerciseId, exercise.exerciseId);
+                    String recordType = FitnessRecordContract.normalizeRecordType(preset.recordType);
+                    String workoutExerciseId = newId();
+                    ContentValues exerciseValues = baseValues(workoutExerciseId, importedAt);
+                    exerciseValues.put("record_id", recordId);
+                    exerciseValues.put("order_index", exercise.orderIndex == null
+                            ? fallbackOrder
+                            : Math.max(1, exercise.orderIndex));
+                    fallbackOrder += 1;
+                    exerciseValues.put("exercise_id", exerciseId);
+                    exerciseValues.put("exercise_name_snapshot", canonicalExerciseName(
+                            preset.displayName(), identity
+                    ));
+                    exerciseValues.put("ui_part", normalizeCategory(emptyToDefault(
+                            identity == null ? null : identity.defaultUiPart,
+                            preset.defaultUiPart
+                    )));
+                    exerciseValues.put("primary_sub_part_snapshot", emptyToDefault(
+                            preset.primarySubPartNameKo,
+                            exercise.uiPart == null ? "" : exercise.uiPart
+                    ));
+                    exerciseValues.put("equipment_snapshot", emptyToNull(
+                            preset.equipmentNameKo == null ? exercise.equipment : preset.equipmentNameKo
+                    ));
+                    exerciseValues.put("record_type", recordType);
+                    putFamilyIdentity(exerciseValues, identity);
+                    exerciseValues.putNull("memo");
+                    database.insertOrThrow("workout_exercises", null, exerciseValues);
+                    result.importedExercises += 1;
+
+                    for (WorkoutTransferCodec.SetData set : exercise.sets) {
+                        LoadState explicitLoadState = LoadState.fromId(set.loadState);
+                        MassUnit inputUnit = MassUnit.parse(set.inputLoadUnit);
+                        SetInput input = new SetInput(
+                                set.weightKg,
+                                set.actualReps,
+                                set.durationSeconds,
+                                set.distanceMeters,
+                                set.assistedWeightKg,
+                                set.addedWeightKg,
+                                set.rir,
+                                set.restSeconds,
+                                set.isCompleted,
+                                explicitLoadState,
+                                set.inputLoadValue,
+                                inputUnit
+                        );
+                        LoadState loadState = resolveLoadStateForIdentity(
+                                recordType,
+                                input,
+                                identity
+                        );
+                        validateSetInput(recordType, input, identity, loadState);
+                        double calculatedVolume = setVolume(identity, recordType, input, loadState);
+                        if (set.volumeKg != null && !massValuesMatch(set.volumeKg, calculatedVolume)) {
+                            throw new IllegalArgumentException(
+                                    "전송된 volumeKg가 canonical 중량 계산과 일치하지 않습니다."
+                            );
+                        }
+
+                        ContentValues setValues = baseValues(newId(), importedAt);
+                        setValues.put("workout_exercise_id", workoutExerciseId);
+                        setValues.put("set_index", Math.max(1, set.setIndex));
+                        putNullable(setValues, "target_reps", set.targetReps);
+                        putNullable(setValues, "actual_reps", set.actualReps);
+                        putLoadStateFields(setValues, input, loadState);
+                        putExplicitInputLoadProvenance(setValues, input, loadState);
+                        setValues.put("volume_kg", calculatedVolume);
+                        putNullable(setValues, "duration_seconds", set.durationSeconds);
+                        putNullable(setValues, "distance_meters", set.distanceMeters);
+                        putNullable(setValues, "rest_seconds", set.restSeconds);
+                        putLoadState(setValues, loadState);
+                        setValues.put("is_completed", set.isCompleted ? 1 : 0);
+                        putNullable(setValues, "rpe", set.rpe);
+                        putNullable(setValues, "rir", set.rir);
+                        putNullable(setValues, "memo", set.memo);
+                        database.insertOrThrow("workout_sets", null, setValues);
+                        result.importedSets += 1;
+                    }
+                }
+
+                updateSharedWorkoutSummary(recordId, false);
+                result.importedSessions += 1;
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        canonicalVolumesReconciled = false;
+        return result;
+    }
+
+    private RuntimeExercisePreset requireTransferPreset(WorkoutTransferCodec.Exercise exercise) {
+        RuntimeExerciseCatalog catalog = familyCatalog.runtimeCatalog();
+        RuntimeExercisePreset preset = null;
+        preset = mergeTransferPreset(preset, catalog.presetForStorageExerciseId(
+                exercise.exerciseId
+        ));
+        preset = mergeTransferPreset(preset, catalog.presetForStorageExerciseId(
+                exercise.canonicalExerciseId
+        ));
+        preset = mergeTransferPreset(preset, catalog.preset(exercise.canonicalPresetId));
+        if (preset == null) {
+            throw new IllegalArgumentException(
+                    "운동 catalog ID를 찾지 못했습니다: " + exercise.exerciseId
+            );
+        }
+        return preset;
+    }
+
+    private static RuntimeExercisePreset mergeTransferPreset(
+            RuntimeExercisePreset current,
+            RuntimeExercisePreset candidate
+    ) {
+        if (candidate == null) {
+            return current;
+        }
+        if (current != null && !current.identityId().equals(candidate.identityId())) {
+            throw new IllegalArgumentException("운동 전송의 catalog ID가 서로 다른 운동을 가리킵니다.");
+        }
+        return candidate;
+    }
+
+    private boolean hasImportedWorkoutTransferSession(
+            SQLiteDatabase database,
+            String sourceApp,
+            String sourceRecordId
+    ) {
+        try (Cursor cursor = database.rawQuery(
+                "SELECT id, metadata FROM workout_records "
+                        + "WHERE user_id = ? AND source_app = ?",
+                new String[]{userId, sourceApp}
+        )) {
+            while (cursor.moveToNext()) {
+                if (sourceRecordId.equals(cursor.getString(0))) {
+                    return true;
+                }
+                String metadata = cursor.getString(1);
+                if (sourceApp.equals(metadataValue(metadata, "transfer_source_app", ""))
+                        && sourceRecordId.equals(metadataValue(
+                                metadata,
+                                "transfer_source_record_id",
+                                ""
+                        ))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static String importedTransferMetadata(
+            WorkoutTransferCodec.Session session,
+            int formatVersion
+    ) {
+        try {
+            JSONObject object = new JSONObject();
+            object.put("contract_version", FitnessRecordContract.VERSION);
+            object.put("status", emptyToDefault(
+                    session.status,
+                    "completed"
+            ));
+            object.put("started_at", emptyToDefault(session.startedAt, ""));
+            object.put("ended_at", emptyToDefault(session.endedAt, ""));
+            object.put("transfer_format", WorkoutTransferCodec.FORMAT);
+            object.put("transfer_format_version", formatVersion);
+            object.put("transfer_source_app", session.sourceApp);
+            object.put("transfer_source_record_id", session.sourceRecordId);
+            return object.toString();
+        } catch (Exception error) {
+            throw new IllegalStateException("운동 전송 메타데이터를 만들지 못했습니다.", error);
+        }
+    }
+
+    private static void validateInputLoadProvenance(SetInput input, LoadState loadState) {
+        boolean hasValue = input.inputLoadValue != null;
+        boolean hasUnit = input.inputLoadUnit != null;
+        if (hasValue != hasUnit) {
+            throw new IllegalArgumentException("입력 중량의 값과 단위를 함께 저장해야 합니다.");
+        }
+        validateNonNegative(input.inputLoadValue, "입력 중량");
+        if (!hasValue) {
+            return;
+        }
+        if (loadState != null && !isNumericLoadState(loadState)) {
+            throw new IllegalArgumentException("저항 상태가 중량을 저장하지 않습니다.");
+        }
+        Double canonicalLoad = canonicalLoadForState(input, loadState);
+        if (canonicalLoad == null) {
+            throw new IllegalArgumentException("입력 중량과 canonical 중량이 함께 필요합니다.");
+        }
+        double convertedKg = MassUnit.toKg(input.inputLoadValue, input.inputLoadUnit);
+        if (!massValuesMatch(convertedKg, canonicalLoad)) {
+            throw new IllegalArgumentException("입력 중량과 canonical 중량이 일치하지 않습니다.");
+        }
+    }
+
+    private static boolean isNumericLoadState(LoadState loadState) {
+        return loadState == LoadState.EXTERNAL_LOAD
+                || loadState == LoadState.ADDED_WEIGHT
+                || loadState == LoadState.ASSISTED;
+    }
+
+    private static Double canonicalLoadForState(SetInput input, LoadState loadState) {
+        if (loadState == LoadState.EXTERNAL_LOAD) {
+            return input.weightKg;
+        }
+        if (loadState == LoadState.ADDED_WEIGHT) {
+            return input.addedWeightKg;
+        }
+        if (loadState == LoadState.ASSISTED) {
+            return input.assistedWeightKg;
+        }
+        if (input.weightKg != null) {
+            return input.weightKg;
+        }
+        if (input.addedWeightKg != null) {
+            return input.addedWeightKg;
+        }
+        return input.assistedWeightKg;
+    }
+
+    private static boolean massValuesMatch(double firstKg, double secondKg) {
+        double tolerance = Math.max(0.01d, Math.max(Math.abs(firstKg), Math.abs(secondKg)) * 0.0001d);
+        return Math.abs(firstKg - secondKg) <= tolerance;
     }
 
     private static void requirePositive(Number value, String label) {
@@ -6682,6 +7111,50 @@ public final class FitnessRepository {
         }
     }
 
+    /** Stores only user input provenance; all analytical values remain canonical kg columns. */
+    private static void putInputLoadProvenance(
+            ContentValues values,
+            SetInput input,
+            LoadState loadState
+    ) {
+        values.putNull("input_load_value");
+        values.putNull("input_load_unit");
+        if (input == null || (loadState != null && !isNumericLoadState(loadState))) {
+            return;
+        }
+
+        Double canonicalLoad = canonicalLoadForState(input, loadState);
+        if (canonicalLoad == null) {
+            return;
+        }
+        Double rawValue = input.inputLoadValue;
+        MassUnit rawUnit = input.inputLoadUnit;
+        if (rawValue == null || rawUnit == null) {
+            rawValue = canonicalLoad;
+            rawUnit = MassUnit.KG;
+        }
+        values.put("input_load_value", rawValue);
+        values.put("input_load_unit", rawUnit.id());
+    }
+
+    /** Transfer restores preserve a source NULL instead of inventing kg provenance. */
+    private static void putExplicitInputLoadProvenance(
+            ContentValues values,
+            SetInput input,
+            LoadState loadState
+    ) {
+        values.putNull("input_load_value");
+        values.putNull("input_load_unit");
+        if (input == null
+                || !isNumericLoadState(loadState)
+                || input.inputLoadValue == null
+                || input.inputLoadUnit == null) {
+            return;
+        }
+        values.put("input_load_value", input.inputLoadValue);
+        values.put("input_load_unit", input.inputLoadUnit.id());
+    }
+
     private void updateSetForExerciseReplacement(
             SQLiteDatabase database,
             SessionSetEntry set,
@@ -6696,6 +7169,7 @@ public final class FitnessRepository {
         );
         ContentValues values = new ContentValues();
         putReplacementLoadStateFields(values, set, loadState);
+        putReplacementInputLoadProvenance(values, set, loadState);
         values.put("volume_kg", replacementSetVolume(set, targetIdentity, targetRecordType, loadState));
         putLoadState(values, loadState);
         values.put("is_completed", replacementSetCanRemainCompleted(
@@ -6760,6 +7234,24 @@ public final class FitnessRepository {
         } else if (loadState == LoadState.ADDED_WEIGHT && set.addedWeightKg > 0) {
             values.put("added_weight_kg", set.addedWeightKg);
         }
+    }
+
+    private static void putReplacementInputLoadProvenance(
+            ContentValues values,
+            SessionSetEntry set,
+            LoadState loadState
+    ) {
+        values.putNull("input_load_value");
+        values.putNull("input_load_unit");
+        if (set == null
+                || !isNumericLoadState(loadState)
+                || set.loadState != loadState
+                || set.inputLoadValue == null
+                || set.inputLoadUnit == null) {
+            return;
+        }
+        values.put("input_load_value", set.inputLoadValue);
+        values.put("input_load_unit", set.inputLoadUnit.id());
     }
 
     private double replacementSetVolume(
@@ -6989,6 +7481,10 @@ public final class FitnessRepository {
         public final double assistedWeightKg;
         public final double addedWeightKg;
         public final LoadState loadState;
+        /** Raw load value entered by the user, when the row has provenance. */
+        public final Double inputLoadValue;
+        /** Unit used for the raw input value; canonical calculations still use kg fields. */
+        public final MassUnit inputLoadUnit;
 
         public SessionSetEntry(
                 String id,
@@ -7015,6 +7511,8 @@ public final class FitnessRepository {
                     distanceMeters,
                     assistedWeightKg,
                     addedWeightKg,
+                    null,
+                    null,
                     null
             );
         }
@@ -7033,6 +7531,40 @@ public final class FitnessRepository {
                 double addedWeightKg,
                 LoadState loadState
         ) {
+            this(
+                    id,
+                    setIndex,
+                    weightKg,
+                    actualReps,
+                    rir,
+                    restSeconds,
+                    isCompleted,
+                    durationSeconds,
+                    distanceMeters,
+                    assistedWeightKg,
+                    addedWeightKg,
+                    loadState,
+                    null,
+                    null
+            );
+        }
+
+        public SessionSetEntry(
+                String id,
+                int setIndex,
+                double weightKg,
+                int actualReps,
+                Integer rir,
+                Integer restSeconds,
+                boolean isCompleted,
+                int durationSeconds,
+                double distanceMeters,
+                double assistedWeightKg,
+                double addedWeightKg,
+                LoadState loadState,
+                Double inputLoadValue,
+                MassUnit inputLoadUnit
+        ) {
             this.id = id;
             this.setIndex = setIndex;
             this.weightKg = weightKg;
@@ -7045,6 +7577,8 @@ public final class FitnessRepository {
             this.assistedWeightKg = assistedWeightKg;
             this.addedWeightKg = addedWeightKg;
             this.loadState = loadState;
+            this.inputLoadValue = inputLoadValue;
+            this.inputLoadUnit = inputLoadUnit;
         }
     }
 
@@ -7059,6 +7593,8 @@ public final class FitnessRepository {
         public final Integer restSeconds;
         public final boolean completed;
         public final LoadState loadState;
+        public final Double inputLoadValue;
+        public final MassUnit inputLoadUnit;
 
         public SetInput(
                 Double weightKg,
@@ -7071,7 +7607,7 @@ public final class FitnessRepository {
                 boolean completed
         ) {
             this(weightKg, reps, durationSeconds, null, assistedWeightKg, addedWeightKg,
-                    rir, restSeconds, completed, null);
+                    rir, restSeconds, completed, null, null, null);
         }
 
         public SetInput(
@@ -7086,7 +7622,7 @@ public final class FitnessRepository {
                 boolean completed
         ) {
             this(weightKg, reps, durationSeconds, distanceMeters, assistedWeightKg, addedWeightKg,
-                    rir, restSeconds, completed, null);
+                    rir, restSeconds, completed, null, null, null);
         }
 
         public SetInput(
@@ -7101,7 +7637,7 @@ public final class FitnessRepository {
                 LoadState loadState
         ) {
             this(weightKg, reps, durationSeconds, null, assistedWeightKg, addedWeightKg,
-                    rir, restSeconds, completed, loadState);
+                    rir, restSeconds, completed, loadState, null, null);
         }
 
         public SetInput(
@@ -7116,6 +7652,37 @@ public final class FitnessRepository {
                 boolean completed,
                 LoadState loadState
         ) {
+            this(
+                    weightKg,
+                    reps,
+                    durationSeconds,
+                    distanceMeters,
+                    assistedWeightKg,
+                    addedWeightKg,
+                    rir,
+                    restSeconds,
+                    completed,
+                    loadState,
+                    null,
+                    null
+            );
+        }
+
+        /** Full input including the raw value/unit provenance for a numeric load. */
+        public SetInput(
+                Double weightKg,
+                Integer reps,
+                Integer durationSeconds,
+                Double distanceMeters,
+                Double assistedWeightKg,
+                Double addedWeightKg,
+                Integer rir,
+                Integer restSeconds,
+                boolean completed,
+                LoadState loadState,
+                Double inputLoadValue,
+                MassUnit inputLoadUnit
+        ) {
             this.weightKg = weightKg;
             this.reps = reps;
             this.durationSeconds = durationSeconds;
@@ -7126,6 +7693,8 @@ public final class FitnessRepository {
             this.restSeconds = restSeconds;
             this.completed = completed;
             this.loadState = loadState;
+            this.inputLoadValue = inputLoadValue;
+            this.inputLoadUnit = inputLoadUnit;
         }
     }
 
@@ -7146,6 +7715,23 @@ public final class FitnessRepository {
             }
             if (skippedRows > 0) {
                 parts.add("해석 불가 행 " + skippedRows + "건 제외");
+            }
+            return String.join(" · ", parts);
+        }
+    }
+
+    public static final class WorkoutTransferImportResult {
+        public int importedSessions;
+        public int importedExercises;
+        public int importedSets;
+        public int skippedDuplicateSessions;
+
+        public String summary() {
+            List<String> parts = new ArrayList<>();
+            parts.add("세션 " + importedSessions + "건");
+            parts.add("세트 " + importedSets + "건");
+            if (skippedDuplicateSessions > 0) {
+                parts.add("중복 세션 " + skippedDuplicateSessions + "건 제외");
             }
             return String.join(" · ", parts);
         }

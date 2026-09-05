@@ -16,7 +16,7 @@ import java.util.UUID;
 
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
-    public static final int DATABASE_VERSION = 49;
+    public static final int DATABASE_VERSION = 50;
     private final Context appContext;
 
     public FitnessDatabaseHelper(Context context) {
@@ -132,6 +132,8 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "rest_seconds INTEGER, " +
                 "assisted_weight_kg REAL, " +
                 "added_weight_kg REAL, " +
+                "input_load_value REAL, " +
+                "input_load_unit TEXT, " +
                 "load_state TEXT, " +
                 "is_completed INTEGER NOT NULL, " +
                 "rpe INTEGER, " +
@@ -1100,6 +1102,12 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
             // migration after the hierarchy columns had been added. Run the repair only after
             // every table-recreation migration so already-upgraded preview databases are fixed.
             upgradePackagedFoodHierarchySchema(db);
+        }
+        if (oldVersion < 50) {
+            // The canonical load columns remain kg. These nullable fields only preserve the
+            // value/unit that the user actually entered; legacy rows intentionally stay NULL.
+            addColumnIfMissing(db, "workout_sets", "input_load_value", "REAL");
+            addColumnIfMissing(db, "workout_sets", "input_load_unit", "TEXT");
         }
         // All nutrition indexes are created after the final nutrition_foods shape is known.
         createNutritionIndexes(db);

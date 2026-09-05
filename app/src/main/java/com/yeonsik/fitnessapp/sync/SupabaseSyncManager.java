@@ -812,6 +812,12 @@ public final class SupabaseSyncManager {
         if ("workout_sets".equals(table) && "load_state".equals(column)) {
             return false;
         }
+        // Input provenance is a local presentation concern until the shared schema is
+        // explicitly migrated. Canonical kg values continue to follow the existing contract.
+        if ("workout_sets".equals(table)
+                && ("input_load_value".equals(column) || "input_load_unit".equals(column))) {
+            return false;
+        }
         // The common Personal OS dining-out identity migration is not part of the tracked
         // deployed contract yet. Keep these columns local and rely on metadata until the
         // remote schema is confirmed to expose them.

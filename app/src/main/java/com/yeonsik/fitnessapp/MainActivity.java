@@ -37,6 +37,7 @@ import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
+import com.yeonsik.fitnessapp.config.MassUnitPreferences;
 import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
@@ -44,10 +45,13 @@ import com.yeonsik.fitnessapp.data.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.LocalDataBackupService;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.data.ProductReadV1Client;
 import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client;
+import com.yeonsik.fitnessapp.data.WorkoutTransferService;
 import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.development.DevelopmentInsight;
@@ -123,6 +127,8 @@ public final class MainActivity extends Activity implements ScreenHost {
     private static final int REQUEST_LOCAL_BACKUP_EXPORT = 4111;
     private static final int REQUEST_LOCAL_BACKUP_RESTORE = 4112;
     private static final int REQUEST_RECORDS_CSV_EXPORT = 4113;
+    private static final int REQUEST_WORKOUT_TRANSFER_IMPORT = 4114;
+    private static final int REQUEST_WORKOUT_TRANSFER_EXPORT = 4115;
     private static final String PRICE_TRACE_LOG_TAG = "PriceTraceSearch";
     public static final String DEBUG_PROVISION_SESSION_ACTION =
             "com.yeonsik.fitnessapp.DEBUG_PROVISION_SESSION";
@@ -157,6 +163,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     private SupabaseConfigStore configStore;
     private NutritionSupabaseConfigStore nutritionConfigStore;
     private PriceTraceSupabaseConfigStore priceTraceConfigStore;
+    private MassUnitPreferences massUnitPreferences;
     private SupabaseSyncManager syncManager;
     private SupabaseAuthManager authManager;
     private SupabaseAuthManager nutritionAuthManager;
@@ -225,6 +232,7 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        massUnitPreferences = new MassUnitPreferences(this);
         configStore = new SupabaseConfigStore(this);
         supabaseConfig = configStore.load();
         nutritionConfigStore = new NutritionSupabaseConfigStore(this);
@@ -424,7 +432,9 @@ public final class MainActivity extends Activity implements ScreenHost {
         boolean dataFileRequest = requestCode == REQUEST_FLEEK_CSV_IMPORT
                 || requestCode == REQUEST_LOCAL_BACKUP_EXPORT
                 || requestCode == REQUEST_LOCAL_BACKUP_RESTORE
-                || requestCode == REQUEST_RECORDS_CSV_EXPORT;
+                || requestCode == REQUEST_RECORDS_CSV_EXPORT
+                || requestCode == REQUEST_WORKOUT_TRANSFER_IMPORT
+                || requestCode == REQUEST_WORKOUT_TRANSFER_EXPORT;
         if (!dataFileRequest || resultCode != RESULT_OK || data == null) {
             return;
         }
@@ -441,6 +451,10 @@ public final class MainActivity extends Activity implements ScreenHost {
             previewLocalBackup(uri);
         } else if (requestCode == REQUEST_RECORDS_CSV_EXPORT) {
             writeRecordsCsv(uri);
+        } else if (requestCode == REQUEST_WORKOUT_TRANSFER_IMPORT) {
+            importWorkoutTransfer(uri);
+        } else if (requestCode == REQUEST_WORKOUT_TRANSFER_EXPORT) {
+            writeWorkoutTransfer(uri);
         }
     }
 
@@ -525,6 +539,21 @@ public final class MainActivity extends Activity implements ScreenHost {
         themeMode = mode;
         getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
                 .putString(KEY_THEME_MODE, mode).apply();
+        render();
+    }
+
+    @Override
+    public MassUnit preferredMassUnit() {
+        return massUnitPreferences == null
+                ? MassUnit.KG
+                : massUnitPreferences.preferredMassUnit();
+    }
+
+    @Override
+    public void setPreferredMassUnit(MassUnit unit) {
+        if (massUnitPreferences != null) {
+            massUnitPreferences.setPreferredMassUnit(unit);
+        }
         render();
     }
 
@@ -1865,9 +1894,13 @@ public final class MainActivity extends Activity implements ScreenHost {
         FitnessRepository.BodyMetricEntry existing = recordId == null
                 ? repository.bodyMetricForDate(date)
                 : repository.bodyMetricEntryById(recordId);
+        MassUnit inputUnit = preferredMassUnit();
         LinearLayout form = ui.form();
         EditText dateInput = ui.input("날짜 (YYYY-MM-DD)", date);
-        EditText weight = ui.decimalInput("체중 kg", existing == null ? "" : FitnessUi.trimDouble(existing.weightKg));
+        EditText weight = ui.decimalInput(
+                "체중 " + inputUnit.symbol(),
+                existing == null ? "" : MassFormatter.formatInput(existing.weightKg, inputUnit)
+        );
         EditText memo = ui.input("메모 (선택)", "");
         if (existing != null) {
             memo.setText(existing.memo);
@@ -1881,17 +1914,18 @@ public final class MainActivity extends Activity implements ScreenHost {
                         if (selectedWeight == null) {
                             throw new IllegalArgumentException("체중을 입력하세요.");
                         }
+                        double selectedWeightKg = MassUnit.toKg(selectedWeight, inputUnit);
                         if (existing == null) {
                             repository.addBodyMetric(
                                     selectedDate,
-                                    selectedWeight,
+                                    selectedWeightKg,
                                     FitnessUi.inputText(memo)
                             );
                         } else {
                             repository.updateBodyMetric(
                                     existing.id,
                                     selectedDate,
-                                    selectedWeight,
+                                    selectedWeightKg,
                                     FitnessUi.inputText(memo)
                             );
                         }
@@ -1961,9 +1995,12 @@ public final class MainActivity extends Activity implements ScreenHost {
                 "키 cm",
                 currentProfile.heightCm == null ? "" : String.valueOf(currentProfile.heightCm)
         );
+        MassUnit inputUnit = preferredMassUnit();
         EditText weightInput = ui.decimalInput(
-                "오늘 체중 kg",
-                todayWeight == null ? "" : FitnessUi.trimDouble(todayWeight.weightKg)
+                "오늘 체중 " + inputUnit.symbol(),
+                todayWeight == null
+                        ? ""
+                        : MassFormatter.formatInput(todayWeight.weightKg, inputUnit)
         );
         ui.addAll(form, heightInput, weightInput);
         ui.validatedSheet("바디 정보 수정", form, "저장", () -> {
@@ -1980,7 +2017,10 @@ public final class MainActivity extends Activity implements ScreenHost {
                     nextProfile = new BodyProfile(heightCm, "", "");
                 }
                 if (!weightText.isEmpty()) {
-                    double weightKg = Double.parseDouble(weightText);
+                    double weightKg = MassUnit.toKg(
+                            Double.parseDouble(weightText),
+                            inputUnit
+                    );
                     if (!Double.isFinite(weightKg) || weightKg < 20d || weightKg > 400d) {
                         throw new IllegalArgumentException("체중은 20~400kg 범위로 입력해 주세요.");
                     }
@@ -2169,6 +2209,36 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    public void openWorkoutTransferImport() {
+        if (isDataTransferInProgress || isDataImporting) {
+            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+            return;
+        }
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("application/json");
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try {
+            startActivityForResult(intent, REQUEST_WORKOUT_TRANSFER_IMPORT);
+        } catch (Exception error) {
+            toast("운동 전송 JSON 선택기를 열지 못했습니다.");
+        }
+    }
+
+    @Override
+    public void exportWorkoutTransfer() {
+        if (isDataTransferInProgress || isDataImporting) {
+            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+            return;
+        }
+        openCreateDocument(
+                "application/json",
+                "yeonsik-workout-transfer-" + today() + ".json",
+                REQUEST_WORKOUT_TRANSFER_EXPORT
+        );
+    }
+
+    @Override
     public boolean isDataTransferInProgress() {
         return isDataTransferInProgress;
     }
@@ -2274,6 +2344,44 @@ public final class MainActivity extends Activity implements ScreenHost {
                 finishDataTransfer("기록 요약 CSV를 저장했습니다.", null);
             } catch (Exception error) {
                 finishDataTransfer(null, dataTransferError(error, "CSV를 저장하지 못했습니다."));
+            }
+        });
+    }
+
+    private void writeWorkoutTransfer(Uri uri) {
+        beginDataTransfer("운동 전송 JSON을 만드는 중입니다.");
+        executor.execute(() -> {
+            try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+                if (output == null) {
+                    throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
+                }
+                new WorkoutTransferService(repository).writeJson(output);
+                finishDataTransfer("Workout Transfer v2 JSON을 저장했습니다.", null);
+            } catch (Exception error) {
+                finishDataTransfer(null, dataTransferError(
+                        error,
+                        "운동 전송 JSON을 저장하지 못했습니다."
+                ));
+            }
+        });
+    }
+
+    private void importWorkoutTransfer(Uri uri) {
+        beginDataTransfer("운동 전송 JSON을 읽고 기록을 합치는 중입니다.");
+        executor.execute(() -> {
+            try (InputStream input = getContentResolver().openInputStream(uri)) {
+                if (input == null) {
+                    throw new IOException("선택한 운동 전송 파일을 읽을 수 없습니다.");
+                }
+                FitnessRepository.WorkoutTransferImportResult result =
+                        new WorkoutTransferService(repository).importJson(input);
+                repository.reconcileSharedWorkoutSummaries();
+                finishDataTransfer(result.summary(), null);
+            } catch (Exception error) {
+                finishDataTransfer(null, dataTransferError(
+                        error,
+                        "운동 전송 JSON을 가져오지 못했습니다."
+                ));
             }
         });
     }

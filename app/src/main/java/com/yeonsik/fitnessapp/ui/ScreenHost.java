@@ -9,6 +9,7 @@ import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client;
 import com.yeonsik.fitnessapp.development.DevelopmentInsight;
@@ -138,6 +139,14 @@ public interface ScreenHost {
 
     void setThemeMode(String mode);
 
+    /** Preferred presentation/input unit; all repository calculations remain in kg. */
+    default MassUnit preferredMassUnit() {
+        return MassUnit.KG;
+    }
+
+    default void setPreferredMassUnit(MassUnit unit) {
+    }
+
     // ── 설정 / 동기화 ─────────────────────────────────────────────────
 
     void openFleekDataImport();
@@ -145,6 +154,12 @@ public interface ScreenHost {
     boolean isDataImporting();
 
     String dataImportDetail();
+
+    default void openWorkoutTransferImport() {
+    }
+
+    default void exportWorkoutTransfer() {
+    }
 
     void createLocalBackup();
 

@@ -6,6 +6,8 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.util.ArrayList;
@@ -99,6 +101,21 @@ public abstract class BaseScreen {
         return volumeTrendCard(title, null, history, currentVolume, currentState, null);
     }
 
+    protected View volumeTrendCard(String title, List<FitnessRepository.VolumePoint> history,
+                                   double currentVolume,
+                                   RecordsAnalysis.TrendCurrentState currentState,
+                                   MassUnit displayUnit) {
+        return volumeTrendCard(
+                title,
+                null,
+                history,
+                currentVolume,
+                currentState,
+                null,
+                displayUnit
+        );
+    }
+
     protected View volumeTrendCard(String title, String metaLabel,
                                    List<FitnessRepository.VolumePoint> history, double currentVolume) {
         return volumeTrendCard(
@@ -120,14 +137,32 @@ public abstract class BaseScreen {
                                    double currentVolume,
                                    RecordsAnalysis.TrendCurrentState currentState,
                                    String currentDate) {
+        return volumeTrendCard(
+                title,
+                metaLabel,
+                history,
+                currentVolume,
+                currentState,
+                currentDate,
+                MassUnit.KG
+        );
+    }
+
+    protected View volumeTrendCard(String title, String metaLabel,
+                                   List<FitnessRepository.VolumePoint> history,
+                                   double currentVolume,
+                                   RecordsAnalysis.TrendCurrentState currentState,
+                                   String currentDate,
+                                   MassUnit displayUnit) {
         FitnessUi ui = ui();
+        MassUnit unit = MassUnit.orDefault(displayUnit);
         LinearLayout card = ui.card();
         List<Double> values = new ArrayList<>();
         List<String> historyDates = new ArrayList<>();
         if (history != null) {
             for (FitnessRepository.VolumePoint point : history) {
                 if (point != null) {
-                    values.add(point.volumeKg);
+                    values.add(MassUnit.fromKg(point.volumeKg, unit));
                     historyDates.add(point.date);
                 }
             }
@@ -140,7 +175,7 @@ public abstract class BaseScreen {
         int currentPointIndex = -1;
         if (includeCompletedCurrent) {
             currentPointIndex = values.size();
-            values.add(currentVolume);
+            values.add(MassUnit.fromKg(currentVolume, unit));
         }
         if (RecordsAnalysis.hasEnoughTrendPoints(completedHistoryCount, state)) {
             String period = RecordsAnalysis.trendPeriodLabel(
@@ -151,14 +186,25 @@ public abstract class BaseScreen {
                     ? " · 현재 진행 중"
                     : "";
             String displayMeta = period.isEmpty()
-                    ? "완료 기록 " + values.size() + "회 · kg" + stateLabel
-                    : period + " · kg" + stateLabel;
+                    ? "완료 기록 " + values.size() + "회 · " + unit.symbol() + stateLabel
+                    : period + " · " + unit.symbol() + stateLabel;
             ui.cardHeader(card, title, displayMeta);
-            card.addView(ui.volumeTrendChart(values, currentPointIndex), ui.trendChartParams(0));
+            card.addView(
+                    unit == MassUnit.KG
+                            ? ui.volumeTrendChart(values, currentPointIndex)
+                            : ui.trendChart(
+                                    values,
+                                    unit.symbol(),
+                                    RecordsAnalysis.TrendScalePolicy.ZERO_BASED,
+                                    currentPointIndex,
+                                    "추세를 표시할 기록이 없습니다."
+                            ),
+                    ui.trendChartParams(0)
+            );
             if (state == RecordsAnalysis.TrendCurrentState.IN_PROGRESS) {
                 card.addView(ui.recordListRow(
                         "진",
-                        FitnessUi.formatVolume(currentVolume) + "kg",
+                        MassFormatter.withUnit(currentVolume, unit),
                         "진행 중 · 저장된 추세에는 포함하지 않음",
                         null
                 ), ui.fullWidthParams(ui.dp(8)));
@@ -171,14 +217,14 @@ public abstract class BaseScreen {
         if (state == RecordsAnalysis.TrendCurrentState.COMPLETED) {
             rows.add(ui.recordListRow(
                     "현",
-                    FitnessUi.formatVolume(currentVolume) + "kg",
+                    MassFormatter.withUnit(currentVolume, unit),
                     "현재 완료 기록",
                     null
             ));
         } else if (state == RecordsAnalysis.TrendCurrentState.IN_PROGRESS) {
             rows.add(ui.recordListRow(
                     "진",
-                    FitnessUi.formatVolume(currentVolume) + "kg",
+                    MassFormatter.withUnit(currentVolume, unit),
                     "진행 중 · 저장된 추세에는 포함하지 않음",
                     null
             ));
@@ -193,8 +239,8 @@ public abstract class BaseScreen {
                         ? "날짜 없음"
                         : point.date;
                 rows.add(ui.recordListRow(
-                        "완",
-                        FitnessUi.formatVolume(point.volumeKg) + "kg",
+                    "완",
+                    MassFormatter.withUnit(point.volumeKg, unit),
                         "완료 기록 · " + date,
                         null
                 ));

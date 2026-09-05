@@ -33,6 +33,8 @@ import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.MealCompositionItem;
 import com.yeonsik.fitnessapp.data.MealEntryPolicy;
 import com.yeonsik.fitnessapp.data.MealMenuSelection;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.NutrientCode;
 import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
@@ -447,7 +449,10 @@ public final class MealManagementScreen extends BaseScreen {
         );
         String weightLine = weight == null
                 ? "체중을 기록하면 단백질 g/kg를 표시합니다.  ›"
-                : "체중 " + NutritionCalculator.trim(weight.weightKg) + "kg 기준 · 단백질 "
+                : "체중 " + MassFormatter.withUnit(
+                        weight.weightKg,
+                        MassUnit.orDefault(host.preferredMassUnit())
+                ) + " 기준 · 단백질 "
                 + NutritionCalculator.trim(gramsPerKg) + "g/kg";
         TextView weightView = ui.text(weightLine, 12, ui.heroMuted(), false);
         weightView.setPadding(0, ui.dp(14), 0, 0);

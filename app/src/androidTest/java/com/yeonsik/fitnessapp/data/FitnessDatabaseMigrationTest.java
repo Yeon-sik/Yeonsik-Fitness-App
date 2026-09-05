@@ -19,6 +19,7 @@ import java.io.File;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /** Exercises the historical v8 schema against the current SQLiteOpenHelper on a real device. */
@@ -59,6 +60,20 @@ public final class FitnessDatabaseMigrationTest {
 
             assertEquals(FitnessDatabaseHelper.DATABASE_VERSION, upgraded.getVersion());
             assertTrue(hasColumn(upgraded, "workout_sets", "load_state"));
+            assertTrue(hasColumn(upgraded, "workout_sets", "input_load_value"));
+            assertTrue(hasColumn(upgraded, "workout_sets", "input_load_unit"));
+            assertEquals("80.0", scalar(
+                    upgraded,
+                    "SELECT weight_kg FROM workout_sets WHERE id = 'set-1'"
+            ));
+            assertNull(scalarNullable(
+                    upgraded,
+                    "SELECT input_load_value FROM workout_sets WHERE id = 'set-1'"
+            ));
+            assertNull(scalarNullable(
+                    upgraded,
+                    "SELECT input_load_unit FROM workout_sets WHERE id = 'set-1'"
+            ));
             assertTrue(tableExists(upgraded, "exercise_picker_preferences"));
             assertTrue(isPrimaryKeyColumn(upgraded, "body_profiles", "user_id"));
             assertTrue(hasColumn(upgraded, "body_profiles", "height_cm"));
@@ -172,6 +187,66 @@ public final class FitnessDatabaseMigrationTest {
             assertNotNull(legacyFood);
             assertEquals("감자튀김", legacyFood.name);
         } finally {
+            if (helper != null) {
+                helper.close();
+            }
+            isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void testV49UpgradeAddsNullableInputProvenanceWithoutBackfill() {
+        Context isolatedContext = new IsolatedDatabaseContext(
+                ApplicationProvider.getApplicationContext(),
+                "migration_v49_to_v50_"
+        );
+        FitnessDatabaseHelper creator = null;
+        FitnessDatabaseHelper helper = null;
+        try {
+            isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+            creator = new FitnessDatabaseHelper(isolatedContext);
+            SQLiteDatabase database = creator.getWritableDatabase();
+            database.execSQL("INSERT INTO workout_sets (" +
+                    "id, user_id, workout_exercise_id, set_index, actual_reps, weight_kg, " +
+                    "volume_kg, load_state, is_completed, created_at, updated_at, " +
+                    "device_id, contract_version) VALUES (" +
+                    "'v49-set', 'migration-user', 'v49-exercise', 1, 5, 80, 400, " +
+                    "'external_load', 1, '2026-09-05T00:00:00Z', " +
+                    "'2026-09-05T00:00:00Z', 'device-1', 1)");
+
+            database.execSQL("CREATE TABLE workout_sets_v49 AS SELECT " +
+                    "id, user_id, workout_exercise_id, set_index, target_reps, actual_reps, " +
+                    "weight_kg, volume_kg, duration_seconds, distance_meters, rest_seconds, " +
+                    "assisted_weight_kg, added_weight_kg, load_state, is_completed, rpe, rir, " +
+                    "memo, created_at, updated_at, deleted_at, device_id, contract_version " +
+                    "FROM workout_sets");
+            database.execSQL("DROP TABLE workout_sets");
+            database.execSQL("ALTER TABLE workout_sets_v49 RENAME TO workout_sets");
+            database.setVersion(49);
+            creator.close();
+            creator = null;
+
+            helper = new FitnessDatabaseHelper(isolatedContext);
+            SQLiteDatabase upgraded = helper.getWritableDatabase();
+            assertEquals(FitnessDatabaseHelper.DATABASE_VERSION, upgraded.getVersion());
+            assertTrue(hasColumn(upgraded, "workout_sets", "input_load_value"));
+            assertTrue(hasColumn(upgraded, "workout_sets", "input_load_unit"));
+            assertEquals("80.0", scalar(
+                    upgraded,
+                    "SELECT weight_kg FROM workout_sets WHERE id = 'v49-set'"
+            ));
+            assertNull(scalarNullable(
+                    upgraded,
+                    "SELECT input_load_value FROM workout_sets WHERE id = 'v49-set'"
+            ));
+            assertNull(scalarNullable(
+                    upgraded,
+                    "SELECT input_load_unit FROM workout_sets WHERE id = 'v49-set'"
+            ));
+        } finally {
+            if (creator != null) {
+                creator.close();
+            }
             if (helper != null) {
                 helper.close();
             }
@@ -495,6 +570,11 @@ public final class FitnessDatabaseMigrationTest {
                 "rest_seconds INTEGER, is_completed INTEGER NOT NULL, rpe INTEGER, memo TEXT, " +
                 "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, deleted_at TEXT, " +
                 "device_id TEXT NOT NULL)");
+        db.execSQL("INSERT INTO workout_sets (" +
+                "id, user_id, workout_exercise_id, set_index, target_reps, actual_reps, " +
+                "weight_kg, is_completed, created_at, updated_at, device_id) VALUES (" +
+                "'set-1', 'local-user', 'exercise-1', 1, 5, 5, 80, 1, " +
+                "'2026-08-08T00:00:00Z', '2026-08-08T00:00:00Z', 'device-1')");
         db.execSQL("CREATE TABLE routines (" +
                 "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, " +
                 "is_default INTEGER NOT NULL, device_id TEXT NOT NULL, " +
@@ -620,6 +700,13 @@ public final class FitnessDatabaseMigrationTest {
         try (Cursor cursor = db.rawQuery(sql, null)) {
             assertTrue(cursor.moveToFirst());
             return cursor.getString(0);
+        }
+    }
+
+    private static String scalarNullable(SQLiteDatabase db, String sql) {
+        try (Cursor cursor = db.rawQuery(sql, null)) {
+            assertTrue(cursor.moveToFirst());
+            return cursor.isNull(0) ? null : cursor.getString(0);
         }
     }
 
