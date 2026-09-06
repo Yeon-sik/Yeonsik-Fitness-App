@@ -43,8 +43,8 @@
 
 | 항목 | 상태 |
 |---|---|
-| 단위 테스트 | Stage 0 작업 시 실행 기록 |
-| Android 빌드 | Stage 0 작업 시 실행 기록 |
-| instrumentation | 컴파일 확인, 기기 실행은 별도 기록 |
+| 단위 테스트 | 통과 — `testDebugUnitTest` 및 관련 `TextValuePolicyTest`, `MealEntryPolicyTest` |
+| Android 빌드 | 통과 — `assembleDebug` |
+| instrumentation | `compileDebugAndroidTestSources` 통과; `connectedDebugAndroidTest`는 연결 기기 없음으로 미실행 |
 | 실기기 | 미수행 |
 | 운영 RPC·RLS | 미수행 |
