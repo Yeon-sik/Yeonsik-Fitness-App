@@ -14,6 +14,7 @@ import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionTotals;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
+import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.time.LocalDate;
@@ -36,6 +37,13 @@ public final class HomeScreen extends BaseScreen {
 
     @Override
     public void render() {
+        RoutineEntryUiState entryState = host.routineEntryViewModel().getUiState().getValue();
+        if (!(entryState instanceof RoutineEntryUiState.Ready)
+                || !host.currentOwnerId().equals(((RoutineEntryUiState.Ready) entryState).getOwnerId())) {
+            screenHeader("오늘의 훈련", "준비 중");
+            emptyState("루틴을 불러오는 중입니다.", "기본 루틴과 오늘의 훈련 상태를 확인하고 있습니다.");
+            return;
+        }
         String today = host.today();
         List<String> todaySessions = repository().sessionsForDate(today);
         String activeRoutineId = host.routineRepository().activeRoutineId();

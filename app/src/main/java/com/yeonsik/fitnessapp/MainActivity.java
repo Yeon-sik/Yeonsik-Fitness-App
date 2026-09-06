@@ -428,13 +428,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         routineEntryViewModel.getUiState().observe(this, state -> {
             if (state instanceof RoutineEntryUiState.Ready) {
                 RoutineEntryUiState.Ready ready = (RoutineEntryUiState.Ready) state;
-                if (currentScreen == FitnessScreen.STRENGTH
+                if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
                         && ready.getOwnerId().equals(repository.currentUserId())) {
                     rerender();
                 }
             } else if (state instanceof RoutineEntryUiState.Error) {
                 RoutineEntryUiState.Error error = (RoutineEntryUiState.Error) state;
-                if (currentScreen == FitnessScreen.STRENGTH
+                if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
                         && error.getOwnerId().equals(repository.currentUserId())) {
                     toast(error.getMessage());
                 }
@@ -1313,7 +1313,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             );
             return;
         }
-        if (screen == FitnessScreen.STRENGTH) {
+        if (screen == FitnessScreen.STRENGTH || screen == FitnessScreen.HOME) {
             routineEntryViewModel.enter(new AccountScope(repository.currentUserId()));
             return;
         }
