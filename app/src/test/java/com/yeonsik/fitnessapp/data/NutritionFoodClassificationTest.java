@@ -85,4 +85,18 @@ public final class NutritionFoodClassificationTest {
         assertFalse(packaged.isDiningOutMenu());
         assertFalse(option.isDiningOutMenu());
     }
+
+    @Test
+    public void acceptsMealComponentEstimateAsDiningOutNutritionWithoutMenuIdentity() {
+        NutritionFood component = NutritionFood.builder()
+                .name("무료 김치")
+                .kind(NutritionFood.KIND_EXTERNAL_MENU)
+                .source(NutritionFood.SOURCE_MEAL_COMPONENT_ESTIMATE, "component-import")
+                .build();
+
+        assertTrue(NutritionFood.isDiningOutSourceType(
+                NutritionFood.SOURCE_MEAL_COMPONENT_ESTIMATE));
+        assertTrue(component.isDiningOutMenu());
+        assertFalse(component.isDiningOutComponent());
+    }
 }

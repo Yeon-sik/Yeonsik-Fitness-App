@@ -26,3 +26,25 @@ The URL and anon key can be supplied as `NUTRITION_DB_URL` and
 `NUTRITION_DB_ANON`, or by the corresponding `NUTRITION_SUPABASE_*` aliases.
 When owner credentials are omitted, the service-role key is used to create two
 temporary users and remove them after the run.
+
+## Verified Meal ingest
+
+`meal-import.integration.mjs` exercises the receiver path for a v2
+`FITNESS_MEAL` projection: it imports a verified `meal_component_estimate` as
+an exact private `nutrition_foods` row, adds a test micronutrient, calls
+`import_verified_meal_v1`, and verifies the Meal parent, consumed amount/unit,
+Nutrition snapshots, micronutrient snapshot, nullable `restaurant_menu_id`,
+idempotent replay/conflict, owner isolation, and direct-write rejection.
+
+It uses the same environment variables and cleanup rules as the canonical
+Nutrition harness, but has its own opt-in flag:
+
+```powershell
+$env:NUTRITION_MEAL_INTEGRATION_ALLOW_REMOTE = "true"
+npm run test:meal
+```
+
+Run it only against a dedicated integration project or dedicated test users.
+The OCR App's sender must still resolve each `nutrition_client_key` to the
+returned exact `nutrition_food_id` before sending the Meal RPC; this receiver
+harness does not infer IDs from names.

@@ -25,6 +25,9 @@ public final class NutritionFood {
     public static final String CATEGORY_RECIPE = "recipe";
     public static final String CATEGORY_OTHER = "other";
 
+    /** OCR meal components are Fitness-owned estimated menu foods without a menu identity. */
+    public static final String SOURCE_MEAL_COMPONENT_ESTIMATE = "meal_component_estimate";
+
     private static final String[] CATEGORY_OPTIONS = {
             CATEGORY_MEAT,
             CATEGORY_POULTRY,
@@ -318,7 +321,8 @@ public final class NutritionFood {
     /** Legacy manual estimates and canonical OCR food-image estimates share the dining-out UI path. */
     public static boolean isDiningOutSourceType(String sourceType) {
         return "manual_estimate".equalsIgnoreCase(sourceType)
-                || "food_image_estimate".equalsIgnoreCase(sourceType);
+                || "food_image_estimate".equalsIgnoreCase(sourceType)
+                || SOURCE_MEAL_COMPONENT_ESTIMATE.equalsIgnoreCase(sourceType);
     }
 
     public static String normalizeCategory(String category) {

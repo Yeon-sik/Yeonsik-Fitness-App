@@ -149,7 +149,10 @@ The same authenticated owner and idempotency key return the original canonical
 import only when the complete payload is identical; a changed reuse is rejected.
 Different ingestions can update the same catalog identity without creating meal
 records. The API always stores `visibility=private`; the existing owner publication
-flow remains explicit and still requires the exact dining-out identity.
+flow remains explicit and still requires the exact dining-out identity. This behavior
+is unchanged by the separate `fitness-meal-component-estimate.v1` and
+`fitness-meal-verified-import.v1` contracts documented in
+`docs/fitness-meal-verified-import.v1.md`.
 
 ## Evidence boundary
 
