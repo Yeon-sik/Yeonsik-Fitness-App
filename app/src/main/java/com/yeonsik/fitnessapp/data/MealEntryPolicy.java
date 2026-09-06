@@ -167,8 +167,7 @@ public final class MealEntryPolicy {
 
     /** Null database/JSON values must not become the literal UI text "null". */
     public static boolean isMissingText(String value) {
-        String normalized = normalizedText(value);
-        return normalized.isEmpty() || "null".equalsIgnoreCase(normalized);
+        return TextValuePolicy.isMissing(value);
     }
 
     public static String requireDiningOutStoreName(String value) {
