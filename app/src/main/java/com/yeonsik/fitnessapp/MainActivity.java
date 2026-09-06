@@ -386,7 +386,12 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 if (currentScreen == FitnessScreen.CARDIO_SESSION
                         && ready.getOwnerId().equals(repository.currentUserId())
                         && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
-                    rerender();
+                    CardioSessionScreen screen = (CardioSessionScreen) screens.get(FitnessScreen.CARDIO_SESSION);
+                    if (!screen.hasRenderedSnapshot(
+                            ready.getSession().getRecordId(),
+                            ready.getSession().getStatus())) {
+                        rerender();
+                    }
                 }
             } else if (state instanceof CardioSessionUiState.Missing) {
                 CardioSessionUiState.Missing missing = (CardioSessionUiState.Missing) state;

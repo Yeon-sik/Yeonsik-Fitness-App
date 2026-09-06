@@ -16,6 +16,8 @@ public final class CardioSessionScreen extends BaseScreen {
     private TextView distanceValue;
     private TextView performanceValue;
     private TextView gpsValue;
+    private String renderedRecordId;
+    private String renderedStatus;
 
     public CardioSessionScreen(ScreenHost host) {
         super(host);
@@ -26,6 +28,7 @@ public final class CardioSessionScreen extends BaseScreen {
         String recordId = host.sessionState().activeRecordId();
         CardioSessionUiState state = host.cardioSessionViewModel().getUiState().getValue();
         if (!(state instanceof CardioSessionUiState.Ready)) {
+            clearRenderedSnapshot();
             screenHeader("실시간 기록", "유산소 기록");
             emptyState("진행 중인 GPS 유산소 기록을 불러오는 중입니다.", null);
             return;
@@ -34,10 +37,13 @@ public final class CardioSessionScreen extends BaseScreen {
         CardioSessionSnapshot snapshot = ready.getSession();
         if (!host.currentOwnerId().equals(ready.getOwnerId())
                 || !snapshot.getRecordId().equals(recordId)) {
+            clearRenderedSnapshot();
             screenHeader("실시간 기록", "유산소 기록");
             emptyState("진행 중인 GPS 유산소 기록을 불러오는 중입니다.", null);
             return;
         }
+        renderedRecordId = snapshot.getRecordId();
+        renderedStatus = snapshot.getStatus();
 
         screenHeader("실시간 기록", snapshot.getActivityLabel());
         add(statusCard(snapshot));
@@ -96,6 +102,15 @@ public final class CardioSessionScreen extends BaseScreen {
 
         updateMetrics(snapshot);
         startTicker(recordId);
+    }
+
+    public boolean hasRenderedSnapshot(String recordId, String status) {
+        return recordId.equals(renderedRecordId) && status.equals(renderedStatus);
+    }
+
+    private void clearRenderedSnapshot() {
+        renderedRecordId = null;
+        renderedStatus = null;
     }
 
     private LinearLayout statusCard(CardioSessionSnapshot snapshot) {
