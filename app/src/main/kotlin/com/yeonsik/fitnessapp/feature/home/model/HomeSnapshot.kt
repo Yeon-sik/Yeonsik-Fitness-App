@@ -1,25 +1,22 @@
 package com.yeonsik.fitnessapp.feature.home.model
 
-import com.yeonsik.fitnessapp.data.AthleteNutritionGoal
-import com.yeonsik.fitnessapp.data.FitnessRepository
-import com.yeonsik.fitnessapp.data.NutritionTotals
-import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance
-import com.yeonsik.fitnessapp.routine.RoutineRepository
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary
 
 data class HomeSnapshot(
     val ownerId: String,
     val today: String,
     val todaySessions: List<String>,
     val activeRoutineId: String?,
-    val routines: List<RoutineRepository.RoutineSummary>,
+    val routines: List<RoutineSummary>,
     val routineExercises: Map<String, List<RoutineExerciseInstance>>,
     val latestRoutineDates: Map<String, String?>,
     val inProgressSessionId: String?,
-    val dayMetrics: Map<String, FitnessRepository.DayWorkoutMetrics>,
+    val dayMetrics: Map<String, HomeDayWorkoutMetrics>,
     val mealCounts: Map<String, Int>,
-    val mealNutritionTotals: Map<String, NutritionTotals>,
-    val nutritionGoal: AthleteNutritionGoal?,
-    val todayWeight: FitnessRepository.BodyMetricEntry?,
-    val todayBodyMetrics: List<FitnessRepository.BodyMetricEntry>,
-    val todayMeals: List<FitnessRepository.MealEntry>
+    val mealNutritionTotals: Map<String, HomeNutritionTotals>,
+    val nutritionGoal: HomeNutritionGoal?,
+    val todayWeight: HomeBodyMetric?,
+    val todayBodyMetrics: List<HomeBodyMetric>,
+    val todayMeals: List<HomeMealSummary>
 )

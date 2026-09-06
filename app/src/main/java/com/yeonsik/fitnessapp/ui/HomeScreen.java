@@ -5,15 +5,19 @@ import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.yeonsik.fitnessapp.data.AthleteNutritionGoal;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.MassFormatter;
 import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
-import com.yeonsik.fitnessapp.data.NutritionTotals;
-import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
-import com.yeonsik.fitnessapp.routine.RoutineRepository;
+import com.yeonsik.fitnessapp.feature.home.model.HomeBodyMetric;
+import com.yeonsik.fitnessapp.feature.home.model.HomeDayWorkoutMetrics;
+import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary;
+import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionGoal;
+import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotal;
+import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotals;
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance;
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
@@ -58,12 +62,12 @@ public final class HomeScreen extends BaseScreen {
         String today = host.today();
         List<String> todaySessions = host.homeViewModel().sessionsForDate(today);
         String activeRoutineId = host.homeViewModel().activeRoutineId();
-        List<RoutineRepository.RoutineSummary> routines = host.homeViewModel().routines();
-        List<RoutineRepository.RoutineSummary> quickRoutines = quickStartRoutines(
+        List<RoutineSummary> routines = host.homeViewModel().routines();
+        List<RoutineSummary> quickRoutines = quickStartRoutines(
                 routines,
                 activeRoutineId
         );
-        FitnessRepository.DayWorkoutMetrics todayMetrics = host.homeViewModel().dayWorkoutMetrics(today);
+        HomeDayWorkoutMetrics todayMetrics = host.homeViewModel().dayWorkoutMetrics(today);
         String inProgressSessionId = host.homeViewModel().latestInProgressSessionId();
 
         screenHeader(todayEyebrow(), "오늘의 훈련");
@@ -75,7 +79,7 @@ public final class HomeScreen extends BaseScreen {
             section("루틴 빠른 시작");
         }
         if (!routines.isEmpty()) {
-            for (RoutineRepository.RoutineSummary routine : quickRoutines) {
+            for (RoutineSummary routine : quickRoutines) {
                 List<RoutineExerciseInstance> exercises = host.homeViewModel().routineExercises(routine.id);
                 add(ui().quickStartRoutineCard(routine.name, routine.exerciseCount,
                         host.homeViewModel().latestRoutineDate(routine.id),
@@ -110,20 +114,20 @@ public final class HomeScreen extends BaseScreen {
         renderTodayRecordRows(todaySessions);
     }
 
-    private List<RoutineRepository.RoutineSummary> quickStartRoutines(
-            List<RoutineRepository.RoutineSummary> routines,
+    private List<RoutineSummary> quickStartRoutines(
+            List<RoutineSummary> routines,
             String activeRoutineId
     ) {
-        List<RoutineRepository.RoutineSummary> result = new ArrayList<>();
+        List<RoutineSummary> result = new ArrayList<>();
         if (activeRoutineId != null) {
-            for (RoutineRepository.RoutineSummary routine : routines) {
+            for (RoutineSummary routine : routines) {
                 if (activeRoutineId.equals(routine.id)) {
                     result.add(routine);
                     break;
                 }
             }
         }
-        for (RoutineRepository.RoutineSummary routine : routines) {
+        for (RoutineSummary routine : routines) {
             if (result.size() >= HOME_ROUTINE_LIMIT) {
                 break;
             }
@@ -135,7 +139,7 @@ public final class HomeScreen extends BaseScreen {
         return result;
     }
 
-    private void heroJudgmentCard(List<String> todaySessions, FitnessRepository.DayWorkoutMetrics metrics, boolean inProgress) {
+    private void heroJudgmentCard(List<String> todaySessions, HomeDayWorkoutMetrics metrics, boolean inProgress) {
         FitnessUi ui = ui();
         MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
         LinearLayout card = ui.heroCard();
@@ -230,7 +234,7 @@ public final class HomeScreen extends BaseScreen {
         DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("E", Locale.KOREAN);
         for (int i = 0; i < 7; i++) {
             LocalDate date = weekStart.plusDays(i);
-            FitnessRepository.DayWorkoutMetrics metrics = host.homeViewModel().dayWorkoutMetrics(date.toString());
+            HomeDayWorkoutMetrics metrics = host.homeViewModel().dayWorkoutMetrics(date.toString());
             values[i] = metrics.totalVolumeKg;
             labels[i] = date.format(dayFormatter);
             weekVolume += metrics.totalVolumeKg;
@@ -238,7 +242,7 @@ public final class HomeScreen extends BaseScreen {
             if (metrics.sessionCount > 0) {
                 workoutDays += 1;
             }
-            FitnessRepository.DayWorkoutMetrics previousMetrics = host.homeViewModel()
+            HomeDayWorkoutMetrics previousMetrics = host.homeViewModel()
                     .dayWorkoutMetrics(previousWeekStart.plusDays(i).toString());
             previousValues[i] = previousMetrics.totalVolumeKg;
             previousWeekVolume += previousMetrics.totalVolumeKg;
@@ -389,11 +393,11 @@ public final class HomeScreen extends BaseScreen {
         for (int index = 0; index < 7; index++) {
             LocalDate date = weekStart.plusDays(index);
             labels[index] = date.format(dayFormatter);
-            NutritionTotals totals = host.homeViewModel().mealNutritionTotalsForDate(date.toString());
-            NutritionTotals.Total caloriesTotal = totals.total(NutritionProfile.CALORIES_KCAL);
-            NutritionTotals.Total carbsTotal = totals.total(NutritionProfile.CARBS_GRAMS);
-            NutritionTotals.Total proteinTotal = totals.total(NutritionProfile.PROTEIN_GRAMS);
-            NutritionTotals.Total fatTotal = totals.total(NutritionProfile.FAT_GRAMS);
+            HomeNutritionTotals totals = host.homeViewModel().mealNutritionTotalsForDate(date.toString());
+            HomeNutritionTotal caloriesTotal = totals.total(NutritionProfile.CALORIES_KCAL);
+            HomeNutritionTotal carbsTotal = totals.total(NutritionProfile.CARBS_GRAMS);
+            HomeNutritionTotal proteinTotal = totals.total(NutritionProfile.PROTEIN_GRAMS);
+            HomeNutritionTotal fatTotal = totals.total(NutritionProfile.FAT_GRAMS);
             caloriesAvailable[index] = caloriesTotal.isComplete();
             carbsAvailable[index] = carbsTotal.isComplete();
             proteinAvailable[index] = proteinTotal.isComplete();
@@ -406,10 +410,10 @@ public final class HomeScreen extends BaseScreen {
                 description.append(", ");
             }
             description.append(labels[index])
-                    .append(" kcal ").append(NutritionCalculator.describeTotal(caloriesTotal))
-                    .append(", C ").append(NutritionCalculator.describeTotal(carbsTotal)).append("g")
-                    .append(", P ").append(NutritionCalculator.describeTotal(proteinTotal)).append("g")
-                    .append(", F ").append(NutritionCalculator.describeTotal(fatTotal)).append("g");
+                    .append(" kcal ").append(caloriesTotal.describedValue())
+                    .append(", C ").append(carbsTotal.describedValue()).append("g")
+                    .append(", P ").append(proteinTotal.describedValue()).append("g")
+                    .append(", F ").append(fatTotal.describedValue()).append("g");
         }
 
         LinearLayout card = ui.card();
@@ -424,7 +428,7 @@ public final class HomeScreen extends BaseScreen {
                 FitnessUi.COLOR_TEXT,
                 true
         ));
-        AthleteNutritionGoal nutritionGoal = host.homeViewModel().nutritionGoal();
+        HomeNutritionGoal nutritionGoal = host.homeViewModel().nutritionGoal();
         card.addView(ui.text(
                 nutritionReferenceText(nutritionGoal),
                 11,
@@ -491,7 +495,7 @@ public final class HomeScreen extends BaseScreen {
                 : NutritionCalculator.trim(sum / count) + unit;
     }
 
-    private String nutritionReferenceText(AthleteNutritionGoal goal) {
+    private String nutritionReferenceText(HomeNutritionGoal goal) {
         if (goal == null) {
             return "기준 미설정 · 영양 목표에서 영양소별 기준값을 설정하세요";
         }
@@ -512,7 +516,7 @@ public final class HomeScreen extends BaseScreen {
             boolean[] fatAvailable,
             String[] labels,
             String description,
-            AthleteNutritionGoal nutritionGoal
+            HomeNutritionGoal nutritionGoal
     ) {
         FitnessUi ui = ui();
         boolean hasData = false;
@@ -680,10 +684,10 @@ public final class HomeScreen extends BaseScreen {
         for (int i = 0; i < 7; i++) {
             LocalDate date = weekStart.plusDays(i);
             labels[i] = date.format(dayFormatter);
-            NutritionTotals totals = host.homeViewModel().mealNutritionTotalsForDate(date.toString());
-            NutritionTotals.Total carbsTotal = totals.total(NutritionProfile.CARBS_GRAMS);
-            NutritionTotals.Total proteinTotal = totals.total(NutritionProfile.PROTEIN_GRAMS);
-            NutritionTotals.Total fatTotal = totals.total(NutritionProfile.FAT_GRAMS);
+            HomeNutritionTotals totals = host.homeViewModel().mealNutritionTotalsForDate(date.toString());
+            HomeNutritionTotal carbsTotal = totals.total(NutritionProfile.CARBS_GRAMS);
+            HomeNutritionTotal proteinTotal = totals.total(NutritionProfile.PROTEIN_GRAMS);
+            HomeNutritionTotal fatTotal = totals.total(NutritionProfile.FAT_GRAMS);
             carbsSummary.add(carbsTotal);
             proteinSummary.add(proteinTotal);
             fatSummary.add(fatTotal);
@@ -702,9 +706,9 @@ public final class HomeScreen extends BaseScreen {
                 chartDescription.append(", ");
             }
             chartDescription.append(labels[i])
-                    .append(" 탄수화물 ").append(NutritionCalculator.describeTotal(carbsTotal)).append("g")
-                    .append(", 단백질 ").append(NutritionCalculator.describeTotal(proteinTotal)).append("g")
-                    .append(", 지방 ").append(NutritionCalculator.describeTotal(fatTotal)).append("g");
+                    .append(" 탄수화물 ").append(carbsTotal.describedValue()).append("g")
+                    .append(", 단백질 ").append(proteinTotal.describedValue()).append("g")
+                    .append(", 지방 ").append(fatTotal.describedValue()).append("g");
         }
 
         LinearLayout card = ui.card();
@@ -843,7 +847,7 @@ public final class HomeScreen extends BaseScreen {
         private boolean hasKnown;
         private boolean hasUnknown;
 
-        private void add(NutritionTotals.Total total) {
+        private void add(HomeNutritionTotal total) {
             if (total.knownCount() > 0) {
                 knownSum += total.knownSum();
                 hasKnown = true;
@@ -997,7 +1001,7 @@ public final class HomeScreen extends BaseScreen {
     }
 
     private String todayWeightValue() {
-        FitnessRepository.BodyMetricEntry metric = host.homeViewModel().todayWeight();
+        HomeBodyMetric metric = host.homeViewModel().todayWeight();
         if (metric == null) {
             return "—";
         }
@@ -1011,7 +1015,7 @@ public final class HomeScreen extends BaseScreen {
             rows.add(ui.recordListRow("운", FitnessUi.stripLeadingDate(session), "운동", null));
         }
         MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
-        for (FitnessRepository.BodyMetricEntry metric : host.homeViewModel().todayBodyMetrics()) {
+        for (HomeBodyMetric metric : host.homeViewModel().todayBodyMetrics()) {
             rows.add(ui.recordListRow(
                     "체",
                     MassFormatter.withUnit(metric.weightKg, displayUnit),
@@ -1019,7 +1023,7 @@ public final class HomeScreen extends BaseScreen {
                     null
             ));
         }
-        for (FitnessRepository.MealEntry meal : host.homeViewModel().todayMeals()) {
+        for (HomeMealSummary meal : host.homeViewModel().todayMeals()) {
             View row = ui.recordListRow(
                     "식",
                     meal.previewTitle,

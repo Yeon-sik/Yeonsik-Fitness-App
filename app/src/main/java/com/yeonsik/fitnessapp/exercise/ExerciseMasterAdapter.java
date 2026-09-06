@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.exercise;
 
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement;
+
 public final class ExerciseMasterAdapter {
     private ExerciseMasterAdapter() {
     }
@@ -30,6 +32,28 @@ public final class ExerciseMasterAdapter {
         EquipmentType equipmentType = EquipmentType.fromId(preset.equipmentVariantId);
         ExerciseFamilyIdentity identity = ExerciseFamilyCatalog.empty().identityForPreset(preset);
         return new RoutineExercise(
+                preset.storageExerciseId,
+                preset.displayName(),
+                preset.nameEn,
+                bodyPart,
+                equipmentType == null ? EquipmentType.OTHER : equipmentType,
+                preset.equipmentVariantId,
+                preset.primarySubPartNameKo,
+                preset.recordType,
+                identity
+        );
+    }
+
+    public static WorkoutExerciseReplacement toWorkoutExerciseReplacement(
+            RuntimeExercisePreset preset
+    ) {
+        if (preset == null) {
+            return null;
+        }
+        BodyPart bodyPart = BodyPart.fromId(preset.defaultUiPart);
+        EquipmentType equipmentType = EquipmentType.fromId(preset.equipmentVariantId);
+        ExerciseFamilyIdentity identity = ExerciseFamilyCatalog.empty().identityForPreset(preset);
+        return new WorkoutExerciseReplacement(
                 preset.storageExerciseId,
                 preset.displayName(),
                 preset.nameEn,

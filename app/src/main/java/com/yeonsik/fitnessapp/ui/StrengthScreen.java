@@ -47,7 +47,7 @@ public final class StrengthScreen extends BaseScreen {
                         repository().latestCompletedWorkoutDateForRoutine(routine.id, routine.name),
                         () -> {
                             host.routineRepository().selectRoutine(routine.id);
-                            host.startRoutineWorkout(exercises);
+                            host.startRoutineWorkoutLegacy(exercises);
                         },
                         () -> {
                             host.routineRepository().selectRoutine(routine.id);
@@ -75,7 +75,7 @@ public final class StrengthScreen extends BaseScreen {
         ), -1, which -> {
             if (which == 0) {
                 host.routineRepository().selectRoutine(routine.id);
-                host.startRoutineWorkout(exercises);
+                host.startRoutineWorkoutLegacy(exercises);
             } else if (which == 1) {
                 showRenameRoutine(routine);
             } else if (which == 2) {

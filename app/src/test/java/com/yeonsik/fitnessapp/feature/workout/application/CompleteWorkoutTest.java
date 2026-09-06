@@ -7,9 +7,9 @@ import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutCompletion;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi;
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement;
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot;
-import com.yeonsik.fitnessapp.data.FitnessRepository;
-import com.yeonsik.fitnessapp.exercise.RoutineExercise;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput;
 
 import org.junit.Test;
 
@@ -83,11 +83,11 @@ public final class CompleteWorkoutTest {
 
         @Override
         public boolean updateTypedSet(AccountScope scope, String recordId, String setId,
-                                      FitnessRepository.SetInput input) { return false; }
+                                      WorkoutSetInput input) { return false; }
 
         @Override
         public boolean addTypedSet(AccountScope scope, String recordId, String exerciseId,
-                                   int setIndex, FitnessRepository.SetInput input) { return false; }
+                                   int setIndex, WorkoutSetInput input) { return false; }
 
         @Override
         public boolean deleteSet(AccountScope scope, String recordId, String setId) { return false; }
@@ -97,6 +97,6 @@ public final class CompleteWorkoutTest {
 
         @Override
         public boolean replaceExercise(AccountScope scope, String recordId, String exerciseId,
-                                       RoutineExercise replacement) { return false; }
+                                       WorkoutExerciseReplacement replacement) { return false; }
     }
 }

@@ -117,6 +117,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.EnumMap;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -373,7 +374,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 if (currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL
                         && ready.getOwnerId().equals(repository.currentUserId())
                         && ready.getDetail().getRecordId().equals(sessionState.activeRecordId())) {
-                    sessionState.setActiveExerciseId(ready.getDetail().getActiveExercise().getId());
+                    sessionState.setActiveExerciseId(ready.getDetail().getActiveExercise().id);
                     rerender();
                 }
             }
@@ -1616,7 +1617,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     @Override
-    public void startRoutineWorkout(List<RoutineExerciseInstance> routineExercises) {
+    public void startRoutineWorkout(
+            List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> routineExercises
+    ) {
         if (routineExercises == null || routineExercises.isEmpty()) {
             toast("만들어진 루틴이 없습니다.");
             return;
@@ -1625,10 +1628,50 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             return;
         }
 
+        List<RoutineExerciseInstance> legacyRoutineExercises = new ArrayList<>();
+        for (com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance exercise
+                : routineExercises) {
+            legacyRoutineExercises.add(new RoutineExerciseInstance(
+                    exercise.id,
+                    exercise.exerciseId,
+                    exercise.nameKo,
+                    exercise.uiPart,
+                    exercise.primarySubPart,
+                    exercise.equipment,
+                    exercise.recordType,
+                    exercise.order,
+                    exercise.familyIdentity
+            ));
+        }
         String recordId = repository.createSessionFromRoutine(today(),
-                routineRepository.activeRoutineName(), routineRepository.activeRoutineId(), routineExercises);
+                routineRepository.activeRoutineName(), routineRepository.activeRoutineId(),
+                legacyRoutineExercises);
         toast("루틴 운동을 시작했습니다.");
         openWorkoutSession(recordId);
+    }
+
+    @Override
+    public void startRoutineWorkoutLegacy(List<RoutineExerciseInstance> routineExercises) {
+        if (routineExercises == null || routineExercises.isEmpty()) {
+            toast("만들어진 루틴이 없습니다.");
+            return;
+        }
+        List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> featureExercises =
+                new ArrayList<>();
+        for (RoutineExerciseInstance exercise : routineExercises) {
+            featureExercises.add(new com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance(
+                    exercise.id,
+                    exercise.exerciseId,
+                    exercise.nameKo,
+                    exercise.uiPart,
+                    exercise.primarySubPart,
+                    exercise.equipment,
+                    exercise.recordType,
+                    exercise.order,
+                    exercise.familyIdentity
+            ));
+        }
+        startRoutineWorkout(featureExercises);
     }
 
     @Override

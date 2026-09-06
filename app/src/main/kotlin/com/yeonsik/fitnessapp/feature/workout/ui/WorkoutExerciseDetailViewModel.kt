@@ -10,11 +10,11 @@ import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitnessapp.feature.workout.application.InitializeWorkoutExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.function.Consumer
-import com.yeonsik.fitnessapp.data.FitnessRepository
-import com.yeonsik.fitnessapp.exercise.RoutineExercise
 
 sealed interface WorkoutExerciseDetailUiState {
     data object Idle : WorkoutExerciseDetailUiState
@@ -84,13 +84,13 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
         }
     }
 
-    fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: FitnessRepository.SetInput,
+    fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: WorkoutSetInput,
                        callback: Consumer<Boolean>) = executeWrite(callback) {
         repository.updateTypedSet(scope, recordId, setId, input)
     }
 
     fun addTypedSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int,
-                    input: FitnessRepository.SetInput, callback: Consumer<Boolean>) = executeWrite(callback) {
+                       input: WorkoutSetInput, callback: Consumer<Boolean>) = executeWrite(callback) {
         repository.addTypedSet(scope, recordId, exerciseId, setIndex, input)
     }
 
@@ -105,7 +105,7 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
     }
 
     fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String,
-                        replacement: RoutineExercise, callback: Consumer<Boolean>) = executeWrite(callback) {
+                        replacement: WorkoutExerciseReplacement, callback: Consumer<Boolean>) = executeWrite(callback) {
         repository.replaceExercise(scope, recordId, exerciseId, replacement)
     }
 

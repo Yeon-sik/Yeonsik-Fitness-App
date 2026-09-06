@@ -98,7 +98,11 @@ public interface ScreenHost {
 
     void continueWorkoutIfAvailable();
 
-    void startRoutineWorkout(List<RoutineExerciseInstance> exercises);
+    void startRoutineWorkout(
+            List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> exercises
+    );
+
+    void startRoutineWorkoutLegacy(List<RoutineExerciseInstance> exercises);
 
     String currentWorkoutRecordId();
 
