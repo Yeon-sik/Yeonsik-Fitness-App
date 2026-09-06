@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.workout.model
 
+import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity
+
 /** Android- and storage-independent values consumed by the workout feature. */
 data class WorkoutExercise(
     val id: String,
@@ -45,6 +47,8 @@ data class WorkoutSessionExercise(
     val uiPart: String,
     val equipment: String,
     val recordType: String,
+    val recordTypeLabel: String,
+    val familyIdentity: ExerciseFamilyIdentity?,
     val completedSetCount: Int,
     val totalSetCount: Int
 )

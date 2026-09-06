@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.feature.workout.data
 
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.FitnessRepository
+import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise
@@ -32,6 +33,8 @@ class LegacyWorkoutRepositoryAdapter(
                 exercise.uiPart,
                 exercise.equipment,
                 exercise.recordType,
+                FitnessRecordContract.displayRecordTypeKo(exercise.recordType),
+                exercise.familyIdentity,
                 sets.count { it.isCompleted },
                 sets.size
             )

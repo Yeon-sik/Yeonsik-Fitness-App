@@ -273,7 +273,8 @@ public final class WorkoutSessionScreen extends BaseScreen {
                         exercise.getName(),
                         exercise.getUiPart(),
                         exercise.getEquipment(),
-                        exercise.getRecordType()
+                        exercise.getRecordTypeLabel(),
+                        exercise.getFamilyIdentity()
                 );
         exerciseCardRenderer.addContent(headerRow, content, false, false);
         TextView chevron = ui.text("›", 16, FitnessUi.COLOR_TERTIARY, false);
