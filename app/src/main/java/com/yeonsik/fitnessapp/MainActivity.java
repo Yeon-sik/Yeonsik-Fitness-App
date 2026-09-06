@@ -93,6 +93,9 @@ import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState;
+import com.yeonsik.fitnessapp.feature.cardio.data.LegacyCardioRepositoryAdapter;
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -166,6 +169,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private AppContainer appContainer;
     private WorkoutSessionViewModel workoutSessionViewModel;
     private WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel;
+    private CardioSessionViewModel cardioSessionViewModel;
     private FitnessDatabaseHelper databaseHelper;
     private NutritionCatalogRepository nutritionCatalogRepository;
     private CardioRepository cardioRepository;
@@ -260,13 +264,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         databaseHelper = new FitnessDatabaseHelper(this);
         repository = new FitnessRepository(databaseHelper, supabaseConfig.effectiveUserId());
         appContainer = new AppContainer(repository);
-        initializeWorkoutViewModels();
         nutritionCatalogRepository = new NutritionCatalogRepository(
                 databaseHelper,
                 nutritionSupabaseConfig.effectiveUserId(),
                 nutritionSupabaseConfig
         );
         cardioRepository = new CardioRepository(databaseHelper, repository);
+        initializeFeatureViewModels();
         repository.reconcileSharedWorkoutSummaries();
         exerciseMasterRepository = new ExerciseMasterRepository(this);
         routineRepository = new RoutineRepository(databaseHelper, supabaseConfig.effectiveUserId());
@@ -288,7 +292,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         handleCardioIntent(getIntent());
     }
 
-    private void initializeWorkoutViewModels() {
+    private void initializeFeatureViewModels() {
         workoutSessionViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -362,6 +366,34 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         && ready.getDetail().getRecordId().equals(sessionState.activeRecordId())) {
                     sessionState.setActiveExerciseId(ready.getDetail().getActiveExercise().getId());
                     rerender();
+                }
+            }
+        });
+        cardioSessionViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new CardioSessionViewModel(
+                                handle,
+                                new LegacyCardioRepositoryAdapter(cardioRepository, repository)
+                        )
+                )
+        ).get(CardioSessionViewModel.class);
+        cardioSessionViewModel.getUiState().observe(this, state -> {
+            if (state instanceof CardioSessionUiState.Ready) {
+                CardioSessionUiState.Ready ready = (CardioSessionUiState.Ready) state;
+                if (currentScreen == FitnessScreen.CARDIO_SESSION
+                        && ready.getOwnerId().equals(repository.currentUserId())
+                        && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
+                    rerender();
+                }
+            } else if (state instanceof CardioSessionUiState.Missing) {
+                CardioSessionUiState.Missing missing = (CardioSessionUiState.Missing) state;
+                if (currentScreen == FitnessScreen.CARDIO_SESSION
+                        && missing.getOwnerId().equals(repository.currentUserId())
+                        && missing.getRecordId().equals(sessionState.activeRecordId())) {
+                    replace(FitnessScreen.CARDIO);
                 }
             }
         });
@@ -1239,6 +1271,12 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             return;
         }
         if (screen != FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
+            if (screen == FitnessScreen.CARDIO_SESSION) {
+                cardioSessionViewModel.enter(
+                        new AccountScope(repository.currentUserId()),
+                        sessionState.activeRecordId()
+                );
+            }
             return;
         }
         String recordId = sessionState.activeRecordId();
@@ -1421,6 +1459,11 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     @Override
     public WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel() {
         return workoutExerciseDetailViewModel;
+    }
+
+    @Override
+    public CardioSessionViewModel cardioSessionViewModel() {
+        return cardioSessionViewModel;
     }
 
     @Override

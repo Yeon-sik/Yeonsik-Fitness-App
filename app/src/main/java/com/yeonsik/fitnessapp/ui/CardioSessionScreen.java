@@ -4,9 +4,10 @@ import android.view.Gravity;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
-import com.yeonsik.fitnessapp.cardio.CardioRepository;
+import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 /** GPS 유산소 진행 화면. 값은 서비스가 저장한 SQLite 상태를 1초마다 읽어 표시한다. */
@@ -23,16 +24,22 @@ public final class CardioSessionScreen extends BaseScreen {
     @Override
     public void render() {
         String recordId = host.sessionState().activeRecordId();
-        CardioRepository.SessionSnapshot snapshot = host.cardioRepository().session(recordId);
-        if (snapshot == null) {
+        CardioSessionUiState state = host.cardioSessionViewModel().getUiState().getValue();
+        if (!(state instanceof CardioSessionUiState.Ready)) {
             screenHeader("실시간 기록", "유산소 기록");
-            emptyState("진행 중인 GPS 유산소 기록을 찾지 못했습니다.", null);
-            add(ui().button("유산소로 돌아가기", false,
-                    v -> backOr(FitnessScreen.CARDIO)), ui().fullWidthParams(0));
+            emptyState("진행 중인 GPS 유산소 기록을 불러오는 중입니다.", null);
+            return;
+        }
+        CardioSessionUiState.Ready ready = (CardioSessionUiState.Ready) state;
+        CardioSessionSnapshot snapshot = ready.getSession();
+        if (!host.currentOwnerId().equals(ready.getOwnerId())
+                || !snapshot.getRecordId().equals(recordId)) {
+            screenHeader("실시간 기록", "유산소 기록");
+            emptyState("진행 중인 GPS 유산소 기록을 불러오는 중입니다.", null);
             return;
         }
 
-        screenHeader("실시간 기록", snapshot.activityType.labelKo());
+        screenHeader("실시간 기록", snapshot.getActivityLabel());
         add(statusCard(snapshot));
 
         LinearLayout firstRow = ui().tileRow();
@@ -45,9 +52,9 @@ public final class CardioSessionScreen extends BaseScreen {
         LinearLayout secondRow = ui().tileRow();
         performanceValue = metricValue("--:--");
         gpsValue = metricValue("GPS 찾는 중");
-        String performanceLabel = snapshot.activityType == CardioActivityType.CYCLING
+        String performanceLabel = "cycling".equals(snapshot.getActivityId())
                 ? "평균 속도" : "평균 페이스";
-        String performanceUnit = snapshot.activityType == CardioActivityType.CYCLING
+        String performanceUnit = "cycling".equals(snapshot.getActivityId())
                 ? "km/h" : "분/km";
         secondRow.addView(metricTile(performanceLabel, performanceValue, performanceUnit),
                 ui().tileParams(true));
@@ -62,7 +69,7 @@ public final class CardioSessionScreen extends BaseScreen {
         );
 
         section("운동 제어");
-        boolean paused = CardioRepository.STATUS_PAUSED.equals(snapshot.status);
+        boolean paused = CardioSessionSnapshot.STATUS_PAUSED.equals(snapshot.getStatus());
         buttonRow(
                 ui().button(paused ? "GPS 추적 재개" : "일시정지", false,
                         v -> {
@@ -91,17 +98,17 @@ public final class CardioSessionScreen extends BaseScreen {
         startTicker(recordId);
     }
 
-    private LinearLayout statusCard(CardioRepository.SessionSnapshot snapshot) {
+    private LinearLayout statusCard(CardioSessionSnapshot snapshot) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
         card.setGravity(Gravity.CENTER_HORIZONTAL);
         card.addView(ui.caption(
-                CardioRepository.STATUS_PAUSED.equals(snapshot.status) ? "일시정지" : "기록 중",
-                CardioRepository.STATUS_PAUSED.equals(snapshot.status)
+                CardioSessionSnapshot.STATUS_PAUSED.equals(snapshot.getStatus()) ? "일시정지" : "기록 중",
+                CardioSessionSnapshot.STATUS_PAUSED.equals(snapshot.getStatus())
                         ? FitnessUi.COLOR_WARNING : FitnessUi.COLOR_POSITIVE
         ));
         TextView title = ui.text(
-                CardioRepository.STATUS_PAUSED.equals(snapshot.status)
+                CardioSessionSnapshot.STATUS_PAUSED.equals(snapshot.getStatus())
                         ? "기록이 일시정지되었습니다" : "GPS로 이동 거리를 기록 중입니다",
                 18,
                 FitnessUi.COLOR_TEXT,
@@ -133,18 +140,18 @@ public final class CardioSessionScreen extends BaseScreen {
         return ui().num(initialValue, 21, FitnessUi.COLOR_TEXT, true);
     }
 
-    private void updateMetrics(CardioRepository.SessionSnapshot snapshot) {
+    private void updateMetrics(CardioSessionSnapshot snapshot) {
         if (elapsedValue == null || distanceValue == null
                 || performanceValue == null || gpsValue == null) {
             return;
         }
         int elapsedSeconds = snapshot.elapsedSeconds(System.currentTimeMillis());
         elapsedValue.setText(CardioMetrics.formatElapsed(elapsedSeconds));
-        distanceValue.setText(CardioMetrics.formatDistanceKilometers(snapshot.distanceMeters));
-        performanceValue.setText(snapshot.activityType == CardioActivityType.CYCLING
-                ? CardioMetrics.formatAverageSpeed(elapsedSeconds, snapshot.distanceMeters)
-                : CardioMetrics.formatAveragePace(elapsedSeconds, snapshot.distanceMeters));
-        gpsValue.setText(CardioMetrics.gpsStatusLabel(snapshot.gpsStatus));
+        distanceValue.setText(CardioMetrics.formatDistanceKilometers(snapshot.getDistanceMeters()));
+        performanceValue.setText("cycling".equals(snapshot.getActivityId())
+                ? CardioMetrics.formatAverageSpeed(elapsedSeconds, snapshot.getDistanceMeters())
+                : CardioMetrics.formatAveragePace(elapsedSeconds, snapshot.getDistanceMeters()));
+        gpsValue.setText(CardioMetrics.gpsStatusLabel(snapshot.getGpsStatus()));
     }
 
     private void startTicker(String recordId) {
@@ -156,15 +163,21 @@ public final class CardioSessionScreen extends BaseScreen {
                         || host.currentScreen() != FitnessScreen.CARDIO_SESSION) {
                     return;
                 }
-                CardioRepository.SessionSnapshot snapshot = host.cardioRepository().session(recordId);
-                if (snapshot == null) {
+                CardioSessionUiState state = host.cardioSessionViewModel().getUiState().getValue();
+                if (!(state instanceof CardioSessionUiState.Ready)) {
                     return;
                 }
-                if (CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
+                CardioSessionSnapshot snapshot =
+                        ((CardioSessionUiState.Ready) state).getSession();
+                if (CardioSessionSnapshot.STATUS_COMPLETED.equals(snapshot.getStatus())) {
                     host.openCardioSummary(recordId);
                     return;
                 }
                 updateMetrics(snapshot);
+                host.cardioSessionViewModel().refresh(
+                        new AccountScope(host.currentOwnerId()),
+                        recordId
+                );
                 content().postDelayed(this, 1_000L);
             }
         };
