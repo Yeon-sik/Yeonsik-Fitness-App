@@ -4,6 +4,8 @@
 -- exact Nutrition food id plus an immutable copy of the Nutrition values that were current
 -- when the meal was recorded.  The catalog sync client intentionally does not include these
 -- user-record tables; this RPC is their single authenticated write boundary.
+-- Source/provenance JSON remains opaque at this boundary, so semantic fields such as
+-- meal_component_estimate.component_role stay available on the canonical component and Meal.
 
 create or replace function public.fitness_meal_normalize_unit_v1(p_unit text)
 returns text
@@ -940,6 +942,7 @@ begin
 
     -- Second pass copies Nutrition identity and values.  consumed_amount/unit remain the
     -- user's actual input; quantity/unit is the same amount normalized to the food basis.
+    -- The existing source provenance JSON also carries semantic fields from consumption.items.
     for v_index in 0..v_item_count - 1 loop
         v_item := p_items -> v_index;
         v_food_id := nullif(btrim(coalesce(
@@ -977,6 +980,13 @@ begin
         end if;
         if jsonb_typeof(v_item_source) <> 'object' then
             raise exception 'Meal item source/provenance must be an object.' using errcode = '22023';
+        end if;
+        -- amount_status is a semantic field from consumption.items. Keep it in the
+        -- existing item provenance JSON instead of adding a dedicated MealItem column.
+        if v_item ? 'amount_status' then
+            v_item_source := v_item_source || jsonb_build_object(
+                'amount_status', v_item -> 'amount_status'
+            );
         end if;
         v_item_identity := v_item -> 'pricetrace_identity';
         if v_item_identity is null or v_item_identity = 'null'::jsonb then

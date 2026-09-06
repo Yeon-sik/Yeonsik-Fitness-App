@@ -236,17 +236,13 @@ function componentPayload(key) {
     p_optional_nutrients: { fiber_grams: 2 },
     p_provenance: {
       schema_version: 'yeonsik-ocr.v2',
+      component_role: 'complimentary_side',
       estimated: true,
       source_version: 'integration-component-v1',
       restaurant_menu_id: null,
     },
     p_user_verified: true,
-    p_pricetrace_identity: {
-      namespace: 'pricetrace',
-      restaurant_id: '11111111-1111-4111-8111-111111111111',
-      restaurant_location_id: '22222222-2222-4222-8222-222222222222',
-      restaurant_menu_id: null,
-    },
+    p_pricetrace_identity: null,
     p_estimation_evidence: {
       confidence: 0.84,
       range: { calories_kcal: { min: 240, point: 300, max: 360 } },
@@ -284,6 +280,7 @@ function mealPayload(key, foodId) {
       nutrition_food_id: foodId,
       amount: 50,
       unit: 'g',
+      amount_status: 'estimated',
       confidence: 0.91,
       source_provenance: {
         schema_version: 'yeonsik-ocr.v2',
@@ -298,15 +295,11 @@ function mealPayload(key, foodId) {
       source_app: 'ocr-app',
       meal_kind: 'dining_out',
       menu: 'Integration free side meal',
+      component_role: 'complimentary_side',
       source_document_ref: integrationRef('meal/document'),
       restaurant_menu_id: null,
     },
-    p_pricetrace_identity: {
-      namespace: 'pricetrace',
-      restaurant_id: '11111111-1111-4111-8111-111111111111',
-      restaurant_location_id: '22222222-2222-4222-8222-222222222222',
-      restaurant_menu_id: null,
-    },
+    p_pricetrace_identity: null,
   };
 }
 
@@ -320,9 +313,22 @@ async function verifyComponent(owner, result) {
 
   const imports = await getRows(owner, 'nutrition_meal_component_imports', {
     id: result.component_import_id,
-  });
+  }, 'id,nutrition_food_id,provenance,pricetrace_identity');
   assertEqual(imports.length, 1, 'component import row');
   assertEqual(imports[0].nutrition_food_id, result.nutrition_food_id, 'component exact food id');
+  assertEqual(imports[0].provenance.component_role, 'complimentary_side',
+    'component role provenance');
+  assertEqual(imports[0].pricetrace_identity, null, 'complimentary side has no PriceTrace identity');
+
+  const foods = await getRows(owner, 'nutrition_foods', { id: result.nutrition_food_id },
+    'id,visibility,source_type,source_reference');
+  assertEqual(foods.length, 1, 'component NutritionFood row');
+  assertEqual(foods[0].visibility, 'private', 'component NutritionFood visibility');
+  assertEqual(foods[0].source_type, 'meal_component_estimate', 'component NutritionFood source');
+  assertEqual(JSON.parse(foods[0].source_reference).provenance.component_role,
+    'complimentary_side', 'canonical component role provenance');
+  assertEqual(JSON.parse(foods[0].source_reference).pricetrace_identity,
+    null, 'canonical component has no PriceTrace identity');
   const provenance = await getRows(owner, 'nutrition_meal_component_nutrient_provenance', {
     component_import_id: result.component_import_id,
   });
@@ -343,6 +349,9 @@ async function verifyMeal(owner, result, payload) {
   assertEqual(meals.length, 1, 'Meal parent row');
   assertEqual(meals[0].owner_id, owner.userId, 'Meal owner');
   assertEqual(meals[0].restaurant_menu_id, null, 'nullable restaurant menu identity');
+  assertEqual(meals[0].source_provenance.component_role, 'complimentary_side',
+    'Meal component role provenance');
+  assertEqual(meals[0].pricetrace_identity, null, 'Meal has no PriceTrace identity for complimentary side');
   assertEqual(meals[0].eaten_at, payload.p_eaten_at, 'preserved offset eaten_at');
   assertClose(meals[0].calories, 150, 'scaled Meal calories');
   assertClose(meals[0].protein_grams, 10, 'scaled Meal protein');
@@ -355,13 +364,14 @@ async function verifyMeal(owner, result, payload) {
   assertEqual(item.food_name_snapshot, 'Integration 무료 반찬', 'snapshot food name');
   assertClose(item.consumed_amount, 50, 'actual consumed amount');
   assertEqual(item.consumed_unit, 'g', 'actual consumed unit');
+  assertEqual(item.source_provenance.amount_status, 'estimated', 'MealItem amount status provenance');
   assertClose(item.quantity, 50, 'normalized consumed quantity');
   assertEqual(item.unit, 'g', 'normalized consumed unit');
   assertClose(item.calories, 150, 'snapshot calories');
   assertClose(item.protein_grams, 10, 'snapshot protein');
   assertEqual(item.source_type_snapshot, 'meal_component_estimate', 'snapshot provenance source');
   assertEqual(item.source_provenance.artifact_key, 'nutrition:component-free-side-1', 'item provenance');
-  assertEqual(item.pricetrace_identity.restaurant_menu_id, null, 'item nullable menu identity');
+  assertEqual(item.pricetrace_identity, null, 'MealItem has no PriceTrace identity for complimentary side');
 
   const micronutrients = await getRows(owner, 'meal_record_item_nutrients', {
     meal_record_item_id: item.id,

@@ -26,6 +26,8 @@ public final class VerifiedMealImportContractTest {
         assertTrue(sql.contains("consumed_unit text not null"));
         assertTrue(sql.contains("source_provenance jsonb not null"));
         assertTrue(sql.contains("pricetrace_identity jsonb"));
+        assertTrue(sql.contains("component_role"));
+        assertTrue(sql.contains("amount_status"));
         assertTrue(sql.contains("unique (owner_id, idempotency_key)"));
         assertTrue(sql.contains("revoke all on public.meal_records"));
         assertTrue(sql.contains("grant execute on function public.import_verified_meal_v1"));
@@ -47,6 +49,7 @@ public final class VerifiedMealImportContractTest {
         assertTrue(sql.contains("food_data_version_snapshot"));
         assertTrue(sql.contains("nutrient.amount * v_scale"));
         assertTrue(sql.contains("v_item_source := v_item -> 'source_provenance'"));
+        assertTrue(sql.contains("'amount_status', v_item -> 'amount_status'"));
         assertTrue(sql.contains("The idempotency key was already used with a different meal payload"));
         assertTrue(sql.contains("pg_advisory_xact_lock"));
     }
