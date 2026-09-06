@@ -383,14 +383,19 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         cardioSessionViewModel.getUiState().observe(this, state -> {
             if (state instanceof CardioSessionUiState.Ready) {
                 CardioSessionUiState.Ready ready = (CardioSessionUiState.Ready) state;
-                if (currentScreen == FitnessScreen.CARDIO_SESSION
+                if ((currentScreen == FitnessScreen.CARDIO_SESSION
+                        || currentScreen == FitnessScreen.CARDIO_SUMMARY)
                         && ready.getOwnerId().equals(repository.currentUserId())
                         && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
-                    CardioSessionScreen screen = (CardioSessionScreen) screens.get(FitnessScreen.CARDIO_SESSION);
-                    if (!screen.hasRenderedSnapshot(
-                            ready.getSession().getRecordId(),
-                            ready.getSession().getStatus())) {
+                    if (currentScreen == FitnessScreen.CARDIO_SUMMARY) {
                         rerender();
+                    } else {
+                        CardioSessionScreen screen = (CardioSessionScreen) screens.get(FitnessScreen.CARDIO_SESSION);
+                        if (!screen.hasRenderedSnapshot(
+                                ready.getSession().getRecordId(),
+                                ready.getSession().getStatus())) {
+                            rerender();
+                        }
                     }
                 }
             } else if (state instanceof CardioSessionUiState.Missing) {
@@ -1276,7 +1281,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             return;
         }
         if (screen != FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
-            if (screen == FitnessScreen.CARDIO_SESSION) {
+            if (screen == FitnessScreen.CARDIO_SESSION || screen == FitnessScreen.CARDIO_SUMMARY) {
                 cardioSessionViewModel.enter(
                         new AccountScope(repository.currentUserId()),
                         sessionState.activeRecordId()

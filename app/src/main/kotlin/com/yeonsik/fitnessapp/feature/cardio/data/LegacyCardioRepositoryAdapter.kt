@@ -25,7 +25,9 @@ class LegacyCardioRepositoryAdapter(
             snapshot.lastResumedAtEpochMillis,
             snapshot.activeDurationMillis,
             snapshot.distanceMeters,
-            snapshot.gpsStatus
+            snapshot.acceptedPointCount,
+            snapshot.gpsStatus,
+            snapshot.averageHeartRateBpm
         )
     }
 }

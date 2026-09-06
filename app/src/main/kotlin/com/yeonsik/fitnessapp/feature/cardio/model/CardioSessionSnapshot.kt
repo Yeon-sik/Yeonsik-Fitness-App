@@ -9,7 +9,9 @@ data class CardioSessionSnapshot(
     val lastResumedAtEpochMillis: Long?,
     val activeDurationMillis: Long,
     val distanceMeters: Double,
-    val gpsStatus: String
+    val acceptedPointCount: Int,
+    val gpsStatus: String,
+    val averageHeartRateBpm: Double?
 ) {
     fun elapsedSeconds(nowEpochMillis: Long): Int {
         val activeMillis = activeDurationMillis + if (status == STATUS_TRACKING
