@@ -23,6 +23,7 @@ import com.yeonsik.fitnessapp.supplement.SupplementRepository;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
+import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 
 import java.util.List;
 
@@ -59,6 +60,8 @@ public interface ScreenHost {
     WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel();
 
     CardioSessionViewModel cardioSessionViewModel();
+
+    RoutineEntryViewModel routineEntryViewModel();
 
     String today();
 
