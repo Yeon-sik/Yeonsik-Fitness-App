@@ -38,6 +38,9 @@ public interface ScreenHost {
 
     FitnessRepository repository();
 
+    /** Owner id used to reject stale ViewModel work after an account switch. */
+    String currentOwnerId();
+
     NutritionCatalogRepository nutritionCatalogRepository();
 
     CardioRepository cardioRepository();

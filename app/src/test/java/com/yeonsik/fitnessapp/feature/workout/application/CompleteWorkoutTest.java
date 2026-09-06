@@ -7,6 +7,7 @@ import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutCompletion;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi;
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot;
 
 import org.junit.Test;
 
@@ -45,6 +46,11 @@ public final class CompleteWorkoutTest {
 
         FakeWorkoutRepository(WorkoutCompletion completion) {
             this.completion = completion;
+        }
+
+        @Override
+        public WorkoutSessionSnapshot loadSession(AccountScope scope, String recordId) {
+            return null;
         }
 
         @Override

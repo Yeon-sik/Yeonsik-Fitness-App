@@ -296,6 +296,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new WorkoutSessionViewModel(
                                 handle,
+                                appContainer.getWorkoutRepository(),
                                 appContainer.getCompleteWorkout()
                         )
                 )
@@ -304,7 +305,20 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             if (currentScreen != FitnessScreen.WORKOUT_SESSION) {
                 return;
             }
-            if (state instanceof WorkoutSessionUiState.Completed) {
+            if (state instanceof WorkoutSessionUiState.Ready) {
+                WorkoutSessionUiState.Ready ready = (WorkoutSessionUiState.Ready) state;
+                if (ready.getOwnerId().equals(repository.currentUserId())
+                        && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
+                    rerender();
+                }
+            } else if (state instanceof WorkoutSessionUiState.Missing) {
+                WorkoutSessionUiState.Missing missing = (WorkoutSessionUiState.Missing) state;
+                if (missing.getOwnerId().equals(repository.currentUserId())
+                        && missing.getRecordId().equals(sessionState.activeRecordId())) {
+                    sessionState.clearIfMatches(missing.getRecordId());
+                    replace(FitnessScreen.STRENGTH);
+                }
+            } else if (state instanceof WorkoutSessionUiState.Completed) {
                 WorkoutSessionUiState.Completed completed = (WorkoutSessionUiState.Completed) state;
                 if (completed.getOwnerId().equals(repository.currentUserId())
                         && completed.getRecordId().equals(sessionState.activeRecordId())) {
@@ -1218,7 +1232,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     private void prepareScreenEntry(FitnessScreen screen) {
         if (screen == FitnessScreen.WORKOUT_SESSION) {
-            workoutSessionViewModel.enter(sessionState.activeRecordId());
+            workoutSessionViewModel.enter(
+                    new AccountScope(repository.currentUserId()),
+                    sessionState.activeRecordId()
+            );
             return;
         }
         if (screen != FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
@@ -1319,6 +1336,11 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     @Override
     public FitnessRepository repository() {
         return repository;
+    }
+
+    @Override
+    public String currentOwnerId() {
+        return repository.currentUserId();
     }
 
     @Override

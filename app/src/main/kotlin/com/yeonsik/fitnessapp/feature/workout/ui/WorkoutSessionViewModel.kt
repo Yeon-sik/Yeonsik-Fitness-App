@@ -7,11 +7,16 @@ import androidx.lifecycle.ViewModel
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitnessapp.feature.workout.application.CompleteWorkout
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 sealed interface WorkoutSessionUiState {
     data object Idle : WorkoutSessionUiState
+    data object Loading : WorkoutSessionUiState
+    data class Ready(val ownerId: String, val session: WorkoutSessionSnapshot) : WorkoutSessionUiState
+    data class Missing(val ownerId: String, val recordId: String) : WorkoutSessionUiState
     data class Completing(val ownerId: String, val recordId: String) : WorkoutSessionUiState
     data class Completed(val ownerId: String, val recordId: String) : WorkoutSessionUiState
     data class DiscardedEmptySession(val ownerId: String, val recordId: String) : WorkoutSessionUiState
@@ -21,6 +26,7 @@ sealed interface WorkoutSessionUiState {
 /** Stores only the recoverable session id; completion state remains transient. */
 class WorkoutSessionViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
+    private val repository: WorkoutRepositoryApi,
     private val completeWorkout: CompleteWorkout,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : ViewModel() {
@@ -28,11 +34,36 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     val uiState: LiveData<WorkoutSessionUiState> = mutableState
     private var requestVersion = 0L
 
-    fun enter(recordId: String?) {
+    fun enter(scope: AccountScope, recordId: String?) {
         savedStateHandle[KEY_RECORD_ID] = recordId
+        if (recordId == null) {
+            mutableState.value = WorkoutSessionUiState.Idle
+            return
+        }
+        val request = ++requestVersion
+        mutableState.value = WorkoutSessionUiState.Loading
+        executor.execute {
+            try {
+                val session = repository.loadSession(scope, recordId)
+                publishIfCurrent(
+                    request,
+                    session?.let { WorkoutSessionUiState.Ready(scope.ownerId, it) }
+                        ?: WorkoutSessionUiState.Missing(scope.ownerId, recordId)
+                )
+            } catch (error: Exception) {
+                publishIfCurrent(
+                    request,
+                    WorkoutSessionUiState.Error(
+                        scope.ownerId,
+                        error.message ?: "운동 기록을 불러오지 못했습니다."
+                    )
+                )
+            }
+        }
     }
 
     fun finish(scope: AccountScope, recordId: String) {
+        if (mutableState.value is WorkoutSessionUiState.Completing) return
         val request = ++requestVersion
         mutableState.value = WorkoutSessionUiState.Completing(scope.ownerId, recordId)
         executor.execute {

@@ -7,6 +7,9 @@ import com.yeonsik.fitnessapp.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionExercise
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutVolumePoint
 
 /**
  * Stage-2 compatibility adapter. SQL and legacy data types stay on this side
@@ -15,6 +18,40 @@ import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
 class LegacyWorkoutRepositoryAdapter(
     private val legacy: FitnessRepository
 ) : WorkoutRepositoryApi {
+    override fun loadSession(scope: AccountScope, recordId: String): WorkoutSessionSnapshot? {
+        requireScope(scope)
+        val info = legacy.sessionInfo(recordId) ?: return null
+        val exercises = legacy.sessionExerciseEntries(recordId)
+        val mappedExercises = exercises.map { exercise ->
+            val sets = legacy.setsForExercise(exercise.id)
+            WorkoutSessionExercise(
+                exercise.id,
+                exercise.exerciseId,
+                exercise.orderIndex,
+                exercise.name,
+                exercise.uiPart,
+                exercise.equipment,
+                exercise.recordType,
+                sets.count { it.isCompleted },
+                sets.size
+            )
+        }
+        val metrics = legacy.sessionMetrics(recordId)
+        return WorkoutSessionSnapshot(
+            recordId,
+            info.title,
+            info.status,
+            info.startedAt,
+            info.durationSeconds,
+            metrics.totalVolumeKg,
+            metrics.setCount,
+            mappedExercises,
+            legacy.recentCompletedSessionVolumes(recordId, 4).map {
+                WorkoutVolumePoint(it.date, it.label, it.volumeKg)
+            }
+        )
+    }
+
     override fun loadExerciseDetail(
         scope: AccountScope,
         recordId: String,

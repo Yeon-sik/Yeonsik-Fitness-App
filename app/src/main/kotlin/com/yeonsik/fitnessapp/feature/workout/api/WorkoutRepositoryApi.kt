@@ -2,12 +2,15 @@ package com.yeonsik.fitnessapp.feature.workout.api
 
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot
 
 /**
  * Public workout boundary for new Kotlin application code.  It deliberately
  * exposes neither SQLite types nor legacy repository model objects.
  */
 interface WorkoutRepositoryApi {
+    fun loadSession(scope: AccountScope, recordId: String): WorkoutSessionSnapshot?
+
     fun loadExerciseDetail(
         scope: AccountScope,
         recordId: String,
