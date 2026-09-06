@@ -8,6 +8,8 @@ import com.yeonsik.fitnessapp.feature.workout.api.WorkoutCompletion;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi;
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail;
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot;
+import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 
 import org.junit.Test;
 
@@ -78,5 +80,23 @@ public final class CompleteWorkoutTest {
             discardCalls++;
             discarded = true;
         }
+
+        @Override
+        public boolean updateTypedSet(AccountScope scope, String recordId, String setId,
+                                      FitnessRepository.SetInput input) { return false; }
+
+        @Override
+        public boolean addTypedSet(AccountScope scope, String recordId, String exerciseId,
+                                   int setIndex, FitnessRepository.SetInput input) { return false; }
+
+        @Override
+        public boolean deleteSet(AccountScope scope, String recordId, String setId) { return false; }
+
+        @Override
+        public boolean deleteExercise(AccountScope scope, String recordId, String exerciseId) { return false; }
+
+        @Override
+        public boolean replaceExercise(AccountScope scope, String recordId, String exerciseId,
+                                       RoutineExercise replacement) { return false; }
     }
 }

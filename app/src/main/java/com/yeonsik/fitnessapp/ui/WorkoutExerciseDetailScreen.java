@@ -18,6 +18,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.data.MassFormatter;
 import com.yeonsik.fitnessapp.data.MassUnit;
@@ -31,6 +32,8 @@ import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -52,6 +55,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private final int[] defaultRestSeconds = {DEFAULT_REST_SECONDS};
     private final ExerciseVariantPickerDialog exerciseVariantPickerDialog;
     private LinearLayout openLoadStateSelector;
+    private WorkoutExerciseDetail currentDetail;
 
     public WorkoutExerciseDetailScreen(ScreenHost host) {
         super(host);
@@ -71,7 +75,14 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             return;
         }
 
-        List<FitnessRepository.SessionExerciseEntry> exercises = repository().sessionExerciseEntries(recordId);
+        WorkoutExerciseDetailUiState detailState =
+                host.workoutExerciseDetailViewModel().getUiState().getValue();
+        if (!(detailState instanceof WorkoutExerciseDetailUiState.Ready)) {
+            emptyState("운동 정보를 불러오는 중입니다.", "저장된 세트와 이전 기록을 확인하고 있습니다.");
+            return;
+        }
+        currentDetail = ((WorkoutExerciseDetailUiState.Ready) detailState).getDetail();
+        List<FitnessRepository.SessionExerciseEntry> exercises = currentDetail.getLegacyExercises();
         if (exercises.isEmpty()) {
             host.replace(FitnessScreen.WORKOUT_SESSION);
             return;
@@ -81,7 +92,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         FitnessRepository.SessionExerciseEntry activeExercise =
                 WorkoutSessionState.findActiveExercise(exercises, host.sessionState().activeExerciseId());
         host.sessionState().setActiveExerciseId(activeExercise.id);
-        List<FitnessRepository.SessionSetEntry> sets = repository().setsForExercise(activeExercise.id);
+        List<FitnessRepository.SessionSetEntry> sets = currentDetail.getLegacySets();
         if (sets.isEmpty()) {
             emptyState("세트를 준비하고 있습니다.", "잠시 후 입력할 수 있습니다.");
             return;
@@ -89,10 +100,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         boolean allCompleted = WorkoutSessionState.allSetsCompleted(sets);
         defaultRestSeconds[0] = resolveDefaultRest(sets);
 
-        FitnessRepository.ExerciseHistory lastHistory = repository().lastExerciseHistory(
-                activeExercise.exerciseId, activeExercise.name, recordId);
-        FitnessRepository.ExerciseBests bests = repository().exerciseBests(
-                activeExercise.exerciseId, activeExercise.name, recordId);
+        FitnessRepository.ExerciseHistory lastHistory = currentDetail.getLastHistory();
+        FitnessRepository.ExerciseBests bests = currentDetail.getBests();
 
         LinearLayout topRow = new LinearLayout(host.activity());
         topRow.setOrientation(LinearLayout.HORIZONTAL);
@@ -118,12 +127,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         if (supportsLoadRepAnalytics(activeExercise.recordType)) {
             renderPersonalRecordCard(activeExercise, bests, sets);
             add(volumeTrendCard("볼륨 추이", "최근 8회 + 현재",
-                    repository().recentExerciseVolumes(
-                            activeExercise.exerciseId,
-                            activeExercise.name,
-                            recordId,
-                            8
-                    ),
+                    currentDetail.getRecentVolumes(),
                     currentExerciseVolume(activeExercise, sets),
                     RecordsAnalysis.TrendCurrentState.IN_PROGRESS,
                     null,
@@ -137,7 +141,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
     private void renderExerciseIllustration(FitnessRepository.SessionExerciseEntry exercise) {
         ExerciseFamilyIdentity identity = exercise.familyIdentity != null
                 ? exercise.familyIdentity
-                : repository().familyCatalog().identityForStorageExerciseId(exercise.exerciseId);
+                : exercise.familyIdentity;
         if (identity == null) {
             return;
         }
@@ -429,7 +433,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             }
         }
 
-        List<LoadState> allowedLoadStates = repository().allowedLoadStatesForExercise(activeExercise.id);
+        List<LoadState> allowedLoadStates = currentDetail.getAllowedLoadStates()
+                .getOrDefault(activeExercise.id, java.util.Collections.emptyList());
         LoadState previousHeaderState = null;
         for (FitnessRepository.SessionSetEntry set : sets) {
             LoadState setLoadState = effectiveLoadState(
@@ -596,7 +601,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             ui.applyDepth(setBox, FitnessUi.DEPTH_SURFACE_DP);
         }
 
-        List<LoadState> allowedLoadStates = repository().allowedLoadStatesForExercise(exercise.id);
+        List<LoadState> allowedLoadStates = currentDetail.getAllowedLoadStates()
+                .getOrDefault(exercise.id, java.util.Collections.emptyList());
         LoadState initialLoadState = effectiveLoadState(
                 exercise.recordType,
                 set.loadState,
@@ -724,9 +730,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             previous.setFocusable(true);
             previous.setOnClickListener(view -> {
                 try {
-                    repository().updateTypedSet(
-                            recordId,
-                            set.id,
+                    host.workoutExerciseDetailViewModel().updateTypedSet(
+                            accountScope(), recordId, set.id,
                             setInputFromEntry(
                                     exercise.recordType,
                                     previousSet,
@@ -738,8 +743,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                                     set.restSeconds,
                                     set.isCompleted
                             )
-                    );
-                    host.rerender();
+                            , success -> host.rerender());
                 } catch (IllegalArgumentException error) {
                     host.toast(error.getMessage());
                 }
@@ -758,9 +762,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         stampCell.setOnClickListener(view -> {
             boolean completed = !set.isCompleted;
             try {
-                repository().updateTypedSet(
-                        recordId,
-                        set.id,
+                host.workoutExerciseDetailViewModel().updateTypedSet(
+                        accountScope(), recordId, set.id,
                         typedSetInput(
                                 exercise.recordType,
                                 selectedLoadState[0],
@@ -771,13 +774,13 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                                 completed,
                                 selectedInputUnit[0]
                         )
-                );
-                styleStamp(stamp, completed);
-                ui.stampPop(stamp);
-                if (completed) {
-                    host.startRestTimer(defaultRestSeconds[0]);
-                }
-                host.content().postDelayed(host::rerender, 220);
+                        , success -> {
+                            if (!success) return;
+                            styleStamp(stamp, completed);
+                            ui.stampPop(stamp);
+                            if (completed) host.startRestTimer(defaultRestSeconds[0]);
+                            host.content().postDelayed(host::rerender, 220);
+                        });
             } catch (IllegalArgumentException error) {
                 host.toast(error.getMessage());
                 styleStamp(stamp, set.isCompleted);
@@ -833,8 +836,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             delete.setClickable(true);
             delete.setFocusable(true);
             delete.setOnClickListener(view -> {
-                repository().deleteSet(recordId, set.id);
-                host.rerender();
+                host.workoutExerciseDetailViewModel().deleteSet(
+                        accountScope(), recordId, set.id,
+                        success -> { if (success) host.rerender(); }
+                );
             });
             row.addView(delete, new LinearLayout.LayoutParams(ui.dp(30), ui.dp(44)));
         } else {
@@ -921,9 +926,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     double kilograms = MassUnit.toKg(enteredValue, previousUnit);
                     primary.setText(MassFormatter.formatInput(kilograms, nextUnit));
                     primary.setSelection(primary.length());
-                    repository().updateTypedSet(
-                            recordId,
-                            set.id,
+                    host.workoutExerciseDetailViewModel().updateTypedSet(
+                            accountScope(), recordId, set.id,
                             typedSetInput(
                                     exercise.recordType,
                                     selectedLoadState[0],
@@ -935,8 +939,9 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                                     nextUnit,
                                     kilograms,
                                     MassUnit.fromKg(kilograms, nextUnit)
-                            )
-                    );
+                            ), success -> {
+                                if (!success) host.toast("세트를 저장하지 못했습니다.");
+                            });
                 }
                 selectedInputUnit[0] = nextUnit;
                 control.setText(nextUnit.symbol().toUpperCase(java.util.Locale.ROOT));
@@ -1006,9 +1011,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     return;
                 }
                 try {
-                    repository().updateTypedSet(
-                            recordId,
-                            set.id,
+                    host.workoutExerciseDetailViewModel().updateTypedSet(
+                            accountScope(), recordId, set.id,
                             typedStateChangeInput(
                                     exercise.recordType,
                                     selectedLoadState[0],
@@ -1018,14 +1022,15 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                                     rir,
                                     set.restSeconds,
                                     set.isCompleted
-                            )
-                    );
-                    selectedLoadState[0] = next;
-                    loadStateCell.setText(loadStateCompactLabel(next));
-                    loadStateCell.setContentDescription("저항 상태: " + loadStateLabel(next));
-                    selector.setVisibility(View.GONE);
-                    openLoadStateSelector = null;
-                    host.rerender();
+                            ), success -> {
+                                if (!success) return;
+                                selectedLoadState[0] = next;
+                                loadStateCell.setText(loadStateCompactLabel(next));
+                                loadStateCell.setContentDescription("저항 상태: " + loadStateLabel(next));
+                                selector.setVisibility(View.GONE);
+                                openLoadStateSelector = null;
+                                host.rerender();
+                            });
                 } catch (IllegalArgumentException error) {
                     host.toast(error.getMessage());
                 }
@@ -1718,9 +1723,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                         ? ""
                         : MassFormatter.formatInput(displayedValue, displayUnit));
                 repsInput.setText(prev.actualReps == 0 ? "" : String.valueOf(prev.actualReps));
-                repository().updateTypedSet(
-                        recordId,
-                        set.id,
+                host.workoutExerciseDetailViewModel().updateTypedSet(
+                        accountScope(), recordId, set.id,
                         new FitnessRepository.SetInput(
                                 prev.weightKg == 0 ? null : prev.weightKg,
                                 prev.actualReps,
@@ -1734,7 +1738,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                                 set.loadState,
                                 previousRawValue,
                                 previousRawValue == null ? null : previousUnit
-                        )
+                        ), success -> { if (!success) host.toast("세트를 저장하지 못했습니다."); }
                 );
             });
         }
@@ -1767,8 +1771,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
             delete.setClickable(true);
             delete.setFocusable(true);
             delete.setOnClickListener(v -> {
-                repository().deleteSet(recordId, set.id);
-                host.rerender();
+                host.workoutExerciseDetailViewModel().deleteSet(
+                        accountScope(), recordId, set.id,
+                        success -> { if (success) host.rerender(); }
+                );
             });
             row.addView(delete, new LinearLayout.LayoutParams(ui.dp(32), ui.dp(52)));
         } else {
@@ -1799,9 +1805,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                          boolean completed,
                          MassUnit inputUnit) {
         Double inputLoad = FitnessUi.optionalDouble(weightInput);
-        repository().updateTypedSet(
-                recordId,
-                set.id,
+        host.workoutExerciseDetailViewModel().updateTypedSet(
+                accountScope(), recordId, set.id,
                 new FitnessRepository.SetInput(
                         inputLoad == null ? null : MassUnit.toKg(inputLoad, inputUnit),
                         Math.max(0, FitnessUi.parseInt(repsInput, 0)),
@@ -1815,21 +1820,30 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                         set.loadState,
                         inputLoad,
                         inputLoad == null ? null : inputUnit
-                )
+                ), success -> {
+                    if (!success) {
+                        host.toast("세트를 저장하지 못했습니다.");
+                        return;
+                    }
+                    if (completed) {
+                        host.startRestTimer(defaultRestSeconds[0]);
+                        String nextId = nextExerciseAfterSave(set.id);
+                        if (nextId != null) host.sessionState().setActiveExerciseId(nextId);
+                    }
+                    host.content().postDelayed(host::rerender, 220);
+                }
         );
-        if (completed) {
-            host.startRestTimer(defaultRestSeconds[0]);
+    }
+
+    private String nextExerciseAfterSave(String savedSetId) {
+        if (currentDetail == null || currentDetail.getLegacySets().isEmpty()) return null;
+        for (FitnessRepository.SessionSetEntry candidate : currentDetail.getLegacySets()) {
+            if (candidate.id.equals(savedSetId)) continue;
+            if (!candidate.isCompleted) return null;
         }
-        if (completed && WorkoutSessionState.canMoveToNextExercise(repository(), recordId,
-                host.sessionState().activeExerciseId())) {
-            FitnessRepository.SessionExerciseEntry next = WorkoutSessionState.nextExercise(
-                    repository().sessionExerciseEntries(recordId), host.sessionState().activeExerciseId());
-            if (next != null) {
-                host.sessionState().setActiveExerciseId(next.id);
-            }
-        }
-        // 스탬프 팝 모션이 보이도록 rerender를 한 박자 늦춘다.
-        host.content().postDelayed(host::rerender, 220);
+        FitnessRepository.SessionExerciseEntry next = WorkoutSessionState.nextExercise(
+                currentDetail.getLegacyExercises(), host.sessionState().activeExerciseId());
+        return next == null ? null : next.id;
     }
 
     // ── 기록 분석 ─────────────────────────────────────────────────────
@@ -1953,7 +1967,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                     12, FitnessUi.COLOR_MUTED, false), ui.fullWidthParams(ui.dp(8)));
         }
         TextView formula = ui.num(
-                repository().volumeCalculationFormula(exercise),
+                currentDetail.getVolumeFormula(),
                 19,
                 FitnessUi.COLOR_TEXT,
                 true
@@ -2026,6 +2040,10 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         return preset == null ? catalog.presetForExactName(exercise.name) : preset;
     }
 
+    private AccountScope accountScope() {
+        return new AccountScope(host.currentOwnerId());
+    }
+
     private double currentExerciseVolume(
             FitnessRepository.SessionExerciseEntry exercise,
             List<FitnessRepository.SessionSetEntry> sets
@@ -2033,7 +2051,7 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         double volume = 0;
         for (FitnessRepository.SessionSetEntry set : sets) {
             if (set.isCompleted) {
-                volume += repository().volumeForSet(exercise, set);
+                volume += currentDetail.getVolumeBySetId().getOrDefault(set.id, 0d);
             }
         }
         return volume;
@@ -2093,10 +2111,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 : canonicalLoad == null || canonicalLoad <= 0d
                 ? null
                 : MassUnit.fromKg(canonicalLoad, inputUnit);
-        repository().addTypedSet(
-                recordId,
-                exercise.id,
-                nextIndex,
+        host.workoutExerciseDetailViewModel().addTypedSet(
+                accountScope(), recordId, exercise.id, nextIndex,
                 new FitnessRepository.SetInput(
                         last == null || last.weightKg == 0 ? null : last.weightKg,
                         last == null || last.actualReps == 0 ? null : last.actualReps,
@@ -2110,9 +2126,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                         loadState,
                         inputLoadValue,
                         inputLoadValue == null ? null : inputUnit
-                )
+                ), success -> { if (success) host.rerender(); }
         );
-        host.rerender();
     }
 
     private void confirmDeleteExercise(String recordId, FitnessRepository.SessionExerciseEntry exercise) {
@@ -2120,16 +2135,17 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                 "\"" + exercise.name + "\" 종목과 해당 세트를 삭제 표시합니다.",
                 null,
                 "삭제", () -> {
-                    repository().deleteExercise(recordId, exercise.id);
-                    host.rerender();
+                    host.workoutExerciseDetailViewModel().deleteExercise(
+                            accountScope(), recordId, exercise.id,
+                            success -> { if (success) host.rerender(); }
+                    );
                 });
     }
 
     private void beginExerciseReplacement(FitnessRepository.SessionExerciseEntry exercise) {
         ExerciseFamilyIdentity currentIdentity = exercise.familyIdentity;
         if (currentIdentity == null) {
-            currentIdentity = repository().familyCatalog()
-                    .identityForStorageExerciseId(exercise.exerciseId);
+            currentIdentity = exercise.familyIdentity;
         }
         RuntimeExerciseCatalog catalog = host.exerciseMasterRepository().runtimeCatalog();
         RuntimeExerciseFamily family = currentIdentity == null
@@ -2166,19 +2182,20 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
                         host.toast("현재 운동과 다른 세부 동작을 선택하세요.");
                         return;
                     }
-                    boolean replaced = repository().replaceExerciseFromMaster(
-                            host.sessionState().activeRecordId(),
-                            exercise.id,
-                            ExerciseMasterAdapter.toRoutineExercise(replacement)
+                    host.workoutExerciseDetailViewModel().replaceExercise(
+                            accountScope(), host.sessionState().activeRecordId(), exercise.id,
+                            ExerciseMasterAdapter.toRoutineExercise(replacement),
+                            replaced -> {
+                                if (!replaced) {
+                                    host.toast("같은 운동군의 세부 동작만 교체할 수 있습니다.");
+                                    return;
+                                }
+                                host.sessionState().clearExerciseReplacement();
+                                host.sessionState().setActiveExerciseId(exercise.id);
+                                host.toast(replacement.displayName() + "으로 운동 종목을 교체했습니다.");
+                                host.rerender();
+                            }
                     );
-                    if (!replaced) {
-                        host.toast("같은 운동군의 세부 동작만 교체할 수 있습니다.");
-                        return;
-                    }
-                    host.sessionState().clearExerciseReplacement();
-                    host.sessionState().setActiveExerciseId(exercise.id);
-                    host.toast(replacement.displayName() + "으로 운동 종목을 교체했습니다.");
-                    host.rerender();
                 }
         );
     }

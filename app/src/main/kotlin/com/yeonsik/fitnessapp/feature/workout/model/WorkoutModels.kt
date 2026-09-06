@@ -1,6 +1,8 @@
 package com.yeonsik.fitnessapp.feature.workout.model
 
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity
+import com.yeonsik.fitnessapp.data.FitnessRepository
+import com.yeonsik.fitnessapp.exercise.LoadState
 
 /** Android- and storage-independent values consumed by the workout feature. */
 data class WorkoutExercise(
@@ -24,7 +26,15 @@ data class WorkoutExerciseDetail(
     val recordId: String,
     val activeExercise: WorkoutExercise,
     val exercises: List<WorkoutExercise>,
-    val sets: List<WorkoutSet>
+    val sets: List<WorkoutSet>,
+    val legacyExercises: List<FitnessRepository.SessionExerciseEntry> = emptyList(),
+    val legacySets: List<FitnessRepository.SessionSetEntry> = emptyList(),
+    val lastHistory: FitnessRepository.ExerciseHistory? = null,
+    val bests: FitnessRepository.ExerciseBests? = null,
+    val recentVolumes: List<FitnessRepository.VolumePoint> = emptyList(),
+    val allowedLoadStates: Map<String, List<LoadState>> = emptyMap(),
+    val volumeFormula: String = "",
+    val volumeBySetId: Map<String, Double> = emptyMap()
 )
 
 data class WorkoutSessionSnapshot(

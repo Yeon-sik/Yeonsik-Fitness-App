@@ -3,6 +3,8 @@ package com.yeonsik.fitnessapp.feature.workout.api
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot
+import com.yeonsik.fitnessapp.data.FitnessRepository
+import com.yeonsik.fitnessapp.exercise.RoutineExercise
 
 /**
  * Public workout boundary for new Kotlin application code.  It deliberately
@@ -25,6 +27,14 @@ interface WorkoutRepositoryApi {
 
     /** Deletes an empty in-progress session using the existing soft-delete contract. */
     fun discard(scope: AccountScope, recordId: String)
+
+    fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: FitnessRepository.SetInput): Boolean
+    fun addTypedSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int,
+                    input: FitnessRepository.SetInput): Boolean
+    fun deleteSet(scope: AccountScope, recordId: String, setId: String): Boolean
+    fun deleteExercise(scope: AccountScope, recordId: String, exerciseId: String): Boolean
+    fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String,
+                        replacement: RoutineExercise): Boolean
 }
 
 enum class WorkoutCompletion {

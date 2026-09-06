@@ -11,6 +11,7 @@ import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutVolumePoint
+import com.yeonsik.fitnessapp.exercise.RoutineExercise
 
 /**
  * Stage-2 compatibility adapter. SQL and legacy data types stay on this side
@@ -64,11 +65,12 @@ class LegacyWorkoutRepositoryAdapter(
         val exercises = legacy.sessionExerciseEntries(recordId)
         val active = exercises.firstOrNull { it.id == activeExerciseId } ?: exercises.firstOrNull()
             ?: return null
+        val activeSets = legacy.setsForExercise(active.id)
         return WorkoutExerciseDetail(
             recordId = recordId,
             activeExercise = active.asFeatureModel(),
             exercises = exercises.map { it.asFeatureModel() },
-            sets = legacy.setsForExercise(active.id).map { set ->
+            sets = activeSets.map { set ->
                 WorkoutSet(
                     set.id,
                     set.setIndex,
@@ -77,7 +79,17 @@ class LegacyWorkoutRepositoryAdapter(
                     set.durationSeconds,
                     set.isCompleted
                 )
-            }
+            },
+            legacyExercises = exercises,
+            legacySets = activeSets,
+            lastHistory = legacy.lastExerciseHistory(active.exerciseId, active.name, recordId),
+            bests = legacy.exerciseBests(active.exerciseId, active.name, recordId),
+            recentVolumes = legacy.recentExerciseVolumes(active.exerciseId, active.name, recordId, 8),
+            allowedLoadStates = exercises.associate { exercise ->
+                exercise.id to legacy.allowedLoadStatesForExercise(exercise.id)
+            },
+            volumeFormula = legacy.volumeCalculationFormula(active),
+            volumeBySetId = activeSets.associate { set -> set.id to legacy.volumeForSet(active, set) }
         )
     }
 
@@ -106,6 +118,37 @@ class LegacyWorkoutRepositoryAdapter(
     override fun discard(scope: AccountScope, recordId: String) {
         requireScope(scope)
         legacy.deleteSession(recordId)
+    }
+
+    override fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: FitnessRepository.SetInput): Boolean {
+        requireScope(scope)
+        legacy.updateTypedSet(recordId, setId, input)
+        return true
+    }
+
+    override fun addTypedSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int,
+                              input: FitnessRepository.SetInput): Boolean {
+        requireScope(scope)
+        legacy.addTypedSet(recordId, exerciseId, setIndex, input)
+        return true
+    }
+
+    override fun deleteSet(scope: AccountScope, recordId: String, setId: String): Boolean {
+        requireScope(scope)
+        legacy.deleteSet(recordId, setId)
+        return true
+    }
+
+    override fun deleteExercise(scope: AccountScope, recordId: String, exerciseId: String): Boolean {
+        requireScope(scope)
+        legacy.deleteExercise(recordId, exerciseId)
+        return true
+    }
+
+    override fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String,
+                                 replacement: RoutineExercise): Boolean {
+        requireScope(scope)
+        return legacy.replaceExerciseFromMaster(recordId, exerciseId, replacement)
     }
 
     private fun FitnessRepository.SessionExerciseEntry.asFeatureModel() = WorkoutExercise(

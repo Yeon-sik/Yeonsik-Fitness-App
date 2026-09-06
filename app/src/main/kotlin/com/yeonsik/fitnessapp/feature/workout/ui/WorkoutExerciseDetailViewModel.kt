@@ -10,6 +10,9 @@ import com.yeonsik.fitnessapp.feature.workout.application.InitializeWorkoutExerc
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.function.Consumer
+import com.yeonsik.fitnessapp.data.FitnessRepository
+import com.yeonsik.fitnessapp.exercise.RoutineExercise
 
 sealed interface WorkoutExerciseDetailUiState {
     data object Idle : WorkoutExerciseDetailUiState
@@ -74,6 +77,41 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
                         error.message ?: "운동 세트를 준비하지 못했습니다."
                     )
                 )
+            }
+        }
+    }
+
+    fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: FitnessRepository.SetInput,
+                       callback: Consumer<Boolean>) = executeWrite(callback) {
+        repository.updateTypedSet(scope, recordId, setId, input)
+    }
+
+    fun addTypedSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int,
+                    input: FitnessRepository.SetInput, callback: Consumer<Boolean>) = executeWrite(callback) {
+        repository.addTypedSet(scope, recordId, exerciseId, setIndex, input)
+    }
+
+    fun deleteSet(scope: AccountScope, recordId: String, setId: String,
+                  callback: Consumer<Boolean>) = executeWrite(callback) {
+        repository.deleteSet(scope, recordId, setId)
+    }
+
+    fun deleteExercise(scope: AccountScope, recordId: String, exerciseId: String,
+                       callback: Consumer<Boolean>) = executeWrite(callback) {
+        repository.deleteExercise(scope, recordId, exerciseId)
+    }
+
+    fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String,
+                        replacement: RoutineExercise, callback: Consumer<Boolean>) = executeWrite(callback) {
+        repository.replaceExercise(scope, recordId, exerciseId, replacement)
+    }
+
+    private fun executeWrite(callback: Consumer<Boolean>, work: () -> Boolean) {
+        executor.execute {
+            try {
+                callback.accept(work())
+            } catch (_: Exception) {
+                callback.accept(false)
             }
         }
     }
