@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
@@ -38,6 +40,7 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
 ) : ViewModel() {
     private val mutableState = MutableLiveData<WorkoutExerciseDetailUiState>(WorkoutExerciseDetailUiState.Idle)
     val uiState: LiveData<WorkoutExerciseDetailUiState> = mutableState
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var requestVersion = 0L
 
     fun enter(scope: AccountScope, recordId: String, activeExerciseId: String?) {
@@ -109,9 +112,10 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
     private fun executeWrite(callback: Consumer<Boolean>, work: () -> Boolean) {
         executor.execute {
             try {
-                callback.accept(work())
+                val result = work()
+                mainHandler.post { callback.accept(result) }
             } catch (_: Exception) {
-                callback.accept(false)
+                mainHandler.post { callback.accept(false) }
             }
         }
     }
