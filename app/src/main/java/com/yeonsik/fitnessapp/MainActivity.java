@@ -100,6 +100,9 @@ import com.yeonsik.fitnessapp.feature.routine.application.EnsureActiveRoutine;
 import com.yeonsik.fitnessapp.feature.routine.data.LegacyRoutineRepositoryAdapter;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
+import com.yeonsik.fitnessapp.feature.home.data.LegacyHomeRepositoryAdapter;
+import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
+import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -175,6 +178,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel;
     private CardioSessionViewModel cardioSessionViewModel;
     private RoutineEntryViewModel routineEntryViewModel;
+    private HomeViewModel homeViewModel;
     private FitnessDatabaseHelper databaseHelper;
     private NutritionCatalogRepository nutritionCatalogRepository;
     private CardioRepository cardioRepository;
@@ -435,6 +439,33 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             } else if (state instanceof RoutineEntryUiState.Error) {
                 RoutineEntryUiState.Error error = (RoutineEntryUiState.Error) state;
                 if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
+                        && error.getOwnerId().equals(repository.currentUserId())) {
+                    toast(error.getMessage());
+                }
+            }
+        });
+        homeViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new HomeViewModel(
+                                handle,
+                                new LegacyHomeRepositoryAdapter(repository, routineRepository)
+                        )
+                )
+        ).get(HomeViewModel.class);
+        homeViewModel.getUiState().observe(this, state -> {
+            if (state instanceof HomeUiState.Ready) {
+                HomeUiState.Ready ready = (HomeUiState.Ready) state;
+                if (currentScreen == FitnessScreen.HOME
+                        && ready.getSnapshot().getOwnerId().equals(repository.currentUserId())
+                        && ready.getSnapshot().getToday().equals(today())) {
+                    rerender();
+                }
+            } else if (state instanceof HomeUiState.Error) {
+                HomeUiState.Error error = (HomeUiState.Error) state;
+                if (currentScreen == FitnessScreen.HOME
                         && error.getOwnerId().equals(repository.currentUserId())) {
                     toast(error.getMessage());
                 }
@@ -1315,6 +1346,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
         if (screen == FitnessScreen.STRENGTH || screen == FitnessScreen.HOME) {
             routineEntryViewModel.enter(new AccountScope(repository.currentUserId()));
+            if (screen == FitnessScreen.HOME) {
+                homeViewModel.enter(new AccountScope(repository.currentUserId()), today());
+            }
             return;
         }
         if (screen != FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
@@ -1519,8 +1553,18 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     @Override
+    public HomeViewModel homeViewModel() {
+        return homeViewModel;
+    }
+
+    @Override
     public void toast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void selectRoutine(String routineId) {
+        routineRepository.selectRoutine(routineId);
     }
 
     @Override

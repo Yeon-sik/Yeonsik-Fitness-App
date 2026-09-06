@@ -24,6 +24,7 @@ import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
+import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 
 import java.util.List;
 
@@ -63,6 +64,8 @@ public interface ScreenHost {
 
     RoutineEntryViewModel routineEntryViewModel();
 
+    HomeViewModel homeViewModel();
+
     String today();
 
     FitnessScreen currentScreen();
@@ -82,6 +85,8 @@ public interface ScreenHost {
     void rerender();
 
     void toast(String message);
+
+    void selectRoutine(String routineId);
 
     // ── 화면 간 공유 액션 ─────────────────────────────────────────────
 

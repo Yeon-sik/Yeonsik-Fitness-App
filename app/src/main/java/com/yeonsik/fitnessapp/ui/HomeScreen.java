@@ -15,6 +15,7 @@ import com.yeonsik.fitnessapp.data.NutritionTotals;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
+import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import java.time.LocalDate;
@@ -44,16 +45,26 @@ public final class HomeScreen extends BaseScreen {
             emptyState("루틴을 불러오는 중입니다.", "기본 루틴과 오늘의 훈련 상태를 확인하고 있습니다.");
             return;
         }
+        HomeUiState homeState = host.homeViewModel().getUiState().getValue();
+        if (!(homeState instanceof HomeUiState.Ready)
+                || !host.currentOwnerId().equals(
+                ((HomeUiState.Ready) homeState).getSnapshot().getOwnerId())
+                || !host.today().equals(
+                ((HomeUiState.Ready) homeState).getSnapshot().getToday())) {
+            screenHeader("오늘의 훈련", "준비 중");
+            emptyState("홈 데이터를 불러오는 중입니다.", "오늘의 기록과 주간 요약을 준비하고 있습니다.");
+            return;
+        }
         String today = host.today();
-        List<String> todaySessions = repository().sessionsForDate(today);
-        String activeRoutineId = host.routineRepository().activeRoutineId();
-        List<RoutineRepository.RoutineSummary> routines = host.routineRepository().routines();
+        List<String> todaySessions = host.homeViewModel().sessionsForDate(today);
+        String activeRoutineId = host.homeViewModel().activeRoutineId();
+        List<RoutineRepository.RoutineSummary> routines = host.homeViewModel().routines();
         List<RoutineRepository.RoutineSummary> quickRoutines = quickStartRoutines(
                 routines,
                 activeRoutineId
         );
-        FitnessRepository.DayWorkoutMetrics todayMetrics = repository().dayWorkoutMetrics(today);
-        String inProgressSessionId = repository().latestInProgressSessionId();
+        FitnessRepository.DayWorkoutMetrics todayMetrics = host.homeViewModel().dayWorkoutMetrics(today);
+        String inProgressSessionId = host.homeViewModel().latestInProgressSessionId();
 
         screenHeader(todayEyebrow(), "오늘의 훈련");
         heroJudgmentCard(todaySessions, todayMetrics, inProgressSessionId != null);
@@ -65,15 +76,15 @@ public final class HomeScreen extends BaseScreen {
         }
         if (!routines.isEmpty()) {
             for (RoutineRepository.RoutineSummary routine : quickRoutines) {
-                List<RoutineExerciseInstance> exercises = host.routineRepository().routineExercises(routine.id);
+                List<RoutineExerciseInstance> exercises = host.homeViewModel().routineExercises(routine.id);
                 add(ui().quickStartRoutineCard(routine.name, routine.exerciseCount,
-                        repository().latestCompletedWorkoutDateForRoutine(routine.id, routine.name),
+                        host.homeViewModel().latestRoutineDate(routine.id),
                         () -> {
-                            host.routineRepository().selectRoutine(routine.id);
+                            host.selectRoutine(routine.id);
                             host.startRoutineWorkout(exercises);
                         },
                         () -> {
-                            host.routineRepository().selectRoutine(routine.id);
+                            host.selectRoutine(routine.id);
                             host.navigate(FitnessScreen.ROUTINE_DETAIL);
                         }));
             }
@@ -91,7 +102,7 @@ public final class HomeScreen extends BaseScreen {
         LinearLayout quickTop = ui().tileRow();
         quickTop.addView(ui().statTile("체중", todayWeightValue(), "오늘", false,
                 v -> host.showBodyMetricDialog()), ui().tileParams(true));
-        quickTop.addView(ui().statTile("식사", repository().mealCountForDate(today) + "끼", "오늘", false,
+        quickTop.addView(ui().statTile("식사", host.homeViewModel().mealCountForDate(today) + "끼", "오늘", false,
                 v -> host.openMealManagement()), ui().tileParams(false));
         add(quickTop, ui().fullWidthParams(0));
 
@@ -219,7 +230,7 @@ public final class HomeScreen extends BaseScreen {
         DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("E", Locale.KOREAN);
         for (int i = 0; i < 7; i++) {
             LocalDate date = weekStart.plusDays(i);
-            FitnessRepository.DayWorkoutMetrics metrics = repository().dayWorkoutMetrics(date.toString());
+            FitnessRepository.DayWorkoutMetrics metrics = host.homeViewModel().dayWorkoutMetrics(date.toString());
             values[i] = metrics.totalVolumeKg;
             labels[i] = date.format(dayFormatter);
             weekVolume += metrics.totalVolumeKg;
@@ -227,7 +238,7 @@ public final class HomeScreen extends BaseScreen {
             if (metrics.sessionCount > 0) {
                 workoutDays += 1;
             }
-            FitnessRepository.DayWorkoutMetrics previousMetrics = repository()
+            FitnessRepository.DayWorkoutMetrics previousMetrics = host.homeViewModel()
                     .dayWorkoutMetrics(previousWeekStart.plusDays(i).toString());
             previousValues[i] = previousMetrics.totalVolumeKg;
             previousWeekVolume += previousMetrics.totalVolumeKg;
@@ -299,7 +310,7 @@ public final class HomeScreen extends BaseScreen {
         DateTimeFormatter dayFormatter = DateTimeFormatter.ofPattern("E", Locale.KOREAN);
         for (int i = 0; i < 7; i++) {
             LocalDate date = weekStart.plusDays(i);
-            int mealCount = repository().mealCountForDate(date.toString());
+            int mealCount = host.homeViewModel().mealCountForDate(date.toString());
             values[i] = mealCount;
             labels[i] = date.format(dayFormatter);
             weekMeals += mealCount;
@@ -307,7 +318,7 @@ public final class HomeScreen extends BaseScreen {
                 mealDays++;
             }
 
-            int previousMealCount = repository().mealCountForDate(
+            int previousMealCount = host.homeViewModel().mealCountForDate(
                     previousWeekStart.plusDays(i).toString());
             previousValues[i] = previousMealCount;
             previousWeekMeals += previousMealCount;
@@ -378,7 +389,7 @@ public final class HomeScreen extends BaseScreen {
         for (int index = 0; index < 7; index++) {
             LocalDate date = weekStart.plusDays(index);
             labels[index] = date.format(dayFormatter);
-            NutritionTotals totals = repository().mealNutritionTotalsForDate(date.toString());
+            NutritionTotals totals = host.homeViewModel().mealNutritionTotalsForDate(date.toString());
             NutritionTotals.Total caloriesTotal = totals.total(NutritionProfile.CALORIES_KCAL);
             NutritionTotals.Total carbsTotal = totals.total(NutritionProfile.CARBS_GRAMS);
             NutritionTotals.Total proteinTotal = totals.total(NutritionProfile.PROTEIN_GRAMS);
@@ -413,7 +424,7 @@ public final class HomeScreen extends BaseScreen {
                 FitnessUi.COLOR_TEXT,
                 true
         ));
-        AthleteNutritionGoal nutritionGoal = repository().nutritionGoal();
+        AthleteNutritionGoal nutritionGoal = host.homeViewModel().nutritionGoal();
         card.addView(ui.text(
                 nutritionReferenceText(nutritionGoal),
                 11,
@@ -669,7 +680,7 @@ public final class HomeScreen extends BaseScreen {
         for (int i = 0; i < 7; i++) {
             LocalDate date = weekStart.plusDays(i);
             labels[i] = date.format(dayFormatter);
-            NutritionTotals totals = repository().mealNutritionTotalsForDate(date.toString());
+            NutritionTotals totals = host.homeViewModel().mealNutritionTotalsForDate(date.toString());
             NutritionTotals.Total carbsTotal = totals.total(NutritionProfile.CARBS_GRAMS);
             NutritionTotals.Total proteinTotal = totals.total(NutritionProfile.PROTEIN_GRAMS);
             NutritionTotals.Total fatTotal = totals.total(NutritionProfile.FAT_GRAMS);
@@ -986,7 +997,7 @@ public final class HomeScreen extends BaseScreen {
     }
 
     private String todayWeightValue() {
-        FitnessRepository.BodyMetricEntry metric = repository().bodyMetricForDate(host.today());
+        FitnessRepository.BodyMetricEntry metric = host.homeViewModel().todayWeight();
         if (metric == null) {
             return "—";
         }
@@ -1000,7 +1011,7 @@ public final class HomeScreen extends BaseScreen {
             rows.add(ui.recordListRow("운", FitnessUi.stripLeadingDate(session), "운동", null));
         }
         MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
-        for (FitnessRepository.BodyMetricEntry metric : repository().bodyMetricEntriesForDate(host.today())) {
+        for (FitnessRepository.BodyMetricEntry metric : host.homeViewModel().todayBodyMetrics()) {
             rows.add(ui.recordListRow(
                     "체",
                     MassFormatter.withUnit(metric.weightKg, displayUnit),
@@ -1008,7 +1019,7 @@ public final class HomeScreen extends BaseScreen {
                     null
             ));
         }
-        for (FitnessRepository.MealEntry meal : repository().mealEntriesForDate(host.today())) {
+        for (FitnessRepository.MealEntry meal : host.homeViewModel().todayMeals()) {
             View row = ui.recordListRow(
                     "식",
                     meal.previewTitle,
