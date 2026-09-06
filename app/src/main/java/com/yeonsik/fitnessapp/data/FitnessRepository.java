@@ -45,6 +45,7 @@ public final class FitnessRepository {
     private final FitnessDatabaseHelper dbHelper;
     private final ExerciseFamilyCatalog familyCatalog;
     private final CompositionTemplateRepository compositionTemplateRepository;
+    private final BodyMetricsRepository bodyMetricsRepository;
     private String userId;
     private boolean canonicalVolumesReconciled;
 
@@ -53,12 +54,14 @@ public final class FitnessRepository {
         this.familyCatalog = ExerciseFamilyCatalog.load(dbHelper.applicationContext());
         this.userId = normalizeUserId(userId);
         this.compositionTemplateRepository = new CompositionTemplateRepository(dbHelper, this.userId);
+        this.bodyMetricsRepository = new BodyMetricsRepository(dbHelper, this.userId);
     }
 
     public void setUserId(String userId) {
         this.userId = normalizeUserId(userId);
         canonicalVolumesReconciled = false;
         compositionTemplateRepository.setUserId(this.userId);
+        bodyMetricsRepository.setUserId(this.userId);
     }
 
     public String currentUserId() {
@@ -194,6 +197,7 @@ public final class FitnessRepository {
             ensureDevice(nextUserId);
         }
         this.userId = nextUserId;
+        bodyMetricsRepository.setUserId(this.userId);
     }
 
     public String createSession(String date, String title, String sessionType, String memo, String startedAt, String endedAt) {
@@ -942,100 +946,27 @@ public final class FitnessRepository {
     }
 
     public String addBodyMetric(String date, double weightKg, String memo) {
-        String recordDate = requireRecordDate(date);
-        double validatedWeight = requireBodyWeight(weightKg);
-        BodyMetricEntry existing = bodyMetricForDate(recordDate);
-        if (existing != null) {
-            updateBodyMetric(existing.id, recordDate, validatedWeight, memo);
-            return existing.id;
-        }
-
-        String id = newId();
-        String now = now();
-        ContentValues values = baseValues(id, now);
-        values.put("date", recordDate);
-        values.put("weight_kg", validatedWeight);
-        values.put("is_backfilled", 0);
-        values.putNull("backfilled_at");
-        values.putNull("backfill_reason");
-        values.put("source_app", "fitness");
-        values.put("scope", "fitness");
-        values.put("metadata", json("item_type", "body_weight", "memo", emptyToDefault(memo, "")));
-        db().insertOrThrow("weight_records", null, values);
-        return id;
+        return bodyMetricsRepository.addBodyMetric(date, weightKg, memo);
     }
 
     public BodyMetricEntry bodyMetricForDate(String date) {
-        List<BodyMetricEntry> entries = bodyMetricEntriesForDate(date);
-        return entries.isEmpty() ? null : entries.get(0);
+        return bodyMetricsRepository.bodyMetricForDate(date);
     }
 
     public BodyMetricEntry bodyMetricEntryById(String id) {
-        if (emptyToNull(id) == null) {
-            return null;
-        }
-        String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
-                + "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1";
-        try (Cursor cursor = db().rawQuery(sql, new String[]{id, userId})) {
-            if (cursor.moveToFirst()) {
-                return new BodyMetricEntry(cursor.getString(0), cursor.getString(1), cursor.getDouble(2),
-                        metadataValue(cursor.getString(3), "memo", ""));
-            }
-        }
-        return null;
+        return bodyMetricsRepository.bodyMetricEntryById(id);
     }
 
     public List<BodyMetricEntry> bodyMetricEntriesForDate(String date) {
-        List<BodyMetricEntry> rows = new ArrayList<>();
-        String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
-                + "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both')";
-        String[] args = new String[]{userId};
-        if (date != null) {
-            sql += " AND date = ?";
-            args = new String[]{userId, emptyToToday(date)};
-        }
-        sql += " ORDER BY date DESC, updated_at DESC LIMIT 20";
-        try (Cursor cursor = db().rawQuery(sql, args)) {
-            while (cursor.moveToNext()) {
-                rows.add(new BodyMetricEntry(cursor.getString(0), cursor.getString(1), cursor.getDouble(2),
-                        metadataValue(cursor.getString(3), "memo", "")));
-            }
-        }
-        return rows;
+        return bodyMetricsRepository.bodyMetricEntriesForDate(date);
     }
 
     public void updateBodyMetric(String id, String date, double weightKg, String memo) {
-        if (emptyToNull(id) == null) {
-            return;
-        }
-        String recordDate = requireRecordDate(date);
-        double validatedWeight = requireBodyWeight(weightKg);
-        ContentValues values = new ContentValues();
-        values.put("date", recordDate);
-        values.put("weight_kg", validatedWeight);
-        values.put("metadata", json("item_type", "body_weight", "memo", emptyToDefault(memo, "")));
-        values.put("updated_at", now());
-        db().update(
-                "weight_records",
-                values,
-                "id = ? AND user_id = ? AND deleted_at IS NULL",
-                new String[]{id, userId}
-        );
+        bodyMetricsRepository.updateBodyMetric(id, date, weightKg, memo);
     }
 
     public void deleteBodyMetric(String id) {
-        if (emptyToNull(id) == null) {
-            return;
-        }
-        ContentValues values = new ContentValues();
-        values.put("deleted_at", now());
-        values.put("updated_at", now());
-        db().update(
-                "weight_records",
-                values,
-                "id = ? AND user_id = ? AND deleted_at IS NULL",
-                new String[]{id, userId}
-        );
+        bodyMetricsRepository.deleteBodyMetric(id);
     }
 
     public String addMeal(String date, String menuText, Integer calories, Double proteinGrams,
@@ -3574,20 +3505,7 @@ public final class FitnessRepository {
 
     /** 선택 날짜에 체중 기록이 없으면 그 이전의 가장 최근 기록을 사용한다. */
     public BodyMetricEntry latestBodyMetricOnOrBefore(String date) {
-        String sql = "SELECT id, date, weight_kg, metadata FROM weight_records " +
-                "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both') " +
-                "AND date <= ? ORDER BY date DESC, updated_at DESC LIMIT 1";
-        try (Cursor cursor = db().rawQuery(sql, new String[]{userId, emptyToToday(date)})) {
-            if (cursor.moveToFirst()) {
-                return new BodyMetricEntry(
-                        cursor.getString(0),
-                        cursor.getString(1),
-                        cursor.getDouble(2),
-                        metadataValue(cursor.getString(3), "memo", "")
-                );
-            }
-        }
-        return null;
+        return bodyMetricsRepository.latestBodyMetricOnOrBefore(date);
     }
 
     /**
@@ -5475,26 +5393,11 @@ public final class FitnessRepository {
     }
 
     public List<String> bodyMetrics() {
-        return bodyMetricsForDate(null);
+        return bodyMetricsRepository.bodyMetrics();
     }
 
     public List<String> bodyMetricsForDate(String date) {
-        List<String> rows = new ArrayList<>();
-        String sql = "SELECT date, weight_kg FROM weight_records " +
-                "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both')";
-        String[] args = new String[]{userId};
-        if (date != null) {
-            sql += " AND date = ?";
-            args = new String[]{userId, emptyToToday(date)};
-        }
-        sql += " ORDER BY date DESC LIMIT 20";
-
-        try (Cursor cursor = db().rawQuery(sql, args)) {
-            while (cursor.moveToNext()) {
-                rows.add(formatDate(cursor.getString(0)) + "  " + trimDouble(cursor.getDouble(1)) + "kg");
-            }
-        }
-        return rows;
+        return bodyMetricsRepository.bodyMetricsForDate(date);
     }
 
     public List<String> meals() {
