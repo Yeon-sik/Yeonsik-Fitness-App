@@ -20,6 +20,8 @@ import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.supplement.SupplementRepository;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 
 import java.util.List;
 
@@ -47,6 +49,10 @@ public interface ScreenHost {
     ExerciseMasterRepository exerciseMasterRepository();
 
     WorkoutSessionState sessionState();
+
+    WorkoutSessionViewModel workoutSessionViewModel();
+
+    WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel();
 
     String today();
 

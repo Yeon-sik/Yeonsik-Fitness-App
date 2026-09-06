@@ -83,13 +83,8 @@ public final class WorkoutExerciseDetailScreen extends BaseScreen {
         host.sessionState().setActiveExerciseId(activeExercise.id);
         List<FitnessRepository.SessionSetEntry> sets = repository().setsForExercise(activeExercise.id);
         if (sets.isEmpty()) {
-            repository().addTypedSet(
-                    recordId,
-                    activeExercise.id,
-                    1,
-                    emptySetInput(false, null)
-            );
-            sets = repository().setsForExercise(activeExercise.id);
+            emptyState("세트를 준비하고 있습니다.", "잠시 후 입력할 수 있습니다.");
+            return;
         }
         boolean allCompleted = WorkoutSessionState.allSetsCompleted(sets);
         defaultRestSeconds[0] = resolveDefaultRest(sets);

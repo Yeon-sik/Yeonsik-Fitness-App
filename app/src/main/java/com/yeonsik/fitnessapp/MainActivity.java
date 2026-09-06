@@ -30,6 +30,11 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.ComponentActivity;
+import androidx.lifecycle.ViewModelProvider;
+
+import com.yeonsik.fitnessapp.app.AppContainer;
+import com.yeonsik.fitnessapp.app.SavedStateViewModelFactory;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
@@ -41,6 +46,7 @@ import com.yeonsik.fitnessapp.config.MassUnitPreferences;
 import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
+import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.data.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
@@ -83,6 +89,9 @@ import com.yeonsik.fitnessapp.ui.WorkoutExerciseDetailScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutSessionScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutSummaryScreen;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -106,7 +115,7 @@ import java.util.concurrent.Executors;
  * 얇은 진입점: 의존성 초기화, 현재 화면 상태, 하단 내비게이션, 화면 간 공유 액션만 담당한다.
  * 화면 렌더링은 ui 패키지의 각 Screen 클래스가, 공통 스타일은 FitnessUi가 담당한다.
  */
-public final class MainActivity extends Activity implements ScreenHost {
+public final class MainActivity extends ComponentActivity implements ScreenHost {
 
     private enum Tab {
         HOME,
@@ -153,6 +162,9 @@ public final class MainActivity extends Activity implements ScreenHost {
     private String lastKnownDate = LocalDate.now().toString();
 
     private FitnessRepository repository;
+    private AppContainer appContainer;
+    private WorkoutSessionViewModel workoutSessionViewModel;
+    private WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel;
     private FitnessDatabaseHelper databaseHelper;
     private NutritionCatalogRepository nutritionCatalogRepository;
     private CardioRepository cardioRepository;
@@ -246,6 +258,8 @@ public final class MainActivity extends Activity implements ScreenHost {
         priceTraceAuthManager = new SupabaseAuthManager(priceTraceConfigStore);
         databaseHelper = new FitnessDatabaseHelper(this);
         repository = new FitnessRepository(databaseHelper, supabaseConfig.effectiveUserId());
+        appContainer = new AppContainer(repository);
+        initializeWorkoutViewModels();
         nutritionCatalogRepository = new NutritionCatalogRepository(
                 databaseHelper,
                 nutritionSupabaseConfig.effectiveUserId(),
@@ -271,6 +285,37 @@ public final class MainActivity extends Activity implements ScreenHost {
         render();
         handleDebugSessionProvisioning(getIntent());
         handleCardioIntent(getIntent());
+    }
+
+    private void initializeWorkoutViewModels() {
+        workoutSessionViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(this, null, WorkoutSessionViewModel::new)
+        ).get(WorkoutSessionViewModel.class);
+        workoutExerciseDetailViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new WorkoutExerciseDetailViewModel(
+                                handle,
+                                appContainer.getWorkoutRepository(),
+                                appContainer.getInitializeWorkoutExercise()
+                        )
+                )
+        ).get(WorkoutExerciseDetailViewModel.class);
+        workoutExerciseDetailViewModel.getUiState().observe(this, state -> {
+            if (state instanceof WorkoutExerciseDetailUiState.Ready) {
+                WorkoutExerciseDetailUiState.Ready ready =
+                        (WorkoutExerciseDetailUiState.Ready) state;
+                if (currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL
+                        && ready.getOwnerId().equals(repository.currentUserId())
+                        && ready.getDetail().getRecordId().equals(sessionState.activeRecordId())) {
+                    sessionState.setActiveExerciseId(ready.getDetail().getActiveExercise().getId());
+                    rerender();
+                }
+            }
+        });
     }
 
     @Override
@@ -1103,6 +1148,9 @@ public final class MainActivity extends Activity implements ScreenHost {
             }
         }
         content.removeAllViews();
+        if (screenChanged) {
+            prepareScreenEntry(currentScreen);
+        }
         refreshNavState();
         lastRenderedScreen = currentScreen;
         boolean sessionScreen = currentScreen == FitnessScreen.WORKOUT_SESSION;
@@ -1131,6 +1179,25 @@ public final class MainActivity extends Activity implements ScreenHost {
                 ui.screenEnter(content);
             }
         }
+    }
+
+    private void prepareScreenEntry(FitnessScreen screen) {
+        if (screen == FitnessScreen.WORKOUT_SESSION) {
+            workoutSessionViewModel.enter(sessionState.activeRecordId());
+            return;
+        }
+        if (screen != FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
+            return;
+        }
+        String recordId = sessionState.activeRecordId();
+        if (recordId == null) {
+            return;
+        }
+        workoutExerciseDetailViewModel.enter(
+                new AccountScope(repository.currentUserId()),
+                recordId,
+                sessionState.activeExerciseId()
+        );
     }
 
     private void applyScreenChrome(boolean dark) {
@@ -1287,6 +1354,16 @@ public final class MainActivity extends Activity implements ScreenHost {
     @Override
     public void rerender() {
         render();
+    }
+
+    @Override
+    public WorkoutSessionViewModel workoutSessionViewModel() {
+        return workoutSessionViewModel;
+    }
+
+    @Override
+    public WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel() {
+        return workoutExerciseDetailViewModel;
     }
 
     @Override
