@@ -110,7 +110,7 @@ public final class RoutineEditorScreen extends BaseScreen {
         }
 
         add(ui.primaryButton("이 루틴으로 운동 시작",
-                        v -> host.startRoutineWorkout(routineExercises)),
+                v -> host.startRoutineWorkoutLegacy(routineExercises)),
                 ui.fullWidthParams(ui.dp(4)));
         section("세부 운동 종목", "종목 추가", () -> host.navigate(FitnessScreen.ROUTINE_ADD));
 

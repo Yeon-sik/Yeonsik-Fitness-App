@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.ui;
 
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
+import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
 import android.widget.EditText;
@@ -18,7 +19,13 @@ public final class StrengthScreen extends BaseScreen {
 
     @Override
     public void render() {
-        host.routineRepository().activeRoutineId();
+        RoutineEntryUiState entryState = host.routineEntryViewModel().getUiState().getValue();
+        if (!(entryState instanceof RoutineEntryUiState.Ready)
+                || !host.currentOwnerId().equals(((RoutineEntryUiState.Ready) entryState).getOwnerId())) {
+            screenHeader("루틴과 세트", "무산소");
+            emptyState("루틴을 불러오는 중입니다.", "기본 루틴과 저장된 운동 구성을 확인하고 있습니다.");
+            return;
+        }
         List<RoutineRepository.RoutineSummary> routines = host.routineRepository().routines();
 
         add(ui().textAction("‹ 피트니스", FitnessUi.COLOR_MUTED,
@@ -40,7 +47,7 @@ public final class StrengthScreen extends BaseScreen {
                         repository().latestCompletedWorkoutDateForRoutine(routine.id, routine.name),
                         () -> {
                             host.routineRepository().selectRoutine(routine.id);
-                            host.startRoutineWorkout(exercises);
+                            host.startRoutineWorkoutLegacy(exercises);
                         },
                         () -> {
                             host.routineRepository().selectRoutine(routine.id);
@@ -68,7 +75,7 @@ public final class StrengthScreen extends BaseScreen {
         ), -1, which -> {
             if (which == 0) {
                 host.routineRepository().selectRoutine(routine.id);
-                host.startRoutineWorkout(exercises);
+                host.startRoutineWorkoutLegacy(exercises);
             } else if (which == 1) {
                 showRenameRoutine(routine);
             } else if (which == 2) {

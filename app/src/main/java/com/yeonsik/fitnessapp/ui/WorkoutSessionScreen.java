@@ -9,8 +9,11 @@ import android.widget.TextView;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.MassFormatter;
 import com.yeonsik.fitnessapp.data.MassUnit;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionExercise;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutVolumePoint;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
-import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 
 import java.util.List;
 import java.util.Arrays;
@@ -37,28 +40,35 @@ public final class WorkoutSessionScreen extends BaseScreen {
             host.replace(FitnessScreen.STRENGTH);
             return;
         }
+        WorkoutSessionUiState state = host.workoutSessionViewModel().getUiState().getValue();
+        if (!(state instanceof WorkoutSessionUiState.Ready)) {
+            emptyState("운동 기록을 불러오는 중입니다.", "저장된 세션을 확인하고 있습니다.");
+            return;
+        }
+        WorkoutSessionUiState.Ready ready = (WorkoutSessionUiState.Ready) state;
+        WorkoutSessionSnapshot session = ready.getSession();
+        if (!host.currentOwnerId().equals(ready.getOwnerId())
+                || !recordId.equals(session.getRecordId())) {
+            emptyState("운동 기록을 불러오는 중입니다.", "저장된 세션을 확인하고 있습니다.");
+            return;
+        }
 
         FitnessUi ui = ui();
         MassUnit displayUnit = MassUnit.orDefault(host.preferredMassUnit());
-        FitnessRepository.SessionInfo info = repository().sessionInfo(recordId);
-        FitnessRepository.SessionMetrics metrics = repository().sessionMetrics(recordId);
-        List<FitnessRepository.SessionExerciseEntry> exercises =
-                repository().sessionExerciseEntries(recordId);
-        boolean inProgress = !"completed".equals(info.status);
-        boolean manualEntry = inProgress && info.durationSeconds > 0;
+        List<WorkoutSessionExercise> exercises = session.getExercises();
+        boolean inProgress = !"completed".equals(session.getStatus());
+        boolean manualEntry = inProgress && session.getDurationSeconds() > 0;
 
         screenHeader(manualEntry ? "수동 등록" : "진행 중",
-                info.title.isEmpty() ? "운동 중" : info.title);
+                session.getTitle().isEmpty() ? "운동 중" : session.getTitle());
         if (inProgress) {
             add(sessionInputMassUnitControl(), ui.fullWidthParams(ui.dp(4)));
         }
 
-        FitnessRepository.SessionExerciseEntry currentExercise = exercises.isEmpty()
-                ? null
-                : WorkoutSessionState.findActiveExercise(
-                        exercises,
-                        host.sessionState().activeExerciseId()
-                );
+        WorkoutSessionExercise currentExercise = findActiveExercise(
+                exercises,
+                host.sessionState().activeExerciseId()
+        );
         if (currentExercise != null) {
             currentExerciseCard(recordId, currentExercise);
         }
@@ -93,16 +103,16 @@ public final class WorkoutSessionScreen extends BaseScreen {
         strip.setGravity(Gravity.CENTER);
         sessionSummary.addView(strip, ui.fullWidthParams(0));
 
-        volumeView.setText(MassFormatter.withUnit(metrics.totalVolumeKg, displayUnit));
-        completedSetsView.setText(metrics.setCount + "개");
-        startView.setText(FitnessUi.formatStartTime(info.startedAt));
+        volumeView.setText(MassFormatter.withUnit(session.getTotalVolumeKg(), displayUnit));
+        completedSetsView.setText(session.getCompletedSetCount() + "개");
+        startView.setText(FitnessUi.formatStartTime(session.getStartedAt()));
         add(sessionSummary);
 
         if (inProgress && !manualEntry) {
-            startElapsedTicker(elapsedView, info.startedAt);
+            startElapsedTicker(elapsedView, session.getStartedAt());
         } else {
-            elapsedView.setText(info.durationSeconds > 0
-                    ? FitnessUi.formatElapsed(info.durationSeconds) : "--:--:--");
+            elapsedView.setText(session.getDurationSeconds() > 0
+                    ? FitnessUi.formatElapsed(session.getDurationSeconds()) : "--:--:--");
         }
 
         if (exercises.isEmpty()) {
@@ -110,8 +120,8 @@ public final class WorkoutSessionScreen extends BaseScreen {
             emptyState("아직 종목이 없습니다.", "종목 추가 버튼으로 시작하세요.");
             add(volumeTrendCard(
                     "최근 4회 총 볼륨",
-                    repository().recentCompletedSessionVolumes(recordId, 4),
-                    metrics.totalVolumeKg,
+                    volumePoints(session.getRecentVolumes()),
+                    session.getTotalVolumeKg(),
                     RecordsAnalysis.TrendCurrentState.IN_PROGRESS,
                     displayUnit
             ));
@@ -119,14 +129,14 @@ public final class WorkoutSessionScreen extends BaseScreen {
         }
 
         section("운동 구성");
-        for (FitnessRepository.SessionExerciseEntry exercise : exercises) {
-            workoutExerciseCard(recordId, exercise);
+        for (WorkoutSessionExercise exercise : exercises) {
+            workoutExerciseCard(exercise);
         }
 
         add(volumeTrendCard(
                 "최근 4회 총 볼륨",
-                repository().recentCompletedSessionVolumes(recordId, 4),
-                metrics.totalVolumeKg,
+                volumePoints(session.getRecentVolumes()),
+                session.getTotalVolumeKg(),
                 RecordsAnalysis.TrendCurrentState.IN_PROGRESS,
                 displayUnit
         ));
@@ -180,7 +190,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
 
     private void currentExerciseCard(
             String recordId,
-            FitnessRepository.SessionExerciseEntry exercise
+            WorkoutSessionExercise exercise
     ) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
@@ -196,23 +206,23 @@ public final class WorkoutSessionScreen extends BaseScreen {
         header.addView(ui.text("세트 기록 우선", 11, ui.tonalInk(), true));
         card.addView(header);
 
-        TextView name = ui.text(exercise.name, 20, ui.tonalInk(), true);
+        TextView name = ui.text(exercise.getName(), 20, ui.tonalInk(), true);
         name.setPadding(0, ui.dp(8), 0, 0);
         card.addView(name);
 
-        List<FitnessRepository.SessionSetEntry> sets = repository().setsForExercise(exercise.id);
-        int completed = WorkoutSessionState.completedSetCount(sets);
-        String progress = sets.isEmpty()
+        int completed = exercise.getCompletedSetCount();
+        int total = exercise.getTotalSetCount();
+        String progress = total == 0
                 ? "첫 세트를 기록하세요"
-                : completed < sets.size()
-                        ? "세트 " + (completed + 1) + " 기록 · " + completed + "/" + sets.size() + " 완료"
+                : completed < total
+                        ? "세트 " + (completed + 1) + " 기록 · " + completed + "/" + total + " 완료"
                         : "모든 세트 완료 · 다음 종목을 선택하세요";
         TextView progressView = ui.text(progress, 13, ui.tonalInk(), false);
         progressView.setPadding(0, ui.dp(3), 0, 0);
         card.addView(progressView);
 
         card.addView(ui.tonalButton("세트 기록 열기", v -> {
-                    host.sessionState().setActiveExerciseId(exercise.id);
+                    host.sessionState().setActiveExerciseId(exercise.getId());
                     host.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
                 }),
                 ui.fullWidthParams(ui.dp(14)));
@@ -242,7 +252,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
         return valueView;
     }
 
-    private void workoutExerciseCard(String recordId, FitnessRepository.SessionExerciseEntry exercise) {
+    private void workoutExerciseCard(WorkoutSessionExercise exercise) {
         FitnessUi ui = ui();
         LinearLayout card = ui.card();
         card.setPadding(ui.dp(12), ui.dp(7), ui.dp(12), ui.dp(7));
@@ -250,7 +260,7 @@ public final class WorkoutSessionScreen extends BaseScreen {
         card.setFocusable(true);
         ui.pressFeedback(card);
         card.setOnClickListener(v -> {
-            host.sessionState().setActiveExerciseId(exercise.id);
+            host.sessionState().setActiveExerciseId(exercise.getId());
             host.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
         });
 
@@ -258,29 +268,33 @@ public final class WorkoutSessionScreen extends BaseScreen {
         headerRow.setOrientation(LinearLayout.HORIZONTAL);
         headerRow.setGravity(Gravity.CENTER_VERTICAL);
         ExerciseCardRenderer.Content content =
-                ExerciseCardRenderer.Content.fromSessionExercise(
-                        exercise,
-                        host.exerciseMasterRepository().getExerciseById(exercise.exerciseId)
+                new ExerciseCardRenderer.Content(
+                        exercise.getExerciseId(),
+                        exercise.getName(),
+                        exercise.getUiPart(),
+                        exercise.getEquipment(),
+                        exercise.getRecordTypeLabel(),
+                        exercise.getFamilyIdentity()
                 );
         exerciseCardRenderer.addContent(headerRow, content, false, false);
         TextView chevron = ui.text("›", 16, FitnessUi.COLOR_TERTIARY, false);
         headerRow.addView(chevron);
         card.addView(headerRow);
 
-        List<FitnessRepository.SessionSetEntry> summarySets = repository().setsForExercise(exercise.id);
-        int completed = WorkoutSessionState.completedSetCount(summarySets);
+        int completed = exercise.getCompletedSetCount();
+        int total = exercise.getTotalSetCount();
 
         LinearLayout progressRow = new LinearLayout(host.activity());
         progressRow.setOrientation(LinearLayout.HORIZONTAL);
         progressRow.setGravity(Gravity.CENTER_VERTICAL);
         progressRow.setPadding(0, ui.dp(4), 0, 0);
-        double ratio = summarySets.isEmpty() ? 0 : (double) completed / summarySets.size();
+        double ratio = total == 0 ? 0 : (double) completed / total;
         View progress = ui.progressBar(ratio, false);
         LinearLayout.LayoutParams progressParams = new LinearLayout.LayoutParams(0, ui.dp(6), 1f);
         progressRow.addView(progress, progressParams);
-        TextView progressText = ui.num(summarySets.isEmpty()
+        TextView progressText = ui.num(total == 0
                 ? "세트 없음"
-                : completed + "/" + summarySets.size() + " 세트", 10, FitnessUi.COLOR_MUTED, true);
+                : completed + "/" + total + " 세트", 10, FitnessUi.COLOR_MUTED, true);
         progressText.setPadding(ui.dp(8), 0, 0, 0);
         progressRow.addView(progressText);
         card.addView(progressRow);
@@ -288,19 +302,34 @@ public final class WorkoutSessionScreen extends BaseScreen {
         add(card);
     }
 
-    private void finishActiveWorkout() {
-        String recordId = host.sessionState().activeRecordId();
-        if (recordId == null) {
-            host.toast("진행 중인 운동을 찾지 못했습니다.");
-            return;
+
+    private static WorkoutSessionExercise findActiveExercise(
+            List<WorkoutSessionExercise> exercises,
+            String activeExerciseId
+    ) {
+        if (exercises == null || exercises.isEmpty()) {
+            return null;
         }
-        if (!repository().hasCompletedWorkout(recordId)) {
-            host.toast("완료된 세트가 1개 이상 필요합니다.");
-            return;
+        if (activeExerciseId != null) {
+            for (WorkoutSessionExercise exercise : exercises) {
+                if (activeExerciseId.equals(exercise.getId())) {
+                    return exercise;
+                }
+            }
         }
-        repository().finishSession(recordId);
-        host.toast("운동을 완료했습니다.");
-        host.replace(FitnessScreen.WORKOUT_SUMMARY);
+        return exercises.get(0);
+    }
+
+    private static List<FitnessRepository.VolumePoint> volumePoints(
+            List<WorkoutVolumePoint> points
+    ) {
+        java.util.ArrayList<FitnessRepository.VolumePoint> result = new java.util.ArrayList<>();
+        for (WorkoutVolumePoint point : points) {
+            result.add(new FitnessRepository.VolumePoint(
+                    point.getDate(), point.getLabel(), point.getVolumeKg()
+            ));
+        }
+        return result;
     }
 
     private void showLeaveSessionDialog() {

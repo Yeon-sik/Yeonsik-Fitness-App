@@ -30,6 +30,11 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.ComponentActivity;
+import androidx.lifecycle.ViewModelProvider;
+
+import com.yeonsik.fitnessapp.app.AppContainer;
+import com.yeonsik.fitnessapp.app.SavedStateViewModelFactory;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
@@ -41,6 +46,7 @@ import com.yeonsik.fitnessapp.config.MassUnitPreferences;
 import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
+import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.data.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
@@ -83,6 +89,20 @@ import com.yeonsik.fitnessapp.ui.WorkoutExerciseDetailScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutSessionScreen;
 import com.yeonsik.fitnessapp.ui.WorkoutSummaryScreen;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState;
+import com.yeonsik.fitnessapp.feature.cardio.data.LegacyCardioRepositoryAdapter;
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
+import com.yeonsik.fitnessapp.feature.routine.application.EnsureActiveRoutine;
+import com.yeonsik.fitnessapp.feature.routine.data.LegacyRoutineRepositoryAdapter;
+import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
+import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
+import com.yeonsik.fitnessapp.feature.home.data.LegacyHomeRepositoryAdapter;
+import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
+import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -97,6 +117,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.EnumMap;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -106,7 +127,7 @@ import java.util.concurrent.Executors;
  * 얇은 진입점: 의존성 초기화, 현재 화면 상태, 하단 내비게이션, 화면 간 공유 액션만 담당한다.
  * 화면 렌더링은 ui 패키지의 각 Screen 클래스가, 공통 스타일은 FitnessUi가 담당한다.
  */
-public final class MainActivity extends Activity implements ScreenHost {
+public final class MainActivity extends ComponentActivity implements ScreenHost {
 
     private enum Tab {
         HOME,
@@ -153,6 +174,12 @@ public final class MainActivity extends Activity implements ScreenHost {
     private String lastKnownDate = LocalDate.now().toString();
 
     private FitnessRepository repository;
+    private AppContainer appContainer;
+    private WorkoutSessionViewModel workoutSessionViewModel;
+    private WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel;
+    private CardioSessionViewModel cardioSessionViewModel;
+    private RoutineEntryViewModel routineEntryViewModel;
+    private HomeViewModel homeViewModel;
     private FitnessDatabaseHelper databaseHelper;
     private NutritionCatalogRepository nutritionCatalogRepository;
     private CardioRepository cardioRepository;
@@ -246,6 +273,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         priceTraceAuthManager = new SupabaseAuthManager(priceTraceConfigStore);
         databaseHelper = new FitnessDatabaseHelper(this);
         repository = new FitnessRepository(databaseHelper, supabaseConfig.effectiveUserId());
+        appContainer = new AppContainer(repository);
         nutritionCatalogRepository = new NutritionCatalogRepository(
                 databaseHelper,
                 nutritionSupabaseConfig.effectiveUserId(),
@@ -257,6 +285,7 @@ public final class MainActivity extends Activity implements ScreenHost {
         routineRepository = new RoutineRepository(databaseHelper, supabaseConfig.effectiveUserId());
         developmentRepository = new DevelopmentRepository(databaseHelper, supabaseConfig.effectiveUserId());
         supplementRepository = new SupplementRepository(databaseHelper, supabaseConfig.effectiveUserId());
+        initializeFeatureViewModels();
         syncManager = new SupabaseSyncManager(databaseHelper);
         applySyncStatusFromConfig();
 
@@ -271,6 +300,178 @@ public final class MainActivity extends Activity implements ScreenHost {
         render();
         handleDebugSessionProvisioning(getIntent());
         handleCardioIntent(getIntent());
+    }
+
+    private void initializeFeatureViewModels() {
+        workoutSessionViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new WorkoutSessionViewModel(
+                                handle,
+                                appContainer.getWorkoutRepository(),
+                                appContainer.getCompleteWorkout()
+                        )
+                )
+        ).get(WorkoutSessionViewModel.class);
+        workoutSessionViewModel.getUiState().observe(this, state -> {
+            if (currentScreen != FitnessScreen.WORKOUT_SESSION) {
+                return;
+            }
+            if (state instanceof WorkoutSessionUiState.Ready) {
+                WorkoutSessionUiState.Ready ready = (WorkoutSessionUiState.Ready) state;
+                if (ready.getOwnerId().equals(repository.currentUserId())
+                        && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
+                    rerender();
+                }
+            } else if (state instanceof WorkoutSessionUiState.Missing) {
+                WorkoutSessionUiState.Missing missing = (WorkoutSessionUiState.Missing) state;
+                if (missing.getOwnerId().equals(repository.currentUserId())
+                        && missing.getRecordId().equals(sessionState.activeRecordId())) {
+                    sessionState.clearIfMatches(missing.getRecordId());
+                    replace(FitnessScreen.STRENGTH);
+                }
+            } else if (state instanceof WorkoutSessionUiState.Completed) {
+                WorkoutSessionUiState.Completed completed = (WorkoutSessionUiState.Completed) state;
+                if (completed.getOwnerId().equals(repository.currentUserId())
+                        && completed.getRecordId().equals(sessionState.activeRecordId())) {
+                    toast("운동을 완료했습니다.");
+                    replace(FitnessScreen.WORKOUT_SUMMARY);
+                }
+            } else if (state instanceof WorkoutSessionUiState.DiscardedEmptySession) {
+                WorkoutSessionUiState.DiscardedEmptySession discarded =
+                        (WorkoutSessionUiState.DiscardedEmptySession) state;
+                if (discarded.getOwnerId().equals(repository.currentUserId())
+                        && discarded.getRecordId().equals(sessionState.activeRecordId())) {
+                    sessionState.clearIfMatches(discarded.getRecordId());
+                    toast("수행한 세트가 없어 운동을 저장하지 않았습니다.");
+                    replace(FitnessScreen.STRENGTH);
+                }
+            } else if (state instanceof WorkoutSessionUiState.Error) {
+                WorkoutSessionUiState.Error error = (WorkoutSessionUiState.Error) state;
+                if (error.getOwnerId().equals(repository.currentUserId())) {
+                    toast(error.getMessage());
+                }
+            }
+        });
+        workoutExerciseDetailViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new WorkoutExerciseDetailViewModel(
+                                handle,
+                                appContainer.getWorkoutRepository(),
+                                appContainer.getInitializeWorkoutExercise()
+                        )
+                )
+        ).get(WorkoutExerciseDetailViewModel.class);
+        workoutExerciseDetailViewModel.getUiState().observe(this, state -> {
+            if (state instanceof WorkoutExerciseDetailUiState.Ready) {
+                WorkoutExerciseDetailUiState.Ready ready =
+                        (WorkoutExerciseDetailUiState.Ready) state;
+                if (currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL
+                        && ready.getOwnerId().equals(repository.currentUserId())
+                        && ready.getDetail().getRecordId().equals(sessionState.activeRecordId())) {
+                    sessionState.setActiveExerciseId(ready.getDetail().getActiveExercise().id);
+                    rerender();
+                }
+            }
+        });
+        cardioSessionViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new CardioSessionViewModel(
+                                handle,
+                                new LegacyCardioRepositoryAdapter(cardioRepository, repository)
+                        )
+                )
+        ).get(CardioSessionViewModel.class);
+        cardioSessionViewModel.getUiState().observe(this, state -> {
+            if (state instanceof CardioSessionUiState.Ready) {
+                CardioSessionUiState.Ready ready = (CardioSessionUiState.Ready) state;
+                if ((currentScreen == FitnessScreen.CARDIO_SESSION
+                        || currentScreen == FitnessScreen.CARDIO_SUMMARY)
+                        && ready.getOwnerId().equals(repository.currentUserId())
+                        && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
+                    if (currentScreen == FitnessScreen.CARDIO_SUMMARY) {
+                        rerender();
+                    } else {
+                        CardioSessionScreen screen = (CardioSessionScreen) screens.get(FitnessScreen.CARDIO_SESSION);
+                        if (!screen.hasRenderedSnapshot(
+                                ready.getSession().getRecordId(),
+                                ready.getSession().getStatus())) {
+                            rerender();
+                        }
+                    }
+                }
+            } else if (state instanceof CardioSessionUiState.Missing) {
+                CardioSessionUiState.Missing missing = (CardioSessionUiState.Missing) state;
+                if (currentScreen == FitnessScreen.CARDIO_SESSION
+                        && missing.getOwnerId().equals(repository.currentUserId())
+                        && missing.getRecordId().equals(sessionState.activeRecordId())) {
+                    replace(FitnessScreen.CARDIO);
+                }
+            }
+        });
+        routineEntryViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new RoutineEntryViewModel(
+                                handle,
+                                new EnsureActiveRoutine(
+                                        new LegacyRoutineRepositoryAdapter(routineRepository, repository)
+                                )
+                        )
+                )
+        ).get(RoutineEntryViewModel.class);
+        routineEntryViewModel.getUiState().observe(this, state -> {
+            if (state instanceof RoutineEntryUiState.Ready) {
+                RoutineEntryUiState.Ready ready = (RoutineEntryUiState.Ready) state;
+                if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
+                        && ready.getOwnerId().equals(repository.currentUserId())) {
+                    rerender();
+                }
+            } else if (state instanceof RoutineEntryUiState.Error) {
+                RoutineEntryUiState.Error error = (RoutineEntryUiState.Error) state;
+                if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
+                        && error.getOwnerId().equals(repository.currentUserId())) {
+                    toast(error.getMessage());
+                }
+            }
+        });
+        homeViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new HomeViewModel(
+                                handle,
+                                new LegacyHomeRepositoryAdapter(repository, routineRepository)
+                        )
+                )
+        ).get(HomeViewModel.class);
+        homeViewModel.getUiState().observe(this, state -> {
+            if (state instanceof HomeUiState.Ready) {
+                HomeUiState.Ready ready = (HomeUiState.Ready) state;
+                if (currentScreen == FitnessScreen.HOME
+                        && ready.getSnapshot().getOwnerId().equals(repository.currentUserId())
+                        && ready.getSnapshot().getToday().equals(today())) {
+                    rerender();
+                }
+            } else if (state instanceof HomeUiState.Error) {
+                HomeUiState.Error error = (HomeUiState.Error) state;
+                if (currentScreen == FitnessScreen.HOME
+                        && error.getOwnerId().equals(repository.currentUserId())) {
+                    toast(error.getMessage());
+                }
+            }
+        });
     }
 
     @Override
@@ -1103,6 +1304,9 @@ public final class MainActivity extends Activity implements ScreenHost {
             }
         }
         content.removeAllViews();
+        if (screenChanged) {
+            prepareScreenEntry(currentScreen);
+        }
         refreshNavState();
         lastRenderedScreen = currentScreen;
         boolean sessionScreen = currentScreen == FitnessScreen.WORKOUT_SESSION;
@@ -1131,6 +1335,41 @@ public final class MainActivity extends Activity implements ScreenHost {
                 ui.screenEnter(content);
             }
         }
+    }
+
+    private void prepareScreenEntry(FitnessScreen screen) {
+        if (screen == FitnessScreen.WORKOUT_SESSION) {
+            workoutSessionViewModel.enter(
+                    new AccountScope(repository.currentUserId()),
+                    sessionState.activeRecordId()
+            );
+            return;
+        }
+        if (screen == FitnessScreen.STRENGTH || screen == FitnessScreen.HOME) {
+            routineEntryViewModel.enter(new AccountScope(repository.currentUserId()));
+            if (screen == FitnessScreen.HOME) {
+                homeViewModel.enter(new AccountScope(repository.currentUserId()), today());
+            }
+            return;
+        }
+        if (screen != FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
+            if (screen == FitnessScreen.CARDIO_SESSION || screen == FitnessScreen.CARDIO_SUMMARY) {
+                cardioSessionViewModel.enter(
+                        new AccountScope(repository.currentUserId()),
+                        sessionState.activeRecordId()
+                );
+            }
+            return;
+        }
+        String recordId = sessionState.activeRecordId();
+        if (recordId == null) {
+            return;
+        }
+        workoutExerciseDetailViewModel.enter(
+                new AccountScope(repository.currentUserId()),
+                recordId,
+                sessionState.activeExerciseId()
+        );
     }
 
     private void applyScreenChrome(boolean dark) {
@@ -1220,6 +1459,11 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    public String currentOwnerId() {
+        return repository.currentUserId();
+    }
+
+    @Override
     public NutritionCatalogRepository nutritionCatalogRepository() {
         return nutritionCatalogRepository;
     }
@@ -1290,8 +1534,38 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
+    public WorkoutSessionViewModel workoutSessionViewModel() {
+        return workoutSessionViewModel;
+    }
+
+    @Override
+    public WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel() {
+        return workoutExerciseDetailViewModel;
+    }
+
+    @Override
+    public CardioSessionViewModel cardioSessionViewModel() {
+        return cardioSessionViewModel;
+    }
+
+    @Override
+    public RoutineEntryViewModel routineEntryViewModel() {
+        return routineEntryViewModel;
+    }
+
+    @Override
+    public HomeViewModel homeViewModel() {
+        return homeViewModel;
+    }
+
+    @Override
     public void toast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
+    }
+
+    @Override
+    public void selectRoutine(String routineId) {
+        routineRepository.selectRoutine(routineId);
     }
 
     @Override
@@ -1325,16 +1599,7 @@ public final class MainActivity extends Activity implements ScreenHost {
             toast("진행 중인 운동을 찾지 못했습니다.");
             return;
         }
-        if (!repository.hasCompletedWorkout(recordId)) {
-            repository.deleteSession(recordId);
-            sessionState.clearIfMatches(recordId);
-            toast("수행한 세트가 없어 운동을 저장하지 않았습니다.");
-            replace(FitnessScreen.STRENGTH);
-            return;
-        }
-        repository.finishSession(recordId);
-        toast("운동을 완료했습니다.");
-        replace(FitnessScreen.WORKOUT_SUMMARY);
+        workoutSessionViewModel.finish(new AccountScope(repository.currentUserId()), recordId);
     }
 
     @Override
@@ -1352,7 +1617,9 @@ public final class MainActivity extends Activity implements ScreenHost {
     }
 
     @Override
-    public void startRoutineWorkout(List<RoutineExerciseInstance> routineExercises) {
+    public void startRoutineWorkout(
+            List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> routineExercises
+    ) {
         if (routineExercises == null || routineExercises.isEmpty()) {
             toast("만들어진 루틴이 없습니다.");
             return;
@@ -1361,10 +1628,50 @@ public final class MainActivity extends Activity implements ScreenHost {
             return;
         }
 
+        List<RoutineExerciseInstance> legacyRoutineExercises = new ArrayList<>();
+        for (com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance exercise
+                : routineExercises) {
+            legacyRoutineExercises.add(new RoutineExerciseInstance(
+                    exercise.id,
+                    exercise.exerciseId,
+                    exercise.nameKo,
+                    exercise.uiPart,
+                    exercise.primarySubPart,
+                    exercise.equipment,
+                    exercise.recordType,
+                    exercise.order,
+                    exercise.familyIdentity
+            ));
+        }
         String recordId = repository.createSessionFromRoutine(today(),
-                routineRepository.activeRoutineName(), routineRepository.activeRoutineId(), routineExercises);
+                routineRepository.activeRoutineName(), routineRepository.activeRoutineId(),
+                legacyRoutineExercises);
         toast("루틴 운동을 시작했습니다.");
         openWorkoutSession(recordId);
+    }
+
+    @Override
+    public void startRoutineWorkoutLegacy(List<RoutineExerciseInstance> routineExercises) {
+        if (routineExercises == null || routineExercises.isEmpty()) {
+            toast("만들어진 루틴이 없습니다.");
+            return;
+        }
+        List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> featureExercises =
+                new ArrayList<>();
+        for (RoutineExerciseInstance exercise : routineExercises) {
+            featureExercises.add(new com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance(
+                    exercise.id,
+                    exercise.exerciseId,
+                    exercise.nameKo,
+                    exercise.uiPart,
+                    exercise.primarySubPart,
+                    exercise.equipment,
+                    exercise.recordType,
+                    exercise.order,
+                    exercise.familyIdentity
+            ));
+        }
+        startRoutineWorkout(featureExercises);
     }
 
     @Override

@@ -20,6 +20,11 @@ import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.supplement.SupplementRepository;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
+import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
+import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 
 import java.util.List;
 
@@ -36,6 +41,9 @@ public interface ScreenHost {
 
     FitnessRepository repository();
 
+    /** Owner id used to reject stale ViewModel work after an account switch. */
+    String currentOwnerId();
+
     NutritionCatalogRepository nutritionCatalogRepository();
 
     CardioRepository cardioRepository();
@@ -47,6 +55,16 @@ public interface ScreenHost {
     ExerciseMasterRepository exerciseMasterRepository();
 
     WorkoutSessionState sessionState();
+
+    WorkoutSessionViewModel workoutSessionViewModel();
+
+    WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel();
+
+    CardioSessionViewModel cardioSessionViewModel();
+
+    RoutineEntryViewModel routineEntryViewModel();
+
+    HomeViewModel homeViewModel();
 
     String today();
 
@@ -68,6 +86,8 @@ public interface ScreenHost {
 
     void toast(String message);
 
+    void selectRoutine(String routineId);
+
     // ── 화면 간 공유 액션 ─────────────────────────────────────────────
 
     void openWorkoutSession(String recordId);
@@ -78,7 +98,11 @@ public interface ScreenHost {
 
     void continueWorkoutIfAvailable();
 
-    void startRoutineWorkout(List<RoutineExerciseInstance> exercises);
+    void startRoutineWorkout(
+            List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> exercises
+    );
+
+    void startRoutineWorkoutLegacy(List<RoutineExerciseInstance> exercises);
 
     String currentWorkoutRecordId();
 
