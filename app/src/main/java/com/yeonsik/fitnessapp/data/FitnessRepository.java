@@ -950,15 +950,15 @@ public final class FitnessRepository {
     }
 
     public BodyMetricEntry bodyMetricForDate(String date) {
-        return bodyMetricsRepository.bodyMetricForDate(date);
+        return toLegacyBodyMetricEntry(bodyMetricsRepository.bodyMetricForDate(date));
     }
 
     public BodyMetricEntry bodyMetricEntryById(String id) {
-        return bodyMetricsRepository.bodyMetricEntryById(id);
+        return toLegacyBodyMetricEntry(bodyMetricsRepository.bodyMetricEntryById(id));
     }
 
     public List<BodyMetricEntry> bodyMetricEntriesForDate(String date) {
-        return bodyMetricsRepository.bodyMetricEntriesForDate(date);
+        return toLegacyBodyMetricEntries(bodyMetricsRepository.bodyMetricEntriesForDate(date));
     }
 
     public void updateBodyMetric(String id, String date, double weightKg, String memo) {
@@ -3505,7 +3505,7 @@ public final class FitnessRepository {
 
     /** 선택 날짜에 체중 기록이 없으면 그 이전의 가장 최근 기록을 사용한다. */
     public BodyMetricEntry latestBodyMetricOnOrBefore(String date) {
-        return bodyMetricsRepository.latestBodyMetricOnOrBefore(date);
+        return toLegacyBodyMetricEntry(bodyMetricsRepository.latestBodyMetricOnOrBefore(date));
     }
 
     /**
@@ -5398,6 +5398,25 @@ public final class FitnessRepository {
 
     public List<String> bodyMetricsForDate(String date) {
         return bodyMetricsRepository.bodyMetricsForDate(date);
+    }
+
+    private static BodyMetricEntry toLegacyBodyMetricEntry(
+            com.yeonsik.fitnessapp.data.BodyMetricEntry entry
+    ) {
+        if (entry == null) {
+            return null;
+        }
+        return new BodyMetricEntry(entry.id, entry.date, entry.weightKg, entry.memo);
+    }
+
+    private static List<BodyMetricEntry> toLegacyBodyMetricEntries(
+            List<com.yeonsik.fitnessapp.data.BodyMetricEntry> entries
+    ) {
+        List<BodyMetricEntry> converted = new ArrayList<>();
+        for (com.yeonsik.fitnessapp.data.BodyMetricEntry entry : entries) {
+            converted.add(toLegacyBodyMetricEntry(entry));
+        }
+        return converted;
     }
 
     public List<String> meals() {

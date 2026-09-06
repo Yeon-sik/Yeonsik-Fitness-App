@@ -34,7 +34,7 @@ public final class BodyMetricsRepository {
     public String addBodyMetric(String date, double weightKg, String memo) {
         String recordDate = requireRecordDate(date);
         double validatedWeight = requireBodyWeight(weightKg);
-        FitnessRepository.BodyMetricEntry existing = bodyMetricForDate(recordDate);
+        BodyMetricEntry existing = bodyMetricForDate(recordDate);
         if (existing != null) {
             updateBodyMetric(existing.id, recordDate, validatedWeight, memo);
             return existing.id;
@@ -55,12 +55,12 @@ public final class BodyMetricsRepository {
         return id;
     }
 
-    public FitnessRepository.BodyMetricEntry bodyMetricForDate(String date) {
-        List<FitnessRepository.BodyMetricEntry> entries = bodyMetricEntriesForDate(date);
+    public BodyMetricEntry bodyMetricForDate(String date) {
+        List<BodyMetricEntry> entries = bodyMetricEntriesForDate(date);
         return entries.isEmpty() ? null : entries.get(0);
     }
 
-    public FitnessRepository.BodyMetricEntry bodyMetricEntryById(String id) {
+    public BodyMetricEntry bodyMetricEntryById(String id) {
         if (emptyToNull(id) == null) {
             return null;
         }
@@ -74,8 +74,8 @@ public final class BodyMetricsRepository {
         return null;
     }
 
-    public List<FitnessRepository.BodyMetricEntry> bodyMetricEntriesForDate(String date) {
-        List<FitnessRepository.BodyMetricEntry> rows = new ArrayList<>();
+    public List<BodyMetricEntry> bodyMetricEntriesForDate(String date) {
+        List<BodyMetricEntry> rows = new ArrayList<>();
         String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
                 + "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both')";
         String[] args = new String[]{userId};
@@ -127,7 +127,7 @@ public final class BodyMetricsRepository {
     }
 
     /** Returns the newest visible entry on or before the requested date. */
-    public FitnessRepository.BodyMetricEntry latestBodyMetricOnOrBefore(String date) {
+    public BodyMetricEntry latestBodyMetricOnOrBefore(String date) {
         String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
                 + "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both') "
                 + "AND date <= ? ORDER BY date DESC, updated_at DESC LIMIT 1";
@@ -159,8 +159,8 @@ public final class BodyMetricsRepository {
         return rows;
     }
 
-    private FitnessRepository.BodyMetricEntry bodyMetricEntry(Cursor cursor) {
-        return new FitnessRepository.BodyMetricEntry(
+    private BodyMetricEntry bodyMetricEntry(Cursor cursor) {
+        return new BodyMetricEntry(
                 cursor.getString(0),
                 cursor.getString(1),
                 cursor.getDouble(2),
@@ -210,7 +210,7 @@ public final class BodyMetricsRepository {
                 return fallback;
             }
             String normalized = value.toString().trim();
-            return MealEntryPolicy.isMissingText(normalized) ? fallback : normalized;
+            return TextValuePolicy.isMissing(normalized) ? fallback : normalized;
         } catch (Exception exception) {
             return fallback;
         }
