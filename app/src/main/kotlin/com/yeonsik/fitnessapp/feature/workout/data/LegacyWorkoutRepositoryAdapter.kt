@@ -3,6 +3,7 @@ package com.yeonsik.fitnessapp.feature.workout.data
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.FitnessRepository
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
@@ -53,6 +54,18 @@ class LegacyWorkoutRepositoryAdapter(
             )
         )
         return true
+    }
+
+    override fun completeIfEligible(scope: AccountScope, recordId: String): WorkoutCompletion {
+        requireScope(scope)
+        if (!legacy.hasCompletedWorkout(recordId)) return WorkoutCompletion.NO_COMPLETED_SETS
+        legacy.finishSession(recordId)
+        return WorkoutCompletion.COMPLETED
+    }
+
+    override fun discard(scope: AccountScope, recordId: String) {
+        requireScope(scope)
+        legacy.deleteSession(recordId)
     }
 
     private fun FitnessRepository.SessionExerciseEntry.asFeatureModel() = WorkoutExercise(

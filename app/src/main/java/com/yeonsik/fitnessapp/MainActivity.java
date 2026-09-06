@@ -92,6 +92,7 @@ import com.yeonsik.fitnessapp.ui.WorkoutSummaryScreen;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -290,8 +291,42 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private void initializeWorkoutViewModels() {
         workoutSessionViewModel = new ViewModelProvider(
                 this,
-                new SavedStateViewModelFactory<>(this, null, WorkoutSessionViewModel::new)
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new WorkoutSessionViewModel(
+                                handle,
+                                appContainer.getCompleteWorkout()
+                        )
+                )
         ).get(WorkoutSessionViewModel.class);
+        workoutSessionViewModel.getUiState().observe(this, state -> {
+            if (currentScreen != FitnessScreen.WORKOUT_SESSION) {
+                return;
+            }
+            if (state instanceof WorkoutSessionUiState.Completed) {
+                WorkoutSessionUiState.Completed completed = (WorkoutSessionUiState.Completed) state;
+                if (completed.getOwnerId().equals(repository.currentUserId())
+                        && completed.getRecordId().equals(sessionState.activeRecordId())) {
+                    toast("운동을 완료했습니다.");
+                    replace(FitnessScreen.WORKOUT_SUMMARY);
+                }
+            } else if (state instanceof WorkoutSessionUiState.DiscardedEmptySession) {
+                WorkoutSessionUiState.DiscardedEmptySession discarded =
+                        (WorkoutSessionUiState.DiscardedEmptySession) state;
+                if (discarded.getOwnerId().equals(repository.currentUserId())
+                        && discarded.getRecordId().equals(sessionState.activeRecordId())) {
+                    sessionState.clearIfMatches(discarded.getRecordId());
+                    toast("수행한 세트가 없어 운동을 저장하지 않았습니다.");
+                    replace(FitnessScreen.STRENGTH);
+                }
+            } else if (state instanceof WorkoutSessionUiState.Error) {
+                WorkoutSessionUiState.Error error = (WorkoutSessionUiState.Error) state;
+                if (error.getOwnerId().equals(repository.currentUserId())) {
+                    toast(error.getMessage());
+                }
+            }
+        });
         workoutExerciseDetailViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -1402,16 +1437,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("진행 중인 운동을 찾지 못했습니다.");
             return;
         }
-        if (!repository.hasCompletedWorkout(recordId)) {
-            repository.deleteSession(recordId);
-            sessionState.clearIfMatches(recordId);
-            toast("수행한 세트가 없어 운동을 저장하지 않았습니다.");
-            replace(FitnessScreen.STRENGTH);
-            return;
-        }
-        repository.finishSession(recordId);
-        toast("운동을 완료했습니다.");
-        replace(FitnessScreen.WORKOUT_SUMMARY);
+        workoutSessionViewModel.finish(new AccountScope(repository.currentUserId()), recordId);
     }
 
     @Override
