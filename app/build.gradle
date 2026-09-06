@@ -1,5 +1,6 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
+apply plugin: "com.google.devtools.ksp"
 apply from: rootProject.file("gradle/exercise-illustration-assets.gradle")
 
 def localProperties = new Properties()
@@ -245,6 +246,10 @@ android {
     }
 }
 
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 tasks.register("verifyReleaseConfiguration") {
     doLast {
         [
@@ -333,6 +338,9 @@ dependencies {
     implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7"
     implementation "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7"
     implementation "com.google.android.gms:play-services-location:21.4.0"
+    implementation "androidx.room:room-runtime:2.8.4"
+    implementation "androidx.room:room-ktx:2.8.4"
+    ksp "androidx.room:room-compiler:2.8.4"
     implementation "com.google.android.gms:play-services-maps:20.0.0"
     testImplementation "junit:junit:4.13.2"
     androidTestImplementation "androidx.test:core:1.7.0"
