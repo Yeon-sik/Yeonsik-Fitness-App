@@ -31,6 +31,7 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
+import androidx.compose.ui.platform.ComposeView;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.yeonsik.fitnessapp.app.AppContainer;
@@ -104,6 +105,7 @@ import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.home.data.LegacyHomeRepositoryAdapter;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
+import com.yeonsik.fitnessapp.feature.home.ui.ComposeHomeScreen;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -437,7 +439,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 RoutineEntryUiState.Ready ready = (RoutineEntryUiState.Ready) state;
                 if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
                         && ready.getOwnerId().equals(repository.currentUserId())) {
-                    rerender();
+                    if (currentScreen != FitnessScreen.HOME) {
+                        rerender();
+                    }
                 }
             } else if (state instanceof RoutineEntryUiState.Error) {
                 RoutineEntryUiState.Error error = (RoutineEntryUiState.Error) state;
@@ -464,7 +468,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 if (currentScreen == FitnessScreen.HOME
                         && ready.getSnapshot().getOwnerId().equals(repository.currentUserId())
                         && ready.getSnapshot().getToday().equals(today())) {
-                    rerender();
+                    // Compose observes this state itself. Rebuilding the whole
+                    // view tree here would interrupt any pending accessibility
+                    // focus without adding a new side effect.
                 }
             } else if (state instanceof HomeUiState.Error) {
                 HomeUiState.Error error = (HomeUiState.Error) state;
@@ -1329,6 +1335,11 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         bottomNav.setVisibility(isBottomNavigationVisible(currentScreen)
                 ? View.VISIBLE : View.GONE);
 
+        if (currentScreen == FitnessScreen.HOME) {
+            renderComposeHome();
+            return;
+        }
+
         BaseScreen screen = screens.get(currentScreen);
         if (screen != null) {
             screen.render();
@@ -1337,6 +1348,19 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 ui.screenEnter(content);
             }
         }
+    }
+
+    private void renderComposeHome() {
+        ComposeView composeView = new ComposeView(this);
+        ComposeHomeScreen.install(
+                composeView,
+                this,
+                currentOwnerId(),
+                today(),
+                preferredMassUnit(),
+                isDarkTheme()
+        );
+        content.addView(composeView, ui.fullWidthParams(0));
     }
 
     private void prepareScreenEntry(FitnessScreen screen) {
