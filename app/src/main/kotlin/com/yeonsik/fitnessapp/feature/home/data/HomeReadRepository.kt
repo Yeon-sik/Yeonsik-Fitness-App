@@ -18,7 +18,7 @@ import com.yeonsik.fitnessapp.routine.RoutineRepository
 import java.time.DayOfWeek
 import java.time.LocalDate
 
-class LegacyHomeRepositoryAdapter(
+class HomeReadRepository(
     private val fitness: FitnessRepository,
     private val routines: RoutineRepository
 ) : HomeRepositoryApi {
@@ -96,3 +96,4 @@ class LegacyHomeRepositoryAdapter(
         return HomeNutritionTotals(itemCount(), mapped)
     }
 }
+
