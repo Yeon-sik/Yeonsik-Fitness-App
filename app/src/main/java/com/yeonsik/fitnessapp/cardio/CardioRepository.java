@@ -9,12 +9,15 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi;
+import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
 
 /**
  * GPS 유산소의 실행 상태와 원시 좌표를 로컬 SQLite에 저장한다.
  * 공유 가능한 완료 요약은 FitnessRepository를 통해 기존 Fitness Record Contract에 기록한다.
  */
-public final class CardioRepository {
+public final class CardioRepository implements CardioRepositoryApi {
     public static final String STATUS_TRACKING = "tracking";
     public static final String STATUS_PAUSED = "paused";
     public static final String STATUS_COMPLETED = "completed";
@@ -132,6 +135,28 @@ public final class CardioRepository {
                     cursor.isNull(8) ? null : cursor.getDouble(8)
             );
         }
+    }
+
+    @Override
+    public CardioSessionSnapshot loadSession(AccountScope scope, String recordId) {
+        requireScope(scope);
+        SessionSnapshot snapshot = session(recordId);
+        if (snapshot == null) {
+            return null;
+        }
+        return new CardioSessionSnapshot(
+                snapshot.recordId,
+                snapshot.activityType.id(),
+                snapshot.activityType.labelKo(),
+                snapshot.status,
+                snapshot.startedAtEpochMillis,
+                snapshot.lastResumedAtEpochMillis,
+                snapshot.activeDurationMillis,
+                snapshot.distanceMeters,
+                snapshot.acceptedPointCount,
+                snapshot.gpsStatus,
+                snapshot.averageHeartRateBpm
+        );
     }
 
     /**
@@ -433,6 +458,12 @@ public final class CardioRepository {
 
     private String userId() {
         return fitnessRepository.currentUserId();
+    }
+
+    private void requireScope(AccountScope scope) {
+        if (scope == null || !scope.getOwnerId().equals(userId())) {
+            throw new IllegalStateException("The account changed while the cardio operation was pending.");
+        }
     }
 
     private static int safeSeconds(long durationMillis) {

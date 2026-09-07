@@ -12,6 +12,8 @@ import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
@@ -21,7 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public final class RoutineRepository {
+public final class RoutineRepository implements RoutineRepositoryApi {
     public static final int MAX_ROUTINES = 5;
     private static final String DEVICE_ID = "android-local";
     private static final String DEFAULT_ROUTINE_NAME = "나만의 루틴";
@@ -133,6 +135,14 @@ public final class RoutineRepository {
             activeRoutineId = ensureDefaultRoutine();
         }
         return activeRoutineId;
+    }
+
+    @Override
+    public String ensureActiveRoutine(AccountScope scope) {
+        if (scope == null || !scope.getOwnerId().equals(userId)) {
+            throw new IllegalStateException("The account changed while the routine operation was pending.");
+        }
+        return activeRoutineId();
     }
 
     public String activeRoutineName() {
