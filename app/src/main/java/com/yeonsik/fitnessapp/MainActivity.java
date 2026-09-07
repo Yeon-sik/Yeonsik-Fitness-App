@@ -35,6 +35,8 @@ import androidx.lifecycle.ViewModelProvider;
 
 import com.yeonsik.fitnessapp.app.AppContainer;
 import com.yeonsik.fitnessapp.app.SavedStateViewModelFactory;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
@@ -48,7 +50,6 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.data.FleekCsvImporter;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.LocalDataBackupService;
 import com.yeonsik.fitnessapp.data.MassFormatter;
@@ -180,7 +181,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private CardioSessionViewModel cardioSessionViewModel;
     private RoutineEntryViewModel routineEntryViewModel;
     private HomeViewModel homeViewModel;
-    private FitnessDatabaseHelper databaseHelper;
+    private FitnessRoomDatabase roomDatabase;
     private NutritionCatalogRepository nutritionCatalogRepository;
     private CardioRepository cardioRepository;
     private ExerciseMasterRepository exerciseMasterRepository;
@@ -271,22 +272,23 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         authManager = new SupabaseAuthManager(configStore);
         nutritionAuthManager = new SupabaseAuthManager(nutritionConfigStore);
         priceTraceAuthManager = new SupabaseAuthManager(priceTraceConfigStore);
-        databaseHelper = new FitnessDatabaseHelper(this);
-        repository = new FitnessRepository(databaseHelper, supabaseConfig.effectiveUserId());
+        roomDatabase = FitnessRoomDatabaseProvider.get(this);
+        repository = new FitnessRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
         appContainer = new AppContainer(repository);
         nutritionCatalogRepository = new NutritionCatalogRepository(
-                databaseHelper,
+                roomDatabase,
+                this,
                 nutritionSupabaseConfig.effectiveUserId(),
                 nutritionSupabaseConfig
         );
-        cardioRepository = new CardioRepository(databaseHelper, repository);
+        cardioRepository = new CardioRepository(roomDatabase, repository, this);
         repository.reconcileSharedWorkoutSummaries();
         exerciseMasterRepository = new ExerciseMasterRepository(this);
-        routineRepository = new RoutineRepository(databaseHelper, supabaseConfig.effectiveUserId());
-        developmentRepository = new DevelopmentRepository(databaseHelper, supabaseConfig.effectiveUserId());
-        supplementRepository = new SupplementRepository(databaseHelper, supabaseConfig.effectiveUserId());
+        routineRepository = new RoutineRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
+        developmentRepository = new DevelopmentRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
+        supplementRepository = new SupplementRepository(roomDatabase, supabaseConfig.effectiveUserId(), this);
         initializeFeatureViewModels();
-        syncManager = new SupabaseSyncManager(databaseHelper);
+        syncManager = new SupabaseSyncManager(roomDatabase, this);
         applySyncStatusFromConfig();
 
         themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
@@ -2575,7 +2577,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     private LocalDataBackupService localDataBackupService() {
         return new LocalDataBackupService(
-                databaseHelper,
+                roomDatabase,
+                this,
                 repository.currentUserId(),
                 nutritionSupabaseConfig.effectiveUserId()
         );

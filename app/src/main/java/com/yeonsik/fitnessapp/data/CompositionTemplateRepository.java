@@ -4,6 +4,9 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,15 +17,24 @@ import java.util.UUID;
 public final class CompositionTemplateRepository {
     private static final String DEVICE_ID = "android-local";
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
     private String userId;
 
     public CompositionTemplateRepository(FitnessDatabaseHelper dbHelper, String userId) {
         if (dbHelper == null) {
             throw new IllegalArgumentException("Database helper is required.");
         }
-        this.dbHelper = dbHelper;
+        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
         this.userId = normalizeUserId(userId);
+    }
+
+    public CompositionTemplateRepository(FitnessDatabaseConnection database, String userId) {
+        this.database = database;
+        this.userId = normalizeUserId(userId);
+    }
+
+    public CompositionTemplateRepository(FitnessRoomDatabase roomDatabase, String userId) {
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase), userId);
     }
 
     public void setUserId(String userId) {
@@ -36,7 +48,7 @@ public final class CompositionTemplateRepository {
         if (!userId.equals(template.userId)) {
             throw new IllegalArgumentException("Composition template belongs to another user.");
         }
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         String now = OffsetDateTime.now().toString();
         database.beginTransaction();
         try {
@@ -112,7 +124,7 @@ public final class CompositionTemplateRepository {
         if (id == null) {
             return null;
         }
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         try (Cursor cursor = database.query(
                 "composition_templates",
                 new String[]{
@@ -134,7 +146,7 @@ public final class CompositionTemplateRepository {
 
     public List<CompositionTemplate> list(String kind) {
         List<CompositionTemplate> templates = new ArrayList<>();
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         String normalizedKind = normalizeNullable(kind);
         String selection = "user_id = ? AND deleted_at IS NULL";
         List<String> arguments = new ArrayList<>();
@@ -167,7 +179,7 @@ public final class CompositionTemplateRepository {
         if (id == null) {
             return;
         }
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         database.beginTransaction();
         try {
             database.delete(
@@ -195,7 +207,7 @@ public final class CompositionTemplateRepository {
         return UUID.randomUUID().toString();
     }
 
-    private CompositionTemplate readTemplate(SQLiteDatabase database, Cursor cursor) {
+    private CompositionTemplate readTemplate(FitnessDatabaseConnection database, Cursor cursor) {
         String templateId = cursor.getString(0);
         List<CompositionGroup> groups = new ArrayList<>();
         try (Cursor groupCursor = database.query(
@@ -268,7 +280,7 @@ public final class CompositionTemplateRepository {
     }
 
     private void insertMember(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             CompositionTemplate template,
             String groupId,
             CompositionMember member,
@@ -306,7 +318,7 @@ public final class CompositionTemplateRepository {
         database.insertOrThrow("composition_members", null, values);
     }
 
-    private NutritionProfile readFoodProfile(SQLiteDatabase database, String foodId) {
+    private NutritionProfile readFoodProfile(FitnessDatabaseConnection database, String foodId) {
         if (foodId == null) {
             return NutritionProfile.empty();
         }

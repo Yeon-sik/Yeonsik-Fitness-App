@@ -550,7 +550,7 @@ public final class FitnessDatabaseMigrationTest {
         db.execSQL("ALTER TABLE nutrition_foods_incomplete RENAME TO nutrition_foods");
     }
 
-    private static void createVersionEightSchema(SQLiteDatabase db) {
+    public static void createVersionEightSchema(SQLiteDatabase db) {
         db.execSQL("CREATE TABLE workout_records (id TEXT PRIMARY KEY, user_id TEXT NOT NULL)");
         db.execSQL("INSERT INTO workout_records (id, user_id) VALUES ('record-1', 'local-user')");
 

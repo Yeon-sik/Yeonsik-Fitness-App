@@ -4,6 +4,10 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import android.content.Context;
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
@@ -22,14 +26,22 @@ public final class RoutineRepository {
     private static final String DEVICE_ID = "android-local";
     private static final String DEFAULT_ROUTINE_NAME = "나만의 루틴";
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
     private final ExerciseFamilyCatalog familyCatalog;
     private String userId;
     private String activeRoutineId;
 
     public RoutineRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        this.dbHelper = dbHelper;
-        this.familyCatalog = ExerciseFamilyCatalog.load(dbHelper.applicationContext());
+        this(FitnessDatabaseConnection.fromLegacy(dbHelper), dbHelper.applicationContext(), userId);
+    }
+
+    public RoutineRepository(FitnessRoomDatabase roomDatabase, Context context, String userId) {
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), context, userId);
+    }
+
+    public RoutineRepository(FitnessDatabaseConnection database, Context context, String userId) {
+        this.database = database;
+        this.familyCatalog = ExerciseFamilyCatalog.load(context);
         this.userId = normalizeUserId(userId);
     }
 
@@ -41,7 +53,7 @@ public final class RoutineRepository {
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
         if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
-            SQLiteDatabase database = db();
+            FitnessDatabaseConnection database = db();
             ContentValues values = new ContentValues();
             values.put("user_id", nextUserId);
             String[] localOwner = {SupabaseConfig.DEFAULT_USER_ID};
@@ -201,7 +213,7 @@ public final class RoutineRepository {
         String sourceName = routineName(sourceRoutineId);
         String targetId = newId();
         String now = now();
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             ContentValues routineValues = baseValues(targetId, now);
@@ -252,7 +264,7 @@ public final class RoutineRepository {
         ContentValues values = new ContentValues();
         values.put("deleted_at", now);
         values.put("updated_at", now);
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         int updated;
         try {
@@ -363,8 +375,8 @@ public final class RoutineRepository {
         }
     }
 
-    private SQLiteDatabase db() {
-        return dbHelper.getWritableDatabase();
+    private FitnessDatabaseConnection db() {
+        return database;
     }
 
     private boolean ownsRoutine(String routineId) {

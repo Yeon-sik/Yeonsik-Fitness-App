@@ -27,7 +27,8 @@ import com.yeonsik.fitnessapp.MainActivity;
 import com.yeonsik.fitnessapp.R;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 
 /** 화면이 꺼지거나 앱이 백그라운드로 이동해도 GPS 유산소를 계속 추적한다. */
@@ -107,11 +108,11 @@ public final class CardioTrackingService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
-        FitnessDatabaseHelper databaseHelper = new FitnessDatabaseHelper(this);
+        FitnessRoomDatabase roomDatabase = FitnessRoomDatabaseProvider.get(this);
         SupabaseConfig config = new SupabaseConfigStore(this).load();
         FitnessRepository fitnessRepository = new FitnessRepository(
-                databaseHelper, config.effectiveUserId());
-        cardioRepository = new CardioRepository(databaseHelper, fitnessRepository);
+                roomDatabase, this, config.effectiveUserId());
+        cardioRepository = new CardioRepository(roomDatabase, fitnessRepository, this);
         locationClient = LocationServices.getFusedLocationProviderClient(this);
         createNotificationChannel();
     }

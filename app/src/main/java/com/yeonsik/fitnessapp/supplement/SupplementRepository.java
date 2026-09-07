@@ -4,6 +4,9 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
@@ -33,12 +36,21 @@ public final class SupplementRepository {
     public static final String STATUS_SKIPPED = "skipped";
     private static final String DEVICE_ID = "android-local";
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
     private String userId;
 
     public SupplementRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        this.dbHelper = dbHelper;
+        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
         this.userId = normalizeUserId(userId);
+    }
+
+    public SupplementRepository(FitnessDatabaseConnection database, String userId) {
+        this.database = database;
+        this.userId = normalizeUserId(userId);
+    }
+
+    public SupplementRepository(FitnessRoomDatabase roomDatabase, String userId, android.content.Context context) {
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), userId);
     }
 
     public void setUserId(String userId) { this.userId = normalizeUserId(userId); }
@@ -46,7 +58,7 @@ public final class SupplementRepository {
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
         if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
-            SQLiteDatabase database = db();
+            FitnessDatabaseConnection database = db();
             database.beginTransaction();
             try {
                 ContentValues values = new ContentValues();
@@ -156,7 +168,7 @@ public final class SupplementRepository {
         boolean startsTomorrow = false;
         LocalDate effectiveFrom = today;
         int revision = 1;
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             if (existing == null) {
@@ -200,7 +212,7 @@ public final class SupplementRepository {
         if (LocalDate.parse(date).isAfter(LocalDate.now())) throw new IllegalArgumentException("미래 날짜는 기록할 수 없습니다.");
         if (!STATUS_TAKEN.equals(status) && !STATUS_SKIPPED.equals(status))
             throw new IllegalArgumentException("지원하지 않는 복용 상태입니다.");
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             PlanSnapshot snapshot = requireSnapshot(database, scheduleId, date);
@@ -251,7 +263,7 @@ public final class SupplementRepository {
     }
 
     public void archivePlan(String itemId) {
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         String now = now(), today = LocalDate.now().toString();
         database.beginTransaction();
         try {
@@ -310,7 +322,7 @@ public final class SupplementRepository {
         return null;
     }
 
-    private PlanSnapshot requireSnapshot(SQLiteDatabase database, String scheduleId, String date) {
+    private PlanSnapshot requireSnapshot(FitnessDatabaseConnection database, String scheduleId, String date) {
         try (Cursor cursor = database.rawQuery(
                 "SELECT s.supplement_item_id,COALESCE(NULLIF(s.type_code_snapshot,''),i.supplement_type_code)," +
                         "COALESCE(NULLIF(s.type_name_snapshot,''),i.supplement_type_name),COALESCE(NULLIF(s.brand_name_snapshot,''),i.brand_name)," +
@@ -326,7 +338,7 @@ public final class SupplementRepository {
         throw new IllegalArgumentException("선택한 날짜에 적용되는 복용 계획이 아닙니다.");
     }
 
-    private void requireOwnedPlan(SQLiteDatabase database, String itemId, String scheduleId) {
+    private void requireOwnedPlan(FitnessDatabaseConnection database, String itemId, String scheduleId) {
         try (Cursor cursor = database.rawQuery("SELECT 1 FROM supplement_items i JOIN supplement_schedules s ON s.supplement_item_id=i.id AND s.user_id=i.user_id " +
                 "WHERE i.id=? AND s.id=? AND i.user_id=? AND i.is_active=1 AND i.deleted_at IS NULL AND s.is_active=1 AND s.deleted_at IS NULL LIMIT 1",
                 new String[]{itemId, scheduleId, userId})) { if (cursor.moveToFirst()) return; }
@@ -346,7 +358,7 @@ public final class SupplementRepository {
         return result;
     }
 
-    private Slot slot(SQLiteDatabase database, String scheduleId, int index, String fallback) {
+    private Slot slot(FitnessDatabaseConnection database, String scheduleId, int index, String fallback) {
         try (Cursor cursor = database.rawQuery("SELECT id,timing_label FROM supplement_schedule_slots WHERE user_id=? AND schedule_id=? AND slot_index=? LIMIT 1",
                 new String[]{userId, scheduleId, String.valueOf(index)})) {
             if (cursor.moveToFirst()) return new Slot(cursor.getString(0), cursor.getString(1));
@@ -354,7 +366,7 @@ public final class SupplementRepository {
         return new Slot(null, fallback);
     }
 
-    private int nextDoseIndex(SQLiteDatabase database, String scheduleId, String date, int total) {
+    private int nextDoseIndex(FitnessDatabaseConnection database, String scheduleId, String date, int total) {
         boolean[] used = new boolean[total + 1];
         try (Cursor cursor = database.rawQuery("SELECT dose_index FROM supplement_intake_records WHERE user_id=? AND schedule_id=? AND date=?",
                 new String[]{userId, scheduleId, date})) { while (cursor.moveToNext()) { int i=cursor.getInt(0); if(i>=1&&i<=total)used[i]=true; } }
@@ -376,11 +388,11 @@ public final class SupplementRepository {
         // The legacy column remains for schema compatibility, but new plans do not collect memos.
         v.put("instructions", "");v.put("is_active",1);
     }
-    private void insertSlots(SQLiteDatabase database,String scheduleId,List<String> timings,String now){for(int i=0;i<timings.size();i++){ContentValues v=baseValues(newId(),now);v.put("schedule_id",scheduleId);v.put("slot_index",i+1);v.put("timing_label",timings.get(i));v.putNull("scheduled_time");database.insertOrThrow("supplement_schedule_slots",null,v);}}
-    private boolean hasRecords(SQLiteDatabase database,String scheduleId,String date){try(Cursor c=database.rawQuery("SELECT 1 FROM supplement_intake_records WHERE user_id=? AND schedule_id=? AND date=? LIMIT 1",new String[]{userId,scheduleId,date})){return c.moveToFirst();}}
-    private int maxRevision(SQLiteDatabase database,String itemId){try(Cursor c=database.rawQuery("SELECT COALESCE(MAX(revision),0) FROM supplement_schedules WHERE user_id=? AND supplement_item_id=?",new String[]{userId,itemId})){return c.moveToFirst()?c.getInt(0):0;}}
+    private void insertSlots(FitnessDatabaseConnection database,String scheduleId,List<String> timings,String now){for(int i=0;i<timings.size();i++){ContentValues v=baseValues(newId(),now);v.put("schedule_id",scheduleId);v.put("slot_index",i+1);v.put("timing_label",timings.get(i));v.putNull("scheduled_time");database.insertOrThrow("supplement_schedule_slots",null,v);}}
+    private boolean hasRecords(FitnessDatabaseConnection database,String scheduleId,String date){try(Cursor c=database.rawQuery("SELECT 1 FROM supplement_intake_records WHERE user_id=? AND schedule_id=? AND date=? LIMIT 1",new String[]{userId,scheduleId,date})){return c.moveToFirst();}}
+    private int maxRevision(FitnessDatabaseConnection database,String itemId){try(Cursor c=database.rawQuery("SELECT COALESCE(MAX(revision),0) FROM supplement_schedules WHERE user_id=? AND supplement_item_id=?",new String[]{userId,itemId})){return c.moveToFirst()?c.getInt(0):0;}}
     private ContentValues baseValues(String id,String now){ContentValues v=new ContentValues();v.put("id",id);v.put("user_id",userId);v.put("device_id",DEVICE_ID);v.put("created_at",now);v.put("updated_at",now);v.putNull("deleted_at");return v;}
-    private SQLiteDatabase db(){return dbHelper.getWritableDatabase();}
+    private FitnessDatabaseConnection db(){return database;}
     private static String newId(){return UUID.randomUUID().toString();}
     private static String now(){return OffsetDateTime.now().toString();}
     private static String trim(String value){return value==null?"":value.trim();}

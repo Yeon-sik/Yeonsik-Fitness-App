@@ -5,6 +5,8 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import androidx.sqlite.db.SupportSQLiteDatabase;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -65,6 +67,15 @@ public final class VerifiedFoodCatalogSeed {
     }
 
     public static void seed(Context context, SQLiteDatabase database) {
+        seed(context, new AndroidLegacyMigrationDatabase(database));
+    }
+
+    /** Seeds the catalog through the Room-managed SupportSQLiteDatabase connection. */
+    public static void seedWithSupport(Context context, SupportSQLiteDatabase database) {
+        seed(context, new SupportLegacyMigrationDatabase(database));
+    }
+
+    static void seed(Context context, LegacyMigrationDatabase database) {
         if (context == null) {
             throw new IllegalArgumentException("Context is required for verified food seed.");
         }
@@ -126,7 +137,7 @@ public final class VerifiedFoodCatalogSeed {
         return CURATED_FOOD_IDS;
     }
 
-    private static void upsertFood(SQLiteDatabase database, SeedFood food) {
+    private static void upsertFood(LegacyMigrationDatabase database, SeedFood food) {
         ExistingRow existing = findExistingRow(database, food.id);
         if (existing != null && !existing.canBeUpdated()) {
             // Stable IDs must never overwrite a private/user-owned or unrelated public row.
@@ -186,7 +197,7 @@ public final class VerifiedFoodCatalogSeed {
     }
 
     private static void replaceMicronutrients(
-            SQLiteDatabase database,
+            LegacyMigrationDatabase database,
             SeedFood food,
             String timestamp
     ) {
@@ -215,7 +226,7 @@ public final class VerifiedFoodCatalogSeed {
         }
     }
 
-    private static ExistingRow findExistingRow(SQLiteDatabase database, String foodId) {
+    private static ExistingRow findExistingRow(LegacyMigrationDatabase database, String foodId) {
         try (Cursor cursor = database.rawQuery(
                 "SELECT owner_id, source_type, source_reference, created_at "
                         + "FROM nutrition_foods WHERE id = ? LIMIT 1",
@@ -233,7 +244,7 @@ public final class VerifiedFoodCatalogSeed {
         }
     }
 
-    private static void retireLegacyV1Foods(SQLiteDatabase database) {
+    private static void retireLegacyV1Foods(LegacyMigrationDatabase database) {
         String timestamp = OffsetDateTime.now().toString();
         for (String code : LEGACY_V1_CODES) {
             String foodId = FOOD_ID_PREFIX + code;

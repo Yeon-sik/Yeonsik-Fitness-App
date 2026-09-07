@@ -4,6 +4,10 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import android.content.Context;
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
@@ -42,7 +46,7 @@ public final class FitnessRepository {
     private static final String COMPLETED_OR_OS_WORKOUT =
             "(source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')";
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
     private final ExerciseFamilyCatalog familyCatalog;
     private final CompositionTemplateRepository compositionTemplateRepository;
     private final BodyMetricsRepository bodyMetricsRepository;
@@ -50,11 +54,19 @@ public final class FitnessRepository {
     private boolean canonicalVolumesReconciled;
 
     public FitnessRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        this.dbHelper = dbHelper;
-        this.familyCatalog = ExerciseFamilyCatalog.load(dbHelper.applicationContext());
+        this(FitnessDatabaseConnection.fromLegacy(dbHelper), dbHelper.applicationContext(), userId);
+    }
+
+    public FitnessRepository(FitnessRoomDatabase roomDatabase, Context context, String userId) {
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), context, userId);
+    }
+
+    public FitnessRepository(FitnessDatabaseConnection database, Context context, String userId) {
+        this.database = database;
+        this.familyCatalog = ExerciseFamilyCatalog.load(context);
         this.userId = normalizeUserId(userId);
-        this.compositionTemplateRepository = new CompositionTemplateRepository(dbHelper, this.userId);
-        this.bodyMetricsRepository = new BodyMetricsRepository(dbHelper, this.userId);
+        this.compositionTemplateRepository = new CompositionTemplateRepository(database, this.userId);
+        this.bodyMetricsRepository = new BodyMetricsRepository(database, this.userId);
     }
 
     public void setUserId(String userId) {
@@ -168,7 +180,7 @@ public final class FitnessRepository {
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
         if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
-            SQLiteDatabase database = db();
+            FitnessDatabaseConnection database = db();
             database.beginTransaction();
             try {
                 ContentValues values = new ContentValues();
@@ -380,7 +392,7 @@ public final class FitnessRepository {
             throw new IllegalArgumentException("가져올 FLEEK 운동 기록이 없습니다.");
         }
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         FleekImportResult result = new FleekImportResult();
         result.skippedRows = plan.skippedRows;
         database.beginTransaction();
@@ -478,7 +490,7 @@ public final class FitnessRepository {
         return result;
     }
 
-    private boolean hasImportedFleekSession(SQLiteDatabase database, String sourceKey) {
+    private boolean hasImportedFleekSession(FitnessDatabaseConnection database, String sourceKey) {
         String marker = "%\"fleek_source_key\":\"" + sourceKey + "\"%";
         try (Cursor cursor = database.rawQuery(
                 "SELECT 1 FROM workout_records WHERE user_id = ? AND deleted_at IS NULL "
@@ -647,7 +659,7 @@ public final class FitnessRepository {
         }
         String targetRecordType = FitnessRecordContract.normalizeRecordType(exercise.recordType);
         List<SessionSetEntry> existingSets = setsForExercise(workoutExerciseId);
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         String now = now();
 
         database.beginTransaction();
@@ -2301,7 +2313,7 @@ public final class FitnessRepository {
         }
 
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             database.insertOrThrow("meal_records", null, values);
@@ -2357,7 +2369,7 @@ public final class FitnessRepository {
     }
 
     private String mealItemIdAtOrder(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String mealRecordId,
             int orderIndex
     ) {
@@ -2372,7 +2384,7 @@ public final class FitnessRepository {
     }
 
     private void insertDiningOutConsumption(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String mealRecordId,
             String mealRecordItemId,
             DiningOutConsumption consumption,
@@ -2584,7 +2596,7 @@ public final class FitnessRepository {
                 "item_count", String.valueOf(menus.size())
         ));
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             database.insertOrThrow("meal_records", null, values);
@@ -2606,7 +2618,7 @@ public final class FitnessRepository {
      * 모르는 영양소는 0이 아니라 NULL로 기록해 "0이었다"는 오해를 만들지 않는다.</p>
      */
     private void insertMealMenuSnapshot(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String mealRecordId,
             MealMenuSelection menu,
             int menuIndex,
@@ -2616,7 +2628,7 @@ public final class FitnessRepository {
     }
 
     private void insertMealMenuSnapshot(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String mealRecordId,
             MealMenuSelection menu,
             int menuIndex,
@@ -2636,7 +2648,7 @@ public final class FitnessRepository {
     }
 
     private void insertMealMenuSnapshot(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String mealRecordId,
             MealMenuSelection menu,
             int menuIndex,
@@ -2683,7 +2695,7 @@ public final class FitnessRepository {
     }
 
     private String insertMealItemSnapshot(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String mealRecordId,
             MealItemSnapshot snapshot,
             String now,
@@ -2717,7 +2729,7 @@ public final class FitnessRepository {
     }
 
     private void insertMealComponentSnapshot(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String mealRecordId,
             String mealRecordItemId,
             MealItemSnapshot snapshot,
@@ -2735,7 +2747,7 @@ public final class FitnessRepository {
     }
 
     private void insertMealComponentSnapshot(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String mealRecordId,
             String mealRecordItemId,
             MealItemSnapshot snapshot,
@@ -2828,7 +2840,7 @@ public final class FitnessRepository {
     }
 
     private void insertSnapshotMicronutrients(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String table,
             String mealRecordId,
             String mealRecordItemId,
@@ -3521,7 +3533,7 @@ public final class FitnessRepository {
             return false;
         }
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         String metadata;
         try (Cursor cursor = database.rawQuery(
                 "SELECT metadata, meal_kind FROM meal_records " +
@@ -3662,7 +3674,7 @@ public final class FitnessRepository {
     }
 
     private void scaleMealComponentSnapshots(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String mealRecordItemId,
             String mealRecordId,
             double ratio,
@@ -3710,7 +3722,7 @@ public final class FitnessRepository {
     }
 
     private void scaleMealNutrientRows(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String table,
             String itemColumn,
             String itemId,
@@ -3735,7 +3747,7 @@ public final class FitnessRepository {
         ContentValues values = new ContentValues();
         values.put("deleted_at", timestamp);
         values.put("updated_at", timestamp);
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             int deleted = database.update(
@@ -3786,7 +3798,7 @@ public final class FitnessRepository {
                                      Double carbsGrams, Double fatGrams) {
         String normalizedName = normalizeMealMenuPresetName(name);
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         String existingId = null;
         try (Cursor cursor = database.rawQuery(
                 "SELECT id FROM meal_menu_presets " +
@@ -3931,7 +3943,7 @@ public final class FitnessRepository {
             return;
         }
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         for (RoutineExerciseInstance exercise : routineExercises) {
             if (exercise == null) {
                 continue;
@@ -4183,7 +4195,7 @@ public final class FitnessRepository {
             return;
         }
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         boolean finished = false;
         try (Cursor cursor = database.rawQuery(
                 "SELECT date, duration_seconds, metadata, is_backfilled FROM workout_records " +
@@ -4402,7 +4414,7 @@ public final class FitnessRepository {
             return;
         }
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         String now = now();
         ContentValues values = new ContentValues();
         values.put("deleted_at", now);
@@ -5145,7 +5157,7 @@ public final class FitnessRepository {
             }
         }
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             for (CanonicalVolumeUpdate update : updates) {
@@ -5199,7 +5211,7 @@ public final class FitnessRepository {
             return false;
         }
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         String workoutType;
         String currentCategory;
         String currentMetadata;
@@ -5470,8 +5482,7 @@ public final class FitnessRepository {
         return rows;
     }
 
-    private SQLiteDatabase db() {
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+    private FitnessDatabaseConnection db() {
         ensureDevice(userId);
         return database;
     }
@@ -5559,7 +5570,7 @@ public final class FitnessRepository {
     }
 
     private void claimSingletonNutritionGoal(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String nextUserId
     ) {
         database.execSQL(
@@ -5589,7 +5600,7 @@ public final class FitnessRepository {
     }
 
     private void claimConflictFreeDailyRows(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String nextUserId
     ) {
         database.execSQL(
@@ -5647,10 +5658,10 @@ public final class FitnessRepository {
     }
 
     private void ensureDevice(String nextUserId) {
-        ensureDevice(dbHelper.getWritableDatabase(), nextUserId);
+        ensureDevice(this.database, nextUserId);
     }
 
-    private void ensureDevice(SQLiteDatabase database, String nextUserId) {
+    private void ensureDevice(FitnessDatabaseConnection database, String nextUserId) {
         String now = now();
         ContentValues values = new ContentValues();
         values.put("id", DEVICE_ID);
@@ -6665,7 +6676,7 @@ public final class FitnessRepository {
         }
 
         WorkoutTransferImportResult result = new WorkoutTransferImportResult();
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             int presetIndex = 0;
@@ -6838,7 +6849,7 @@ public final class FitnessRepository {
     }
 
     private boolean hasImportedWorkoutTransferSession(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String sourceApp,
             String sourceRecordId
     ) {
@@ -7083,7 +7094,7 @@ public final class FitnessRepository {
     }
 
     private void updateSetForExerciseReplacement(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             SessionSetEntry set,
             ExerciseFamilyIdentity targetIdentity,
             String targetRecordType,
