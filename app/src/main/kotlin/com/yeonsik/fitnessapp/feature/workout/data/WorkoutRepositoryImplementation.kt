@@ -16,6 +16,7 @@ import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutVolumePoint
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
 
 /** Room-backed workout repository. Legacy Java DTOs do not cross this boundary. */
 class WorkoutRepositoryImplementation(
@@ -24,6 +25,34 @@ class WorkoutRepositoryImplementation(
     constructor(roomDatabase: FitnessRoomDatabase, context: Context) : this(
         WorkoutRoomStorage(roomDatabase, context)
     )
+
+    override fun latestInProgressSession(scope: AccountScope): String? = storage.latestInProgress(scope)
+
+    override fun createEmptySession(scope: AccountScope, date: String): String =
+        storage.createSession(scope, date, "루틴 없이 운동", "strength", "", storage.nowValue(), "")
+
+    override fun createSessionFromRoutine(
+        scope: AccountScope,
+        date: String,
+        title: String,
+        routineId: String?,
+        exercises: List<RoutineExerciseInstance>
+    ): String = storage.createSessionFromRoutine(scope, date, title, routineId, exercises)
+
+    override fun createManualPastSessionFromRoutine(
+        scope: AccountScope,
+        date: String,
+        title: String,
+        routineId: String?,
+        exercises: List<RoutineExerciseInstance>,
+        startedAt: String,
+        endedAt: String
+    ): String = storage.createManualPastSessionFromRoutine(
+        scope, date, title, routineId, exercises, startedAt, endedAt
+    )
+
+    override fun deleteSession(scope: AccountScope, recordId: String): Boolean =
+        storage.deleteSession(scope, recordId)
 
     override fun loadSession(scope: AccountScope, recordId: String): WorkoutSessionSnapshot? {
         val info = storage.sessionInfo(scope, recordId) ?: return null

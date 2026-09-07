@@ -14,6 +14,7 @@ import com.yeonsik.fitnessapp.exercise.LoadState
 import com.yeonsik.fitnessapp.exercise.RoutineExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Duration
@@ -96,6 +97,165 @@ class WorkoutRoomStorage(
 
     private val database: androidx.sqlite.db.SupportSQLiteDatabase
         get() = roomDatabase.openHelper.writableDatabase
+
+    fun nowValue(): String = now()
+
+    fun createSession(
+        scope: AccountScope,
+        date: String,
+        title: String,
+        sessionType: String,
+        memo: String,
+        startedAt: String,
+        endedAt: String
+    ): String {
+        require(scope.ownerId.isNotBlank()) { "Workout owner is required." }
+        val id = UUID.randomUUID().toString()
+        val createdAt = now()
+        val values = ContentValues().apply {
+            put("id", id)
+            put("user_id", scope.ownerId)
+            put("date", date.ifBlank { java.time.LocalDate.now().toString() })
+            put("workout_type", sessionType.ifBlank { "other" })
+            put("category", sessionType.ifBlank { "other" })
+            put("exercise_name", title.ifBlank { "Workout" })
+            put("total_volume_kg", 0.0)
+            putNull("duration_seconds")
+            putNull("average_heart_rate")
+            put("is_backfilled", 0)
+            putNull("backfilled_at")
+            putNull("backfill_reason")
+            put("source_app", "fitness")
+            put("scope", "fitness")
+            put("metadata", JSONObject().apply {
+                put("contract_version", FitnessRecordContract.VERSION)
+                put("status", if (endedAt.isBlank()) "in_progress" else "completed")
+                put("started_at", startedAt)
+                if (endedAt.isBlank()) put("ended_at", JSONObject.NULL) else put("ended_at", endedAt)
+                put("memo", memo)
+            }.toString())
+            put("created_at", createdAt)
+            put("updated_at", createdAt)
+            putNull("deleted_at")
+            put("device_id", "android-local")
+            put("contract_version", FitnessRecordContract.VERSION)
+        }
+        check(database.insert("workout_records", 0, values) != -1L) { "운동 기록을 저장하지 못했습니다." }
+        return id
+    }
+
+    fun createSessionFromRoutine(
+        scope: AccountScope,
+        date: String,
+        title: String,
+        routineId: String?,
+        routineExercises: List<RoutineExerciseInstance>
+    ): String {
+        val recordId = createSession(scope, date, title, "strength", "", now(), "")
+        populateSessionFromRoutine(scope, recordId, routineId, routineExercises)
+        return recordId
+    }
+
+    fun createManualPastSessionFromRoutine(
+        scope: AccountScope,
+        date: String,
+        title: String,
+        routineId: String?,
+        routineExercises: List<RoutineExerciseInstance>,
+        startedAt: String,
+        endedAt: String
+    ): String {
+        val recordId = createSession(scope, date, title, "strength", "", startedAt, "")
+        val duration = try {
+            Duration.between(OffsetDateTime.parse(startedAt), OffsetDateTime.parse(endedAt))
+                .seconds.toInt().takeIf { it > 0 }
+        } catch (_: Exception) { null }
+        require(duration != null) { "운동 시작 시각과 운동 시간을 확인하세요." }
+        database.update("workout_records", 0, ContentValues().apply {
+            put("duration_seconds", duration)
+            put("is_backfilled", 1)
+            put("backfilled_at", now())
+            put("backfill_reason", "manual_entry")
+            put("metadata", JSONObject(sessionInfoMetadata(scope, recordId).ifBlank { "{}" }).apply {
+                put("status", "in_progress")
+                put("started_at", startedAt)
+                put("ended_at", endedAt)
+                put("duration_seconds", duration)
+                put("total_volume_kg", 0.0)
+                put("contract_version", FitnessRecordContract.VERSION)
+            }.toString())
+        }, "id = ? AND user_id = ?", arrayOf(recordId, scope.ownerId))
+        populateSessionFromRoutine(scope, recordId, routineId, routineExercises)
+        return recordId
+    }
+
+    private fun populateSessionFromRoutine(
+        scope: AccountScope,
+        recordId: String,
+        routineId: String?,
+        routineExercises: List<RoutineExerciseInstance>
+    ) {
+        if (!routineId.isNullOrBlank()) {
+            val metadata = sessionInfoMetadata(scope, recordId)
+            database.update("workout_records", 0, ContentValues().apply {
+                put("metadata", JSONObject(metadata.ifBlank { "{}" }).put("routine_id", routineId).toString())
+            }, "id = ? AND user_id = ?", arrayOf(recordId, scope.ownerId))
+        }
+        routineExercises.forEach { exercise ->
+            val identity = exercise.familyIdentity ?: familyCatalog.identityForStorageExerciseId(exercise.exerciseId)
+            val id = UUID.randomUUID().toString()
+            val createdAt = now()
+            check(database.insert("workout_exercises", 0, ContentValues().apply {
+                put("id", id)
+                put("user_id", scope.ownerId)
+                put("record_id", recordId)
+                put("order_index", exercise.order)
+                put("exercise_id", exercise.exerciseId.ifBlank { "manual" })
+                put("exercise_name_snapshot", canonicalName(exercise.nameKo, identity))
+                put("ui_part", exercise.uiPart.ifBlank { "other" })
+                put("primary_sub_part_snapshot", exercise.primarySubPart)
+                if (exercise.equipment.isBlank()) putNull("equipment_snapshot") else put("equipment_snapshot", exercise.equipment)
+                put("record_type", FitnessRecordContract.normalizeRecordType(exercise.recordType))
+                put("family_id", identity?.familyId)
+                put("preset_id", identity?.presetId)
+                put("canonical_variant_key", identity?.canonicalVariantKey)
+                put("visual_variant_key", identity?.visualVariantKey)
+                putNull("memo")
+                put("created_at", createdAt)
+                put("updated_at", createdAt)
+                putNull("deleted_at")
+                put("device_id", "android-local")
+                put("contract_version", FitnessRecordContract.VERSION)
+            }) != -1L) { "운동 종목을 저장하지 못했습니다." }
+        }
+    }
+
+    private fun sessionInfoMetadata(scope: AccountScope, recordId: String): String =
+        database.query("SELECT metadata FROM workout_records WHERE id = ? AND user_id = ? LIMIT 1",
+            arrayOf(recordId, scope.ownerId)).use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0).orEmpty() else "{}"
+        }
+
+    fun deleteSession(scope: AccountScope, recordId: String): Boolean {
+        val timestamp = now()
+        val values = ContentValues().apply { put("deleted_at", timestamp); put("updated_at", timestamp) }
+        database.beginTransaction()
+        return try {
+            val exercises = mutableListOf<String>()
+            database.query("SELECT id FROM workout_exercises WHERE record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                arrayOf(recordId, scope.ownerId)).use { cursor ->
+                while (cursor.moveToNext()) exercises += cursor.getString(0)
+            }
+            exercises.forEach { id -> database.update("workout_sets", 0, values,
+                "workout_exercise_id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(id, scope.ownerId)) }
+            database.update("workout_exercises", 0, values,
+                "record_id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(recordId, scope.ownerId))
+            val updated = database.update("workout_records", 0, values,
+                "id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(recordId, scope.ownerId))
+            database.setTransactionSuccessful()
+            updated > 0
+        } finally { database.endTransaction() }
+    }
 
     fun sessionInfo(scope: AccountScope, recordId: String): SessionInfo? {
         return database.query(

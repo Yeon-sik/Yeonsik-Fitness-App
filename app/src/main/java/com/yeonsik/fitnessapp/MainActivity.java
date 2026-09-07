@@ -38,6 +38,7 @@ import com.yeonsik.fitnessapp.app.AppContainer;
 import com.yeonsik.fitnessapp.app.SavedStateViewModelFactory;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
@@ -51,6 +52,8 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.data.FleekCsvImporter;
+import com.yeonsik.fitnessapp.data.BodyMetricEntry;
+import com.yeonsik.fitnessapp.data.BodyMetricsRepository;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.LocalDataBackupService;
 import com.yeonsik.fitnessapp.data.MassFormatter;
@@ -166,6 +169,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private String lastKnownDate = LocalDate.now().toString();
 
     private FitnessRepository repository;
+    private BodyMetricsRepository bodyMetricsRepository;
     private AppContainer appContainer;
     private WorkoutSessionViewModel workoutSessionViewModel;
     private WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel;
@@ -265,6 +269,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         priceTraceAuthManager = new SupabaseAuthManager(priceTraceConfigStore);
         roomDatabase = FitnessRoomDatabaseProvider.get(this);
         repository = new FitnessRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
+        bodyMetricsRepository = new BodyMetricsRepository(FitnessDatabaseConnection.fromRoom(roomDatabase, this), supabaseConfig.effectiveUserId());
         nutritionCatalogRepository = new NutritionCatalogRepository(
                 roomDatabase,
                 this,
@@ -319,20 +324,20 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             }
             if (state instanceof WorkoutSessionUiState.Ready) {
                 WorkoutSessionUiState.Ready ready = (WorkoutSessionUiState.Ready) state;
-                if (ready.getOwnerId().equals(repository.currentUserId())
+                if (ready.getOwnerId().equals(currentOwnerId())
                         && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
                     rerender();
                 }
             } else if (state instanceof WorkoutSessionUiState.Missing) {
                 WorkoutSessionUiState.Missing missing = (WorkoutSessionUiState.Missing) state;
-                if (missing.getOwnerId().equals(repository.currentUserId())
+                if (missing.getOwnerId().equals(currentOwnerId())
                         && missing.getRecordId().equals(sessionState.activeRecordId())) {
                     sessionState.clearIfMatches(missing.getRecordId());
                     replace(FitnessScreen.STRENGTH);
                 }
             } else if (state instanceof WorkoutSessionUiState.Completed) {
                 WorkoutSessionUiState.Completed completed = (WorkoutSessionUiState.Completed) state;
-                if (completed.getOwnerId().equals(repository.currentUserId())
+                if (completed.getOwnerId().equals(currentOwnerId())
                         && completed.getRecordId().equals(sessionState.activeRecordId())) {
                     toast("운동을 완료했습니다.");
                     replace(FitnessScreen.WORKOUT_SUMMARY);
@@ -340,7 +345,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             } else if (state instanceof WorkoutSessionUiState.DiscardedEmptySession) {
                 WorkoutSessionUiState.DiscardedEmptySession discarded =
                         (WorkoutSessionUiState.DiscardedEmptySession) state;
-                if (discarded.getOwnerId().equals(repository.currentUserId())
+                if (discarded.getOwnerId().equals(currentOwnerId())
                         && discarded.getRecordId().equals(sessionState.activeRecordId())) {
                     sessionState.clearIfMatches(discarded.getRecordId());
                     toast("수행한 세트가 없어 운동을 저장하지 않았습니다.");
@@ -348,7 +353,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 }
             } else if (state instanceof WorkoutSessionUiState.Error) {
                 WorkoutSessionUiState.Error error = (WorkoutSessionUiState.Error) state;
-                if (error.getOwnerId().equals(repository.currentUserId())) {
+                if (error.getOwnerId().equals(currentOwnerId())) {
                     toast(error.getMessage());
                 }
             }
@@ -370,7 +375,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 WorkoutExerciseDetailUiState.Ready ready =
                         (WorkoutExerciseDetailUiState.Ready) state;
                 if (currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL
-                        && ready.getOwnerId().equals(repository.currentUserId())
+                        && ready.getOwnerId().equals(currentOwnerId())
                         && ready.getDetail().getRecordId().equals(sessionState.activeRecordId())) {
                     sessionState.setActiveExerciseId(ready.getDetail().getActiveExercise().id);
                     rerender();
@@ -393,7 +398,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 CardioSessionUiState.Ready ready = (CardioSessionUiState.Ready) state;
                 if ((currentScreen == FitnessScreen.CARDIO_SESSION
                         || currentScreen == FitnessScreen.CARDIO_SUMMARY)
-                        && ready.getOwnerId().equals(repository.currentUserId())
+                        && ready.getOwnerId().equals(currentOwnerId())
                         && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
                     if (currentScreen == FitnessScreen.CARDIO_SUMMARY) {
                         rerender();
@@ -409,7 +414,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             } else if (state instanceof CardioSessionUiState.Missing) {
                 CardioSessionUiState.Missing missing = (CardioSessionUiState.Missing) state;
                 if (currentScreen == FitnessScreen.CARDIO_SESSION
-                        && missing.getOwnerId().equals(repository.currentUserId())
+                        && missing.getOwnerId().equals(currentOwnerId())
                         && missing.getRecordId().equals(sessionState.activeRecordId())) {
                     replace(FitnessScreen.CARDIO);
                 }
@@ -430,7 +435,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             if (state instanceof RoutineEntryUiState.Ready) {
                 RoutineEntryUiState.Ready ready = (RoutineEntryUiState.Ready) state;
                 if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
-                        && ready.getOwnerId().equals(repository.currentUserId())) {
+                        && ready.getOwnerId().equals(currentOwnerId())) {
                     if (currentScreen != FitnessScreen.HOME) {
                         rerender();
                     }
@@ -438,7 +443,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             } else if (state instanceof RoutineEntryUiState.Error) {
                 RoutineEntryUiState.Error error = (RoutineEntryUiState.Error) state;
                 if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
-                        && error.getOwnerId().equals(repository.currentUserId())) {
+                        && error.getOwnerId().equals(currentOwnerId())) {
                     toast(error.getMessage());
                 }
             }
@@ -458,7 +463,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             if (state instanceof HomeUiState.Ready) {
                 HomeUiState.Ready ready = (HomeUiState.Ready) state;
                 if (currentScreen == FitnessScreen.HOME
-                        && ready.getSnapshot().getOwnerId().equals(repository.currentUserId())
+                        && ready.getSnapshot().getOwnerId().equals(currentOwnerId())
                         && ready.getSnapshot().getToday().equals(today())) {
                     // Compose observes this state itself. Rebuilding the whole
                     // view tree here would interrupt any pending accessibility
@@ -467,7 +472,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             } else if (state instanceof HomeUiState.Error) {
                 HomeUiState.Error error = (HomeUiState.Error) state;
                 if (currentScreen == FitnessScreen.HOME
-                        && error.getOwnerId().equals(repository.currentUserId())) {
+                        && error.getOwnerId().equals(currentOwnerId())) {
                     toast(error.getMessage());
                 }
             }
@@ -1164,7 +1169,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private void refreshNavState() {
         Tab activeTab = tabOf(currentScreen);
         boolean workoutInProgress = repository != null
-                && repository.latestInProgressSessionId() != null;
+                && appContainer.getWorkoutRepository().latestInProgressSession(new AccountScope(currentOwnerId())) != null;
         bottomNav.setBackgroundColor(ui.surface());
         navDivider.setBackgroundColor(ui.border());
         boolean navigationVisible = isBottomNavigationVisible(currentScreen);
@@ -1335,22 +1340,22 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private void prepareScreenEntry(FitnessScreen screen) {
         if (screen == FitnessScreen.WORKOUT_SESSION) {
             workoutSessionViewModel.enter(
-                    new AccountScope(repository.currentUserId()),
+                    new AccountScope(currentOwnerId()),
                     sessionState.activeRecordId()
             );
             return;
         }
         if (screen == FitnessScreen.STRENGTH || screen == FitnessScreen.HOME) {
-            routineEntryViewModel.enter(new AccountScope(repository.currentUserId()));
+            routineEntryViewModel.enter(new AccountScope(currentOwnerId()));
             if (screen == FitnessScreen.HOME) {
-                homeViewModel.enter(new AccountScope(repository.currentUserId()), today());
+                homeViewModel.enter(new AccountScope(currentOwnerId()), today());
             }
             return;
         }
         if (screen != FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
             if (screen == FitnessScreen.CARDIO_SESSION || screen == FitnessScreen.CARDIO_SUMMARY) {
                 cardioSessionViewModel.enter(
-                        new AccountScope(repository.currentUserId()),
+                        new AccountScope(currentOwnerId()),
                         sessionState.activeRecordId()
                 );
             }
@@ -1361,7 +1366,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             return;
         }
         workoutExerciseDetailViewModel.enter(
-                new AccountScope(repository.currentUserId()),
+                new AccountScope(currentOwnerId()),
                 recordId,
                 sessionState.activeExerciseId()
         );
@@ -1455,7 +1460,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public String currentOwnerId() {
-        return repository.currentUserId();
+        return supabaseConfig.effectiveUserId();
     }
 
     @Override
@@ -1594,12 +1599,12 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("진행 중인 운동을 찾지 못했습니다.");
             return;
         }
-        workoutSessionViewModel.finish(new AccountScope(repository.currentUserId()), recordId);
+        workoutSessionViewModel.finish(new AccountScope(currentOwnerId()), recordId);
     }
 
     @Override
     public void continueWorkoutIfAvailable() {
-        String recordId = repository.latestInProgressSessionId();
+        String recordId = appContainer.getWorkoutRepository().latestInProgressSession(new AccountScope(currentOwnerId()));
         if (recordId == null) {
             toast("진행 중인 운동이 없습니다.");
             return;
@@ -1623,24 +1628,12 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             return;
         }
 
-        List<RoutineExerciseInstance> legacyRoutineExercises = new ArrayList<>();
-        for (com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance exercise
-                : routineExercises) {
-            legacyRoutineExercises.add(new RoutineExerciseInstance(
-                    exercise.id,
-                    exercise.exerciseId,
-                    exercise.nameKo,
-                    exercise.uiPart,
-                    exercise.primarySubPart,
-                    exercise.equipment,
-                    exercise.recordType,
-                    exercise.order,
-                    exercise.familyIdentity
-            ));
-        }
-        String recordId = repository.createSessionFromRoutine(today(),
-                routineRepository.activeRoutineName(), routineRepository.activeRoutineId(),
-                legacyRoutineExercises);
+        String recordId = appContainer.getWorkoutRepository().createSessionFromRoutine(
+                new AccountScope(currentOwnerId()),
+                today(),
+                routineRepository.activeRoutineName(),
+                routineRepository.activeRoutineId(),
+                routineExercises);
         toast("루틴 운동을 시작했습니다.");
         openWorkoutSession(recordId);
     }
@@ -1652,7 +1645,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         if (onSessionScreen && sessionState.activeRecordId() != null) {
             return sessionState.activeRecordId();
         }
-        return repository.latestInProgressSessionId();
+        return appContainer.getWorkoutRepository().latestInProgressSession(new AccountScope(currentOwnerId()));
     }
 
     @Override
@@ -1665,7 +1658,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                     if (cardioSession) {
                         cardioRepository.deleteLocalData(recordId);
                     }
-                    repository.deleteSession(recordId);
+                    appContainer.getWorkoutRepository().deleteSession(
+                            new AccountScope(currentOwnerId()), recordId);
                     sessionState.clearIfMatches(recordId);
                     toast("운동 기록을 삭제했습니다.");
                     if (currentScreen == FitnessScreen.RECORDS) {
@@ -1681,7 +1675,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         if (continueExistingWorkoutIfPresent()) {
             return;
         }
-        openWorkoutSession(repository.createEmptySession(today()));
+        openWorkoutSession(appContainer.getWorkoutRepository().createEmptySession(
+                new AccountScope(currentOwnerId()), today()));
     }
 
     @Override
@@ -1751,11 +1746,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 List<RoutineExerciseInstance> exercises = routine == null
                         ? java.util.Collections.emptyList()
                         : routineRepository.routineExercises(routine.id);
-                String recordId = repository.createManualPastSessionFromRoutine(
+                String recordId = appContainer.getWorkoutRepository().createManualPastSessionFromRoutine(
+                        new AccountScope(currentOwnerId()),
                         selectedDate.toString(),
                         routine == null ? "루틴 없이 운동" : routine.name,
                         routine == null ? null : routine.id,
-                        exercises,
+                        exercises.stream()
+                                .map(RoutineExerciseInstance::toFeatureModel)
+                                .collect(java.util.stream.Collectors.toList()),
                         startedAt.toString(),
                         endedAt.toString()
                 );
@@ -2031,7 +2029,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private boolean continueExistingWorkoutIfPresent() {
-        String activeRecordId = repository.latestInProgressSessionId();
+        String activeRecordId = appContainer.getWorkoutRepository().latestInProgressSession(new AccountScope(currentOwnerId()));
         if (activeRecordId == null) {
             return false;
         }
@@ -2174,9 +2172,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void showBodyMetricDialog(String date, String recordId) {
-        FitnessRepository.BodyMetricEntry existing = recordId == null
-                ? repository.bodyMetricForDate(date)
-                : repository.bodyMetricEntryById(recordId);
+        BodyMetricEntry existing = recordId == null
+                ? bodyMetricsRepository.bodyMetricForDate(date)
+                : bodyMetricsRepository.bodyMetricEntryById(recordId);
         MassUnit inputUnit = preferredMassUnit();
         LinearLayout form = ui.form();
         EditText dateInput = ui.input("날짜 (YYYY-MM-DD)", date);
@@ -2199,13 +2197,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         }
                         double selectedWeightKg = MassUnit.toKg(selectedWeight, inputUnit);
                         if (existing == null) {
-                            repository.addBodyMetric(
+                            bodyMetricsRepository.addBodyMetric(
                                     selectedDate,
                                     selectedWeightKg,
                                     FitnessUi.inputText(memo)
                             );
                         } else {
-                            repository.updateBodyMetric(
+                            bodyMetricsRepository.updateBodyMetric(
                                     existing.id,
                                     selectedDate,
                                     selectedWeightKg,
@@ -2221,7 +2219,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 },
                 existing == null ? null : "이 기록 삭제",
                 existing == null ? null : () -> {
-                    repository.deleteBodyMetric(existing.id);
+                    bodyMetricsRepository.deleteBodyMetric(existing.id);
                     render();
                 });
     }
@@ -2272,7 +2270,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     @Override
     public void showDevelopmentBodyProfileDialog() {
         BodyProfile currentProfile = developmentRepository.bodyProfile();
-        FitnessRepository.BodyMetricEntry todayWeight = repository.bodyMetricForDate(today());
+        BodyMetricEntry todayWeight = bodyMetricsRepository.bodyMetricForDate(today());
         LinearLayout form = ui.form();
         EditText heightInput = ui.numberInput(
                 "키 cm",
@@ -2313,7 +2311,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                     developmentRepository.saveBodyProfile(nextProfile);
                 }
                 if (nextWeightKg != null) {
-                    repository.addBodyMetric(
+                    bodyMetricsRepository.addBodyMetric(
                             today(),
                             nextWeightKg,
                             todayWeight == null ? "" : todayWeight.memo
@@ -2548,7 +2546,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         return new LocalDataBackupService(
                 roomDatabase,
                 this,
-                repository.currentUserId(),
+                currentOwnerId(),
                 nutritionSupabaseConfig.effectiveUserId()
         );
     }
@@ -3330,6 +3328,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         supabaseConfig = config;
         String userId = config.effectiveUserId();
         repository.normalizeLocalUserId(userId);
+        bodyMetricsRepository.setUserId(userId);
         routineRepository.setUserId(userId);
         developmentRepository.normalizeLocalUserId(userId);
         supplementRepository.normalizeLocalUserId(userId);
@@ -3355,6 +3354,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         supabaseConfig = config;
         String userId = config.effectiveUserId();
         repository.setUserId(userId);
+        bodyMetricsRepository.setUserId(userId);
         routineRepository.setUserId(userId);
         developmentRepository.setUserId(userId);
         supplementRepository.setUserId(userId);

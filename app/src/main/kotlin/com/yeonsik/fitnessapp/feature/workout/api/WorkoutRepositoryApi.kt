@@ -5,12 +5,25 @@ import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
 
 /**
  * Public workout boundary for new Kotlin application code.  It deliberately
  * exposes neither SQLite types nor legacy repository model objects.
  */
 interface WorkoutRepositoryApi {
+    fun latestInProgressSession(scope: AccountScope): String? = null
+
+    fun createEmptySession(scope: AccountScope, date: String): String = error("Session creation is not supported by this repository.")
+
+    fun createSessionFromRoutine(scope: AccountScope, date: String, title: String,
+                                 routineId: String?, exercises: List<RoutineExerciseInstance>): String = error("Routine session creation is not supported by this repository.")
+
+    fun createManualPastSessionFromRoutine(scope: AccountScope, date: String, title: String,
+                                            routineId: String?, exercises: List<RoutineExerciseInstance>,
+                                            startedAt: String, endedAt: String): String = error("Past session creation is not supported by this repository.")
+
+    fun deleteSession(scope: AccountScope, recordId: String): Boolean = false
     fun loadSession(scope: AccountScope, recordId: String): WorkoutSessionSnapshot?
 
     fun loadExerciseDetail(
