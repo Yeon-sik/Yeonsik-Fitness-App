@@ -16,6 +16,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Historical SQLiteOpenHelper retained for migration fixtures and compatibility-only callers.
+ * Runtime application ownership belongs to {@code FitnessRoomDatabaseProvider}.
+ */
+@Deprecated
 public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     public static final String DATABASE_NAME = "fitness_mvp.db";
     public static final int DATABASE_VERSION = 50;
@@ -36,8 +41,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
 
     /**
      * Executes the exact v8-v50 helper upgrade chain through Room's SQLite wrapper.
-     * This is deliberately schema-only ownership handoff code; runtime repositories still use
-     * their existing implementation until the next migration stage.
+     * This is deliberately schema-only compatibility code; runtime repositories use Room.
      */
     public static void migrateHistoricalSchema(
             Context context,

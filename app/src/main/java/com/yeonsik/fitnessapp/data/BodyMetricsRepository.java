@@ -4,6 +4,10 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import android.content.Context;
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 
 import org.json.JSONObject;
@@ -19,12 +23,21 @@ import java.util.UUID;
 public final class BodyMetricsRepository {
     private static final String DEVICE_ID = "android-local";
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
     private String userId;
 
     public BodyMetricsRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        this.dbHelper = dbHelper;
+        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
         this.userId = normalizeUserId(userId);
+    }
+
+    public BodyMetricsRepository(FitnessDatabaseConnection database, String userId) {
+        this.database = database;
+        this.userId = normalizeUserId(userId);
+    }
+
+    public BodyMetricsRepository(FitnessRoomDatabase roomDatabase, Context context, String userId) {
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), userId);
     }
 
     public void setUserId(String userId) {
@@ -168,8 +181,7 @@ public final class BodyMetricsRepository {
         );
     }
 
-    private SQLiteDatabase db() {
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+    private FitnessDatabaseConnection db() {
         ensureDevice(database);
         return database;
     }
@@ -185,7 +197,7 @@ public final class BodyMetricsRepository {
         return values;
     }
 
-    private void ensureDevice(SQLiteDatabase database) {
+    private void ensureDevice(FitnessDatabaseConnection database) {
         ContentValues values = new ContentValues();
         values.put("id", DEVICE_ID);
         values.put("user_id", userId);

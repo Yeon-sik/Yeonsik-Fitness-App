@@ -1,8 +1,8 @@
 package com.yeonsik.fitnessapp.development;
 
 import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 
 import java.time.LocalDate;
@@ -22,7 +22,7 @@ public final class PaperAdviceSnapshotAssembler {
     private static final String COMPLETED_WORKOUT =
             "(source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')";
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
     private final DevelopmentRepository developmentRepository;
     private final PaperAdviceEngine adviceEngine;
 
@@ -33,7 +33,19 @@ public final class PaperAdviceSnapshotAssembler {
         if (dbHelper == null || developmentRepository == null) {
             throw new IllegalArgumentException("논문 조언 adapter에는 저장소가 필요합니다.");
         }
-        this.dbHelper = dbHelper;
+        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
+        this.developmentRepository = developmentRepository;
+        this.adviceEngine = new PaperAdviceEngine();
+    }
+
+    public PaperAdviceSnapshotAssembler(
+            FitnessDatabaseConnection database,
+            DevelopmentRepository developmentRepository
+    ) {
+        if (database == null || developmentRepository == null) {
+            throw new IllegalArgumentException("논문 조언 adapter에는 저장소가 필요합니다.");
+        }
+        this.database = database;
         this.developmentRepository = developmentRepository;
         this.adviceEngine = new PaperAdviceEngine();
     }
@@ -319,8 +331,8 @@ public final class PaperAdviceSnapshotAssembler {
         }
     }
 
-    private SQLiteDatabase db() {
-        return dbHelper.getReadableDatabase();
+    private FitnessDatabaseConnection db() {
+        return database;
     }
 
     private static final class NutritionSummary {

@@ -4,6 +4,9 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 
@@ -119,7 +122,7 @@ public final class NutritionCatalogRepository {
     private static final int SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX = 50;
     private static final int PACKAGED_PRODUCT_RESULT_LIMIT_MAX = 50;
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
     private volatile String userId;
     private volatile SupabaseConfig supabaseConfig;
 
@@ -128,9 +131,28 @@ public final class NutritionCatalogRepository {
             String userId,
             SupabaseConfig supabaseConfig
     ) {
-        this.dbHelper = dbHelper;
+        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
         this.userId = normalizeUserId(userId);
         this.supabaseConfig = supabaseConfig == null ? SupabaseConfig.empty() : supabaseConfig;
+    }
+
+    public NutritionCatalogRepository(
+            FitnessDatabaseConnection database,
+            String userId,
+            SupabaseConfig supabaseConfig
+    ) {
+        this.database = database;
+        this.userId = normalizeUserId(userId);
+        this.supabaseConfig = supabaseConfig == null ? SupabaseConfig.empty() : supabaseConfig;
+    }
+
+    public NutritionCatalogRepository(
+            FitnessRoomDatabase roomDatabase,
+            android.content.Context context,
+            String userId,
+            SupabaseConfig supabaseConfig
+    ) {
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), userId, supabaseConfig);
     }
 
     public void setUserId(String userId) {
@@ -144,7 +166,7 @@ public final class NutritionCatalogRepository {
                 previousUserId,
                 normalizedNextUserId
         )) {
-            SQLiteDatabase database = dbHelper.getWritableDatabase();
+            FitnessDatabaseConnection database = this.database;
             database.beginTransaction();
             try {
                 resolveApprovedLinkClaimConflicts(database, normalizedNextUserId);
@@ -167,7 +189,7 @@ public final class NutritionCatalogRepository {
     }
 
     private void resolveApprovedLinkClaimConflicts(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String nextUserId
     ) {
         List<String[]> conflicts = new ArrayList<>();
@@ -212,7 +234,7 @@ public final class NutritionCatalogRepository {
         List<NutritionFood> foods = new ArrayList<>();
         String term = query == null ? "" : query.trim();
         String like = "%" + term + "%";
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         List<String> ids = new ArrayList<>();
         List<Object[]> rows = new ArrayList<>();
         try (Cursor cursor = database.rawQuery(
@@ -545,7 +567,7 @@ public final class NutritionCatalogRepository {
     ) {
         String menuId = requiredId(menuFoodId, "외식 메뉴");
         String componentId = requiredId(componentFoodId, "외식 구성품");
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         if (!ownedActiveFood(database, menuId, NutritionFood.KIND_EXTERNAL_MENU)
                 || diningOutComponent(componentId) == null) {
             throw new IllegalArgumentException("현재 계정의 외식 메뉴·구성품만 연결할 수 있습니다.");
@@ -596,7 +618,7 @@ public final class NutritionCatalogRepository {
             groupClause = " AND group_type = ?";
             linkArgs.add(normalizedGroupType);
         }
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         try (Cursor cursor = database.rawQuery(
                 "SELECT component_food_id FROM dining_out_menu_component_links " +
                         "WHERE user_id = ? AND menu_food_id = ? AND deleted_at IS NULL" +
@@ -648,7 +670,7 @@ public final class NutritionCatalogRepository {
         return ordered;
     }
     private boolean ownedActiveFood(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String foodId,
             String expectedKind
     ) {
@@ -836,7 +858,7 @@ public final class NutritionCatalogRepository {
             return new ArrayList<>();
         }
 
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         List<Object[]> foodRows = new ArrayList<>();
         List<Double> quantities = new ArrayList<>();
         List<String> units = new ArrayList<>();
@@ -877,7 +899,7 @@ public final class NutritionCatalogRepository {
             String orderBy,
             String limit
     ) {
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         List<String> ids = new ArrayList<>();
         List<Object[]> rows = new ArrayList<>();
         String limitClause = limit == null ? "" : " LIMIT " + limit;
@@ -1003,7 +1025,7 @@ public final class NutritionCatalogRepository {
                 .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
                 .build();
 
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         database.beginTransaction();
         try {
             database.insertOrThrow("nutrition_foods", null, foodValues(food, now()));
@@ -1144,7 +1166,7 @@ public final class NutritionCatalogRepository {
                 .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
                 .build();
 
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         database.beginTransaction();
         try {
             database.insertOrThrow("nutrition_foods", null, foodValues(food, now()));
@@ -1638,7 +1660,7 @@ public final class NutritionCatalogRepository {
             String sourceReference
     ) {
 
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         String existingId = null;
         String existingCreatedAt = null;
         if (isDiningOutMenuSourceType(sourceType)) {
@@ -1722,7 +1744,7 @@ public final class NutritionCatalogRepository {
     }
 
     private ExistingCatalogRow findCanonicalDiningOutMenu(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String storeName,
             String menuName,
             String sourceReference
@@ -1792,7 +1814,7 @@ public final class NutritionCatalogRepository {
         NutritionFood recipe = recipeFood(UUID.randomUUID().toString(), normalizedName, items);
 
         String timestamp = now();
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         database.beginTransaction();
         try {
             database.insertOrThrow("nutrition_foods", null, foodValues(recipe, timestamp));
@@ -1857,7 +1879,7 @@ public final class NutritionCatalogRepository {
         if (nutritionFoodId == null || nutritionFoodId.trim().isEmpty()) {
             return false;
         }
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         try (Cursor cursor = database.rawQuery(
                 "SELECT visibility FROM nutrition_foods " +
                         "WHERE id = ? AND deleted_at IS NULL LIMIT 1",
@@ -1925,7 +1947,7 @@ public final class NutritionCatalogRepository {
         ContentValues values = new ContentValues();
         values.put("visibility", visibility);
         values.put("updated_at", updatedAt);
-        int changed = dbHelper.getWritableDatabase().update(
+        int changed = database.update(
                 "nutrition_foods",
                 values,
                 "id = ? AND owner_id = ? AND deleted_at IS NULL",
@@ -1987,7 +2009,7 @@ public final class NutritionCatalogRepository {
         ContentValues values = new ContentValues();
         values.put("visibility", visibility);
         values.put("updated_at", updatedAt);
-        int changed = dbHelper.getWritableDatabase().update(
+        int changed = database.update(
                 "nutrition_foods",
                 values,
                 "id = ? AND owner_id = ? AND deleted_at IS NULL",
@@ -2226,7 +2248,7 @@ public final class NutritionCatalogRepository {
         ContentValues values = new ContentValues();
         values.put("source_reference", sourceReference);
         values.put("updated_at", emptyToDefault(nullableString(row, "updated_at"), now()));
-        int changed = dbHelper.getWritableDatabase().update(
+        int changed = database.update(
                 "nutrition_foods",
                 values,
                 "id = ? AND owner_id = ? AND deleted_at IS NULL",
@@ -2281,7 +2303,7 @@ public final class NutritionCatalogRepository {
         if (products == null || products.isEmpty()) {
             return;
         }
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         database.beginTransaction();
         try {
             String fetchedAt = now();
@@ -2426,7 +2448,7 @@ public final class NutritionCatalogRepository {
         requireLinkableFood(nutritionFoodId);
         String timestamp = now();
         String id = UUID.randomUUID().toString();
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         database.beginTransaction();
         try {
             cachePriceTraceProduct(database, product, timestamp);
@@ -2465,7 +2487,7 @@ public final class NutritionCatalogRepository {
             throw new IllegalArgumentException("제안된 catalogProductId를 확인할 수 없습니다.");
         }
         requirePriceTraceCatalogMetadata(exactProduct);
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         String nutritionFoodId;
         String suggestedCatalogProductId;
         try (Cursor cursor = database.rawQuery(
@@ -2517,7 +2539,7 @@ public final class NutritionCatalogRepository {
 
     public boolean rejectProductSuggestion(String suggestionId) {
         String timestamp = now();
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         int nextRevision;
         try (Cursor cursor = database.rawQuery(
                 "SELECT revision FROM product_nutrition_links WHERE id = ? AND owner_id = ? " +
@@ -2551,7 +2573,7 @@ public final class NutritionCatalogRepository {
             return false;
         }
         String timestamp = now();
-        dbHelper.getWritableDatabase().execSQL(
+        database.execSQL(
                 "UPDATE product_nutrition_links SET deleted_at = ?, updated_at = ?, " +
                         "revision = revision + 1 " +
                         "WHERE owner_id = ? AND nutrition_food_id = ? " +
@@ -2563,7 +2585,7 @@ public final class NutritionCatalogRepository {
 
     private List<ProductNutritionLink> readProductLinks(String nutritionFoodId, String status) {
         List<ProductNutritionLink> links = new ArrayList<>();
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         try (Cursor cursor = database.rawQuery(
                 "SELECT l.id, l.owner_id, l.nutrition_food_id, l.catalog_product_id, " +
                         "l.standard_product_id, l.status, l.source_type, l.proposal_reference, " +
@@ -2631,7 +2653,7 @@ public final class NutritionCatalogRepository {
         if (normalized.isEmpty()) {
             throw new IllegalArgumentException("영양 음식 ID가 필요합니다.");
         }
-        try (Cursor cursor = dbHelper.getReadableDatabase().rawQuery(
+        try (Cursor cursor = database.rawQuery(
                 "SELECT 1 FROM nutrition_foods WHERE id = ? AND deleted_at IS NULL " +
                         "AND (visibility = 'public' OR owner_id = ?) LIMIT 1",
                 new String[]{normalized, userId}
@@ -2643,7 +2665,7 @@ public final class NutritionCatalogRepository {
     }
 
     private void softDeleteApprovedLinks(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String nutritionFoodId,
             String exceptId,
             String timestamp
@@ -2666,7 +2688,7 @@ public final class NutritionCatalogRepository {
     }
 
     private void cachePriceTraceProduct(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             ProductReadV1 product,
             String fetchedAt
     ) {
@@ -2755,7 +2777,7 @@ public final class NutritionCatalogRepository {
             );
         }
         JSONArray rows = new JSONArray();
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         try (Cursor cursor = database.rawQuery(
                 "SELECT " + String.join(", ", columns) + " FROM " + table +
                         publicationSafePushWhere(table),
@@ -2812,7 +2834,7 @@ public final class NutritionCatalogRepository {
         JSONArray activeManualRows = new JSONArray();
         List<JSONObject> deletedSuggestionRows = new ArrayList<>();
         List<JSONObject> activeSuggestionDecisions = new ArrayList<>();
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         try (Cursor cursor = database.rawQuery(
                 "SELECT " + String.join(", ", PRODUCT_LINK_SYNC_COLUMNS) +
                         " FROM product_nutrition_links" +
@@ -2940,7 +2962,7 @@ public final class NutritionCatalogRepository {
     }
 
     private int upsertFoodRows(JSONArray rows) throws JSONException {
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         int applied = 0;
         database.beginTransaction();
         try {
@@ -3023,7 +3045,7 @@ public final class NutritionCatalogRepository {
     }
 
     private int upsertNutrientRows(JSONArray rows) throws JSONException {
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         int applied = 0;
         database.beginTransaction();
         try {
@@ -3070,7 +3092,7 @@ public final class NutritionCatalogRepository {
     }
 
     private int upsertComponentRows(JSONArray rows) throws JSONException {
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         int applied = 0;
         database.beginTransaction();
         try {
@@ -3118,7 +3140,7 @@ public final class NutritionCatalogRepository {
     }
 
     private int upsertProductLinkRows(JSONArray rows) throws JSONException {
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         int applied = 0;
         database.beginTransaction();
         try {
@@ -3207,7 +3229,7 @@ public final class NutritionCatalogRepository {
     }
 
     private String otherApprovedLinkUpdatedAt(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String nutritionFoodId,
             String exceptId
     ) {
@@ -3264,7 +3286,7 @@ public final class NutritionCatalogRepository {
         return values;
     }
 
-    private void replaceMicronutrients(SQLiteDatabase database, NutritionFood food) {
+    private void replaceMicronutrients(FitnessDatabaseConnection database, NutritionFood food) {
         database.delete("nutrition_food_nutrients", "food_id = ?", new String[]{food.id});
         String timestamp = now();
         for (String code : food.profile.knownMicronutrientCodes()) {
@@ -3288,7 +3310,7 @@ public final class NutritionCatalogRepository {
     }
 
     private Map<String, Map<String, Double>> loadMicronutrients(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             List<String> foodIds
     ) {
         Map<String, Map<String, Double>> byFood = new LinkedHashMap<>();
@@ -3417,7 +3439,7 @@ public final class NutritionCatalogRepository {
     }
 
     private boolean shouldApplyRemoteRow(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String table,
             String id,
             Integer remoteRevision,

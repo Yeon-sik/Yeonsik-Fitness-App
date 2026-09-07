@@ -2,8 +2,12 @@ package com.yeonsik.fitnessapp.data;
 
 import android.content.ContentValues;
 import android.database.Cursor;
-import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
+
+import android.content.Context;
+
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -42,7 +46,7 @@ public final class LocalDataBackupService {
     private static final List<String> TABLE_ORDER = createTableOrder();
     private static final Set<String> PUBLIC_SCOPE_TABLES = createPublicScopeTables();
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
     private final String recordUserId;
     private final String nutritionOwnerId;
 
@@ -51,15 +55,34 @@ public final class LocalDataBackupService {
             String recordUserId,
             String nutritionOwnerId
     ) {
-        this.dbHelper = Objects.requireNonNull(dbHelper, "dbHelper");
+        this.database = FitnessDatabaseConnection.fromLegacy(Objects.requireNonNull(dbHelper, "dbHelper"));
         this.recordUserId = requireIdentity(recordUserId, "recordUserId");
         this.nutritionOwnerId = requireIdentity(nutritionOwnerId, "nutritionOwnerId");
+    }
+
+    public LocalDataBackupService(
+            FitnessRoomDatabase roomDatabase,
+            Context context,
+            String recordUserId,
+            String nutritionUserId
+    ) {
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), recordUserId, nutritionUserId);
+    }
+
+    public LocalDataBackupService(
+            FitnessDatabaseConnection database,
+            String recordUserId,
+            String nutritionUserId
+    ) {
+        this.database = Objects.requireNonNull(database, "database");
+        this.recordUserId = requireIdentity(recordUserId, "recordUserId");
+        this.nutritionOwnerId = requireIdentity(nutritionUserId, "nutritionUserId");
     }
 
     public BackupPreview writeBackup(OutputStream outputStream) throws IOException {
         Objects.requireNonNull(outputStream, "outputStream");
 
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         String exportedAt = Instant.now().toString();
         ExportPlan exportPlan;
         database.beginTransaction();
@@ -100,7 +123,7 @@ public final class LocalDataBackupService {
 
     public BackupPreview previewBackup(InputStream inputStream) throws IOException {
         Objects.requireNonNull(inputStream, "inputStream");
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         BackupDocument document = parseBackup(readUtf8(inputStream), database);
         int totalRows = 0;
         for (JSONArray rows : document.tables.values()) {
@@ -112,7 +135,7 @@ public final class LocalDataBackupService {
     public RestoreResult restoreBackup(InputStream inputStream) throws IOException {
         Objects.requireNonNull(inputStream, "inputStream");
 
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         BackupDocument document = parseBackup(readUtf8(inputStream), database);
 
         int importedRows = 0;
@@ -162,7 +185,7 @@ public final class LocalDataBackupService {
             // A pre-v18 backup may contain the former cooked official catalog. Reconcile inside
             // the same transaction so restored meal snapshots remain immutable while only the
             // current curated, preparation-specific catalog stays searchable.
-            dbHelper.reconcileVerifiedFoodCatalog(database);
+            database.reconcileVerifiedFoodCatalog();
             database.setTransactionSuccessful();
             return new RestoreResult(importedRows, skippedRows);
         } catch (JSONException e) {
@@ -174,7 +197,7 @@ public final class LocalDataBackupService {
 
     public void writeRecordsSummaryCsv(OutputStream outputStream) throws IOException {
         Objects.requireNonNull(outputStream, "outputStream");
-        SQLiteDatabase database = dbHelper.getReadableDatabase();
+        FitnessDatabaseConnection database = this.database;
         outputStream.write(UTF8_BOM);
         try (Writer writer = new OutputStreamWriter(outputStream, StandardCharsets.UTF_8)) {
             writeCsvHeader(
@@ -198,7 +221,7 @@ public final class LocalDataBackupService {
         }
     }
 
-    private ExportPlan buildExportPlan(SQLiteDatabase database) {
+    private ExportPlan buildExportPlan(FitnessDatabaseConnection database) {
         Map<String, List<JSONObject>> rowsByTable = new LinkedHashMap<>();
         PublicNutritionClosure closure = resolvePublicNutritionClosure(database);
         int totalRows = 0;
@@ -226,7 +249,7 @@ public final class LocalDataBackupService {
     }
 
     private List<JSONObject> exportNutritionFoods(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             PublicNutritionClosure closure
     ) {
         TableSchema schema = schemaFor(database, "nutrition_foods");
@@ -255,7 +278,7 @@ public final class LocalDataBackupService {
     }
 
     private List<JSONObject> exportNutritionFoodNutrients(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             PublicNutritionClosure closure
     ) {
         TableSchema schema = schemaFor(database, "nutrition_food_nutrients");
@@ -284,7 +307,7 @@ public final class LocalDataBackupService {
     }
 
     private List<JSONObject> exportNutritionFoodComponents(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             PublicNutritionClosure closure
     ) {
         TableSchema schema = schemaFor(database, "nutrition_food_components");
@@ -313,7 +336,7 @@ public final class LocalDataBackupService {
     }
 
     private List<JSONObject> exportOwnerRows(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             TableSchema schema,
             String ownerScope
     ) {
@@ -336,7 +359,7 @@ public final class LocalDataBackupService {
         return rows;
     }
 
-    private PublicNutritionClosure resolvePublicNutritionClosure(SQLiteDatabase database) {
+    private PublicNutritionClosure resolvePublicNutritionClosure(FitnessDatabaseConnection database) {
         Set<String> visitedFoodIds = new LinkedHashSet<>();
         Set<String> publicFoodIds = new LinkedHashSet<>();
         Set<String> publicComponentIds = new LinkedHashSet<>();
@@ -397,7 +420,7 @@ public final class LocalDataBackupService {
     }
 
     private NutritionFoodRef loadNutritionFoodRef(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             Map<String, NutritionFoodRef> cache,
             String foodId
     ) {
@@ -470,7 +493,7 @@ public final class LocalDataBackupService {
         }
     }
 
-    private BackupDocument parseBackup(String payload, SQLiteDatabase database) {
+    private BackupDocument parseBackup(String payload, FitnessDatabaseConnection database) {
         JSONObject root;
         try {
             root = new JSONObject(stripUtf8Bom(payload));
@@ -653,7 +676,7 @@ public final class LocalDataBackupService {
 
     private void validateNutritionDocumentScopes(
             Map<String, JSONArray> tables,
-            SQLiteDatabase database
+            FitnessDatabaseConnection database
     ) throws JSONException {
         TableSchema foodSchema = schemaFor(database, "nutrition_foods");
         TableSchema nutrientSchema = schemaFor(database, "nutrition_food_nutrients");
@@ -828,16 +851,15 @@ public final class LocalDataBackupService {
         return scope;
     }
 
-    private boolean routePointExists(SQLiteDatabase database, String recordId, long capturedAtEpochMs) {
-        return DatabaseUtils.longForQuery(
-                database,
+    private boolean routePointExists(FitnessDatabaseConnection database, String recordId, long capturedAtEpochMs) {
+        return database.longForQuery(
                 "SELECT COUNT(*) FROM cardio_route_points " +
                         "WHERE record_id = ? AND captured_at_epoch_ms = ?",
                 new String[]{recordId, Long.toString(capturedAtEpochMs)}
         ) > 0L;
     }
 
-    private TableSchema schemaFor(SQLiteDatabase database, String table) {
+    private TableSchema schemaFor(FitnessDatabaseConnection database, String table) {
         List<ColumnInfo> columns = new ArrayList<>();
         Map<String, ColumnInfo> columnsByName = new LinkedHashMap<>();
         try (Cursor cursor = database.rawQuery("PRAGMA table_info(" + table + ")", null)) {
@@ -960,7 +982,7 @@ public final class LocalDataBackupService {
         return cursor.isNull(index) ? null : cursor.getDouble(index);
     }
 
-    private void writeWorkoutSummaryRows(SQLiteDatabase database, Writer writer) throws IOException {
+    private void writeWorkoutSummaryRows(FitnessDatabaseConnection database, Writer writer) throws IOException {
         try (Cursor cursor = database.rawQuery(
                 "SELECT date, workout_type, category, exercise_name, duration_seconds, " +
                         "total_volume_kg, average_heart_rate " +
@@ -988,7 +1010,7 @@ public final class LocalDataBackupService {
         }
     }
 
-    private void writeMealSummaryRows(SQLiteDatabase database, Writer writer) throws IOException {
+    private void writeMealSummaryRows(FitnessDatabaseConnection database, Writer writer) throws IOException {
         try (Cursor cursor = database.rawQuery(
                 "SELECT date, menu, calories, protein_grams, carbs_grams, fat_grams " +
                         "FROM meal_records WHERE user_id = ? AND deleted_at IS NULL " +
@@ -1015,7 +1037,7 @@ public final class LocalDataBackupService {
         }
     }
 
-    private void writeWeightSummaryRows(SQLiteDatabase database, Writer writer) throws IOException {
+    private void writeWeightSummaryRows(FitnessDatabaseConnection database, Writer writer) throws IOException {
         try (Cursor cursor = database.rawQuery(
                 "SELECT date, weight_kg FROM weight_records " +
                         "WHERE user_id = ? AND deleted_at IS NULL " +

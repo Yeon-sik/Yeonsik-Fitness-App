@@ -4,6 +4,9 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
@@ -34,15 +37,27 @@ public final class DevelopmentRepository {
             "wr.source_app = 'fitness' AND wr.metadata LIKE '%\"status\":\"completed\"%' " +
                     "AND wr.workout_type = 'strength'";
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
     private String userId;
 
     public DevelopmentRepository(FitnessDatabaseHelper dbHelper, String userId) {
         if (dbHelper == null) {
             throw new IllegalArgumentException("DevelopmentRepository에는 데이터베이스 헬퍼가 필요합니다.");
         }
-        this.dbHelper = dbHelper;
+        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
         this.userId = normalizeUserId(userId);
+    }
+
+    public DevelopmentRepository(FitnessDatabaseConnection database, String userId) {
+        if (database == null) {
+            throw new IllegalArgumentException("DevelopmentRepository에는 데이터베이스 연결이 필요합니다.");
+        }
+        this.database = database;
+        this.userId = normalizeUserId(userId);
+    }
+
+    public DevelopmentRepository(FitnessRoomDatabase roomDatabase, android.content.Context context, String userId) {
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), userId);
     }
 
     public void setUserId(String userId) {
@@ -56,7 +71,7 @@ public final class DevelopmentRepository {
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
         if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
-            SQLiteDatabase database = db();
+            FitnessDatabaseConnection database = db();
             database.beginTransaction();
             try {
                 claimBodyProfile(database, nextUserId);
@@ -214,7 +229,7 @@ public final class DevelopmentRepository {
 
     /** 발전 화면에서 사용하는 읽기 전용 논문 근거 평가. 원천 기록을 변경하지 않는다. */
     public PaperAdviceAssessment buildPaperAdviceAssessment(LocalDate referenceDate) {
-        return new PaperAdviceSnapshotAssembler(dbHelper, this).assess(referenceDate);
+        return new PaperAdviceSnapshotAssembler(database, this).assess(referenceDate);
     }
 
     private Double latestWeightOnOrBefore(LocalDate referenceDate) {
@@ -375,7 +390,7 @@ public final class DevelopmentRepository {
         }
     }
 
-    private void claimBodyProfile(SQLiteDatabase database, String nextUserId) {
+    private void claimBodyProfile(FitnessDatabaseConnection database, String nextUserId) {
         database.execSQL(
                 "INSERT OR REPLACE INTO body_profiles (user_id, height_cm, created_at, updated_at) " +
                         "SELECT ?, source.height_cm, source.created_at, source.updated_at " +
@@ -393,7 +408,7 @@ public final class DevelopmentRepository {
         database.delete("body_profiles", "user_id = ?", new String[]{SupabaseConfig.DEFAULT_USER_ID});
     }
 
-    private void claimDevelopmentGoal(SQLiteDatabase database, String nextUserId) {
+    private void claimDevelopmentGoal(FitnessDatabaseConnection database, String nextUserId) {
         database.execSQL(
                 "INSERT OR REPLACE INTO development_goals (" +
                         "user_id, objective, weekly_sessions_target, focus_body_part, effective_from, created_at, updated_at" +
@@ -425,8 +440,8 @@ public final class DevelopmentRepository {
         return null;
     }
 
-    private SQLiteDatabase db() {
-        return dbHelper.getWritableDatabase();
+    private FitnessDatabaseConnection db() {
+        return database;
     }
 
     private static LinkedHashMap<String, Integer> emptyBodyPartCounts() {

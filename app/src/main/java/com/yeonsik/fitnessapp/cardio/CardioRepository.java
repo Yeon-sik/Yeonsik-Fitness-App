@@ -4,6 +4,9 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 
@@ -23,12 +26,22 @@ public final class CardioRepository {
     public static final String GPS_UNAVAILABLE = "unavailable";
     public static final String GPS_STOPPED = "stopped";
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
     private final FitnessRepository fitnessRepository;
 
     public CardioRepository(FitnessDatabaseHelper dbHelper, FitnessRepository fitnessRepository) {
-        this.dbHelper = dbHelper;
+        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
         this.fitnessRepository = fitnessRepository;
+    }
+
+    public CardioRepository(FitnessDatabaseConnection database, FitnessRepository fitnessRepository) {
+        this.database = database;
+        this.fitnessRepository = fitnessRepository;
+    }
+
+    public CardioRepository(FitnessRoomDatabase roomDatabase, FitnessRepository fitnessRepository,
+                            android.content.Context context) {
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), fitnessRepository);
     }
 
     public String startSession(CardioActivityType activityType, String date) {
@@ -40,7 +53,7 @@ public final class CardioRepository {
             return active.recordId;
         }
 
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             String recordId = fitnessRepository.createCardioSession(date, activityType);
@@ -216,7 +229,7 @@ public final class CardioRepository {
             String recordId,
             CardioLocationSample candidate
     ) {
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             CardioActivityType activityType;
@@ -319,7 +332,7 @@ public final class CardioRepository {
         long now = System.currentTimeMillis();
         long durationMillis = snapshot.elapsedDurationMillis(now);
         int durationSeconds = Math.max(1, safeSeconds(durationMillis));
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             fitnessRepository.completeCardioSession(
@@ -362,7 +375,7 @@ public final class CardioRepository {
         if (!isCardioSession(recordId)) {
             return;
         }
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             database.delete(
@@ -386,7 +399,7 @@ public final class CardioRepository {
         if (!isCardioSession(recordId)) {
             return;
         }
-        SQLiteDatabase database = db();
+        FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
             database.delete(
@@ -405,7 +418,7 @@ public final class CardioRepository {
         }
     }
 
-    private void updateGpsStatus(SQLiteDatabase database, String recordId, String gpsStatus) {
+    private void updateGpsStatus(FitnessDatabaseConnection database, String recordId, String gpsStatus) {
         ContentValues values = new ContentValues();
         values.put("gps_status", gpsStatus);
         values.put("updated_at_epoch_ms", System.currentTimeMillis());
@@ -414,8 +427,8 @@ public final class CardioRepository {
                 new String[]{recordId, userId(), STATUS_TRACKING, STATUS_PAUSED});
     }
 
-    private SQLiteDatabase db() {
-        return dbHelper.getWritableDatabase();
+    private FitnessDatabaseConnection db() {
+        return database;
     }
 
     private String userId() {

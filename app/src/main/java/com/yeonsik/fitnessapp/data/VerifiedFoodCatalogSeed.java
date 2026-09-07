@@ -5,6 +5,8 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import androidx.sqlite.db.SupportSQLiteDatabase;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -66,6 +68,11 @@ public final class VerifiedFoodCatalogSeed {
 
     public static void seed(Context context, SQLiteDatabase database) {
         seed(context, new AndroidLegacyMigrationDatabase(database));
+    }
+
+    /** Seeds the catalog through the Room-managed SupportSQLiteDatabase connection. */
+    public static void seedWithSupport(Context context, SupportSQLiteDatabase database) {
+        seed(context, new SupportLegacyMigrationDatabase(database));
     }
 
     static void seed(Context context, LegacyMigrationDatabase database) {

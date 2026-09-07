@@ -4,7 +4,11 @@ import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
+import android.content.Context;
+
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.FitnessSummaryProjectionV2;
@@ -53,10 +57,18 @@ public final class SupabaseSyncManager {
             "weight_records"
     );
 
-    private final FitnessDatabaseHelper dbHelper;
+    private final FitnessDatabaseConnection database;
 
     public SupabaseSyncManager(FitnessDatabaseHelper dbHelper) {
-        this.dbHelper = dbHelper;
+        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
+    }
+
+    public SupabaseSyncManager(FitnessRoomDatabase roomDatabase, Context context) {
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context));
+    }
+
+    public SupabaseSyncManager(FitnessDatabaseConnection database) {
+        this.database = database;
     }
 
     public SyncResult manualSync(SupabaseConfig config) throws Exception {
@@ -75,7 +87,7 @@ public final class SupabaseSyncManager {
             throw new IllegalStateException("Supabase 설정이 비어 있습니다.");
         }
 
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         int pushedRows = 0;
         int pulledRows = 0;
         Map<String, JSONArray> remoteRows = new LinkedHashMap<>();
@@ -86,7 +98,7 @@ public final class SupabaseSyncManager {
             pulledRows += applyRows(database, table, rows, config.effectiveUserId());
         }
 
-        FitnessRepository repository = new FitnessRepository(dbHelper, config.effectiveUserId());
+        FitnessRepository repository = new FitnessRepository(database, database.applicationContext(), config.effectiveUserId());
         repository.reconcileSharedWorkoutSummaries();
 
         for (String table : TABLES) {
@@ -106,10 +118,10 @@ public final class SupabaseSyncManager {
     }
 
     private SyncResult manualSyncRpc(SupabaseConfig config) throws Exception {
-        SQLiteDatabase database = dbHelper.getWritableDatabase();
+        FitnessDatabaseConnection database = this.database;
         String userId = config.effectiveUserId();
         String scopeKey = config.supabaseUrl + "|" + userId;
-        FitnessRepository repository = new FitnessRepository(dbHelper, userId);
+        FitnessRepository repository = new FitnessRepository(database, database.applicationContext(), userId);
         repository.reconcileSharedWorkoutSummaries();
 
         Map<String, SyncCursor> pullCursors = loadPullCursors(database, scopeKey);
@@ -268,7 +280,7 @@ public final class SupabaseSyncManager {
     }
 
     private int applyRpcResponse(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             RpcResponse response,
             String userId
     ) throws JSONException {
@@ -287,7 +299,7 @@ public final class SupabaseSyncManager {
     }
 
     private Map<String, SyncCursor> loadPullCursors(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String scopeKey
     ) {
         Map<String, SyncCursor> cursors = new LinkedHashMap<>();
@@ -301,7 +313,7 @@ public final class SupabaseSyncManager {
     }
 
     private SyncCursor loadCursor(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String scopeKey,
             String table,
             String direction
@@ -326,7 +338,7 @@ public final class SupabaseSyncManager {
     }
 
     private void saveCursor(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String scopeKey,
             String table,
             String direction,
@@ -351,7 +363,7 @@ public final class SupabaseSyncManager {
     }
 
     private void savePullCursors(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String scopeKey,
             Map<String, SyncCursor> pullCursors,
             JSONObject nextCursors,
@@ -390,7 +402,7 @@ public final class SupabaseSyncManager {
     }
 
     private boolean isPullCursorApplied(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String table,
             String userId,
             SyncCursor cursor
@@ -433,7 +445,7 @@ public final class SupabaseSyncManager {
 
 
     private int pushTable(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String table,
             SupabaseConfig config,
             JSONArray remoteRows
@@ -503,7 +515,7 @@ public final class SupabaseSyncManager {
     }
 
     private JSONArray tableRowsToJson(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String table,
             String userId
     ) throws JSONException {
@@ -511,7 +523,7 @@ public final class SupabaseSyncManager {
     }
 
     private JSONArray tableRowsToJson(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String table,
             String userId,
             SyncCursor syncCursor,
@@ -596,7 +608,7 @@ public final class SupabaseSyncManager {
      * Remote schemas can lag behind the local SQLite schema; omitted local columns must survive.
      */
     int applyRows(
-            SQLiteDatabase database,
+            FitnessDatabaseConnection database,
             String table,
             JSONArray rows,
             String userId
@@ -668,8 +680,55 @@ public final class SupabaseSyncManager {
         return applied;
     }
 
-    private String localVersion(
+    /** Compatibility overload retained for legacy migration/instrumentation callers. */
+    int applyRows(
             SQLiteDatabase database,
+            String table,
+            JSONArray rows,
+            String userId
+    ) throws JSONException {
+        Set<String> localColumns = new HashSet<>(tableColumns(database, table));
+        String versionColumn = versionColumn(table);
+        int applied = 0;
+        database.beginTransaction();
+        try {
+            for (int index = 0; index < rows.length(); index++) {
+                JSONObject object = rows.getJSONObject(index);
+                String id = object.optString("id", "");
+                if (id.isEmpty()) continue;
+                String remoteVersion = nullableString(object, versionColumn);
+                String localVersion = localVersion(database, table, id, userId, versionColumn);
+                if (localVersion != null && compareVersions(remoteVersion, localVersion) <= 0) continue;
+                ContentValues values = new ContentValues();
+                JSONArray names = object.names();
+                if (names == null) continue;
+                for (int nameIndex = 0; nameIndex < names.length(); nameIndex++) {
+                    String name = names.getString(nameIndex);
+                    if (!localColumns.contains(name)) continue;
+                    Object value = object.get(name);
+                    putJsonValue(values, name, value);
+                    if ("meal_records".equals(table) && "metadata".equals(name)) {
+                        applyMealRecordMetadataColumns(values, value);
+                    }
+                }
+                int updated = database.update(table, values, "id = ? AND user_id = ?",
+                        new String[]{id, userId});
+                if (updated == 0) {
+                    long inserted = database.insertWithOnConflict(table, null, values,
+                            SQLiteDatabase.CONFLICT_IGNORE);
+                    if (inserted == -1L) continue;
+                }
+                applied++;
+            }
+            database.setTransactionSuccessful();
+        } finally {
+            database.endTransaction();
+        }
+        return applied;
+    }
+
+    private String localVersion(
+            FitnessDatabaseConnection database,
             String table,
             String id,
             String userId,
@@ -683,6 +742,17 @@ public final class SupabaseSyncManager {
             if (cursor.moveToFirst() && !cursor.isNull(0)) {
                 return cursor.getString(0);
             }
+        }
+        return null;
+    }
+
+    private String localVersion(SQLiteDatabase database, String table, String id,
+                                String userId, String versionColumn) {
+        try (Cursor cursor = database.rawQuery(
+                "SELECT " + versionColumn + " FROM " + table +
+                        " WHERE id = ? AND user_id = ? LIMIT 1",
+                new String[]{id, userId})) {
+            if (cursor.moveToFirst() && !cursor.isNull(0)) return cursor.getString(0);
         }
         return null;
     }
@@ -920,6 +990,16 @@ public final class SupabaseSyncManager {
 
     private static String encode(String value) throws Exception {
         return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
+    }
+
+    private List<String> tableColumns(FitnessDatabaseConnection database, String table) {
+        List<String> columns = new ArrayList<>();
+        try (Cursor cursor = database.rawQuery("PRAGMA table_info(" + table + ")", null)) {
+            while (cursor.moveToNext()) {
+                columns.add(cursor.getString(cursor.getColumnIndexOrThrow("name")));
+            }
+        }
+        return columns;
     }
 
     private List<String> tableColumns(SQLiteDatabase database, String table) {
