@@ -110,7 +110,7 @@ public final class RoutineEditorScreen extends BaseScreen {
         }
 
         add(ui.primaryButton("이 루틴으로 운동 시작",
-                v -> host.startRoutineWorkoutLegacy(routineExercises)),
+                v -> host.startRoutineWorkout(toFeatureModels(routineExercises))),
                 ui.fullWidthParams(ui.dp(4)));
         section("세부 운동 종목", "종목 추가", () -> host.navigate(FitnessScreen.ROUTINE_ADD));
 
@@ -119,6 +119,20 @@ public final class RoutineEditorScreen extends BaseScreen {
             rows.add(routineExerciseRow(exercise));
         }
         add(ui.rowsCard(rows));
+    }
+
+    private static List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance>
+    toFeatureModels(List<RoutineExerciseInstance> exercises) {
+        List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> result =
+                new ArrayList<>();
+        if (exercises != null) {
+            for (RoutineExerciseInstance exercise : exercises) {
+                if (exercise != null) {
+                    result.add(exercise.toFeatureModel());
+                }
+            }
+        }
+        return result;
     }
 
     private View routineExerciseRow(RoutineExerciseInstance exercise) {

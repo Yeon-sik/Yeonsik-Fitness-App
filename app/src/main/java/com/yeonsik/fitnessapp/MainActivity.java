@@ -1675,30 +1675,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     @Override
-    public void startRoutineWorkoutLegacy(List<RoutineExerciseInstance> routineExercises) {
-        if (routineExercises == null || routineExercises.isEmpty()) {
-            toast("만들어진 루틴이 없습니다.");
-            return;
-        }
-        List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> featureExercises =
-                new ArrayList<>();
-        for (RoutineExerciseInstance exercise : routineExercises) {
-            featureExercises.add(new com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance(
-                    exercise.id,
-                    exercise.exerciseId,
-                    exercise.nameKo,
-                    exercise.uiPart,
-                    exercise.primarySubPart,
-                    exercise.equipment,
-                    exercise.recordType,
-                    exercise.order,
-                    exercise.familyIdentity
-            ));
-        }
-        startRoutineWorkout(featureExercises);
-    }
-
-    @Override
     public String currentWorkoutRecordId() {
         boolean onSessionScreen = currentScreen == FitnessScreen.WORKOUT_SESSION
                 || currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL;

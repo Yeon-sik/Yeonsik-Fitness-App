@@ -57,4 +57,19 @@ public final class RoutineExerciseInstance {
         this.order = order;
         this.familyIdentity = familyIdentity;
     }
+
+    /** Converts the storage-era routine row to the feature boundary model. */
+    public com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance toFeatureModel() {
+        return new com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance(
+                id,
+                exerciseId,
+                nameKo,
+                uiPart,
+                primarySubPart,
+                equipment,
+                recordType,
+                order,
+                familyIdentity
+        );
+    }
 }

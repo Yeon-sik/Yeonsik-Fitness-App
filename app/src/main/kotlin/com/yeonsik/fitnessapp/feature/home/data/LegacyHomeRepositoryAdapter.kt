@@ -68,12 +68,6 @@ class LegacyHomeRepositoryAdapter(
     private fun RoutineRepository.RoutineSummary.toFeatureModel() =
         RoutineSummary(id, name, exerciseCount)
 
-    private fun com.yeonsik.fitnessapp.routine.RoutineExerciseInstance.toFeatureModel() =
-        RoutineExerciseInstance(
-            id, exerciseId, nameKo, uiPart, primarySubPart, equipment,
-            recordType, order, familyIdentity
-        )
-
     private fun FitnessRepository.DayWorkoutMetrics.toFeatureModel() =
         HomeDayWorkoutMetrics(sessionCount, totalSetCount, totalVolumeKg, totalDurationSeconds)
 

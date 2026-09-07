@@ -16,7 +16,6 @@ import com.yeonsik.fitnessapp.development.DevelopmentInsight;
 import com.yeonsik.fitnessapp.development.DevelopmentRepository;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.routine.RoutineRepository;
-import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.supplement.SupplementRepository;
@@ -102,7 +101,6 @@ public interface ScreenHost {
             List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> exercises
     );
 
-    void startRoutineWorkoutLegacy(List<RoutineExerciseInstance> exercises);
 
     String currentWorkoutRecordId();
 

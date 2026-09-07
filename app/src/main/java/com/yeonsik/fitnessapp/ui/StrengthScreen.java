@@ -47,7 +47,7 @@ public final class StrengthScreen extends BaseScreen {
                         repository().latestCompletedWorkoutDateForRoutine(routine.id, routine.name),
                         () -> {
                             host.routineRepository().selectRoutine(routine.id);
-                            host.startRoutineWorkoutLegacy(exercises);
+                            host.startRoutineWorkout(toFeatureModels(exercises));
                         },
                         () -> {
                             host.routineRepository().selectRoutine(routine.id);
@@ -75,7 +75,7 @@ public final class StrengthScreen extends BaseScreen {
         ), -1, which -> {
             if (which == 0) {
                 host.routineRepository().selectRoutine(routine.id);
-                host.startRoutineWorkoutLegacy(exercises);
+                host.startRoutineWorkout(toFeatureModels(exercises));
             } else if (which == 1) {
                 showRenameRoutine(routine);
             } else if (which == 2) {
@@ -84,6 +84,20 @@ public final class StrengthScreen extends BaseScreen {
                 confirmDeleteRoutine(routine);
             }
         });
+    }
+
+    private static List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance>
+    toFeatureModels(List<RoutineExerciseInstance> exercises) {
+        java.util.ArrayList<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> result =
+                new java.util.ArrayList<>();
+        if (exercises != null) {
+            for (RoutineExerciseInstance exercise : exercises) {
+                if (exercise != null) {
+                    result.add(exercise.toFeatureModel());
+                }
+            }
+        }
+        return result;
     }
 
     private void showRenameRoutine(RoutineRepository.RoutineSummary routine) {
