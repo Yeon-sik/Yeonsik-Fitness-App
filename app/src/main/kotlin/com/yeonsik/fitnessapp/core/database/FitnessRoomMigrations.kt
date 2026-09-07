@@ -19,6 +19,7 @@ object FitnessRoomMigrations {
     ) {
         override fun migrate(db: SupportSQLiteDatabase) {
             FitnessDatabaseContract.requireV50Schema(db)
+            FitnessPrimaryKeyCompatibility.normalizeNullablePrimaryKeys(db)
         }
     }
 }

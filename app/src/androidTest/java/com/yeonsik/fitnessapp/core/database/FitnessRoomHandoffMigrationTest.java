@@ -47,6 +47,26 @@ public final class FitnessRoomHandoffMigrationTest {
                             "updated_at) VALUES ('routine-v50', 'room-user', 'v50 routine', 1, " +
                             "'device', '2026-09-07T00:00:00Z', '2026-09-07T00:00:00Z')"
             );
+            legacyDatabase.execSQL(
+                    "INSERT INTO workout_exercises (id, user_id, record_id, order_index, exercise_id, " +
+                            "exercise_name_snapshot, ui_part, record_type, created_at, updated_at, " +
+                            "device_id, contract_version) VALUES ('exercise-v50', 'room-user', " +
+                            "'record-v50', 0, 'bench-press', 'Bench snapshot', 'chest', 'weight', " +
+                            "'2026-09-07T00:00:00Z', '2026-09-07T00:00:00Z', 'device', 1)"
+            );
+            legacyDatabase.execSQL(
+                    "INSERT INTO workout_sets (id, user_id, workout_exercise_id, set_index, " +
+                            "input_load_value, input_load_unit, load_state, is_completed, created_at, " +
+                            "updated_at, deleted_at, device_id, contract_version) VALUES ('set-v50', " +
+                            "'room-user', 'exercise-v50', 0, 135.5, 'lb', 'entered', 1, " +
+                            "'2026-09-07T00:00:00Z', '2026-09-07T00:00:00Z', " +
+                            "'2026-09-08T00:00:00Z', 'device', 1)"
+            );
+            legacyDatabase.execSQL(
+                    "INSERT INTO sync_state (scope_key, table_name, direction, cursor_version, " +
+                            "cursor_id, updated_at) VALUES ('room-user', 'workout_sets', 'pull', " +
+                            "'snapshot-v1', 'cursor-v50', '2026-09-07T00:00:00Z')"
+            );
             legacy.close();
             legacy = null;
 
@@ -61,6 +81,15 @@ public final class FitnessRoomHandoffMigrationTest {
                     "SELECT weight_kg FROM weight_records WHERE id = 'weight-v50'"));
             assertEquals("v50 routine", scalar(database,
                     "SELECT name FROM routines WHERE id = 'routine-v50'"));
+            assertEquals("Bench snapshot", scalar(database,
+                    "SELECT exercise_name_snapshot FROM workout_exercises WHERE id = 'exercise-v50'"));
+            assertEquals("lb", scalar(database,
+                    "SELECT input_load_unit FROM workout_sets WHERE id = 'set-v50'"));
+            assertEquals("2026-09-08T00:00:00Z", scalar(database,
+                    "SELECT deleted_at FROM workout_sets WHERE id = 'set-v50'"));
+            assertEquals("cursor-v50", scalar(database,
+                    "SELECT cursor_id FROM sync_state WHERE scope_key = 'room-user'"));
+            assertAllPrimaryKeysAreNotNull(database);
             assertTrue(tableExists(database, "sync_state"));
             assertTrue(tableExists(database, "meal_record_items"));
         } finally {
@@ -74,6 +103,72 @@ public final class FitnessRoomHandoffMigrationTest {
         }
     }
 
+    @Test
+    public void roomFailsClosedWhenLegacyNullablePrimaryKeyContainsNull() {
+        Context context = new IsolatedDatabaseContext(ApplicationProvider.getApplicationContext());
+        context.deleteDatabase(FitnessDatabaseContract.NAME);
+
+        FitnessDatabaseHelper legacy = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = null;
+        try {
+            SQLiteDatabase legacyDatabase = legacy.getWritableDatabase();
+            legacyDatabase.execSQL(
+                    "INSERT INTO body_profiles (user_id, height_cm, created_at, updated_at) " +
+                            "VALUES (NULL, 175, '2026-09-07T00:00:00Z', '2026-09-07T00:00:00Z')"
+            );
+            legacy.close();
+            legacy = null;
+
+            boolean failedClosed = false;
+            room = Room.databaseBuilder(context, FitnessRoomDatabase.class,
+                            FitnessDatabaseContract.NAME)
+                    .addMigrations(FitnessRoomMigrations.INSTANCE.getV50_TO_V51())
+                    .build();
+            try {
+                room.getOpenHelper().getWritableDatabase();
+            } catch (IllegalStateException expected) {
+                failedClosed = expected.getMessage() != null
+                        && expected.getMessage().contains("body_profiles.user_id");
+            }
+            assertTrue("A legacy NULL primary-key row must abort the Room handoff.", failedClosed);
+        } finally {
+            if (legacy != null) {
+                legacy.close();
+            }
+            if (room != null) {
+                room.close();
+            }
+            context.deleteDatabase(FitnessDatabaseContract.NAME);
+        }
+    }
+
+    private static void assertAllPrimaryKeysAreNotNull(SupportSQLiteDatabase database) {
+        try (Cursor tables = database.query(
+                "SELECT name FROM sqlite_master WHERE type = 'table' " +
+                        "AND name NOT LIKE 'sqlite_%' AND name != 'android_metadata' " +
+                        "AND name != 'room_master_table'"
+        )) {
+            while (tables.moveToNext()) {
+                String tableName = tables.getString(0);
+                String quotedName = "\"" + tableName.replace("\"", "\"\"") + "\"";
+                int primaryKeyCount = 0;
+                try (Cursor columns = database.query("PRAGMA table_info(" + quotedName + ")")) {
+                    while (columns.moveToNext()) {
+                        if (columns.getInt(5) > 0) {
+                            primaryKeyCount++;
+                            assertEquals(
+                                    "Room handoff must normalize " + tableName + "." +
+                                            columns.getString(1),
+                                    1,
+                                    columns.getInt(3)
+                            );
+                        }
+                    }
+                }
+                assertTrue("Expected primary key for " + tableName, primaryKeyCount > 0);
+            }
+        }
+    }
     private static boolean tableExists(SupportSQLiteDatabase database, String tableName) {
         try (Cursor cursor = database.query(
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",

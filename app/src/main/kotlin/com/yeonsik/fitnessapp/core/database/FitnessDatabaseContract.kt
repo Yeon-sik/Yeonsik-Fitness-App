@@ -18,7 +18,6 @@ object FitnessDatabaseContract {
         "composition_templates",
         "development_goals",
         "devices",
-        "dining_out_menu_add_on_links",
         "dining_out_menu_component_links",
         "exercise_picker_preferences",
         "meal_menu_presets",
@@ -50,6 +49,10 @@ object FitnessDatabaseContract {
         "workout_sets"
     )
 
+
+    /** Present only in legacy v38+ upgrades; never discard it when it already exists. */
+    val optionalLegacyTableNames: Set<String> =
+        setOf("dining_out_menu_add_on_links")
     /** Refuses a partial or differently named file before Room changes its version marker. */
     fun requireV50Schema(database: SupportSQLiteDatabase) {
         val actual = linkedSetOf<String>()
@@ -63,8 +66,10 @@ object FitnessDatabaseContract {
                 actual += cursor.getString(0)
             }
         }
-        check(actual == tableNames) {
-            "fitness_mvp.db v50 schema mismatch. Expected $tableNames but found $actual."
+        val allowed = tableNames + optionalLegacyTableNames
+        check(actual.containsAll(tableNames) && actual.all { it in allowed }) {
+            "fitness_mvp.db v50 schema mismatch. Required $tableNames, optional " +
+                "$optionalLegacyTableNames, but found $actual."
         }
     }
 }
