@@ -85,8 +85,10 @@ import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState;
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
+import com.yeonsik.fitnessapp.feature.home.data.HomeReadRepository;
 import com.yeonsik.fitnessapp.feature.routine.application.EnsureActiveRoutine;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
@@ -272,7 +274,12 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         repository.reconcileSharedWorkoutSummaries();
         exerciseMasterRepository = new ExerciseMasterRepository(this);
         routineRepository = new RoutineRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
-        appContainer = new AppContainer(repository, cardioRepository, routineRepository);
+        appContainer = new AppContainer(
+                new WorkoutRepositoryImplementation(repository),
+                cardioRepository,
+                routineRepository,
+                new HomeReadRepository(repository, routineRepository)
+        );
         developmentRepository = new DevelopmentRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
         supplementRepository = new SupplementRepository(roomDatabase, supabaseConfig.effectiveUserId(), this);
         initializeFeatureViewModels();
