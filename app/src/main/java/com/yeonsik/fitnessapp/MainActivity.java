@@ -79,7 +79,6 @@ import com.yeonsik.fitnessapp.ui.CardioSessionScreen;
 import com.yeonsik.fitnessapp.ui.CardioSummaryScreen;
 import com.yeonsik.fitnessapp.ui.DevelopmentScreen;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
-import com.yeonsik.fitnessapp.ui.HomeScreen;
 import com.yeonsik.fitnessapp.ui.MealManagementScreen;
 import com.yeonsik.fitnessapp.ui.RecordsScreen;
 import com.yeonsik.fitnessapp.ui.RoutineEditorScreen;
@@ -703,7 +702,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private Map<FitnessScreen, BaseScreen> buildScreens() {
         Map<FitnessScreen, BaseScreen> map = new EnumMap<>(FitnessScreen.class);
         RoutineEditorScreen routineEditor = new RoutineEditorScreen(this);
-        map.put(FitnessScreen.HOME, new HomeScreen(this));
         map.put(FitnessScreen.WORKOUT, new WorkoutScreen(this));
         map.put(FitnessScreen.STRENGTH, new StrengthScreen(this));
         map.put(FitnessScreen.CARDIO, new CardioScreen(this));
