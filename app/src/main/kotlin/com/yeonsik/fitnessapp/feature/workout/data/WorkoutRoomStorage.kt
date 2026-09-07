@@ -545,7 +545,16 @@ class WorkoutRoomStorage(
             ) else listOf("{}", "fitness", "fitness", "0", "0")
         }
         val metadata = recordState[0]
-        val merged = try { JSONObject(metadata ?: "{}").put("status", "completed").put("ended_at", endedAt).put("contract_version", FitnessRecordContract.VERSION).toString() } catch (_: Exception) { metadata }
+        val category = categoryFor(scope, recordId)
+        val merged = try {
+            JSONObject(metadata ?: "{}")
+                .put("status", "completed")
+                .put("ended_at", endedAt)
+                .put("contract_version", FitnessRecordContract.VERSION)
+                .put("os_categories", JSONArray().put(category))
+                .put("category_codes", FitnessRecordContract.categoryCodes(listOf(category)))
+                .toString()
+        } catch (_: Exception) { metadata }
         val values = ContentValues().apply {
             put("metadata", merged)
             val storedDuration = recordState[3].toIntOrNull() ?: 0
@@ -554,7 +563,7 @@ class WorkoutRoomStorage(
             put("duration_seconds", duration)
             put("total_volume_kg", metrics.totalVolumeKg)
             put("updated_at", endedAt)
-            if (recordState[1] == "fitness") put("category", categoryFor(scope, recordId))
+            if (recordState[1] == "fitness") put("category", category)
             if (recordState[1] == "fitness") put("scope", "both") else put("scope", recordState[2])
         }
         database.update("workout_records", 0, values, "id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(recordId, scope.ownerId))
