@@ -9,7 +9,7 @@ import com.yeonsik.fitnessapp.feature.home.data.HomeReadRepository
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitnessapp.feature.workout.application.InitializeWorkoutExercise
 import com.yeonsik.fitnessapp.feature.workout.application.CompleteWorkout
-import com.yeonsik.fitnessapp.feature.workout.data.LegacyWorkoutRepositoryAdapter
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation
 
 /** Manual dependency assembly; framework-wide DI is intentionally not introduced. */
 class AppContainer(
@@ -17,7 +17,7 @@ class AppContainer(
     cardioRepository: CardioRepository,
     routineRepository: RoutineRepository
 ) {
-    val workoutRepository: WorkoutRepositoryApi = LegacyWorkoutRepositoryAdapter(repository)
+    val workoutRepository: WorkoutRepositoryApi = WorkoutRepositoryImplementation(repository)
     val cardioRepositoryApi: CardioRepositoryApi = cardioRepository
     val routineRepositoryApi: com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi =
         routineRepository

@@ -21,7 +21,7 @@ import com.yeonsik.fitnessapp.exercise.RoutineExercise
  * Stage-2 compatibility adapter. SQL and legacy data types stay on this side
  * of the feature API until the later Room stage.
  */
-class LegacyWorkoutRepositoryAdapter(
+class WorkoutRepositoryImplementation(
     private val legacy: FitnessRepository
 ) : WorkoutRepositoryApi {
     override fun loadSession(scope: AccountScope, recordId: String): WorkoutSessionSnapshot? {
