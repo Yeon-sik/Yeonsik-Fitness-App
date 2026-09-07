@@ -142,6 +142,41 @@ public final class FitnessRoomHandoffMigrationTest {
         }
     }
 
+    @Test
+    public void freshRoomCreatesTheFullV51SchemaBeforeRoomOwnershipBegins() {
+        Context context = new IsolatedDatabaseContext(ApplicationProvider.getApplicationContext());
+        context.deleteDatabase(FitnessDatabaseContract.NAME);
+        FitnessRoomDatabase room = null;
+        try {
+            room = Room.databaseBuilder(context, FitnessRoomDatabase.class,
+                            FitnessDatabaseContract.NAME)
+                    .openHelperFactory(new FitnessRoomOpenHelperFactory())
+                    .addMigrations(FitnessRoomMigrations.INSTANCE.getV50_TO_V51())
+                    .build();
+            SupportSQLiteDatabase database = room.getOpenHelper().getWritableDatabase();
+
+            assertEquals(FitnessDatabaseContract.ROOM_VERSION, database.getVersion());
+            assertTrue(tableExists(database, "meal_record_item_component_nutrients"));
+            assertTrue(tableExists(database, "dining_out_menu_add_on_links"));
+            assertEquals("1", scalar(database,
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' " +
+                            "AND name = 'verified_receipt_items'"));
+            assertTrue(scalar(database,
+                    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'body_profiles'")
+                    .contains("CHECK (height_cm BETWEEN 50 AND 300)"));
+            assertTrue(scalar(database,
+                    "SELECT sql FROM sqlite_master WHERE type = 'index' " +
+                            "AND name = 'product_nutrition_links_one_approved_idx'")
+                    .contains("WHERE status = 'approved' AND deleted_at IS NULL"));
+            assertAllPrimaryKeysAreNotNull(database);
+        } finally {
+            if (room != null) {
+                room.close();
+            }
+            context.deleteDatabase(FitnessDatabaseContract.NAME);
+        }
+    }
+
     private static void assertAllPrimaryKeysAreNotNull(SupportSQLiteDatabase database) {
         try (Cursor tables = database.query(
                 "SELECT name FROM sqlite_master WHERE type = 'table' " +
