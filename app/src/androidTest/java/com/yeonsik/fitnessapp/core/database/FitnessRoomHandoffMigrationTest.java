@@ -12,6 +12,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
+import com.yeonsik.fitnessapp.data.FitnessDatabaseMigrationTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -19,6 +20,7 @@ import org.junit.runner.RunWith;
 import java.io.File;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /** Proves that Room adopts an existing v50 file without re-creating its user tables. */
@@ -49,9 +51,11 @@ public final class FitnessRoomHandoffMigrationTest {
             );
             legacyDatabase.execSQL(
                     "INSERT INTO workout_exercises (id, user_id, record_id, order_index, exercise_id, " +
-                            "exercise_name_snapshot, ui_part, record_type, created_at, updated_at, " +
+                            "exercise_name_snapshot, ui_part, record_type, family_id, preset_id, " +
+                            "canonical_variant_key, visual_variant_key, created_at, updated_at, " +
                             "device_id, contract_version) VALUES ('exercise-v50', 'room-user', " +
-                            "'record-v50', 0, 'bench-press', 'Bench snapshot', 'chest', 'weight', " +
+                    "'record-v50', 0, 'bench-press', 'Bench snapshot', 'chest', 'weight', " +
+                            "'barbell-bench', 'flat-bench', 'barbell-flat', 'front', " +
                             "'2026-09-07T00:00:00Z', '2026-09-07T00:00:00Z', 'device', 1)"
             );
             legacyDatabase.execSQL(
@@ -67,12 +71,29 @@ public final class FitnessRoomHandoffMigrationTest {
                             "cursor_id, updated_at) VALUES ('room-user', 'workout_sets', 'pull', " +
                             "'snapshot-v1', 'cursor-v50', '2026-09-07T00:00:00Z')"
             );
+            legacyDatabase.execSQL(
+                    "INSERT INTO meal_records (id, user_id, date, menu, calories, protein_grams, " +
+                            "created_at, is_backfilled, updated_at, device_id, source_app, scope, metadata, " +
+                            "contract_version) VALUES ('meal-v50', 'room-user', '2026-09-07', 'snapshot meal', " +
+                            "640, 42, '2026-09-07T00:00:00Z', 0, '2026-09-07T00:00:00Z', 'device', " +
+                            "'fitness', 'fitness', '{}', 1)"
+            );
+            legacyDatabase.execSQL(
+                    "INSERT INTO meal_record_items (id, user_id, meal_record_id, food_id, " +
+                            "food_name_snapshot, brand_snapshot, quantity, unit, calories, protein_grams, " +
+                            "carbs_grams, fat_grams, source_type_snapshot, source_reference_snapshot, " +
+                            "source_version_snapshot, order_index, created_at, updated_at, device_id) VALUES " +
+                            "('item-v50', 'room-user', 'meal-v50', 'catalog-food-1', 'saved snapshot', " +
+                            "'saved brand', 1, 'serving', 640, 42, 60, 20, 'legacy_source', " +
+                            "'legacy-reference', 'legacy-v1', 0, '2026-09-07T00:00:00Z', " +
+                            "'2026-09-07T00:00:00Z', 'device')"
+            );
             legacy.close();
             legacy = null;
 
             room = Room.databaseBuilder(context, FitnessRoomDatabase.class,
                             FitnessDatabaseContract.NAME)
-                    .addMigrations(FitnessRoomMigrations.INSTANCE.getV50_TO_V51())
+                    .addMigrations(FitnessRoomMigrations.all(context))
                     .build();
 
             SupportSQLiteDatabase database = room.getOpenHelper().getWritableDatabase();
@@ -83,12 +104,22 @@ public final class FitnessRoomHandoffMigrationTest {
                     "SELECT name FROM routines WHERE id = 'routine-v50'"));
             assertEquals("Bench snapshot", scalar(database,
                     "SELECT exercise_name_snapshot FROM workout_exercises WHERE id = 'exercise-v50'"));
+            assertEquals("barbell-bench", scalar(database,
+                    "SELECT family_id FROM workout_exercises WHERE id = 'exercise-v50'"));
+            assertEquals("barbell-flat", scalar(database,
+                    "SELECT canonical_variant_key FROM workout_exercises WHERE id = 'exercise-v50'"));
             assertEquals("lb", scalar(database,
                     "SELECT input_load_unit FROM workout_sets WHERE id = 'set-v50'"));
             assertEquals("2026-09-08T00:00:00Z", scalar(database,
                     "SELECT deleted_at FROM workout_sets WHERE id = 'set-v50'"));
             assertEquals("cursor-v50", scalar(database,
                     "SELECT cursor_id FROM sync_state WHERE scope_key = 'room-user'"));
+            assertEquals("saved snapshot", scalar(database,
+                    "SELECT food_name_snapshot FROM meal_record_items WHERE id = 'item-v50'"));
+            assertEquals("legacy-v1", scalar(database,
+                    "SELECT source_version_snapshot FROM meal_record_items WHERE id = 'item-v50'"));
+            assertNull(nullableScalar(database,
+                    "SELECT sodium_mg FROM meal_record_items WHERE id = 'item-v50'"));
             assertAllPrimaryKeysAreNotNull(database);
             assertTrue(tableExists(database, "sync_state"));
             assertTrue(tableExists(database, "meal_record_items"));
@@ -122,7 +153,7 @@ public final class FitnessRoomHandoffMigrationTest {
             boolean failedClosed = false;
             room = Room.databaseBuilder(context, FitnessRoomDatabase.class,
                             FitnessDatabaseContract.NAME)
-                    .addMigrations(FitnessRoomMigrations.INSTANCE.getV50_TO_V51())
+                    .addMigrations(FitnessRoomMigrations.all(context))
                     .build();
             try {
                 room.getOpenHelper().getWritableDatabase();
@@ -151,7 +182,7 @@ public final class FitnessRoomHandoffMigrationTest {
             room = Room.databaseBuilder(context, FitnessRoomDatabase.class,
                             FitnessDatabaseContract.NAME)
                     .openHelperFactory(new FitnessRoomOpenHelperFactory())
-                    .addMigrations(FitnessRoomMigrations.INSTANCE.getV50_TO_V51())
+                    .addMigrations(FitnessRoomMigrations.all(context))
                     .build();
             SupportSQLiteDatabase database = room.getOpenHelper().getWritableDatabase();
 
@@ -168,6 +199,67 @@ public final class FitnessRoomHandoffMigrationTest {
                     "SELECT sql FROM sqlite_master WHERE type = 'index' " +
                             "AND name = 'product_nutrition_links_one_approved_idx'")
                     .contains("WHERE status = 'approved' AND deleted_at IS NULL"));
+            assertAllPrimaryKeysAreNotNull(database);
+        } finally {
+            if (room != null) {
+                room.close();
+            }
+            context.deleteDatabase(FitnessDatabaseContract.NAME);
+        }
+    }
+
+    @Test
+    public void roomMigratesVersionEightDirectlyToV51AndPreservesHistoricalValues() {
+        Context context = new IsolatedDatabaseContext(ApplicationProvider.getApplicationContext());
+        context.deleteDatabase(FitnessDatabaseContract.NAME);
+        FitnessRoomDatabase room = null;
+        try {
+            SQLiteDatabase legacy = context.openOrCreateDatabase(
+                    FitnessDatabaseContract.NAME,
+                    0,
+                    null
+            );
+            FitnessDatabaseMigrationTest.createVersionEightSchema(legacy);
+            legacy.execSQL("CREATE TABLE meal_records (" +
+                    "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, date TEXT NOT NULL, menu TEXT NOT NULL, " +
+                    "calories INTEGER NOT NULL, protein_grams REAL NOT NULL, carbs_grams REAL, fat_grams REAL, " +
+                    "created_at TEXT NOT NULL, is_backfilled INTEGER NOT NULL, updated_at TEXT NOT NULL, " +
+                    "deleted_at TEXT, device_id TEXT NOT NULL, source_app TEXT NOT NULL, scope TEXT NOT NULL, " +
+                    "metadata TEXT NOT NULL)");
+            legacy.execSQL("INSERT INTO meal_records (id, user_id, date, menu, calories, protein_grams, " +
+                    "carbs_grams, fat_grams, created_at, is_backfilled, updated_at, device_id, source_app, " +
+                    "scope, metadata) VALUES ('meal-v8', 'local-user', '2026-08-08', 'legacy meal', 550, 30, " +
+                    "60, 20, '2026-08-08T00:00:00Z', 0, '2026-08-08T00:00:00Z', 'device-1', 'fitness', " +
+                    "'fitness', '{}')");
+            legacy.execSQL("INSERT INTO meal_record_items (id, user_id, meal_record_id, food_id, " +
+                    "food_name_snapshot, quantity, unit, calories, protein_grams, carbs_grams, fat_grams, " +
+                    "order_index, created_at, updated_at, device_id) VALUES ('item-v8', 'local-user', " +
+                    "'meal-v8', 'legacy-option-1', '감자튀김 snapshot', 1, 'serving', 320, 4, 42, 15, 0, " +
+                    "'2026-08-08T00:00:00Z', '2026-08-08T00:00:00Z', 'device-1')");
+            legacy.setVersion(FitnessRoomMigrations.MINIMUM_SUPPORTED_LEGACY_VERSION);
+            legacy.close();
+
+            room = Room.databaseBuilder(context, FitnessRoomDatabase.class,
+                            FitnessDatabaseContract.NAME)
+                    .addMigrations(FitnessRoomMigrations.all(context))
+                    .build();
+            SupportSQLiteDatabase database = room.getOpenHelper().getWritableDatabase();
+
+            assertEquals(FitnessDatabaseContract.ROOM_VERSION, database.getVersion());
+            assertEquals("80.0", scalar(database,
+                    "SELECT weight_kg FROM workout_sets WHERE id = 'set-1'"));
+            assertNull(nullableScalar(database,
+                    "SELECT input_load_value FROM workout_sets WHERE id = 'set-1'"));
+            assertEquals("감자튀김 snapshot", scalar(database,
+                    "SELECT food_name_snapshot FROM meal_record_items WHERE id = 'item-v8'"));
+            assertEquals("serving", scalar(database,
+                    "SELECT basis_unit_snapshot FROM meal_record_items WHERE id = 'item-v8'"));
+            assertEquals("legacy-option-1", scalar(database,
+                    "SELECT food_id FROM meal_record_items WHERE id = 'item-v8'"));
+            assertEquals("local-user", scalar(database,
+                    "SELECT user_id FROM cardio_sessions WHERE record_id = 'record-1'"));
+            assertTrue(tableExists(database, "sync_state"));
+            assertTrue(tableExists(database, "exercise_picker_preferences"));
             assertAllPrimaryKeysAreNotNull(database);
         } finally {
             if (room != null) {
@@ -217,6 +309,13 @@ public final class FitnessRoomHandoffMigrationTest {
         try (Cursor cursor = database.query(sql)) {
             assertTrue(cursor.moveToFirst());
             return cursor.getString(0);
+        }
+    }
+
+    private static String nullableScalar(SupportSQLiteDatabase database, String sql) {
+        try (Cursor cursor = database.query(sql)) {
+            assertTrue(cursor.moveToFirst());
+            return cursor.isNull(0) ? null : cursor.getString(0);
         }
     }
 

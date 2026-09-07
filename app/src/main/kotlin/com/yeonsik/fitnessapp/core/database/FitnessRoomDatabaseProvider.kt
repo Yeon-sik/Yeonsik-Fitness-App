@@ -17,7 +17,7 @@ object FitnessRoomDatabaseProvider {
                 FitnessDatabaseContract.NAME
             )
                 .openHelperFactory(FitnessRoomOpenHelperFactory())
-                .addMigrations(FitnessRoomMigrations.V50_TO_V51)
+                .addMigrations(*FitnessRoomMigrations.all(context.applicationContext))
                 .build()
                 .also { instance = it }
         }

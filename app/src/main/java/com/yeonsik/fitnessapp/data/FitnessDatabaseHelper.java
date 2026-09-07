@@ -6,6 +6,8 @@ import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
+import androidx.sqlite.db.SupportSQLiteDatabase;
+
 import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
@@ -28,8 +30,38 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         VerifiedFoodCatalogSeed.seed(appContext, database);
     }
 
+    private void reconcileVerifiedFoodCatalog(LegacyMigrationDatabase database) {
+        VerifiedFoodCatalogSeed.seed(appContext, database);
+    }
+
+    /**
+     * Executes the exact v8-v50 helper upgrade chain through Room's SQLite wrapper.
+     * This is deliberately schema-only ownership handoff code; runtime repositories still use
+     * their existing implementation until the next migration stage.
+     */
+    public static void migrateHistoricalSchema(
+            Context context,
+            SupportSQLiteDatabase database,
+            int oldVersion
+    ) {
+        if (oldVersion < 8 || oldVersion >= DATABASE_VERSION) {
+            throw new IllegalArgumentException(
+                    "Room legacy migration supports versions 8 through "
+                            + (DATABASE_VERSION - 1) + ", but was " + oldVersion
+            );
+        }
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        helper.migrateHistoricalSchema(new SupportLegacyMigrationDatabase(database), oldVersion);
+    }
+
     @Override
     public void onCreate(SQLiteDatabase db) {
+        LegacyMigrationDatabase migrationDb = new AndroidLegacyMigrationDatabase(db);
+        createCurrentSchema(migrationDb);
+        reconcileVerifiedFoodCatalog(db);
+    }
+
+    private void createCurrentSchema(LegacyMigrationDatabase db) {
         createSharedRecordTables(db);
         createSyncStateTables(db);
         createDiningOutMealIndexes(db);
@@ -48,10 +80,9 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createDevelopmentTables(db);
         createSupplementTables(db);
         upgradeExerciseFamilyIdentitySchema(db);
-        reconcileVerifiedFoodCatalog(db);
     }
 
-    private void createSharedRecordTables(SQLiteDatabase db) {
+    private void createSharedRecordTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS devices (" +
                 "id TEXT NOT NULL, " +
                 "user_id TEXT NOT NULL, " +
@@ -153,7 +184,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX IF NOT EXISTS weight_records_user_scope_date_idx ON weight_records(user_id, scope, date)");
     }
 
-    private void createSyncStateTables(SQLiteDatabase db) {
+    private void createSyncStateTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS sync_state (" +
                 "scope_key TEXT NOT NULL, " +
                 "table_name TEXT NOT NULL, " +
@@ -214,7 +245,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     private void createSyncIndexIfColumnsExist(
-            SQLiteDatabase db,
+            LegacyMigrationDatabase db,
             String indexName,
             String tableName,
             String... columns
@@ -233,7 +264,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         );
     }
 
-    private void createMealRecordTable(SQLiteDatabase db) {
+    private void createMealRecordTable(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS meal_records (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -268,7 +299,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "contract_version INTEGER NOT NULL DEFAULT 1)");
     }
 
-    private void createRoutineTables(SQLiteDatabase db) {
+    private void createRoutineTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS routines (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -301,7 +332,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX IF NOT EXISTS routine_exercises_routine_order_idx ON routine_exercises(routine_id, order_index)");
     }
 
-    private void createExercisePickerPreferenceTable(SQLiteDatabase db) {
+    private void createExercisePickerPreferenceTable(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS exercise_picker_preferences (" +
                 "user_id TEXT NOT NULL, " +
                 "canonical_preset_id TEXT NOT NULL, " +
@@ -311,7 +342,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "PRIMARY KEY(user_id, canonical_preset_id))");
     }
 
-    private void createCardioTables(SQLiteDatabase db) {
+    private void createCardioTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS cardio_sessions (" +
                 "record_id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -344,7 +375,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON cardio_route_points(record_id, captured_at_epoch_ms)");
     }
 
-    private void createMealMenuPresetTable(SQLiteDatabase db) {
+    private void createMealMenuPresetTable(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS meal_menu_presets (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -371,7 +402,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
      * 시 애플리케이션이 필수로 요구하지만, 4대 영양소만 있던 시절의 행을 0으로 왜곡하지
      * 않으려고 컬럼 자체는 NULL을 허용한다. 필수값이 채워졌는지는 data_version으로 구분한다.</p>
      */
-    private void createNutritionTables(SQLiteDatabase db) {
+    private void createNutritionTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS nutrition_foods (" +
                 "id TEXT PRIMARY KEY, " +
                 "owner_id TEXT, " +
@@ -550,7 +581,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
      * Reusable composition definitions. These are local product definitions, not meal history:
      * a template can change while a meal record remains immutable through its snapshots.
      */
-    private void createCompositionTables(SQLiteDatabase db) {
+    private void createCompositionTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS composition_templates (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -607,7 +638,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Legacy v38 table retained so old backups and migrations remain readable. */
-    private void createDiningOutAddOnLinkTable(SQLiteDatabase db) {
+    private void createDiningOutAddOnLinkTable(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS dining_out_menu_add_on_links (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -625,7 +656,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Permanent menu-to-component definitions for every fixed composition group type. */
-    private void createDiningOutComponentLinkTable(SQLiteDatabase db) {
+    private void createDiningOutComponentLinkTable(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS dining_out_menu_component_links (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -643,7 +674,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON dining_out_menu_component_links(user_id, component_food_id, group_type, deleted_at)");
     }
 
-    private void createNutritionIndexes(SQLiteDatabase db) {
+    private void createNutritionIndexes(LegacyMigrationDatabase db) {
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_name_idx " +
                 "ON nutrition_foods(owner_id, name COLLATE NOCASE)");
         db.execSQL("CREATE INDEX IF NOT EXISTS nutrition_foods_owner_brand_name_idx " +
@@ -679,7 +710,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Per-item local consumption allocation for the dining-out sharing contract. */
-    private void createDiningOutConsumptionTables(SQLiteDatabase db) {
+    private void createDiningOutConsumptionTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS meal_record_item_consumptions (" +
                 "id TEXT PRIMARY KEY, " +
                 "user_id TEXT NOT NULL, " +
@@ -710,7 +741,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
      * PriceTrace가 소유하므로 pricetrace_product_cache에만 보관하고 식사 snapshot에는 넣지
      * 않는다.</p>
      */
-    private void createProductNutritionLinkTables(SQLiteDatabase db) {
+    private void createProductNutritionLinkTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS product_nutrition_links (" +
                 "id TEXT PRIMARY KEY, " +
                 "owner_id TEXT NOT NULL, " +
@@ -765,7 +796,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
      * <p>목표값은 사용자가 코치·영양사와 정한 값을 저장할 뿐 자동 처방하지 않는다. 체크인은
      * 식사 스냅샷과 분리해 수분·수면·주관적 컨디션을 날짜별로 한 번만 기록한다.</p>
      */
-    private void createAthleteNutritionTables(SQLiteDatabase db) {
+    private void createAthleteNutritionTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS nutrition_goals (" +
                 "user_id TEXT PRIMARY KEY, " +
                 "phase TEXT NOT NULL, " +
@@ -797,7 +828,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON nutrition_daily_checkins(user_id, date DESC)");
     }
 
-    private void createDevelopmentTables(SQLiteDatabase db) {
+    private void createDevelopmentTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS body_profiles (" +
                 "user_id TEXT PRIMARY KEY, " +
                 "height_cm INTEGER NOT NULL, " +
@@ -818,7 +849,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** User-defined supplement plans and immutable per-dose intake snapshots. */
-    private void createSupplementTables(SQLiteDatabase db) {
+    private void createSupplementTables(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS supplement_items (" +
                 "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, " +
                 "supplement_type_code TEXT NOT NULL, supplement_type_name TEXT NOT NULL, " +
@@ -894,7 +925,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
      * <p>새 권고 영양소 컬럼은 기본값 없이 추가해 기존 행이 NULL(모름)로 남게 한다.
      * 0으로 채우면 "나트륨 0mg인 음식"과 "나트륨을 모르는 음식"을 영영 구분할 수 없다.</p>
      */
-    private void upgradeNutritionTablesToExtendedNutrients(SQLiteDatabase db) {
+    private void upgradeNutritionTablesToExtendedNutrients(LegacyMigrationDatabase db) {
         createNutritionTables(db);
 
         addColumnIfMissing(db, "nutrition_foods", "prep_state", "TEXT NOT NULL DEFAULT 'unspecified'");
@@ -941,7 +972,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
      * Existing meal items already represent top-level consumed entries. Version 15 formalizes
      * them as menus and adds immutable ingredient snapshots for newly recorded composed menus.
      */
-    private void upgradeMealMenuHierarchy(SQLiteDatabase db) {
+    private void upgradeMealMenuHierarchy(LegacyMigrationDatabase db) {
         addColumnIfMissing(db, "meal_record_items", "brand_snapshot", "TEXT");
         createNutritionTables(db);
         db.execSQL("UPDATE meal_record_items SET brand_snapshot = (" +
@@ -952,6 +983,10 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
+        migrateHistoricalSchema(new AndroidLegacyMigrationDatabase(db), oldVersion);
+    }
+
+    private void migrateHistoricalSchema(LegacyMigrationDatabase db, int oldVersion) {
         if (oldVersion < 2) {
             createRoutineTables(db);
         }
@@ -1114,7 +1149,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Adds explicit packaged-food hierarchy without guessing legacy brand-only mappings. */
-    private void upgradePackagedFoodHierarchySchema(SQLiteDatabase db) {
+    private void upgradePackagedFoodHierarchySchema(LegacyMigrationDatabase db) {
         addColumnIfMissing(db, "nutrition_foods", "manufacturer_name", "TEXT");
         addColumnIfMissing(db, "nutrition_foods", "brand_name", "TEXT");
         addColumnIfMissing(db, "nutrition_foods", "sub_brand_name", "TEXT");
@@ -1125,7 +1160,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Adds immutable packaged-food hierarchy values to newly written meal item snapshots. */
-    private void upgradePackagedFoodSnapshotSchema(SQLiteDatabase db) {
+    private void upgradePackagedFoodSnapshotSchema(LegacyMigrationDatabase db) {
         addColumnIfMissing(db, "pricetrace_product_cache", "manufacturer_name", "TEXT");
         addColumnIfMissing(db, "pricetrace_product_cache", "sub_brand_name", "TEXT");
         addColumnIfMissing(db, "meal_record_items", "manufacturer_name_snapshot", "TEXT");
@@ -1138,7 +1173,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Adds family/preset/variant snapshots and keeps load semantics at set granularity. */
-    private void upgradeExerciseFamilyIdentitySchema(SQLiteDatabase db) {
+    private void upgradeExerciseFamilyIdentitySchema(LegacyMigrationDatabase db) {
         addColumnIfMissing(db, "workout_exercises", "family_id", "TEXT");
         addColumnIfMissing(db, "workout_exercises", "preset_id", "TEXT");
         addColumnIfMissing(db, "workout_exercises", "canonical_variant_key", "TEXT");
@@ -1157,7 +1192,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Generalizes the v38 add-on relationship and adds the actual-meal provision snapshot. */
-    private void upgradeDiningOutComponentSchema(SQLiteDatabase db) {
+    private void upgradeDiningOutComponentSchema(LegacyMigrationDatabase db) {
         addColumnIfMissing(
                 db,
                 "meal_record_item_components",
@@ -1177,7 +1212,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Allows reusable options without nutrition to retain NULL rather than a fake zero. */
-    private void upgradeNutritionFoodRequiredNutritionNullability(SQLiteDatabase db) {
+    private void upgradeNutritionFoodRequiredNutritionNullability(LegacyMigrationDatabase db) {
         if (!tableExists(db, "nutrition_foods")) {
             return;
         }
@@ -1225,12 +1260,12 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("ALTER TABLE nutrition_foods_v40 RENAME TO nutrition_foods");
     }
 
-    private String nullableSourceColumn(SQLiteDatabase db, String tableName, String columnName) {
+    private String nullableSourceColumn(LegacyMigrationDatabase db, String tableName, String columnName) {
         return hasColumn(db, tableName, columnName) ? columnName : "NULL";
     }
 
     /** Allows an option snapshot to retain unknown nutrition as NULL instead of inventing zero. */
-    private void upgradeMealComponentNutritionNullability(SQLiteDatabase db) {
+    private void upgradeMealComponentNutritionNullability(LegacyMigrationDatabase db) {
         if (!tableExists(db, "meal_record_item_components")) {
             return;
         }
@@ -1305,7 +1340,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
                 "ON meal_record_item_components(meal_record_id, user_id, deleted_at)");
     }
 
-    private void upgradeCompositionGroupTypeSchema(SQLiteDatabase db) {
+    private void upgradeCompositionGroupTypeSchema(LegacyMigrationDatabase db) {
         addColumnIfMissing(db, "composition_groups", "group_type", "TEXT NOT NULL DEFAULT 'other'");
         addColumnIfMissing(
                 db,
@@ -1372,7 +1407,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    private void upgradeDiningOutConsumptionSchema(SQLiteDatabase db) {
+    private void upgradeDiningOutConsumptionSchema(LegacyMigrationDatabase db) {
         addColumnIfMissing(db, "meal_records", "nutrition_calculation_contract", "TEXT");
         addColumnIfMissing(db, "meal_record_items", "portion_basis_snapshot", "TEXT");
         addColumnIfMissing(db, "meal_record_items", "nominal_servings_snapshot", "REAL");
@@ -1382,7 +1417,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         db.execSQL("CREATE INDEX IF NOT EXISTS meal_record_item_consumptions_record_idx " +
                 "ON meal_record_item_consumptions(meal_record_id, user_id, deleted_at)");
     }
-    private void upgradeCompositionSchema(SQLiteDatabase db) {
+    private void upgradeCompositionSchema(LegacyMigrationDatabase db) {
         createCompositionTables(db);
 
         addColumnIfMissing(db, "meal_records", "composition_template_id", "TEXT");
@@ -1433,7 +1468,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Converts catalog-backed manual dining-out options into generic template members. */
-    private void migrateLegacyDiningOutOptionTemplates(SQLiteDatabase db) {
+    private void migrateLegacyDiningOutOptionTemplates(LegacyMigrationDatabase db) {
         if (!tableExists(db, "nutrition_foods")) {
             return;
         }
@@ -1552,7 +1587,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    private void upgradeDiningOutCompositionMetadata(SQLiteDatabase db) {
+    private void upgradeDiningOutCompositionMetadata(LegacyMigrationDatabase db) {
         if (!tableExists(db, "meal_records") || !hasColumn(db, "meal_records", "metadata")) {
             return;
         }
@@ -1647,7 +1682,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         return UUID.nameUUIDFromBytes(value.getBytes(StandardCharsets.UTF_8)).toString();
     }
 
-    private void upgradeSupplementTablesToVersion31(SQLiteDatabase db) {
+    private void upgradeSupplementTablesToVersion31(LegacyMigrationDatabase db) {
         createSupplementTables(db);
         addColumnIfMissing(db, "supplement_items", "product_form", "TEXT NOT NULL DEFAULT ''");
         addColumnIfMissing(db, "supplement_items", "purpose_code",
@@ -1726,7 +1761,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Adds explicit dining-out identity while keeping the shared metadata contract intact. */
-    private void upgradeDiningOutMealRecords(SQLiteDatabase db) {
+    private void upgradeDiningOutMealRecords(LegacyMigrationDatabase db) {
         if (!tableExists(db, "meal_records")) {
             createMealRecordTable(db);
         }
@@ -1737,7 +1772,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         createDiningOutMealIndexes(db);
     }
 
-    private void upgradeDiningOutIdentity(SQLiteDatabase db) {
+    private void upgradeDiningOutIdentity(LegacyMigrationDatabase db) {
         if (!tableExists(db, "meal_records")) {
             createMealRecordTable(db);
         }
@@ -1751,7 +1786,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Repairs known local branch labels while preserving any exact external identity columns. */
-    private void upgradeKnownDiningOutBranchDefaults(SQLiteDatabase db) {
+    private void upgradeKnownDiningOutBranchDefaults(LegacyMigrationDatabase db) {
         if (!tableExists(db, "meal_records")
                 || !hasColumn(db, "meal_records", "store_name")
                 || !hasColumn(db, "meal_records", "branch_name")
@@ -1791,7 +1826,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    private void upgradeProductNutritionLinkPriceTraceMetadata(SQLiteDatabase db) {
+    private void upgradeProductNutritionLinkPriceTraceMetadata(LegacyMigrationDatabase db) {
         addColumnIfMissing(db, "product_nutrition_links", "catalog_product_revision", "TEXT");
         addColumnIfMissing(db, "product_nutrition_links", "catalog_content_amount", "REAL");
         addColumnIfMissing(db, "product_nutrition_links", "catalog_content_unit", "TEXT");
@@ -1799,13 +1834,13 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         addColumnIfMissing(db, "pricetrace_product_cache", "catalog_product_revision", "TEXT");
     }
 
-    private void createDiningOutMealIndexes(SQLiteDatabase db) {
+    private void createDiningOutMealIndexes(LegacyMigrationDatabase db) {
         db.execSQL("CREATE INDEX IF NOT EXISTS meal_records_user_kind_date_idx " +
                 "ON meal_records(user_id, meal_kind, date)");
     }
 
     /** Purchase evidence stays separate from meal_records until the user confirms consumption. */
-    private void createVerifiedReceiptImportTable(SQLiteDatabase db) {
+    private void createVerifiedReceiptImportTable(LegacyMigrationDatabase db) {
         db.execSQL("CREATE TABLE IF NOT EXISTS verified_receipt_items (" +
                 "receipt_id TEXT NOT NULL, " +
                 "receipt_item_id TEXT NOT NULL, " +
@@ -1828,7 +1863,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
     }
 
     /** Adds explicit ownership to device-local tables and removes the global preset-name key. */
-    private void upgradeLocalAccountIsolation(SQLiteDatabase db) {
+    private void upgradeLocalAccountIsolation(LegacyMigrationDatabase db) {
         addColumnIfMissing(
                 db,
                 "cardio_sessions",
@@ -1868,7 +1903,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    private void renameLegacyFitnessTables(SQLiteDatabase db) {
+    private void renameLegacyFitnessTables(LegacyMigrationDatabase db) {
         renameTableIfExists(db, "workout_sessions", "legacy_workout_sessions");
         if (tableExists(db, "workout_exercises") && hasColumn(db, "workout_exercises", "session_id")) {
             renameTableIfExists(db, "workout_exercises", "legacy_workout_exercises");
@@ -1880,7 +1915,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         renameTableIfExists(db, "meals", "legacy_meals");
     }
 
-    private void migrateLegacyFitnessTables(SQLiteDatabase db) {
+    private void migrateLegacyFitnessTables(LegacyMigrationDatabase db) {
         if (tableExists(db, "legacy_workout_sessions")) {
             db.execSQL("INSERT OR IGNORE INTO workout_records (" +
                     "id, user_id, date, workout_type, category, exercise_name, duration_seconds, total_volume_kg, average_heart_rate, " +
@@ -1935,13 +1970,13 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    private void renameTableIfExists(SQLiteDatabase db, String from, String to) {
+    private void renameTableIfExists(LegacyMigrationDatabase db, String from, String to) {
         if (tableExists(db, from) && !tableExists(db, to)) {
             db.execSQL("ALTER TABLE " + from + " RENAME TO " + to);
         }
     }
 
-    private boolean tableExists(SQLiteDatabase db, String tableName) {
+    private boolean tableExists(LegacyMigrationDatabase db, String tableName) {
         android.database.Cursor cursor = db.rawQuery(
                 "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
                 new String[]{tableName});
@@ -1952,7 +1987,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    private boolean hasColumn(SQLiteDatabase db, String tableName, String columnName) {
+    private boolean hasColumn(LegacyMigrationDatabase db, String tableName, String columnName) {
         android.database.Cursor cursor = db.rawQuery("PRAGMA table_info(" + tableName + ")", null);
         try {
             while (cursor.moveToNext()) {
@@ -1966,7 +2001,7 @@ public final class FitnessDatabaseHelper extends SQLiteOpenHelper {
         }
     }
 
-    private void addColumnIfMissing(SQLiteDatabase db, String tableName, String columnName, String definition) {
+    private void addColumnIfMissing(LegacyMigrationDatabase db, String tableName, String columnName, String definition) {
         if (tableExists(db, tableName) && !hasColumn(db, tableName, columnName)) {
             db.execSQL("ALTER TABLE " + tableName + " ADD COLUMN " + columnName + " " + definition);
         }
