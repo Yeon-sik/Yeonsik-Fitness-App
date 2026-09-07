@@ -94,14 +94,11 @@ import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState;
-import com.yeonsik.fitnessapp.feature.cardio.data.LegacyCardioRepositoryAdapter;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
 import com.yeonsik.fitnessapp.feature.routine.application.EnsureActiveRoutine;
-import com.yeonsik.fitnessapp.feature.routine.data.LegacyRoutineRepositoryAdapter;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
-import com.yeonsik.fitnessapp.feature.home.data.LegacyHomeRepositoryAdapter;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.ComposeHomeScreen;
@@ -275,7 +272,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         priceTraceAuthManager = new SupabaseAuthManager(priceTraceConfigStore);
         roomDatabase = FitnessRoomDatabaseProvider.get(this);
         repository = new FitnessRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
-        appContainer = new AppContainer(repository);
         nutritionCatalogRepository = new NutritionCatalogRepository(
                 roomDatabase,
                 this,
@@ -286,6 +282,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         repository.reconcileSharedWorkoutSummaries();
         exerciseMasterRepository = new ExerciseMasterRepository(this);
         routineRepository = new RoutineRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
+        appContainer = new AppContainer(repository, cardioRepository, routineRepository);
         developmentRepository = new DevelopmentRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
         supplementRepository = new SupplementRepository(roomDatabase, supabaseConfig.effectiveUserId(), this);
         initializeFeatureViewModels();
@@ -389,7 +386,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new CardioSessionViewModel(
                                 handle,
-                                new LegacyCardioRepositoryAdapter(cardioRepository, repository)
+                                appContainer.getCardioRepositoryApi()
                         )
                 )
         ).get(CardioSessionViewModel.class);
@@ -427,9 +424,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new RoutineEntryViewModel(
                                 handle,
-                                new EnsureActiveRoutine(
-                                        new LegacyRoutineRepositoryAdapter(routineRepository, repository)
-                                )
+                                new EnsureActiveRoutine(appContainer.getRoutineRepositoryApi())
                         )
                 )
         ).get(RoutineEntryViewModel.class);
@@ -457,7 +452,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new HomeViewModel(
                                 handle,
-                                new LegacyHomeRepositoryAdapter(repository, routineRepository)
+                                appContainer.getHomeRepository()
                         )
                 )
         ).get(HomeViewModel.class);
