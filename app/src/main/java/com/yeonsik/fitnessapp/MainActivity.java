@@ -74,22 +74,13 @@ import com.yeonsik.fitnessapp.supplement.SupplementRepository;
 import com.yeonsik.fitnessapp.sync.SupabaseSyncManager;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.ui.BaseScreen;
-import com.yeonsik.fitnessapp.ui.CardioScreen;
 import com.yeonsik.fitnessapp.ui.CardioSessionScreen;
-import com.yeonsik.fitnessapp.ui.CardioSummaryScreen;
-import com.yeonsik.fitnessapp.ui.DevelopmentScreen;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.MealManagementScreen;
 import com.yeonsik.fitnessapp.ui.RecordsScreen;
-import com.yeonsik.fitnessapp.ui.RoutineEditorScreen;
 import com.yeonsik.fitnessapp.ui.ScreenHost;
+import com.yeonsik.fitnessapp.ui.ScreenRegistry;
 import com.yeonsik.fitnessapp.ui.SettingsScreen;
-import com.yeonsik.fitnessapp.ui.StrengthScreen;
-import com.yeonsik.fitnessapp.ui.SupplementScreen;
-import com.yeonsik.fitnessapp.ui.WorkoutExerciseDetailScreen;
-import com.yeonsik.fitnessapp.ui.WorkoutScreen;
-import com.yeonsik.fitnessapp.ui.WorkoutSessionScreen;
-import com.yeonsik.fitnessapp.ui.WorkoutSummaryScreen;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
@@ -114,7 +105,6 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.EnumMap;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
@@ -292,7 +282,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_THEME_MODE, THEME_LIGHT);
         ui = new FitnessUi(this, this::isDarkTheme);
-        screens = buildScreens();
+        screens = ScreenRegistry.create(this);
         registerBackCallback();
 
         setContentView(buildRootView());
@@ -692,28 +682,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
         executor.shutdownNow();
         super.onDestroy();
-    }
-
-    private Map<FitnessScreen, BaseScreen> buildScreens() {
-        Map<FitnessScreen, BaseScreen> map = new EnumMap<>(FitnessScreen.class);
-        RoutineEditorScreen routineEditor = new RoutineEditorScreen(this);
-        map.put(FitnessScreen.WORKOUT, new WorkoutScreen(this));
-        map.put(FitnessScreen.STRENGTH, new StrengthScreen(this));
-        map.put(FitnessScreen.CARDIO, new CardioScreen(this));
-        map.put(FitnessScreen.RECORDS, new RecordsScreen(this));
-        map.put(FitnessScreen.DEVELOPMENT, new DevelopmentScreen(this));
-        map.put(FitnessScreen.SETTINGS, new SettingsScreen(this));
-        map.put(FitnessScreen.WORKOUT_SESSION, new WorkoutSessionScreen(this));
-        map.put(FitnessScreen.WORKOUT_EXERCISE_DETAIL, new WorkoutExerciseDetailScreen(this));
-        map.put(FitnessScreen.WORKOUT_SUMMARY, new WorkoutSummaryScreen(this));
-        map.put(FitnessScreen.CARDIO_SESSION, new CardioSessionScreen(this));
-        map.put(FitnessScreen.CARDIO_SUMMARY, new CardioSummaryScreen(this));
-        map.put(FitnessScreen.MEALS, new MealManagementScreen(this));
-        map.put(FitnessScreen.SUPPLEMENTS, new SupplementScreen(this));
-        map.put(FitnessScreen.ROUTINE_ADD, routineEditor);
-        map.put(FitnessScreen.ROUTINE_DETAIL, routineEditor);
-        map.put(FitnessScreen.WORKOUT_EXERCISE_ADD, routineEditor);
-        return map;
     }
 
     // ── 테마 ─────────────────────────────────────────────────────────
