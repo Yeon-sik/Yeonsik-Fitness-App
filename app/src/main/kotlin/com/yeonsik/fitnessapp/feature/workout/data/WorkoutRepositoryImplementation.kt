@@ -18,8 +18,8 @@ import com.yeonsik.fitnessapp.feature.workout.model.WorkoutVolumePoint
 import com.yeonsik.fitnessapp.exercise.RoutineExercise
 
 /**
- * Stage-2 compatibility adapter. SQL and legacy data types stay on this side
- * of the feature API until the later Room stage.
+ * Final feature repository implementation. Storage-facing models are mapped here
+ * before crossing the public workout API boundary.
  */
 class WorkoutRepositoryImplementation(
     private val legacy: FitnessRepository
