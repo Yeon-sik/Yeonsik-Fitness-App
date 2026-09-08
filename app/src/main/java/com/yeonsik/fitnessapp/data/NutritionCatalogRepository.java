@@ -6,6 +6,14 @@ import android.database.sqlite.SQLiteDatabase;
 
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
+import com.yeonsik.fitnessapp.core.database.NutritionFoodNutrientsRoomEntity;
+import com.yeonsik.fitnessapp.core.database.NutritionFoodComponentsRoomEntity;
+import com.yeonsik.fitnessapp.core.database.NutritionFoodsRoomEntity;
+import com.yeonsik.fitnessapp.core.database.NutritionRoomDao;
+import com.yeonsik.fitnessapp.core.database.DiningOutMenuComponentLinksRoomEntity;
+import com.yeonsik.fitnessapp.core.database.ProductNutritionLinksRoomEntity;
+import com.yeonsik.fitnessapp.core.database.PricetraceProductCacheRoomEntity;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
@@ -122,6 +130,9 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
     private static final int SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX = 50;
     private static final int PACKAGED_PRODUCT_RESULT_LIMIT_MAX = 50;
 
+    private final FitnessRoomDatabase roomDatabase;
+    private final NutritionRoomDao nutritionDao;
+    /** Transitional sync adapter; local catalog CRUD uses nutritionDao. */
     private final FitnessDatabaseConnection database;
     private volatile String userId;
     private volatile SupabaseConfig supabaseConfig;
@@ -131,7 +142,36 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
             String userId,
             SupabaseConfig supabaseConfig
     ) {
-        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
+        this(
+                FitnessRoomDatabaseProvider.get(dbHelper.applicationContext()),
+                FitnessDatabaseConnection.fromLegacy(dbHelper),
+                userId,
+                supabaseConfig
+        );
+    }
+
+    public NutritionCatalogRepository(
+            FitnessRoomDatabase roomDatabase,
+            String userId,
+            SupabaseConfig supabaseConfig
+    ) {
+        this(
+                roomDatabase,
+                FitnessDatabaseConnection.fromRoom(roomDatabase),
+                userId,
+                supabaseConfig
+        );
+    }
+
+    private NutritionCatalogRepository(
+            FitnessRoomDatabase roomDatabase,
+            FitnessDatabaseConnection database,
+            String userId,
+            SupabaseConfig supabaseConfig
+    ) {
+        this.roomDatabase = roomDatabase;
+        this.nutritionDao = roomDatabase.nutritionRoomDao();
+        this.database = database;
         this.userId = normalizeUserId(userId);
         this.supabaseConfig = supabaseConfig == null ? SupabaseConfig.empty() : supabaseConfig;
     }
@@ -141,9 +181,12 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
             String userId,
             SupabaseConfig supabaseConfig
     ) {
-        this.database = database;
-        this.userId = normalizeUserId(userId);
-        this.supabaseConfig = supabaseConfig == null ? SupabaseConfig.empty() : supabaseConfig;
+        this(
+                FitnessRoomDatabaseProvider.get(database.applicationContext()),
+                database,
+                userId,
+                supabaseConfig
+        );
     }
 
     public NutritionCatalogRepository(
@@ -152,7 +195,12 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
             String userId,
             SupabaseConfig supabaseConfig
     ) {
-        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), userId, supabaseConfig);
+        this(
+                roomDatabase,
+                FitnessDatabaseConnection.fromRoom(roomDatabase, context),
+                userId,
+                supabaseConfig
+        );
     }
 
     public void setUserId(String userId) {
@@ -232,35 +280,11 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
 
     @Override
     public List<NutritionFood> searchFoods(String query) {
-        List<NutritionFood> foods = new ArrayList<>();
         String term = query == null ? "" : query.trim();
         String like = "%" + term + "%";
-        FitnessDatabaseConnection database = this.database;
-        List<String> ids = new ArrayList<>();
-        List<Object[]> rows = new ArrayList<>();
-        try (Cursor cursor = database.rawQuery(
-                "SELECT " + String.join(", ", FOOD_COLUMNS) + " " +
-                        "FROM nutrition_foods " +
-                "WHERE deleted_at IS NULL " +
-                        "AND (visibility = 'public' OR owner_id = ?) " +
-                        "AND COALESCE(source_type, '') <> ? " +
-                        "AND (name LIKE ? COLLATE NOCASE " +
-                        "OR brand LIKE ? COLLATE NOCASE) " +
-                        "ORDER BY kind ASC, brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC LIMIT 100",
-                new String[]{userId, DINING_OUT_OPTION_SOURCE_TYPE, like, like}
-        )) {
-            while (cursor.moveToNext()) {
-                rows.add(readFoodRow(cursor));
-                ids.add(cursor.getString(0));
-            }
-        }
-
-        // 확장 영양소는 한 번에 모아 읽는다. 결과 건수만큼 질의하면 검색이 느려진다.
-        Map<String, Map<String, Double>> micronutrients = loadMicronutrients(database, ids);
-        for (Object[] row : rows) {
-            foods.add(buildFood(row, micronutrients.get((String) row[0])));
-        }
-        return foods;
+        return buildFoods(
+                nutritionDao.searchFoods(userId, DINING_OUT_OPTION_SOURCE_TYPE, like)
+        );
     }
 
     /**
@@ -269,33 +293,19 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
      */
     public List<NutritionFood> searchPackagedFoods(String query, int limit) {
         int safeLimit = Math.max(1, Math.min(limit, PACKAGED_PRODUCT_RESULT_LIMIT_MAX));
-        String like = "%" + (query == null ? "" : query.trim()) + "%";
-        List<NutritionFood> candidates = readFoods(
-                "kind = ? AND (visibility = 'public' OR owner_id = ?) " +
-                        "AND LOWER(COALESCE(source_type, '')) NOT IN (?, ?, ?) " +
-                        "AND (name LIKE ? COLLATE NOCASE " +
-                        "OR COALESCE(brand, '') LIKE ? COLLATE NOCASE " +
-                        "OR COALESCE(manufacturer_name, '') LIKE ? COLLATE NOCASE " +
-                        "OR COALESCE(brand_name, '') LIKE ? COLLATE NOCASE " +
-                        "OR COALESCE(sub_brand_name, '') LIKE ? COLLATE NOCASE " +
-                        "OR COALESCE(product_name, '') LIKE ? COLLATE NOCASE)",
-                new String[]{
-                        NutritionFood.KIND_EXTERNAL_MENU,
-                        userId,
-                        "manual_estimate",
-                        "food_image_estimate",
-                        DINING_OUT_OPTION_SOURCE_TYPE,
-                        like,
-                        like,
-                        like,
-                        like,
-                        like,
-                        like
-                },
-                "updated_at DESC, manufacturer_name COLLATE NOCASE ASC, " +
-                        "brand_name COLLATE NOCASE ASC, name COLLATE NOCASE ASC",
-                null
-        );
+        String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+        List<NutritionFood> candidates = new ArrayList<>();
+        for (NutritionFoodsRoomEntity entity : nutritionDao.visibleFoods(userId)) {
+            if (!NutritionFood.KIND_EXTERNAL_MENU.equals(entity.getKind())
+                    || "manual_estimate".equalsIgnoreCase(entity.getSourceType())
+                    || "food_image_estimate".equalsIgnoreCase(entity.getSourceType())
+                    || DINING_OUT_OPTION_SOURCE_TYPE.equalsIgnoreCase(entity.getSourceType())
+                    || !containsAny(entity, term)) {
+                continue;
+            }
+            candidates.add(buildFood(entity, loadMicronutrientsRoom(singleton(entity.getId()))
+                    .get(entity.getId())));
+        }
         Map<String, NutritionFood> representatives = new LinkedHashMap<>();
         for (NutritionFood candidate : candidates) {
             if (!candidate.isPackagedFood()) {
@@ -332,19 +342,16 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
             return new ArrayList<>();
         }
         String canonicalKey = canonicalPackagedProductKey(product);
-        List<NutritionFood> candidates = readFoods(
-                "kind = ? AND (visibility = 'public' OR owner_id = ?) " +
-                        "AND LOWER(COALESCE(source_type, '')) NOT IN (?, ?, ?)",
-                new String[]{
-                        NutritionFood.KIND_EXTERNAL_MENU,
-                        userId,
-                        "manual_estimate",
-                        "food_image_estimate",
-                        DINING_OUT_OPTION_SOURCE_TYPE
-                },
-                "updated_at DESC, id ASC",
-                null
-        );
+        List<NutritionFood> candidates = new ArrayList<>();
+        for (NutritionFoodsRoomEntity entity : nutritionDao.visibleFoods(userId)) {
+            if (NutritionFood.KIND_EXTERNAL_MENU.equals(entity.getKind())
+                    && !"manual_estimate".equalsIgnoreCase(entity.getSourceType())
+                    && !"food_image_estimate".equalsIgnoreCase(entity.getSourceType())
+                    && !DINING_OUT_OPTION_SOURCE_TYPE.equalsIgnoreCase(entity.getSourceType())) {
+                candidates.add(buildFood(entity, loadMicronutrientsRoom(singleton(entity.getId()))
+                        .get(entity.getId())));
+            }
+        }
         Map<String, NutritionFood> variants = new LinkedHashMap<>();
         for (NutritionFood candidate : candidates) {
             if (!candidate.isPackagedFood()
@@ -400,16 +407,32 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         return value.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 
+    private static boolean containsAny(NutritionFoodsRoomEntity entity, String term) {
+        if (term == null || term.isEmpty()) {
+            return true;
+        }
+        String[] values = {
+                entity.getName(),
+                entity.getBrand(),
+                entity.getManufacturerName(),
+                entity.getBrandName(),
+                entity.getSubBrandName(),
+                entity.getProductName()
+        };
+        for (String value : values) {
+            if (value != null && value.toLowerCase(Locale.ROOT).contains(term)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     public NutritionFood findFoodById(String foodId) {
         String normalizedId = requireName(foodId);
-        List<NutritionFood> foods = readFoods(
-                "id = ?",
-                new String[]{normalizedId},
-                "id",
-                "1"
-        );
-        return foods.isEmpty() ? null : foods.get(0);
+        NutritionFoodsRoomEntity food = nutritionDao.visibleFood(normalizedId, userId);
+        return food == null ? null : buildFood(food, loadMicronutrientsRoom(singleton(normalizedId))
+                .get(normalizedId));
     }
 
     public List<NutritionFood> searchVerifiedFoods(String query, int limit) {
@@ -434,20 +457,31 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         arguments.addAll(curatedIds);
         arguments.add(like);
         arguments.add(like);
-        List<NutritionFood> candidates = readFoods(
-                "owner_id IS NULL " +
-                        "AND visibility = 'public' " +
-                        "AND kind = ? " +
-                        "AND id LIKE ? " +
-                        "AND ((source_type = ? AND source_reference LIKE ?) " +
-                        "OR (source_type = ? AND source_reference = ?)) " +
-                        "AND id IN (" + curatedPlaceholders + ") " +
-                        "AND (name LIKE ? COLLATE NOCASE " +
-                        "OR COALESCE(brand, '') LIKE ? COLLATE NOCASE)",
-                arguments.toArray(new String[0]),
-                "brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC",
-                String.valueOf(safeLimit)
-        );
+        List<NutritionFood> candidates = new ArrayList<>();
+        String verifiedTerm = term.toLowerCase(Locale.ROOT);
+        for (NutritionFoodsRoomEntity entity : nutritionDao.verifiedFoods(
+                NutritionFood.KIND_INGREDIENT,
+                VERIFIED_FOOD_ID_PREFIX,
+                VerifiedFoodCatalogSeed.SOURCE_TYPE,
+                VERIFIED_FOOD_SOURCE_REFERENCE_PREFIX,
+                VerifiedFoodCatalogSeed.RICE_SOURCE_TYPE,
+                VerifiedFoodCatalogSeed.RICE_SOURCE_REFERENCE
+        )) {
+            if (!curatedIds.contains(entity.getId())) {
+                continue;
+            }
+            String name = entity.getName() == null ? "" : entity.getName().toLowerCase(Locale.ROOT);
+            String brand = entity.getBrand() == null ? "" : entity.getBrand().toLowerCase(Locale.ROOT);
+            if (name.contains(verifiedTerm) || brand.contains(verifiedTerm)) {
+                candidates.add(buildFood(
+                        entity,
+                        loadMicronutrientsRoom(singleton(entity.getId())).get(entity.getId())
+                ));
+            }
+            if (candidates.size() >= safeLimit) {
+                break;
+            }
+        }
         List<NutritionFood> verified = new ArrayList<>();
         for (NutritionFood candidate : candidates) {
             if (VerifiedFoodCatalogSeed.isVerifiedSeedFood(candidate)) {
@@ -486,18 +520,19 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         int safeLimit = Math.max(1, Math.min(limit, SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX));
         String normalizedQuery = query == null ? "" : query.trim();
         String normalizedGroupType = optionalDiningOutComponentGroupType(groupType);
-        List<NutritionFood> candidates = readFoods(
-                "owner_id = ? AND kind = ? AND source_type = ? "
-                        + "AND name LIKE ? COLLATE NOCASE",
-                new String[]{
-                        userId,
-                        NutritionFood.KIND_EXTERNAL_MENU,
-                        DINING_OUT_OPTION_SOURCE_TYPE,
-                        "%" + normalizedQuery + "%"
-                },
-                "updated_at DESC, name COLLATE NOCASE ASC",
-                null
-        );
+        List<NutritionFood> candidates = new ArrayList<>();
+        for (NutritionFoodsRoomEntity entity : nutritionDao.ownedFoodsByKindAndSource(
+                userId,
+                NutritionFood.KIND_EXTERNAL_MENU,
+                DINING_OUT_OPTION_SOURCE_TYPE
+        )) {
+            if (entity.getName() != null
+                    && entity.getName().toLowerCase(Locale.ROOT)
+                    .contains(normalizedQuery.toLowerCase(Locale.ROOT))) {
+                candidates.add(buildFood(entity, loadMicronutrientsRoom(singleton(entity.getId()))
+                        .get(entity.getId())));
+            }
+        }
         List<NutritionFood> results = new ArrayList<>();
         Set<String> names = new LinkedHashSet<>();
         for (NutritionFood candidate : candidates) {
@@ -569,29 +604,23 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
     ) {
         String menuId = requiredId(menuFoodId, "외식 메뉴");
         String componentId = requiredId(componentFoodId, "외식 구성품");
-        FitnessDatabaseConnection database = this.database;
-        if (!ownedActiveFood(database, menuId, NutritionFood.KIND_EXTERNAL_MENU)
+        if (!ownedActiveFood(menuId, NutritionFood.KIND_EXTERNAL_MENU)
                 || diningOutComponent(componentId) == null) {
             throw new IllegalArgumentException("현재 계정의 외식 메뉴·구성품만 연결할 수 있습니다.");
         }
         String normalizedGroupType = normalizeLinkGroupType(groupType);
         String now = OffsetDateTime.now().toString();
-        ContentValues values = new ContentValues();
-        values.put("id", UUID.randomUUID().toString());
-        values.put("user_id", userId);
-        values.put("menu_food_id", menuId);
-        values.put("component_food_id", componentId);
-        values.put("group_type", normalizedGroupType);
-        values.put("created_at", now);
-        values.put("updated_at", now);
-        values.putNull("deleted_at");
-        values.put("device_id", "android-local");
-        database.insertWithOnConflict(
-                "dining_out_menu_component_links",
+        nutritionDao.insertComponentLink(new DiningOutMenuComponentLinksRoomEntity(
+                UUID.randomUUID().toString(),
+                userId,
+                menuId,
+                componentId,
+                normalizedGroupType,
+                now,
+                now,
                 null,
-                values,
-                SQLiteDatabase.CONFLICT_IGNORE
-        );
+                "android-local"
+        ));
     }
 
     /** Returns every possible component linked to one saved menu. */
@@ -611,26 +640,7 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         String normalizedGroupType = groupType == null || groupType.trim().isEmpty()
                 ? null
                 : normalizeLinkGroupType(groupType);
-        List<String> ids = new ArrayList<>();
-        List<String> linkArgs = new ArrayList<>();
-        linkArgs.add(userId);
-        linkArgs.add(menuId);
-        String groupClause = "";
-        if (normalizedGroupType != null) {
-            groupClause = " AND group_type = ?";
-            linkArgs.add(normalizedGroupType);
-        }
-        FitnessDatabaseConnection database = this.database;
-        try (Cursor cursor = database.rawQuery(
-                "SELECT component_food_id FROM dining_out_menu_component_links " +
-                        "WHERE user_id = ? AND menu_food_id = ? AND deleted_at IS NULL" +
-                        groupClause + " ORDER BY created_at ASC, id ASC",
-                linkArgs.toArray(new String[0])
-        )) {
-            while (cursor.moveToNext()) {
-                ids.add(cursor.getString(0));
-            }
-        }
+        List<String> ids = nutritionDao.componentIdsForMenu(userId, menuId, normalizedGroupType);
         return readDiningOutComponentsInLinkOrder(ids);
     }
 
@@ -652,12 +662,15 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         foodArgs.add(NutritionFood.KIND_EXTERNAL_MENU);
         foodArgs.add(DINING_OUT_OPTION_SOURCE_TYPE);
         foodArgs.addAll(ids);
-        List<NutritionFood> foods = readFoods(
-                "owner_id = ? AND kind = ? AND source_type = ? AND id IN (" + placeholders + ")",
-                foodArgs.toArray(new String[0]),
-                "updated_at DESC, name COLLATE NOCASE ASC",
-                null
-        );
+        List<NutritionFood> foods = new ArrayList<>();
+        for (NutritionFoodsRoomEntity entity : nutritionDao.visibleFoodsByIds(ids, userId)) {
+            if (userId.equals(entity.getOwnerId())
+                    && NutritionFood.KIND_EXTERNAL_MENU.equals(entity.getKind())
+                    && DINING_OUT_OPTION_SOURCE_TYPE.equals(entity.getSourceType())) {
+                foods.add(buildFood(entity, loadMicronutrientsRoom(singleton(entity.getId()))
+                        .get(entity.getId())));
+            }
+        }
         Map<String, NutritionFood> byId = new LinkedHashMap<>();
         for (NutritionFood food : foods) {
             byId.put(food.id, food);
@@ -671,29 +684,18 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         }
         return ordered;
     }
-    private boolean ownedActiveFood(
-            FitnessDatabaseConnection database,
-            String foodId,
-            String expectedKind
-    ) {
-        try (Cursor cursor = database.rawQuery(
-                "SELECT 1 FROM nutrition_foods WHERE id = ? AND owner_id = ? " +
-                        "AND kind = ? AND deleted_at IS NULL",
-                new String[]{foodId, userId, expectedKind}
-        )) {
-            return cursor.moveToFirst();
-        }
+    private boolean ownedActiveFood(String foodId, String expectedKind) {
+        return nutritionDao.ownsActiveFood(foodId, userId, expectedKind) != null;
     }
 
     private NutritionFood diningOutComponent(String componentId) {
-        List<NutritionFood> rows = readFoods(
-                "owner_id = ? AND kind = ? AND source_type = ? AND id = ?",
-                new String[]{userId, NutritionFood.KIND_EXTERNAL_MENU,
-                        DINING_OUT_OPTION_SOURCE_TYPE, componentId},
-                "updated_at DESC",
-                "1"
+        NutritionFoodsRoomEntity entity = nutritionDao.ownedActiveFood(
+                componentId, userId, NutritionFood.KIND_EXTERNAL_MENU
         );
-        return rows.isEmpty() ? null : rows.get(0);
+        if (entity == null || !DINING_OUT_OPTION_SOURCE_TYPE.equals(entity.getSourceType())) {
+            return null;
+        }
+        return buildFood(entity, loadMicronutrientsRoom(singleton(entity.getId())).get(entity.getId()));
     }
 
     private String normalizeLinkGroupType(String groupType) {
@@ -743,17 +745,15 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
     }
     /** Private dining-out menus saved by the current Nutrition owner for reuse in meal entry. */
     public List<NutritionFood> savedDiningOutMenus() {
-        List<NutritionFood> candidates = readFoods(
-                "owner_id = ? AND kind = ? AND source_type IN (?, ?)",
-                new String[]{
-                        userId,
-                        NutritionFood.KIND_EXTERNAL_MENU,
-                        DINING_OUT_MENU_SOURCE_TYPE,
-                        OCR_DINING_OUT_MENU_SOURCE_TYPE
-                },
-                "updated_at DESC, brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC",
-                null
-        );
+        List<NutritionFood> candidates = new ArrayList<>();
+        for (NutritionFoodsRoomEntity entity : nutritionDao.ownedFoodsByKindAndSourceTypes(
+                userId,
+                NutritionFood.KIND_EXTERNAL_MENU,
+                java.util.Arrays.asList(DINING_OUT_MENU_SOURCE_TYPE, OCR_DINING_OUT_MENU_SOURCE_TYPE)
+        )) {
+            candidates.add(buildFood(entity, loadMicronutrientsRoom(singleton(entity.getId()))
+                    .get(entity.getId())));
+        }
         Map<String, NutritionFood> canonicalMenus = new LinkedHashMap<>();
         for (NutritionFood candidate : candidates) {
             String identityKey = canonicalDiningOutMenuKey(candidate);
@@ -846,12 +846,16 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
 
     /** Saved recipes for the menu browser. */
     public List<NutritionFood> savedRecipes() {
-        return readFoods(
-                "kind = ? AND (visibility = 'public' OR owner_id = ?)",
-                new String[]{NutritionFood.KIND_RECIPE, userId},
-                "updated_at DESC, name COLLATE NOCASE ASC",
-                null
-        );
+        List<NutritionFood> recipes = new ArrayList<>();
+        for (NutritionFoodsRoomEntity entity : nutritionDao.visibleFoods(userId)) {
+            if (NutritionFood.KIND_RECIPE.equals(entity.getKind())) {
+                recipes.add(buildFood(
+                        entity,
+                        loadMicronutrientsRoom(singleton(entity.getId())).get(entity.getId())
+                ));
+            }
+        }
+        return recipes;
     }
 
     /** Components of a saved recipe, returned in the order used when it was saved. */
@@ -860,70 +864,106 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
             return new ArrayList<>();
         }
 
-        FitnessDatabaseConnection database = this.database;
-        List<Object[]> foodRows = new ArrayList<>();
-        List<Double> quantities = new ArrayList<>();
-        List<String> units = new ArrayList<>();
+        List<NutritionFoodComponentsRoomEntity> componentRows = nutritionDao.componentsForFood(recipeId);
         List<String> foodIds = new ArrayList<>();
-        String prefixedFoodColumns = "f." + String.join(", f.", FOOD_COLUMNS);
-        String sql = "SELECT c.quantity, c.unit, " + prefixedFoodColumns + " " +
-                "FROM nutrition_food_components c " +
-                "JOIN nutrition_foods f ON f.id = c.child_food_id " +
-                "WHERE c.parent_food_id = ? " +
-                "AND c.deleted_at IS NULL " +
-                "AND f.deleted_at IS NULL " +
-                "AND (f.visibility = 'public' OR f.owner_id = ?) " +
-                "ORDER BY c.order_index ASC, c.created_at ASC";
-        try (Cursor cursor = database.rawQuery(sql, new String[]{recipeId, userId})) {
-            while (cursor.moveToNext()) {
-                quantities.add(cursor.getDouble(0));
-                units.add(cursor.getString(1));
-                Object[] foodRow = readFoodRow(cursor, 2);
-                foodRows.add(foodRow);
-                foodIds.add((String) foodRow[0]);
-            }
+        for (NutritionFoodComponentsRoomEntity component : componentRows) {
+            foodIds.add(component.getChildFoodId());
         }
-
-        Map<String, Map<String, Double>> micronutrients =
-                loadMicronutrients(database, foodIds);
+        Map<String, NutritionFoodsRoomEntity> foodsById = new LinkedHashMap<>();
+        for (NutritionFoodsRoomEntity food : nutritionDao.visibleFoodsByIds(foodIds, userId)) {
+            foodsById.put(food.getId(), food);
+        }
+        Map<String, Map<String, Double>> micronutrients = loadMicronutrientsRoom(foodIds);
         List<RecipeComponent> components = new ArrayList<>();
-        for (int index = 0; index < foodRows.size(); index++) {
-            Object[] foodRow = foodRows.get(index);
-            NutritionFood food = buildFood(foodRow, micronutrients.get((String) foodRow[0]));
-            components.add(new RecipeComponent(food, quantities.get(index), units.get(index)));
+        for (NutritionFoodComponentsRoomEntity component : componentRows) {
+            NutritionFoodsRoomEntity entity = foodsById.get(component.getChildFoodId());
+            if (entity != null) {
+                NutritionFood food = buildFood(entity, micronutrients.get(entity.getId()));
+                components.add(new RecipeComponent(food, component.getQuantity(), component.getUnit()));
+            }
         }
         return components;
     }
 
-    private List<NutritionFood> readFoods(
-            String selection,
-            String[] selectionArgs,
-            String orderBy,
-            String limit
-    ) {
-        FitnessDatabaseConnection database = this.database;
+    private List<NutritionFood> buildFoods(List<NutritionFoodsRoomEntity> entities) {
         List<String> ids = new ArrayList<>();
-        List<Object[]> rows = new ArrayList<>();
-        String limitClause = limit == null ? "" : " LIMIT " + limit;
-        try (Cursor cursor = database.rawQuery(
-                "SELECT " + String.join(", ", FOOD_COLUMNS) + " " +
-                        "FROM nutrition_foods " +
-                        "WHERE deleted_at IS NULL AND " + selection + " " +
-                        "ORDER BY " + orderBy + limitClause,
-                selectionArgs
-        )) {
-            while (cursor.moveToNext()) {
-                rows.add(readFoodRow(cursor));
-                ids.add(cursor.getString(0));
-            }
+        for (NutritionFoodsRoomEntity entity : entities) {
+            ids.add(entity.getId());
         }
-
-        Map<String, Map<String, Double>> micronutrients = loadMicronutrients(database, ids);
+        Map<String, Map<String, Double>> micronutrients = loadMicronutrientsRoom(ids);
         List<NutritionFood> foods = new ArrayList<>();
-        for (Object[] row : rows) {
-            foods.add(buildFood(row, micronutrients.get((String) row[0])));
+        for (NutritionFoodsRoomEntity entity : entities) {
+            foods.add(buildFood(entity, micronutrients.get(entity.getId())));
         }
         return foods;
+    }
+
+    private Map<String, Map<String, Double>> loadMicronutrientsRoom(List<String> foodIds) {
+        Map<String, Map<String, Double>> byFood = new LinkedHashMap<>();
+        if (foodIds == null || foodIds.isEmpty()) {
+            return byFood;
+        }
+        for (NutritionFoodNutrientsRoomEntity nutrient : nutritionDao.nutrientsForFoods(foodIds)) {
+            String code = NutrientCode.normalize(nutrient.getNutrientCode());
+            if (!NutrientCode.isKnown(code) || nutrient.getAmount() == null) {
+                continue;
+            }
+            byFood.computeIfAbsent(nutrient.getFoodId(), key -> new LinkedHashMap<>())
+                    .put(code, nutrient.getAmount());
+        }
+        return byFood;
+    }
+
+    private NutritionFood buildFood(
+            NutritionFoodsRoomEntity row,
+            Map<String, Double> micronutrients
+    ) {
+        NutritionProfile.Builder profile = NutritionProfile.builder()
+                .value(NutritionProfile.CALORIES_KCAL, row.getCaloriesKcal())
+                .value(NutritionProfile.PROTEIN_GRAMS, row.getProteinGrams())
+                .value(NutritionProfile.CARBS_GRAMS, row.getCarbsGrams())
+                .value(NutritionProfile.FAT_GRAMS, row.getFatGrams());
+        profile.value(NutritionProfile.SODIUM_MG, row.getSodiumMg());
+        profile.value(NutritionProfile.SATURATED_FAT_GRAMS, row.getSaturatedFatGrams());
+        profile.value(NutritionProfile.SUGARS_GRAMS, row.getSugarsGrams());
+        profile.value(NutritionProfile.FIBER_GRAMS, row.getFiberGrams());
+        profile.value(NutritionProfile.ADDED_SUGARS_GRAMS, row.getAddedSugarsGrams());
+        profile.value(NutritionProfile.TRANS_FAT_GRAMS, row.getTransFatGrams());
+        profile.value(NutritionProfile.CHOLESTEROL_MG, row.getCholesterolMg());
+        if (micronutrients != null) {
+            for (Map.Entry<String, Double> entry : micronutrients.entrySet()) {
+                profile.micronutrient(entry.getKey(), entry.getValue());
+            }
+        }
+        return NutritionFood.builder()
+                .id(row.getId())
+                .ownerId(row.getOwnerId())
+                .name(row.getName())
+                .brand(row.getBrand())
+                .manufacturerName(row.getManufacturerName())
+                .brandName(row.getBrandName())
+                .subBrandName(row.getSubBrandName())
+                .productName(row.getProductName())
+                .packageAmount(row.getPackageAmount())
+                .packageUnit(row.getPackageUnit())
+                .packageCount(row.getPackageCount() == null ? null : row.getPackageCount().intValue())
+                .kind(row.getKind())
+                .category(row.getCategory())
+                .basis(positiveOrDefault(row.getBasisAmount()), emptyToDefault(row.getBasisUnit(), "serving"))
+                .prepState(row.getPrepState())
+                .cookingMethod(row.getCookingMethod())
+                .profile(profile.build())
+                .source(emptyToDefault(row.getSourceType(), "manual"), row.getSourceReference())
+                .sourceVersion(row.getSourceVersion())
+                .dataVersion((int) row.getDataVersion())
+                .revision((int) row.getRevision())
+                .build();
+    }
+
+    private static List<String> singleton(String value) {
+        List<String> values = new ArrayList<>();
+        values.add(value);
+        return values;
     }
 
     /**
@@ -1027,15 +1067,11 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                 .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
                 .build();
 
-        FitnessDatabaseConnection database = this.database;
-        database.beginTransaction();
-        try {
-            database.insertOrThrow("nutrition_foods", null, foodValues(food, now()));
-            replaceMicronutrients(database, food);
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
+        String timestamp = now();
+        roomDatabase.runInTransaction(() -> {
+            nutritionDao.insertFood(foodEntity(food, timestamp));
+            replaceMicronutrientsRoom(food);
+        });
         return food;
     }
 
@@ -1168,15 +1204,11 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                 .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
                 .build();
 
-        FitnessDatabaseConnection database = this.database;
-        database.beginTransaction();
-        try {
-            database.insertOrThrow("nutrition_foods", null, foodValues(food, now()));
-            replaceMicronutrients(database, food);
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
+        String timestamp = now();
+        roomDatabase.runInTransaction(() -> {
+            nutritionDao.insertFood(foodEntity(food, timestamp));
+            replaceMicronutrientsRoom(food);
+        });
         if (exactProduct != null) {
             linkProduct(food.id, exactProduct);
         }
@@ -1662,12 +1694,10 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
             String sourceReference
     ) {
 
-        FitnessDatabaseConnection database = this.database;
         String existingId = null;
         String existingCreatedAt = null;
         if (isDiningOutMenuSourceType(sourceType)) {
             ExistingCatalogRow existing = findCanonicalDiningOutMenu(
-                    database,
                     normalizedStoreName,
                     normalizedMenuName,
                     sourceReference
@@ -1677,17 +1707,15 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                 existingCreatedAt = existing.createdAt;
             }
         } else {
-            List<NutritionFood> candidates = readFoods(
-                    "owner_id = ? AND kind = ? " +
-                            "AND source_type = ?",
-                    new String[]{
-                            userId,
-                            NutritionFood.KIND_EXTERNAL_MENU,
-                            sourceType
-                    },
-                    "updated_at DESC, id ASC",
-                    null
-            );
+            List<NutritionFood> candidates = new ArrayList<>();
+            for (NutritionFoodsRoomEntity entity : nutritionDao.ownedFoodsByKindAndSource(
+                    userId,
+                    NutritionFood.KIND_EXTERNAL_MENU,
+                    sourceType
+            )) {
+                candidates.add(buildFood(entity, loadMicronutrientsRoom(singleton(entity.getId()))
+                        .get(entity.getId())));
+            }
             String requestedGroup = optionGroupType(sourceReference);
             for (NutritionFood candidate : candidates) {
                 if (!normalizeDiningOutComponentName(normalizedStoreName)
@@ -1721,32 +1749,22 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                 .dataVersion(dataVersion)
                 .build();
 
-        ContentValues values = foodValues(food, timestamp);
-        if (existingCreatedAt != null && !existingCreatedAt.trim().isEmpty()) {
-            values.put("created_at", existingCreatedAt);
-        }
-        database.beginTransaction();
-        try {
-            if (existingId == null) {
-                database.insertOrThrow("nutrition_foods", null, values);
+        String createdAt = existingCreatedAt == null || existingCreatedAt.trim().isEmpty()
+                ? timestamp : existingCreatedAt;
+        NutritionFoodsRoomEntity entity = foodEntity(food, createdAt, timestamp);
+        boolean insertNew = existingId == null;
+        roomDatabase.runInTransaction(() -> {
+            if (insertNew) {
+                nutritionDao.insertFood(entity);
             } else {
-                database.update(
-                        "nutrition_foods",
-                        values,
-                        "id = ? AND owner_id = ?",
-                        new String[]{existingId, userId}
-                );
+                nutritionDao.upsertFood(entity);
             }
-            replaceMicronutrients(database, food);
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
+            replaceMicronutrientsRoom(food);
+        });
         return food;
     }
 
     private ExistingCatalogRow findCanonicalDiningOutMenu(
-            FitnessDatabaseConnection database,
             String storeName,
             String menuName,
             String sourceReference
@@ -1756,32 +1774,22 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                 menuName,
                 sourceReference
         );
-        try (Cursor cursor = database.rawQuery(
-                "SELECT id, created_at, brand, name, source_reference " +
-                        "FROM nutrition_foods " +
-                        "WHERE owner_id = ? AND kind = ? AND source_type IN (?, ?) " +
-                        "AND deleted_at IS NULL " +
-                        "ORDER BY updated_at DESC, id ASC",
-                new String[]{
-                        userId,
-                        NutritionFood.KIND_EXTERNAL_MENU,
-                        DINING_OUT_MENU_SOURCE_TYPE,
-                        OCR_DINING_OUT_MENU_SOURCE_TYPE
-                }
+        for (NutritionFoodsRoomEntity entity : nutritionDao.ownedFoodsByKindAndSourceTypes(
+                userId,
+                NutritionFood.KIND_EXTERNAL_MENU,
+                java.util.Arrays.asList(DINING_OUT_MENU_SOURCE_TYPE, OCR_DINING_OUT_MENU_SOURCE_TYPE)
         )) {
-            while (cursor.moveToNext()) {
                 DiningOutMenuCanonicalIdentity candidate = DiningOutMenuCanonicalIdentity.from(
-                        cursor.getString(2),
-                        cursor.getString(3),
-                        cursor.isNull(4) ? null : cursor.getString(4)
+                        entity.getBrand(),
+                        entity.getName(),
+                        entity.getSourceReference()
                 );
                 if (requested.matches(candidate)) {
                     return new ExistingCatalogRow(
-                            cursor.getString(0),
-                            cursor.isNull(1) ? null : cursor.getString(1)
+                            entity.getId(),
+                            entity.getCreatedAt()
                     );
                 }
-            }
         }
         return null;
     }
@@ -1816,31 +1824,25 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         NutritionFood recipe = recipeFood(UUID.randomUUID().toString(), normalizedName, items);
 
         String timestamp = now();
-        FitnessDatabaseConnection database = this.database;
-        database.beginTransaction();
-        try {
-            database.insertOrThrow("nutrition_foods", null, foodValues(recipe, timestamp));
-            replaceMicronutrients(database, recipe);
-
+        roomDatabase.runInTransaction(() -> {
+            nutritionDao.insertFood(foodEntity(recipe, timestamp));
+            replaceMicronutrientsRoom(recipe);
             int orderIndex = 0;
             for (MealCompositionItem item : items) {
-                ContentValues component = new ContentValues();
-                component.put("id", UUID.randomUUID().toString());
-                component.put("owner_id", userId);
-                component.put("parent_food_id", recipe.id);
-                component.put("child_food_id", item.food.id);
-                component.put("quantity", item.quantity);
-                component.put("unit", item.food.basisUnit);
-                component.put("order_index", orderIndex++);
-                component.put("created_at", timestamp);
-                component.put("updated_at", timestamp);
-                component.putNull("deleted_at");
-                database.insertOrThrow("nutrition_food_components", null, component);
+                nutritionDao.insertComponent(new NutritionFoodComponentsRoomEntity(
+                        UUID.randomUUID().toString(),
+                        userId,
+                        recipe.id,
+                        item.food.id,
+                        item.quantity,
+                        item.food.basisUnit,
+                        orderIndex++,
+                        timestamp,
+                        timestamp,
+                        null
+                ));
             }
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
+        });
         return recipe;
     }
 
@@ -1881,14 +1883,8 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         if (nutritionFoodId == null || nutritionFoodId.trim().isEmpty()) {
             return false;
         }
-        FitnessDatabaseConnection database = this.database;
-        try (Cursor cursor = database.rawQuery(
-                "SELECT visibility FROM nutrition_foods " +
-                        "WHERE id = ? AND deleted_at IS NULL LIMIT 1",
-                new String[]{nutritionFoodId}
-        )) {
-            return cursor.moveToFirst() && "public".equals(cursor.getString(0));
-        }
+        NutritionFoodsRoomEntity food = nutritionDao.visibleFood(nutritionFoodId, userId);
+        return food != null && "public".equals(food.getVisibility());
     }
 
     /**
@@ -1946,14 +1942,11 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         }
 
         String updatedAt = emptyToDefault(nullableString(row, "updated_at"), now());
-        ContentValues values = new ContentValues();
-        values.put("visibility", visibility);
-        values.put("updated_at", updatedAt);
-        int changed = database.update(
-                "nutrition_foods",
-                values,
-                "id = ? AND owner_id = ? AND deleted_at IS NULL",
-                new String[]{normalizedFoodId, config.effectiveUserId()}
+        int changed = nutritionDao.updateVisibility(
+                normalizedFoodId,
+                config.effectiveUserId(),
+                visibility,
+                updatedAt
         );
         if (changed != 1) {
             throw new IOException("공개된 영양정보를 기기 카탈로그에 반영하지 못했습니다.");
@@ -2008,14 +2001,11 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         }
 
         String updatedAt = emptyToDefault(nullableString(row, "updated_at"), now());
-        ContentValues values = new ContentValues();
-        values.put("visibility", visibility);
-        values.put("updated_at", updatedAt);
-        int changed = database.update(
-                "nutrition_foods",
-                values,
-                "id = ? AND owner_id = ? AND deleted_at IS NULL",
-                new String[]{normalizedFoodId, config.effectiveUserId()}
+        int changed = nutritionDao.updateVisibility(
+                normalizedFoodId,
+                config.effectiveUserId(),
+                visibility,
+                updatedAt
         );
         if (changed != 1) {
             throw new IOException("식당 메뉴 공개 상태를 기기 카탈로그에 반영하지 못했습니다.");
@@ -2305,21 +2295,16 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         if (products == null || products.isEmpty()) {
             return;
         }
-        FitnessDatabaseConnection database = this.database;
-        database.beginTransaction();
-        try {
-            String fetchedAt = now();
+        String fetchedAt = now();
+        roomDatabase.runInTransaction(() -> {
             for (ProductReadV1 product : products) {
                 if (product != null) {
                     for (ProductReadV1 exactVariant : product.exactCatalogVariants()) {
-                        cachePriceTraceProduct(database, exactVariant, fetchedAt);
+                        cachePriceTraceProductRoom(exactVariant, fetchedAt);
                     }
                 }
             }
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
+        });
     }
 
     /**
@@ -2450,33 +2435,30 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         requireLinkableFood(nutritionFoodId);
         String timestamp = now();
         String id = UUID.randomUUID().toString();
-        FitnessDatabaseConnection database = this.database;
-        database.beginTransaction();
-        try {
-            cachePriceTraceProduct(database, product, timestamp);
-            softDeleteApprovedLinks(database, nutritionFoodId, null, timestamp);
-
-            ContentValues values = new ContentValues();
-            values.put("id", id);
-            values.put("owner_id", userId);
-            values.put("nutrition_food_id", nutritionFoodId);
-            values.put("catalog_product_id", product.catalogProductId);
-            putNullable(values, "standard_product_id", product.standardProductId);
-            putPriceTraceCatalogMetadata(values, product);
-            values.put("status", ProductNutritionLink.STATUS_APPROVED);
-            values.put("source_type", ProductNutritionLink.SOURCE_MANUAL);
-            values.putNull("proposal_reference");
-            values.put("product_contract_version", ProductReadV1.CONTRACT_VERSION);
-            values.put("revision", 1);
-            values.put("reviewed_at", timestamp);
-            values.put("created_at", timestamp);
-            values.put("updated_at", timestamp);
-            values.putNull("deleted_at");
-            database.insertOrThrow("product_nutrition_links", null, values);
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
+        roomDatabase.runInTransaction(() -> {
+            cachePriceTraceProductRoom(product, timestamp);
+            nutritionDao.softDeleteApprovedLinks(userId, nutritionFoodId, null, timestamp);
+            nutritionDao.insertProductLink(new ProductNutritionLinksRoomEntity(
+                    id,
+                    userId,
+                    nutritionFoodId,
+                    product.catalogProductId,
+                    product.standardProductId,
+                    ProductNutritionLink.STATUS_APPROVED,
+                    ProductNutritionLink.SOURCE_MANUAL,
+                    null,
+                    ProductReadV1.CONTRACT_VERSION,
+                    product.revision,
+                    product.contentAmount,
+                    product.contentUnit,
+                    product.packageCount == null ? null : product.packageCount.longValue(),
+                    1L,
+                    timestamp,
+                    timestamp,
+                    timestamp,
+                    null
+            ));
+        });
         return approvedProductLink(nutritionFoodId);
     }
 
@@ -2489,83 +2471,37 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
             throw new IllegalArgumentException("제안된 catalogProductId를 확인할 수 없습니다.");
         }
         requirePriceTraceCatalogMetadata(exactProduct);
-        FitnessDatabaseConnection database = this.database;
-        String nutritionFoodId;
-        String suggestedCatalogProductId;
-        try (Cursor cursor = database.rawQuery(
-                "SELECT nutrition_food_id, catalog_product_id " +
-                        "FROM product_nutrition_links " +
-                        "WHERE id = ? AND owner_id = ? AND status = 'suggested' " +
-                        "AND deleted_at IS NULL LIMIT 1",
-                new String[]{suggestionId, userId}
-        )) {
-            if (!cursor.moveToFirst()) {
-                throw new IllegalArgumentException("승인할 PriceTrace 제안을 찾지 못했습니다.");
-            }
-            nutritionFoodId = cursor.getString(0);
-            suggestedCatalogProductId = cursor.getString(1);
+        ProductNutritionLinksRoomEntity suggestion = nutritionDao.suggestedLink(suggestionId, userId);
+        if (suggestion == null) {
+            throw new IllegalArgumentException("승인할 PriceTrace 제안을 찾지 못했습니다.");
         }
+        String nutritionFoodId = suggestion.getNutritionFoodId();
+        String suggestedCatalogProductId = suggestion.getCatalogProductId();
         if (!exactProduct.catalogProductId.equals(suggestedCatalogProductId)) {
             throw new IllegalArgumentException("제안 ID와 선택한 catalogProductId가 다릅니다.");
         }
 
         String timestamp = now();
-        database.beginTransaction();
-        try {
-            cachePriceTraceProduct(database, exactProduct, timestamp);
-            softDeleteApprovedLinks(database, nutritionFoodId, suggestionId, timestamp);
-            database.execSQL(
-                    "UPDATE product_nutrition_links SET status = 'approved', reviewed_at = ?, " +
-                            "catalog_product_revision = ?, catalog_content_amount = ?, " +
-                            "catalog_content_unit = ?, catalog_package_count = ?, " +
-                            "updated_at = ?, revision = revision + 1 " +
-                            "WHERE id = ? AND owner_id = ? AND status = 'suggested' " +
-                            "AND deleted_at IS NULL",
-                    new Object[]{
-                            timestamp,
-                            exactProduct.revision,
-                            exactProduct.contentAmount,
-                            exactProduct.contentUnit,
-                            exactProduct.packageCount,
-                            timestamp,
-                            suggestionId,
-                            userId
-                    }
+        roomDatabase.runInTransaction(() -> {
+            cachePriceTraceProductRoom(exactProduct, timestamp);
+            nutritionDao.softDeleteApprovedLinks(userId, nutritionFoodId, suggestionId, timestamp);
+            nutritionDao.approveSuggestedLink(
+                    suggestionId,
+                    userId,
+                    timestamp,
+                    exactProduct.revision,
+                    exactProduct.contentAmount,
+                    exactProduct.contentUnit,
+                    exactProduct.packageCount == null ? null : exactProduct.packageCount.longValue(),
+                    timestamp
             );
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
+        });
         return approvedProductLink(nutritionFoodId);
     }
 
     public boolean rejectProductSuggestion(String suggestionId) {
         String timestamp = now();
-        FitnessDatabaseConnection database = this.database;
-        int nextRevision;
-        try (Cursor cursor = database.rawQuery(
-                "SELECT revision FROM product_nutrition_links WHERE id = ? AND owner_id = ? " +
-                        "AND status = 'suggested' AND deleted_at IS NULL LIMIT 1",
-                new String[]{suggestionId, userId}
-        )) {
-            if (!cursor.moveToFirst()) {
-                return false;
-            }
-            nextRevision = Math.max(1, cursor.getInt(0)) + 1;
-        }
-        int changed;
-        ContentValues values = new ContentValues();
-        values.put("status", ProductNutritionLink.STATUS_REJECTED);
-        values.put("reviewed_at", timestamp);
-        values.put("updated_at", timestamp);
-        values.put("revision", nextRevision);
-        changed = database.update(
-                "product_nutrition_links",
-                values,
-                "id = ? AND owner_id = ? AND status = 'suggested' AND deleted_at IS NULL",
-                new String[]{suggestionId, userId}
-        );
-        return changed > 0;
+        return nutritionDao.rejectSuggestedLink(suggestionId, userId, timestamp, timestamp) > 0;
     }
 
     /** Soft-unlinks without deleting either the Nutrition entry or any meal snapshot. */
@@ -2575,77 +2511,55 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
             return false;
         }
         String timestamp = now();
-        database.execSQL(
-                "UPDATE product_nutrition_links SET deleted_at = ?, updated_at = ?, " +
-                        "revision = revision + 1 " +
-                        "WHERE owner_id = ? AND nutrition_food_id = ? " +
-                        "AND status = 'approved' AND deleted_at IS NULL",
-                new Object[]{timestamp, timestamp, userId, nutritionFoodId}
-        );
-        return true;
+        return nutritionDao.unlinkApprovedProduct(userId, nutritionFoodId, timestamp) > 0;
     }
 
     private List<ProductNutritionLink> readProductLinks(String nutritionFoodId, String status) {
         List<ProductNutritionLink> links = new ArrayList<>();
-        FitnessDatabaseConnection database = this.database;
-        try (Cursor cursor = database.rawQuery(
-                "SELECT l.id, l.owner_id, l.nutrition_food_id, l.catalog_product_id, " +
-                        "l.standard_product_id, l.status, l.source_type, l.proposal_reference, " +
-                        "l.revision, l.reviewed_at, l.catalog_product_revision, " +
-                        "l.catalog_content_amount, l.catalog_content_unit, l.catalog_package_count, " +
-                        "c.standard_product_id, c.product_name, c.brand_name, " +
-                        "c.manufacturer_name, c.sub_brand_name, c.seller_name, " +
-                        "c.latest_price_krw, c.price_observed_at, c.content_amount, c.content_unit, " +
-                        "c.package_count, c.catalog_product_revision " +
-                        "FROM product_nutrition_links l " +
-                        "LEFT JOIN pricetrace_product_cache c " +
-                        "ON c.catalog_product_id = l.catalog_product_id " +
-                        "WHERE l.owner_id = ? AND l.nutrition_food_id = ? " +
-                        "AND l.status = ? AND l.deleted_at IS NULL " +
-                        "ORDER BY l.updated_at DESC, l.created_at DESC",
-                new String[]{userId, nutritionFoodId, status}
+        for (NutritionRoomDao.ProductLinkRow row : nutritionDao.productLinks(
+                userId, nutritionFoodId, status
         )) {
-            while (cursor.moveToNext()) {
-                ProductReadV1 product = null;
-                if (!cursor.isNull(14)) {
-                    try {
-                        product = new ProductReadV1(
-                                cursor.getString(3),
-                                cursor.isNull(4) ? cursor.isNull(14) ? null : cursor.getString(14) : cursor.getString(4),
-                                 cursor.getString(15),
-                                 cursor.isNull(16) ? null : cursor.getString(16),
-                                 cursor.isNull(17) ? null : cursor.getString(17),
-                                 cursor.isNull(18) ? null : cursor.getString(18),
-                                 cursor.isNull(19) ? null : cursor.getString(19),
-                                 cursor.isNull(20) ? null : cursor.getInt(20),
-                                 cursor.isNull(21) ? null : cursor.getString(21),
-                                 cursor.isNull(22) ? null : cursor.getDouble(22),
-                                 cursor.isNull(23) ? null : cursor.getString(23),
-                                 cursor.isNull(24) ? null : cursor.getInt(24),
-                                 cursor.isNull(25) ? null : cursor.getString(25)
-                        );
-                    } catch (IllegalArgumentException ignored) {
-                        // A corrupt cache must not hide the underlying exact link decision.
-                    }
+            ProductReadV1 product = null;
+            if (row.getProductName() != null) {
+                try {
+                    product = new ProductReadV1(
+                            row.getCatalogProductId(),
+                            row.getStandardProductId() == null
+                                    ? row.getCacheStandardProductId()
+                                    : row.getStandardProductId(),
+                            row.getProductName(),
+                            row.getBrandName(),
+                            row.getManufacturerName(),
+                            row.getSubBrandName(),
+                            row.getSellerName(),
+                            row.getLatestPriceKrw() == null ? null : row.getLatestPriceKrw().intValue(),
+                            row.getPriceObservedAt(),
+                            row.getContentAmount(),
+                            row.getContentUnit(),
+                            row.getPackageCount() == null ? null : row.getPackageCount().intValue(),
+                            row.getCacheCatalogProductRevision()
+                    );
+                } catch (IllegalArgumentException ignored) {
+                    // A corrupt cache must not hide the underlying exact link decision.
                 }
-                links.add(new ProductNutritionLink(
-                        cursor.getString(0),
-                        cursor.getString(1),
-                        cursor.getString(2),
-                        cursor.getString(3),
-                        cursor.isNull(4) ? null : cursor.getString(4),
-                        cursor.getString(5),
-                        cursor.getString(6),
-                        cursor.isNull(7) ? null : cursor.getString(7),
-                        cursor.getInt(8),
-                        cursor.isNull(9) ? null : cursor.getString(9),
-                        cursor.isNull(10) ? null : cursor.getString(10),
-                        cursor.isNull(11) ? null : cursor.getDouble(11),
-                        cursor.isNull(12) ? null : cursor.getString(12),
-                        cursor.isNull(13) ? null : cursor.getInt(13),
-                        product
-                ));
             }
+            links.add(new ProductNutritionLink(
+                    row.getId(),
+                    row.getOwnerId(),
+                    row.getNutritionFoodId(),
+                    row.getCatalogProductId(),
+                    row.getStandardProductId(),
+                    row.getStatus(),
+                    row.getSourceType(),
+                    row.getProposalReference(),
+                    (int) row.getRevision(),
+                    row.getReviewedAt(),
+                    row.getCatalogProductRevision(),
+                    row.getCatalogContentAmount(),
+                    row.getCatalogContentUnit(),
+                    row.getCatalogPackageCount() == null ? null : row.getCatalogPackageCount().intValue(),
+                    product
+            ));
         }
         return links;
     }
@@ -2655,14 +2569,8 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         if (normalized.isEmpty()) {
             throw new IllegalArgumentException("영양 음식 ID가 필요합니다.");
         }
-        try (Cursor cursor = database.rawQuery(
-                "SELECT 1 FROM nutrition_foods WHERE id = ? AND deleted_at IS NULL " +
-                        "AND (visibility = 'public' OR owner_id = ?) LIMIT 1",
-                new String[]{normalized, userId}
-        )) {
-            if (!cursor.moveToFirst()) {
-                throw new IllegalArgumentException("연결할 영양 음식을 찾지 못했습니다.");
-            }
+        if (nutritionDao.visibleFood(normalized, userId) == null) {
+            throw new IllegalArgumentException("연결할 영양 음식을 찾지 못했습니다.");
         }
     }
 
@@ -3288,6 +3196,95 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         return values;
     }
 
+    private NutritionFoodsRoomEntity foodEntity(NutritionFood food, String timestamp) {
+        return foodEntity(food, timestamp, timestamp);
+    }
+
+    private NutritionFoodsRoomEntity foodEntity(
+            NutritionFood food,
+            String createdAt,
+            String updatedAt
+    ) {
+        return new NutritionFoodsRoomEntity(
+                food.id,
+                food.ownerId,
+                food.name,
+                food.brand,
+                food.manufacturerName,
+                food.brandName,
+                food.subBrandName,
+                food.productName,
+                food.packageAmount,
+                food.packageUnit,
+                food.packageCount == null ? null : food.packageCount.longValue(),
+                food.kind,
+                food.category,
+                food.basisAmount,
+                food.basisUnit,
+                food.prepState,
+                food.cookingMethod,
+                food.profile.value(NutritionProfile.CALORIES_KCAL),
+                food.profile.value(NutritionProfile.PROTEIN_GRAMS),
+                food.profile.value(NutritionProfile.CARBS_GRAMS),
+                food.profile.value(NutritionProfile.FAT_GRAMS),
+                food.profile.value(NutritionProfile.SODIUM_MG),
+                food.profile.value(NutritionProfile.SATURATED_FAT_GRAMS),
+                food.profile.value(NutritionProfile.SUGARS_GRAMS),
+                food.profile.value(NutritionProfile.FIBER_GRAMS),
+                food.profile.value(NutritionProfile.ADDED_SUGARS_GRAMS),
+                food.profile.value(NutritionProfile.TRANS_FAT_GRAMS),
+                food.profile.value(NutritionProfile.CHOLESTEROL_MG),
+                food.sourceType,
+                food.sourceReference,
+                food.sourceVersion,
+                (long) food.dataVersion,
+                (long) food.revision,
+                "private",
+                createdAt,
+                updatedAt,
+                null
+        );
+    }
+
+    private void cachePriceTraceProductRoom(ProductReadV1 product, String fetchedAt) {
+        nutritionDao.upsertProductCache(new PricetraceProductCacheRoomEntity(
+                product.catalogProductId,
+                product.standardProductId,
+                product.name,
+                product.brand,
+                product.manufacturerName,
+                product.subBrandName,
+                product.sellerName,
+                product.latestObservedPriceKrw == null
+                        ? null : product.latestObservedPriceKrw.longValue(),
+                product.observedAt,
+                product.contentAmount,
+                product.contentUnit,
+                product.packageCount == null ? null : product.packageCount.longValue(),
+                product.revision,
+                ProductReadV1.CONTRACT_VERSION,
+                fetchedAt
+        ));
+    }
+
+    private void replaceMicronutrientsRoom(NutritionFood food) {
+        nutritionDao.deleteNutrients(food.id);
+        String timestamp = now();
+        for (String code : food.profile.knownMicronutrientCodes()) {
+            nutritionDao.upsertNutrient(new NutritionFoodNutrientsRoomEntity(
+                    UUID.randomUUID().toString(),
+                    food.ownerId,
+                    food.id,
+                    code,
+                    food.profile.value(code),
+                    NutrientCode.unitOf(code),
+                    timestamp,
+                    timestamp,
+                    null
+            ));
+        }
+    }
+
     private void replaceMicronutrients(FitnessDatabaseConnection database, NutritionFood food) {
         database.delete("nutrition_food_nutrients", "food_id = ?", new String[]{food.id});
         String timestamp = now();
@@ -3309,101 +3306,6 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                     SQLiteDatabase.CONFLICT_REPLACE
             );
         }
-    }
-
-    private Map<String, Map<String, Double>> loadMicronutrients(
-            FitnessDatabaseConnection database,
-            List<String> foodIds
-    ) {
-        Map<String, Map<String, Double>> byFood = new LinkedHashMap<>();
-        if (foodIds.isEmpty()) {
-            return byFood;
-        }
-        StringBuilder placeholders = new StringBuilder();
-        for (int index = 0; index < foodIds.size(); index++) {
-            placeholders.append(index == 0 ? "?" : ", ?");
-        }
-        try (Cursor cursor = database.rawQuery(
-                "SELECT food_id, nutrient_code, amount FROM nutrition_food_nutrients " +
-                        "WHERE deleted_at IS NULL AND amount IS NOT NULL " +
-                        "AND food_id IN (" + placeholders + ")",
-                foodIds.toArray(new String[0])
-        )) {
-            while (cursor.moveToNext()) {
-                String code = NutrientCode.normalize(cursor.getString(1));
-                if (!NutrientCode.isKnown(code)) {
-                    continue;
-                }
-                byFood.computeIfAbsent(cursor.getString(0), key -> new LinkedHashMap<>())
-                        .put(code, cursor.getDouble(2));
-            }
-        }
-        return byFood;
-    }
-
-    /** 커서 한 행을 그대로 담아 둔다. 확장 영양소를 한 번에 읽은 뒤 조립하기 위해서다. */
-    private Object[] readFoodRow(Cursor cursor) {
-        return readFoodRow(cursor, 0);
-    }
-
-    private Object[] readFoodRow(Cursor cursor, int offset) {
-        Object[] row = new Object[FOOD_COLUMNS.length];
-        for (int index = 0; index < FOOD_COLUMNS.length; index++) {
-            int cursorIndex = offset + index;
-            if (cursor.isNull(cursorIndex)) {
-                row[index] = null;
-            } else if (cursor.getType(cursorIndex) == Cursor.FIELD_TYPE_STRING) {
-                row[index] = cursor.getString(cursorIndex);
-            } else {
-                row[index] = cursor.getDouble(cursorIndex);
-            }
-        }
-        return row;
-    }
-
-    private NutritionFood buildFood(Object[] row, Map<String, Double> micronutrients) {
-        NutritionProfile.Builder profile = NutritionProfile.builder()
-                .value(NutritionProfile.CALORIES_KCAL, doubleAt(row, 17))
-                .value(NutritionProfile.PROTEIN_GRAMS, doubleAt(row, 18))
-                .value(NutritionProfile.CARBS_GRAMS, doubleAt(row, 19))
-                .value(NutritionProfile.FAT_GRAMS, doubleAt(row, 20));
-        int columnIndex = 21;
-        for (String key : nullableTypedKeys()) {
-            profile.value(key, doubleAt(row, columnIndex++));
-        }
-        if (micronutrients != null) {
-            for (Map.Entry<String, Double> entry : micronutrients.entrySet()) {
-                profile.micronutrient(entry.getKey(), entry.getValue());
-            }
-        }
-
-        Double dataVersion = doubleAt(row, 31);
-        Double revision = doubleAt(row, 32);
-        return NutritionFood.builder()
-                .id(stringAt(row, 0))
-                .ownerId(stringAt(row, 1))
-                .name(stringAt(row, 2))
-                .brand(stringAt(row, 3))
-                .manufacturerName(stringAt(row, 4))
-                .brandName(stringAt(row, 5))
-                .subBrandName(stringAt(row, 6))
-                .productName(stringAt(row, 7))
-                .packageAmount(doubleAt(row, 8))
-                .packageUnit(stringAt(row, 9))
-                .packageCount(integerAt(row, 10))
-                .kind(stringAt(row, 11))
-                .category(stringAt(row, 12))
-                .basis(positiveOrDefault(doubleAt(row, 13)), emptyToDefault(stringAt(row, 14), "serving"))
-                .prepState(stringAt(row, 15))
-                .cookingMethod(stringAt(row, 16))
-                .profile(profile.build())
-                .source(emptyToDefault(stringAt(row, 28), "manual"), stringAt(row, 29))
-                .sourceVersion(stringAt(row, 30))
-                .dataVersion(dataVersion == null
-                        ? NutritionFood.DATA_VERSION_MACROS_ONLY
-                        : (int) Math.round(dataVersion))
-                .revision(revision == null ? 1 : (int) Math.round(revision))
-                .build();
     }
 
     /** 필수 7종이 다 있는지 확인하고, 없으면 무엇이 빠졌는지 알려 준다. */
@@ -3780,34 +3682,6 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                 row.put(name, cursor.getString(index));
                 break;
         }
-    }
-
-    private static String stringAt(Object[] row, int index) {
-        Object value = row[index];
-        if (value == null) {
-            return null;
-        }
-        return value instanceof String ? (String) value : String.valueOf(value);
-    }
-
-    private static Double doubleAt(Object[] row, int index) {
-        Object value = row[index];
-        if (value == null) {
-            return null;
-        }
-        if (value instanceof Double) {
-            return (Double) value;
-        }
-        try {
-            return Double.parseDouble(String.valueOf(value));
-        } catch (NumberFormatException error) {
-            return null;
-        }
-    }
-
-    private static Integer integerAt(Object[] row, int index) {
-        Double value = doubleAt(row, index);
-        return value == null ? null : (int) Math.round(value);
     }
 
     private static double positiveOrDefault(Double value) {

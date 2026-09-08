@@ -895,6 +895,239 @@ interface MealRoomDao {
     fun insertNutrient(nutrient: MealRecordItemNutrientsRoomEntity)
 }
 
+@Dao
+interface NutritionRoomDao {
+    data class ProductLinkRow(
+        val id: String,
+        @ColumnInfo(name = "owner_id") val ownerId: String,
+        @ColumnInfo(name = "nutrition_food_id") val nutritionFoodId: String,
+        @ColumnInfo(name = "catalog_product_id") val catalogProductId: String,
+        @ColumnInfo(name = "standard_product_id") val standardProductId: String?,
+        val status: String,
+        @ColumnInfo(name = "source_type") val sourceType: String,
+        @ColumnInfo(name = "proposal_reference") val proposalReference: String?,
+        val revision: Long,
+        @ColumnInfo(name = "reviewed_at") val reviewedAt: String?,
+        @ColumnInfo(name = "catalog_product_revision") val catalogProductRevision: String?,
+        @ColumnInfo(name = "catalog_content_amount") val catalogContentAmount: Double?,
+        @ColumnInfo(name = "catalog_content_unit") val catalogContentUnit: String?,
+        @ColumnInfo(name = "catalog_package_count") val catalogPackageCount: Long?,
+        @ColumnInfo(name = "cache_standard_product_id") val cacheStandardProductId: String?,
+        @ColumnInfo(name = "product_name") val productName: String?,
+        @ColumnInfo(name = "brand_name") val brandName: String?,
+        @ColumnInfo(name = "manufacturer_name") val manufacturerName: String?,
+        @ColumnInfo(name = "sub_brand_name") val subBrandName: String?,
+        @ColumnInfo(name = "seller_name") val sellerName: String?,
+        @ColumnInfo(name = "latest_price_krw") val latestPriceKrw: Long?,
+        @ColumnInfo(name = "price_observed_at") val priceObservedAt: String?,
+        @ColumnInfo(name = "content_amount") val contentAmount: Double?,
+        @ColumnInfo(name = "content_unit") val contentUnit: String?,
+        @ColumnInfo(name = "package_count") val packageCount: Long?,
+        @ColumnInfo(name = "cache_catalog_product_revision") val cacheCatalogProductRevision: String?
+    )
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE deleted_at IS NULL " +
+            "AND (visibility='public' OR owner_id=:userId) " +
+            "AND COALESCE(source_type,'') <> :excludedSourceType " +
+            "AND (name LIKE :like COLLATE NOCASE OR brand LIKE :like COLLATE NOCASE) " +
+            "ORDER BY kind ASC, brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC LIMIT 100"
+    )
+    fun searchFoods(userId: String, excludedSourceType: String, like: String): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE id=:foodId AND deleted_at IS NULL " +
+            "AND (visibility='public' OR owner_id=:userId) LIMIT 1"
+    )
+    fun visibleFood(foodId: String, userId: String): NutritionFoodsRoomEntity?
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE deleted_at IS NULL " +
+            "AND (visibility='public' OR owner_id=:userId) " +
+            "ORDER BY updated_at DESC, id ASC"
+    )
+    fun visibleFoods(userId: String): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND deleted_at IS NULL " +
+            "AND kind=:kind AND source_type=:sourceType " +
+            "ORDER BY updated_at DESC, id ASC"
+    )
+    fun ownedFoodsByKindAndSource(
+        userId: String, kind: String, sourceType: String
+    ): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND deleted_at IS NULL " +
+            "AND kind=:kind ORDER BY updated_at DESC, id ASC"
+    )
+    fun ownedFoodsByKind(userId: String, kind: String): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND deleted_at IS NULL " +
+            "AND kind=:kind AND source_type IN (:sourceTypes) " +
+            "ORDER BY updated_at DESC, id ASC"
+    )
+    fun ownedFoodsByKindAndSources(
+        userId: String, kind: String, sourceTypes: List<String>
+    ): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id IS NULL AND visibility='public' " +
+            "AND kind=:kind AND id LIKE :idPattern " +
+            "AND ((source_type=:sourceType AND source_reference LIKE :sourceReferencePattern) " +
+            "OR (source_type=:riceSourceType AND source_reference=:riceSourceReference)) " +
+            "ORDER BY brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC"
+    )
+    fun verifiedFoods(
+        kind: String,
+        idPattern: String,
+        sourceType: String,
+        sourceReferencePattern: String,
+        riceSourceType: String,
+        riceSourceReference: String
+    ): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_food_nutrients WHERE deleted_at IS NULL " +
+            "AND amount IS NOT NULL AND food_id IN (:foodIds)"
+    )
+    fun nutrientsForFoods(foodIds: List<String>): List<NutritionFoodNutrientsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_food_components WHERE parent_food_id=:parentFoodId " +
+            "AND deleted_at IS NULL ORDER BY order_index ASC, created_at ASC"
+    )
+    fun componentsForFood(parentFoodId: String): List<NutritionFoodComponentsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE id IN (:foodIds) AND deleted_at IS NULL " +
+            "AND (visibility='public' OR owner_id=:userId)"
+    )
+    fun visibleFoodsByIds(foodIds: List<String>, userId: String): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT 1 FROM nutrition_foods WHERE id=:foodId AND owner_id=:userId " +
+            "AND kind=:kind AND deleted_at IS NULL LIMIT 1"
+    )
+    fun ownsActiveFood(foodId: String, userId: String, kind: String): Int?
+
+    @Query("SELECT * FROM nutrition_foods WHERE id=:foodId AND owner_id=:userId AND kind=:kind AND deleted_at IS NULL LIMIT 1")
+    fun ownedActiveFood(foodId: String, userId: String, kind: String): NutritionFoodsRoomEntity?
+
+    @Query("DELETE FROM nutrition_food_nutrients WHERE food_id=:foodId")
+    fun deleteNutrients(foodId: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertFood(food: NutritionFoodsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertFood(food: NutritionFoodsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertNutrient(nutrient: NutritionFoodNutrientsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertComponent(component: NutritionFoodComponentsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertComponentLink(link: DiningOutMenuComponentLinksRoomEntity)
+
+    @Query(
+        "SELECT component_food_id FROM dining_out_menu_component_links " +
+            "WHERE user_id=:userId AND menu_food_id=:menuFoodId AND deleted_at IS NULL " +
+            "AND (:groupType IS NULL OR group_type=:groupType) " +
+            "ORDER BY created_at ASC, id ASC"
+    )
+    fun componentIdsForMenu(userId: String, menuFoodId: String, groupType: String?): List<String>
+
+    @Query(
+        "UPDATE nutrition_foods SET visibility=:visibility, updated_at=:updatedAt " +
+            "WHERE id=:foodId AND owner_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateVisibility(foodId: String, userId: String, visibility: String, updatedAt: String): Int
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND kind=:kind " +
+            "AND source_type IN (:sourceTypes) AND deleted_at IS NULL " +
+            "ORDER BY updated_at DESC, id ASC"
+    )
+    fun ownedFoodsByKindAndSourceTypes(
+        userId: String, kind: String, sourceTypes: List<String>
+    ): List<NutritionFoodsRoomEntity>
+
+    @Query("SELECT * FROM pricetrace_product_cache WHERE catalog_product_id=:catalogProductId LIMIT 1")
+    fun cachedProduct(catalogProductId: String): PricetraceProductCacheRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertProductCache(cache: PricetraceProductCacheRoomEntity)
+
+    @Query(
+        "SELECT l.id, l.owner_id, l.nutrition_food_id, l.catalog_product_id, l.standard_product_id, " +
+            "l.status, l.source_type, l.proposal_reference, l.revision, l.reviewed_at, " +
+            "l.catalog_product_revision, l.catalog_content_amount, l.catalog_content_unit, " +
+            "l.catalog_package_count, c.standard_product_id AS cache_standard_product_id, " +
+            "c.product_name, c.brand_name, c.manufacturer_name, c.sub_brand_name, c.seller_name, " +
+            "c.latest_price_krw, c.price_observed_at, c.content_amount, c.content_unit, " +
+            "c.package_count, c.catalog_product_revision AS cache_catalog_product_revision " +
+            "FROM product_nutrition_links l LEFT JOIN pricetrace_product_cache c " +
+            "ON c.catalog_product_id=l.catalog_product_id WHERE l.owner_id=:userId " +
+            "AND l.nutrition_food_id=:nutritionFoodId AND l.status=:status AND l.deleted_at IS NULL " +
+            "ORDER BY l.updated_at DESC, l.created_at DESC"
+    )
+    fun productLinks(userId: String, nutritionFoodId: String, status: String): List<ProductLinkRow>
+
+    @Query(
+        "SELECT * FROM product_nutrition_links WHERE id=:linkId AND owner_id=:userId " +
+            "AND status='suggested' AND deleted_at IS NULL LIMIT 1"
+    )
+    fun suggestedLink(linkId: String, userId: String): ProductNutritionLinksRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertProductLink(link: ProductNutritionLinksRoomEntity)
+
+    @Query(
+        "UPDATE product_nutrition_links SET deleted_at=:updatedAt, updated_at=:updatedAt, " +
+            "revision=revision+1 WHERE owner_id=:userId AND nutrition_food_id=:nutritionFoodId " +
+            "AND status='approved' AND deleted_at IS NULL AND (:exceptId IS NULL OR id != :exceptId)"
+    )
+    fun softDeleteApprovedLinks(
+        userId: String, nutritionFoodId: String, exceptId: String?, updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE product_nutrition_links SET status='approved', reviewed_at=:reviewedAt, " +
+            "catalog_product_revision=:catalogProductRevision, catalog_content_amount=:catalogContentAmount, " +
+            "catalog_content_unit=:catalogContentUnit, catalog_package_count=:catalogPackageCount, " +
+            "updated_at=:updatedAt, revision=revision+1 WHERE id=:linkId AND owner_id=:userId " +
+            "AND status='suggested' AND deleted_at IS NULL"
+    )
+    fun approveSuggestedLink(
+        linkId: String,
+        userId: String,
+        reviewedAt: String,
+        catalogProductRevision: String?,
+        catalogContentAmount: Double?,
+        catalogContentUnit: String?,
+        catalogPackageCount: Long?,
+        updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE product_nutrition_links SET status='rejected', reviewed_at=:reviewedAt, " +
+            "updated_at=:updatedAt, revision=revision+1 WHERE id=:linkId AND owner_id=:userId " +
+            "AND status='suggested' AND deleted_at IS NULL"
+    )
+    fun rejectSuggestedLink(linkId: String, userId: String, reviewedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE product_nutrition_links SET deleted_at=:updatedAt, updated_at=:updatedAt, " +
+            "revision=revision+1 WHERE owner_id=:userId AND nutrition_food_id=:nutritionFoodId " +
+            "AND status='approved' AND deleted_at IS NULL"
+    )
+    fun unlinkApprovedProduct(userId: String, nutritionFoodId: String, updatedAt: String): Int
+}
+
 @Database(
     entities = [
         BodyProfileEntity::class,
@@ -947,4 +1180,5 @@ abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun workoutRoomDao(): WorkoutRoomDao
     abstract fun cardioRoomDao(): CardioRoomDao
     abstract fun mealRoomDao(): MealRoomDao
+    abstract fun nutritionRoomDao(): NutritionRoomDao
 }
