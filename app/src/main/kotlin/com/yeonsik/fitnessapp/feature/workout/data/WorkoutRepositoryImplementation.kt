@@ -152,6 +152,10 @@ class WorkoutRepositoryImplementation(
     override fun deleteExercise(scope: AccountScope, recordId: String, exerciseId: String): Boolean =
         storage.deleteExercise(scope, recordId, exerciseId)
 
+    override fun addExercise(scope: AccountScope, recordId: String,
+                             exercise: WorkoutExerciseReplacement): Boolean =
+        storage.addExercise(scope, recordId, exercise)
+
     override fun replaceExercise(
         scope: AccountScope,
         recordId: String,

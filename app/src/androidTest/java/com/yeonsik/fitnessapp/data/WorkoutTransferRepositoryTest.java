@@ -10,6 +10,8 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter;
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeStore;
 import com.yeonsik.fitnessapp.exercise.LoadState;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
@@ -95,7 +97,7 @@ public final class WorkoutTransferRepositoryTest {
                     )
             );
 
-            String json = new WorkoutTransferService(source).exportJson();
+            String json = new WorkoutTransferService(new WorkoutInterchangeStore(FitnessDatabaseConnection.fromLegacy(sourceHelper), sourceContext), USER_ID).exportJson();
             WorkoutTransferCodec.Document document = WorkoutTransferCodec.decode(json);
             assertEquals(WorkoutTransferCodec.V2, document.formatVersion);
             assertEquals(recordId, document.sessions.get(0).sourceRecordId);
@@ -213,7 +215,7 @@ public final class WorkoutTransferRepositoryTest {
             );
             assertMixedUnitSets(first, first.latestSessionId());
 
-            String firstExport = new WorkoutTransferService(first).exportJson();
+            String firstExport = new WorkoutTransferService(new WorkoutInterchangeStore(FitnessDatabaseConnection.fromLegacy(firstHelper), firstContext), USER_ID).exportJson();
             JSONObject firstRoot = new JSONObject(firstExport);
             assertTrue(firstRoot.has("workouts"));
             assertFalse(firstRoot.has("sessions"));
@@ -226,7 +228,7 @@ public final class WorkoutTransferRepositoryTest {
                     1,
                     3
             );
-            String finalJson = new WorkoutTransferService(second).exportJson();
+            String finalJson = new WorkoutTransferService(new WorkoutInterchangeStore(FitnessDatabaseConnection.fromLegacy(secondHelper), secondContext), USER_ID).exportJson();
             WorkoutTransferCodec.Document finalDocument =
                     WorkoutTransferCodec.decode(finalJson);
             List<WorkoutTransferCodec.SetData> finalSets =

@@ -9,6 +9,7 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi;
 import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
@@ -50,6 +51,12 @@ public final class CardioRepository implements CardioRepositoryApi {
     public CardioRepository(FitnessRoomDatabase roomDatabase, String userId,
                             android.content.Context context) {
         this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), userId);
+    }
+
+    /** Account boundary updates the owner after local rows have been claimed separately. */
+    public void setUserId(String userId) {
+        String normalized = userId == null ? "" : userId.trim();
+        this.userId = normalized.isEmpty() ? SupabaseConfig.DEFAULT_USER_ID : normalized;
     }
 
     public String startSession(CardioActivityType activityType, String date) {

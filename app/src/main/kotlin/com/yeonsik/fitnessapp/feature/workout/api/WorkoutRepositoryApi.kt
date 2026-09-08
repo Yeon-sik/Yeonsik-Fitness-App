@@ -46,6 +46,8 @@ interface WorkoutRepositoryApi {
                     input: WorkoutSetInput): Boolean
     fun deleteSet(scope: AccountScope, recordId: String, setId: String): Boolean
     fun deleteExercise(scope: AccountScope, recordId: String, exerciseId: String): Boolean
+    fun addExercise(scope: AccountScope, recordId: String,
+                    exercise: WorkoutExerciseReplacement): Boolean
     fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String,
                         replacement: WorkoutExerciseReplacement): Boolean
 }

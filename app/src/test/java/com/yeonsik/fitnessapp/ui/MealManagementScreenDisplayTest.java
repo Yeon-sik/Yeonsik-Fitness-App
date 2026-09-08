@@ -24,13 +24,13 @@ public final class MealManagementScreenDisplayTest {
         );
         assertEquals(
                 "칼로리",
-                MealManagementScreen.mealNutrientDisplayLabel(
+                MealPresentation.nutrientLabel(
                         NutritionProfile.PRIMARY_DISPLAY_ORDER.get(0)
                 )
         );
         assertEquals(
                 NutritionProfile.labelOf(NutritionProfile.CARBS_GRAMS),
-                MealManagementScreen.mealNutrientDisplayLabel(
+                MealPresentation.nutrientLabel(
                         NutritionProfile.CARBS_GRAMS
                 )
         );
@@ -87,11 +87,11 @@ public final class MealManagementScreenDisplayTest {
 
         assertEquals(
                 "· 치즈볼 · 1회 · 180kcal · 사이드 · 리뷰 이벤트",
-                MealManagementScreen.diningOutComponentDisplayLabel(reviewEvent)
+                componentDisplayLabel(reviewEvent)
         );
         assertEquals(
                 "· 치즈 추가 · 1회 · 180kcal · 추가 구성 · 유료 추가",
-                MealManagementScreen.diningOutComponentDisplayLabel(paid)
+                componentDisplayLabel(paid)
         );
     }
 
@@ -105,10 +105,10 @@ public final class MealManagementScreenDisplayTest {
 
         assertEquals(
                 "· 김치 · 1회 · 180kcal",
-                MealManagementScreen.diningOutComponentDisplayLabel(included)
+                componentDisplayLabel(included)
         );
         assertFalse(
-                MealManagementScreen.diningOutComponentDisplayLabel(included)
+                componentDisplayLabel(included)
                         .contains("기본 제공")
         );
     }
@@ -126,15 +126,15 @@ public final class MealManagementScreenDisplayTest {
                 .source("manual", null)
                 .build();
         MealMenuSelection half = MealMenuSelection.standalone(
-                MealCompositionItem.from(product, MealManagementScreen.quantityForServingPercent(
+                MealCompositionItem.from(product, MealPresentation.quantityForServingPercent(
                         product,
                         50d
                 ))
         );
 
-        assertTrue(MealManagementScreen.supportsServingPercentage(product));
+        assertTrue(MealPresentation.supportsServingPercentage(product));
         assertEquals(0.5d, half.menu.quantity, 0.0001d);
-        assertEquals(50d, MealManagementScreen.servingPercentForQuantity(
+        assertEquals(50d, MealPresentation.servingPercentForQuantity(
                 product,
                 half.menu.quantity
         ), 0.0001d);
@@ -157,7 +157,16 @@ public final class MealManagementScreenDisplayTest {
                 .source("manual", null)
                 .build();
 
-        assertFalse(MealManagementScreen.supportsServingPercentage(ingredient));
+        assertFalse(MealPresentation.supportsServingPercentage(ingredient));
+    }
+
+    private static String componentDisplayLabel(FitnessRepository.MealComponentEntry component) {
+        return MealPresentation.componentLabel(
+                component.label(),
+                component.hasExplicitConsumedFraction(),
+                component.percentage(),
+                component.provisionDisplayLabel()
+        );
     }
 
     private static FitnessRepository.MealComponentEntry component(

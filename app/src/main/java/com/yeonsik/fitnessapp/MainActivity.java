@@ -2,7 +2,6 @@ package com.yeonsik.fitnessapp;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -32,10 +31,12 @@ import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
 import androidx.compose.ui.platform.ComposeView;
+import androidx.compose.ui.platform.ViewCompositionStrategy;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.yeonsik.fitnessapp.app.AppContainer;
 import com.yeonsik.fitnessapp.app.SavedStateViewModelFactory;
+import com.yeonsik.fitnessapp.app.navigation.ComposeAppScreen;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
@@ -51,10 +52,10 @@ import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.core.account.AccountOwnershipService;
 import com.yeonsik.fitnessapp.data.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.BodyMetricEntry;
 import com.yeonsik.fitnessapp.data.BodyMetricsRepository;
-import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.LocalDataBackupService;
 import com.yeonsik.fitnessapp.data.MassFormatter;
 import com.yeonsik.fitnessapp.data.MassUnit;
@@ -76,14 +77,11 @@ import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.supplement.SupplementRepository;
 import com.yeonsik.fitnessapp.sync.SupabaseSyncManager;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
-import com.yeonsik.fitnessapp.ui.BaseScreen;
-import com.yeonsik.fitnessapp.ui.CardioSessionScreen;
+import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryStore;
+import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeResult;
+import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeStore;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
-import com.yeonsik.fitnessapp.ui.MealManagementScreen;
-import com.yeonsik.fitnessapp.ui.RecordsScreen;
 import com.yeonsik.fitnessapp.ui.ScreenHost;
-import com.yeonsik.fitnessapp.ui.ScreenRegistry;
-import com.yeonsik.fitnessapp.ui.SettingsScreen;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
@@ -99,6 +97,12 @@ import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.ComposeHomeScreen;
+import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
+import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerUiState;
+import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
+import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
+import com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository;
+import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -113,14 +117,14 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
  * 얇은 진입점: 의존성 초기화, 현재 화면 상태, 하단 내비게이션, 화면 간 공유 액션만 담당한다.
- * 화면 렌더링은 ui 패키지의 각 Screen 클래스가, 공통 스타일은 FitnessUi가 담당한다.
+ * 화면 렌더링과 입력 상태는 feature ViewModel 기반 Compose 화면이 담당한다.
  */
 public final class MainActivity extends ComponentActivity implements ScreenHost {
 
@@ -130,6 +134,15 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         RECORDS,
         DEVELOPMENT,
         SETTINGS
+    }
+    private static final class ComposeEntry {
+        final ComposeView view;
+        final String configurationKey;
+
+        ComposeEntry(ComposeView view, String configurationKey) {
+            this.view = view;
+            this.configurationKey = configurationKey;
+        }
     }
 
     private static final String UI_PREFS = "fitness_ui_prefs";
@@ -146,6 +159,18 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private static final int REQUEST_WORKOUT_TRANSFER_IMPORT = 4114;
     private static final int REQUEST_WORKOUT_TRANSFER_EXPORT = 4115;
     private static final String PRICE_TRACE_LOG_TAG = "PriceTraceSearch";
+    private static final String STATE_SCREEN = "runtime.screen";
+    private static final String STATE_RECORD_ID = "runtime.record_id";
+    private static final String STATE_EXERCISE_ID = "runtime.exercise_id";
+    private static final String STATE_REPLACEMENT_ID = "runtime.replacement_id";
+    private static final String STATE_INPUT_UNIT = "runtime.input_unit";
+    private static final String STATE_MEAL_DATE = "runtime.meal_date";
+    private static final String STATE_ROUTINE_ID = "runtime.routine_id";
+    private static final String STATE_NAVIGATION_HISTORY = "runtime.navigation_history";
+    private static final String STATE_REST_ENDS_AT = "runtime.rest_ends_at";
+    private static final String STATE_REST_TOTAL_SECONDS = "runtime.rest_total_seconds";
+    private static final int COMPOSE_VIEW_ID_BASE = 0x6f100000;
+
     public static final String DEBUG_PROVISION_SESSION_ACTION =
             "com.yeonsik.fitnessapp.DEBUG_PROVISION_SESSION";
     private static final String EXTRA_ACCESS_TOKEN = "access_token";
@@ -167,8 +192,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final WorkoutSessionState sessionState = new WorkoutSessionState();
     private String lastKnownDate = LocalDate.now().toString();
+    private String selectedMealDate = lastKnownDate;
+    private FitnessScreen mealReturnScreen = FitnessScreen.WORKOUT;
+    private String selectedRoutineId;
 
-    private FitnessRepository repository;
+    private AccountOwnershipService accountOwnershipService;
+    private FitnessSummaryStore fitnessSummaryStore;
+    private WorkoutInterchangeStore workoutInterchangeStore;
     private BodyMetricsRepository bodyMetricsRepository;
     private AppContainer appContainer;
     private WorkoutSessionViewModel workoutSessionViewModel;
@@ -176,8 +206,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private CardioSessionViewModel cardioSessionViewModel;
     private RoutineEntryViewModel routineEntryViewModel;
     private HomeViewModel homeViewModel;
+    private DevelopmentViewModel developmentViewModel;
+    private SupplementViewModel supplementViewModel;
+    private ExercisePickerViewModel exercisePickerViewModel;
+    private MealViewModel mealViewModel;
     private FitnessRoomDatabase roomDatabase;
     private NutritionCatalogRepository nutritionCatalogRepository;
+    private MealRecordRepository mealRecordRepository;
     private CardioRepository cardioRepository;
     private ExerciseMasterRepository exerciseMasterRepository;
     private RoutineRepository routineRepository;
@@ -198,7 +233,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private RestaurantMenuReadV1Client restaurantMenuReadClient;
 
     private FitnessUi ui;
-    private Map<FitnessScreen, BaseScreen> screens;
     private FitnessScreen currentScreen = FitnessScreen.HOME;
     private final FitnessNavigationHistory navigationHistory =
             new FitnessNavigationHistory(FitnessScreen.HOME);
@@ -216,6 +250,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private int restTotalSeconds;
     private int lastPulsedSecond = -1;
     private FitnessScreen lastRenderedScreen;
+    private final EnumMap<FitnessScreen, ComposeEntry> composeEntries =
+            new EnumMap<>(FitnessScreen.class);
     private LinearLayout content;
     private LinearLayout bottomNav;
     private View navDivider;
@@ -268,16 +304,28 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         nutritionAuthManager = new SupabaseAuthManager(nutritionConfigStore);
         priceTraceAuthManager = new SupabaseAuthManager(priceTraceConfigStore);
         roomDatabase = FitnessRoomDatabaseProvider.get(this);
-        repository = new FitnessRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
-        bodyMetricsRepository = new BodyMetricsRepository(FitnessDatabaseConnection.fromRoom(roomDatabase, this), supabaseConfig.effectiveUserId());
+        FitnessDatabaseConnection databaseConnection =
+                FitnessDatabaseConnection.fromRoom(roomDatabase, this);
+        accountOwnershipService = new AccountOwnershipService(
+                databaseConnection,
+                supabaseConfig.effectiveUserId()
+        );
+        fitnessSummaryStore = new FitnessSummaryStore(databaseConnection);
+        workoutInterchangeStore = new WorkoutInterchangeStore(databaseConnection, this);
+        bodyMetricsRepository = new BodyMetricsRepository(databaseConnection, supabaseConfig.effectiveUserId());
         nutritionCatalogRepository = new NutritionCatalogRepository(
                 roomDatabase,
                 this,
                 nutritionSupabaseConfig.effectiveUserId(),
                 nutritionSupabaseConfig
         );
+        mealRecordRepository = new MealRecordRepository(
+                databaseConnection,
+                nutritionCatalogRepository,
+                supabaseConfig.effectiveUserId()
+        );
         cardioRepository = new CardioRepository(roomDatabase, supabaseConfig.effectiveUserId(), this);
-        repository.reconcileSharedWorkoutSummaries();
+        fitnessSummaryStore.reconcileSharedWorkoutSummaries(currentOwnerId());
         exerciseMasterRepository = new ExerciseMasterRepository(this);
         routineRepository = new RoutineRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
         appContainer = new AppContainer(
@@ -295,14 +343,61 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_THEME_MODE, THEME_LIGHT);
         ui = new FitnessUi(this, this::isDarkTheme);
-        screens = ScreenRegistry.create(this);
         registerBackCallback();
+        restoreNavigationState(savedInstanceState);
 
         setContentView(buildRootView());
         configureWindow();
         render();
         handleDebugSessionProvisioning(getIntent());
         handleCardioIntent(getIntent());
+    }
+
+
+    private void restoreNavigationState(Bundle state) {
+        if (state == null) return;
+        try {
+            currentScreen = FitnessScreen.valueOf(
+                    state.getString(STATE_SCREEN, FitnessScreen.HOME.name()));
+        } catch (IllegalArgumentException ignored) {
+            currentScreen = FitnessScreen.HOME;
+        }
+        ArrayList<String> savedHistory = state.getStringArrayList(STATE_NAVIGATION_HISTORY);
+        try {
+            navigationHistory.restoreScreenNames(savedHistory);
+            currentScreen = navigationHistory.current();
+        } catch (IllegalArgumentException | NullPointerException ignored) {
+            navigationHistory.restoreCurrent(currentScreen);
+        }
+        sessionState.setActiveRecordId(state.getString(STATE_RECORD_ID));
+        sessionState.setActiveExerciseId(state.getString(STATE_EXERCISE_ID));
+        sessionState.setReplacementExerciseId(state.getString(STATE_REPLACEMENT_ID));
+        MassUnit inputUnit = MassUnit.parse(state.getString(STATE_INPUT_UNIT));
+        if (inputUnit != null) sessionState.setSessionInputMassUnit(inputUnit);
+        selectedMealDate = state.getString(STATE_MEAL_DATE, lastKnownDate);
+        selectedRoutineId = state.getString(STATE_ROUTINE_ID);
+        restEndsAtMillis = state.getLong(STATE_REST_ENDS_AT, 0L);
+        restTotalSeconds = state.getInt(STATE_REST_TOTAL_SECONDS, 0);
+        if (restEndsAtMillis <= System.currentTimeMillis() || restTotalSeconds <= 0) {
+            restEndsAtMillis = 0L;
+            restTotalSeconds = 0;
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putString(STATE_SCREEN, currentScreen.name());
+        outState.putString(STATE_RECORD_ID, sessionState.activeRecordId());
+        outState.putString(STATE_EXERCISE_ID, sessionState.activeExerciseId());
+        outState.putString(STATE_REPLACEMENT_ID, sessionState.replacementExerciseId());
+        MassUnit inputUnit = sessionState.sessionInputMassUnit();
+        outState.putString(STATE_INPUT_UNIT, inputUnit == null ? null : inputUnit.id());
+        outState.putString(STATE_MEAL_DATE, selectedMealDate);
+        outState.putString(STATE_ROUTINE_ID, selectedRoutineId);
+        outState.putStringArrayList(STATE_NAVIGATION_HISTORY, navigationHistory.savedScreenNames());
+        outState.putLong(STATE_REST_ENDS_AT, restEndsAtMillis);
+        outState.putInt(STATE_REST_TOTAL_SECONDS, restTotalSeconds);
+        super.onSaveInstanceState(outState);
     }
 
     private void initializeFeatureViewModels() {
@@ -378,7 +473,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         && ready.getOwnerId().equals(currentOwnerId())
                         && ready.getDetail().getRecordId().equals(sessionState.activeRecordId())) {
                     sessionState.setActiveExerciseId(ready.getDetail().getActiveExercise().id);
-                    rerender();
+                    // Compose observes UiState. Replacing its View here discards unsaved inputs.
                 }
             }
         });
@@ -402,13 +497,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
                     if (currentScreen == FitnessScreen.CARDIO_SUMMARY) {
                         rerender();
-                    } else {
-                        CardioSessionScreen screen = (CardioSessionScreen) screens.get(FitnessScreen.CARDIO_SESSION);
-                        if (!screen.hasRenderedSnapshot(
-                                ready.getSession().getRecordId(),
-                                ready.getSession().getStatus())) {
-                            rerender();
-                        }
                     }
                 }
             } else if (state instanceof CardioSessionUiState.Missing) {
@@ -477,6 +565,72 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 }
             }
         });
+        developmentViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new DevelopmentViewModel(handle, developmentRepository)
+                )
+        ).get(DevelopmentViewModel.class);
+        supplementViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new SupplementViewModel(handle, supplementRepository)
+                )
+        ).get(SupplementViewModel.class);
+        exercisePickerViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new ExercisePickerViewModel(
+                                handle,
+                                exerciseMasterRepository,
+                                routineRepository,
+                                appContainer.getWorkoutRepository()
+                        )
+                )
+        ).get(ExercisePickerViewModel.class);
+        exercisePickerViewModel.getUiState().observe(this, state -> {
+            if (!(state instanceof ExercisePickerUiState.Saved)) {
+                return;
+            }
+            ExercisePickerUiState.Saved saved = (ExercisePickerUiState.Saved) state;
+            // LiveData replays Saved after recreation. Only the picker may consume its navigation result.
+            if (!saved.getOwnerId().equals(currentOwnerId()) || currentScreen != saved.getMode()) {
+                return;
+            }
+            if (saved.getMode() == FitnessScreen.ROUTINE_ADD) {
+                homeViewModel.enter(new AccountScope(currentOwnerId()), today());
+            } else {
+                String recordId = sessionState.activeRecordId();
+                if (recordId != null) {
+                    workoutSessionViewModel.enter(new AccountScope(currentOwnerId()), recordId);
+                    workoutExerciseDetailViewModel.enter(
+                            new AccountScope(currentOwnerId()),
+                            recordId,
+                            sessionState.activeExerciseId()
+                    );
+                }
+                sessionState.clearExerciseReplacement();
+            }
+            back();
+        });
+        mealViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new MealViewModel(
+                                handle,
+                                mealRecordRepository,
+                                nutritionCatalogRepository
+                        )
+                )
+        ).get(MealViewModel.class);
     }
 
     @Override
@@ -587,15 +741,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         super.onResume();
         String currentDate = today();
         if (!currentDate.equals(lastKnownDate)) {
-            BaseScreen records = screens.get(FitnessScreen.RECORDS);
-            if (records instanceof RecordsScreen) {
-                ((RecordsScreen) records).onDateChanged(lastKnownDate, currentDate);
-            }
-            BaseScreen meals = screens.get(FitnessScreen.MEALS);
-            if (meals instanceof MealManagementScreen) {
-                ((MealManagementScreen) meals).onDateChanged(lastKnownDate, currentDate);
-            }
             lastKnownDate = currentDate;
+            if (FitnessScreen.MEALS != currentScreen) {
+                selectedMealDate = currentDate;
+            }
             render();
         }
         if (waitingForLocationSettings && locationServicesEnabled()) {
@@ -604,10 +753,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
         if (currentScreen == FitnessScreen.CARDIO_SESSION) {
             render();
-        }
-        BaseScreen activeScreen = screens.get(currentScreen);
-        if (activeScreen != null) {
-            activeScreen.onResume();
         }
     }
 
@@ -665,35 +810,17 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     @Override
-    protected void onPause() {
-        BaseScreen activeScreen = screens.get(currentScreen);
-        if (activeScreen != null) {
-            activeScreen.onPause();
-        }
-        super.onPause();
-    }
-
-    @Override
-    public void onLowMemory() {
-        super.onLowMemory();
-        BaseScreen activeScreen = screens.get(currentScreen);
-        if (activeScreen != null) {
-            activeScreen.onLowMemory();
-        }
-    }
-
-    @Override
     protected void onDestroy() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
                 && backInvokedCallback != null) {
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backInvokedCallback);
             backInvokedCallback = null;
         }
-        BaseScreen activeScreen = screens.get(currentScreen);
-        if (activeScreen != null) {
-            activeScreen.onDestroy();
-        }
         executor.shutdownNow();
+        for (ComposeEntry entry : composeEntries.values()) {
+            entry.view.disposeComposition();
+        }
+        composeEntries.clear();
         super.onDestroy();
     }
 
@@ -813,7 +940,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         int initialBottom = root.getPaddingBottom();
         root.setOnApplyWindowInsetsListener((view, windowInsets) -> {
             Insets safeInsets = windowInsets.getInsets(
-                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
             view.setPadding(
                     initialLeft + safeInsets.left,
                     initialTop + safeInsets.top,
@@ -1054,7 +1181,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private LinearLayout.LayoutParams navParams() {
-        return new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        // Let longer labels take their measured width at accessibility font sizes.
+        int width = getResources().getConfiguration().fontScale >= 1.3f
+                ? LinearLayout.LayoutParams.WRAP_CONTENT : 0;
+        return new LinearLayout.LayoutParams(width, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
     }
 
     private View navGap() {
@@ -1069,6 +1199,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         area.setOrientation(LinearLayout.VERTICAL);
         area.setGravity(Gravity.CENTER);
         area.setMinimumHeight(ui.dp(FitnessUi.NAV_ITEM_MIN_HEIGHT_DP));
+        area.setMinimumWidth(ui.dp(FitnessUi.NAV_ITEM_MIN_HEIGHT_DP));
         area.setClickable(true);
         area.setFocusable(true);
         area.setOnClickListener(v -> replace(rootScreenOf(tab)));
@@ -1168,8 +1299,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     private void refreshNavState() {
         Tab activeTab = tabOf(currentScreen);
-        boolean workoutInProgress = repository != null
-                && appContainer.getWorkoutRepository().latestInProgressSession(new AccountScope(currentOwnerId())) != null;
+        boolean workoutInProgress = appContainer.getWorkoutRepository()
+                .latestInProgressSession(new AccountScope(currentOwnerId())) != null;
         bottomNav.setBackgroundColor(ui.surface());
         navDivider.setBackgroundColor(ui.border());
         boolean navigationVisible = isBottomNavigationVisible(currentScreen);
@@ -1279,14 +1410,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private void render() {
         sessionState.nextGeneration();
         boolean screenChanged = currentScreen != lastRenderedScreen;
-        if (screenChanged && lastRenderedScreen != null) {
-            BaseScreen previousScreen = screens.get(lastRenderedScreen);
-            if (previousScreen != null) {
-                previousScreen.onHidden();
-            }
-        }
         content.removeAllViews();
         if (screenChanged) {
+            // The outer View owns scrolling for Compose destinations as well.
+            mainScrollView.scrollTo(0, 0);
             prepareScreenEntry(currentScreen);
         }
         refreshNavState();
@@ -1311,65 +1438,114 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
         if (currentScreen == FitnessScreen.HOME) {
             renderComposeHome();
-            return;
-        }
-
-        BaseScreen screen = screens.get(currentScreen);
-        if (screen != null) {
-            screen.render();
-            screen.onVisible();
-            if (screenChanged) {
-                ui.screenEnter(content);
-            }
+        } else {
+            renderComposeDestination();
         }
     }
 
     private void renderComposeHome() {
+        content.addView(composeViewFor(FitnessScreen.HOME, today()), ui.fullWidthParams(0));
+    }
+
+    private void renderComposeDestination() {
+        String screenDate = currentScreen == FitnessScreen.MEALS ? selectedMealDate : today();
+        content.addView(composeViewFor(currentScreen, screenDate), ui.fullWidthParams(0));
+    }
+
+    private ComposeView composeViewFor(FitnessScreen screen, String screenDate) {
+        String configurationKey = currentOwnerId() + "|" + screenDate + "|"
+                + preferredMassUnit().name() + "|" + isDarkTheme();
+        ComposeEntry existing = composeEntries.get(screen);
+        if (existing != null && existing.configurationKey.equals(configurationKey)) {
+            return existing.view;
+        }
+        if (existing != null) {
+            existing.view.disposeComposition();
+        }
+
         ComposeView composeView = new ComposeView(this);
-        ComposeHomeScreen.install(
-                composeView,
-                this,
-                currentOwnerId(),
-                today(),
-                preferredMassUnit(),
-                isDarkTheme()
+        composeView.setId(COMPOSE_VIEW_ID_BASE + screen.ordinal());
+        composeView.setViewCompositionStrategy(
+                ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed.INSTANCE
         );
-        content.addView(composeView, ui.fullWidthParams(0));
+        if (screen == FitnessScreen.HOME) {
+            ComposeHomeScreen.install(
+                    composeView,
+                    this,
+                    currentOwnerId(),
+                    screenDate,
+                    preferredMassUnit(),
+                    isDarkTheme()
+            );
+        } else {
+            ComposeAppScreen.install(
+                    composeView,
+                    this,
+                    screen,
+                    currentOwnerId(),
+                    screenDate,
+                    preferredMassUnit(),
+                    isDarkTheme()
+            );
+        }
+        composeEntries.put(screen, new ComposeEntry(composeView, configurationKey));
+        return composeView;
     }
 
     private void prepareScreenEntry(FitnessScreen screen) {
-        if (screen == FitnessScreen.WORKOUT_SESSION) {
-            workoutSessionViewModel.enter(
-                    new AccountScope(currentOwnerId()),
-                    sessionState.activeRecordId()
-            );
-            return;
-        }
-        if (screen == FitnessScreen.STRENGTH || screen == FitnessScreen.HOME) {
-            routineEntryViewModel.enter(new AccountScope(currentOwnerId()));
-            if (screen == FitnessScreen.HOME) {
-                homeViewModel.enter(new AccountScope(currentOwnerId()), today());
-            }
-            return;
-        }
-        if (screen != FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
-            if (screen == FitnessScreen.CARDIO_SESSION || screen == FitnessScreen.CARDIO_SUMMARY) {
-                cardioSessionViewModel.enter(
-                        new AccountScope(currentOwnerId()),
-                        sessionState.activeRecordId()
+        AccountScope scope = new AccountScope(currentOwnerId());
+        switch (screen) {
+            case HOME:
+            case STRENGTH:
+                routineEntryViewModel.enter(scope);
+                homeViewModel.enter(scope, today());
+                return;
+            case WORKOUT:
+            case RECORDS:
+                homeViewModel.enter(scope, today());
+                return;
+            case MEALS:
+                homeViewModel.enter(scope, selectedMealDate);
+                mealViewModel.enter(scope, selectedMealDate);
+                return;
+            case ROUTINE_DETAIL:
+                homeViewModel.enter(scope, today());
+                return;
+            case DEVELOPMENT:
+                developmentViewModel.enter(scope, today());
+                return;
+            case SUPPLEMENTS:
+                supplementViewModel.enter(scope, today());
+                return;
+            case WORKOUT_SESSION:
+            case WORKOUT_SUMMARY:
+                workoutSessionViewModel.enter(scope, sessionState.activeRecordId());
+                return;
+            case WORKOUT_EXERCISE_DETAIL:
+                if (sessionState.activeRecordId() != null) {
+                    workoutExerciseDetailViewModel.enter(
+                            scope,
+                            sessionState.activeRecordId(),
+                            sessionState.activeExerciseId()
+                    );
+                }
+                return;
+            case CARDIO_SESSION:
+            case CARDIO_SUMMARY:
+                cardioSessionViewModel.enter(scope, sessionState.activeRecordId());
+                return;
+            case ROUTINE_ADD:
+            case WORKOUT_EXERCISE_ADD:
+                exercisePickerViewModel.enter(
+                        scope,
+                        screen,
+                        sessionState.activeRecordId(),
+                        sessionState.replacementExerciseId()
                 );
-            }
-            return;
+                return;
+            default:
+                return;
         }
-        String recordId = sessionState.activeRecordId();
-        if (recordId == null) {
-            return;
-        }
-        workoutExerciseDetailViewModel.enter(
-                new AccountScope(currentOwnerId()),
-                recordId,
-                sessionState.activeExerciseId()
-        );
     }
 
     private void applyScreenChrome(boolean dark) {
@@ -1439,66 +1615,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     // ── ScreenHost 구현 ───────────────────────────────────────────────
 
     @Override
-    public Activity activity() {
-        return this;
-    }
-
-    @Override
-    public FitnessUi ui() {
-        return ui;
-    }
-
-    @Override
-    public LinearLayout content() {
-        return content;
-    }
-
-    @Override
-    public FitnessRepository repository() {
-        return repository;
-    }
-
-    @Override
     public String currentOwnerId() {
         return supabaseConfig.effectiveUserId();
     }
 
-    @Override
-    public NutritionCatalogRepository nutritionCatalogRepository() {
-        return nutritionCatalogRepository;
-    }
-
-    @Override
-    public CardioRepository cardioRepository() {
-        return cardioRepository;
-    }
-
-    @Override
-    public RoutineRepository routineRepository() {
-        return routineRepository;
-    }
-
-    @Override
-    public SupplementRepository supplementRepository() {
-        return supplementRepository;
-    }
-
-    @Override
-    public ExerciseMasterRepository exerciseMasterRepository() {
-        return exerciseMasterRepository;
-    }
-
-    @Override
-    public WorkoutSessionState sessionState() {
-        return sessionState;
-    }
-
-    @Override
     public String today() {
         return LocalDate.now().toString();
     }
 
-    @Override
     public FitnessScreen currentScreen() {
         return currentScreen;
     }
@@ -1559,12 +1683,72 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     @Override
+    public DevelopmentViewModel developmentViewModel() {
+        return developmentViewModel;
+    }
+
+    @Override
+    public SupplementViewModel supplementViewModel() {
+        return supplementViewModel;
+    }
+
+    @Override
+    public ExercisePickerViewModel exercisePickerViewModel() {
+        return exercisePickerViewModel;
+    }
+
+    @Override
+    public MealViewModel mealViewModel() {
+        return mealViewModel;
+    }
+
+    @Override
+    public String selectedRoutineId() {
+        return selectedRoutineId;
+    }
+
+    @Override
+    public void openWorkoutExerciseDetail(String exerciseId) {
+        sessionState.setActiveExerciseId(exerciseId);
+        navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
+    }
+
+    @Override
+    public void openWorkoutExerciseReplacementPicker(String exerciseId) {
+        sessionState.setReplacementExerciseId(exerciseId);
+        navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
+    }
+
+    @Override
+    public void refreshWorkoutExerciseDetail() {
+        String recordId = sessionState.activeRecordId();
+        if (recordId != null) {
+            workoutExerciseDetailViewModel.enter(
+                    new AccountScope(currentOwnerId()),
+                    recordId,
+                    sessionState.activeExerciseId()
+            );
+            workoutSessionViewModel.enter(new AccountScope(currentOwnerId()), recordId);
+        }
+    }
+
+    @Override
+    public void refreshCardioSession() {
+        String recordId = sessionState.activeRecordId();
+        if (recordId != null) {
+            cardioSessionViewModel.refresh(new AccountScope(currentOwnerId()), recordId);
+        }
+    }
+
+
+    @Override
     public void toast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
     @Override
     public void selectRoutine(String routineId) {
+        selectedRoutineId = routineId;
         routineRepository.selectRoutine(routineId);
     }
 
@@ -2236,35 +2420,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void openMealManagement(String date, FitnessScreen returnScreen) {
-        BaseScreen meals = screens.get(FitnessScreen.MEALS);
-        if (meals instanceof MealManagementScreen) {
-            ((MealManagementScreen) meals).selectDate(date);
-            ((MealManagementScreen) meals).setReturnScreen(returnScreen);
-        }
+        selectedMealDate = date == null ? today() : date;
+        mealReturnScreen = returnScreen == null ? FitnessScreen.WORKOUT : returnScreen;
         navigate(FitnessScreen.MEALS);
-    }
-
-    @Override
-    public void openSettingsConnections() {
-        if (!isDeveloperSurfaceAllowed()) {
-            navigate(FitnessScreen.SETTINGS);
-            return;
-        }
-        BaseScreen settings = screens.get(FitnessScreen.SETTINGS);
-        if (settings instanceof SettingsScreen) {
-            ((SettingsScreen) settings).showAdvancedConnections();
-        }
-        navigate(FitnessScreen.SETTINGS);
     }
 
     @Override
     public boolean isDeveloperSurfaceAllowed() {
         return AppSurfacePolicy.allowsDeveloperSurface();
-    }
-
-    @Override
-    public DevelopmentRepository developmentRepository() {
-        return developmentRepository;
     }
 
     @Override
@@ -2603,7 +2766,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 }
                 LocalDataBackupService.RestoreResult result =
                         localDataBackupService().restoreBackup(input);
-                repository.reconcileSharedWorkoutSummaries();
+                fitnessSummaryStore.reconcileSharedWorkoutSummaries(currentOwnerId());
                 finishDataTransfer(
                         result.getImportedRows() + "개 복원 · "
                                 + result.getSkippedRows() + "개 중복 건너뜀",
@@ -2637,7 +2800,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 if (output == null) {
                     throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
                 }
-                new WorkoutTransferService(repository).writeJson(output);
+                new WorkoutTransferService(workoutInterchangeStore, currentOwnerId()).writeJson(output);
                 finishDataTransfer("Workout Transfer v2 JSON을 저장했습니다.", null);
             } catch (Exception error) {
                 finishDataTransfer(null, dataTransferError(
@@ -2655,9 +2818,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 if (input == null) {
                     throw new IOException("선택한 운동 전송 파일을 읽을 수 없습니다.");
                 }
-                FitnessRepository.WorkoutTransferImportResult result =
-                        new WorkoutTransferService(repository).importJson(input);
-                repository.reconcileSharedWorkoutSummaries();
+                WorkoutInterchangeResult result =
+                        new WorkoutTransferService(workoutInterchangeStore, currentOwnerId()).importJson(input);
+                fitnessSummaryStore.reconcileSharedWorkoutSummaries(currentOwnerId());
                 finishDataTransfer(result.summary(), null);
             } catch (Exception error) {
                 finishDataTransfer(null, dataTransferError(
@@ -2729,7 +2892,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         new InputStreamReader(input, StandardCharsets.UTF_8),
                         exerciseMasterRepository.getAllWeightExercises()
                 );
-                FitnessRepository.FleekImportResult result = repository.importFleekData(plan);
+                WorkoutInterchangeResult result = workoutInterchangeStore.importFleek(currentOwnerId(), plan);
                 runOnUiThread(() -> {
                     isDataImporting = false;
                     dataImportDetail = result.summary();
@@ -3327,11 +3490,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private void applyAuthenticatedSharedConfig(SupabaseConfig config) {
         supabaseConfig = config;
         String userId = config.effectiveUserId();
-        repository.normalizeLocalUserId(userId);
+        accountOwnershipService.claimLocalRows(userId);
         bodyMetricsRepository.setUserId(userId);
+        cardioRepository.setUserId(userId);
         routineRepository.setUserId(userId);
         developmentRepository.normalizeLocalUserId(userId);
         supplementRepository.normalizeLocalUserId(userId);
+        mealRecordRepository.setUserId(userId);
     }
 
     private void completeSharedAuthentication(SupabaseConfig config, String successMessage) {
@@ -3353,11 +3518,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private void applySharedSessionConfig(SupabaseConfig config) {
         supabaseConfig = config;
         String userId = config.effectiveUserId();
-        repository.setUserId(userId);
+        accountOwnershipService.setOwnerId(userId);
         bodyMetricsRepository.setUserId(userId);
+        cardioRepository.setUserId(userId);
         routineRepository.setUserId(userId);
         developmentRepository.setUserId(userId);
         supplementRepository.setUserId(userId);
+        mealRecordRepository.setUserId(userId);
     }
 
     private void applyAuthenticatedNutritionConfig(SupabaseConfig config) {

@@ -10,7 +10,7 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
-import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryStore;
 import com.yeonsik.fitnessapp.data.FitnessSummaryProjectionV2;
 
 import org.json.JSONArray;
@@ -98,8 +98,8 @@ public final class SupabaseSyncManager {
             pulledRows += applyRows(database, table, rows, config.effectiveUserId());
         }
 
-        FitnessRepository repository = new FitnessRepository(database, database.applicationContext(), config.effectiveUserId());
-        repository.reconcileSharedWorkoutSummaries();
+        FitnessSummaryStore summaryStore = new FitnessSummaryStore(database);
+        summaryStore.reconcileSharedWorkoutSummaries(config.effectiveUserId());
 
         for (String table : TABLES) {
             pushedRows += pushTable(database, table, config, remoteRows.get(table));
@@ -112,7 +112,7 @@ public final class SupabaseSyncManager {
             pulledRows += applyRows(database, table, rows, config.effectiveUserId());
         }
 
-        pushedRows += pushSummaryProjectionV2(config, repository);
+        pushedRows += pushSummaryProjectionV2(config, summaryStore);
 
         return new SyncResult(pushedRows, pulledRows, OffsetDateTime.now().toString());
     }
@@ -121,8 +121,8 @@ public final class SupabaseSyncManager {
         FitnessDatabaseConnection database = this.database;
         String userId = config.effectiveUserId();
         String scopeKey = config.supabaseUrl + "|" + userId;
-        FitnessRepository repository = new FitnessRepository(database, database.applicationContext(), userId);
-        repository.reconcileSharedWorkoutSummaries();
+        FitnessSummaryStore summaryStore = new FitnessSummaryStore(database);
+        summaryStore.reconcileSharedWorkoutSummaries(config.effectiveUserId());
 
         Map<String, SyncCursor> pullCursors = loadPullCursors(database, scopeKey);
         int pushedRows = 0;
@@ -196,8 +196,8 @@ public final class SupabaseSyncManager {
             hasMore = response.hasMore();
         } while (hasMore);
 
-        repository.reconcileSharedWorkoutSummaries();
-        pushedRows += pushSummaryProjectionV2(config, repository);
+        summaryStore.reconcileSharedWorkoutSummaries(config.effectiveUserId());
+        pushedRows += pushSummaryProjectionV2(config, summaryStore);
         return new SyncResult(pushedRows, pulledRows, syncedAt);
     }
 
@@ -208,11 +208,11 @@ public final class SupabaseSyncManager {
      */
     private int pushSummaryProjectionV2(
             SupabaseConfig config,
-            FitnessRepository repository
+            FitnessSummaryStore summaryStore
     ) throws Exception {
         int pushed = 0;
         for (FitnessSummaryProjectionV2 projection
-                : repository.completedFitnessSummaryProjectionsV2()) {
+                : summaryStore.completedFitnessSummaryProjectionsV2(config.effectiveUserId())) {
             String endpoint = joinUrl(config.supabaseUrl, SUMMARY_PROJECTION_V2_RPC);
             HttpURLConnection connection = openConnection(endpoint, "POST", config);
             connection.setRequestProperty("Content-Type", "application/json");

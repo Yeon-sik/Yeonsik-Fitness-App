@@ -8,6 +8,11 @@ import android.widget.TextView;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
+import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
+import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.CompositionGroup;
 import com.yeonsik.fitnessapp.data.CompositionGroupType;
 import com.yeonsik.fitnessapp.data.CompositionMember;
@@ -209,7 +214,7 @@ public final class MainActivityDiningOutTabTest {
 
                 assertNotNull(findText(root, "테스트 외식 가게 · 테스트 지점 · 테스트 메뉴"));
                 assertNotNull(findTextContaining(root, "외식 · 영양 추정"));
-                assertEquals(1, activity.nutritionCatalogRepository()
+                assertEquals(1, testNutritionRepository(activity)
                         .searchFoods("테스트 메뉴").size());
             });
         }
@@ -228,7 +233,7 @@ public final class MainActivityDiningOutTabTest {
                         "카탈로그 메뉴",
                         "78444444-4444-4444-8444-444444444444"
                 );
-                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                testNutritionRepository(activity).saveDiningOutMenuWithNutrition(
                         "카탈로그 식당",
                         "카탈로그 메뉴",
                         620,
@@ -298,7 +303,7 @@ public final class MainActivityDiningOutTabTest {
                         "카탈로그 충돌 메뉴 B",
                         "79844444-4444-4444-8444-444444444444"
                 );
-                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                testNutritionRepository(activity).saveDiningOutMenuWithNutrition(
                         "카탈로그 충돌 식당 A",
                         "카탈로그 충돌 메뉴 A",
                         500,
@@ -310,7 +315,7 @@ public final class MainActivityDiningOutTabTest {
                         null,
                         firstIdentity
                 );
-                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                testNutritionRepository(activity).saveDiningOutMenuWithNutrition(
                         "카탈로그 충돌 식당 B",
                         "카탈로그 충돌 메뉴 B",
                         450,
@@ -435,7 +440,7 @@ public final class MainActivityDiningOutTabTest {
     public void applyingDiningOutTemplateKeepsTheAppliedDraftAfterRerender() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                String userId = activity.repository().currentUserId();
+                String userId = testFitnessRepository(activity).currentUserId();
                 CompositionMember member = new CompositionMember(
                         "template-member",
                         null,
@@ -467,7 +472,7 @@ public final class MainActivityDiningOutTabTest {
                                 Collections.singletonList(member)
                         ))
                 );
-                activity.repository().compositionTemplates().save(template);
+                testFitnessRepository(activity).compositionTemplates().save(template);
                 activity.openMealManagement();
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
@@ -509,11 +514,11 @@ public final class MainActivityDiningOutTabTest {
                         "범위 메뉴 A",
                         "74444444-4444-4444-8444-444444444444"
                 );
-                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                testNutritionRepository(activity).saveDiningOutMenuWithNutrition(
                         "범위 식당 A", "범위 메뉴 A", 500, 20d, 50d, 15d,
                         800d, 10d, 5d, firstIdentity
                 );
-                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                testNutritionRepository(activity).saveDiningOutMenuWithNutrition(
                         "범위 식당 B", "범위 메뉴 B", 450, 18d, 45d, 14d,
                         700d, 9d, 4d
                 );
@@ -559,13 +564,13 @@ public final class MainActivityDiningOutTabTest {
                         "템플릿 범위 메뉴 A",
                         "75444444-4444-4444-8444-444444444444"
                 );
-                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                testNutritionRepository(activity).saveDiningOutMenuWithNutrition(
                         "템플릿 범위 식당 A", "템플릿 범위 메뉴 A", 500, 20d, 50d, 15d,
                         800d, 10d, 5d, firstIdentity
                 );
                 CompositionTemplate template = new CompositionTemplate(
                         "identity-less-legacy-scope-template",
-                        activity.repository().currentUserId(),
+                        testFitnessRepository(activity).currentUserId(),
                         "템플릿 범위 식당 B · 템플릿 범위 메뉴 B",
                         CompositionTemplate.KIND_DINING_OUT,
                         null,
@@ -573,7 +578,7 @@ public final class MainActivityDiningOutTabTest {
                         1,
                         Collections.emptyList()
                 );
-                activity.repository().compositionTemplates().save(template);
+                testFitnessRepository(activity).compositionTemplates().save(template);
 
                 activity.openMealManagement();
                 View root = activity.getWindow().getDecorView();
@@ -630,11 +635,11 @@ public final class MainActivityDiningOutTabTest {
                         "혼합 메뉴 B",
                         "77444444-4444-4444-8444-444444444444"
                 );
-                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                testNutritionRepository(activity).saveDiningOutMenuWithNutrition(
                         "혼합 차단 식당 A", "혼합 메뉴 A", 500, 20d, 50d, 15d,
                         800d, 10d, 5d, firstIdentity
                 );
-                activity.nutritionCatalogRepository().saveDiningOutMenuWithNutrition(
+                testNutritionRepository(activity).saveDiningOutMenuWithNutrition(
                         "혼합 차단 식당 B", "혼합 메뉴 B", 450, 18d, 45d, 14d,
                         700d, 9d, 4d, otherIdentity
                 );
@@ -729,6 +734,22 @@ public final class MainActivityDiningOutTabTest {
             current = (View) current.getParent();
         }
         return null;
+    }
+
+    private static FitnessRepository testFitnessRepository(MainActivity activity) {
+        return new FitnessRepository(
+                FitnessRoomDatabaseProvider.get(activity), activity,
+                new SupabaseConfigStore(activity).load().effectiveUserId()
+        );
+    }
+
+    private static NutritionCatalogRepository testNutritionRepository(MainActivity activity) {
+        NutritionSupabaseConfigStore store = new NutritionSupabaseConfigStore(activity);
+        com.yeonsik.fitnessapp.config.SupabaseConfig config = store.load();
+        return new NutritionCatalogRepository(
+                FitnessRoomDatabaseProvider.get(activity), activity,
+                config.effectiveUserId(), config
+        );
     }
 
     private static void clickButtonText(View root, String text) {

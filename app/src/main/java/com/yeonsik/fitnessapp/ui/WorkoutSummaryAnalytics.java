@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
-import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 
@@ -49,8 +50,8 @@ public final class WorkoutSummaryAnalytics {
      * Repository rows are kept at the boundary; the aggregation itself remains pure.
      */
     public static Map<String, Double> effectiveMuscleScores(
-            Iterable<FitnessRepository.SessionExerciseEntry> exercises,
-            Map<String, ? extends List<FitnessRepository.SessionSetEntry>> setsByExercise,
+            Iterable<WorkoutExercise> exercises,
+            Map<String, ? extends List<WorkoutSet>> setsByExercise,
             RuntimeExerciseCatalog catalog
     ) {
         return effectiveMuscleScores(toMuscleExercises(exercises, setsByExercise, catalog));
@@ -62,8 +63,8 @@ public final class WorkoutSummaryAnalytics {
      * overlapping secondary groups share one half-weight contribution.
      */
     public static Map<String, Double> effectiveAnatomicalLayerScores(
-            Iterable<FitnessRepository.SessionExerciseEntry> exercises,
-            Map<String, ? extends List<FitnessRepository.SessionSetEntry>> setsByExercise,
+            Iterable<WorkoutExercise> exercises,
+            Map<String, ? extends List<WorkoutSet>> setsByExercise,
             RuntimeExerciseCatalog catalog,
             Map<String, ? extends List<String>> layersByMuscleGroup
     ) {
@@ -160,19 +161,19 @@ public final class WorkoutSummaryAnalytics {
     }
 
     private static List<MuscleExercise> toMuscleExercises(
-            Iterable<FitnessRepository.SessionExerciseEntry> exercises,
-            Map<String, ? extends List<FitnessRepository.SessionSetEntry>> setsByExercise,
+            Iterable<WorkoutExercise> exercises,
+            Map<String, ? extends List<WorkoutSet>> setsByExercise,
             RuntimeExerciseCatalog catalog
     ) {
         if (exercises == null || catalog == null) {
             return Collections.emptyList();
         }
         List<MuscleExercise> completedExercises = new ArrayList<>();
-        for (FitnessRepository.SessionExerciseEntry exercise : exercises) {
+        for (WorkoutExercise exercise : exercises) {
             if (exercise == null) {
                 continue;
             }
-            List<FitnessRepository.SessionSetEntry> sets = setsByExercise == null
+            List<WorkoutSet> sets = setsByExercise == null
                     ? Collections.emptyList()
                     : setsByExercise.get(exercise.id);
             RuntimeExercisePreset preset = resolvePreset(catalog, exercise);
@@ -187,12 +188,12 @@ public final class WorkoutSummaryAnalytics {
         return completedExercises;
     }
 
-    private static int completedSetCount(List<FitnessRepository.SessionSetEntry> sets) {
+    private static int completedSetCount(List<WorkoutSet> sets) {
         if (sets == null || sets.isEmpty()) {
             return 0;
         }
         int count = 0;
-        for (FitnessRepository.SessionSetEntry set : sets) {
+        for (WorkoutSet set : sets) {
             if (set != null && set.isCompleted) {
                 count += 1;
             }
@@ -202,7 +203,7 @@ public final class WorkoutSummaryAnalytics {
 
     private static RuntimeExercisePreset resolvePreset(
             RuntimeExerciseCatalog catalog,
-            FitnessRepository.SessionExerciseEntry exercise
+            WorkoutExercise exercise
     ) {
         if (catalog == null || exercise == null) {
             return null;
@@ -257,12 +258,12 @@ public final class WorkoutSummaryAnalytics {
     public static final class MuscleExercise {
         public final String primarySubPart;
         public final List<String> secondarySubParts;
-        public final List<FitnessRepository.SessionSetEntry> sets;
+        public final List<WorkoutSet> sets;
 
         public MuscleExercise(
                 String primarySubPart,
                 List<String> secondarySubParts,
-                List<FitnessRepository.SessionSetEntry> sets
+                List<WorkoutSet> sets
         ) {
             this.primarySubPart = primarySubPart;
             this.secondarySubParts = secondarySubParts == null

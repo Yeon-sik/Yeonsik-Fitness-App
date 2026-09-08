@@ -668,6 +668,43 @@ class WorkoutRoomStorage(
         return updated > 0
     }
 
+    fun addExercise(scope: AccountScope, recordId: String,
+                    exercise: WorkoutExerciseReplacement): Boolean {
+        check(database.query(
+            "SELECT 1 FROM workout_records WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
+            arrayOf(recordId, scope.ownerId)
+        ).use { it.moveToFirst() }) { "Workout record is not owned by the requested account." }
+        val identity = exercise.familyIdentity
+            ?: familyCatalog.identityForStorageExerciseId(exercise.masterExerciseId)
+        val timestamp = now()
+        val order = database.query(
+            "SELECT COALESCE(MAX(order_index), 0) + 1 FROM workout_exercises " +
+                "WHERE record_id = ? AND user_id = ? AND deleted_at IS NULL",
+            arrayOf(recordId, scope.ownerId)
+        ).use { if (it.moveToFirst()) it.getInt(0) else 1 }
+        val values = ContentValues().apply {
+            put("id", UUID.randomUUID().toString())
+            put("user_id", scope.ownerId)
+            put("record_id", recordId)
+            put("order_index", order)
+            put("exercise_id", exercise.masterExerciseId.ifBlank { "manual" })
+            put("exercise_name_snapshot", canonicalName(exercise.nameKo, identity))
+            put("ui_part", exercise.bodyPart?.labelKo() ?: identity?.defaultUiPart.orEmpty())
+            put("primary_sub_part_snapshot", exercise.primarySubPart.orEmpty())
+            put("equipment_snapshot", exercise.equipmentType?.labelKo())
+            put("record_type", FitnessRecordContract.normalizeRecordType(exercise.recordType))
+            put("family_id", identity?.familyId)
+            put("preset_id", identity?.presetId)
+            put("canonical_variant_key", identity?.canonicalVariantKey)
+            put("visual_variant_key", identity?.visualVariantKey)
+            putNull("memo")
+            put("created_at", timestamp)
+            put("updated_at", timestamp)
+            putNull("deleted_at")
+            put("device_id", "android-local")
+        }
+        return database.insert("workout_exercises", 0, values) != -1L
+    }
     fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String, replacement: WorkoutExerciseReplacement): Boolean {
         val values = ContentValues().apply {
             put("exercise_id", replacement.masterExerciseId.ifBlank { "manual" })

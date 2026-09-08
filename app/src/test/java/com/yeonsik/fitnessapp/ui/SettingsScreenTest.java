@@ -9,11 +9,11 @@ public final class SettingsScreenTest {
     public void syncStatusColorHighlightsActionableAccountStates() {
         assertEquals(
                 FitnessUi.COLOR_WARNING,
-                SettingsScreen.syncStatusColorForLabel("login required")
+                SettingsUiPolicy.syncStatusColorForLabel("login required")
         );
         assertEquals(
                 FitnessUi.COLOR_WARNING,
-                SettingsScreen.syncStatusColorForLabel("confirmation required")
+                SettingsUiPolicy.syncStatusColorForLabel("confirmation required")
         );
     }
 
@@ -21,11 +21,11 @@ public final class SettingsScreenTest {
     public void syncStatusColorMarksOwnershipFailuresAsErrors() {
         assertEquals(
                 FitnessUi.COLOR_NEGATIVE,
-                SettingsScreen.syncStatusColorForLabel("local ownership failed")
+                SettingsUiPolicy.syncStatusColorForLabel("local ownership failed")
         );
         assertEquals(
                 FitnessUi.COLOR_NEGATIVE,
-                SettingsScreen.syncStatusColorForLabel("nutrition ownership failed")
+                SettingsUiPolicy.syncStatusColorForLabel("nutrition ownership failed")
         );
     }
 
@@ -33,42 +33,42 @@ public final class SettingsScreenTest {
     public void syncStatusColorKeepsNeutralAndSuccessfulStatesDistinct() {
         assertEquals(
                 FitnessUi.COLOR_POSITIVE,
-                SettingsScreen.syncStatusColorForLabel("synced")
+                SettingsUiPolicy.syncStatusColorForLabel("synced")
         );
         assertEquals(
                 FitnessUi.COLOR_TERTIARY,
-                SettingsScreen.syncStatusColorForLabel("local-only")
+                SettingsUiPolicy.syncStatusColorForLabel("local-only")
         );
     }
 
     @Test
     public void syncStatusLabelTranslatesInternalStatesForUsers() {
-        assertEquals("동기화 완료", SettingsScreen.syncStatusLabel("synced"));
-        assertEquals("로그인 필요", SettingsScreen.syncStatusLabel("login required"));
-        assertEquals("소유권 확인 실패", SettingsScreen.syncStatusLabel("nutrition ownership failed"));
-        assertEquals("로컬 전용", SettingsScreen.syncStatusLabel("local-only"));
+        assertEquals("동기화 완료", SettingsUiPolicy.syncStatusLabel("synced"));
+        assertEquals("로그인 필요", SettingsUiPolicy.syncStatusLabel("login required"));
+        assertEquals("소유권 확인 실패", SettingsUiPolicy.syncStatusLabel("nutrition ownership failed"));
+        assertEquals("로컬 전용", SettingsUiPolicy.syncStatusLabel("local-only"));
     }
 
     @Test
     public void userSurfaceMapsSyncLabelsToSharedStateGrammar() {
-        assertEquals(UiState.SUCCESS, SettingsScreen.syncStateForLabel("synced"));
-        assertEquals(UiState.LOADING, SettingsScreen.syncStateForLabel("syncing"));
+        assertEquals(UiState.SUCCESS, SettingsUiPolicy.syncStateForLabel("synced"));
+        assertEquals(UiState.LOADING, SettingsUiPolicy.syncStateForLabel("syncing"));
         assertEquals(UiState.PERMISSION_REQUIRED,
-                SettingsScreen.syncStateForLabel("login required"));
-        assertEquals(UiState.SYNC_DELAYED, SettingsScreen.syncStateForLabel("partial"));
-        assertEquals(UiState.SERVER_ERROR, SettingsScreen.syncStateForLabel("sync failed"));
-        assertEquals(UiState.OFFLINE, SettingsScreen.syncStateForLabel("local-only"));
+                SettingsUiPolicy.syncStateForLabel("login required"));
+        assertEquals(UiState.SYNC_DELAYED, SettingsUiPolicy.syncStateForLabel("partial"));
+        assertEquals(UiState.SERVER_ERROR, SettingsUiPolicy.syncStateForLabel("sync failed"));
+        assertEquals(UiState.OFFLINE, SettingsUiPolicy.syncStateForLabel("local-only"));
     }
 
     @Test
     public void userSurfaceUsesSafeSyncCopyInsteadOfInternalDetails() {
         assertEquals(
                 "연결을 확인한 뒤 다시 시도하세요.",
-                SettingsScreen.safeSyncDetailForSurface("sync failed")
+                SettingsUiPolicy.safeSyncDetailForSurface("sync failed")
         );
         assertEquals(
                 "현재 기록은 이 기기에 안전하게 보관됩니다.",
-                SettingsScreen.safeSyncDetailForSurface("local-only")
+                SettingsUiPolicy.safeSyncDetailForSurface("local-only")
         );
     }
 }
