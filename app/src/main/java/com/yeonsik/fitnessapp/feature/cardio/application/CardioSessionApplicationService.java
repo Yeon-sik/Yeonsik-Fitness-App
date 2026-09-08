@@ -1,10 +1,12 @@
 package com.yeonsik.fitnessapp.feature.cardio.application;
 
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
-import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner;
+import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi;
 import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi;
 
 /**
  * Application use cases for the GPS session lifecycle.
@@ -13,14 +15,25 @@ import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
  * location callback owner. Screen hosts receive only this feature snapshot and projections.
  */
 public final class CardioSessionApplicationService {
-    private final CardioRepository repository;
+    private final CardioRepositoryApi repository;
+    private final WorkoutRepositoryApi workoutRepository;
+    private final RoomTransactionRunner transactionRunner;
+    private final CompleteCardio completeCardio;
     private volatile String ownerId;
 
-    public CardioSessionApplicationService(CardioRepository repository, String ownerId) {
-        if (repository == null) {
-            throw new IllegalArgumentException("유산소 저장소가 필요합니다.");
+    public CardioSessionApplicationService(
+            CardioRepositoryApi repository,
+            WorkoutRepositoryApi workoutRepository,
+            RoomTransactionRunner transactionRunner,
+            String ownerId
+    ) {
+        if (repository == null || workoutRepository == null || transactionRunner == null) {
+            throw new IllegalArgumentException("유산소 서비스 의존성이 없습니다.");
         }
         this.repository = repository;
+        this.workoutRepository = workoutRepository;
+        this.transactionRunner = transactionRunner;
+        this.completeCardio = new CompleteCardio(repository, workoutRepository, transactionRunner);
         this.ownerId = requireOwner(ownerId);
     }
 
@@ -35,12 +48,12 @@ public final class CardioSessionApplicationService {
 
     public boolean isCardioSession(AccountScope scope, String recordId) {
         requireScope(scope);
-        return repository.isCardioSession(recordId);
+        return repository.isCardioSession(scope, recordId);
     }
 
     public CardioRouteProjection route(AccountScope scope, String recordId) {
         requireScope(scope);
-        return repository.routeProjection(recordId);
+        return repository.routeProjection(scope, recordId);
     }
 
     public CardioSessionSnapshot start(
@@ -49,18 +62,29 @@ public final class CardioSessionApplicationService {
             String date
     ) {
         requireScope(scope);
-        String recordId = repository.startSession(activityType, date);
-        return repository.loadSession(scope, recordId);
+        final String[] recordId = new String[1];
+        transactionRunner.run(() -> {
+            recordId[0] = workoutRepository.createCardioSession(
+                    scope,
+                    date,
+                    activityType.id(),
+                    activityType.labelKo()
+            );
+            if (!repository.startSession(scope, recordId[0], activityType)) {
+                throw new IllegalStateException("GPS 유산소 세션을 시작하지 못했습니다.");
+            }
+        });
+        return repository.loadSession(scope, recordId[0]);
     }
 
     public boolean pause(AccountScope scope, String recordId) {
         requireScope(scope);
-        return repository.pause(recordId);
+        return repository.pause(scope, recordId);
     }
 
     public boolean resume(AccountScope scope, String recordId) {
         requireScope(scope);
-        return repository.resume(recordId);
+        return repository.resume(scope, recordId);
     }
 
     public CardioSessionSnapshot finish(
@@ -69,7 +93,11 @@ public final class CardioSessionApplicationService {
             Integer averageHeartRateBpm
     ) {
         requireScope(scope);
-        repository.finish(recordId, averageHeartRateBpm);
+        CardioSessionSnapshot snapshot = repository.loadSession(scope, recordId);
+        if (snapshot == null) {
+            return null;
+        }
+        completeCardio.execute(scope, snapshot, averageHeartRateBpm);
         return repository.loadSession(scope, recordId);
     }
 
@@ -79,18 +107,34 @@ public final class CardioSessionApplicationService {
             Integer averageHeartRateBpm
     ) {
         requireScope(scope);
-        repository.updateAverageHeartRate(recordId, averageHeartRateBpm);
+        if (!workoutRepository.updateCardioAverageHeartRate(
+                scope,
+                recordId,
+                averageHeartRateBpm
+        )) {
+            return null;
+        }
         return repository.loadSession(scope, recordId);
     }
 
     public void cancel(AccountScope scope, String recordId) {
         requireScope(scope);
-        repository.cancel(recordId);
+        if (!repository.isCardioSession(scope, recordId)) {
+            return;
+        }
+        transactionRunner.run(() -> {
+            if (!repository.deleteLocalData(scope, recordId)) {
+                throw new IllegalStateException("GPS 유산소 데이터를 취소하지 못했습니다.");
+            }
+            if (!workoutRepository.deleteSession(scope, recordId)) {
+                throw new IllegalStateException("공통 유산소 기록을 취소하지 못했습니다.");
+            }
+        });
     }
 
-    public void deleteLocalData(AccountScope scope, String recordId) {
+    public boolean deleteLocalData(AccountScope scope, String recordId) {
         requireScope(scope);
-        repository.deleteLocalData(recordId);
+        return repository.deleteLocalData(scope, recordId);
     }
 
     private void requireScope(AccountScope scope) {

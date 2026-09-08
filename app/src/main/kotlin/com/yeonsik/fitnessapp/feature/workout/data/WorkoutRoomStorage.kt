@@ -3,6 +3,7 @@ package com.yeonsik.fitnessapp.feature.workout.data
 import android.content.Context
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
+import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
 import com.yeonsik.fitnessapp.core.database.WorkoutExercisesRoomEntity
 import com.yeonsik.fitnessapp.core.database.WorkoutRecordsRoomEntity
 import com.yeonsik.fitnessapp.core.database.WorkoutRoomDao
@@ -34,7 +35,8 @@ import java.util.UUID
  */
 class WorkoutRoomStorage(
     private val roomDatabase: FitnessRoomDatabase,
-    context: Context
+    context: Context,
+    private val transactionRunner: RoomTransactionRunner = RoomTransactionRunner(roomDatabase)
 ) {
     private val familyCatalog = ExerciseFamilyCatalog.load(context)
 
@@ -146,6 +148,183 @@ class WorkoutRoomStorage(
         return id
     }
 
+    /**
+     * Creates the common workout rows for a GPS cardio session.
+     * Cardio owns the GPS session row; Workout owns these shared record rows.
+     */
+    fun createCardioSession(
+        scope: AccountScope,
+        date: String,
+        activityId: String,
+        activityLabel: String
+    ): String {
+        var recordId = ""
+        transactionRunner.run {
+            recordId = createCardioSessionInTransaction(scope, date, activityId, activityLabel)
+        }
+        return recordId
+    }
+
+    private fun createCardioSessionInTransaction(
+        scope: AccountScope,
+        date: String,
+        activityId: String,
+        activityLabel: String
+    ): String {
+        require(scope.ownerId.isNotBlank()) { "Workout owner is required." }
+        val normalizedActivityId = activityId.trim().ifBlank { "walking" }
+        val normalizedLabel = activityLabel.trim().ifBlank { normalizedActivityId }
+        val id = UUID.randomUUID().toString()
+        val timestamp = now()
+        val recordDate = date.ifBlank { java.time.LocalDate.now().toString() }
+        workoutDao.insertRecord(WorkoutRecordsRoomEntity(
+            id,
+            scope.ownerId,
+            recordDate,
+            "cardio",
+            normalizedLabel,
+            normalizedLabel,
+            null,
+            0.0,
+            null,
+            timestamp,
+            0L,
+            null,
+            null,
+            timestamp,
+            null,
+            "android-local",
+            "fitness",
+            "fitness",
+            cardioMetadata("in_progress", normalizedActivityId, "", 0, 0.0, null),
+            FitnessRecordContract.VERSION.toLong()
+        ))
+        workoutDao.insertExercise(WorkoutExercisesRoomEntity(
+            UUID.randomUUID().toString(),
+            scope.ownerId,
+            id,
+            1L,
+            "cardio_$normalizedActivityId",
+            normalizedLabel,
+            "cardio",
+            normalizedLabel,
+            null,
+            FitnessRecordContract.TIME,
+            null,
+            null,
+            null,
+            null,
+            null,
+            timestamp,
+            timestamp,
+            null,
+            "android-local",
+            FitnessRecordContract.VERSION.toLong()
+        ))
+        return id
+    }
+
+    /** Writes only the Workout-owned half of cardio completion. */
+    fun completeCardioSession(
+        scope: AccountScope,
+        recordId: String,
+        activityId: String,
+        activityLabel: String,
+        durationSeconds: Int,
+        distanceMeters: Double,
+        averageHeartRateBpm: Int?
+    ): Boolean {
+        require(averageHeartRateBpm == null || averageHeartRateBpm > 0) {
+            "Average heart rate must be greater than zero."
+        }
+        var completed = false
+        transactionRunner.run {
+            val exercises = workoutDao.visibleExercises(recordId, scope.ownerId)
+            require(exercises.isNotEmpty()) { "Cardio exercise detail was not found." }
+            val exercise = exercises.first()
+            val sets = workoutDao.visibleSets(exercise.id, scope.ownerId)
+            val timestamp = now()
+            if (sets.isEmpty()) {
+                workoutDao.insertSet(WorkoutSetsRoomEntity(
+                    UUID.randomUUID().toString(),
+                    scope.ownerId,
+                    exercise.id,
+                    1L,
+                    null,
+                    null,
+                    null,
+                    0.0,
+                    durationSeconds.toLong(),
+                    distanceMeters,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    null,
+                    1L,
+                    null,
+                    null,
+                    null,
+                    timestamp,
+                    timestamp,
+                    null,
+                    "android-local",
+                    FitnessRecordContract.VERSION.toLong()
+                ))
+            } else {
+                workoutDao.updateCardioSet(
+                    sets.first().id,
+                    scope.ownerId,
+                    durationSeconds,
+                    distanceMeters,
+                    timestamp
+                )
+            }
+            val record = workoutDao.visibleRecord(recordId, scope.ownerId)
+            val metadata = cardioMetadata(
+                "completed",
+                activityId,
+                timestamp,
+                durationSeconds,
+                distanceMeters,
+                averageHeartRateBpm,
+                record?.metadata.orEmpty().ifBlank { "{}" }
+            )
+            completed = workoutDao.completeCardioRecord(
+                recordId,
+                scope.ownerId,
+                metadata,
+                durationSeconds,
+                averageHeartRateBpm?.toDouble(),
+                activityLabel,
+                activityLabel,
+                timestamp
+            ) > 0
+        }
+        return completed
+    }
+
+    fun updateCardioAverageHeartRate(
+        scope: AccountScope,
+        recordId: String,
+        averageHeartRateBpm: Int?
+    ): Boolean {
+        require(averageHeartRateBpm == null || averageHeartRateBpm > 0) {
+            "Average heart rate must be greater than zero."
+        }
+        val record = workoutDao.visibleRecord(recordId, scope.ownerId) ?: return false
+        if (record.workoutType != "cardio") return false
+        val metadata = metadataWithAverageHeartRate(record.metadata, averageHeartRateBpm)
+        return workoutDao.updateCardioHeartRate(
+            recordId,
+            scope.ownerId,
+            averageHeartRateBpm?.toDouble(),
+            metadata,
+            now()
+        ) == 1
+    }
+
     fun createSessionFromRoutine(
         scope: AccountScope,
         date: String,
@@ -240,7 +419,7 @@ class WorkoutRoomStorage(
     fun deleteSession(scope: AccountScope, recordId: String): Boolean {
         val timestamp = now()
         var updated = 0
-        roomDatabase.runInTransaction {
+        transactionRunner.run {
             workoutDao.visibleExercises(recordId, scope.ownerId).forEach { exercise ->
                 workoutDao.tombstoneSetsForExercise(exercise.id, scope.ownerId, timestamp, timestamp)
             }
@@ -784,6 +963,38 @@ class WorkoutRoomStorage(
         val value = Duration.between(OffsetDateTime.parse(startedAt), OffsetDateTime.now()).seconds
         value.coerceAtLeast(0).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
     } catch (_: Exception) { 0 }
+
+    private fun cardioMetadata(
+        status: String,
+        activityId: String,
+        endedAt: String,
+        durationSeconds: Int,
+        distanceMeters: Double,
+        averageHeartRateBpm: Int?,
+        existing: String = "{}"
+    ): String = try {
+        JSONObject(existing.ifBlank { "{}" }).apply {
+            put("status", status)
+            put("activity_type", activityId)
+            put("ended_at", endedAt)
+            put("duration_seconds", durationSeconds)
+            put("active_duration_seconds", durationSeconds)
+            put("distance_meters", distanceMeters)
+            put("average_heart_rate", averageHeartRateBpm ?: JSONObject.NULL)
+            put(
+                "average_pace_seconds_per_km",
+                if (distanceMeters <= 0) JSONObject.NULL
+                else kotlin.math.round(durationSeconds / (distanceMeters / 1000.0)).toLong()
+            )
+            put("contract_version", FitnessRecordContract.VERSION)
+        }.toString()
+    } catch (_: Exception) { "{}" }
+
+    private fun metadataWithAverageHeartRate(metadata: String?, averageHeartRateBpm: Int?): String = try {
+        JSONObject(metadata ?: "{}").apply {
+            put("average_heart_rate", averageHeartRateBpm ?: JSONObject.NULL)
+        }.toString()
+    } catch (_: Exception) { metadata ?: "{}" }
 
     private fun now(): String = OffsetDateTime.now().toString()
 }

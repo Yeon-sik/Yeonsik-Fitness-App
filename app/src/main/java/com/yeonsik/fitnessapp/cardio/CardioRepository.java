@@ -6,24 +6,17 @@ import com.yeonsik.fitnessapp.core.database.CardioRoomDao;
 import com.yeonsik.fitnessapp.core.database.CardioSessionsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
-import com.yeonsik.fitnessapp.core.database.WorkoutExercisesRoomEntity;
-import com.yeonsik.fitnessapp.core.database.WorkoutRecordsRoomEntity;
-import com.yeonsik.fitnessapp.core.database.WorkoutRoomDao;
-import com.yeonsik.fitnessapp.core.database.WorkoutSetsRoomEntity;
+import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
-import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi;
 import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
 
-import org.json.JSONObject;
-
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 
 /**
  * GPS 유산소의 실행 상태와 원시 좌표를 로컬 Room 데이터베이스에 저장한다.
- * 공유 가능한 완료 요약은 기존 Fitness Record Contract 필드에 직접 기록한다.
+ * 공유 가능한 Workout 기록은 Workout API가 소유하며 이 저장소는 GPS 행만 변경한다.
  */
 public final class CardioRepository implements CardioRepositoryApi {
     public static final String STATUS_TRACKING = "tracking";
@@ -37,9 +30,8 @@ public final class CardioRepository implements CardioRepositoryApi {
     public static final String GPS_UNAVAILABLE = "unavailable";
     public static final String GPS_STOPPED = "stopped";
 
-    private final FitnessRoomDatabase roomDatabase;
     private final CardioRoomDao cardioDao;
-    private final WorkoutRoomDao workoutDao;
+    private final RoomTransactionRunner transactionRunner;
     private String userId;
 
     /** Temporary source-compatible adapter for legacy callers; storage still uses Room. */
@@ -49,9 +41,16 @@ public final class CardioRepository implements CardioRepositoryApi {
     }
 
     public CardioRepository(FitnessRoomDatabase roomDatabase, String userId) {
-        this.roomDatabase = roomDatabase;
+        this(roomDatabase, userId, new RoomTransactionRunner(roomDatabase));
+    }
+
+    public CardioRepository(
+            FitnessRoomDatabase roomDatabase,
+            String userId,
+            RoomTransactionRunner transactionRunner
+    ) {
         this.cardioDao = roomDatabase.cardioRoomDao();
-        this.workoutDao = roomDatabase.workoutRoomDao();
+        this.transactionRunner = transactionRunner;
         this.userId = userId;
     }
 
@@ -68,6 +67,11 @@ public final class CardioRepository implements CardioRepositoryApi {
         this.userId = normalized.isEmpty() ? SupabaseConfig.DEFAULT_USER_ID : normalized;
     }
 
+    /**
+     * Legacy adapter retained for the foreground/service fixture. New callers must
+     * create the shared Workout record first and use the scoped API below.
+     */
+    @Deprecated
     public String startSession(CardioActivityType activityType, String date) {
         if (activityType == null) {
             throw new IllegalArgumentException("유산소 유형이 필요합니다.");
@@ -77,29 +81,52 @@ public final class CardioRepository implements CardioRepositoryApi {
             return active.recordId;
         }
 
-        final String[] recordId = new String[1];
-        roomDatabase.runInTransaction(() -> {
-            recordId[0] = createCardioRecord(date, activityType);
-            long now = System.currentTimeMillis();
-            cardioDao.insertSession(new CardioSessionsRoomEntity(
-                    recordId[0],
-                    userId(),
-                    activityType.id(),
-                    STATUS_TRACKING,
-                    now,
-                    now,
-                    0L,
-                    0d,
-                    0L,
-                    null,
-                    null,
-                    null,
-                    null,
-                    GPS_SEARCHING,
-                    now
-            ));
-        });
-        return recordId[0];
+        String recordId = UUID.randomUUID().toString();
+        transactionRunner.run(() -> startSessionInTransaction(recordId, activityType));
+        return recordId;
+    }
+
+    @Override
+    public boolean startSession(
+            AccountScope scope,
+            String recordId,
+            CardioActivityType activityType
+    ) {
+        requireScope(scope);
+        if (recordId == null || recordId.trim().isEmpty() || activityType == null) {
+            return false;
+        }
+        SessionSnapshot existing = session(recordId);
+        if (existing != null) {
+            return true;
+        }
+        SessionSnapshot active = activeSession();
+        if (active != null && !recordId.equals(active.recordId)) {
+            return false;
+        }
+        startSessionInTransaction(recordId, activityType);
+        return true;
+    }
+
+    private void startSessionInTransaction(String recordId, CardioActivityType activityType) {
+        long now = System.currentTimeMillis();
+        cardioDao.insertSession(new CardioSessionsRoomEntity(
+                recordId,
+                userId(),
+                activityType.id(),
+                STATUS_TRACKING,
+                now,
+                now,
+                0L,
+                0d,
+                0L,
+                null,
+                null,
+                null,
+                null,
+                GPS_SEARCHING,
+                now
+        ));
     }
 
     public SessionSnapshot activeSession() {
@@ -111,6 +138,12 @@ public final class CardioRepository implements CardioRepositoryApi {
         return recordId != null
                 && !recordId.trim().isEmpty()
                 && cardioDao.ownsSession(recordId, userId()) != null;
+    }
+
+    @Override
+    public boolean isCardioSession(AccountScope scope, String recordId) {
+        requireScope(scope);
+        return isCardioSession(recordId);
     }
 
     public SessionSnapshot session(String recordId) {
@@ -165,6 +198,12 @@ public final class CardioRepository implements CardioRepositoryApi {
         return routeProjection(recordId, CardioRouteProjection.DEFAULT_MAX_DISPLAY_POINTS);
     }
 
+    @Override
+    public CardioRouteProjection routeProjection(AccountScope scope, String recordId) {
+        requireScope(scope);
+        return routeProjection(recordId);
+    }
+
     public CardioRouteProjection routeProjection(String recordId, int maxDisplayPoints) {
         if (recordId == null || recordId.trim().isEmpty()) {
             return CardioRouteProjection.empty();
@@ -194,6 +233,12 @@ public final class CardioRepository implements CardioRepositoryApi {
         return cardioDao.pause(recordId, userId(), snapshot.elapsedDurationMillis(now), now) == 1;
     }
 
+    @Override
+    public boolean pause(AccountScope scope, String recordId) {
+        requireScope(scope);
+        return pause(recordId);
+    }
+
     public boolean resume(String recordId) {
         SessionSnapshot snapshot = session(recordId);
         if (snapshot == null || !STATUS_PAUSED.equals(snapshot.status)) {
@@ -203,12 +248,18 @@ public final class CardioRepository implements CardioRepositoryApi {
         return cardioDao.resume(recordId, userId(), now, now) == 1;
     }
 
+    @Override
+    public boolean resume(AccountScope scope, String recordId) {
+        requireScope(scope);
+        return resume(recordId);
+    }
+
     public CardioDistanceFilter.Result acceptLocation(
             String recordId,
             CardioLocationSample candidate
     ) {
         final CardioDistanceFilter.Result[] result = new CardioDistanceFilter.Result[1];
-        roomDatabase.runInTransaction(() -> result[0] = acceptLocationInTransaction(recordId, candidate));
+        transactionRunner.run(() -> result[0] = acceptLocationInTransaction(recordId, candidate));
         return result[0] == null
                 ? CardioDistanceFilter.Result.rejected(CardioDistanceFilter.Reason.INVALID)
                 : result[0];
@@ -297,252 +348,79 @@ public final class CardioRepository implements CardioRepositoryApi {
             return snapshot;
         }
 
-        long now = System.currentTimeMillis();
-        long durationMillis = snapshot.elapsedDurationMillis(now);
-        int durationSeconds = Math.max(1, safeSeconds(durationMillis));
-        roomDatabase.runInTransaction(() -> {
-            completeCardioRecord(
-                    recordId,
-                    snapshot.activityType,
-                    durationSeconds,
-                    snapshot.distanceMeters,
-                    averageHeartRateBpm
-            );
-            cardioDao.complete(recordId, userId(), durationMillis, now);
+        long durationMillis = snapshot.elapsedDurationMillis(System.currentTimeMillis());
+        transactionRunner.run(() -> {
+            if (!completeSessionInTransaction(recordId, durationMillis)) {
+                throw new IllegalStateException("GPS 유산소 세션을 완료하지 못했습니다.");
+            }
         });
         return session(recordId);
     }
 
+    @Override
+    public boolean completeSession(
+            AccountScope scope,
+            String recordId,
+            long activeDurationMillis
+    ) {
+        requireScope(scope);
+        return completeSessionInTransaction(recordId, activeDurationMillis);
+    }
+
+    private boolean completeSessionInTransaction(String recordId, long activeDurationMillis) {
+        SessionSnapshot snapshot = session(recordId);
+        if (snapshot == null) {
+            return false;
+        }
+        if (STATUS_COMPLETED.equals(snapshot.status)) {
+            return true;
+        }
+        return cardioDao.complete(
+                recordId,
+                userId(),
+                Math.max(0L, activeDurationMillis),
+                System.currentTimeMillis()
+        ) == 1;
+    }
+
+    @Deprecated
     public SessionSnapshot updateAverageHeartRate(
             String recordId,
             Integer averageHeartRateBpm
     ) {
-        return updateCardioRecordHeartRate(recordId, averageHeartRateBpm)
-                ? session(recordId)
-                : null;
+        throw new UnsupportedOperationException(
+                "Use WorkoutRepositoryApi.updateCardioAverageHeartRate()."
+        );
     }
 
+    @Deprecated
     public void cancel(String recordId) {
         if (!isCardioSession(recordId)) {
             return;
         }
-        roomDatabase.runInTransaction(() -> {
-            cardioDao.deleteRoutePoints(recordId, userId());
-            cardioDao.deleteSession(recordId, userId());
-            softDeleteWorkoutRecord(recordId);
-        });
+        transactionRunner.run(() -> deleteLocalDataInTransaction(recordId));
     }
 
     public void deleteLocalData(String recordId) {
         if (!isCardioSession(recordId)) {
             return;
         }
-        roomDatabase.runInTransaction(() -> {
-            cardioDao.deleteRoutePoints(recordId, userId());
-            cardioDao.deleteSession(recordId, userId());
-        });
+        transactionRunner.run(() -> deleteLocalDataInTransaction(recordId));
     }
 
-    private String createCardioRecord(String date, CardioActivityType activityType) {
-        String recordId = UUID.randomUUID().toString();
-        String timestamp = now();
-        String recordDate = date == null || date.trim().isEmpty()
-                ? timestamp.substring(0, 10)
-                : date;
-        workoutDao.insertRecord(new WorkoutRecordsRoomEntity(
-                recordId,
-                userId(),
-                recordDate,
-                "cardio",
-                activityType.labelKo(),
-                activityType.labelKo(),
-                null,
-                0d,
-                null,
-                timestamp,
-                0L,
-                null,
-                null,
-                timestamp,
-                null,
-                "android-local",
-                "fitness",
-                "fitness",
-                cardioMetadata("in_progress", activityType, "", 0, 0d, null),
-                FitnessRecordContract.VERSION
-        ));
-        workoutDao.insertExercise(new WorkoutExercisesRoomEntity(
-                UUID.randomUUID().toString(),
-                userId(),
-                recordId,
-                1L,
-                "cardio_" + activityType.id(),
-                activityType.labelKo(),
-                "cardio",
-                activityType.labelKo(),
-                null,
-                FitnessRecordContract.TIME,
-                null,
-                null,
-                null,
-                null,
-                null,
-                timestamp,
-                timestamp,
-                null,
-                "android-local",
-                FitnessRecordContract.VERSION
-        ));
-        return recordId;
-    }
-
-    private void completeCardioRecord(
-            String recordId,
-            CardioActivityType activityType,
-            int durationSeconds,
-            double distanceMeters,
-            Integer averageHeartRateBpm
-    ) {
-        List<WorkoutExercisesRoomEntity> exercises = workoutDao.visibleExercises(recordId, userId());
-        if (exercises.isEmpty()) {
-            throw new IllegalStateException("유산소 세부 종목을 찾지 못했습니다.");
-        }
-        WorkoutExercisesRoomEntity exercise = exercises.get(0);
-        List<WorkoutSetsRoomEntity> sets = workoutDao.visibleSets(exercise.getId(), userId());
-        String timestamp = now();
-        if (sets.isEmpty()) {
-            workoutDao.insertSet(new WorkoutSetsRoomEntity(
-                    UUID.randomUUID().toString(),
-                    userId(),
-                    exercise.getId(),
-                    1L,
-                    null,
-                    null,
-                    null,
-                    0d,
-                    (long) durationSeconds,
-                    distanceMeters,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    1L,
-                    null,
-                    null,
-                    null,
-                    timestamp,
-                    timestamp,
-                    null,
-                    "android-local",
-                    FitnessRecordContract.VERSION
-            ));
-        } else {
-            workoutDao.updateCardioSet(
-                    sets.get(0).getId(),
-                    userId(),
-                    durationSeconds,
-                    distanceMeters,
-                    timestamp
-            );
-        }
-
-        String metadata = cardioMetadata(
-                "completed",
-                activityType,
-                timestamp,
-                durationSeconds,
-                distanceMeters,
-                averageHeartRateBpm,
-                readWorkoutMetadata(recordId)
-        );
-        workoutDao.completeCardioRecord(
-                recordId,
-                userId(),
-                metadata,
-                durationSeconds,
-                averageHeartRateBpm == null ? null : averageHeartRateBpm.doubleValue(),
-                activityType.labelKo(),
-                activityType.labelKo(),
-                timestamp
-        );
-    }
-
-    private boolean updateCardioRecordHeartRate(String recordId, Integer averageHeartRateBpm) {
-        if (averageHeartRateBpm != null && averageHeartRateBpm <= 0) {
-            throw new IllegalArgumentException("평균 심박수는 0보다 커야 합니다.");
-        }
-        WorkoutRecordsRoomEntity record = workoutDao.visibleRecord(recordId, userId());
-        if (record == null || !"cardio".equals(record.getWorkoutType())) {
+    @Override
+    public boolean deleteLocalData(AccountScope scope, String recordId) {
+        requireScope(scope);
+        if (!isCardioSession(recordId)) {
             return false;
         }
-        String metadata = metadataWithAverageHeartRate(record.getMetadata(), averageHeartRateBpm);
-        return workoutDao.updateCardioHeartRate(
-                recordId,
-                userId(),
-                averageHeartRateBpm == null ? null : averageHeartRateBpm.doubleValue(),
-                metadata,
-                now()
-        ) == 1;
+        return deleteLocalDataInTransaction(recordId);
     }
 
-    private void softDeleteWorkoutRecord(String recordId) {
-        String timestamp = now();
-        for (WorkoutExercisesRoomEntity exercise : workoutDao.visibleExercises(recordId, userId())) {
-            workoutDao.tombstoneSetsForExercise(
-                    exercise.getId(), userId(), timestamp, timestamp
-            );
-        }
-        workoutDao.tombstoneExercisesForRecord(recordId, userId(), timestamp, timestamp);
-        workoutDao.tombstoneRecord(recordId, userId(), timestamp, timestamp);
-    }
-
-    private String readWorkoutMetadata(String recordId) {
-        WorkoutRecordsRoomEntity record = workoutDao.visibleRecord(recordId, userId());
-        return record == null || record.getMetadata() == null ? "{}" : record.getMetadata();
-    }
-
-    private static String cardioMetadata(String status, CardioActivityType activityType,
-                                         String endedAt, int durationSeconds,
-                                         double distanceMeters, Integer averageHeartRateBpm) {
-        return cardioMetadata(status, activityType, endedAt, durationSeconds, distanceMeters,
-                averageHeartRateBpm, "{}");
-    }
-
-    private static String cardioMetadata(String status, CardioActivityType activityType,
-                                         String endedAt, int durationSeconds,
-                                         double distanceMeters, Integer averageHeartRateBpm,
-                                         String existing) {
-        try {
-            JSONObject object = new JSONObject(existing == null ? "{}" : existing);
-            object.put("status", status);
-            object.put("activity_type", activityType.id());
-            object.put("ended_at", endedAt == null ? "" : endedAt);
-            object.put("duration_seconds", durationSeconds);
-            object.put("active_duration_seconds", durationSeconds);
-            object.put("distance_meters", distanceMeters);
-            object.put("average_heart_rate", averageHeartRateBpm == null
-                    ? JSONObject.NULL : averageHeartRateBpm);
-            object.put("average_pace_seconds_per_km", distanceMeters <= 0
-                    ? JSONObject.NULL
-                    : Math.round(durationSeconds / (distanceMeters / 1000d)));
-            object.put("contract_version", FitnessRecordContract.VERSION);
-            return object.toString();
-        } catch (Exception ignored) {
-            return "{}";
-        }
-    }
-
-    private static String metadataWithAverageHeartRate(String metadata, Integer averageHeartRateBpm) {
-        try {
-            JSONObject object = new JSONObject(metadata == null ? "{}" : metadata);
-            object.put("average_heart_rate", averageHeartRateBpm == null
-                    ? JSONObject.NULL : averageHeartRateBpm);
-            return object.toString();
-        } catch (Exception ignored) {
-            return metadata == null ? "{}" : metadata;
-        }
+    private boolean deleteLocalDataInTransaction(String recordId) {
+        int routeRows = cardioDao.deleteRoutePoints(recordId, userId());
+        int sessionRows = cardioDao.deleteSession(recordId, userId());
+        return routeRows > 0 || sessionRows > 0;
     }
 
     private static String now() {

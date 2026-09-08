@@ -10,6 +10,7 @@ import com.yeonsik.fitnessapp.core.account.AccountOwnershipService
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider
+import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
 import com.yeonsik.fitnessapp.data.BodyMetricsRepository
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository
 import com.yeonsik.fitnessapp.data.ProductReadV1Client
@@ -74,6 +75,7 @@ class AppContainer(context: Context) {
         private set
 
     val roomDatabase: FitnessRoomDatabase = FitnessRoomDatabaseProvider.get(appContext)
+    val roomTransactionRunner = RoomTransactionRunner(roomDatabase)
     val databaseConnection: FitnessDatabaseConnection =
         FitnessDatabaseConnection.fromRoom(roomDatabase, appContext)
 
@@ -100,7 +102,8 @@ class AppContainer(context: Context) {
     )
     private val cardioRepository = CardioRepository(
         roomDatabase,
-        supabaseConfig.effectiveUserId()
+        supabaseConfig.effectiveUserId(),
+        roomTransactionRunner
     )
     private val exerciseMasterRepository = ExerciseMasterRepository(appContext)
     private val routineRepository = RoutineRepository(
@@ -119,7 +122,11 @@ class AppContainer(context: Context) {
         appContext
     )
 
-    private val workoutRepositoryImplementation = WorkoutRepositoryImplementation(roomDatabase, appContext)
+    private val workoutRepositoryImplementation = WorkoutRepositoryImplementation(
+        roomDatabase,
+        appContext,
+        roomTransactionRunner
+    )
     private val workoutReadRepository = WorkoutReadRepository(roomDatabase, appContext)
     private val mealReadRepository = MealReadRepository(roomDatabase)
     private val bodyMetricsReadRepository = BodyMetricsReadRepository(roomDatabase)
@@ -165,11 +172,14 @@ class AppContainer(context: Context) {
     )
     val cardioSessionApplicationService = CardioSessionApplicationService(
         cardioRepository,
+        workoutRepository,
+        roomTransactionRunner,
         supabaseConfig.effectiveUserId()
     )
     val workoutSessionApplicationService = WorkoutSessionApplicationService(
         workoutRepository,
-        cardioSessionApplicationService
+        cardioSessionApplicationService,
+        roomTransactionRunner
     )
     val nutritionIntegrationService = NutritionIntegrationService(
         nutritionCatalogRepository,

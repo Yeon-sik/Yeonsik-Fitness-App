@@ -3,6 +3,7 @@ package com.yeonsik.fitnessapp.feature.workout.data
 import android.content.Context
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
+import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
@@ -25,6 +26,12 @@ class WorkoutRepositoryImplementation(
     constructor(roomDatabase: FitnessRoomDatabase, context: Context) : this(
         WorkoutRoomStorage(roomDatabase, context)
     )
+
+    constructor(
+        roomDatabase: FitnessRoomDatabase,
+        context: Context,
+        transactionRunner: RoomTransactionRunner
+    ) : this(WorkoutRoomStorage(roomDatabase, context, transactionRunner))
 
     override fun latestInProgressSession(scope: AccountScope): String? = storage.latestInProgress(scope)
 
@@ -53,6 +60,37 @@ class WorkoutRepositoryImplementation(
 
     override fun deleteSession(scope: AccountScope, recordId: String): Boolean =
         storage.deleteSession(scope, recordId)
+
+    override fun createCardioSession(
+        scope: AccountScope,
+        date: String,
+        activityId: String,
+        activityLabel: String
+    ): String = storage.createCardioSession(scope, date, activityId, activityLabel)
+
+    override fun completeCardioSession(
+        scope: AccountScope,
+        recordId: String,
+        activityId: String,
+        activityLabel: String,
+        durationSeconds: Int,
+        distanceMeters: Double,
+        averageHeartRateBpm: Int?
+    ): Boolean = storage.completeCardioSession(
+        scope,
+        recordId,
+        activityId,
+        activityLabel,
+        durationSeconds,
+        distanceMeters,
+        averageHeartRateBpm
+    )
+
+    override fun updateCardioAverageHeartRate(
+        scope: AccountScope,
+        recordId: String,
+        averageHeartRateBpm: Int?
+    ): Boolean = storage.updateCardioAverageHeartRate(scope, recordId, averageHeartRateBpm)
 
     override fun loadSession(scope: AccountScope, recordId: String): WorkoutSessionSnapshot? {
         val info = storage.sessionInfo(scope, recordId) ?: return null

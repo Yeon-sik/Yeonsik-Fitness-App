@@ -131,7 +131,8 @@ public final class CardioTrackingService extends Service {
         }
 
         if (ACTION_CANCEL.equals(action)) {
-            cardioRepository.cancel(currentRecordId);
+            // Cross-feature cancellation is owned by CardioSessionApplicationService;
+            // this platform callback only stops GPS delivery.
             stopTrackingService();
             return START_NOT_STICKY;
         }
