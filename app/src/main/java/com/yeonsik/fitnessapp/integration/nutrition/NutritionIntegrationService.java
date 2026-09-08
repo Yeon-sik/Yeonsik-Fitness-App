@@ -25,6 +25,8 @@ public final class NutritionIntegrationService {
     private final RestaurantMenuReadV1Client restaurantReadClient;
     private final SupabaseAuthManager nutritionAuth;
     private final SupabaseAuthManager priceTraceAuth;
+    private final NutritionPublicNutritionClient publicNutritionClient;
+    private volatile SupabaseConfig nutritionConfig;
 
     public NutritionIntegrationService(
             NutritionCatalogRepository nutritionCatalog,
@@ -32,6 +34,24 @@ public final class NutritionIntegrationService {
             RestaurantMenuReadV1Client restaurantReadClient,
             SupabaseAuthManager nutritionAuth,
             SupabaseAuthManager priceTraceAuth
+    ) {
+        this(
+                nutritionCatalog,
+                productReadClient,
+                restaurantReadClient,
+                nutritionAuth,
+                priceTraceAuth,
+                SupabaseConfig.empty()
+        );
+    }
+
+    public NutritionIntegrationService(
+            NutritionCatalogRepository nutritionCatalog,
+            ProductReadV1Client productReadClient,
+            RestaurantMenuReadV1Client restaurantReadClient,
+            SupabaseAuthManager nutritionAuth,
+            SupabaseAuthManager priceTraceAuth,
+            SupabaseConfig nutritionConfig
     ) {
         if (nutritionCatalog == null || productReadClient == null || restaurantReadClient == null
                 || nutritionAuth == null || priceTraceAuth == null) {
@@ -42,6 +62,16 @@ public final class NutritionIntegrationService {
         this.restaurantReadClient = restaurantReadClient;
         this.nutritionAuth = nutritionAuth;
         this.priceTraceAuth = priceTraceAuth;
+        this.publicNutritionClient = new NutritionPublicNutritionClient();
+        this.nutritionConfig = nutritionConfig == null
+                ? SupabaseConfig.empty()
+                : nutritionConfig;
+    }
+
+    public void setNutritionConfig(SupabaseConfig nutritionConfig) {
+        this.nutritionConfig = nutritionConfig == null
+                ? SupabaseConfig.empty()
+                : nutritionConfig;
     }
 
     public List<ProductReadV1> searchProducts(String query) throws Exception {
@@ -76,8 +106,8 @@ public final class NutritionIntegrationService {
 
     public PublicProductNutrition loadPublicProductNutrition(String catalogProductId)
             throws Exception {
-        NutritionCatalogRepository.PublicProductNutrition nutrition =
-                nutritionCatalog.fetchPublicProductNutrition(catalogProductId);
+        NutritionPublicNutritionClient.PublicProductNutrition nutrition =
+                publicNutritionClient.fetch(nutritionConfig, catalogProductId);
         if (nutrition == null) {
             return null;
         }
@@ -147,6 +177,7 @@ public final class NutritionIntegrationService {
             nutritionCatalog.setUserId(active.effectiveUserId());
             nutritionCatalog.setSupabaseConfig(active);
         }
+        nutritionConfig = active;
         return active;
     }
 
