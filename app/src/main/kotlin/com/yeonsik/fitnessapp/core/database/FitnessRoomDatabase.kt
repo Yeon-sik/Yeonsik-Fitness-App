@@ -10,6 +10,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import androidx.room.Update
 
 @Entity(tableName = "body_profiles")
 data class BodyProfileEntity(
@@ -604,6 +605,15 @@ interface WorkoutRoomDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertSet(set: WorkoutSetsRoomEntity)
 
+    @Update
+    fun updateRecord(record: WorkoutRecordsRoomEntity): Int
+
+    @Update
+    fun updateExercise(exercise: WorkoutExercisesRoomEntity): Int
+
+    @Update
+    fun updateSet(set: WorkoutSetsRoomEntity): Int
+
     @Query(
         "UPDATE workout_records SET duration_seconds=:durationSeconds, is_backfilled=1, " +
             "backfilled_at=:backfilledAt, backfill_reason='manual_entry', metadata=:metadata " +
@@ -651,6 +661,17 @@ interface WorkoutRoomDao {
     ): Int
 
     @Query(
+        "UPDATE workout_sets SET target_reps=NULL, actual_reps=NULL, weight_kg=NULL, volume_kg=0, " +
+            "duration_seconds=:durationSeconds, distance_meters=:distanceMeters, rest_seconds=NULL, " +
+            "assisted_weight_kg=NULL, added_weight_kg=NULL, input_load_value=NULL, input_load_unit=NULL, " +
+            "load_state=NULL, is_completed=1, rpe=NULL, rir=NULL, memo=NULL, updated_at=:updatedAt " +
+            "WHERE id=:setId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateCardioSet(
+        setId: String, userId: String, durationSeconds: Int, distanceMeters: Double, updatedAt: String
+    ): Int
+
+    @Query(
         "UPDATE workout_sets SET deleted_at=:deletedAt, updated_at=:updatedAt WHERE id=:setId AND user_id=:userId " +
             "AND workout_exercise_id IN (SELECT id FROM workout_exercises WHERE record_id=:recordId AND user_id=:userId) " +
             "AND deleted_at IS NULL"
@@ -691,6 +712,169 @@ interface WorkoutRoomDao {
         recordId: String, userId: String, metadata: String, durationSeconds: Int,
         totalVolumeKg: Double, updatedAt: String, category: String, scope: String
     ): Int
+
+    @Query(
+        "UPDATE workout_records SET metadata=:metadata, duration_seconds=:durationSeconds, " +
+            "total_volume_kg=0, average_heart_rate=:averageHeartRate, exercise_name=:exerciseName, " +
+            "category=:category, scope='both', updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId AND workout_type='cardio' AND deleted_at IS NULL"
+    )
+    fun completeCardioRecord(
+        recordId: String,
+        userId: String,
+        metadata: String,
+        durationSeconds: Int,
+        averageHeartRate: Double?,
+        exerciseName: String,
+        category: String,
+        updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE workout_records SET average_heart_rate=:averageHeartRate, metadata=:metadata, " +
+            "updated_at=:updatedAt WHERE id=:recordId AND user_id=:userId " +
+            "AND workout_type='cardio' AND deleted_at IS NULL"
+    )
+    fun updateCardioHeartRate(
+        recordId: String, userId: String, averageHeartRate: Double?, metadata: String, updatedAt: String
+    ): Int
+}
+
+@Dao
+interface CardioRoomDao {
+    data class SessionRow(
+        @ColumnInfo(name = "record_id") val recordId: String,
+        @ColumnInfo(name = "activity_type") val activityType: String,
+        val status: String,
+        @ColumnInfo(name = "started_at_epoch_ms") val startedAtEpochMs: Long,
+        @ColumnInfo(name = "last_resumed_at_epoch_ms") val lastResumedAtEpochMs: Long?,
+        @ColumnInfo(name = "active_duration_ms") val activeDurationMs: Long,
+        @ColumnInfo(name = "distance_meters") val distanceMeters: Double,
+        @ColumnInfo(name = "accepted_point_count") val acceptedPointCount: Long,
+        @ColumnInfo(name = "last_latitude") val lastLatitude: Double?,
+        @ColumnInfo(name = "last_longitude") val lastLongitude: Double?,
+        @ColumnInfo(name = "last_location_time_ms") val lastLocationTimeMs: Long?,
+        @ColumnInfo(name = "last_accuracy_meters") val lastAccuracyMeters: Double?,
+        @ColumnInfo(name = "gps_status") val gpsStatus: String,
+        @ColumnInfo(name = "average_heart_rate") val averageHeartRate: Double?
+    )
+
+    data class RoutePointRow(
+        @ColumnInfo(name = "captured_at_epoch_ms") val capturedAtEpochMs: Long,
+        val latitude: Double,
+        val longitude: Double
+    )
+
+    @Query(
+        "SELECT record_id FROM cardio_sessions WHERE user_id=:userId " +
+            "AND status IN ('tracking','paused') " +
+            "ORDER BY started_at_epoch_ms DESC LIMIT 1"
+    )
+    fun activeRecordId(userId: String): String?
+
+    @Query(
+        "SELECT cs.record_id AS record_id, cs.activity_type AS activity_type, " +
+            "cs.status AS status, cs.started_at_epoch_ms AS started_at_epoch_ms, " +
+            "cs.last_resumed_at_epoch_ms AS last_resumed_at_epoch_ms, " +
+            "cs.active_duration_ms AS active_duration_ms, cs.distance_meters AS distance_meters, " +
+            "cs.accepted_point_count AS accepted_point_count, " +
+            "cs.last_latitude AS last_latitude, cs.last_longitude AS last_longitude, " +
+            "cs.last_location_time_ms AS last_location_time_ms, " +
+            "cs.last_accuracy_meters AS last_accuracy_meters, cs.gps_status AS gps_status, " +
+            "wr.average_heart_rate AS average_heart_rate " +
+            "FROM cardio_sessions cs LEFT JOIN workout_records wr " +
+            "ON wr.id=cs.record_id AND wr.user_id=cs.user_id " +
+            "WHERE cs.record_id=:recordId AND cs.user_id=:userId LIMIT 1"
+    )
+    fun session(recordId: String, userId: String): SessionRow?
+
+    @Query("SELECT 1 FROM cardio_sessions WHERE record_id=:recordId AND user_id=:userId LIMIT 1")
+    fun ownsSession(recordId: String, userId: String): Int?
+
+    @Query("SELECT COUNT(*) FROM cardio_route_points WHERE record_id=:recordId AND user_id=:userId")
+    fun routePointCount(recordId: String, userId: String): Int
+
+    @Query(
+        "SELECT captured_at_epoch_ms AS captured_at_epoch_ms, latitude AS latitude, " +
+            "longitude AS longitude FROM cardio_route_points " +
+            "WHERE record_id=:recordId AND user_id=:userId " +
+            "ORDER BY captured_at_epoch_ms ASC, id ASC"
+    )
+    fun routePoints(recordId: String, userId: String): List<RoutePointRow>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertSession(session: CardioSessionsRoomEntity)
+
+    @Query(
+        "INSERT INTO cardio_route_points " +
+            "(record_id,user_id,captured_at_epoch_ms,latitude,longitude,accuracy_meters,speed_mps,segment_distance_meters) " +
+            "VALUES (:recordId,:userId,:capturedAtEpochMs,:latitude,:longitude,:accuracyMeters,:speedMps,:segmentDistanceMeters)"
+    )
+    fun insertRoutePoint(
+        recordId: String,
+        userId: String,
+        capturedAtEpochMs: Long,
+        latitude: Double,
+        longitude: Double,
+        accuracyMeters: Double,
+        speedMps: Double?,
+        segmentDistanceMeters: Double
+    )
+
+    @Query(
+        "UPDATE cardio_sessions SET status='paused', active_duration_ms=:activeDurationMs, " +
+            "last_resumed_at_epoch_ms=NULL, gps_status='stopped', updated_at_epoch_ms=:updatedAtEpochMs " +
+            "WHERE record_id=:recordId AND user_id=:userId AND status='tracking'"
+    )
+    fun pause(
+        recordId: String, userId: String, activeDurationMs: Long, updatedAtEpochMs: Long
+    ): Int
+
+    @Query(
+        "UPDATE cardio_sessions SET status='tracking', last_resumed_at_epoch_ms=:lastResumedAtEpochMs, " +
+            "last_latitude=NULL, last_longitude=NULL, last_location_time_ms=NULL, " +
+            "last_accuracy_meters=NULL, gps_status='searching', updated_at_epoch_ms=:updatedAtEpochMs " +
+            "WHERE record_id=:recordId AND user_id=:userId AND status='paused'"
+    )
+    fun resume(recordId: String, userId: String, lastResumedAtEpochMs: Long, updatedAtEpochMs: Long): Int
+
+    @Query(
+        "UPDATE cardio_sessions SET distance_meters=:distanceMeters, accepted_point_count=:acceptedPointCount, " +
+            "last_latitude=:lastLatitude, last_longitude=:lastLongitude, " +
+            "last_location_time_ms=:lastLocationTimeMs, last_accuracy_meters=:lastAccuracyMeters, " +
+            "gps_status='ready', updated_at_epoch_ms=:updatedAtEpochMs " +
+            "WHERE record_id=:recordId AND user_id=:userId AND status='tracking'"
+    )
+    fun acceptLocation(
+        recordId: String,
+        userId: String,
+        distanceMeters: Double,
+        acceptedPointCount: Long,
+        lastLatitude: Double,
+        lastLongitude: Double,
+        lastLocationTimeMs: Long,
+        lastAccuracyMeters: Double,
+        updatedAtEpochMs: Long
+    ): Int
+
+    @Query(
+        "UPDATE cardio_sessions SET gps_status=:gpsStatus, updated_at_epoch_ms=:updatedAtEpochMs " +
+            "WHERE record_id=:recordId AND user_id=:userId AND status IN ('tracking','paused')"
+    )
+    fun updateGpsStatus(recordId: String, userId: String, gpsStatus: String, updatedAtEpochMs: Long): Int
+
+    @Query(
+        "UPDATE cardio_sessions SET status='completed', active_duration_ms=:activeDurationMs, " +
+            "last_resumed_at_epoch_ms=NULL, gps_status='stopped', updated_at_epoch_ms=:updatedAtEpochMs " +
+            "WHERE record_id=:recordId AND user_id=:userId"
+    )
+    fun complete(recordId: String, userId: String, activeDurationMs: Long, updatedAtEpochMs: Long): Int
+
+    @Query("DELETE FROM cardio_route_points WHERE record_id=:recordId AND user_id=:userId")
+    fun deleteRoutePoints(recordId: String, userId: String): Int
+
+    @Query("DELETE FROM cardio_sessions WHERE record_id=:recordId AND user_id=:userId")
+    fun deleteSession(recordId: String, userId: String): Int
 }
 
 @Database(
@@ -743,4 +927,5 @@ abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun routineRoomDao(): RoutineRoomDao
     abstract fun supplementRoomDao(): SupplementRoomDao
     abstract fun workoutRoomDao(): WorkoutRoomDao
+    abstract fun cardioRoomDao(): CardioRoomDao
 }

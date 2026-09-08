@@ -95,8 +95,7 @@ class AppContainer(context: Context) {
     )
     private val cardioRepository = CardioRepository(
         roomDatabase,
-        supabaseConfig.effectiveUserId(),
-        appContext
+        supabaseConfig.effectiveUserId()
     )
     private val exerciseMasterRepository = ExerciseMasterRepository(appContext)
     private val routineRepository = RoutineRepository(
