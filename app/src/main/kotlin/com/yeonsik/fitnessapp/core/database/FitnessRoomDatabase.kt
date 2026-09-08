@@ -239,6 +239,228 @@ interface RoutineRoomDao {
     fun tombstoneRoutine(routineId: String, userId: String, deletedAt: String, updatedAt: String): Int
 }
 
+@Dao
+interface SupplementRoomDao {
+    data class ActivePlanRow(
+        @ColumnInfo(name = "item_id") val itemId: String,
+        @ColumnInfo(name = "schedule_id") val scheduleId: String,
+        @ColumnInfo(name = "type_code") val typeCode: String,
+        @ColumnInfo(name = "type_name") val typeName: String,
+        @ColumnInfo(name = "brand_name") val brandName: String,
+        @ColumnInfo(name = "product_form") val productForm: String,
+        @ColumnInfo(name = "purpose_code") val purposeCode: String,
+        @ColumnInfo(name = "serving_amount") val servingAmount: Double,
+        @ColumnInfo(name = "serving_unit") val servingUnit: String,
+        @ColumnInfo(name = "active_ingredient_amount") val activeIngredientAmount: Double?,
+        @ColumnInfo(name = "active_ingredient_unit") val activeIngredientUnit: String,
+        @ColumnInfo(name = "ingredient_details") val ingredientDetails: String,
+        @ColumnInfo(name = "times_per_day") val timesPerDay: Long,
+        @ColumnInfo(name = "timing_label") val timingLabel: String,
+        @ColumnInfo(name = "effective_from") val effectiveFrom: String,
+        @ColumnInfo(name = "effective_to") val effectiveTo: String?,
+        @ColumnInfo(name = "is_current") val currentlyActive: Long,
+        @ColumnInfo(name = "taken_count") val takenCount: Long,
+        @ColumnInfo(name = "skipped_count") val skippedCount: Long
+    )
+
+    data class PlanSnapshotRow(
+        @ColumnInfo(name = "item_id") val itemId: String,
+        @ColumnInfo(name = "type_code") val typeCode: String,
+        @ColumnInfo(name = "type_name") val typeName: String,
+        @ColumnInfo(name = "brand_name") val brandName: String,
+        @ColumnInfo(name = "serving_amount") val servingAmount: Double,
+        @ColumnInfo(name = "serving_unit") val servingUnit: String,
+        @ColumnInfo(name = "active_ingredient_amount") val activeIngredientAmount: Double?,
+        @ColumnInfo(name = "active_ingredient_unit") val activeIngredientUnit: String,
+        @ColumnInfo(name = "ingredient_details") val ingredientDetails: String,
+        @ColumnInfo(name = "times_per_day") val timesPerDay: Long,
+        @ColumnInfo(name = "timing_label") val timingLabel: String
+    )
+
+    @Query(
+        "SELECT i.id AS item_id, s.id AS schedule_id, " +
+            "COALESCE(NULLIF(s.type_code_snapshot,''), i.supplement_type_code) AS type_code, " +
+            "COALESCE(NULLIF(s.type_name_snapshot,''), i.supplement_type_name) AS type_name, " +
+            "COALESCE(NULLIF(s.brand_name_snapshot,''), i.brand_name) AS brand_name, " +
+            "COALESCE(NULLIF(s.product_form_snapshot,''), i.product_form) AS product_form, " +
+            "COALESCE(NULLIF(s.purpose_code_snapshot,''), i.purpose_code) AS purpose_code, " +
+            "COALESCE(s.serving_amount,s.dose_amount) AS serving_amount, " +
+            "COALESCE(s.serving_unit,s.dose_unit) AS serving_unit, " +
+            "s.active_ingredient_amount AS active_ingredient_amount, " +
+            "COALESCE(s.active_ingredient_unit,'') AS active_ingredient_unit, " +
+            "COALESCE(s.ingredient_details,'') AS ingredient_details, " +
+            "s.times_per_day AS times_per_day, s.timing_label AS timing_label, " +
+            "s.effective_from AS effective_from, s.effective_to AS effective_to, " +
+            "CASE WHEN i.is_active=1 AND i.deleted_at IS NULL AND s.is_active=1 " +
+            "AND s.effective_to IS NULL THEN 1 ELSE 0 END AS is_current, " +
+            "COALESCE(SUM(CASE WHEN r.status='taken' THEN 1 ELSE 0 END),0) AS taken_count, " +
+            "COALESCE(SUM(CASE WHEN r.status='skipped' THEN 1 ELSE 0 END),0) AS skipped_count " +
+            "FROM supplement_schedules s INNER JOIN supplement_items i " +
+            "ON i.id=s.supplement_item_id AND i.user_id=s.user_id " +
+            "LEFT JOIN supplement_intake_records r ON r.schedule_id=s.id " +
+            "AND r.user_id=s.user_id AND r.date=:date " +
+            "WHERE s.user_id=:userId AND s.deleted_at IS NULL AND s.effective_from<=:date " +
+            "AND (s.effective_to IS NULL OR s.effective_to>=:date) " +
+            "GROUP BY i.id,s.id ORDER BY s.created_at ASC"
+    )
+    fun activePlans(userId: String, date: String): List<ActivePlanRow>
+
+    @Query(
+        "SELECT s.supplement_item_id AS item_id, " +
+            "COALESCE(NULLIF(s.type_code_snapshot,''),i.supplement_type_code) AS type_code, " +
+            "COALESCE(NULLIF(s.type_name_snapshot,''),i.supplement_type_name) AS type_name, " +
+            "COALESCE(NULLIF(s.brand_name_snapshot,''),i.brand_name) AS brand_name, " +
+            "COALESCE(s.serving_amount,s.dose_amount) AS serving_amount, " +
+            "COALESCE(s.serving_unit,s.dose_unit) AS serving_unit, " +
+            "s.active_ingredient_amount AS active_ingredient_amount, " +
+            "COALESCE(s.active_ingredient_unit,'') AS active_ingredient_unit, " +
+            "COALESCE(s.ingredient_details,'') AS ingredient_details, " +
+            "s.times_per_day AS times_per_day, s.timing_label AS timing_label " +
+            "FROM supplement_schedules s JOIN supplement_items i " +
+            "ON i.id=s.supplement_item_id AND i.user_id=s.user_id " +
+            "WHERE s.id=:scheduleId AND s.user_id=:userId AND s.deleted_at IS NULL " +
+            "AND s.effective_from<=:date AND (s.effective_to IS NULL OR s.effective_to>=:date) LIMIT 1"
+    )
+    fun planSnapshot(scheduleId: String, userId: String, date: String): PlanSnapshotRow?
+
+    @Query(
+        "SELECT * FROM supplement_schedule_slots WHERE user_id=:userId AND schedule_id=:scheduleId " +
+            "AND deleted_at IS NULL ORDER BY slot_index"
+    )
+    fun visibleSlots(userId: String, scheduleId: String): List<SupplementScheduleSlotsRoomEntity>
+
+    @Query(
+        "SELECT * FROM supplement_schedule_slots WHERE user_id=:userId AND schedule_id=:scheduleId " +
+            "AND slot_index=:slotIndex LIMIT 1"
+    )
+    fun slot(userId: String, scheduleId: String, slotIndex: Int): SupplementScheduleSlotsRoomEntity?
+
+    @Query(
+        "SELECT dose_index FROM supplement_intake_records WHERE user_id=:userId " +
+            "AND schedule_id=:scheduleId AND date=:date"
+    )
+    fun usedDoseIndexes(userId: String, scheduleId: String, date: String): List<Long>
+
+    @Query(
+        "SELECT * FROM supplement_intake_records WHERE user_id=:userId AND date BETWEEN :startDate AND :endDate " +
+            "ORDER BY date DESC,created_at DESC,dose_index DESC"
+    )
+    fun history(userId: String, startDate: String, endDate: String): List<SupplementIntakeRecordsRoomEntity>
+
+    @Query(
+        "SELECT id FROM supplement_intake_records WHERE user_id=:userId AND schedule_id=:scheduleId " +
+            "AND date=:date ORDER BY dose_index DESC LIMIT 1"
+    )
+    fun latestRecordId(userId: String, scheduleId: String, date: String): String?
+
+    @Query(
+        "SELECT id FROM supplement_effect_checkins WHERE user_id=:userId AND supplement_item_id=:itemId " +
+            "AND date=:date LIMIT 1"
+    )
+    fun effectCheckinId(userId: String, itemId: String, date: String): String?
+
+    @Query(
+        "SELECT * FROM supplement_effect_checkins WHERE user_id=:userId AND supplement_item_id=:itemId " +
+            "ORDER BY date DESC LIMIT 1"
+    )
+    fun latestEffectCheckin(userId: String, itemId: String): SupplementEffectCheckinsRoomEntity?
+
+    @Query("SELECT 1 FROM supplement_items WHERE id=:itemId AND user_id=:userId LIMIT 1")
+    fun ownedItem(itemId: String, userId: String): Int?
+
+    @Query(
+        "SELECT 1 FROM supplement_items i JOIN supplement_schedules s " +
+            "ON s.supplement_item_id=i.id AND s.user_id=i.user_id " +
+            "WHERE i.id=:itemId AND s.id=:scheduleId AND i.user_id=:userId " +
+            "AND i.is_active=1 AND i.deleted_at IS NULL AND s.is_active=1 " +
+            "AND s.deleted_at IS NULL LIMIT 1"
+    )
+    fun ownedActivePlan(itemId: String, scheduleId: String, userId: String): Int?
+
+    @Query("SELECT 1 FROM supplement_intake_records WHERE user_id=:userId AND schedule_id=:scheduleId AND date=:date LIMIT 1")
+    fun hasRecords(userId: String, scheduleId: String, date: String): Int?
+
+    @Query("SELECT COALESCE(MAX(revision),0) FROM supplement_schedules WHERE user_id=:userId AND supplement_item_id=:itemId")
+    fun maxRevision(userId: String, itemId: String): Long
+
+    @Query("UPDATE supplement_items SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimItems(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_schedules SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSchedules(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_schedule_slots SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSlots(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_intake_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimIntakeRecords(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_effect_checkins SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimEffectCheckins(sourceUserId: String, nextUserId: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertItem(item: SupplementItemsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertSchedule(schedule: SupplementSchedulesRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertSlot(slot: SupplementScheduleSlotsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertIntakeRecord(record: SupplementIntakeRecordsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertEffectCheckin(checkin: SupplementEffectCheckinsRoomEntity)
+
+    @Query(
+        "UPDATE supplement_schedules SET is_active=0, effective_to=:effectiveTo, updated_at=:updatedAt " +
+            "WHERE id=:scheduleId AND user_id=:userId"
+    )
+    fun closeSchedule(scheduleId: String, userId: String, effectiveTo: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE supplement_items SET supplement_type_code=:typeCode, supplement_type_name=:typeName, " +
+            "brand_name=:brandName, product_form=:productForm, purpose_code=:purposeCode, " +
+            "is_active=1, deleted_at=NULL, updated_at=:updatedAt WHERE id=:itemId AND user_id=:userId"
+    )
+    fun refreshItem(
+        itemId: String, userId: String, typeCode: String, typeName: String, brandName: String,
+        productForm: String, purposeCode: String, updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE supplement_intake_records SET status=:status, taken_at=:takenAt, updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId"
+    )
+    fun updateRecordStatus(recordId: String, userId: String, status: String, takenAt: String?, updatedAt: String): Int
+
+    @Query("DELETE FROM supplement_intake_records WHERE id=:recordId AND user_id=:userId")
+    fun deleteRecord(recordId: String, userId: String): Int
+
+    @Query(
+        "UPDATE supplement_items SET is_active=0, updated_at=:updatedAt, deleted_at=:deletedAt " +
+            "WHERE id=:itemId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun archiveItem(itemId: String, userId: String, updatedAt: String, deletedAt: String): Int
+
+    @Query(
+        "UPDATE supplement_schedules SET is_active=0, effective_to=:effectiveTo, updated_at=:updatedAt " +
+            "WHERE supplement_item_id=:itemId AND user_id=:userId AND is_active=1 AND deleted_at IS NULL"
+    )
+    fun archiveSchedules(itemId: String, userId: String, effectiveTo: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE supplement_effect_checkins SET supplement_item_id=:itemId, date=:date, effect_score=:effectScore, " +
+            "adverse_effects=:adverseEffects, note=:note, updated_at=:updatedAt " +
+            "WHERE id=:checkinId AND user_id=:userId"
+    )
+    fun updateEffectCheckin(
+        checkinId: String, userId: String, itemId: String, date: String, effectScore: Int,
+        adverseEffects: String, note: String, updatedAt: String
+    ): Int
+}
+
 @Database(
     entities = [
         BodyProfileEntity::class,
@@ -287,4 +509,5 @@ abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun bodyRoomDao(): BodyRoomDao
     abstract fun deviceRoomDao(): DeviceRoomDao
     abstract fun routineRoomDao(): RoutineRoomDao
+    abstract fun supplementRoomDao(): SupplementRoomDao
 }
