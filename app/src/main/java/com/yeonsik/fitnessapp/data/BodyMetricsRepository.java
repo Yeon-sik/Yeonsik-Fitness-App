@@ -1,14 +1,15 @@
 package com.yeonsik.fitnessapp.data;
 
-import android.content.ContentValues;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-
-import android.content.Context;
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import androidx.annotation.NonNull;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.core.database.BodyProfileEntity;
+import com.yeonsik.fitnessapp.core.database.BodyRoomDao;
+import com.yeonsik.fitnessapp.core.database.DevicesRoomEntity;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.WeightRecordEntity;
+import com.yeonsik.fitnessapp.development.BodyProfile;
+import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsRepositoryApi;
 
 import org.json.JSONObject;
 
@@ -19,31 +20,26 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** SQLite implementation for locally owned body-weight records. */
-public final class BodyMetricsRepository {
+/** Room DAO implementation for locally owned body metrics and body profile data. */
+public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     private static final String DEVICE_ID = "android-local";
 
-    private final FitnessDatabaseConnection database;
+    private final FitnessRoomDatabase roomDatabase;
+    private final BodyRoomDao bodyDao;
     private String userId;
 
-    public BodyMetricsRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
+    public BodyMetricsRepository(@NonNull FitnessRoomDatabase roomDatabase, String userId) {
+        this.roomDatabase = roomDatabase;
+        this.bodyDao = roomDatabase.bodyRoomDao();
         this.userId = normalizeUserId(userId);
     }
 
-    public BodyMetricsRepository(FitnessDatabaseConnection database, String userId) {
-        this.database = database;
-        this.userId = normalizeUserId(userId);
-    }
-
-    public BodyMetricsRepository(FitnessRoomDatabase roomDatabase, Context context, String userId) {
-        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), userId);
-    }
-
+    @Override
     public void setUserId(String userId) {
         this.userId = normalizeUserId(userId);
     }
 
+    @Override
     public String addBodyMetric(String date, double weightKg, String memo) {
         String recordDate = requireRecordDate(date);
         double validatedWeight = requireBodyWeight(weightKg);
@@ -55,156 +51,122 @@ public final class BodyMetricsRepository {
 
         String id = newId();
         String now = now();
-        ContentValues values = baseValues(id, now);
-        values.put("date", recordDate);
-        values.put("weight_kg", validatedWeight);
-        values.put("is_backfilled", 0);
-        values.putNull("backfilled_at");
-        values.putNull("backfill_reason");
-        values.put("source_app", "fitness");
-        values.put("scope", "fitness");
-        values.put("metadata", bodyWeightMetadata(memo));
-        db().insertOrThrow("weight_records", null, values);
+        ensureDevice(now);
+        bodyDao.insert(new WeightRecordEntity(
+                id, userId, recordDate, validatedWeight, now, false,
+                null, null, now, null, DEVICE_ID, "fitness", "fitness",
+                bodyWeightMetadata(memo), 1
+        ));
         return id;
     }
 
+    @Override
     public BodyMetricEntry bodyMetricForDate(String date) {
         List<BodyMetricEntry> entries = bodyMetricEntriesForDate(date);
         return entries.isEmpty() ? null : entries.get(0);
     }
 
+    @Override
     public BodyMetricEntry bodyMetricEntryById(String id) {
-        if (emptyToNull(id) == null) {
-            return null;
-        }
-        String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
-                + "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1";
-        try (Cursor cursor = db().rawQuery(sql, new String[]{id, userId})) {
-            if (cursor.moveToFirst()) {
-                return bodyMetricEntry(cursor);
-            }
-        }
-        return null;
+        String normalized = emptyToNull(id);
+        return normalized == null ? null : toEntry(bodyDao.visibleWeight(normalized, userId));
     }
 
+    @Override
     public List<BodyMetricEntry> bodyMetricEntriesForDate(String date) {
-        List<BodyMetricEntry> rows = new ArrayList<>();
-        String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
-                + "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both')";
-        String[] args = new String[]{userId};
-        if (date != null) {
-            sql += " AND date = ?";
-            args = new String[]{userId, emptyToToday(date)};
+        List<WeightRecordEntity> records = date == null
+                ? bodyDao.visibleWeights(userId, 20)
+                : bodyDao.visibleWeightsForDate(userId, emptyToToday(date));
+        List<BodyMetricEntry> entries = new ArrayList<>();
+        for (WeightRecordEntity record : records) {
+            entries.add(toEntry(record));
         }
-        sql += " ORDER BY date DESC, updated_at DESC LIMIT 20";
-        try (Cursor cursor = db().rawQuery(sql, args)) {
-            while (cursor.moveToNext()) {
-                rows.add(bodyMetricEntry(cursor));
-            }
-        }
-        return rows;
+        return entries;
     }
 
+    @Override
     public void updateBodyMetric(String id, String date, double weightKg, String memo) {
         if (emptyToNull(id) == null) {
             return;
         }
-        String recordDate = requireRecordDate(date);
-        double validatedWeight = requireBodyWeight(weightKg);
-        ContentValues values = new ContentValues();
-        values.put("date", recordDate);
-        values.put("weight_kg", validatedWeight);
-        values.put("metadata", bodyWeightMetadata(memo));
-        values.put("updated_at", now());
-        db().update(
-                "weight_records",
-                values,
-                "id = ? AND user_id = ? AND deleted_at IS NULL",
-                new String[]{id, userId}
+        bodyDao.updateVisibleWeight(
+                id,
+                userId,
+                requireRecordDate(date),
+                requireBodyWeight(weightKg),
+                bodyWeightMetadata(memo),
+                now()
         );
     }
 
+    @Override
     public void deleteBodyMetric(String id) {
         if (emptyToNull(id) == null) {
             return;
         }
-        ContentValues values = new ContentValues();
-        values.put("deleted_at", now());
-        values.put("updated_at", now());
-        db().update(
-                "weight_records",
-                values,
-                "id = ? AND user_id = ? AND deleted_at IS NULL",
-                new String[]{id, userId}
-        );
+        String now = now();
+        bodyDao.tombstoneVisibleWeight(id, userId, now, now);
     }
 
     /** Returns the newest visible entry on or before the requested date. */
+    @Override
     public BodyMetricEntry latestBodyMetricOnOrBefore(String date) {
-        String sql = "SELECT id, date, weight_kg, metadata FROM weight_records "
-                + "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both') "
-                + "AND date <= ? ORDER BY date DESC, updated_at DESC LIMIT 1";
-        try (Cursor cursor = db().rawQuery(sql, new String[]{userId, emptyToToday(date)})) {
-            return cursor.moveToFirst() ? bodyMetricEntry(cursor) : null;
-        }
+        return toEntry(bodyDao.latestVisibleWeightOnOrBefore(userId, emptyToToday(date)));
     }
 
     public List<String> bodyMetrics() {
         return bodyMetricsForDate(null);
     }
 
+    @Override
     public List<String> bodyMetricsForDate(String date) {
         List<String> rows = new ArrayList<>();
-        String sql = "SELECT date, weight_kg FROM weight_records "
-                + "WHERE user_id = ? AND deleted_at IS NULL AND scope IN ('fitness', 'both')";
-        String[] args = new String[]{userId};
-        if (date != null) {
-            sql += " AND date = ?";
-            args = new String[]{userId, emptyToToday(date)};
-        }
-        sql += " ORDER BY date DESC LIMIT 20";
-        try (Cursor cursor = db().rawQuery(sql, args)) {
-            while (cursor.moveToNext()) {
-                rows.add(formatDate(cursor.getString(0)) + "  "
-                        + trimDouble(cursor.getDouble(1)) + "kg");
-            }
+        for (BodyMetricEntry entry : bodyMetricEntriesForDate(date)) {
+            rows.add(formatDate(entry.date) + "  " + trimDouble(entry.weightKg) + "kg");
         }
         return rows;
     }
 
-    private BodyMetricEntry bodyMetricEntry(Cursor cursor) {
-        return new BodyMetricEntry(
-                cursor.getString(0),
-                cursor.getString(1),
-                cursor.getDouble(2),
-                metadataValue(cursor.getString(3), "memo", "")
+    @Override
+    public BodyProfile bodyProfile() {
+        BodyProfileEntity entity = bodyDao.bodyProfile(userId);
+        return entity == null
+                ? BodyProfile.empty()
+                : new BodyProfile(entity.getHeightCm(), entity.getCreatedAt(), entity.getUpdatedAt());
+    }
+
+    @Override
+    public void saveBodyProfile(BodyProfile profile) {
+        if (profile == null) {
+            throw new IllegalArgumentException("신체 프로필이 필요합니다.");
+        }
+        if (!profile.isConfigured()) {
+            bodyDao.deleteBodyProfile(userId);
+            return;
+        }
+        String now = now();
+        BodyProfileEntity existing = bodyDao.bodyProfile(userId);
+        bodyDao.replaceBodyProfile(new BodyProfileEntity(
+                userId,
+                profile.heightCm,
+                existing == null ? now : existing.getCreatedAt(),
+                now
+        ));
+    }
+
+    private BodyMetricEntry toEntry(WeightRecordEntity record) {
+        return record == null ? null : new BodyMetricEntry(
+                record.getId(),
+                record.getDate(),
+                record.getWeightKg(),
+                metadataValue(record.getMetadata(), "memo", "")
         );
     }
 
-    private FitnessDatabaseConnection db() {
-        ensureDevice(database);
-        return database;
-    }
-
-    private ContentValues baseValues(String id, String now) {
-        ContentValues values = new ContentValues();
-        values.put("id", id);
-        values.put("user_id", userId);
-        values.put("device_id", DEVICE_ID);
-        values.put("created_at", now);
-        values.put("updated_at", now);
-        values.putNull("deleted_at");
-        return values;
-    }
-
-    private void ensureDevice(FitnessDatabaseConnection database) {
-        ContentValues values = new ContentValues();
-        values.put("id", DEVICE_ID);
-        values.put("user_id", userId);
-        values.put("name", "Fitness Android");
-        values.put("last_seen_at", now());
-        values.put("app_version", "0.1.0");
-        database.insertWithOnConflict("devices", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+    private void ensureDevice(String now) {
+        roomDatabase.deviceRoomDao().upsert(new DevicesRoomEntity(
+                DEVICE_ID, userId, "Fitness Android", now, "0.1.0"
+        ));
     }
 
     private static String bodyWeightMetadata(String memo) {
@@ -212,15 +174,10 @@ public final class BodyMetricsRepository {
     }
 
     private static String metadataValue(String metadata, String key, String fallback) {
-        if (metadata == null || metadata.trim().isEmpty()) {
-            return fallback;
-        }
+        if (metadata == null || metadata.trim().isEmpty()) return fallback;
         try {
-            JSONObject object = new JSONObject(metadata);
-            Object value = object.opt(key);
-            if (value == null || value == JSONObject.NULL) {
-                return fallback;
-            }
+            Object value = new JSONObject(metadata).opt(key);
+            if (value == null || value == JSONObject.NULL) return fallback;
             String normalized = value.toString().trim();
             return TextValuePolicy.isMissing(normalized) ? fallback : normalized;
         } catch (Exception exception) {
@@ -239,9 +196,7 @@ public final class BodyMetricsRepository {
 
     private static String requireRecordDate(String value) {
         String normalized = emptyToNull(value);
-        if (normalized == null) {
-            throw new IllegalArgumentException("날짜를 입력하세요.");
-        }
+        if (normalized == null) throw new IllegalArgumentException("날짜를 입력하세요.");
         try {
             return LocalDate.parse(normalized).toString();
         } catch (DateTimeParseException error) {
@@ -267,19 +222,13 @@ public final class BodyMetricsRepository {
     private static String json(String... pairs) {
         StringBuilder builder = new StringBuilder("{");
         for (int index = 0; index + 1 < pairs.length; index += 2) {
-            if (index > 0) {
-                builder.append(",");
-            }
+            if (index > 0) builder.append(",");
             builder.append("\"").append(escapeJson(pairs[index])).append("\":");
             String value = pairs[index + 1] == null ? "" : pairs[index + 1];
-            if ("true".equals(value) || "false".equals(value)) {
-                builder.append(value);
-            } else {
-                builder.append("\"").append(escapeJson(value)).append("\"");
-            }
+            if ("true".equals(value) || "false".equals(value)) builder.append(value);
+            else builder.append("\"").append(escapeJson(value)).append("\"");
         }
-        builder.append("}");
-        return builder.toString();
+        return builder.append("}").toString();
     }
 
     private static String escapeJson(String value) {
@@ -299,9 +248,6 @@ public final class BodyMetricsRepository {
     }
 
     private static String trimDouble(double value) {
-        if (value == Math.rint(value)) {
-            return String.valueOf((long) value);
-        }
-        return String.valueOf(value);
+        return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
     }
 }

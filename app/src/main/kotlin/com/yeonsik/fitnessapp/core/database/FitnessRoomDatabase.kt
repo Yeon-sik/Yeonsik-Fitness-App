@@ -110,6 +110,20 @@ interface BodyRoomDao {
     )
     fun visibleWeight(id: String, userId: String): WeightRecordEntity?
 
+    @Query(
+        "SELECT * FROM weight_records WHERE user_id = :userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness', 'both') AND date = :date " +
+            "ORDER BY date DESC, updated_at DESC LIMIT 20"
+    )
+    fun visibleWeightsForDate(userId: String, date: String): List<WeightRecordEntity>
+
+    @Query(
+        "SELECT * FROM weight_records WHERE user_id = :userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness', 'both') AND date <= :date " +
+            "ORDER BY date DESC, updated_at DESC LIMIT 1"
+    )
+    fun latestVisibleWeightOnOrBefore(userId: String, date: String): WeightRecordEntity?
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(record: WeightRecordEntity)
 
@@ -131,6 +145,21 @@ interface BodyRoomDao {
             "WHERE id = :id AND user_id = :userId AND deleted_at IS NULL"
     )
     fun tombstoneVisibleWeight(id: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query("SELECT * FROM body_profiles WHERE user_id = :userId LIMIT 1")
+    fun bodyProfile(userId: String): BodyProfileEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun replaceBodyProfile(profile: BodyProfileEntity)
+
+    @Query("DELETE FROM body_profiles WHERE user_id = :userId")
+    fun deleteBodyProfile(userId: String): Int
+}
+
+@Dao
+interface DeviceRoomDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsert(device: DevicesRoomEntity)
 }
 
 @Dao
@@ -200,5 +229,6 @@ interface RoutineRoomDao {
 )
 abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun bodyRoomDao(): BodyRoomDao
+    abstract fun deviceRoomDao(): DeviceRoomDao
     abstract fun routineRoomDao(): RoutineRoomDao
 }

@@ -79,7 +79,7 @@ class AppContainer(context: Context) {
     private val fitnessSummaryStore = FitnessSummaryStore(databaseConnection)
     private val workoutInterchangeStore = WorkoutInterchangeStore(databaseConnection, appContext)
     private val bodyMetricsRepository = BodyMetricsRepository(
-        databaseConnection,
+        roomDatabase,
         supabaseConfig.effectiveUserId()
     )
     private val nutritionCatalogRepository = NutritionCatalogRepository(
