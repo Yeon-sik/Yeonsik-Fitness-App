@@ -2,7 +2,6 @@ package com.yeonsik.fitnessapp;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
-import android.app.Activity;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
@@ -32,16 +31,15 @@ import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
 import androidx.compose.ui.platform.ComposeView;
+import androidx.compose.ui.platform.ViewCompositionStrategy;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.yeonsik.fitnessapp.app.AppContainer;
 import com.yeonsik.fitnessapp.app.SavedStateViewModelFactory;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
+import com.yeonsik.fitnessapp.app.navigation.ComposeAppScreen;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
-import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
@@ -50,85 +48,64 @@ import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
-import com.yeonsik.fitnessapp.data.FleekCsvImporter;
-import com.yeonsik.fitnessapp.data.FitnessRepository;
-import com.yeonsik.fitnessapp.data.LocalDataBackupService;
 import com.yeonsik.fitnessapp.data.MassFormatter;
 import com.yeonsik.fitnessapp.data.MassUnit;
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
-import com.yeonsik.fitnessapp.data.ProductReadV1Client;
-import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client;
-import com.yeonsik.fitnessapp.data.WorkoutTransferService;
 import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.development.DevelopmentInsight;
-import com.yeonsik.fitnessapp.development.DevelopmentRepository;
-import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
-import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
-import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.FitnessNavigationHistory;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
-import com.yeonsik.fitnessapp.supplement.SupplementRepository;
-import com.yeonsik.fitnessapp.sync.SupabaseSyncManager;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
-import com.yeonsik.fitnessapp.ui.BaseScreen;
-import com.yeonsik.fitnessapp.ui.CardioScreen;
-import com.yeonsik.fitnessapp.ui.CardioSessionScreen;
-import com.yeonsik.fitnessapp.ui.CardioSummaryScreen;
-import com.yeonsik.fitnessapp.ui.DevelopmentScreen;
+import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService;
+import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService;
+import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService;
+import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService;
+import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
+import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService;
+import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
-import com.yeonsik.fitnessapp.ui.HomeScreen;
-import com.yeonsik.fitnessapp.ui.MealManagementScreen;
-import com.yeonsik.fitnessapp.ui.RecordsScreen;
-import com.yeonsik.fitnessapp.ui.RoutineEditorScreen;
 import com.yeonsik.fitnessapp.ui.ScreenHost;
-import com.yeonsik.fitnessapp.ui.SettingsScreen;
-import com.yeonsik.fitnessapp.ui.StrengthScreen;
-import com.yeonsik.fitnessapp.ui.SupplementScreen;
-import com.yeonsik.fitnessapp.ui.WorkoutExerciseDetailScreen;
-import com.yeonsik.fitnessapp.ui.WorkoutScreen;
-import com.yeonsik.fitnessapp.ui.WorkoutSessionScreen;
-import com.yeonsik.fitnessapp.ui.WorkoutSummaryScreen;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState;
-import com.yeonsik.fitnessapp.feature.cardio.data.LegacyCardioRepositoryAdapter;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
-import com.yeonsik.fitnessapp.feature.routine.application.EnsureActiveRoutine;
-import com.yeonsik.fitnessapp.feature.routine.data.LegacyRoutineRepositoryAdapter;
+import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance;
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
-import com.yeonsik.fitnessapp.feature.home.data.LegacyHomeRepositoryAdapter;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.ComposeHomeScreen;
+import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
+import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerUiState;
+import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
+import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
+import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.OutputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.EnumMap;
 import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
  * 얇은 진입점: 의존성 초기화, 현재 화면 상태, 하단 내비게이션, 화면 간 공유 액션만 담당한다.
- * 화면 렌더링은 ui 패키지의 각 Screen 클래스가, 공통 스타일은 FitnessUi가 담당한다.
+ * 화면 렌더링과 입력 상태는 feature ViewModel 기반 Compose 화면이 담당한다.
  */
 public final class MainActivity extends ComponentActivity implements ScreenHost {
 
@@ -138,6 +115,15 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         RECORDS,
         DEVELOPMENT,
         SETTINGS
+    }
+    private static final class ComposeEntry {
+        final ComposeView view;
+        final String configurationKey;
+
+        ComposeEntry(ComposeView view, String configurationKey) {
+            this.view = view;
+            this.configurationKey = configurationKey;
+        }
     }
 
     private static final String UI_PREFS = "fitness_ui_prefs";
@@ -154,6 +140,18 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private static final int REQUEST_WORKOUT_TRANSFER_IMPORT = 4114;
     private static final int REQUEST_WORKOUT_TRANSFER_EXPORT = 4115;
     private static final String PRICE_TRACE_LOG_TAG = "PriceTraceSearch";
+    private static final String STATE_SCREEN = "runtime.screen";
+    private static final String STATE_RECORD_ID = "runtime.record_id";
+    private static final String STATE_EXERCISE_ID = "runtime.exercise_id";
+    private static final String STATE_REPLACEMENT_ID = "runtime.replacement_id";
+    private static final String STATE_INPUT_UNIT = "runtime.input_unit";
+    private static final String STATE_MEAL_DATE = "runtime.meal_date";
+    private static final String STATE_ROUTINE_ID = "runtime.routine_id";
+    private static final String STATE_NAVIGATION_HISTORY = "runtime.navigation_history";
+    private static final String STATE_REST_ENDS_AT = "runtime.rest_ends_at";
+    private static final String STATE_REST_TOTAL_SECONDS = "runtime.rest_total_seconds";
+    private static final int COMPOSE_VIEW_ID_BASE = 0x6f100000;
+
     public static final String DEBUG_PROVISION_SESSION_ACTION =
             "com.yeonsik.fitnessapp.DEBUG_PROVISION_SESSION";
     private static final String EXTRA_ACCESS_TOKEN = "access_token";
@@ -175,37 +173,39 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final WorkoutSessionState sessionState = new WorkoutSessionState();
     private String lastKnownDate = LocalDate.now().toString();
+    private String selectedMealDate = lastKnownDate;
+    private FitnessScreen mealReturnScreen = FitnessScreen.WORKOUT;
+    private String selectedRoutineId;
 
-    private FitnessRepository repository;
     private AppContainer appContainer;
+    private BodyMetricsApplicationService bodyMetricsApplicationService;
+    private DevelopmentApplicationService developmentApplicationService;
+    private CardioSessionApplicationService cardioSessionApplicationService;
+    private WorkoutSessionApplicationService workoutSessionApplicationService;
+    private NutritionIntegrationService nutritionIntegrationService;
+    private SyncApplicationService syncApplicationService;
+    private LocalDataTransferApplicationService localDataTransferApplicationService;
     private WorkoutSessionViewModel workoutSessionViewModel;
     private WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel;
     private CardioSessionViewModel cardioSessionViewModel;
     private RoutineEntryViewModel routineEntryViewModel;
     private HomeViewModel homeViewModel;
-    private FitnessRoomDatabase roomDatabase;
-    private NutritionCatalogRepository nutritionCatalogRepository;
-    private CardioRepository cardioRepository;
-    private ExerciseMasterRepository exerciseMasterRepository;
-    private RoutineRepository routineRepository;
-    private DevelopmentRepository developmentRepository;
-    private SupplementRepository supplementRepository;
+    private DevelopmentViewModel developmentViewModel;
+    private SupplementViewModel supplementViewModel;
+    private ExercisePickerViewModel exercisePickerViewModel;
+    private MealViewModel mealViewModel;
     private SupabaseConfigStore configStore;
     private NutritionSupabaseConfigStore nutritionConfigStore;
     private PriceTraceSupabaseConfigStore priceTraceConfigStore;
     private MassUnitPreferences massUnitPreferences;
-    private SupabaseSyncManager syncManager;
     private SupabaseAuthManager authManager;
     private SupabaseAuthManager nutritionAuthManager;
     private SupabaseAuthManager priceTraceAuthManager;
     private SupabaseConfig supabaseConfig;
     private SupabaseConfig nutritionSupabaseConfig;
     private SupabaseConfig priceTraceSupabaseConfig;
-    private ProductReadV1Client productReadClient;
-    private RestaurantMenuReadV1Client restaurantMenuReadClient;
 
     private FitnessUi ui;
-    private Map<FitnessScreen, BaseScreen> screens;
     private FitnessScreen currentScreen = FitnessScreen.HOME;
     private final FitnessNavigationHistory navigationHistory =
             new FitnessNavigationHistory(FitnessScreen.HOME);
@@ -223,6 +223,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private int restTotalSeconds;
     private int lastPulsedSecond = -1;
     private FitnessScreen lastRenderedScreen;
+    private final EnumMap<FitnessScreen, ComposeEntry> composeEntries =
+            new EnumMap<>(FitnessScreen.class);
     private LinearLayout content;
     private LinearLayout bottomNav;
     private View navDivider;
@@ -255,55 +257,98 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private String syncLabel = "local-only";
     private String syncDetail = "로컬 전용 모드";
     private String lastSyncedAt = "";
+    private String knownInProgressRecordId;
     private CardioActivityType pendingCardioActivityType;
     private String pendingCardioResumeRecordId;
     private boolean waitingForLocationSettings;
+    private final DataTransferCoordinator dataTransferCoordinator = new DataTransferCoordinator();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         massUnitPreferences = new MassUnitPreferences(this);
-        configStore = new SupabaseConfigStore(this);
-        supabaseConfig = configStore.load();
-        nutritionConfigStore = new NutritionSupabaseConfigStore(this);
-        nutritionSupabaseConfig = nutritionConfigStore.load();
-        priceTraceConfigStore = new PriceTraceSupabaseConfigStore(this);
-        priceTraceSupabaseConfig = priceTraceConfigStore.load();
-        productReadClient = new ProductReadV1Client(priceTraceSupabaseConfig);
-        restaurantMenuReadClient = new RestaurantMenuReadV1Client(priceTraceSupabaseConfig);
-        authManager = new SupabaseAuthManager(configStore);
-        nutritionAuthManager = new SupabaseAuthManager(nutritionConfigStore);
-        priceTraceAuthManager = new SupabaseAuthManager(priceTraceConfigStore);
-        roomDatabase = FitnessRoomDatabaseProvider.get(this);
-        repository = new FitnessRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
-        appContainer = new AppContainer(repository);
-        nutritionCatalogRepository = new NutritionCatalogRepository(
-                roomDatabase,
-                this,
-                nutritionSupabaseConfig.effectiveUserId(),
-                nutritionSupabaseConfig
-        );
-        cardioRepository = new CardioRepository(roomDatabase, repository, this);
-        repository.reconcileSharedWorkoutSummaries();
-        exerciseMasterRepository = new ExerciseMasterRepository(this);
-        routineRepository = new RoutineRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
-        developmentRepository = new DevelopmentRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
-        supplementRepository = new SupplementRepository(roomDatabase, supabaseConfig.effectiveUserId(), this);
+        appContainer = new AppContainer(this);
+        configStore = appContainer.getConfigStore();
+        nutritionConfigStore = appContainer.getNutritionConfigStore();
+        priceTraceConfigStore = appContainer.getPriceTraceConfigStore();
+        supabaseConfig = appContainer.getSupabaseConfig();
+        nutritionSupabaseConfig = appContainer.getNutritionSupabaseConfig();
+        priceTraceSupabaseConfig = appContainer.getPriceTraceSupabaseConfig();
+        authManager = appContainer.getSupabaseAuthManager();
+        nutritionAuthManager = appContainer.getNutritionAuthManager();
+        priceTraceAuthManager = appContainer.getPriceTraceAuthManager();
+        bodyMetricsApplicationService = appContainer.getBodyMetricsApplicationService();
+        developmentApplicationService = appContainer.getDevelopmentApplicationService();
+        cardioSessionApplicationService = appContainer.getCardioSessionApplicationService();
+        workoutSessionApplicationService = appContainer.getWorkoutSessionApplicationService();
+        nutritionIntegrationService = appContainer.getNutritionIntegrationService();
+        syncApplicationService = appContainer.getSyncApplicationService();
+        localDataTransferApplicationService =
+                appContainer.getLocalDataTransferApplicationService();
+        String startupOwnerId = currentOwnerId();
         initializeFeatureViewModels();
-        syncManager = new SupabaseSyncManager(roomDatabase, this);
+        executor.execute(() -> localDataTransferApplicationService
+                .reconcileSharedWorkoutSummaries(startupOwnerId));
         applySyncStatusFromConfig();
 
         themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_THEME_MODE, THEME_LIGHT);
         ui = new FitnessUi(this, this::isDarkTheme);
-        screens = buildScreens();
         registerBackCallback();
+        restoreNavigationState(savedInstanceState);
 
         setContentView(buildRootView());
         configureWindow();
         render();
         handleDebugSessionProvisioning(getIntent());
         handleCardioIntent(getIntent());
+    }
+
+
+    private void restoreNavigationState(Bundle state) {
+        if (state == null) return;
+        try {
+            currentScreen = FitnessScreen.valueOf(
+                    state.getString(STATE_SCREEN, FitnessScreen.HOME.name()));
+        } catch (IllegalArgumentException ignored) {
+            currentScreen = FitnessScreen.HOME;
+        }
+        ArrayList<String> savedHistory = state.getStringArrayList(STATE_NAVIGATION_HISTORY);
+        try {
+            navigationHistory.restoreScreenNames(savedHistory);
+            currentScreen = navigationHistory.current();
+        } catch (IllegalArgumentException | NullPointerException ignored) {
+            navigationHistory.restoreCurrent(currentScreen);
+        }
+        sessionState.setActiveRecordId(state.getString(STATE_RECORD_ID));
+        sessionState.setActiveExerciseId(state.getString(STATE_EXERCISE_ID));
+        sessionState.setReplacementExerciseId(state.getString(STATE_REPLACEMENT_ID));
+        MassUnit inputUnit = MassUnit.parse(state.getString(STATE_INPUT_UNIT));
+        if (inputUnit != null) sessionState.setSessionInputMassUnit(inputUnit);
+        selectedMealDate = state.getString(STATE_MEAL_DATE, lastKnownDate);
+        selectedRoutineId = state.getString(STATE_ROUTINE_ID);
+        restEndsAtMillis = state.getLong(STATE_REST_ENDS_AT, 0L);
+        restTotalSeconds = state.getInt(STATE_REST_TOTAL_SECONDS, 0);
+        if (restEndsAtMillis <= System.currentTimeMillis() || restTotalSeconds <= 0) {
+            restEndsAtMillis = 0L;
+            restTotalSeconds = 0;
+        }
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        outState.putString(STATE_SCREEN, currentScreen.name());
+        outState.putString(STATE_RECORD_ID, sessionState.activeRecordId());
+        outState.putString(STATE_EXERCISE_ID, sessionState.activeExerciseId());
+        outState.putString(STATE_REPLACEMENT_ID, sessionState.replacementExerciseId());
+        MassUnit inputUnit = sessionState.sessionInputMassUnit();
+        outState.putString(STATE_INPUT_UNIT, inputUnit == null ? null : inputUnit.id());
+        outState.putString(STATE_MEAL_DATE, selectedMealDate);
+        outState.putString(STATE_ROUTINE_ID, selectedRoutineId);
+        outState.putStringArrayList(STATE_NAVIGATION_HISTORY, navigationHistory.savedScreenNames());
+        outState.putLong(STATE_REST_ENDS_AT, restEndsAtMillis);
+        outState.putInt(STATE_REST_TOTAL_SECONDS, restTotalSeconds);
+        super.onSaveInstanceState(outState);
     }
 
     private void initializeFeatureViewModels() {
@@ -325,36 +370,38 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             }
             if (state instanceof WorkoutSessionUiState.Ready) {
                 WorkoutSessionUiState.Ready ready = (WorkoutSessionUiState.Ready) state;
-                if (ready.getOwnerId().equals(repository.currentUserId())
+                if (ready.getOwnerId().equals(currentOwnerId())
                         && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
                     rerender();
                 }
             } else if (state instanceof WorkoutSessionUiState.Missing) {
                 WorkoutSessionUiState.Missing missing = (WorkoutSessionUiState.Missing) state;
-                if (missing.getOwnerId().equals(repository.currentUserId())
+                if (missing.getOwnerId().equals(currentOwnerId())
                         && missing.getRecordId().equals(sessionState.activeRecordId())) {
                     sessionState.clearIfMatches(missing.getRecordId());
                     replace(FitnessScreen.STRENGTH);
                 }
             } else if (state instanceof WorkoutSessionUiState.Completed) {
                 WorkoutSessionUiState.Completed completed = (WorkoutSessionUiState.Completed) state;
-                if (completed.getOwnerId().equals(repository.currentUserId())
+                if (completed.getOwnerId().equals(currentOwnerId())
                         && completed.getRecordId().equals(sessionState.activeRecordId())) {
+                    knownInProgressRecordId = null;
                     toast("운동을 완료했습니다.");
                     replace(FitnessScreen.WORKOUT_SUMMARY);
                 }
             } else if (state instanceof WorkoutSessionUiState.DiscardedEmptySession) {
                 WorkoutSessionUiState.DiscardedEmptySession discarded =
                         (WorkoutSessionUiState.DiscardedEmptySession) state;
-                if (discarded.getOwnerId().equals(repository.currentUserId())
+                if (discarded.getOwnerId().equals(currentOwnerId())
                         && discarded.getRecordId().equals(sessionState.activeRecordId())) {
+                    knownInProgressRecordId = null;
                     sessionState.clearIfMatches(discarded.getRecordId());
                     toast("수행한 세트가 없어 운동을 저장하지 않았습니다.");
                     replace(FitnessScreen.STRENGTH);
                 }
             } else if (state instanceof WorkoutSessionUiState.Error) {
                 WorkoutSessionUiState.Error error = (WorkoutSessionUiState.Error) state;
-                if (error.getOwnerId().equals(repository.currentUserId())) {
+                if (error.getOwnerId().equals(currentOwnerId())) {
                     toast(error.getMessage());
                 }
             }
@@ -376,10 +423,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 WorkoutExerciseDetailUiState.Ready ready =
                         (WorkoutExerciseDetailUiState.Ready) state;
                 if (currentScreen == FitnessScreen.WORKOUT_EXERCISE_DETAIL
-                        && ready.getOwnerId().equals(repository.currentUserId())
+                        && ready.getOwnerId().equals(currentOwnerId())
                         && ready.getDetail().getRecordId().equals(sessionState.activeRecordId())) {
                     sessionState.setActiveExerciseId(ready.getDetail().getActiveExercise().id);
-                    rerender();
+                    // Compose observes UiState. Replacing its View here discards unsaved inputs.
                 }
             }
         });
@@ -390,7 +437,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new CardioSessionViewModel(
                                 handle,
-                                new LegacyCardioRepositoryAdapter(cardioRepository, repository)
+                                appContainer.getCardioRepositoryApi()
                         )
                 )
         ).get(CardioSessionViewModel.class);
@@ -399,23 +446,16 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 CardioSessionUiState.Ready ready = (CardioSessionUiState.Ready) state;
                 if ((currentScreen == FitnessScreen.CARDIO_SESSION
                         || currentScreen == FitnessScreen.CARDIO_SUMMARY)
-                        && ready.getOwnerId().equals(repository.currentUserId())
+                        && ready.getOwnerId().equals(currentOwnerId())
                         && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
                     if (currentScreen == FitnessScreen.CARDIO_SUMMARY) {
                         rerender();
-                    } else {
-                        CardioSessionScreen screen = (CardioSessionScreen) screens.get(FitnessScreen.CARDIO_SESSION);
-                        if (!screen.hasRenderedSnapshot(
-                                ready.getSession().getRecordId(),
-                                ready.getSession().getStatus())) {
-                            rerender();
-                        }
                     }
                 }
             } else if (state instanceof CardioSessionUiState.Missing) {
                 CardioSessionUiState.Missing missing = (CardioSessionUiState.Missing) state;
                 if (currentScreen == FitnessScreen.CARDIO_SESSION
-                        && missing.getOwnerId().equals(repository.currentUserId())
+                        && missing.getOwnerId().equals(currentOwnerId())
                         && missing.getRecordId().equals(sessionState.activeRecordId())) {
                     replace(FitnessScreen.CARDIO);
                 }
@@ -428,9 +468,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new RoutineEntryViewModel(
                                 handle,
-                                new EnsureActiveRoutine(
-                                        new LegacyRoutineRepositoryAdapter(routineRepository, repository)
-                                )
+                                appContainer.getRoutineRepositoryApi()
                         )
                 )
         ).get(RoutineEntryViewModel.class);
@@ -438,7 +476,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             if (state instanceof RoutineEntryUiState.Ready) {
                 RoutineEntryUiState.Ready ready = (RoutineEntryUiState.Ready) state;
                 if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
-                        && ready.getOwnerId().equals(repository.currentUserId())) {
+                        && ready.getOwnerId().equals(currentOwnerId())) {
+                    if (ready.getNotice() != null) {
+                        homeViewModel.enter(new AccountScope(currentOwnerId()), today());
+                    }
                     if (currentScreen != FitnessScreen.HOME) {
                         rerender();
                     }
@@ -446,7 +487,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             } else if (state instanceof RoutineEntryUiState.Error) {
                 RoutineEntryUiState.Error error = (RoutineEntryUiState.Error) state;
                 if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
-                        && error.getOwnerId().equals(repository.currentUserId())) {
+                        && error.getOwnerId().equals(currentOwnerId())) {
                     toast(error.getMessage());
                 }
             }
@@ -458,7 +499,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new HomeViewModel(
                                 handle,
-                                new LegacyHomeRepositoryAdapter(repository, routineRepository)
+                                appContainer.getHomeRepository()
                         )
                 )
         ).get(HomeViewModel.class);
@@ -466,7 +507,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             if (state instanceof HomeUiState.Ready) {
                 HomeUiState.Ready ready = (HomeUiState.Ready) state;
                 if (currentScreen == FitnessScreen.HOME
-                        && ready.getSnapshot().getOwnerId().equals(repository.currentUserId())
+                        && ready.getSnapshot().getOwnerId().equals(currentOwnerId())
                         && ready.getSnapshot().getToday().equals(today())) {
                     // Compose observes this state itself. Rebuilding the whole
                     // view tree here would interrupt any pending accessibility
@@ -475,11 +516,83 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             } else if (state instanceof HomeUiState.Error) {
                 HomeUiState.Error error = (HomeUiState.Error) state;
                 if (currentScreen == FitnessScreen.HOME
-                        && error.getOwnerId().equals(repository.currentUserId())) {
+                        && error.getOwnerId().equals(currentOwnerId())) {
                     toast(error.getMessage());
                 }
             }
         });
+        developmentViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new DevelopmentViewModel(
+                                handle,
+                                appContainer.getDevelopmentRepositoryApi()
+                        )
+                )
+        ).get(DevelopmentViewModel.class);
+        supplementViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new SupplementViewModel(
+                                handle,
+                                appContainer.getSupplementRepositoryApi()
+                        )
+                )
+        ).get(SupplementViewModel.class);
+        exercisePickerViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new ExercisePickerViewModel(
+                                handle,
+                                appContainer.getExerciseMasterRepositoryApi(),
+                                appContainer.getRoutineRepositoryApi(),
+                                appContainer.getWorkoutRepository()
+                        )
+                )
+        ).get(ExercisePickerViewModel.class);
+        exercisePickerViewModel.getUiState().observe(this, state -> {
+            if (!(state instanceof ExercisePickerUiState.Saved)) {
+                return;
+            }
+            ExercisePickerUiState.Saved saved = (ExercisePickerUiState.Saved) state;
+            // LiveData replays Saved after recreation. Only the picker may consume its navigation result.
+            if (!saved.getOwnerId().equals(currentOwnerId()) || currentScreen != saved.getMode()) {
+                return;
+            }
+            if (saved.getMode() == FitnessScreen.ROUTINE_ADD) {
+                homeViewModel.enter(new AccountScope(currentOwnerId()), today());
+            } else {
+                String recordId = sessionState.activeRecordId();
+                if (recordId != null) {
+                    workoutSessionViewModel.enter(new AccountScope(currentOwnerId()), recordId);
+                    workoutExerciseDetailViewModel.enter(
+                            new AccountScope(currentOwnerId()),
+                            recordId,
+                            sessionState.activeExerciseId()
+                    );
+                }
+                sessionState.clearExerciseReplacement();
+            }
+            back();
+        });
+        mealViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new MealViewModel(
+                                handle,
+                                appContainer.getMealRecordRepositoryApi(),
+                                appContainer.getNutritionCatalogRepositoryApi()
+                        )
+                )
+        ).get(MealViewModel.class);
     }
 
     @Override
@@ -590,15 +703,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         super.onResume();
         String currentDate = today();
         if (!currentDate.equals(lastKnownDate)) {
-            BaseScreen records = screens.get(FitnessScreen.RECORDS);
-            if (records instanceof RecordsScreen) {
-                ((RecordsScreen) records).onDateChanged(lastKnownDate, currentDate);
-            }
-            BaseScreen meals = screens.get(FitnessScreen.MEALS);
-            if (meals instanceof MealManagementScreen) {
-                ((MealManagementScreen) meals).onDateChanged(lastKnownDate, currentDate);
-            }
             lastKnownDate = currentDate;
+            if (FitnessScreen.MEALS != currentScreen) {
+                selectedMealDate = currentDate;
+            }
             render();
         }
         if (waitingForLocationSettings && locationServicesEnabled()) {
@@ -607,10 +715,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
         if (currentScreen == FitnessScreen.CARDIO_SESSION) {
             render();
-        }
-        BaseScreen activeScreen = screens.get(currentScreen);
-        if (activeScreen != null) {
-            activeScreen.onResume();
         }
     }
 
@@ -653,35 +757,17 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             return;
         }
         if (requestCode == REQUEST_FLEEK_CSV_IMPORT) {
-            importFleekCsv(uri);
+            dataTransferCoordinator.importFleekCsv(uri);
         } else if (requestCode == REQUEST_LOCAL_BACKUP_EXPORT) {
-            writeLocalBackup(uri);
+            dataTransferCoordinator.writeLocalBackup(uri);
         } else if (requestCode == REQUEST_LOCAL_BACKUP_RESTORE) {
-            previewLocalBackup(uri);
+            dataTransferCoordinator.previewLocalBackup(uri);
         } else if (requestCode == REQUEST_RECORDS_CSV_EXPORT) {
-            writeRecordsCsv(uri);
+            dataTransferCoordinator.writeRecordsCsv(uri);
         } else if (requestCode == REQUEST_WORKOUT_TRANSFER_IMPORT) {
-            importWorkoutTransfer(uri);
+            dataTransferCoordinator.importWorkoutTransfer(uri);
         } else if (requestCode == REQUEST_WORKOUT_TRANSFER_EXPORT) {
-            writeWorkoutTransfer(uri);
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        BaseScreen activeScreen = screens.get(currentScreen);
-        if (activeScreen != null) {
-            activeScreen.onPause();
-        }
-        super.onPause();
-    }
-
-    @Override
-    public void onLowMemory() {
-        super.onLowMemory();
-        BaseScreen activeScreen = screens.get(currentScreen);
-        if (activeScreen != null) {
-            activeScreen.onLowMemory();
+            dataTransferCoordinator.writeWorkoutTransfer(uri);
         }
     }
 
@@ -692,35 +778,12 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backInvokedCallback);
             backInvokedCallback = null;
         }
-        BaseScreen activeScreen = screens.get(currentScreen);
-        if (activeScreen != null) {
-            activeScreen.onDestroy();
-        }
         executor.shutdownNow();
+        for (ComposeEntry entry : composeEntries.values()) {
+            entry.view.disposeComposition();
+        }
+        composeEntries.clear();
         super.onDestroy();
-    }
-
-    private Map<FitnessScreen, BaseScreen> buildScreens() {
-        Map<FitnessScreen, BaseScreen> map = new EnumMap<>(FitnessScreen.class);
-        RoutineEditorScreen routineEditor = new RoutineEditorScreen(this);
-        map.put(FitnessScreen.HOME, new HomeScreen(this));
-        map.put(FitnessScreen.WORKOUT, new WorkoutScreen(this));
-        map.put(FitnessScreen.STRENGTH, new StrengthScreen(this));
-        map.put(FitnessScreen.CARDIO, new CardioScreen(this));
-        map.put(FitnessScreen.RECORDS, new RecordsScreen(this));
-        map.put(FitnessScreen.DEVELOPMENT, new DevelopmentScreen(this));
-        map.put(FitnessScreen.SETTINGS, new SettingsScreen(this));
-        map.put(FitnessScreen.WORKOUT_SESSION, new WorkoutSessionScreen(this));
-        map.put(FitnessScreen.WORKOUT_EXERCISE_DETAIL, new WorkoutExerciseDetailScreen(this));
-        map.put(FitnessScreen.WORKOUT_SUMMARY, new WorkoutSummaryScreen(this));
-        map.put(FitnessScreen.CARDIO_SESSION, new CardioSessionScreen(this));
-        map.put(FitnessScreen.CARDIO_SUMMARY, new CardioSummaryScreen(this));
-        map.put(FitnessScreen.MEALS, new MealManagementScreen(this));
-        map.put(FitnessScreen.SUPPLEMENTS, new SupplementScreen(this));
-        map.put(FitnessScreen.ROUTINE_ADD, routineEditor);
-        map.put(FitnessScreen.ROUTINE_DETAIL, routineEditor);
-        map.put(FitnessScreen.WORKOUT_EXERCISE_ADD, routineEditor);
-        return map;
     }
 
     // ── 테마 ─────────────────────────────────────────────────────────
@@ -839,7 +902,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         int initialBottom = root.getPaddingBottom();
         root.setOnApplyWindowInsetsListener((view, windowInsets) -> {
             Insets safeInsets = windowInsets.getInsets(
-                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout());
+                    WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout() | WindowInsets.Type.ime());
             view.setPadding(
                     initialLeft + safeInsets.left,
                     initialTop + safeInsets.top,
@@ -1080,7 +1143,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private LinearLayout.LayoutParams navParams() {
-        return new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        // Let longer labels take their measured width at accessibility font sizes.
+        int width = getResources().getConfiguration().fontScale >= 1.3f
+                ? LinearLayout.LayoutParams.WRAP_CONTENT : 0;
+        return new LinearLayout.LayoutParams(width, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
     }
 
     private View navGap() {
@@ -1095,6 +1161,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         area.setOrientation(LinearLayout.VERTICAL);
         area.setGravity(Gravity.CENTER);
         area.setMinimumHeight(ui.dp(FitnessUi.NAV_ITEM_MIN_HEIGHT_DP));
+        area.setMinimumWidth(ui.dp(FitnessUi.NAV_ITEM_MIN_HEIGHT_DP));
         area.setClickable(true);
         area.setFocusable(true);
         area.setOnClickListener(v -> replace(rootScreenOf(tab)));
@@ -1194,8 +1261,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     private void refreshNavState() {
         Tab activeTab = tabOf(currentScreen);
-        boolean workoutInProgress = repository != null
-                && repository.latestInProgressSessionId() != null;
+        boolean workoutInProgress = knownInProgressRecordId != null
+                || (homeViewModel != null && homeViewModel.latestInProgressSessionId() != null);
         bottomNav.setBackgroundColor(ui.surface());
         navDivider.setBackgroundColor(ui.border());
         boolean navigationVisible = isBottomNavigationVisible(currentScreen);
@@ -1305,14 +1372,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private void render() {
         sessionState.nextGeneration();
         boolean screenChanged = currentScreen != lastRenderedScreen;
-        if (screenChanged && lastRenderedScreen != null) {
-            BaseScreen previousScreen = screens.get(lastRenderedScreen);
-            if (previousScreen != null) {
-                previousScreen.onHidden();
-            }
-        }
         content.removeAllViews();
         if (screenChanged) {
+            // The outer View owns scrolling for Compose destinations as well.
+            mainScrollView.scrollTo(0, 0);
             prepareScreenEntry(currentScreen);
         }
         refreshNavState();
@@ -1337,65 +1400,115 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
         if (currentScreen == FitnessScreen.HOME) {
             renderComposeHome();
-            return;
-        }
-
-        BaseScreen screen = screens.get(currentScreen);
-        if (screen != null) {
-            screen.render();
-            screen.onVisible();
-            if (screenChanged) {
-                ui.screenEnter(content);
-            }
+        } else {
+            renderComposeDestination();
         }
     }
 
     private void renderComposeHome() {
+        content.addView(composeViewFor(FitnessScreen.HOME, today()), ui.fullWidthParams(0));
+    }
+
+    private void renderComposeDestination() {
+        String screenDate = currentScreen == FitnessScreen.MEALS ? selectedMealDate : today();
+        content.addView(composeViewFor(currentScreen, screenDate), ui.fullWidthParams(0));
+    }
+
+    private ComposeView composeViewFor(FitnessScreen screen, String screenDate) {
+        String configurationKey = currentOwnerId() + "|" + screenDate + "|"
+                + preferredMassUnit().name() + "|" + isDarkTheme();
+        ComposeEntry existing = composeEntries.get(screen);
+        if (existing != null && existing.configurationKey.equals(configurationKey)) {
+            return existing.view;
+        }
+        if (existing != null) {
+            existing.view.disposeComposition();
+        }
+
         ComposeView composeView = new ComposeView(this);
-        ComposeHomeScreen.install(
-                composeView,
-                this,
-                currentOwnerId(),
-                today(),
-                preferredMassUnit(),
-                isDarkTheme()
+        composeView.setId(COMPOSE_VIEW_ID_BASE + screen.ordinal());
+        composeView.setViewCompositionStrategy(
+                ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed.INSTANCE
         );
-        content.addView(composeView, ui.fullWidthParams(0));
+        if (screen == FitnessScreen.HOME) {
+            ComposeHomeScreen.install(
+                    composeView,
+                    this,
+                    currentOwnerId(),
+                    screenDate,
+                    preferredMassUnit(),
+                    isDarkTheme()
+            );
+        } else {
+            ComposeAppScreen.install(
+                    composeView,
+                    this,
+                    screen,
+                    currentOwnerId(),
+                    screenDate,
+                    preferredMassUnit(),
+                    isDarkTheme()
+            );
+        }
+        composeEntries.put(screen, new ComposeEntry(composeView, configurationKey));
+        return composeView;
     }
 
     private void prepareScreenEntry(FitnessScreen screen) {
-        if (screen == FitnessScreen.WORKOUT_SESSION) {
-            workoutSessionViewModel.enter(
-                    new AccountScope(repository.currentUserId()),
-                    sessionState.activeRecordId()
-            );
-            return;
-        }
-        if (screen == FitnessScreen.STRENGTH || screen == FitnessScreen.HOME) {
-            routineEntryViewModel.enter(new AccountScope(repository.currentUserId()));
-            if (screen == FitnessScreen.HOME) {
-                homeViewModel.enter(new AccountScope(repository.currentUserId()), today());
-            }
-            return;
-        }
-        if (screen != FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
-            if (screen == FitnessScreen.CARDIO_SESSION || screen == FitnessScreen.CARDIO_SUMMARY) {
-                cardioSessionViewModel.enter(
-                        new AccountScope(repository.currentUserId()),
-                        sessionState.activeRecordId()
+        AccountScope scope = new AccountScope(currentOwnerId());
+        switch (screen) {
+            case HOME:
+            case STRENGTH:
+                routineEntryViewModel.enter(scope);
+                homeViewModel.enter(scope, today());
+                return;
+            case WORKOUT:
+            case RECORDS:
+                homeViewModel.enter(scope, today());
+                return;
+            case MEALS:
+                homeViewModel.enter(scope, selectedMealDate);
+                mealViewModel.enter(scope, selectedMealDate);
+                return;
+            case ROUTINE_DETAIL:
+                homeViewModel.enter(scope, today());
+                return;
+            case DEVELOPMENT:
+                developmentViewModel.enter(scope, today());
+                return;
+            case SUPPLEMENTS:
+                supplementViewModel.enter(scope, today());
+                return;
+            case WORKOUT_SESSION:
+            case WORKOUT_SUMMARY:
+                workoutSessionViewModel.enter(scope, sessionState.activeRecordId());
+                return;
+            case WORKOUT_EXERCISE_DETAIL:
+                if (sessionState.activeRecordId() != null) {
+                    workoutExerciseDetailViewModel.enter(
+                            scope,
+                            sessionState.activeRecordId(),
+                            sessionState.activeExerciseId()
+                    );
+                }
+                return;
+            case CARDIO_SESSION:
+            case CARDIO_SUMMARY:
+                cardioSessionViewModel.enter(scope, sessionState.activeRecordId());
+                return;
+            case ROUTINE_ADD:
+            case WORKOUT_EXERCISE_ADD:
+                exercisePickerViewModel.enter(
+                        scope,
+                        screen,
+                        sessionState.activeRecordId(),
+                        sessionState.replacementExerciseId(),
+                        selectedRoutineId
                 );
-            }
-            return;
+                return;
+            default:
+                return;
         }
-        String recordId = sessionState.activeRecordId();
-        if (recordId == null) {
-            return;
-        }
-        workoutExerciseDetailViewModel.enter(
-                new AccountScope(repository.currentUserId()),
-                recordId,
-                sessionState.activeExerciseId()
-        );
     }
 
     private void applyScreenChrome(boolean dark) {
@@ -1465,66 +1578,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     // ── ScreenHost 구현 ───────────────────────────────────────────────
 
     @Override
-    public Activity activity() {
-        return this;
-    }
-
-    @Override
-    public FitnessUi ui() {
-        return ui;
-    }
-
-    @Override
-    public LinearLayout content() {
-        return content;
-    }
-
-    @Override
-    public FitnessRepository repository() {
-        return repository;
-    }
-
-    @Override
     public String currentOwnerId() {
-        return repository.currentUserId();
+        return supabaseConfig.effectiveUserId();
     }
 
-    @Override
-    public NutritionCatalogRepository nutritionCatalogRepository() {
-        return nutritionCatalogRepository;
-    }
-
-    @Override
-    public CardioRepository cardioRepository() {
-        return cardioRepository;
-    }
-
-    @Override
-    public RoutineRepository routineRepository() {
-        return routineRepository;
-    }
-
-    @Override
-    public SupplementRepository supplementRepository() {
-        return supplementRepository;
-    }
-
-    @Override
-    public ExerciseMasterRepository exerciseMasterRepository() {
-        return exerciseMasterRepository;
-    }
-
-    @Override
-    public WorkoutSessionState sessionState() {
-        return sessionState;
-    }
-
-    @Override
     public String today() {
         return LocalDate.now().toString();
     }
 
-    @Override
     public FitnessScreen currentScreen() {
         return currentScreen;
     }
@@ -1585,13 +1646,72 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     @Override
+    public DevelopmentViewModel developmentViewModel() {
+        return developmentViewModel;
+    }
+
+    @Override
+    public SupplementViewModel supplementViewModel() {
+        return supplementViewModel;
+    }
+
+    @Override
+    public ExercisePickerViewModel exercisePickerViewModel() {
+        return exercisePickerViewModel;
+    }
+
+    @Override
+    public MealViewModel mealViewModel() {
+        return mealViewModel;
+    }
+
+    @Override
+    public String selectedRoutineId() {
+        return selectedRoutineId;
+    }
+
+    @Override
+    public void openWorkoutExerciseDetail(String exerciseId) {
+        sessionState.setActiveExerciseId(exerciseId);
+        navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
+    }
+
+    @Override
+    public void openWorkoutExerciseReplacementPicker(String exerciseId) {
+        sessionState.setReplacementExerciseId(exerciseId);
+        navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
+    }
+
+    @Override
+    public void refreshWorkoutExerciseDetail() {
+        String recordId = sessionState.activeRecordId();
+        if (recordId != null) {
+            workoutExerciseDetailViewModel.enter(
+                    new AccountScope(currentOwnerId()),
+                    recordId,
+                    sessionState.activeExerciseId()
+            );
+            workoutSessionViewModel.enter(new AccountScope(currentOwnerId()), recordId);
+        }
+    }
+
+    @Override
+    public void refreshCardioSession() {
+        String recordId = sessionState.activeRecordId();
+        if (recordId != null) {
+            cardioSessionViewModel.refresh(new AccountScope(currentOwnerId()), recordId);
+        }
+    }
+
+
+    @Override
     public void toast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
 
     @Override
     public void selectRoutine(String routineId) {
-        routineRepository.selectRoutine(routineId);
+        selectedRoutineId = routineId;
     }
 
     @Override
@@ -1604,6 +1724,31 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         sessionState.setActiveRecordId(recordId);
         sessionState.setActiveExerciseId(null);
         navigate(FitnessScreen.WORKOUT_SESSION);
+    }
+
+    @Override
+    public void openRecord(String recordId) {
+        if (recordId == null) {
+            return;
+        }
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                boolean cardioSession = workoutSessionApplicationService.isCardioSession(
+                        new AccountScope(ownerId),
+                        recordId
+                );
+                runOnUiThread(() -> {
+                    if (cardioSession) {
+                        openCardioSummary(recordId);
+                    } else {
+                        openWorkoutSession(recordId);
+                    }
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("기록을 열지 못했습니다."));
+            }
+        });
     }
 
     @Override
@@ -1625,21 +1770,37 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("진행 중인 운동을 찾지 못했습니다.");
             return;
         }
-        workoutSessionViewModel.finish(new AccountScope(repository.currentUserId()), recordId);
+        workoutSessionViewModel.finish(new AccountScope(currentOwnerId()), recordId);
     }
 
     @Override
     public void continueWorkoutIfAvailable() {
-        String recordId = repository.latestInProgressSessionId();
-        if (recordId == null) {
-            toast("진행 중인 운동이 없습니다.");
-            return;
-        }
-        if (cardioRepository.isCardioSession(recordId)) {
-            openCardioSession(recordId);
-        } else {
-            openWorkoutSession(recordId);
-        }
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                String recordId = workoutSessionApplicationService.latestInProgress(
+                        new AccountScope(ownerId)
+                );
+                if (recordId == null) {
+                    runOnUiThread(() -> toast("진행 중인 운동이 없습니다."));
+                    return;
+                }
+                boolean cardioSession = workoutSessionApplicationService.isCardioSession(
+                        new AccountScope(ownerId),
+                        recordId
+                );
+                runOnUiThread(() -> {
+                    knownInProgressRecordId = recordId;
+                    if (cardioSession) {
+                        openCardioSession(recordId);
+                    } else {
+                        openWorkoutSession(recordId);
+                    }
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("진행 중인 운동을 찾지 못했습니다."));
+            }
+        });
     }
 
     @Override
@@ -1650,54 +1811,58 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("만들어진 루틴이 없습니다.");
             return;
         }
-        if (continueExistingWorkoutIfPresent()) {
-            return;
-        }
-
-        List<RoutineExerciseInstance> legacyRoutineExercises = new ArrayList<>();
-        for (com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance exercise
-                : routineExercises) {
-            legacyRoutineExercises.add(new RoutineExerciseInstance(
-                    exercise.id,
-                    exercise.exerciseId,
-                    exercise.nameKo,
-                    exercise.uiPart,
-                    exercise.primarySubPart,
-                    exercise.equipment,
-                    exercise.recordType,
-                    exercise.order,
-                    exercise.familyIdentity
-            ));
-        }
-        String recordId = repository.createSessionFromRoutine(today(),
-                routineRepository.activeRoutineName(), routineRepository.activeRoutineId(),
-                legacyRoutineExercises);
-        toast("루틴 운동을 시작했습니다.");
-        openWorkoutSession(recordId);
+        String ownerId = currentOwnerId();
+        String date = today();
+        String title = routineNameForStart();
+        String routineId = selectedRoutineId;
+        executor.execute(() -> {
+            try {
+                AccountScope scope = new AccountScope(ownerId);
+                String activeRecordId = workoutSessionApplicationService.latestInProgress(scope);
+                if (activeRecordId != null) {
+                    boolean cardioSession = workoutSessionApplicationService.isCardioSession(
+                            scope,
+                            activeRecordId
+                    );
+                    runOnUiThread(() -> {
+                        knownInProgressRecordId = activeRecordId;
+                        toast("진행 중인 운동을 먼저 이어갑니다.");
+                        if (cardioSession) {
+                            openCardioSession(activeRecordId);
+                        } else {
+                            openWorkoutSession(activeRecordId);
+                        }
+                    });
+                    return;
+                }
+                String recordId = workoutSessionApplicationService.createSessionFromRoutine(
+                        scope, date, title, routineId, routineExercises
+                );
+                runOnUiThread(() -> {
+                    knownInProgressRecordId = recordId;
+                    toast("루틴 운동을 시작했습니다.");
+                    openWorkoutSession(recordId);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast(error.getMessage() == null
+                        ? "루틴 운동을 시작하지 못했습니다."
+                        : error.getMessage()));
+            }
+        });
     }
 
-    @Override
-    public void startRoutineWorkoutLegacy(List<RoutineExerciseInstance> routineExercises) {
-        if (routineExercises == null || routineExercises.isEmpty()) {
-            toast("만들어진 루틴이 없습니다.");
-            return;
+    private String routineNameForStart() {
+        RoutineEntryUiState state = routineEntryViewModel.getUiState().getValue();
+        if (state instanceof RoutineEntryUiState.Ready) {
+            RoutineEntryUiState.Ready ready = (RoutineEntryUiState.Ready) state;
+            String routineId = selectedRoutineId == null ? ready.getActiveRoutineId() : selectedRoutineId;
+            for (RoutineSummary routine : ready.getRoutines()) {
+                if (routine.id.equals(routineId)) {
+                    return routine.name;
+                }
+            }
         }
-        List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> featureExercises =
-                new ArrayList<>();
-        for (RoutineExerciseInstance exercise : routineExercises) {
-            featureExercises.add(new com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance(
-                    exercise.id,
-                    exercise.exerciseId,
-                    exercise.nameKo,
-                    exercise.uiPart,
-                    exercise.primarySubPart,
-                    exercise.equipment,
-                    exercise.recordType,
-                    exercise.order,
-                    exercise.familyIdentity
-            ));
-        }
-        startRoutineWorkout(featureExercises);
+        return "운동";
     }
 
     @Override
@@ -1707,7 +1872,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         if (onSessionScreen && sessionState.activeRecordId() != null) {
             return sessionState.activeRecordId();
         }
-        return repository.latestInProgressSessionId();
+        if (knownInProgressRecordId != null) {
+            return knownInProgressRecordId;
+        }
+        return homeViewModel == null ? null : homeViewModel.latestInProgressSessionId();
     }
 
     @Override
@@ -1716,39 +1884,87 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 "이 운동 기록과 세부 운동/세트 기록을 삭제 표시합니다.",
                 "삭제된 기록은 기록 탭에서 더 이상 보이지 않습니다.",
                 "삭제", () -> {
-                    boolean cardioSession = cardioRepository.isCardioSession(recordId);
-                    if (cardioSession) {
-                        cardioRepository.deleteLocalData(recordId);
-                    }
-                    repository.deleteSession(recordId);
-                    sessionState.clearIfMatches(recordId);
-                    toast("운동 기록을 삭제했습니다.");
-                    if (currentScreen == FitnessScreen.RECORDS) {
-                        render();
-                    } else {
-                        replace(cardioSession ? FitnessScreen.CARDIO : FitnessScreen.STRENGTH);
-                    }
+                    String ownerId = currentOwnerId();
+                    executor.execute(() -> {
+                        try {
+                            WorkoutSessionApplicationService.DeleteResult result =
+                                    workoutSessionApplicationService.delete(
+                                            new AccountScope(ownerId),
+                                            recordId
+                                    );
+                            runOnUiThread(() -> {
+                                if (recordId.equals(knownInProgressRecordId)) {
+                                    knownInProgressRecordId = null;
+                                }
+                                sessionState.clearIfMatches(recordId);
+                                toast("운동 기록을 삭제했습니다.");
+                                if (currentScreen == FitnessScreen.RECORDS) {
+                                    render();
+                                } else {
+                                    replace(result.cardioSession
+                                            ? FitnessScreen.CARDIO
+                                            : FitnessScreen.STRENGTH);
+                                }
+                            });
+                        } catch (Exception error) {
+                            runOnUiThread(() -> toast("운동 기록을 삭제하지 못했습니다."));
+                        }
+                    });
                 });
     }
 
     @Override
     public void startEmptyWorkout() {
-        if (continueExistingWorkoutIfPresent()) {
-            return;
-        }
-        openWorkoutSession(repository.createEmptySession(today()));
+        String ownerId = currentOwnerId();
+        String date = today();
+        executor.execute(() -> {
+            try {
+                AccountScope scope = new AccountScope(ownerId);
+                String activeRecordId = workoutSessionApplicationService.latestInProgress(scope);
+                if (activeRecordId != null) {
+                    boolean cardioSession = workoutSessionApplicationService.isCardioSession(
+                            scope,
+                            activeRecordId
+                    );
+                    runOnUiThread(() -> {
+                        knownInProgressRecordId = activeRecordId;
+                        toast("진행 중인 운동을 먼저 이어갑니다.");
+                        if (cardioSession) {
+                            openCardioSession(activeRecordId);
+                        } else {
+                            openWorkoutSession(activeRecordId);
+                        }
+                    });
+                    return;
+                }
+                String recordId = workoutSessionApplicationService.createEmptySession(scope, date);
+                runOnUiThread(() -> {
+                    knownInProgressRecordId = recordId;
+                    openWorkoutSession(recordId);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast(error.getMessage() == null
+                        ? "운동을 시작하지 못했습니다."
+                        : error.getMessage()));
+            }
+        });
     }
 
     @Override
     public void showPastWorkoutDialog() {
-        if (continueExistingWorkoutIfPresent()) {
-            return;
-        }
+        continueExistingWorkoutIfPresent(this::showPastWorkoutForm);
+    }
 
-        String activeRoutineId = routineRepository.activeRoutineId();
-        List<RoutineRepository.RoutineSummary> routines = routineRepository.routines();
-        RoutineRepository.RoutineSummary[] selectedRoutine = {null};
-        for (RoutineRepository.RoutineSummary routine : routines) {
+    private void showPastWorkoutForm() {
+
+        RoutineEntryUiState routineState = routineEntryViewModel.getUiState().getValue();
+        String activeRoutineId = selectedRoutineId;
+        if (activeRoutineId == null && routineState instanceof RoutineEntryUiState.Ready) {
+            activeRoutineId = ((RoutineEntryUiState.Ready) routineState).getActiveRoutineId();
+        }
+        List<RoutineSummary> routines = homeViewModel.routines();
+        RoutineSummary[] selectedRoutine = {null};
+        for (RoutineSummary routine : routines) {
             if (routine.id.equals(activeRoutineId)) {
                 selectedRoutine[0] = routine;
                 break;
@@ -1765,7 +1981,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             labels[0] = "루틴 없이 운동";
             int checked = 0;
             for (int index = 0; index < routines.size(); index++) {
-                RoutineRepository.RoutineSummary routine = routines.get(index);
+                RoutineSummary routine = routines.get(index);
                 labels[index + 1] = manualWorkoutRoutineLabel(routine);
                 if (selectedRoutine[0] != null && routine.id.equals(selectedRoutine[0].id)) {
                     checked = index + 1;
@@ -1802,20 +2018,39 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                     throw new IllegalArgumentException("종료 시각이 현재보다 늦을 수 없습니다.");
                 }
 
-                RoutineRepository.RoutineSummary routine = selectedRoutine[0];
+                RoutineSummary routine = selectedRoutine[0];
                 List<RoutineExerciseInstance> exercises = routine == null
                         ? java.util.Collections.emptyList()
-                        : routineRepository.routineExercises(routine.id);
-                String recordId = repository.createManualPastSessionFromRoutine(
-                        selectedDate.toString(),
-                        routine == null ? "루틴 없이 운동" : routine.name,
-                        routine == null ? null : routine.id,
-                        exercises,
-                        startedAt.toString(),
-                        endedAt.toString()
-                );
-                toast("세트와 횟수를 입력한 뒤 운동 완료를 누르세요.");
-                openWorkoutSession(recordId);
+                        : homeViewModel.routineExercises(routine.id);
+                String ownerId = currentOwnerId();
+                String date = selectedDate.toString();
+                String title = routine == null ? "루틴 없이 운동" : routine.name;
+                String routineId = routine == null ? null : routine.id;
+                String started = startedAt.toString();
+                String ended = endedAt.toString();
+                executor.execute(() -> {
+                    try {
+                        String recordId = workoutSessionApplicationService
+                                .createManualPastSessionFromRoutine(
+                                        new AccountScope(ownerId),
+                                        date,
+                                        title,
+                                        routineId,
+                                        exercises,
+                                        started,
+                                        ended
+                                );
+                        runOnUiThread(() -> {
+                            knownInProgressRecordId = recordId;
+                            toast("세트와 횟수를 입력한 뒤 운동 완료를 누르세요.");
+                            openWorkoutSession(recordId);
+                        });
+                    } catch (Exception error) {
+                        runOnUiThread(() -> toast(error.getMessage() == null
+                                ? "지난 운동을 저장하지 못했습니다."
+                                : error.getMessage()));
+                    }
+                });
                 return true;
             } catch (DateTimeParseException error) {
                 toast("날짜는 YYYY-MM-DD, 시작 시각은 HH:mm 형식으로 입력하세요.");
@@ -1827,7 +2062,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         });
     }
 
-    private static String manualWorkoutRoutineLabel(RoutineRepository.RoutineSummary routine) {
+    private static String manualWorkoutRoutineLabel(RoutineSummary routine) {
         return routine == null
                 ? "루틴 없이 운동"
                 : routine.name + " · " + routine.exerciseCount + "종목";
@@ -1839,27 +2074,42 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("유산소 유형을 선택하세요.");
             return;
         }
-        if (continueExistingWorkoutIfPresent()) {
-            return;
-        }
-        pendingCardioActivityType = activityType;
-        pendingCardioResumeRecordId = null;
-        requestCardioPermissionsAndContinue();
+        final CardioActivityType requestedActivityType = activityType;
+        continueExistingWorkoutIfPresent(() -> {
+            pendingCardioActivityType = requestedActivityType;
+            pendingCardioResumeRecordId = null;
+            requestCardioPermissionsAndContinue();
+        });
     }
 
     @Override
     public void openCardioSummary(String recordId) {
-        if (!cardioRepository.isCardioSession(recordId)) {
-            toast("이 기기의 GPS 세부 기록을 찾지 못했습니다.");
+        if (recordId == null) {
             return;
         }
-        sessionState.setActiveRecordId(recordId);
-        sessionState.setActiveExerciseId(null);
-        if (currentScreen == FitnessScreen.CARDIO_SESSION) {
-            replace(FitnessScreen.CARDIO_SUMMARY);
-        } else {
-            navigate(FitnessScreen.CARDIO_SUMMARY);
-        }
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                if (!cardioSessionApplicationService.isCardioSession(
+                        new AccountScope(ownerId),
+                        recordId
+                )) {
+                    runOnUiThread(() -> toast("이 기기의 GPS 세부 기록을 찾지 못했습니다."));
+                    return;
+                }
+                runOnUiThread(() -> {
+                    sessionState.setActiveRecordId(recordId);
+                    sessionState.setActiveExerciseId(null);
+                    if (currentScreen == FitnessScreen.CARDIO_SESSION) {
+                        replace(FitnessScreen.CARDIO_SUMMARY);
+                    } else {
+                        navigate(FitnessScreen.CARDIO_SUMMARY);
+                    }
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("유산소 기록을 열지 못했습니다."));
+            }
+        });
     }
 
     @Override
@@ -1869,7 +2119,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
         executor.execute(() -> {
             try {
-                CardioRouteProjection projection = cardioRepository.routeProjection(recordId);
+                CardioRouteProjection projection = cardioSessionApplicationService.route(
+                        new AccountScope(currentOwnerId()),
+                        recordId
+                );
                 dispatchCardioRouteCallback(() -> callback.onComplete(projection));
             } catch (Exception error) {
                 dispatchCardioRouteCallback(() -> callback.onError(error));
@@ -1926,103 +2179,231 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     @Override
     public void pauseCardioWorkout() {
         String recordId = sessionState.activeRecordId();
-        if (recordId == null || !cardioRepository.pause(recordId)) {
+        if (recordId == null) {
             toast("일시정지할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
-        toast("GPS 기록을 일시정지했습니다.");
-        render();
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                boolean paused = cardioSessionApplicationService.pause(
+                        new AccountScope(ownerId),
+                        recordId
+                );
+                runOnUiThread(() -> {
+                    if (!paused) {
+                        toast("일시정지할 유산소 기록을 찾지 못했습니다.");
+                        return;
+                    }
+                    dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
+                    toast("GPS 기록을 일시정지했습니다.");
+                    render();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("유산소 기록을 일시정지하지 못했습니다."));
+            }
+        });
     }
 
     @Override
     public void resumeCardioWorkout() {
         String recordId = sessionState.activeRecordId();
-        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
-        if (snapshot == null || !CardioRepository.STATUS_PAUSED.equals(snapshot.status)) {
+        if (recordId == null) {
             toast("재개할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        pendingCardioActivityType = snapshot.activityType;
-        pendingCardioResumeRecordId = recordId;
-        requestCardioPermissionsAndContinue();
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(
+                        new AccountScope(ownerId),
+                        recordId
+                );
+                runOnUiThread(() -> {
+                    if (snapshot == null
+                            || !CardioSessionSnapshot.STATUS_PAUSED.equals(snapshot.getStatus())) {
+                        toast("재개할 유산소 기록을 찾지 못했습니다.");
+                        return;
+                    }
+                    pendingCardioActivityType = cardioActivityType(snapshot);
+                    pendingCardioResumeRecordId = recordId;
+                    requestCardioPermissionsAndContinue();
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("재개할 유산소 기록을 찾지 못했습니다."));
+            }
+        });
     }
 
     @Override
     public void finishCardioWorkout() {
         String recordId = sessionState.activeRecordId();
-        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
-        if (snapshot == null) {
+        if (recordId == null) {
             toast("완료할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        if (CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
-            openCardioSummary(recordId);
-            return;
-        }
-        if (CardioRepository.STATUS_TRACKING.equals(snapshot.status)
-                && cardioRepository.pause(recordId)) {
-            dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
-            render();
-        }
-        showCardioHeartRateSheet(recordId, true);
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                AccountScope scope = new AccountScope(ownerId);
+                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(scope, recordId);
+                if (snapshot == null) {
+                    runOnUiThread(() -> toast("완료할 유산소 기록을 찾지 못했습니다."));
+                    return;
+                }
+                if (CardioSessionSnapshot.STATUS_COMPLETED.equals(snapshot.getStatus())) {
+                    runOnUiThread(() -> openCardioSummary(recordId));
+                    return;
+                }
+                if (CardioSessionSnapshot.STATUS_TRACKING.equals(snapshot.getStatus())
+                        && cardioSessionApplicationService.pause(scope, recordId)) {
+                    snapshot = cardioSessionApplicationService.load(scope, recordId);
+                    CardioSessionSnapshot pausedSnapshot = snapshot;
+                    runOnUiThread(() -> {
+                        dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
+                        render();
+                        showCardioHeartRateSheet(recordId, true, pausedSnapshot);
+                    });
+                    return;
+                }
+                CardioSessionSnapshot currentSnapshot = snapshot;
+                runOnUiThread(() -> showCardioHeartRateSheet(
+                        recordId,
+                        true,
+                        currentSnapshot
+                ));
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("유산소 기록을 완료할 수 없습니다."));
+            }
+        });
     }
 
     @Override
     public void editCardioAverageHeartRate() {
         String recordId = sessionState.activeRecordId();
-        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
-        if (snapshot == null || !CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
+        if (recordId == null) {
             toast("수정할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        showCardioHeartRateSheet(recordId, false);
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(
+                        new AccountScope(ownerId),
+                        recordId
+                );
+                runOnUiThread(() -> {
+                    if (snapshot == null
+                            || !CardioSessionSnapshot.STATUS_COMPLETED.equals(snapshot.getStatus())) {
+                        toast("수정할 유산소 기록을 찾지 못했습니다.");
+                        return;
+                    }
+                    showCardioHeartRateSheet(recordId, false, snapshot);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("유산소 기록을 찾지 못했습니다."));
+            }
+        });
     }
 
     @Override
     public void cancelCardioWorkout() {
         String recordId = sessionState.activeRecordId();
-        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
-        if (snapshot == null) {
+        if (recordId == null) {
             toast("취소할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        ui.confirmSheet(
-                "유산소 기록 취소",
-                "현재 " + CardioMetrics.formatDistanceKilometers(snapshot.distanceMeters)
-                        + "km 기록을 저장하지 않습니다.",
-                "이 기기에 저장된 GPS 좌표도 함께 삭제됩니다.",
-                "기록 취소",
-                () -> {
-                    stopService(new Intent(this, CardioTrackingService.class));
-                    cardioRepository.cancel(recordId);
-                    sessionState.clearIfMatches(recordId);
-                    toast("유산소 기록을 취소했습니다.");
-                    replace(FitnessScreen.CARDIO);
-                }
-        );
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(
+                        new AccountScope(ownerId),
+                        recordId
+                );
+                runOnUiThread(() -> {
+                    if (snapshot == null) {
+                        toast("취소할 유산소 기록을 찾지 못했습니다.");
+                        return;
+                    }
+                    ui.confirmSheet(
+                            "유산소 기록 취소",
+                            "현재 " + CardioMetrics.formatDistanceKilometers(
+                                    snapshot.getDistanceMeters()
+                            ) + "km 기록을 저장하지 않습니다.",
+                            "이 기기에 저장된 GPS 좌표도 함께 삭제됩니다.",
+                            "기록 취소",
+                            () -> {
+                                stopService(new Intent(this, CardioTrackingService.class));
+                                executor.execute(() -> {
+                                    try {
+                                        cardioSessionApplicationService.cancel(
+                                                new AccountScope(ownerId),
+                                                recordId
+                                        );
+                                        runOnUiThread(() -> {
+                                            if (recordId.equals(knownInProgressRecordId)) {
+                                                knownInProgressRecordId = null;
+                                            }
+                                            sessionState.clearIfMatches(recordId);
+                                            toast("유산소 기록을 취소했습니다.");
+                                            replace(FitnessScreen.CARDIO);
+                                        });
+                                    } catch (Exception error) {
+                                        runOnUiThread(() -> toast("유산소 기록을 취소하지 못했습니다."));
+                                    }
+                                });
+                            }
+                    );
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("취소할 유산소 기록을 찾지 못했습니다."));
+            }
+        });
     }
 
     private void openCardioSession(String recordId) {
-        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+        if (recordId == null) {
+            toast("GPS 유산소 상태를 찾지 못했습니다.");
+            return;
+        }
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(
+                        new AccountScope(ownerId),
+                        recordId
+                );
+                runOnUiThread(() -> openCardioSessionLoaded(snapshot));
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("GPS 유산소 상태를 찾지 못했습니다."));
+            }
+        });
+    }
+
+    private void openCardioSessionLoaded(CardioSessionSnapshot snapshot) {
         if (snapshot == null) {
             toast("GPS 유산소 상태를 찾지 못했습니다.");
             return;
         }
+        String recordId = snapshot.getRecordId();
         sessionState.setActiveRecordId(recordId);
         sessionState.setActiveExerciseId(null);
-        if (CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
+        if (CardioSessionSnapshot.STATUS_COMPLETED.equals(snapshot.getStatus())) {
             navigate(FitnessScreen.CARDIO_SUMMARY);
             return;
         }
-        if (CardioRepository.STATUS_TRACKING.equals(snapshot.status)) {
+        knownInProgressRecordId = recordId;
+        if (CardioSessionSnapshot.STATUS_TRACKING.equals(snapshot.getStatus())) {
             dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
         }
         navigate(FitnessScreen.CARDIO_SESSION);
     }
 
-    private void showCardioHeartRateSheet(String recordId, boolean finishAfterSave) {
-        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
+    private void showCardioHeartRateSheet(
+            String recordId,
+            boolean finishAfterSave,
+            CardioSessionSnapshot snapshot
+    ) {
         if (snapshot == null) {
             toast("유산소 기록을 찾지 못했습니다.");
             return;
@@ -2031,7 +2412,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         LinearLayout form = ui.form();
         int elapsedSeconds = snapshot.elapsedSeconds(System.currentTimeMillis());
         TextView summary = ui.text(
-                CardioMetrics.formatDistanceKilometers(snapshot.distanceMeters)
+                CardioMetrics.formatDistanceKilometers(snapshot.getDistanceMeters())
                         + "km · " + CardioMetrics.formatElapsed(elapsedSeconds),
                 14,
                 FitnessUi.COLOR_MUTED,
@@ -2039,8 +2420,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         );
         EditText averageHeartRate = ui.numberInput(
                 "평균 심박수 bpm (선택)",
-                CardioMetrics.hasAverageHeartRate(snapshot.averageHeartRateBpm)
-                        ? CardioMetrics.formatAverageHeartRate(snapshot.averageHeartRateBpm)
+                CardioMetrics.hasAverageHeartRate(snapshot.getAverageHeartRateBpm())
+                        ? CardioMetrics.formatAverageHeartRate(snapshot.getAverageHeartRateBpm())
                         : ""
         );
         TextView hint = ui.text(
@@ -2052,7 +2433,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         ui.addAll(form, summary, averageHeartRate, hint);
 
         ui.validatedSheet(
-                finishAfterSave ? snapshot.activityType.labelKo() + " 완료" : "평균 심박수 수정",
+                finishAfterSave ? cardioActivityType(snapshot).labelKo() + " 완료" : "평균 심박수 수정",
                 form,
                 finishAfterSave ? "운동 완료" : "저장",
                 () -> {
@@ -2065,38 +2446,72 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         return false;
                     }
 
-                    CardioRepository.SessionSnapshot saved = finishAfterSave
-                            ? cardioRepository.finish(recordId, averageHeartRateBpm)
-                            : cardioRepository.updateAverageHeartRate(recordId, averageHeartRateBpm);
-                    if (saved == null) {
-                        toast("평균 심박수를 저장하지 못했습니다.");
-                        return false;
-                    }
-                    if (finishAfterSave) {
-                        stopService(new Intent(this, CardioTrackingService.class));
-                        toast("유산소 운동을 완료했습니다.");
-                        openCardioSummary(recordId);
-                    } else {
-                        toast("평균 심박수를 저장했습니다.");
-                        render();
-                    }
+                    String ownerId = currentOwnerId();
+                    executor.execute(() -> {
+                        try {
+                            AccountScope scope = new AccountScope(ownerId);
+                            CardioSessionSnapshot saved = finishAfterSave
+                                    ? cardioSessionApplicationService.finish(
+                                            scope,
+                                            recordId,
+                                            averageHeartRateBpm
+                                    )
+                                    : cardioSessionApplicationService.updateAverageHeartRate(
+                                            scope,
+                                            recordId,
+                                            averageHeartRateBpm
+                                    );
+                            runOnUiThread(() -> {
+                                if (saved == null) {
+                                    toast("평균 심박수를 저장하지 못했습니다.");
+                                    return;
+                                }
+                                if (finishAfterSave) {
+                                    knownInProgressRecordId = null;
+                                    stopService(new Intent(this, CardioTrackingService.class));
+                                    toast("유산소 운동을 완료했습니다.");
+                                    openCardioSummary(recordId);
+                                } else {
+                                    toast("평균 심박수를 저장했습니다.");
+                                    render();
+                                }
+                            });
+                        } catch (Exception error) {
+                            runOnUiThread(() -> toast("평균 심박수를 저장하지 못했습니다."));
+                        }
+                    });
                     return true;
                 }
         );
     }
 
-    private boolean continueExistingWorkoutIfPresent() {
-        String activeRecordId = repository.latestInProgressSessionId();
-        if (activeRecordId == null) {
-            return false;
-        }
-        toast("진행 중인 운동을 먼저 이어갑니다.");
-        if (cardioRepository.isCardioSession(activeRecordId)) {
-            openCardioSession(activeRecordId);
-        } else {
-            openWorkoutSession(activeRecordId);
-        }
-        return true;
+    private void continueExistingWorkoutIfPresent(Runnable ifNone) {
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                AccountScope scope = new AccountScope(ownerId);
+                String activeRecordId = workoutSessionApplicationService.latestInProgress(scope);
+                if (activeRecordId == null) {
+                    runOnUiThread(ifNone);
+                    return;
+                }
+                boolean cardioSession = workoutSessionApplicationService.isCardioSession(
+                        scope,
+                        activeRecordId
+                );
+                runOnUiThread(() -> {
+                    knownInProgressRecordId = activeRecordId;
+                    toast("진행 중인 운동을 먼저 이어갑니다.");
+                    if (cardioSession) {
+                        openCardioSession(activeRecordId);
+                    } else {
+                        openWorkoutSession(activeRecordId);
+                    }
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("진행 중인 운동을 확인하지 못했습니다."));
+            }
+        });
     }
 
     private void requestCardioPermissionsAndContinue() {
@@ -2142,27 +2557,59 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         if (activityType == null || !hasPreciseLocationPermission()) {
             return;
         }
+        String ownerId = currentOwnerId();
+        String date = today();
+        executor.execute(() -> {
+            try {
+                AccountScope scope = new AccountScope(ownerId);
+                if (resumeRecordId != null) {
+                    CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(
+                            scope,
+                            resumeRecordId
+                    );
+                    if (snapshot == null || !cardioSessionApplicationService.resume(
+                            scope,
+                            resumeRecordId
+                    )) {
+                        runOnUiThread(() -> toast("재개할 유산소 기록을 찾지 못했습니다."));
+                        return;
+                    }
+                    runOnUiThread(() -> {
+                        knownInProgressRecordId = resumeRecordId;
+                        dispatchCardioService(
+                                CardioTrackingService.ACTION_RESUME,
+                                resumeRecordId,
+                                true
+                        );
+                        sessionState.setActiveRecordId(resumeRecordId);
+                        toast("GPS 기록을 재개했습니다.");
+                        navigate(FitnessScreen.CARDIO_SESSION);
+                    });
+                    return;
+                }
 
-        if (resumeRecordId != null) {
-            CardioRepository.SessionSnapshot snapshot = cardioRepository.session(resumeRecordId);
-            if (snapshot == null) {
-                toast("재개할 유산소 기록을 찾지 못했습니다.");
-                return;
+                CardioSessionSnapshot snapshot = cardioSessionApplicationService.start(
+                        scope,
+                        activityType,
+                        date
+                );
+                if (snapshot == null) {
+                    runOnUiThread(() -> toast("유산소 기록을 시작하지 못했습니다."));
+                    return;
+                }
+                runOnUiThread(() -> {
+                    String recordId = snapshot.getRecordId();
+                    knownInProgressRecordId = recordId;
+                    sessionState.setActiveRecordId(recordId);
+                    sessionState.setActiveExerciseId(null);
+                    dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
+                    toast(activityType.labelKo() + " 기록을 시작했습니다.");
+                    navigate(FitnessScreen.CARDIO_SESSION);
+                });
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("유산소 기록을 시작하지 못했습니다."));
             }
-            cardioRepository.resume(resumeRecordId);
-            dispatchCardioService(CardioTrackingService.ACTION_RESUME, resumeRecordId, true);
-            sessionState.setActiveRecordId(resumeRecordId);
-            toast("GPS 기록을 재개했습니다.");
-            navigate(FitnessScreen.CARDIO_SESSION);
-            return;
-        }
-
-        String recordId = cardioRepository.startSession(activityType, today());
-        sessionState.setActiveRecordId(recordId);
-        sessionState.setActiveExerciseId(null);
-        dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
-        toast(activityType.labelKo() + " 기록을 시작했습니다.");
-        navigate(FitnessScreen.CARDIO_SESSION);
+        });
     }
 
     private void dispatchCardioService(String action, String recordId, boolean foregroundStart) {
@@ -2177,26 +2624,47 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private void handleCardioIntent(Intent intent) {
-        if (intent == null || cardioRepository == null) {
+        if (intent == null || cardioSessionApplicationService == null) {
             return;
         }
         String recordId = intent.getStringExtra(CardioTrackingService.EXTRA_RECORD_ID);
-        if (recordId == null || !cardioRepository.isCardioSession(recordId)) {
+        if (recordId == null) {
             return;
         }
         boolean finishRequested = intent.getBooleanExtra(
                 CardioTrackingService.EXTRA_FINISH_REQUESTED, false);
         intent.removeExtra(CardioTrackingService.EXTRA_RECORD_ID);
         intent.removeExtra(CardioTrackingService.EXTRA_FINISH_REQUESTED);
-        CardioRepository.SessionSnapshot snapshot = cardioRepository.session(recordId);
-        if (snapshot != null && CardioRepository.STATUS_COMPLETED.equals(snapshot.status)) {
-            openCardioSummary(recordId);
-        } else {
-            openCardioSession(recordId);
-            if (finishRequested) {
-                finishCardioWorkout();
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                AccountScope scope = new AccountScope(ownerId);
+                if (!cardioSessionApplicationService.isCardioSession(scope, recordId)) {
+                    return;
+                }
+                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(scope, recordId);
+                runOnUiThread(() -> {
+                    if (snapshot != null
+                            && CardioSessionSnapshot.STATUS_COMPLETED.equals(snapshot.getStatus())) {
+                        openCardioSummary(recordId);
+                    } else {
+                        openCardioSession(recordId);
+                        if (finishRequested) {
+                            finishCardioWorkout();
+                        }
+                    }
+                });
+            } catch (Exception ignored) {
+                // A stale service notification must not reopen a different account's record.
             }
-        }
+        });
+    }
+
+    private static CardioActivityType cardioActivityType(CardioSessionSnapshot snapshot) {
+        CardioActivityType activityType = snapshot == null
+                ? null
+                : CardioActivityType.fromId(snapshot.getActivityId());
+        return activityType == null ? CardioActivityType.WALKING : activityType;
     }
 
     private boolean hasPreciseLocationPermission() {
@@ -2229,22 +2697,38 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void showBodyMetricDialog(String date, String recordId) {
-        FitnessRepository.BodyMetricEntry existing = recordId == null
-                ? repository.bodyMetricForDate(date)
-                : repository.bodyMetricEntryById(recordId);
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                BodyMetricsApplicationService.Editor existing = bodyMetricsApplicationService.load(
+                        new AccountScope(ownerId),
+                        date,
+                        recordId
+                );
+                runOnUiThread(() -> showBodyMetricDialogForm(ownerId, existing));
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("체중 기록을 불러오지 못했습니다."));
+            }
+        });
+    }
+
+    private void showBodyMetricDialogForm(
+            String ownerId,
+            BodyMetricsApplicationService.Editor existing
+    ) {
         MassUnit inputUnit = preferredMassUnit();
         LinearLayout form = ui.form();
-        EditText dateInput = ui.input("날짜 (YYYY-MM-DD)", date);
+        EditText dateInput = ui.input("날짜 (YYYY-MM-DD)", existing.date);
         EditText weight = ui.decimalInput(
                 "체중 " + inputUnit.symbol(),
-                existing == null ? "" : MassFormatter.formatInput(existing.weightKg, inputUnit)
+                existing.exists() ? MassFormatter.formatInput(existing.weightKg, inputUnit) : ""
         );
         EditText memo = ui.input("메모 (선택)", "");
-        if (existing != null) {
+        if (existing.exists()) {
             memo.setText(existing.memo);
         }
         ui.addAll(form, dateInput, weight, memo);
-        ui.validatedSheet(existing == null ? "체중 기록" : "체중 수정", form,
+        ui.validatedSheet(!existing.exists() ? "체중 기록" : "체중 수정", form,
                 "저장", () -> {
                     try {
                         String selectedDate = FitnessUi.inputText(dateInput);
@@ -2253,31 +2737,40 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                             throw new IllegalArgumentException("체중을 입력하세요.");
                         }
                         double selectedWeightKg = MassUnit.toKg(selectedWeight, inputUnit);
-                        if (existing == null) {
-                            repository.addBodyMetric(
-                                    selectedDate,
-                                    selectedWeightKg,
-                                    FitnessUi.inputText(memo)
-                            );
-                        } else {
-                            repository.updateBodyMetric(
-                                    existing.id,
-                                    selectedDate,
-                                    selectedWeightKg,
-                                    FitnessUi.inputText(memo)
-                            );
-                        }
-                        render();
+                        String selectedMemo = FitnessUi.inputText(memo);
+                        executor.execute(() -> {
+                            try {
+                                bodyMetricsApplicationService.save(
+                                        new AccountScope(ownerId),
+                                        existing.recordId,
+                                        selectedDate,
+                                        selectedWeightKg,
+                                        selectedMemo
+                                );
+                                runOnUiThread(() -> render());
+                            } catch (Exception error) {
+                                runOnUiThread(() -> toast("체중 기록을 저장하지 못했습니다."));
+                            }
+                        });
                         return true;
                     } catch (IllegalArgumentException error) {
                         toast(error.getMessage());
                         return false;
                     }
                 },
-                existing == null ? null : "이 기록 삭제",
-                existing == null ? null : () -> {
-                    repository.deleteBodyMetric(existing.id);
-                    render();
+                !existing.exists() ? null : "이 기록 삭제",
+                !existing.exists() ? null : () -> {
+                    executor.execute(() -> {
+                        try {
+                            bodyMetricsApplicationService.delete(
+                                    new AccountScope(ownerId),
+                                    existing.recordId
+                            );
+                            runOnUiThread(() -> render());
+                        } catch (Exception error) {
+                            runOnUiThread(() -> toast("체중 기록을 삭제하지 못했습니다."));
+                        }
+                    });
                 });
     }
 
@@ -2293,25 +2786,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void openMealManagement(String date, FitnessScreen returnScreen) {
-        BaseScreen meals = screens.get(FitnessScreen.MEALS);
-        if (meals instanceof MealManagementScreen) {
-            ((MealManagementScreen) meals).selectDate(date);
-            ((MealManagementScreen) meals).setReturnScreen(returnScreen);
-        }
+        selectedMealDate = date == null ? today() : date;
+        mealReturnScreen = returnScreen == null ? FitnessScreen.WORKOUT : returnScreen;
         navigate(FitnessScreen.MEALS);
-    }
-
-    @Override
-    public void openSettingsConnections() {
-        if (!isDeveloperSurfaceAllowed()) {
-            navigate(FitnessScreen.SETTINGS);
-            return;
-        }
-        BaseScreen settings = screens.get(FitnessScreen.SETTINGS);
-        if (settings instanceof SettingsScreen) {
-            ((SettingsScreen) settings).showAdvancedConnections();
-        }
-        navigate(FitnessScreen.SETTINGS);
     }
 
     @Override
@@ -2320,14 +2797,29 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     @Override
-    public DevelopmentRepository developmentRepository() {
-        return developmentRepository;
+    public void showDevelopmentBodyProfileDialog() {
+        String ownerId = currentOwnerId();
+        String date = today();
+        executor.execute(() -> {
+            try {
+                DevelopmentApplicationService.ProfileEditor editor =
+                        developmentApplicationService.loadProfileEditor(
+                                new AccountScope(ownerId),
+                                date
+                        );
+                runOnUiThread(() -> showDevelopmentBodyProfileDialogForm(ownerId, date, editor));
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("바디 정보를 불러오지 못했습니다."));
+            }
+        });
     }
 
-    @Override
-    public void showDevelopmentBodyProfileDialog() {
-        BodyProfile currentProfile = developmentRepository.bodyProfile();
-        FitnessRepository.BodyMetricEntry todayWeight = repository.bodyMetricForDate(today());
+    private void showDevelopmentBodyProfileDialogForm(
+            String ownerId,
+            String date,
+            DevelopmentApplicationService.ProfileEditor editor
+    ) {
+        BodyProfile currentProfile = editor.profile;
         LinearLayout form = ui.form();
         EditText heightInput = ui.numberInput(
                 "키 cm",
@@ -2336,9 +2828,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         MassUnit inputUnit = preferredMassUnit();
         EditText weightInput = ui.decimalInput(
                 "오늘 체중 " + inputUnit.symbol(),
-                todayWeight == null
+                editor.weightKg == null
                         ? ""
-                        : MassFormatter.formatInput(todayWeight.weightKg, inputUnit)
+                        : MassFormatter.formatInput(editor.weightKg, inputUnit)
         );
         ui.addAll(form, heightInput, weightInput);
         ui.validatedSheet("바디 정보 수정", form, "저장", () -> {
@@ -2364,17 +2856,24 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                     }
                     nextWeightKg = weightKg;
                 }
-                if (nextProfile != null) {
-                    developmentRepository.saveBodyProfile(nextProfile);
-                }
-                if (nextWeightKg != null) {
-                    repository.addBodyMetric(
-                            today(),
-                            nextWeightKg,
-                            todayWeight == null ? "" : todayWeight.memo
-                    );
-                }
-                render();
+                BodyProfile savedProfile = nextProfile;
+                Double savedWeightKg = nextWeightKg;
+                String weightMemo = editor.weightMemo;
+                executor.execute(() -> {
+                    try {
+                        developmentApplicationService.saveProfileAndWeight(
+                                new AccountScope(ownerId),
+                                savedProfile,
+                                editor.weightRecordId,
+                                date,
+                                savedWeightKg,
+                                weightMemo
+                        );
+                        runOnUiThread(() -> render());
+                    } catch (Exception error) {
+                        runOnUiThread(() -> toast("바디 정보를 저장하지 못했습니다."));
+                    }
+                });
                 return true;
             } catch (NumberFormatException error) {
                 toast("숫자 형식이 올바르지 않습니다.");
@@ -2388,7 +2887,23 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void showDevelopmentGoalDialog() {
-        DevelopmentGoal currentGoal = developmentRepository.developmentGoal();
+        String ownerId = currentOwnerId();
+        executor.execute(() -> {
+            try {
+                DevelopmentGoal currentGoal = developmentApplicationService.loadGoal(
+                        new AccountScope(ownerId)
+                );
+                runOnUiThread(() -> showDevelopmentGoalDialogForm(ownerId, currentGoal));
+            } catch (Exception error) {
+                runOnUiThread(() -> toast("발전 목표를 불러오지 못했습니다."));
+            }
+        });
+    }
+
+    private void showDevelopmentGoalDialogForm(
+            String ownerId,
+            DevelopmentGoal currentGoal
+    ) {
         String[] objectiveCodes = DevelopmentGoal.OBJECTIVES.toArray(new String[0]);
         String[] objectiveLabels = new String[objectiveCodes.length];
         for (int index = 0; index < objectiveCodes.length; index++) {
@@ -2452,15 +2967,25 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         && currentGoal.weeklySessionsTarget == weeklySessions
                         && currentGoal.focusBodyPart.equals(selectedFocus[0]);
                 String effectiveFrom = unchanged ? currentGoal.effectiveFrom : today();
-                developmentRepository.saveDevelopmentGoal(new DevelopmentGoal(
+                DevelopmentGoal nextGoal = new DevelopmentGoal(
                         selectedObjective[0],
                         weeklySessions,
                         selectedFocus[0],
                         effectiveFrom,
                         "",
                         ""
-                ));
-                render();
+                );
+                executor.execute(() -> {
+                    try {
+                        developmentApplicationService.saveGoal(
+                                new AccountScope(ownerId),
+                                nextGoal
+                        );
+                        runOnUiThread(() -> render());
+                    } catch (Exception error) {
+                        runOnUiThread(() -> toast("발전 목표를 저장하지 못했습니다."));
+                    }
+                });
                 return true;
             } catch (NumberFormatException error) {
                 toast("주간 세션은 숫자로 입력해 주세요.");
@@ -2505,75 +3030,27 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void createLocalBackup() {
-        if (isDataTransferInProgress || isDataImporting) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        openCreateDocument(
-                "application/json",
-                "fitness-os-backup-" + today() + ".json",
-                REQUEST_LOCAL_BACKUP_EXPORT
-        );
+        dataTransferCoordinator.createLocalBackup();
     }
 
     @Override
     public void restoreLocalBackup() {
-        if (isDataTransferInProgress || isDataImporting) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("application/json");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, REQUEST_LOCAL_BACKUP_RESTORE);
-        } catch (Exception error) {
-            toast("백업 파일 선택기를 열지 못했습니다.");
-        }
+        dataTransferCoordinator.restoreLocalBackup();
     }
 
     @Override
     public void exportRecordsCsv() {
-        if (isDataTransferInProgress || isDataImporting) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        openCreateDocument(
-                "text/csv",
-                "fitness-os-records-" + today() + ".csv",
-                REQUEST_RECORDS_CSV_EXPORT
-        );
+        dataTransferCoordinator.exportRecordsCsv();
     }
 
     @Override
     public void openWorkoutTransferImport() {
-        if (isDataTransferInProgress || isDataImporting) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("application/json");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, REQUEST_WORKOUT_TRANSFER_IMPORT);
-        } catch (Exception error) {
-            toast("운동 전송 JSON 선택기를 열지 못했습니다.");
-        }
+        dataTransferCoordinator.openWorkoutTransferImport();
     }
 
     @Override
     public void exportWorkoutTransfer() {
-        if (isDataTransferInProgress || isDataImporting) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        openCreateDocument(
-                "application/json",
-                "yeonsik-workout-transfer-" + today() + ".json",
-                REQUEST_WORKOUT_TRANSFER_EXPORT
-        );
+        dataTransferCoordinator.exportWorkoutTransfer();
     }
 
     @Override
@@ -2586,227 +3063,34 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         return dataTransferDetail;
     }
 
-    private void openCreateDocument(String mimeType, String fileName, int requestCode) {
-        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType(mimeType);
-        intent.putExtra(Intent.EXTRA_TITLE, fileName);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, requestCode);
-        } catch (Exception error) {
-            toast("파일 저장 위치를 열지 못했습니다.");
-        }
-    }
 
-    private LocalDataBackupService localDataBackupService() {
-        return new LocalDataBackupService(
-                roomDatabase,
-                this,
-                repository.currentUserId(),
-                nutritionSupabaseConfig.effectiveUserId()
-        );
-    }
 
-    private void writeLocalBackup(Uri uri) {
-        beginDataTransfer("백업 파일을 만드는 중입니다.");
-        executor.execute(() -> {
-            try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
-                if (output == null) {
-                    throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
-                }
-                localDataBackupService().writeBackup(output);
-                finishDataTransfer("전체 백업을 저장했습니다.", null);
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(error, "백업을 저장하지 못했습니다."));
-            }
-        });
-    }
 
-    private void previewLocalBackup(Uri uri) {
-        beginDataTransfer("백업 파일을 확인하는 중입니다.");
-        executor.execute(() -> {
-            try (InputStream input = getContentResolver().openInputStream(uri)) {
-                if (input == null) {
-                    throw new IOException("선택한 백업 파일을 읽을 수 없습니다.");
-                }
-                LocalDataBackupService.BackupPreview preview =
-                        localDataBackupService().previewBackup(input);
-                runOnUiThread(() -> {
-                    isDataTransferInProgress = false;
-                    dataTransferDetail = preview.getTotalRows() + "개 항목 확인됨";
-                    render();
-                    ui.confirmSheet(
-                            "백업 복원",
-                            preview.getTotalRows() + "개 항목을 현재 기록에 합칩니다. "
-                                    + "기존 기록은 유지하고 같은 항목은 건너뜁니다.",
-                            null,
-                            "병합 복원",
-                            () -> restoreLocalBackup(uri)
-                    );
-                });
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(error, "백업 파일을 확인하지 못했습니다."));
-            }
-        });
-    }
 
-    private void restoreLocalBackup(Uri uri) {
-        beginDataTransfer("백업을 복원하는 중입니다.");
-        executor.execute(() -> {
-            try (InputStream input = getContentResolver().openInputStream(uri)) {
-                if (input == null) {
-                    throw new IOException("선택한 백업 파일을 다시 읽을 수 없습니다.");
-                }
-                LocalDataBackupService.RestoreResult result =
-                        localDataBackupService().restoreBackup(input);
-                repository.reconcileSharedWorkoutSummaries();
-                finishDataTransfer(
-                        result.getImportedRows() + "개 복원 · "
-                                + result.getSkippedRows() + "개 중복 건너뜀",
-                        null
-                );
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(error, "백업을 복원하지 못했습니다."));
-            }
-        });
-    }
 
-    private void writeRecordsCsv(Uri uri) {
-        beginDataTransfer("기록 요약 CSV를 만드는 중입니다.");
-        executor.execute(() -> {
-            try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
-                if (output == null) {
-                    throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
-                }
-                localDataBackupService().writeRecordsSummaryCsv(output);
-                finishDataTransfer("기록 요약 CSV를 저장했습니다.", null);
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(error, "CSV를 저장하지 못했습니다."));
-            }
-        });
-    }
 
-    private void writeWorkoutTransfer(Uri uri) {
-        beginDataTransfer("운동 전송 JSON을 만드는 중입니다.");
-        executor.execute(() -> {
-            try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
-                if (output == null) {
-                    throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
-                }
-                new WorkoutTransferService(repository).writeJson(output);
-                finishDataTransfer("Workout Transfer v2 JSON을 저장했습니다.", null);
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(
-                        error,
-                        "운동 전송 JSON을 저장하지 못했습니다."
-                ));
-            }
-        });
-    }
 
-    private void importWorkoutTransfer(Uri uri) {
-        beginDataTransfer("운동 전송 JSON을 읽고 기록을 합치는 중입니다.");
-        executor.execute(() -> {
-            try (InputStream input = getContentResolver().openInputStream(uri)) {
-                if (input == null) {
-                    throw new IOException("선택한 운동 전송 파일을 읽을 수 없습니다.");
-                }
-                FitnessRepository.WorkoutTransferImportResult result =
-                        new WorkoutTransferService(repository).importJson(input);
-                repository.reconcileSharedWorkoutSummaries();
-                finishDataTransfer(result.summary(), null);
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(
-                        error,
-                        "운동 전송 JSON을 가져오지 못했습니다."
-                ));
-            }
-        });
-    }
 
-    private void beginDataTransfer(String detail) {
-        isDataTransferInProgress = true;
-        dataTransferDetail = detail;
-        render();
-    }
 
-    private void finishDataTransfer(String success, String failure) {
-        runOnUiThread(() -> {
-            isDataTransferInProgress = false;
-            dataTransferDetail = failure == null ? success : failure;
-            render();
-            toast(dataTransferDetail);
-        });
-    }
 
-    private static String dataTransferError(Exception error, String fallback) {
-        String message = error.getMessage();
-        if (message == null || message.trim().isEmpty()) {
-            return fallback;
-        }
-        return message.matches(".*[ㄱ-ㅎㅏ-ㅣ가-힣].*") ? message : fallback;
-    }
+
+
+
+
+
+
+
+
+
+
+
 
     @Override
     public void openFleekDataImport() {
-        if (isDataImporting || isDataTransferInProgress) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("text/*");
-        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
-                "text/csv",
-                "text/comma-separated-values",
-                "application/csv",
-                "application/vnd.ms-excel",
-                "text/plain"
-        });
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, REQUEST_FLEEK_CSV_IMPORT);
-        } catch (Exception error) {
-            toast("CSV 파일 선택기를 열지 못했습니다.");
-        }
+        dataTransferCoordinator.openFleekDataImport();
     }
 
-    private void importFleekCsv(Uri uri) {
-        if (isDataImporting) return;
-        isDataImporting = true;
-        dataImportDetail = "CSV를 읽고 운동 기록을 변환하는 중입니다.";
-        render();
-        executor.execute(() -> {
-            try (InputStream input = getContentResolver().openInputStream(uri)) {
-                if (input == null) {
-                    throw new IllegalArgumentException("선택한 CSV 파일을 읽지 못했습니다.");
-                }
-                FleekCsvImporter.ImportPlan plan = FleekCsvImporter.parse(
-                        new InputStreamReader(input, StandardCharsets.UTF_8),
-                        exerciseMasterRepository.getAllWeightExercises()
-                );
-                FitnessRepository.FleekImportResult result = repository.importFleekData(plan);
-                runOnUiThread(() -> {
-                    isDataImporting = false;
-                    dataImportDetail = result.summary();
-                    toast(result.importedSessions > 0
-                            ? "FLEEK 운동 기록을 가져왔습니다."
-                            : "이미 가져온 기록이라 새로 저장된 세션이 없습니다.");
-                    render();
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> {
-                    isDataImporting = false;
-                    dataImportDetail = error.getMessage() == null
-                            ? "FLEEK CSV 가져오기에 실패했습니다."
-                            : error.getMessage();
-                    toast("FLEEK CSV 가져오기에 실패했습니다.");
-                    render();
-                });
-            }
-        });
-    }
+
 
     @Override
     public boolean isDataImporting() {
@@ -3046,8 +3330,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     public void savePriceTraceSupabaseConfig(String url, String anonKey) {
         try {
             priceTraceSupabaseConfig = priceTraceConfigStore.saveConnection(url, anonKey);
-            productReadClient.setConfig(priceTraceSupabaseConfig);
-            restaurantMenuReadClient.setConfig(priceTraceSupabaseConfig);
+            appContainer.applyPriceTraceSessionConfig(priceTraceSupabaseConfig);
             toast("PriceTrace DB 설정을 저장했습니다.");
         } catch (IllegalArgumentException | IllegalStateException error) {
             toast(error.getMessage());
@@ -3122,8 +3405,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     public void searchPriceTraceProducts(String query, ProductSearchCallback callback) {
         executor.execute(() -> {
             try {
-                List<ProductReadV1> products = productReadClient.searchProducts(query);
-                nutritionCatalogRepository.cachePriceTraceProducts(products);
+                List<ProductReadV1> products = nutritionIntegrationService.searchProducts(query);
                 if (callback != null) {
                     callback.onComplete(products);
                 }
@@ -3144,12 +3426,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     public void loadPriceTraceProduct(String catalogProductId, ProductLoadCallback callback) {
         executor.execute(() -> {
             try {
-                ProductReadV1 product = productReadClient.findProduct(catalogProductId);
-                if (product != null) {
-                    nutritionCatalogRepository.cachePriceTraceProducts(
-                            java.util.Collections.singletonList(product)
-                    );
-                }
+                ProductReadV1 product = nutritionIntegrationService.loadProduct(catalogProductId);
                 if (callback != null) {
                     callback.onComplete(product);
                 }
@@ -3165,8 +3442,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     public void searchPriceTraceRestaurants(String query, RestaurantSearchCallback callback) {
         executor.execute(() -> {
             try {
-                List<RestaurantMenuReadV1Client.RestaurantSummary> restaurants =
-                        restaurantMenuReadClient.searchRestaurants(query);
+                List<NutritionIntegrationService.RestaurantSummary> restaurants =
+                        nutritionIntegrationService.searchRestaurants(query);
                 if (callback != null) {
                     callback.onComplete(restaurants);
                 }
@@ -3188,8 +3465,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     public void loadPriceTraceRestaurant(String restaurantId, RestaurantLoadCallback callback) {
         executor.execute(() -> {
             try {
-                RestaurantMenuReadV1Client.RestaurantDetail restaurant =
-                        restaurantMenuReadClient.loadRestaurant(restaurantId);
+                NutritionIntegrationService.RestaurantDetail restaurant =
+                        nutritionIntegrationService.loadRestaurant(restaurantId);
                 if (callback != null) {
                     callback.onComplete(restaurant);
                 }
@@ -3208,8 +3485,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     ) {
         executor.execute(() -> {
             try {
-                NutritionCatalogRepository.PublicProductNutrition nutrition =
-                        nutritionCatalogRepository.fetchPublicProductNutrition(catalogProductId);
+                NutritionIntegrationService.PublicProductNutrition nutrition =
+                        nutritionIntegrationService.loadPublicProductNutrition(catalogProductId);
                 if (callback != null) {
                     callback.onComplete(nutrition);
                 }
@@ -3222,16 +3499,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     @Override
-    public void syncNutritionCatalog(NutritionCatalogRepository.SyncCallback callback) {
+    public void syncNutritionCatalog(NutritionSyncCallback callback) {
         executor.execute(() -> {
             try {
-                SupabaseConfig activeConfig = nutritionSupabaseConfig;
-                if (activeConfig.isConfigured()) {
-                    activeConfig = nutritionAuthManager.refresh(activeConfig);
-                    applyNutritionSessionConfig(activeConfig);
+                NutritionIntegrationService.SyncResult result =
+                        nutritionIntegrationService.syncCatalog(nutritionSupabaseConfig);
+                if (result.nutritionConfig != null) {
+                    applyNutritionSessionConfig(result.nutritionConfig);
                 }
-                NutritionCatalogRepository.CatalogSyncResult result =
-                        nutritionCatalogRepository.syncRemote();
                 if (callback != null) {
                     callback.onComplete(result.pushedRows, result.pulledRows);
                 }
@@ -3248,24 +3523,20 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             String nutritionFoodId,
             String catalogProductId,
             boolean publish,
-            NutritionCatalogRepository.PublicationCallback callback
+            NutritionPublicationCallback callback
     ) {
         executor.execute(() -> {
             try {
-                SupabaseConfig activeConfig = nutritionSupabaseConfig;
-                if (!activeConfig.isConfigured()) {
-                    throw new IllegalStateException("영양 DB 계정 로그인이 필요합니다.");
-                }
-                activeConfig = nutritionAuthManager.refresh(activeConfig);
-                applyNutritionSessionConfig(activeConfig);
-                NutritionCatalogRepository.PublicationState state =
-                        nutritionCatalogRepository.setProductNutritionPublication(
+                NutritionIntegrationService.PublicationResult result =
+                        nutritionIntegrationService.publishNutrition(
+                                nutritionSupabaseConfig,
                                 nutritionFoodId,
                                 catalogProductId,
                                 publish
                         );
+                applyNutritionSessionConfig(result.nutritionConfig);
                 if (callback != null) {
-                    callback.onComplete(state);
+                    callback.onComplete(result.state);
                 }
             } catch (Exception error) {
                 if (callback != null) {
@@ -3279,32 +3550,23 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     public void setDiningOutMenuPublication(
             String nutritionFoodId,
             boolean publish,
-            NutritionCatalogRepository.PublicationCallback callback
+            NutritionPublicationCallback callback
     ) {
         executor.execute(() -> {
             try {
-                SupabaseConfig activeNutritionConfig = nutritionSupabaseConfig;
-                if (!activeNutritionConfig.isConfigured()) {
-                    throw new IllegalStateException("영양 DB 계정 로그인이 필요합니다.");
-                }
-                activeNutritionConfig = nutritionAuthManager.refresh(activeNutritionConfig);
-                applyNutritionSessionConfig(activeNutritionConfig);
-                SupabaseConfig activePriceTraceConfig = priceTraceSupabaseConfig;
-                if (publish) {
-                    if (!activePriceTraceConfig.isConfigured()) {
-                        throw new IllegalStateException("PT 관리자 계정 로그인이 필요합니다.");
-                    }
-                    activePriceTraceConfig = priceTraceAuthManager.refresh(activePriceTraceConfig);
-                    applyPriceTraceSessionConfig(activePriceTraceConfig);
-                }
-                NutritionCatalogRepository.PublicationState state =
-                        nutritionCatalogRepository.publishDiningOutMenuToPriceTrace(
+                NutritionIntegrationService.PublicationResult result =
+                        nutritionIntegrationService.publishDiningOut(
+                                nutritionSupabaseConfig,
+                                priceTraceSupabaseConfig,
                                 nutritionFoodId,
-                                publish,
-                                activePriceTraceConfig
+                                publish
                         );
+                applyNutritionSessionConfig(result.nutritionConfig);
+                if (publish && result.priceTraceConfig != null) {
+                    applyPriceTraceSessionConfig(result.priceTraceConfig);
+                }
                 if (callback != null) {
-                    callback.onComplete(state);
+                    callback.onComplete(result.state);
                 }
             } catch (Exception error) {
                 if (callback != null) {
@@ -3328,44 +3590,31 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
         executor.execute(() -> {
             try {
-                SupabaseConfig refreshedConfig = authManager.refresh(supabaseConfig);
-                applySharedSessionConfig(refreshedConfig);
-                SupabaseSyncManager.SyncResult result = syncManager.manualSync(refreshedConfig);
-
-                NutritionCatalogRepository.CatalogSyncResult catalogResult =
-                        new NutritionCatalogRepository.CatalogSyncResult(0, 0);
-                boolean nutritionFailed = false;
-                String nutritionStatus;
-                if (!nutritionSupabaseConfig.isConnectionConfigured()) {
-                    nutritionStatus = "영양 DB 연결 없음";
-                } else {
-                    try {
-                        SupabaseConfig activeNutritionConfig = nutritionSupabaseConfig;
-                        if (activeNutritionConfig.isConfigured()) {
-                            activeNutritionConfig = nutritionAuthManager.refresh(activeNutritionConfig);
-                            applyNutritionSessionConfig(activeNutritionConfig);
-                        }
-                        catalogResult = nutritionCatalogRepository.syncRemote();
-                        nutritionStatus = "영양 DB push " + catalogResult.pushedRows
-                                + "건 · pull " + catalogResult.pulledRows + "건";
-                    } catch (Exception nutritionError) {
-                        nutritionFailed = true;
-                        nutritionStatus = "영양 DB 실패: "
-                                + (nutritionError.getMessage() == null
-                                ? "원격 동기화 오류"
-                                : nutritionError.getMessage());
-                    }
+                SyncApplicationService.Result syncResult = syncApplicationService.run(
+                        supabaseConfig,
+                        nutritionSupabaseConfig
+                );
+                applySharedSessionConfig(syncResult.sharedConfig);
+                if (syncResult.nutritionConfig != null) {
+                    applyNutritionSessionConfig(syncResult.nutritionConfig);
                 }
+                SyncApplicationService.SharedResult result = syncResult.sharedResult;
                 lastSyncedAt = result.syncedAt;
-                final boolean completedWithNutritionFailure = nutritionFailed;
-                final String completedNutritionStatus = nutritionStatus;
+                final boolean summaryFailed = !result.summaryPublicationSucceeded;
+                final boolean completedWithPartialFailure = syncResult.nutritionFailed || summaryFailed;
+                final int legacyPushedRows = result.pushedRows - result.summaryPublishedRows;
+                final String completedNutritionStatus = syncResult.nutritionStatus;
+                final String completedSummaryStatus = summaryFailed
+                        ? "Summary v2 실패: " + result.summaryPublicationError
+                        : "Summary v2 " + result.summaryPublishedRows + "건";
                 runOnUiThread(() -> {
                     isManualSyncing = false;
-                    syncLabel = completedWithNutritionFailure ? "partial" : "synced";
-                    syncDetail = "공통 DB push " + result.pushedRows + "건 · pull "
-                            + result.pulledRows + "건 · " + completedNutritionStatus;
-                    toast(completedWithNutritionFailure
-                            ? "공통 DB 동기화는 완료했지만 영양 DB 동기화는 실패했습니다."
+                    syncLabel = completedWithPartialFailure ? "partial" : "synced";
+                    syncDetail = "공통 DB push " + legacyPushedRows + "건 · pull "
+                            + result.pulledRows + "건 · " + completedSummaryStatus
+                            + " · " + completedNutritionStatus;
+                    toast(completedWithPartialFailure
+                            ? "공통 DB 동기화는 완료했지만 일부 원격 publication이 실패했습니다."
                             : "두 DB의 수동 동기화를 완료했습니다.");
                     render();
                 });
@@ -3382,12 +3631,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private void applyAuthenticatedSharedConfig(SupabaseConfig config) {
-        supabaseConfig = config;
-        String userId = config.effectiveUserId();
-        repository.normalizeLocalUserId(userId);
-        routineRepository.setUserId(userId);
-        developmentRepository.normalizeLocalUserId(userId);
-        supplementRepository.normalizeLocalUserId(userId);
+        appContainer.applyAuthenticatedSharedConfig(config);
+        supabaseConfig = appContainer.getSupabaseConfig();
     }
 
     private void completeSharedAuthentication(SupabaseConfig config, String successMessage) {
@@ -3407,19 +3652,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private void applySharedSessionConfig(SupabaseConfig config) {
-        supabaseConfig = config;
-        String userId = config.effectiveUserId();
-        repository.setUserId(userId);
-        routineRepository.setUserId(userId);
-        developmentRepository.setUserId(userId);
-        supplementRepository.setUserId(userId);
+        appContainer.applySharedSessionConfig(config);
+        supabaseConfig = appContainer.getSupabaseConfig();
     }
 
     private void applyAuthenticatedNutritionConfig(SupabaseConfig config) {
-        nutritionSupabaseConfig = config;
-        String userId = config.effectiveUserId();
-        nutritionCatalogRepository.normalizeLocalUserId(userId);
-        nutritionCatalogRepository.setSupabaseConfig(config);
+        appContainer.applyAuthenticatedNutritionConfig(config);
+        nutritionSupabaseConfig = appContainer.getNutritionSupabaseConfig();
     }
 
     private void completeNutritionAuthentication(SupabaseConfig config, String successMessage) {
@@ -3439,15 +3678,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private void applyNutritionSessionConfig(SupabaseConfig config) {
-        nutritionSupabaseConfig = config;
-        nutritionCatalogRepository.setUserId(config.effectiveUserId());
-        nutritionCatalogRepository.setSupabaseConfig(config);
+        appContainer.applyNutritionSessionConfig(config);
+        nutritionSupabaseConfig = appContainer.getNutritionSupabaseConfig();
     }
 
     private void applyPriceTraceSessionConfig(SupabaseConfig config) {
-        priceTraceSupabaseConfig = config;
-        productReadClient.setConfig(config);
-        restaurantMenuReadClient.setConfig(config);
+        appContainer.applyPriceTraceSessionConfig(config);
+        priceTraceSupabaseConfig = appContainer.getPriceTraceSupabaseConfig();
     }
 
     private void applySyncStatusFromConfig() {
@@ -3498,4 +3735,311 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
         return SupabaseConfig.DEFAULT_USER_ID;
     }
+
+    /**
+     * Coordinates file import/export work while MainActivity retains only platform callbacks and
+     * ScreenHost action forwarding.
+     */
+    private final class DataTransferCoordinator {
+        private void createLocalBackup() {
+            if (isDataTransferInProgress || isDataImporting) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            openCreateDocument(
+                    "application/json",
+                    "fitness-os-backup-" + today() + ".json",
+                    REQUEST_LOCAL_BACKUP_EXPORT
+            );
+        }
+
+        private void restoreLocalBackup() {
+            if (isDataTransferInProgress || isDataImporting) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivityForResult(intent, REQUEST_LOCAL_BACKUP_RESTORE);
+            } catch (Exception error) {
+                toast("백업 파일 선택기를 열지 못했습니다.");
+            }
+        }
+
+        private void exportRecordsCsv() {
+            if (isDataTransferInProgress || isDataImporting) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            openCreateDocument(
+                    "text/csv",
+                    "fitness-os-records-" + today() + ".csv",
+                    REQUEST_RECORDS_CSV_EXPORT
+            );
+        }
+
+        private void openWorkoutTransferImport() {
+            if (isDataTransferInProgress || isDataImporting) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivityForResult(intent, REQUEST_WORKOUT_TRANSFER_IMPORT);
+            } catch (Exception error) {
+                toast("운동 전송 JSON 선택기를 열지 못했습니다.");
+            }
+        }
+
+        private void exportWorkoutTransfer() {
+            if (isDataTransferInProgress || isDataImporting) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            openCreateDocument(
+                    "application/json",
+                    "yeonsik-workout-transfer-" + today() + ".json",
+                    REQUEST_WORKOUT_TRANSFER_EXPORT
+            );
+        }
+
+    private void openCreateDocument(String mimeType, String fileName, int requestCode) {
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType(mimeType);
+            intent.putExtra(Intent.EXTRA_TITLE, fileName);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            try {
+                startActivityForResult(intent, requestCode);
+            } catch (Exception error) {
+                toast("파일 저장 위치를 열지 못했습니다.");
+            }
+        }
+
+    private void writeLocalBackup(Uri uri) {
+            beginDataTransfer("백업 파일을 만드는 중입니다.");
+            executor.execute(() -> {
+                try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+                    if (output == null) {
+                        throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
+                    }
+                    localDataTransferApplicationService.writeBackup(
+                            currentOwnerId(),
+                            nutritionSupabaseConfig.effectiveUserId(),
+                            output
+                    );
+                    finishDataTransfer("전체 백업을 저장했습니다.", null);
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(error, "백업을 저장하지 못했습니다."));
+                }
+            });
+        }
+
+    private void previewLocalBackup(Uri uri) {
+            beginDataTransfer("백업 파일을 확인하는 중입니다.");
+            executor.execute(() -> {
+                try (InputStream input = getContentResolver().openInputStream(uri)) {
+                    if (input == null) {
+                        throw new IOException("선택한 백업 파일을 읽을 수 없습니다.");
+                    }
+                    LocalDataTransferApplicationService.BackupPreview preview =
+                            localDataTransferApplicationService.previewBackup(
+                                    currentOwnerId(),
+                                    nutritionSupabaseConfig.effectiveUserId(),
+                                    input
+                            );
+                    runOnUiThread(() -> {
+                        isDataTransferInProgress = false;
+                        dataTransferDetail = preview.totalRows + "개 항목 확인됨";
+                        render();
+                        ui.confirmSheet(
+                                "백업 복원",
+                                preview.totalRows + "개 항목을 현재 기록에 합칩니다. "
+                                        + "기존 기록은 유지하고 같은 항목은 건너뜁니다.",
+                                null,
+                                "병합 복원",
+                                () -> restoreLocalBackup(uri)
+                        );
+                    });
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(error, "백업 파일을 확인하지 못했습니다."));
+                }
+            });
+        }
+
+    private void restoreLocalBackup(Uri uri) {
+            beginDataTransfer("백업을 복원하는 중입니다.");
+            executor.execute(() -> {
+                try (InputStream input = getContentResolver().openInputStream(uri)) {
+                    if (input == null) {
+                        throw new IOException("선택한 백업 파일을 다시 읽을 수 없습니다.");
+                    }
+                    LocalDataTransferApplicationService.RestoreResult result =
+                            localDataTransferApplicationService.restoreBackup(
+                                    currentOwnerId(),
+                                    nutritionSupabaseConfig.effectiveUserId(),
+                                    input
+                            );
+                    finishDataTransfer(
+                            result.importedRows + "개 복원 · "
+                                    + result.skippedRows + "개 중복 건너뜀",
+                            null
+                    );
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(error, "백업을 복원하지 못했습니다."));
+                }
+            });
+        }
+
+    private void writeRecordsCsv(Uri uri) {
+            beginDataTransfer("기록 요약 CSV를 만드는 중입니다.");
+            executor.execute(() -> {
+                try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+                    if (output == null) {
+                        throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
+                    }
+                    localDataTransferApplicationService.writeRecordsSummaryCsv(
+                            currentOwnerId(),
+                            nutritionSupabaseConfig.effectiveUserId(),
+                            output
+                    );
+                    finishDataTransfer("기록 요약 CSV를 저장했습니다.", null);
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(error, "CSV를 저장하지 못했습니다."));
+                }
+            });
+        }
+
+    private void writeWorkoutTransfer(Uri uri) {
+            beginDataTransfer("운동 전송 JSON을 만드는 중입니다.");
+            executor.execute(() -> {
+                try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+                    if (output == null) {
+                        throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
+                    }
+                    localDataTransferApplicationService.writeWorkoutTransfer(
+                            currentOwnerId(),
+                            output
+                    );
+                    finishDataTransfer("Workout Transfer v2 JSON을 저장했습니다.", null);
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(
+                            error,
+                            "운동 전송 JSON을 저장하지 못했습니다."
+                    ));
+                }
+            });
+        }
+
+    private void importWorkoutTransfer(Uri uri) {
+            beginDataTransfer("운동 전송 JSON을 읽고 기록을 합치는 중입니다.");
+            executor.execute(() -> {
+                try (InputStream input = getContentResolver().openInputStream(uri)) {
+                    if (input == null) {
+                        throw new IOException("선택한 운동 전송 파일을 읽을 수 없습니다.");
+                    }
+                    LocalDataTransferApplicationService.ImportResult result =
+                            localDataTransferApplicationService.importWorkoutTransfer(
+                                    currentOwnerId(),
+                                    input
+                            );
+                    finishDataTransfer(result.summary(), null);
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(
+                            error,
+                            "운동 전송 JSON을 가져오지 못했습니다."
+                    ));
+                }
+            });
+        }
+
+    private void beginDataTransfer(String detail) {
+            isDataTransferInProgress = true;
+            dataTransferDetail = detail;
+            render();
+        }
+
+    private void finishDataTransfer(String success, String failure) {
+            runOnUiThread(() -> {
+                isDataTransferInProgress = false;
+                dataTransferDetail = failure == null ? success : failure;
+                render();
+                toast(dataTransferDetail);
+            });
+        }
+
+    private static String dataTransferError(Exception error, String fallback) {
+            String message = error.getMessage();
+            if (message == null || message.trim().isEmpty()) {
+                return fallback;
+            }
+            return message.matches(".*[ㄱ-ㅎㅏ-ㅣ가-힣].*") ? message : fallback;
+        }
+
+        private void openFleekDataImport() {
+            if (isDataImporting || isDataTransferInProgress) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("text/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                    "text/csv",
+                    "text/comma-separated-values",
+                    "application/csv",
+                    "application/vnd.ms-excel",
+                    "text/plain"
+            });
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivityForResult(intent, REQUEST_FLEEK_CSV_IMPORT);
+            } catch (Exception error) {
+                toast("CSV 파일 선택기를 열지 못했습니다.");
+            }
+        }
+
+    private void importFleekCsv(Uri uri) {
+            if (isDataImporting) return;
+            isDataImporting = true;
+            dataImportDetail = "CSV를 읽고 운동 기록을 변환하는 중입니다.";
+            render();
+            executor.execute(() -> {
+                try (InputStream input = getContentResolver().openInputStream(uri)) {
+                    if (input == null) {
+                        throw new IllegalArgumentException("선택한 CSV 파일을 읽지 못했습니다.");
+                    }
+                    LocalDataTransferApplicationService.ImportResult result =
+                            localDataTransferApplicationService.importFleek(
+                                    currentOwnerId(),
+                                    input
+                            );
+                    runOnUiThread(() -> {
+                        isDataImporting = false;
+                        dataImportDetail = result.summary();
+                        toast(result.importedSessions > 0
+                                ? "FLEEK 운동 기록을 가져왔습니다."
+                                : "이미 가져온 기록이라 새로 저장된 세션이 없습니다.");
+                        render();
+                    });
+                } catch (Exception error) {
+                    runOnUiThread(() -> {
+                        isDataImporting = false;
+                        dataImportDetail = error.getMessage() == null
+                                ? "FLEEK CSV 가져오기에 실패했습니다."
+                                : error.getMessage();
+                        toast("FLEEK CSV 가져오기에 실패했습니다.");
+                        render();
+                    });
+                }
+            });
+        }
+    }
+
 }

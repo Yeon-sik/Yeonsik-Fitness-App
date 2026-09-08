@@ -7,6 +7,10 @@ import android.widget.TextView;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
+import com.yeonsik.fitnessapp.data.FitnessRepository;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -42,7 +46,8 @@ public final class MainActivityBottomNavigationTest {
     public void workoutProgressMarkerIsIndependentFromActiveMarker() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                String recordId = activity.repository().createEmptySession(activity.today());
+                FitnessRepository repository = testRepository(activity);
+                String recordId = repository.createEmptySession(activity.today());
                 try {
                     activity.rerender();
                     View root = activity.getWindow().getDecorView();
@@ -63,11 +68,18 @@ public final class MainActivityBottomNavigationTest {
                     assertEquals(View.VISIBLE, activeMarker(workoutTab).getVisibility());
                     assertEquals(View.VISIBLE, progressMarker(workoutTab).getVisibility());
                 } finally {
-                    activity.repository().deleteSession(recordId);
+                    repository.deleteSession(recordId);
                     activity.rerender();
                 }
             });
         }
+    }
+
+    private static FitnessRepository testRepository(MainActivity activity) {
+        return new FitnessRepository(
+                FitnessRoomDatabaseProvider.get(activity), activity,
+                new SupabaseConfigStore(activity).load().effectiveUserId()
+        );
     }
 
     private static View clickBottomTab(View root, String label) {

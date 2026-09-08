@@ -7,6 +7,8 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
+
 public final class FitnessNavigationHistoryTest {
     @Test
     public void backUnwindsPushedScreensAndStopsAtHome() {
@@ -122,5 +124,26 @@ public final class FitnessNavigationHistoryTest {
         assertEquals(afterFirstReplace, history.size());
 
         assertEquals(FitnessScreen.HOME, history.back());
+    }
+
+    @Test
+    public void savedNamesRestoreTheWholeBackStack() {
+        FitnessNavigationHistory original = new FitnessNavigationHistory(FitnessScreen.HOME);
+        original.push(FitnessScreen.WORKOUT);
+        original.push(FitnessScreen.STRENGTH);
+        original.push(FitnessScreen.WORKOUT_SESSION);
+
+        FitnessNavigationHistory restored = new FitnessNavigationHistory(FitnessScreen.HOME);
+        restored.restoreScreenNames(original.savedScreenNames());
+
+        assertEquals(FitnessScreen.WORKOUT_SESSION, restored.current());
+        assertEquals(FitnessScreen.STRENGTH, restored.back());
+        assertEquals(FitnessScreen.WORKOUT, restored.back());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void restoredHistoryMustStartAtHome() {
+        FitnessNavigationHistory restored = new FitnessNavigationHistory(FitnessScreen.HOME);
+        restored.restoreScreenNames(Arrays.asList("WORKOUT", "STRENGTH"));
     }
 }

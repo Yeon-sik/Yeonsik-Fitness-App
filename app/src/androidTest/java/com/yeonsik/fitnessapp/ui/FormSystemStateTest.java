@@ -33,7 +33,7 @@ public final class FormSystemStateTest {
     public void disabledThenEnabledRestoresOriginalState() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                FormSystem forms = new FormSystem(activity.ui(), activity);
+                FormSystem forms = new FormSystem(new FitnessUi(activity, () -> false), activity);
                 LinearLayout root = new LinearLayout(activity);
                 TextView child = new TextView(activity);
                 root.setEnabled(true);
@@ -67,7 +67,7 @@ public final class FormSystemStateTest {
     public void repeatedDisabledTogglesRestoreOriginalDescendantState() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                FormSystem forms = new FormSystem(activity.ui(), activity);
+                FormSystem forms = new FormSystem(new FitnessUi(activity, () -> false), activity);
                 LinearLayout root = new LinearLayout(activity);
                 TextView child = new TextView(activity);
                 root.setEnabled(true);
@@ -90,7 +90,7 @@ public final class FormSystemStateTest {
     public void disabledAppliedDuringLoadingRemainsDisabledUntilCleared() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                FormSystem forms = new FormSystem(activity.ui(), activity);
+                FormSystem forms = new FormSystem(new FitnessUi(activity, () -> false), activity);
                 LinearLayout root = new LinearLayout(activity);
                 TextView child = new TextView(activity);
                 root.setEnabled(true);
@@ -126,7 +126,7 @@ public final class FormSystemStateTest {
     public void stateStoreUsesWeakKeysAndWeakSnapshotViews() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                FormSystem forms = new FormSystem(activity.ui(), activity);
+                FormSystem forms = new FormSystem(new FitnessUi(activity, () -> false), activity);
                 LinearLayout root = new LinearLayout(activity);
                 root.addView(new TextView(activity));
 
@@ -143,7 +143,7 @@ public final class FormSystemStateTest {
     public void loadingRestoresViewAndChildStatesIncludingDisabledState() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                FormSystem forms = new FormSystem(activity.ui(), activity);
+                FormSystem forms = new FormSystem(new FitnessUi(activity, () -> false), activity);
                 LinearLayout root = new LinearLayout(activity);
                 TextView child = new TextView(activity);
                 root.setEnabled(false);
@@ -173,7 +173,7 @@ public final class FormSystemStateTest {
     public void repeatedLoadingDoesNotAccumulateLoadingText() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                FormSystem forms = new FormSystem(activity.ui(), activity);
+                FormSystem forms = new FormSystem(new FitnessUi(activity, () -> false), activity);
                 TextView root = new TextView(activity);
                 root.setContentDescription("기존 설명");
 
@@ -193,7 +193,7 @@ public final class FormSystemStateTest {
     public void nutrientKeyUsesSameLabelAndUnitForReadOnlyAndEditableRows() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                FormSystem forms = new FormSystem(activity.ui(), activity);
+                FormSystem forms = new FormSystem(new FitnessUi(activity, () -> false), activity);
                 View readOnly = forms.nutrientRow(NutritionProfile.SODIUM_MG, "120");
                 NutritionRow editable = forms.nutrientInputRow(
                         NutritionProfile.SODIUM_MG,
@@ -223,8 +223,8 @@ public final class FormSystemStateTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
                 NutritionInputField field = new NutritionInputField(
-                        activity.ui(),
-                        new FormSystem(activity.ui(), activity),
+                        new FitnessUi(activity, () -> false),
+                        new FormSystem(new FitnessUi(activity, () -> false), activity),
                         NutritionProfile.CALORIES_KCAL,
                         "칼로리",
                         "",
@@ -253,7 +253,7 @@ public final class FormSystemStateTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
                 NutritionRow row = NutritionRow.input(
-                        activity.ui(),
+                        new FitnessUi(activity, () -> false),
                         activity,
                         "아주 긴 영양소 표시 이름",
                         "g",
@@ -278,7 +278,7 @@ public final class FormSystemStateTest {
     public void nutritionInputShowsInlineErrorAndClearsAfterFieldEdit() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                NutritionInputSection section = new NutritionInputSection(activity.ui(), activity);
+                NutritionInputSection section = new NutritionInputSection(new FitnessUi(activity, () -> false), activity);
                 try {
                     section.profile();
                     fail("빈 필수 영양성분 입력은 실패해야 합니다.");

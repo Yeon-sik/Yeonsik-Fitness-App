@@ -96,6 +96,10 @@ public final class CompleteWorkoutTest {
         public boolean deleteExercise(AccountScope scope, String recordId, String exerciseId) { return false; }
 
         @Override
+        public boolean addExercise(AccountScope scope, String recordId,
+                                   WorkoutExerciseReplacement exercise) { return false; }
+
+        @Override
         public boolean replaceExercise(AccountScope scope, String recordId, String exerciseId,
                                        WorkoutExerciseReplacement replacement) { return false; }
     }

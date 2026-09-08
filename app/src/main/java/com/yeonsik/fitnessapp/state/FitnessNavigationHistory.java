@@ -1,7 +1,9 @@
 package com.yeonsik.fitnessapp.state;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
+import java.util.List;
 
 /**
  * Central screen history for the Activity-owned FitnessScreen navigation.
@@ -63,6 +65,44 @@ public final class FitnessNavigationHistory {
 
     public int size() {
         return entries.size();
+    }
+
+    public ArrayList<String> savedScreenNames() {
+        ArrayList<String> names = new ArrayList<>(entries.size());
+        for (FitnessScreen entry : entries) {
+            names.add(entry.name());
+        }
+        return names;
+    }
+
+    /** Restores a validated HOME-rooted stack saved by the Activity state bundle. */
+    public void restoreScreenNames(List<String> names) {
+        if (names == null || names.isEmpty()) {
+            throw new IllegalArgumentException("navigation history is required");
+        }
+        ArrayDeque<FitnessScreen> restored = new ArrayDeque<>();
+        for (String name : names) {
+            FitnessScreen screen = FitnessScreen.valueOf(name);
+            if (restored.isEmpty() && screen != FitnessScreen.HOME) {
+                throw new IllegalArgumentException("navigation history must start at HOME");
+            }
+            if (!screen.equals(restored.peekLast())) {
+                restored.addLast(screen);
+            }
+        }
+        if (restored.isEmpty()) {
+            throw new IllegalArgumentException("navigation history is empty");
+        }
+        entries.clear();
+        entries.addAll(restored);
+    }
+
+    /** Restores a safe HOME-rooted stack after process recreation. */
+    public void restoreCurrent(FitnessScreen screen) {
+        requireScreen(screen);
+        entries.clear();
+        entries.addLast(FitnessScreen.HOME);
+        if (screen != FitnessScreen.HOME) entries.addLast(screen);
     }
 
     private static void requireScreen(FitnessScreen screen) {

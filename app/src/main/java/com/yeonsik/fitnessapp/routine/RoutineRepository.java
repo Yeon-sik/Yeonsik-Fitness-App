@@ -12,6 +12,11 @@ import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi;
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft;
+import com.yeonsik.fitnessapp.exercise.BodyPart;
+import com.yeonsik.fitnessapp.exercise.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
@@ -21,7 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public final class RoutineRepository {
+public final class RoutineRepository implements RoutineRepositoryApi {
     public static final int MAX_ROUTINES = 5;
     private static final String DEVICE_ID = "android-local";
     private static final String DEFAULT_ROUTINE_NAME = "나만의 루틴";
@@ -133,6 +138,112 @@ public final class RoutineRepository {
             activeRoutineId = ensureDefaultRoutine();
         }
         return activeRoutineId;
+    }
+
+    @Override
+    public String ensureActiveRoutine(AccountScope scope) {
+        requireScope(scope);
+        return activeRoutineId();
+    }
+
+    @Override
+    public List<com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary> routines(AccountScope scope) {
+        requireScope(scope);
+        List<com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary> result = new ArrayList<>();
+        for (RoutineSummary row : routines()) {
+            result.add(new com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary(
+                    row.id,
+                    row.name,
+                    row.exerciseCount
+            ));
+        }
+        return result;
+    }
+
+    @Override
+    public List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> routineExercises(
+            AccountScope scope,
+            String routineId
+    ) {
+        requireScope(scope);
+        if (!ownsRoutine(routineId)) {
+            return new ArrayList<>();
+        }
+        List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> result = new ArrayList<>();
+        for (RoutineExerciseInstance row : routineExercises(routineId)) {
+            result.add(row.toFeatureModel());
+        }
+        return result;
+    }
+
+    @Override
+    public String activeRoutineId(AccountScope scope) {
+        requireScope(scope);
+        return activeRoutineId();
+    }
+
+    @Override
+    public String routineName(AccountScope scope, String routineId) {
+        requireScope(scope);
+        return ownsRoutine(routineId) ? routineName(routineId) : null;
+    }
+
+    @Override
+    public String createRoutine(AccountScope scope, String name) {
+        requireScope(scope);
+        return createRoutine(name, null);
+    }
+
+    @Override
+    public boolean renameRoutine(AccountScope scope, String routineId, String name) {
+        requireScope(scope);
+        return renameRoutine(routineId, name);
+    }
+
+    @Override
+    public String copyRoutine(AccountScope scope, String routineId, String name) {
+        requireScope(scope);
+        return copyRoutine(routineId, name);
+    }
+
+    @Override
+    public boolean deleteRoutine(AccountScope scope, String routineId) {
+        requireScope(scope);
+        return deleteRoutine(routineId);
+    }
+
+    @Override
+    public boolean selectRoutine(AccountScope scope, String routineId) {
+        requireScope(scope);
+        if (!ownsRoutine(routineId)) {
+            return false;
+        }
+        selectRoutine(routineId);
+        return true;
+    }
+
+    @Override
+    public boolean addExercise(AccountScope scope, String routineId, RoutineExerciseDraft exercise) {
+        requireScope(scope);
+        if (exercise == null || !ownsRoutine(routineId)) {
+            return false;
+        }
+        EquipmentType equipmentType = EquipmentType.fromId(exercise.equipmentVariantId);
+        if (equipmentType == null) {
+            equipmentType = EquipmentType.OTHER;
+        }
+        RoutineExercise legacyExercise = new RoutineExercise(
+                exercise.exerciseId,
+                exercise.nameKo,
+                exercise.nameEn,
+                BodyPart.fromId(exercise.bodyPartId),
+                equipmentType,
+                exercise.equipmentVariantId,
+                exercise.primarySubPart,
+                exercise.recordType,
+                exercise.familyIdentity
+        );
+        return addToRoutine(routineId, legacyExercise) != null;
     }
 
     public String activeRoutineName() {
@@ -386,6 +497,12 @@ public final class RoutineRepository {
                 new String[]{routineId, userId}
         )) {
             return cursor.moveToFirst();
+        }
+    }
+
+    private void requireScope(AccountScope scope) {
+        if (scope == null || !scope.getOwnerId().equals(userId)) {
+            throw new IllegalStateException("The account changed while the routine operation was pending.");
         }
     }
 

@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public final class ExerciseMasterRepository {
+public final class ExerciseMasterRepository implements com.yeonsik.fitnessapp.feature.exercise.api.ExerciseMasterRepositoryApi {
     private static final String INDEX_FILE_NAME = "Fitness_Index.json";
     private static final String WEIGHT_FILE_NAME = "Fitness_Weight.json";
 
@@ -93,6 +93,7 @@ public final class ExerciseMasterRepository {
         return cachedFamilyCatalog;
     }
 
+    @Override
     public synchronized RuntimeExerciseCatalog runtimeCatalog() {
         return familyCatalog().runtimeCatalog();
     }

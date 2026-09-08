@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
-import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet;
 
 import org.junit.Test;
 
@@ -161,9 +161,9 @@ public final class WorkoutSummaryAnalyticsTest {
             List<String> secondary,
             boolean... completed
     ) {
-        List<FitnessRepository.SessionSetEntry> sets = new java.util.ArrayList<>();
+        List<WorkoutSet> sets = new java.util.ArrayList<>();
         for (int index = 0; index < completed.length; index++) {
-            sets.add(new FitnessRepository.SessionSetEntry(
+            sets.add(new WorkoutSet(
                     "set-" + index,
                     index,
                     0d,
@@ -174,7 +174,10 @@ public final class WorkoutSummaryAnalyticsTest {
                     0,
                     0d,
                     0d,
-                    0d
+                    0d,
+                    null,
+                    null,
+                    null
             ));
         }
         return new WorkoutSummaryAnalytics.MuscleExercise(

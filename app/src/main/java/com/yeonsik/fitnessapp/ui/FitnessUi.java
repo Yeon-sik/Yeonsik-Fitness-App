@@ -133,7 +133,7 @@ public final class FitnessUi {
     // Keep shell rhythm in one place so device review changes do not require
     // editing every screen renderer.
     public static final int PAGE_HORIZONTAL_PADDING_DP = 20;
-    public static final int PAGE_TOP_PADDING_DP = 40;
+    public static final int PAGE_TOP_PADDING_DP = 20;
     public static final int PAGE_BOTTOM_PADDING_DP = 28;
     public static final int SCREEN_TITLE_TOP_SPACING_DP = 4;
     public static final int SCREEN_TITLE_BOTTOM_SPACING_DP = 18;

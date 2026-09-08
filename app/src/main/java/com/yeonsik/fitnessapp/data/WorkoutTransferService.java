@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeResult;
+import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeStore;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -11,17 +14,19 @@ import java.nio.charset.StandardCharsets;
 
 /** Application service separating the settings JSON transfer flow from local backups. */
 public final class WorkoutTransferService {
-    private final FitnessRepository repository;
+    private final WorkoutInterchangeStore store;
+    private final String ownerId;
 
-    public WorkoutTransferService(FitnessRepository repository) {
-        if (repository == null) {
+    public WorkoutTransferService(WorkoutInterchangeStore store, String ownerId) {
+        if (store == null || ownerId == null || ownerId.trim().isEmpty()) {
             throw new IllegalArgumentException("운동 저장소가 없습니다.");
         }
-        this.repository = repository;
+        this.store = store;
+        this.ownerId = ownerId;
     }
 
     public String exportJson() {
-        return WorkoutTransferCodec.encode(repository.exportWorkoutTransferDocument());
+        return WorkoutTransferCodec.encode(store.exportTransfer(ownerId));
     }
 
     public void writeJson(OutputStream output) throws IOException {
@@ -33,12 +38,11 @@ public final class WorkoutTransferService {
         writer.flush();
     }
 
-    public FitnessRepository.WorkoutTransferImportResult importJson(String json) {
-        return repository.importWorkoutTransferDocument(WorkoutTransferCodec.decode(json));
+    public WorkoutInterchangeResult importJson(String json) {
+        return store.importTransfer(ownerId, WorkoutTransferCodec.decode(json));
     }
 
-    public FitnessRepository.WorkoutTransferImportResult importJson(InputStream input)
-            throws IOException {
+    public WorkoutInterchangeResult importJson(InputStream input) throws IOException {
         if (input == null) {
             throw new IOException("운동 전송 파일을 읽을 수 없습니다.");
         }

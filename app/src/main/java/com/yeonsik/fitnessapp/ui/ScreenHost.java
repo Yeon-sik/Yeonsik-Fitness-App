@@ -1,30 +1,22 @@
 package com.yeonsik.fitnessapp.ui;
 
-import android.app.Activity;
-import android.widget.LinearLayout;
-
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
-import com.yeonsik.fitnessapp.cardio.CardioRepository;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
-import com.yeonsik.fitnessapp.data.FitnessRepository;
 import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
-import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client;
 import com.yeonsik.fitnessapp.development.DevelopmentInsight;
-import com.yeonsik.fitnessapp.development.DevelopmentRepository;
-import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
-import com.yeonsik.fitnessapp.routine.RoutineRepository;
-import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
+import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
-import com.yeonsik.fitnessapp.state.WorkoutSessionState;
-import com.yeonsik.fitnessapp.supplement.SupplementRepository;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
+import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
+import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
+import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
+import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
 
 import java.util.List;
 
@@ -33,28 +25,8 @@ import java.util.List;
  * 화면은 "어떻게 그릴지"만 담당하고, 내비게이션·의존성·앱 수준 상태는 host가 소유한다.
  */
 public interface ScreenHost {
-    Activity activity();
-
-    FitnessUi ui();
-
-    LinearLayout content();
-
-    FitnessRepository repository();
-
     /** Owner id used to reject stale ViewModel work after an account switch. */
     String currentOwnerId();
-
-    NutritionCatalogRepository nutritionCatalogRepository();
-
-    CardioRepository cardioRepository();
-
-    RoutineRepository routineRepository();
-
-    SupplementRepository supplementRepository();
-
-    ExerciseMasterRepository exerciseMasterRepository();
-
-    WorkoutSessionState sessionState();
 
     WorkoutSessionViewModel workoutSessionViewModel();
 
@@ -66,9 +38,23 @@ public interface ScreenHost {
 
     HomeViewModel homeViewModel();
 
-    String today();
+    DevelopmentViewModel developmentViewModel();
 
-    FitnessScreen currentScreen();
+    SupplementViewModel supplementViewModel();
+
+    ExercisePickerViewModel exercisePickerViewModel();
+
+    MealViewModel mealViewModel();
+
+    String selectedRoutineId();
+
+    void openWorkoutExerciseDetail(String exerciseId);
+
+    void openWorkoutExerciseReplacementPicker(String exerciseId);
+
+    void refreshWorkoutExerciseDetail();
+
+    void refreshCardioSession();
 
     void navigate(FitnessScreen screen);
 
@@ -92,6 +78,11 @@ public interface ScreenHost {
 
     void openWorkoutSession(String recordId);
 
+    /** Opens a stored record using its owning feature (strength or cardio). */
+    default void openRecord(String recordId) {
+        openWorkoutSession(recordId);
+    }
+
     void openWorkoutExercisePicker();
 
     void finishActiveWorkout();
@@ -102,7 +93,6 @@ public interface ScreenHost {
             List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> exercises
     );
 
-    void startRoutineWorkoutLegacy(List<RoutineExerciseInstance> exercises);
 
     String currentWorkoutRecordId();
 
@@ -138,14 +128,10 @@ public interface ScreenHost {
 
     void openMealManagement(String date, FitnessScreen returnScreen);
 
-    void openSettingsConnections();
-
     /** True only for the personal/developer surface that may show topology controls. */
     default boolean isDeveloperSurfaceAllowed() {
         return false;
     }
-
-    DevelopmentRepository developmentRepository();
 
     void showDevelopmentBodyProfileDialog();
 
@@ -244,19 +230,19 @@ public interface ScreenHost {
             PublicNutritionCallback callback
     );
 
-    void syncNutritionCatalog(NutritionCatalogRepository.SyncCallback callback);
+    void syncNutritionCatalog(NutritionSyncCallback callback);
 
     void setNutritionFoodPublication(
             String nutritionFoodId,
             String catalogProductId,
             boolean publish,
-            NutritionCatalogRepository.PublicationCallback callback
+            NutritionPublicationCallback callback
     );
 
     void setDiningOutMenuPublication(
             String nutritionFoodId,
             boolean publish,
-            NutritionCatalogRepository.PublicationCallback callback
+            NutritionPublicationCallback callback
     );
 
     void runManualSync();
@@ -288,19 +274,31 @@ public interface ScreenHost {
     }
 
     interface RestaurantSearchCallback {
-        void onComplete(List<RestaurantMenuReadV1Client.RestaurantSummary> restaurants);
+        void onComplete(List<NutritionIntegrationService.RestaurantSummary> restaurants);
 
         void onError(Exception error);
     }
 
     interface RestaurantLoadCallback {
-        void onComplete(RestaurantMenuReadV1Client.RestaurantDetail restaurant);
+        void onComplete(NutritionIntegrationService.RestaurantDetail restaurant);
 
         void onError(Exception error);
     }
 
     interface PublicNutritionCallback {
-        void onComplete(NutritionCatalogRepository.PublicProductNutrition nutrition);
+        void onComplete(NutritionIntegrationService.PublicProductNutrition nutrition);
+
+        void onError(Exception error);
+    }
+
+    interface NutritionSyncCallback {
+        void onComplete(int pushedRows, int pulledRows);
+
+        void onError(Exception error);
+    }
+
+    interface NutritionPublicationCallback {
+        void onComplete(NutritionIntegrationService.PublicationState state);
 
         void onError(Exception error);
     }

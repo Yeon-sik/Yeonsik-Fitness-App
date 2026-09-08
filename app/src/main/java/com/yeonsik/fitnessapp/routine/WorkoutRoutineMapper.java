@@ -1,7 +1,8 @@
 package com.yeonsik.fitnessapp.routine;
 
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
-import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet;
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
@@ -21,8 +22,8 @@ public final class WorkoutRoutineMapper {
     }
 
     public static List<RoutineExercise> mapCompletedExercises(
-            List<FitnessRepository.SessionExerciseEntry> sessionExercises,
-            Map<String, List<FitnessRepository.SessionSetEntry>> setsByExercise,
+            List<WorkoutExercise> sessionExercises,
+            Map<String, List<WorkoutSet>> setsByExercise,
             RuntimeExerciseCatalog catalog
     ) {
         if (sessionExercises == null || sessionExercises.isEmpty()) {
@@ -32,7 +33,7 @@ public final class WorkoutRoutineMapper {
                 ? RuntimeExerciseCatalog.empty()
                 : catalog;
         List<RoutineExercise> result = new ArrayList<>();
-        for (FitnessRepository.SessionExerciseEntry entry : sessionExercises) {
+        for (WorkoutExercise entry : sessionExercises) {
             if (entry == null || !hasCompletedSets(setsByExercise == null
                     ? null
                     : setsByExercise.get(entry.id))) {
@@ -46,11 +47,11 @@ public final class WorkoutRoutineMapper {
         return Collections.unmodifiableList(result);
     }
 
-    public static boolean hasCompletedSets(List<FitnessRepository.SessionSetEntry> sets) {
+    public static boolean hasCompletedSets(List<WorkoutSet> sets) {
         if (sets == null) {
             return false;
         }
-        for (FitnessRepository.SessionSetEntry set : sets) {
+        for (WorkoutSet set : sets) {
             if (set != null && set.isCompleted) {
                 return true;
             }
@@ -59,7 +60,7 @@ public final class WorkoutRoutineMapper {
     }
 
     private static RuntimeExercisePreset resolvePreset(
-            FitnessRepository.SessionExerciseEntry entry,
+            WorkoutExercise entry,
             RuntimeExerciseCatalog catalog
     ) {
         RuntimeExercisePreset preset = null;
@@ -79,7 +80,7 @@ public final class WorkoutRoutineMapper {
     }
 
     private static RoutineExercise preserveCanonicalEntry(
-            FitnessRepository.SessionExerciseEntry entry,
+            WorkoutExercise entry,
             RuntimeExercisePreset preset
     ) {
         RoutineExercise canonical = ExerciseMasterAdapter.toRoutineExercise(preset);
@@ -100,7 +101,7 @@ public final class WorkoutRoutineMapper {
     }
 
     private static RoutineExercise preserveUnmappedEntry(
-            FitnessRepository.SessionExerciseEntry entry
+            WorkoutExercise entry
     ) {
         BodyPart bodyPart = BodyPart.fromId(FitnessRecordContract.categoryCode(entry.uiPart));
         EquipmentType equipmentType = equipmentTypeFromValue(entry.equipment);

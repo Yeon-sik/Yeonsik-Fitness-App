@@ -104,6 +104,12 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
         repository.deleteExercise(scope, recordId, exerciseId)
     }
 
+    fun addExercise(scope: AccountScope, recordId: String,
+                    exercise: WorkoutExerciseReplacement,
+                    callback: Consumer<Boolean>) = executeWrite(callback) {
+        repository.addExercise(scope, recordId, exercise)
+    }
+
     fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String,
                         replacement: WorkoutExerciseReplacement, callback: Consumer<Boolean>) = executeWrite(callback) {
         repository.replaceExercise(scope, recordId, exerciseId, replacement)

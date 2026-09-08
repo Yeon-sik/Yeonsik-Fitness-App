@@ -7,11 +7,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
+import com.yeonsik.fitnessapp.core.ui.FitnessButton
+import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
+import com.yeonsik.fitnessapp.core.ui.FitnessOutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.core.ui.FitnessFactCard
 import com.yeonsik.fitnessapp.core.ui.FitnessFactRow
+import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessHeader
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.MassUnit
@@ -49,6 +51,7 @@ object ComposeHomeScreen {
     @JvmStatic
     fun install(view: ComposeView, host: ScreenHost, ownerId: String, today: String,
                 displayUnit: MassUnit, dark: Boolean) {
+        view.id = com.yeonsik.fitnessapp.R.id.fitness_compose_content
         view.setContent {
             FitnessComposeTheme(dark) { HomeRoute(host, ownerId, today, displayUnit) }
         }
@@ -69,11 +72,10 @@ private fun HomeRoute(host: ScreenHost, ownerId: String, today: String, displayU
     val snapshot = ready.snapshot
     val metrics = snapshot.dayMetrics[today] ?: HomeDayWorkoutMetrics(0, 0, 0.0, 0)
     val dates = weekDates(today)
-    Column(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("오늘의 훈련", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text(today, style = MaterialTheme.typography.bodyMedium)
-        Card(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
+        FitnessHeader("오늘의 훈련", today)
+        FitnessCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(FitnessSpacing.card), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
                 Text(
                     when {
                         snapshot.inProgressSessionId != null -> "운동이 진행 중입니다"
@@ -83,7 +85,7 @@ private fun HomeRoute(host: ScreenHost, ownerId: String, today: String, displayU
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
-                Button(
+                FitnessButton(
                     onClick = {
                         if (snapshot.inProgressSessionId != null) host.continueWorkoutIfAvailable()
                         else host.navigate(FitnessScreen.WORKOUT)
@@ -96,34 +98,33 @@ private fun HomeRoute(host: ScreenHost, ownerId: String, today: String, displayU
             first = { FitnessFactCard("오늘 볼륨", MassFormatter.format(metrics.totalVolumeKg, displayUnit), displayUnit.symbol()) },
             second = { FitnessFactCard("완료 세트", "${metrics.totalSetCount}개", "오늘 기록") }
         )
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FitnessFactCard("세션", "${metrics.sessionCount}회", "오늘", Modifier.weight(1f))
-            FitnessFactCard(
-                "시간", if (metrics.totalDurationSeconds > 0) formatDuration(metrics.totalDurationSeconds) else "—",
-                "오늘", Modifier.weight(1f)
-            )
-        }
+        FitnessFactRow(
+            first = { FitnessFactCard("세션", "${metrics.sessionCount}회", "오늘") },
+            second = { FitnessFactCard(
+                "시간", if (metrics.totalDurationSeconds > 0) formatDuration(metrics.totalDurationSeconds) else "—", "오늘"
+            ) }
+        )
 
         FitnessSection("루틴 빠른 시작") {
             if (snapshot.routines.isEmpty()) {
                 Text("만들어진 루틴이 없습니다.", style = MaterialTheme.typography.bodyMedium)
-                Button(onClick = { host.startEmptyWorkout() }, Modifier.fillMaxWidth()) { Text("루틴 없이 운동 시작") }
+                FitnessButton(onClick = { host.startEmptyWorkout() }, Modifier.fillMaxWidth()) { Text("루틴 없이 운동 시작") }
             } else {
                 quickStartRoutines(snapshot.routines, snapshot.activeRoutineId).forEach { routine ->
-                    Card(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FitnessCard(Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(FitnessSpacing.card), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
                             Text(routine.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Text(
                                 "${routine.exerciseCount}개 종목" +
                                     (snapshot.latestRoutineDates[routine.id]?.let { " · 최근 $it" } ?: ""),
                                 style = MaterialTheme.typography.bodySmall
                             )
-                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Button(onClick = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
+                                FitnessOutlinedButton(onClick = {
                                     host.selectRoutine(routine.id)
                                     host.startRoutineWorkout(snapshot.routineExercises[routine.id].orEmpty())
                                 }, Modifier.weight(1f)) { Text("시작") }
-                                OutlinedButton(onClick = {
+                                FitnessOutlinedButton(onClick = {
                                     host.selectRoutine(routine.id)
                                     host.navigate(FitnessScreen.ROUTINE_DETAIL)
                                 }, Modifier.weight(1f)) { Text("상세 보기") }
@@ -131,7 +132,7 @@ private fun HomeRoute(host: ScreenHost, ownerId: String, today: String, displayU
                         }
                     }
                 }
-                OutlinedButton(onClick = { host.navigate(FitnessScreen.WORKOUT) }, Modifier.fillMaxWidth()) {
+                FitnessOutlinedButton(onClick = { host.navigate(FitnessScreen.WORKOUT) }, Modifier.fillMaxWidth()) {
                     Text("전체 루틴 보기")
                 }
             }
@@ -148,8 +149,8 @@ private fun HomeRoute(host: ScreenHost, ownerId: String, today: String, displayU
                 first = { FitnessFactCard("체중", snapshot.todayWeight?.let { MassFormatter.withUnit(it.weightKg, displayUnit) } ?: "미입력", "오늘") },
                 second = { FitnessFactCard("식사", "${snapshot.mealCounts[today] ?: 0}끼", "오늘") }
             )
-            OutlinedButton(onClick = { host.showBodyMetricDialog() }, Modifier.fillMaxWidth()) { Text("체중 기록") }
-            OutlinedButton(onClick = { host.openMealManagement() }, Modifier.fillMaxWidth()) { Text("식사 기록") }
+            FitnessOutlinedButton(onClick = { host.showBodyMetricDialog() }, Modifier.fillMaxWidth()) { Text("체중 기록") }
+            FitnessOutlinedButton(onClick = { host.openMealManagement() }, Modifier.fillMaxWidth()) { Text("식사 기록") }
         }
 
         FitnessSection("오늘 기록") {
@@ -158,7 +159,7 @@ private fun HomeRoute(host: ScreenHost, ownerId: String, today: String, displayU
             var shown = 0
             snapshot.todaySessions.forEach { session ->
                 if (shown < 3) {
-                    Card(Modifier.fillMaxWidth()) { Text(stripLeadingDate(session), Modifier.padding(14.dp), fontWeight = FontWeight.Bold) }
+                    FitnessCard(Modifier.fillMaxWidth()) { Text(stripLeadingDate(session), Modifier.padding(FitnessSpacing.card), fontWeight = FontWeight.Bold) }
                     shown++
                 }
             }
@@ -170,8 +171,8 @@ private fun HomeRoute(host: ScreenHost, ownerId: String, today: String, displayU
             }
             snapshot.todayMeals.forEach { meal ->
                 if (shown < 3) {
-                    Card(Modifier.fillMaxWidth().clickable { host.openMealManagement(today, FitnessScreen.HOME) }) {
-                        Column(Modifier.padding(14.dp)) {
+                    FitnessCard(Modifier.fillMaxWidth().clickable { host.openMealManagement(today, FitnessScreen.HOME) }) {
+                        Column(Modifier.padding(FitnessSpacing.card)) {
                             Text(meal.previewTitle, fontWeight = FontWeight.Bold)
                             Text(meal.previewSubtitle(), style = MaterialTheme.typography.bodySmall)
                         }
@@ -180,7 +181,7 @@ private fun HomeRoute(host: ScreenHost, ownerId: String, today: String, displayU
                 }
             }
             if (recordCount > 3) {
-                OutlinedButton(onClick = { host.navigate(FitnessScreen.RECORDS) }, Modifier.fillMaxWidth()) {
+                FitnessOutlinedButton(onClick = { host.navigate(FitnessScreen.RECORDS) }, Modifier.fillMaxWidth()) {
                     Text("${recordCount - 3}개 기록 더 보기")
                 }
             }
@@ -190,8 +191,8 @@ private fun HomeRoute(host: ScreenHost, ownerId: String, today: String, displayU
 
 @Composable
 private fun BodyMetricRow(metric: HomeBodyMetric, displayUnit: MassUnit) {
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp)) {
+    FitnessCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(FitnessSpacing.card)) {
             Text(MassFormatter.withUnit(metric.weightKg, displayUnit), fontWeight = FontWeight.Bold)
             Text(if (metric.memo.isBlank()) "체중" else "체중 · ${metric.memo}", style = MaterialTheme.typography.bodySmall)
         }
@@ -216,8 +217,8 @@ private fun WeeklyVolumeCard(snapshot: HomeSnapshot, dates: List<LocalDate>, dis
     val previous = dates.map { date -> snapshot.dayMetrics[date.minusWeeks(1).toString()] ?: HomeDayWorkoutMetrics(0, 0, 0.0, 0) }
     val total = current.sumOf { it.totalVolumeKg }
     val prior = previous.sumOf { it.totalVolumeKg }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    FitnessCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(FitnessSpacing.card), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
             Text("주간 볼륨", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("${MassFormatter.withUnit(total, displayUnit)} · 운동 ${current.count { it.sessionCount > 0 }}일 · 세트 ${current.sumOf { it.totalSetCount }}개")
             Text(weeklyComparison(total, prior, displayUnit), style = MaterialTheme.typography.bodySmall)
@@ -234,8 +235,8 @@ private fun WeeklyMealCard(snapshot: HomeSnapshot, dates: List<LocalDate>) {
     val previous = dates.map { date -> snapshot.mealCounts[date.minusWeeks(1).toString()] ?: 0 }
     val total = current.sum()
     val prior = previous.sum()
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    FitnessCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(FitnessSpacing.card), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
             Text("주간 식사", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("${total}끼 · 기록 ${current.count { it > 0 }}일")
             Text(mealComparison(total, prior), style = MaterialTheme.typography.bodySmall)
@@ -252,14 +253,14 @@ private fun WeeklyNutritionCard(host: ScreenHost, snapshot: HomeSnapshot, dates:
     val carbs = totals.map { it.total(NutritionProfile.CARBS_GRAMS) }
     val protein = totals.map { it.total(NutritionProfile.PROTEIN_GRAMS) }
     val fat = totals.map { it.total(NutritionProfile.FAT_GRAMS) }
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+    FitnessCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(FitnessSpacing.card), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
             Text("칼로리 / 탄단지 변화 추이", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Text("일평균 · kcal ${average(calories, "kcal")} · C ${average(carbs, "g")} · P ${average(protein, "g")} · F ${average(fat, "g")}", style = MaterialTheme.typography.bodySmall)
             Text(nutritionReference(goal), style = MaterialTheme.typography.bodySmall)
             if (goal == null) {
                 Text("영양소별 목표를 설정하면 7일 달성률이 표시됩니다.")
-                Button(onClick = { host.openMealManagement(snapshot.today, FitnessScreen.HOME) }) { Text("영양 목표 설정") }
+                FitnessButton(onClick = { host.openMealManagement(snapshot.today, FitnessScreen.HOME) }) { Text("영양 목표 설정") }
             } else {
                 dates.forEachIndexed { index, date ->
                     NutritionDayRow(dayLabel(date), calories[index], carbs[index], protein[index], fat[index], goal)
@@ -272,7 +273,7 @@ private fun WeeklyNutritionCard(host: ScreenHost, snapshot: HomeSnapshot, dates:
 @Composable
 private fun NutritionDayRow(label: String, calories: HomeNutritionTotal, carbs: HomeNutritionTotal,
                             protein: HomeNutritionTotal, fat: HomeNutritionTotal, goal: HomeNutritionGoal) {
-    Column(Modifier.fillMaxWidth().padding(top = 3.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = FitnessSpacing.micro), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         Text(label, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
         NutritionProgress("kcal", calories, goal.caloriesKcal, "kcal")
         NutritionProgress("C", carbs, goal.carbsGrams, "g")
@@ -285,7 +286,7 @@ private fun NutritionDayRow(label: String, calories: HomeNutritionTotal, carbs: 
 private fun NutritionProgress(label: String, total: HomeNutritionTotal, target: Double, unit: String) {
     val hasTarget = target > 0
     val ratio = if (total.isComplete() && hasTarget) (total.knownSum() / target).coerceIn(0.0, 1.25) else 0.0
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
         Text(label, Modifier.width(30.dp), style = MaterialTheme.typography.bodySmall)
         LinearProgressIndicator(progress = (ratio / 1.25).toFloat(), Modifier.weight(1f))
         Text(
@@ -301,7 +302,7 @@ private fun NutritionProgress(label: String, total: HomeNutritionTotal, target: 
 
 @Composable
 private fun WeeklyRows(rows: List<String>) {
-    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) { rows.forEach { Text(it, style = MaterialTheme.typography.bodySmall) } }
+    Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) { rows.forEach { Text(it, style = MaterialTheme.typography.bodySmall) } }
 }
 
 private fun emptyNutritionTotals() = HomeNutritionTotals(0, emptyMap())
@@ -342,8 +343,8 @@ private fun formatDuration(seconds: Int): String = FitnessUi.formatDuration(seco
 
 @Composable
 private fun LoadingHome() {
-    Column(Modifier.fillMaxWidth().padding(vertical = 24.dp)) {
+    Column(Modifier.fillMaxWidth().padding(vertical = FitnessSpacing.section)) {
         Text("오늘의 훈련", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("오늘의 기록과 루틴을 불러오는 중입니다.", modifier = Modifier.padding(top = 8.dp))
+        Text("오늘의 기록과 루틴을 불러오는 중입니다.", modifier = Modifier.padding(top = FitnessSpacing.small))
     }
 }

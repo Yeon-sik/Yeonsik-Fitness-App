@@ -1,7 +1,8 @@
 package com.yeonsik.fitnessapp.routine;
 
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
-import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.LoadState;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
@@ -28,19 +29,19 @@ public final class WorkoutRoutineMapperTest {
                 "chest", "variant", "variant", null, "external_load",
                 FitnessRecordContract.WEIGHT_REPS, null
         );
-        FitnessRepository.SessionExerciseEntry canonical = new FitnessRepository.SessionExerciseEntry(
+        WorkoutExercise canonical = new WorkoutExercise(
                 "workout-1", "legacy_dumbbell", 1, "덤벨 운동", "가슴", "덤벨",
                 FitnessRecordContract.WEIGHT_REPS, canonicalIdentity
         );
-        FitnessRepository.SessionExerciseEntry manual = new FitnessRepository.SessionExerciseEntry(
+        WorkoutExercise manual = new WorkoutExercise(
                 "workout-2", "manual", 2, "사용자 종목", "등", "덤벨",
-                FitnessRecordContract.WEIGHT_REPS
+                FitnessRecordContract.WEIGHT_REPS, null
         );
-        FitnessRepository.SessionExerciseEntry incomplete = new FitnessRepository.SessionExerciseEntry(
+        WorkoutExercise incomplete = new WorkoutExercise(
                 "workout-3", "legacy_dumbbell", 3, "미완료", "가슴", "덤벨",
-                FitnessRecordContract.WEIGHT_REPS
+                FitnessRecordContract.WEIGHT_REPS, null
         );
-        Map<String, List<FitnessRepository.SessionSetEntry>> sets = new LinkedHashMap<>();
+        Map<String, List<WorkoutSet>> sets = new LinkedHashMap<>();
         sets.put(canonical.id, Collections.singletonList(set("set-1", true)));
         sets.put(manual.id, Collections.singletonList(set("set-2", true)));
         sets.put(incomplete.id, Collections.singletonList(set("set-3", false)));
@@ -59,10 +60,10 @@ public final class WorkoutRoutineMapperTest {
         assertEquals(FitnessRecordContract.WEIGHT_REPS, result.get(1).recordType);
     }
 
-    private static FitnessRepository.SessionSetEntry set(String id, boolean completed) {
-        return new FitnessRepository.SessionSetEntry(
+    private static WorkoutSet set(String id, boolean completed) {
+        return new WorkoutSet(
                 id, 1, 10d, 8, null, null, completed, 0, 0d, 0d, 0d,
-                LoadState.EXTERNAL_LOAD
+                LoadState.EXTERNAL_LOAD, null, null
         );
     }
 

@@ -8,13 +8,22 @@ import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
-import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi;
+import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
+
+import org.json.JSONObject;
+
+import java.time.OffsetDateTime;
+import java.util.UUID;
 
 /**
  * GPS 유산소의 실행 상태와 원시 좌표를 로컬 SQLite에 저장한다.
- * 공유 가능한 완료 요약은 FitnessRepository를 통해 기존 Fitness Record Contract에 기록한다.
+ * 공유 가능한 완료 요약은 기존 Fitness Record Contract 필드에 직접 기록한다.
  */
-public final class CardioRepository {
+public final class CardioRepository implements CardioRepositoryApi {
     public static final String STATUS_TRACKING = "tracking";
     public static final String STATUS_PAUSED = "paused";
     public static final String STATUS_COMPLETED = "completed";
@@ -27,21 +36,27 @@ public final class CardioRepository {
     public static final String GPS_STOPPED = "stopped";
 
     private final FitnessDatabaseConnection database;
-    private final FitnessRepository fitnessRepository;
+    private String userId;
 
-    public CardioRepository(FitnessDatabaseHelper dbHelper, FitnessRepository fitnessRepository) {
+    public CardioRepository(FitnessDatabaseHelper dbHelper, String userId) {
         this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
-        this.fitnessRepository = fitnessRepository;
+        this.userId = userId;
     }
 
-    public CardioRepository(FitnessDatabaseConnection database, FitnessRepository fitnessRepository) {
+    public CardioRepository(FitnessDatabaseConnection database, String userId) {
         this.database = database;
-        this.fitnessRepository = fitnessRepository;
+        this.userId = userId;
     }
 
-    public CardioRepository(FitnessRoomDatabase roomDatabase, FitnessRepository fitnessRepository,
+    public CardioRepository(FitnessRoomDatabase roomDatabase, String userId,
                             android.content.Context context) {
-        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), fitnessRepository);
+        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), userId);
+    }
+
+    /** Account boundary updates the owner after local rows have been claimed separately. */
+    public void setUserId(String userId) {
+        String normalized = userId == null ? "" : userId.trim();
+        this.userId = normalized.isEmpty() ? SupabaseConfig.DEFAULT_USER_ID : normalized;
     }
 
     public String startSession(CardioActivityType activityType, String date) {
@@ -56,7 +71,7 @@ public final class CardioRepository {
         FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
-            String recordId = fitnessRepository.createCardioSession(date, activityType);
+            String recordId = createCardioRecord(date, activityType);
             long now = System.currentTimeMillis();
             ContentValues values = new ContentValues();
             values.put("record_id", recordId);
@@ -132,6 +147,28 @@ public final class CardioRepository {
                     cursor.isNull(8) ? null : cursor.getDouble(8)
             );
         }
+    }
+
+    @Override
+    public CardioSessionSnapshot loadSession(AccountScope scope, String recordId) {
+        requireScope(scope);
+        SessionSnapshot snapshot = session(recordId);
+        if (snapshot == null) {
+            return null;
+        }
+        return new CardioSessionSnapshot(
+                snapshot.recordId,
+                snapshot.activityType.id(),
+                snapshot.activityType.labelKo(),
+                snapshot.status,
+                snapshot.startedAtEpochMillis,
+                snapshot.lastResumedAtEpochMillis,
+                snapshot.activeDurationMillis,
+                snapshot.distanceMeters,
+                snapshot.acceptedPointCount,
+                snapshot.gpsStatus,
+                snapshot.averageHeartRateBpm
+        );
     }
 
     /**
@@ -335,13 +372,8 @@ public final class CardioRepository {
         FitnessDatabaseConnection database = db();
         database.beginTransaction();
         try {
-            fitnessRepository.completeCardioSession(
-                    recordId,
-                    snapshot.activityType,
-                    durationSeconds,
-                    snapshot.distanceMeters,
-                    averageHeartRateBpm
-            );
+            completeCardioRecord(recordId, snapshot.activityType, durationSeconds,
+                    snapshot.distanceMeters, averageHeartRateBpm);
 
             ContentValues values = new ContentValues();
             values.put("status", STATUS_COMPLETED);
@@ -366,7 +398,7 @@ public final class CardioRepository {
             String recordId,
             Integer averageHeartRateBpm
     ) {
-        return fitnessRepository.updateCardioAverageHeartRate(recordId, averageHeartRateBpm)
+        return updateCardioRecordHeartRate(recordId, averageHeartRateBpm)
                 ? session(recordId)
                 : null;
     }
@@ -388,7 +420,7 @@ public final class CardioRepository {
                     "record_id = ? AND user_id = ?",
                     new String[]{recordId, userId()}
             );
-            fitnessRepository.deleteSession(recordId);
+            softDeleteWorkoutRecord(recordId);
             database.setTransactionSuccessful();
         } finally {
             database.endTransaction();
@@ -427,12 +459,222 @@ public final class CardioRepository {
                 new String[]{recordId, userId(), STATUS_TRACKING, STATUS_PAUSED});
     }
 
+    private String createCardioRecord(String date, CardioActivityType activityType) {
+        String recordId = UUID.randomUUID().toString();
+        String timestamp = now();
+        ContentValues record = new ContentValues();
+        record.put("id", recordId);
+        record.put("user_id", userId());
+        record.put("date", date == null || date.trim().isEmpty() ? timestamp.substring(0, 10) : date);
+        record.put("workout_type", "cardio");
+        record.put("category", activityType.labelKo());
+        record.put("exercise_name", activityType.labelKo());
+        record.put("total_volume_kg", 0d);
+        record.putNull("duration_seconds");
+        record.putNull("average_heart_rate");
+        record.put("created_at", timestamp);
+        record.put("is_backfilled", 0);
+        record.putNull("backfilled_at");
+        record.putNull("backfill_reason");
+        record.put("updated_at", timestamp);
+        record.putNull("deleted_at");
+        record.put("device_id", "android-local");
+        record.put("source_app", "fitness");
+        record.put("scope", "fitness");
+        record.put("metadata", cardioMetadata("in_progress", activityType, "", 0, 0d, null));
+        db().insertOrThrow("workout_records", null, record);
+
+        ContentValues exercise = new ContentValues();
+        exercise.put("id", UUID.randomUUID().toString());
+        exercise.put("user_id", userId());
+        exercise.put("record_id", recordId);
+        exercise.put("order_index", 1);
+        exercise.put("exercise_id", "cardio_" + activityType.id());
+        exercise.put("exercise_name_snapshot", activityType.labelKo());
+        exercise.put("ui_part", "cardio");
+        exercise.put("primary_sub_part_snapshot", activityType.labelKo());
+        exercise.putNull("equipment_snapshot");
+        exercise.put("record_type", FitnessRecordContract.TIME);
+        exercise.putNull("family_id");
+        exercise.putNull("preset_id");
+        exercise.putNull("canonical_variant_key");
+        exercise.putNull("visual_variant_key");
+        exercise.putNull("memo");
+        exercise.put("created_at", timestamp);
+        exercise.put("updated_at", timestamp);
+        exercise.putNull("deleted_at");
+        exercise.put("device_id", "android-local");
+        exercise.put("contract_version", 1);
+        db().insertOrThrow("workout_exercises", null, exercise);
+        return recordId;
+    }
+
+    private void completeCardioRecord(
+            String recordId,
+            CardioActivityType activityType,
+            int durationSeconds,
+            double distanceMeters,
+            Integer averageHeartRateBpm
+    ) {
+        String exerciseId = null;
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id FROM workout_exercises WHERE record_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL ORDER BY order_index LIMIT 1",
+                new String[]{recordId, userId()})) {
+            if (cursor.moveToFirst()) exerciseId = cursor.getString(0);
+        }
+        if (exerciseId == null) throw new IllegalStateException("유산소 세부 종목을 찾지 못했습니다.");
+
+        String timestamp = now();
+        String existingSetId = null;
+        try (Cursor cursor = db().rawQuery(
+                "SELECT id FROM workout_sets WHERE workout_exercise_id = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL ORDER BY set_index LIMIT 1",
+                new String[]{exerciseId, userId()})) {
+            if (cursor.moveToFirst()) existingSetId = cursor.getString(0);
+        }
+        ContentValues set = new ContentValues();
+        set.putNull("target_reps");
+        set.putNull("actual_reps");
+        set.putNull("weight_kg");
+        set.put("volume_kg", 0d);
+        set.put("duration_seconds", durationSeconds);
+        set.put("distance_meters", distanceMeters);
+        set.putNull("rest_seconds");
+        set.putNull("assisted_weight_kg");
+        set.putNull("added_weight_kg");
+        set.putNull("input_load_value");
+        set.putNull("input_load_unit");
+        set.putNull("load_state");
+        set.put("is_completed", 1);
+        set.putNull("rpe");
+        set.putNull("rir");
+        set.putNull("memo");
+        set.put("updated_at", timestamp);
+        if (existingSetId == null) {
+            set.put("id", UUID.randomUUID().toString());
+            set.put("user_id", userId());
+            set.put("workout_exercise_id", exerciseId);
+            set.put("set_index", 1);
+            set.put("created_at", timestamp);
+            set.putNull("deleted_at");
+            set.put("device_id", "android-local");
+            set.put("contract_version", 1);
+            db().insertOrThrow("workout_sets", null, set);
+        } else {
+            db().update("workout_sets", set, "id = ? AND user_id = ? AND deleted_at IS NULL",
+                    new String[]{existingSetId, userId()});
+        }
+
+        ContentValues record = new ContentValues();
+        record.put("duration_seconds", durationSeconds);
+        record.put("total_volume_kg", 0d);
+        if (averageHeartRateBpm == null) record.putNull("average_heart_rate");
+        else record.put("average_heart_rate", averageHeartRateBpm);
+        record.put("exercise_name", activityType.labelKo());
+        record.put("category", activityType.labelKo());
+        record.put("scope", "both");
+        record.put("updated_at", timestamp);
+        String metadata = readWorkoutMetadata(recordId);
+        record.put("metadata", cardioMetadata("completed", activityType, timestamp,
+                durationSeconds, distanceMeters, averageHeartRateBpm, metadata));
+        db().update("workout_records", record, "id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{recordId, userId()});
+    }
+
+    private boolean updateCardioRecordHeartRate(String recordId, Integer averageHeartRateBpm) {
+        if (averageHeartRateBpm != null && averageHeartRateBpm <= 0) {
+            throw new IllegalArgumentException("평균 심박수는 0보다 커야 합니다.");
+        }
+        ContentValues values = new ContentValues();
+        if (averageHeartRateBpm == null) values.putNull("average_heart_rate");
+        else values.put("average_heart_rate", averageHeartRateBpm);
+        values.put("metadata", metadataWithAverageHeartRate(readWorkoutMetadata(recordId), averageHeartRateBpm));
+        values.put("updated_at", now());
+        return db().update("workout_records", values,
+                "id = ? AND user_id = ? AND workout_type = 'cardio' AND deleted_at IS NULL",
+                new String[]{recordId, userId()}) == 1;
+    }
+
+    private void softDeleteWorkoutRecord(String recordId) {
+        ContentValues values = new ContentValues();
+        values.put("deleted_at", now());
+        values.put("updated_at", now());
+        db().update("workout_sets", values,
+                "workout_exercise_id IN (SELECT id FROM workout_exercises WHERE record_id = ? AND user_id = ?) " +
+                        "AND user_id = ? AND deleted_at IS NULL",
+                new String[]{recordId, userId(), userId()});
+        db().update("workout_exercises", values,
+                "record_id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{recordId, userId()});
+        db().update("workout_records", values,
+                "id = ? AND user_id = ? AND deleted_at IS NULL",
+                new String[]{recordId, userId()});
+    }
+
+    private String readWorkoutMetadata(String recordId) {
+        try (Cursor cursor = db().rawQuery(
+                "SELECT metadata FROM workout_records WHERE id = ? AND user_id = ? LIMIT 1",
+                new String[]{recordId, userId()})) {
+            return cursor.moveToFirst() ? cursor.getString(0) : "{}";
+        }
+    }
+
+    private static String cardioMetadata(String status, CardioActivityType activityType,
+                                         String endedAt, int durationSeconds,
+                                         double distanceMeters, Integer averageHeartRateBpm) {
+        return cardioMetadata(status, activityType, endedAt, durationSeconds, distanceMeters,
+                averageHeartRateBpm, "{}");
+    }
+
+    private static String cardioMetadata(String status, CardioActivityType activityType,
+                                         String endedAt, int durationSeconds,
+                                         double distanceMeters, Integer averageHeartRateBpm,
+                                         String existing) {
+        try {
+            JSONObject object = new JSONObject(existing == null ? "{}" : existing);
+            object.put("status", status);
+            object.put("activity_type", activityType.id());
+            object.put("ended_at", endedAt == null ? "" : endedAt);
+            object.put("duration_seconds", durationSeconds);
+            object.put("active_duration_seconds", durationSeconds);
+            object.put("distance_meters", distanceMeters);
+            object.put("average_heart_rate", averageHeartRateBpm == null ? JSONObject.NULL : averageHeartRateBpm);
+            object.put("average_pace_seconds_per_km", distanceMeters <= 0 ? JSONObject.NULL :
+                    Math.round(durationSeconds / (distanceMeters / 1000d)));
+            object.put("contract_version", FitnessRecordContract.VERSION);
+            return object.toString();
+        } catch (Exception ignored) {
+            return "{}";
+        }
+    }
+
+    private static String metadataWithAverageHeartRate(String metadata, Integer averageHeartRateBpm) {
+        try {
+            JSONObject object = new JSONObject(metadata == null ? "{}" : metadata);
+            object.put("average_heart_rate", averageHeartRateBpm == null ? JSONObject.NULL : averageHeartRateBpm);
+            return object.toString();
+        } catch (Exception ignored) {
+            return metadata == null ? "{}" : metadata;
+        }
+    }
+
+    private static String now() {
+        return OffsetDateTime.now().toString();
+    }
+
     private FitnessDatabaseConnection db() {
         return database;
     }
 
     private String userId() {
-        return fitnessRepository.currentUserId();
+        return userId;
+    }
+
+    private void requireScope(AccountScope scope) {
+        if (scope == null || !scope.getOwnerId().equals(userId())) {
+            throw new IllegalStateException("The account changed while the cardio operation was pending.");
+        }
     }
 
     private static int safeSeconds(long durationMillis) {
