@@ -1,51 +1,52 @@
 package com.yeonsik.fitnessapp.routine;
 
-import android.content.ContentValues;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-
 import android.content.Context;
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
+import com.yeonsik.fitnessapp.core.database.RoutineEntity;
+import com.yeonsik.fitnessapp.core.database.RoutineExerciseEntity;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
-import com.yeonsik.fitnessapp.core.account.AccountScope;
-import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi;
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft;
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
-import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
+import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
+import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi;
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/** Room DAO implementation for the routine definition owned by the routine feature. */
 public final class RoutineRepository implements RoutineRepositoryApi {
     public static final int MAX_ROUTINES = 5;
     private static final String DEVICE_ID = "android-local";
     private static final String DEFAULT_ROUTINE_NAME = "나만의 루틴";
 
-    private final FitnessDatabaseConnection database;
+    private final FitnessRoomDatabase roomDatabase;
     private final ExerciseFamilyCatalog familyCatalog;
     private String userId;
     private String activeRoutineId;
 
+    /** Compatibility fixture constructor; it still uses the app's Room provider. */
+    @Deprecated
     public RoutineRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        this(FitnessDatabaseConnection.fromLegacy(dbHelper), dbHelper.applicationContext(), userId);
+        this(FitnessRoomDatabaseProvider.get(dbHelper.applicationContext()),
+                dbHelper.applicationContext(), userId);
     }
 
     public RoutineRepository(FitnessRoomDatabase roomDatabase, Context context, String userId) {
-        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), context, userId);
-    }
-
-    public RoutineRepository(FitnessDatabaseConnection database, Context context, String userId) {
-        this.database = database;
+        if (roomDatabase == null || context == null) {
+            throw new IllegalArgumentException("RoutineRepository requires Room and context.");
+        }
+        this.roomDatabase = roomDatabase;
         this.familyCatalog = ExerciseFamilyCatalog.load(context);
         this.userId = normalizeUserId(userId);
     }
@@ -58,60 +59,48 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
         if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
-            FitnessDatabaseConnection database = db();
-            ContentValues values = new ContentValues();
-            values.put("user_id", nextUserId);
-            String[] localOwner = {SupabaseConfig.DEFAULT_USER_ID};
-            database.beginTransaction();
-            try {
-                database.update("routines", values, "user_id = ?", localOwner);
-                database.update("routine_exercises", values, "user_id = ?", localOwner);
-                database.setTransactionSuccessful();
-            } finally {
-                database.endTransaction();
-            }
+            roomDatabase.runInTransaction(() -> {
+                roomDatabase.routineRoomDao().claimRoutines(
+                        SupabaseConfig.DEFAULT_USER_ID, nextUserId);
+                roomDatabase.routineRoomDao().claimRoutineExercises(
+                        SupabaseConfig.DEFAULT_USER_ID, nextUserId);
+            });
         }
         this.userId = nextUserId;
         this.activeRoutineId = null;
     }
 
     public String ensureDefaultRoutine() {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT id FROM routines WHERE user_id = ? AND is_default = 1 AND deleted_at IS NULL LIMIT 1",
-                new String[]{userId})) {
-            if (cursor.moveToFirst()) {
-                String id = cursor.getString(0);
-                if (activeRoutineId == null) {
-                    activeRoutineId = id;
-                }
-                return id;
+        for (RoutineEntity routine : roomDatabase.routineRoomDao().visibleRoutines(userId)) {
+            if (routine.isDefault()) {
+                if (activeRoutineId == null) activeRoutineId = routine.getId();
+                return routine.getId();
             }
         }
 
         String id = newId();
         String now = now();
-        ContentValues values = baseValues(id, now);
-        values.put("name", DEFAULT_ROUTINE_NAME);
-        values.put("is_default", 1);
-        db().insertOrThrow("routines", null, values);
-        if (activeRoutineId == null) {
-            activeRoutineId = id;
-        }
+        roomDatabase.routineRoomDao().insertRoutine(new RoutineEntity(
+                id, userId, DEFAULT_ROUTINE_NAME, true, DEVICE_ID,
+                now, now, null
+        ));
+        if (activeRoutineId == null) activeRoutineId = id;
         return id;
     }
 
     public List<RoutineSummary> routines() {
         List<RoutineSummary> rows = new ArrayList<>();
-        try (Cursor cursor = db().rawQuery(
-                "SELECT r.id, r.name, COUNT(re.id) FROM routines r "
-                        + "LEFT JOIN routine_exercises re ON re.routine_id = r.id "
-                        + "AND re.user_id = r.user_id AND re.deleted_at IS NULL "
-                        + "WHERE r.user_id = ? AND r.deleted_at IS NULL GROUP BY r.id, r.name "
-                        + "ORDER BY r.is_default DESC, r.created_at",
-                new String[]{userId})) {
-            while (cursor.moveToNext()) {
-                rows.add(new RoutineSummary(cursor.getString(0), cursor.getString(1), cursor.getInt(2)));
-            }
+        for (RoutineRoomSummary row : summaryRows()) {
+            rows.add(new RoutineSummary(row.id, row.name, row.exerciseCount));
+        }
+        return rows;
+    }
+
+    private List<RoutineRoomSummary> summaryRows() {
+        List<RoutineRoomSummary> rows = new ArrayList<>();
+        for (com.yeonsik.fitnessapp.core.database.RoutineRoomDao.RoutineSummaryProjection row
+                : roomDatabase.routineRoomDao().visibleRoutineSummaries(userId)) {
+            rows.add(new RoutineRoomSummary(row.getId(), row.getName(), row.getExerciseCount()));
         }
         return rows;
     }
@@ -121,22 +110,11 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     }
 
     public void selectRoutine(String routineId) {
-        if (routineId == null) {
-            return;
-        }
-        try (Cursor cursor = db().rawQuery(
-                "SELECT id FROM routines WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
-                new String[]{routineId, userId})) {
-            if (cursor.moveToFirst()) {
-                activeRoutineId = routineId;
-            }
-        }
+        if (ownsRoutine(routineId)) activeRoutineId = routineId;
     }
 
     public String activeRoutineId() {
-        if (activeRoutineId == null) {
-            activeRoutineId = ensureDefaultRoutine();
-        }
+        if (activeRoutineId == null) activeRoutineId = ensureDefaultRoutine();
         return activeRoutineId;
     }
 
@@ -147,32 +125,26 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     }
 
     @Override
-    public List<com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary> routines(AccountScope scope) {
+    public List<com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary> routines(
+            AccountScope scope
+    ) {
         requireScope(scope);
         List<com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary> result = new ArrayList<>();
         for (RoutineSummary row : routines()) {
             result.add(new com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary(
-                    row.id,
-                    row.name,
-                    row.exerciseCount
-            ));
+                    row.id, row.name, row.exerciseCount));
         }
         return result;
     }
 
     @Override
     public List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> routineExercises(
-            AccountScope scope,
-            String routineId
+            AccountScope scope, String routineId
     ) {
         requireScope(scope);
-        if (!ownsRoutine(routineId)) {
-            return new ArrayList<>();
-        }
+        if (!ownsRoutine(routineId)) return new ArrayList<>();
         List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> result = new ArrayList<>();
-        for (RoutineExerciseInstance row : routineExercises(routineId)) {
-            result.add(row.toFeatureModel());
-        }
+        for (RoutineExerciseInstance row : routineExercises(routineId)) result.add(row.toFeatureModel());
         return result;
     }
 
@@ -215,23 +187,17 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     @Override
     public boolean selectRoutine(AccountScope scope, String routineId) {
         requireScope(scope);
-        if (!ownsRoutine(routineId)) {
-            return false;
-        }
-        selectRoutine(routineId);
+        if (!ownsRoutine(routineId)) return false;
+        activeRoutineId = routineId;
         return true;
     }
 
     @Override
     public boolean addExercise(AccountScope scope, String routineId, RoutineExerciseDraft exercise) {
         requireScope(scope);
-        if (exercise == null || !ownsRoutine(routineId)) {
-            return false;
-        }
+        if (exercise == null || !ownsRoutine(routineId)) return false;
         EquipmentType equipmentType = EquipmentType.fromId(exercise.equipmentVariantId);
-        if (equipmentType == null) {
-            equipmentType = EquipmentType.OTHER;
-        }
+        if (equipmentType == null) equipmentType = EquipmentType.OTHER;
         RoutineExercise legacyExercise = new RoutineExercise(
                 exercise.exerciseId,
                 exercise.nameKo,
@@ -255,32 +221,21 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     }
 
     public String routineName(String routineId) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT name FROM routines " +
-                        "WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
-                new String[]{routineId, userId})) {
-            if (cursor.moveToFirst()) {
-                return emptyToDefault(cursor.getString(0), DEFAULT_ROUTINE_NAME);
-            }
-        }
-        return DEFAULT_ROUTINE_NAME;
+        RoutineEntity routine = roomDatabase.routineRoomDao().visibleRoutine(routineId, userId);
+        return routine == null
+                ? DEFAULT_ROUTINE_NAME
+                : emptyToDefault(routine.getName(), DEFAULT_ROUTINE_NAME);
     }
 
     public String createRoutine(String name, List<RoutineExercise> exercises) {
-        if (!canCreateRoutine()) {
-            return null;
-        }
+        if (!canCreateRoutine()) return null;
         String id = newId();
         String now = now();
-        ContentValues values = baseValues(id, now);
-        values.put("name", emptyToDefault(name, DEFAULT_ROUTINE_NAME));
-        values.put("is_default", 0);
-        db().insertOrThrow("routines", null, values);
-        if (exercises != null) {
-            for (RoutineExercise exercise : exercises) {
-                addToRoutine(id, exercise);
-            }
-        }
+        roomDatabase.routineRoomDao().insertRoutine(new RoutineEntity(
+                id, userId, emptyToDefault(name, DEFAULT_ROUTINE_NAME), false,
+                DEVICE_ID, now, now, null
+        ));
+        if (exercises != null) for (RoutineExercise exercise : exercises) addToRoutine(id, exercise);
         activeRoutineId = id;
         return id;
     }
@@ -298,107 +253,51 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     }
 
     public boolean renameRoutine(String routineId, String name) {
-        if (!ownsRoutine(routineId)) {
-            return false;
-        }
-        ContentValues values = new ContentValues();
-        values.put("name", emptyToDefault(name, DEFAULT_ROUTINE_NAME));
-        values.put("updated_at", now());
-        return db().update(
-                "routines",
-                values,
-                "id = ? AND user_id = ? AND deleted_at IS NULL",
-                new String[]{routineId, userId}
-        ) > 0;
+        if (!ownsRoutine(routineId)) return false;
+        return roomDatabase.routineRoomDao().renameRoutine(
+                routineId, userId, emptyToDefault(name, DEFAULT_ROUTINE_NAME), now()) > 0;
     }
 
-    /**
-     * Copies only the routine definition. Workout records and set history remain independent
-     * snapshots and are never copied into the new routine.
-     */
+    /** Copies only the routine definition; completed workout history is not copied. */
     public String copyRoutine(String sourceRoutineId, String name) {
-        if (!canCreateRoutine() || !ownsRoutine(sourceRoutineId)) {
-            return null;
-        }
-
+        if (!canCreateRoutine() || !ownsRoutine(sourceRoutineId)) return null;
         String sourceName = routineName(sourceRoutineId);
         String targetId = newId();
         String now = now();
-        FitnessDatabaseConnection database = db();
-        database.beginTransaction();
-        try {
-            ContentValues routineValues = baseValues(targetId, now);
-            routineValues.put("name", emptyToDefault(name, sourceName + " 복사"));
-            routineValues.put("is_default", 0);
-            database.insertOrThrow("routines", null, routineValues);
-
-            try (Cursor cursor = database.rawQuery(
-                    "SELECT exercise_id, name_ko, ui_part, primary_sub_part, equipment, " +
-                            "record_type, family_id, preset_id, canonical_variant_key, " +
-                            "visual_variant_key, order_index " +
-                            "FROM routine_exercises WHERE routine_id = ? AND user_id = ? " +
-                            "AND deleted_at IS NULL ORDER BY order_index, created_at",
-                    new String[]{sourceRoutineId, userId})) {
-                while (cursor.moveToNext()) {
-                    ContentValues exerciseValues = baseValues(newId(), now);
-                    exerciseValues.put("routine_id", targetId);
-                    exerciseValues.put("exercise_id", cursor.getString(0));
-                    exerciseValues.put("name_ko", cursor.getString(1));
-                    exerciseValues.put("ui_part", cursor.getString(2));
-                    exerciseValues.put("primary_sub_part", cursor.getString(3));
-                    exerciseValues.put("equipment", cursor.getString(4));
-                    exerciseValues.put("record_type", cursor.getString(5));
-                    putNullable(exerciseValues, "family_id", cursor.getString(6));
-                    putNullable(exerciseValues, "preset_id", cursor.getString(7));
-                    putNullable(exerciseValues, "canonical_variant_key", cursor.getString(8));
-                    putNullable(exerciseValues, "visual_variant_key", cursor.getString(9));
-                    exerciseValues.put("order_index", cursor.getInt(10));
-                    database.insertOrThrow("routine_exercises", null, exerciseValues);
-                }
+        List<RoutineExerciseEntity> source = roomDatabase.routineRoomDao()
+                .visibleExercises(sourceRoutineId, userId);
+        roomDatabase.runInTransaction(() -> {
+            roomDatabase.routineRoomDao().insertRoutine(new RoutineEntity(
+                    targetId, userId, emptyToDefault(name, sourceName + " 복사"), false,
+                    DEVICE_ID, now, now, null
+            ));
+            for (RoutineExerciseEntity row : source) {
+                roomDatabase.routineRoomDao().insertExercise(new RoutineExerciseEntity(
+                        newId(), userId, targetId, row.getExerciseId(), row.getNameKo(),
+                        row.getUiPart(), row.getPrimarySubPart(), row.getEquipment(),
+                        row.getRecordType(), row.getFamilyId(), row.getPresetId(),
+                        row.getCanonicalVariantKey(), row.getVisualVariantKey(), row.getOrderIndex(),
+                        DEVICE_ID, now, now, null
+                ));
             }
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
+        });
         activeRoutineId = targetId;
         return targetId;
     }
 
-    /**
-     * Soft-deletes a routine definition and its exercises without touching completed workouts.
-     */
+    /** Soft-deletes a routine definition and its exercises without touching workouts. */
     public boolean deleteRoutine(String routineId) {
-        if (!ownsRoutine(routineId)) {
-            return false;
-        }
-        String now = now();
-        ContentValues values = new ContentValues();
-        values.put("deleted_at", now);
-        values.put("updated_at", now);
-        FitnessDatabaseConnection database = db();
-        database.beginTransaction();
-        int updated;
-        try {
-            database.update(
-                    "routine_exercises",
-                    values,
-                    "routine_id = ? AND user_id = ? AND deleted_at IS NULL",
-                    new String[]{routineId, userId}
-            );
-            updated = database.update(
-                    "routines",
-                    values,
-                    "id = ? AND user_id = ? AND deleted_at IS NULL",
-                    new String[]{routineId, userId}
-            );
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
-        if (routineId.equals(activeRoutineId)) {
-            activeRoutineId = null;
-        }
-        return updated > 0;
+        if (!ownsRoutine(routineId)) return false;
+        String timestamp = now();
+        final int[] updated = {0};
+        roomDatabase.runInTransaction(() -> {
+            roomDatabase.routineRoomDao().tombstoneRoutineExercises(
+                    routineId, userId, timestamp, timestamp);
+            updated[0] = roomDatabase.routineRoomDao().tombstoneRoutine(
+                    routineId, userId, timestamp, timestamp);
+        });
+        if (routineId.equals(activeRoutineId)) activeRoutineId = null;
+        return updated[0] > 0;
     }
 
     public RoutineExerciseInstance addToDefaultRoutine(RoutineExercise exercise) {
@@ -406,98 +305,53 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     }
 
     private RoutineExerciseInstance addToRoutine(String routineId, RoutineExercise exercise) {
-        if (exercise == null) {
-            return null;
-        }
-        if (!ownsRoutine(routineId)) {
-            throw new IllegalArgumentException("현재 계정의 루틴이 아닙니다.");
-        }
+        if (exercise == null) return null;
+        if (!ownsRoutine(routineId)) throw new IllegalArgumentException("현재 계정의 루틴이 아닙니다.");
 
-        int nextOrder = nextOrder(routineId);
+        int nextOrder = roomDatabase.routineRoomDao().nextExerciseOrder(routineId, userId);
         String id = newId();
-        String now = now();
-
-        ContentValues values = baseValues(id, now);
-        values.put("routine_id", routineId);
-        values.put("exercise_id", exercise.masterExerciseId);
-        values.put("name_ko", displayName(exercise));
-        values.put("ui_part", exercise.bodyPart == null ? "" : exercise.bodyPart.labelKo());
-        values.put("primary_sub_part", emptyToDefault(exercise.primarySubPart, "세부 부위 없음"));
-        values.put("equipment", exercise.equipmentType == null ? "기타" : exercise.equipmentType.labelKo());
-        values.put("record_type", FitnessRecordContract.normalizeRecordType(exercise.recordType));
+        String timestamp = now();
         ExerciseFamilyIdentity identity = resolvedIdentity(exercise.familyIdentity, exercise.masterExerciseId);
-        putFamilyIdentity(values, identity);
-        values.put("order_index", nextOrder);
-        db().insertOrThrow("routine_exercises", null, values);
-
-        return new RoutineExerciseInstance(
-                id,
-                exercise.masterExerciseId,
-                displayName(exercise),
+        roomDatabase.routineRoomDao().insertExercise(new RoutineExerciseEntity(
+                id, userId, routineId, exercise.masterExerciseId, displayName(exercise),
                 exercise.bodyPart == null ? "" : exercise.bodyPart.labelKo(),
                 emptyToDefault(exercise.primarySubPart, "세부 부위 없음"),
                 exercise.equipmentType == null ? "기타" : exercise.equipmentType.labelKo(),
                 FitnessRecordContract.normalizeRecordType(exercise.recordType),
-                nextOrder,
-                identity
+                identity == null ? null : identity.familyId,
+                identity == null ? null : identity.presetId,
+                identity == null ? null : identity.canonicalVariantKey,
+                identity == null ? null : identity.visualVariantKey,
+                nextOrder, DEVICE_ID, timestamp, timestamp, null
+        ));
+        return new RoutineExerciseInstance(
+                id, exercise.masterExerciseId, displayName(exercise),
+                exercise.bodyPart == null ? "" : exercise.bodyPart.labelKo(),
+                emptyToDefault(exercise.primarySubPart, "세부 부위 없음"),
+                exercise.equipmentType == null ? "기타" : exercise.equipmentType.labelKo(),
+                FitnessRecordContract.normalizeRecordType(exercise.recordType), nextOrder, identity
         );
     }
 
     public List<RoutineExerciseInstance> routineExercises(String routineId) {
         List<RoutineExerciseInstance> rows = new ArrayList<>();
-        try (Cursor cursor = db().rawQuery(
-                "SELECT id, exercise_id, name_ko, ui_part, primary_sub_part, equipment, record_type, order_index, " +
-                        "family_id, preset_id, canonical_variant_key, visual_variant_key " +
-                        "FROM routine_exercises WHERE routine_id = ? AND user_id = ? " +
-                        "AND deleted_at IS NULL ORDER BY order_index, created_at",
-                new String[]{routineId, userId})) {
-            while (cursor.moveToNext()) {
-                ExerciseFamilyIdentity identity = identityForRow(
-                        cursor.getString(1),
-                        cursor.getString(2),
-                        cursor.getString(8),
-                        cursor.getString(9),
-                        cursor.getString(10),
-                        cursor.getString(11),
-                        cursor.getString(6)
-                );
-                rows.add(new RoutineExerciseInstance(
-                        cursor.getString(0),
-                        cursor.getString(1),
-                        identity == null ? cursor.getString(2) : identity.displayName(),
-                        cursor.getString(3),
-                        cursor.getString(4),
-                        cursor.getString(5),
-                        cursor.getString(6),
-                        cursor.getInt(7),
-                        identity
-                ));
-            }
+        for (RoutineExerciseEntity row : roomDatabase.routineRoomDao().visibleExercises(routineId, userId)) {
+            ExerciseFamilyIdentity identity = identityForRow(
+                    row.getExerciseId(), row.getNameKo(), row.getFamilyId(), row.getPresetId(),
+                    row.getCanonicalVariantKey(), row.getVisualVariantKey(), row.getRecordType()
+            );
+            rows.add(new RoutineExerciseInstance(
+                    row.getId(), row.getExerciseId(),
+                    identity == null ? row.getNameKo() : identity.displayName(),
+                    row.getUiPart(), row.getPrimarySubPart(), row.getEquipment(), row.getRecordType(),
+                    row.getOrderIndex(), identity
+            ));
         }
         return rows;
     }
 
-    private int nextOrder(String routineId) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT COALESCE(MAX(order_index), 0) + 1 FROM routine_exercises " +
-                        "WHERE routine_id = ? AND user_id = ? AND deleted_at IS NULL",
-                new String[]{routineId, userId})) {
-            return cursor.moveToFirst() ? cursor.getInt(0) : 1;
-        }
-    }
-
-    private FitnessDatabaseConnection db() {
-        return database;
-    }
-
     private boolean ownsRoutine(String routineId) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT 1 FROM routines WHERE id = ? AND user_id = ? " +
-                        "AND deleted_at IS NULL LIMIT 1",
-                new String[]{routineId, userId}
-        )) {
-            return cursor.moveToFirst();
-        }
+        return routineId != null && roomDatabase.routineRoomDao().visibleRoutine(routineId, userId) != null;
     }
 
     private void requireScope(AccountScope scope) {
@@ -506,38 +360,8 @@ public final class RoutineRepository implements RoutineRepositoryApi {
         }
     }
 
-    private ContentValues baseValues(String id, String now) {
-        ContentValues values = new ContentValues();
-        values.put("id", id);
-        values.put("user_id", userId);
-        values.put("device_id", DEVICE_ID);
-        values.put("created_at", now);
-        values.put("updated_at", now);
-        values.putNull("deleted_at");
-        return values;
-    }
-
-    private static void putFamilyIdentity(ContentValues values, ExerciseFamilyIdentity identity) {
-        if (identity == null) {
-            values.putNull("family_id");
-            values.putNull("preset_id");
-            values.putNull("canonical_variant_key");
-            values.putNull("visual_variant_key");
-            return;
-        }
-        putNullable(values, "family_id", identity.familyId);
-        putNullable(values, "preset_id", identity.presetId);
-        putNullable(values, "canonical_variant_key", identity.canonicalVariantKey);
-        putNullable(values, "visual_variant_key", identity.visualVariantKey);
-    }
-
-    private ExerciseFamilyIdentity resolvedIdentity(
-            ExerciseFamilyIdentity supplied,
-            String legacyExerciseId
-    ) {
-        return supplied != null
-                ? supplied
-                : familyCatalog.identityForStorageExerciseId(legacyExerciseId);
+    private ExerciseFamilyIdentity resolvedIdentity(ExerciseFamilyIdentity supplied, String legacyExerciseId) {
+        return supplied != null ? supplied : familyCatalog.identityForStorageExerciseId(legacyExerciseId);
     }
 
     private ExerciseFamilyIdentity identityForRow(
@@ -550,37 +374,11 @@ public final class RoutineRepository implements RoutineRepositoryApi {
             String recordType
     ) {
         ExerciseFamilyIdentity mapped = familyCatalog.identityForStorageExerciseId(legacyExerciseId);
-        if (mapped != null) {
-            return mapped;
-        }
-        if (familyId == null || familyId.trim().isEmpty()) {
-            return null;
-        }
+        if (mapped != null || familyId == null || familyId.trim().isEmpty()) return mapped;
         return new ExerciseFamilyIdentity(
-                legacyExerciseId,
-                familyId,
-                presetId,
-                presetId,
-                nameKo,
-                nameKo,
-                nameKo,
-                nameKo,
-                null,
-                canonicalVariantKey,
-                visualVariantKey,
-                null,
-                null,
-                recordType,
-                null
+                legacyExerciseId, familyId, presetId, presetId, nameKo, nameKo, nameKo, nameKo,
+                null, canonicalVariantKey, visualVariantKey, null, null, recordType, null
         );
-    }
-
-    private static void putNullable(ContentValues values, String key, String value) {
-        if (value == null || value.trim().isEmpty()) {
-            values.putNull(key);
-        } else {
-            values.put(key, value.trim());
-        }
     }
 
     private static String normalizeUserId(String value) {
@@ -595,9 +393,7 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     private static String displayName(RoutineExercise exercise) {
         if (exercise != null && exercise.familyIdentity != null) {
             String canonicalName = exercise.familyIdentity.displayName();
-            if (canonicalName != null && !canonicalName.trim().isEmpty()) {
-                return canonicalName;
-            }
+            if (canonicalName != null && !canonicalName.trim().isEmpty()) return canonicalName;
         }
         return emptyToDefault(exercise == null ? null : exercise.nameKo, "운동");
     }
@@ -608,6 +404,18 @@ public final class RoutineRepository implements RoutineRepositoryApi {
 
     private static String now() {
         return OffsetDateTime.now().toString();
+    }
+
+    private static final class RoutineRoomSummary {
+        final String id;
+        final String name;
+        final int exerciseCount;
+
+        RoutineRoomSummary(String id, String name, int exerciseCount) {
+            this.id = id;
+            this.name = name;
+            this.exerciseCount = exerciseCount;
+        }
     }
 
     public static final class RoutineSummary {

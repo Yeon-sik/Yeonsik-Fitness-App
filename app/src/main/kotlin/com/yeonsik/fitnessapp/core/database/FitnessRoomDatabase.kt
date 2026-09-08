@@ -176,11 +176,67 @@ interface RoutineRoomDao {
     )
     fun visibleExercises(routineId: String, userId: String): List<RoutineExerciseEntity>
 
+    data class RoutineSummaryProjection(
+        val id: String,
+        val name: String,
+        val exerciseCount: Int
+    )
+
+    @Query(
+        "SELECT r.id AS id, r.name AS name, COUNT(re.id) AS exerciseCount " +
+            "FROM routines r LEFT JOIN routine_exercises re ON re.routine_id = r.id " +
+            "AND re.user_id = r.user_id AND re.deleted_at IS NULL " +
+            "WHERE r.user_id = :userId AND r.deleted_at IS NULL " +
+            "GROUP BY r.id, r.name, r.is_default, r.created_at " +
+            "ORDER BY r.is_default DESC, r.created_at"
+    )
+    fun visibleRoutineSummaries(userId: String): List<RoutineSummaryProjection>
+
+    @Query(
+        "SELECT * FROM routines WHERE id = :routineId AND user_id = :userId " +
+            "AND deleted_at IS NULL LIMIT 1"
+    )
+    fun visibleRoutine(routineId: String, userId: String): RoutineEntity?
+
+    @Query(
+        "SELECT COALESCE(MAX(order_index), 0) + 1 FROM routine_exercises " +
+            "WHERE routine_id = :routineId AND user_id = :userId AND deleted_at IS NULL"
+    )
+    fun nextExerciseOrder(routineId: String, userId: String): Int
+
+    @Query(
+        "UPDATE routines SET user_id = :nextUserId WHERE user_id = :sourceUserId"
+    )
+    fun claimRoutines(sourceUserId: String, nextUserId: String): Int
+
+    @Query(
+        "UPDATE routine_exercises SET user_id = :nextUserId WHERE user_id = :sourceUserId"
+    )
+    fun claimRoutineExercises(sourceUserId: String, nextUserId: String): Int
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertRoutine(routine: RoutineEntity)
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertExercise(exercise: RoutineExerciseEntity)
+
+    @Query(
+        "UPDATE routines SET name = :name, updated_at = :updatedAt " +
+            "WHERE id = :routineId AND user_id = :userId AND deleted_at IS NULL"
+    )
+    fun renameRoutine(routineId: String, userId: String, name: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE routine_exercises SET deleted_at = :deletedAt, updated_at = :updatedAt " +
+            "WHERE routine_id = :routineId AND user_id = :userId AND deleted_at IS NULL"
+    )
+    fun tombstoneRoutineExercises(routineId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE routines SET deleted_at = :deletedAt, updated_at = :updatedAt " +
+            "WHERE id = :routineId AND user_id = :userId AND deleted_at IS NULL"
+    )
+    fun tombstoneRoutine(routineId: String, userId: String, deletedAt: String, updatedAt: String): Int
 }
 
 @Database(
