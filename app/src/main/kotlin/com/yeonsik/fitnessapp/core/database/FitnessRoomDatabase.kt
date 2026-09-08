@@ -957,11 +957,47 @@ interface CardioRoomDao {
 
 @Dao
 interface MealRoomDao {
+    data class MealReadRow(
+        val id: String,
+        val date: String,
+        val menu: String,
+        val calories: Long,
+        @ColumnInfo(name = "protein_grams") val proteinGrams: Double?,
+        @ColumnInfo(name = "carbs_grams") val carbsGrams: Double?,
+        @ColumnInfo(name = "fat_grams") val fatGrams: Double?,
+        val metadata: String,
+        @ColumnInfo(name = "created_at") val createdAt: String,
+        @ColumnInfo(name = "meal_kind") val mealKind: String,
+        @ColumnInfo(name = "fulfillment_mode") val fulfillmentMode: String?,
+        @ColumnInfo(name = "store_name") val storeName: String?,
+        @ColumnInfo(name = "branch_name") val branchName: String?,
+        @ColumnInfo(name = "menu_name") val menuName: String?,
+        @ColumnInfo(name = "first_food_name") val firstFoodName: String?,
+        @ColumnInfo(name = "composition_count") val compositionCount: Int,
+        @ColumnInfo(name = "device_id") val deviceId: String
+    )
+
     @Query(
         "SELECT COUNT(*) FROM meal_records WHERE deleted_at IS NULL " +
             "AND user_id=:userId AND scope IN ('fitness','both') AND date=:date"
     )
     fun mealCountForDate(userId: String, date: String): Long
+
+    @Query(
+        "SELECT r.id, r.date, r.menu, r.calories, r.protein_grams, r.carbs_grams, " +
+            "r.fat_grams, r.metadata, r.created_at, r.meal_kind, r.fulfillment_mode, " +
+            "r.store_name, r.branch_name, r.menu_name, " +
+            "(SELECT i.food_name_snapshot FROM meal_record_items i " +
+            "WHERE i.meal_record_id=r.id AND i.user_id=r.user_id AND i.deleted_at IS NULL " +
+            "ORDER BY i.order_index, i.id LIMIT 1) AS first_food_name, " +
+            "(SELECT COUNT(*) FROM meal_record_items i " +
+            "WHERE i.meal_record_id=r.id AND i.user_id=r.user_id AND i.deleted_at IS NULL) " +
+            "AS composition_count, r.device_id FROM meal_records r " +
+            "WHERE r.user_id=:userId AND r.deleted_at IS NULL " +
+            "AND r.scope IN ('fitness','both') AND r.date=:date " +
+            "ORDER BY r.created_at, r.id"
+    )
+    fun visibleMealReadRows(userId: String, date: String): List<MealReadRow>
 
     @Query(
         "SELECT COUNT(DISTINCT date) FROM meal_records WHERE user_id=:userId " +
@@ -1013,6 +1049,9 @@ interface DevelopmentRoomDao {
 
     @Query("DELETE FROM development_goals WHERE user_id=:userId")
     fun deleteGoal(userId: String): Int
+
+    @Query("SELECT * FROM nutrition_goals WHERE user_id=:userId LIMIT 1")
+    fun nutritionGoal(userId: String): NutritionGoalsRoomEntity?
 
     @Query(
         "SELECT COUNT(*) AS recorded_days, COALESCE(SUM(CASE " +

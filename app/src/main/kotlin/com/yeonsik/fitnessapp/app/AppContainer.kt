@@ -19,13 +19,16 @@ import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
 import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService
 import com.yeonsik.fitnessapp.feature.home.api.HomeRepositoryApi
+import com.yeonsik.fitnessapp.feature.home.data.FeatureHomeReadSources
 import com.yeonsik.fitnessapp.feature.home.data.HomeReadRepository
-import com.yeonsik.fitnessapp.feature.home.data.RoomHomeReadSources
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository
 import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentReadRepository
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService
 import com.yeonsik.fitnessapp.feature.exercise.api.ExerciseMasterRepositoryApi
 import com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository
+import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
@@ -35,6 +38,7 @@ import com.yeonsik.fitnessapp.feature.workout.application.CompleteWorkout
 import com.yeonsik.fitnessapp.feature.workout.application.InitializeWorkoutExercise
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutReadRepository
 import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryStore
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService
@@ -114,8 +118,13 @@ class AppContainer(context: Context) {
         appContext
     )
 
-    val workoutRepository: WorkoutRepositoryApi =
-        WorkoutRepositoryImplementation(roomDatabase, appContext)
+    private val workoutRepositoryImplementation = WorkoutRepositoryImplementation(roomDatabase, appContext)
+    private val workoutReadRepository = WorkoutReadRepository(roomDatabase, appContext)
+    private val mealReadRepository = MealReadRepository(roomDatabase)
+    private val bodyMetricsReadRepository = BodyMetricsReadRepository(roomDatabase)
+    private val developmentReadRepository = DevelopmentReadRepository(roomDatabase)
+
+    val workoutRepository: WorkoutRepositoryApi = workoutRepositoryImplementation
     val cardioRepositoryApi: CardioRepositoryApi = cardioRepository
     val exerciseMasterRepositoryApi: ExerciseMasterRepositoryApi = exerciseMasterRepository
     val developmentRepositoryApi: DevelopmentRepositoryApi = developmentRepository
@@ -124,7 +133,12 @@ class AppContainer(context: Context) {
     val nutritionCatalogRepositoryApi: NutritionCatalogRepositoryApi = nutritionCatalogRepository
     val routineRepositoryApi: RoutineRepositoryApi = routineRepository
     val homeRepository: HomeRepositoryApi = HomeReadRepository(
-        RoomHomeReadSources(roomDatabase, appContext),
+        FeatureHomeReadSources(
+            workoutReadRepository,
+            mealReadRepository,
+            bodyMetricsReadRepository,
+            developmentReadRepository
+        ),
         routineRepositoryApi
     )
     val initializeWorkoutExercise = InitializeWorkoutExercise(workoutRepository)
