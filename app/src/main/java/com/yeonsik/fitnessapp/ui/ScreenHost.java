@@ -79,6 +79,11 @@ public interface ScreenHost {
 
     void openWorkoutSession(String recordId);
 
+    /** Opens a stored record using its owning feature (strength or cardio). */
+    default void openRecord(String recordId) {
+        openWorkoutSession(recordId);
+    }
+
     void openWorkoutExercisePicker();
 
     void finishActiveWorkout();

@@ -5,9 +5,9 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitnessapp.core.account.AccountScope
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository
 import com.yeonsik.fitnessapp.data.NutritionFood
-import com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository
+import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
+import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ExecutorService
@@ -24,7 +24,11 @@ data class DiningOutDraft(
     val sodium: String = "",
     val sugars: String = "",
     val saturatedFat: String = "",
-    val time: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+    val time: String = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
+    val restaurantId: String = "",
+    val restaurantLocationId: String = "",
+    val restaurantMenuId: String = "",
+    val catalogProductId: String = ""
 )
 
 sealed interface MealUiState {
@@ -48,8 +52,8 @@ sealed interface MealUiState {
 /** Owns meal editor/search state; Compose only renders state and emits actions. */
 class MealViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
-    private val mealRepository: MealRecordRepository,
-    private val nutritionCatalog: NutritionCatalogRepository,
+    private val mealRepository: MealRecordRepositoryApi,
+    private val nutritionCatalog: NutritionCatalogRepositoryApi,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : ViewModel() {
     private val mutableState = MutableLiveData<MealUiState>(MealUiState.Idle)
@@ -95,6 +99,10 @@ class MealViewModel @JvmOverloads constructor(
         savedStateHandle.remove<String>(KEY_TIME)
         savedStateHandle.remove<String>(KEY_FOOD_ID)
         savedStateHandle.remove<String>(KEY_QUANTITY)
+        savedStateHandle.remove<String>(KEY_RESTAURANT_ID)
+        savedStateHandle.remove<String>(KEY_RESTAURANT_LOCATION_ID)
+        savedStateHandle.remove<String>(KEY_RESTAURANT_MENU_ID)
+        savedStateHandle.remove<String>(KEY_CATALOG_PRODUCT_ID)
         selectedFood = null
         mutableState.value = ready().copy(editing = true, diningOut = true, draft = DiningOutDraft())
     }
@@ -110,6 +118,25 @@ class MealViewModel @JvmOverloads constructor(
     fun updateSugars(value: String) = draft(KEY_SUGARS, value)
     fun updateSaturatedFat(value: String) = draft(KEY_SATURATED_FAT, value)
     fun updateTime(value: String) = draft(KEY_TIME, value)
+
+    fun applyPriceTraceSelection(
+        restaurantId: String,
+        restaurantName: String,
+        locationId: String,
+        branchName: String,
+        menuId: String,
+        menuName: String,
+        catalogProductId: String
+    ) {
+        savedStateHandle[KEY_RESTAURANT_ID] = restaurantId
+        savedStateHandle[KEY_RESTAURANT_LOCATION_ID] = locationId
+        savedStateHandle[KEY_RESTAURANT_MENU_ID] = menuId
+        savedStateHandle[KEY_CATALOG_PRODUCT_ID] = catalogProductId
+        savedStateHandle[KEY_STORE] = restaurantName
+        savedStateHandle[KEY_BRANCH] = branchName
+        savedStateHandle[KEY_MENU] = menuName
+        update { it.copy(editing = true, diningOut = true, draft = savedDraft(), error = null, notice = null) }
+    }
 
     fun search(value: String) {
         savedStateHandle[KEY_QUERY] = value
@@ -217,7 +244,9 @@ class MealViewModel @JvmOverloads constructor(
                     scope,
                     date, draft.time, draft.store, draft.branch, draft.menu,
                     parsed.calories, parsed.protein, parsed.carbs, parsed.fat,
-                    parsed.sodium, parsed.sugars, parsed.saturatedFat
+                    parsed.sodium, parsed.sugars, parsed.saturatedFat,
+                    draft.restaurantId, draft.restaurantLocationId,
+                    draft.restaurantMenuId, draft.catalogProductId
                 )
                 resetSavedDraft()
                 mutableState.postValue(ready().copy(
@@ -264,13 +293,18 @@ class MealViewModel @JvmOverloads constructor(
         savedStateHandle[KEY_CARBS] ?: "", savedStateHandle[KEY_PROTEIN] ?: "",
         savedStateHandle[KEY_FAT] ?: "", savedStateHandle[KEY_SODIUM] ?: "",
         savedStateHandle[KEY_SUGARS] ?: "", savedStateHandle[KEY_SATURATED_FAT] ?: "",
-        savedStateHandle[KEY_TIME] ?: LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+        savedStateHandle[KEY_TIME] ?: LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm")),
+        savedStateHandle[KEY_RESTAURANT_ID] ?: "",
+        savedStateHandle[KEY_RESTAURANT_LOCATION_ID] ?: "",
+        savedStateHandle[KEY_RESTAURANT_MENU_ID] ?: "",
+        savedStateHandle[KEY_CATALOG_PRODUCT_ID] ?: ""
     )
 
     private fun resetSavedDraft() {
         listOf(KEY_STORE, KEY_BRANCH, KEY_MENU, KEY_CALORIES, KEY_CARBS, KEY_PROTEIN,
             KEY_FAT, KEY_SODIUM, KEY_SUGARS, KEY_SATURATED_FAT, KEY_TIME, KEY_QUERY,
-            KEY_FOOD_ID, KEY_QUANTITY)
+            KEY_FOOD_ID, KEY_QUANTITY, KEY_RESTAURANT_ID, KEY_RESTAURANT_LOCATION_ID,
+            KEY_RESTAURANT_MENU_ID, KEY_CATALOG_PRODUCT_ID)
             .forEach { savedStateHandle.remove<String>(it) }
     }
 
@@ -306,6 +340,10 @@ class MealViewModel @JvmOverloads constructor(
         const val KEY_TIME = "meal.time"
         const val KEY_FOOD_ID = "meal.food_id"
         const val KEY_QUANTITY = "meal.quantity"
+        const val KEY_RESTAURANT_ID = "meal.restaurant_id"
+        const val KEY_RESTAURANT_LOCATION_ID = "meal.restaurant_location_id"
+        const val KEY_RESTAURANT_MENU_ID = "meal.restaurant_menu_id"
+        const val KEY_CATALOG_PRODUCT_ID = "meal.catalog_product_id"
         fun number(value: Double): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
     }
 }

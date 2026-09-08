@@ -5,8 +5,10 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitnessapp.feature.supplement.api.SupplementRepositoryApi
+import com.yeonsik.fitnessapp.feature.supplement.model.SupplementAdherence
+import com.yeonsik.fitnessapp.feature.supplement.model.SupplementProgress
 import com.yeonsik.fitnessapp.supplement.SupplementPlan
-import com.yeonsik.fitnessapp.supplement.SupplementRepository
 import java.time.LocalDate
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -18,15 +20,15 @@ sealed interface SupplementUiState {
         val ownerId: String,
         val date: String,
         val plans: List<SupplementPlan>,
-        val progress: SupplementRepository.Progress,
-        val adherence: SupplementRepository.AdherenceSummary
+        val progress: SupplementProgress,
+        val adherence: SupplementAdherence
     ) : SupplementUiState
     data class Error(val ownerId: String, val message: String) : SupplementUiState
 }
 
 class SupplementViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
-    private val repository: SupplementRepository,
+    private val repository: SupplementRepositoryApi,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : ViewModel() {
     private val mutableState = MutableLiveData<SupplementUiState>(SupplementUiState.Idle)
@@ -79,8 +81,8 @@ class SupplementViewModel @JvmOverloads constructor(
                 scope.ownerId,
                 date,
                 repository.activePlans(date),
-                repository.progress(date),
-                repository.adherence(LocalDate.parse(date), 14)
+                repository.loadProgress(date),
+                repository.loadAdherence(LocalDate.parse(date), 14)
             )
             if (request == requestVersion) mutableState.postValue(state)
         } catch (error: Exception) {

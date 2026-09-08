@@ -1,3 +1,4 @@
+/* Legacy database compatibility fixture; production runtime no longer packages this facade. */
 package com.yeonsik.fitnessapp.data;
 
 import android.content.ContentValues;
@@ -8248,3 +8249,4 @@ public final class FitnessRepository {
         }
     }
 }
+

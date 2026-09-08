@@ -37,8 +37,6 @@ import androidx.lifecycle.ViewModelProvider;
 import com.yeonsik.fitnessapp.app.AppContainer;
 import com.yeonsik.fitnessapp.app.SavedStateViewModelFactory;
 import com.yeonsik.fitnessapp.app.navigation.ComposeAppScreen;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
@@ -69,8 +67,6 @@ import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.development.DevelopmentInsight;
 import com.yeonsik.fitnessapp.development.DevelopmentRepository;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
-import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
-import com.yeonsik.fitnessapp.routine.RoutineRepository;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.FitnessNavigationHistory;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
@@ -91,7 +87,8 @@ import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
 import com.yeonsik.fitnessapp.feature.home.data.HomeReadRepository;
 import com.yeonsik.fitnessapp.feature.home.data.RoomHomeReadSources;
-import com.yeonsik.fitnessapp.feature.routine.application.EnsureActiveRoutine;
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance;
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
@@ -210,12 +207,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private SupplementViewModel supplementViewModel;
     private ExercisePickerViewModel exercisePickerViewModel;
     private MealViewModel mealViewModel;
-    private FitnessRoomDatabase roomDatabase;
     private NutritionCatalogRepository nutritionCatalogRepository;
     private MealRecordRepository mealRecordRepository;
     private CardioRepository cardioRepository;
     private ExerciseMasterRepository exerciseMasterRepository;
-    private RoutineRepository routineRepository;
     private DevelopmentRepository developmentRepository;
     private SupplementRepository supplementRepository;
     private SupabaseConfigStore configStore;
@@ -287,57 +282,37 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private CardioActivityType pendingCardioActivityType;
     private String pendingCardioResumeRecordId;
     private boolean waitingForLocationSettings;
+    private final DataTransferCoordinator dataTransferCoordinator = new DataTransferCoordinator();
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         massUnitPreferences = new MassUnitPreferences(this);
-        configStore = new SupabaseConfigStore(this);
-        supabaseConfig = configStore.load();
-        nutritionConfigStore = new NutritionSupabaseConfigStore(this);
-        nutritionSupabaseConfig = nutritionConfigStore.load();
-        priceTraceConfigStore = new PriceTraceSupabaseConfigStore(this);
-        priceTraceSupabaseConfig = priceTraceConfigStore.load();
-        productReadClient = new ProductReadV1Client(priceTraceSupabaseConfig);
-        restaurantMenuReadClient = new RestaurantMenuReadV1Client(priceTraceSupabaseConfig);
-        authManager = new SupabaseAuthManager(configStore);
-        nutritionAuthManager = new SupabaseAuthManager(nutritionConfigStore);
-        priceTraceAuthManager = new SupabaseAuthManager(priceTraceConfigStore);
-        roomDatabase = FitnessRoomDatabaseProvider.get(this);
-        FitnessDatabaseConnection databaseConnection =
-                FitnessDatabaseConnection.fromRoom(roomDatabase, this);
-        accountOwnershipService = new AccountOwnershipService(
-                databaseConnection,
-                supabaseConfig.effectiveUserId()
-        );
-        fitnessSummaryStore = new FitnessSummaryStore(databaseConnection);
-        workoutInterchangeStore = new WorkoutInterchangeStore(databaseConnection, this);
-        bodyMetricsRepository = new BodyMetricsRepository(databaseConnection, supabaseConfig.effectiveUserId());
-        nutritionCatalogRepository = new NutritionCatalogRepository(
-                roomDatabase,
-                this,
-                nutritionSupabaseConfig.effectiveUserId(),
-                nutritionSupabaseConfig
-        );
-        mealRecordRepository = new MealRecordRepository(
-                databaseConnection,
-                nutritionCatalogRepository,
-                supabaseConfig.effectiveUserId()
-        );
-        cardioRepository = new CardioRepository(roomDatabase, supabaseConfig.effectiveUserId(), this);
+        appContainer = new AppContainer(this);
+        configStore = appContainer.getConfigStore();
+        nutritionConfigStore = appContainer.getNutritionConfigStore();
+        priceTraceConfigStore = appContainer.getPriceTraceConfigStore();
+        supabaseConfig = appContainer.getSupabaseConfig();
+        nutritionSupabaseConfig = appContainer.getNutritionSupabaseConfig();
+        priceTraceSupabaseConfig = appContainer.getPriceTraceSupabaseConfig();
+        authManager = appContainer.getSupabaseAuthManager();
+        nutritionAuthManager = appContainer.getNutritionAuthManager();
+        priceTraceAuthManager = appContainer.getPriceTraceAuthManager();
+        accountOwnershipService = appContainer.getAccountOwnershipService();
+        fitnessSummaryStore = appContainer.getFitnessSummaryStore();
+        workoutInterchangeStore = appContainer.getWorkoutInterchangeStore();
+        bodyMetricsRepository = appContainer.getBodyMetricsRepository();
+        nutritionCatalogRepository = appContainer.getNutritionCatalogRepository();
+        mealRecordRepository = appContainer.getMealRecordRepository();
+        cardioRepository = appContainer.getCardioRepository();
+        exerciseMasterRepository = appContainer.getExerciseMasterRepository();
+        developmentRepository = appContainer.getDevelopmentRepository();
+        supplementRepository = appContainer.getSupplementRepository();
+        productReadClient = appContainer.getProductReadClient();
+        restaurantMenuReadClient = appContainer.getRestaurantMenuReadClient();
+        syncManager = appContainer.getSyncManager();
         fitnessSummaryStore.reconcileSharedWorkoutSummaries(currentOwnerId());
-        exerciseMasterRepository = new ExerciseMasterRepository(this);
-        routineRepository = new RoutineRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
-        appContainer = new AppContainer(
-                new WorkoutRepositoryImplementation(roomDatabase, this),
-                cardioRepository,
-                routineRepository,
-                new HomeReadRepository(new RoomHomeReadSources(roomDatabase, this), routineRepository)
-        );
-        developmentRepository = new DevelopmentRepository(roomDatabase, this, supabaseConfig.effectiveUserId());
-        supplementRepository = new SupplementRepository(roomDatabase, supabaseConfig.effectiveUserId(), this);
         initializeFeatureViewModels();
-        syncManager = new SupabaseSyncManager(roomDatabase, this);
         applySyncStatusFromConfig();
 
         themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
@@ -515,7 +490,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new RoutineEntryViewModel(
                                 handle,
-                                new EnsureActiveRoutine(appContainer.getRoutineRepositoryApi())
+                                appContainer.getRoutineRepositoryApi()
                         )
                 )
         ).get(RoutineEntryViewModel.class);
@@ -524,6 +499,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 RoutineEntryUiState.Ready ready = (RoutineEntryUiState.Ready) state;
                 if ((currentScreen == FitnessScreen.STRENGTH || currentScreen == FitnessScreen.HOME)
                         && ready.getOwnerId().equals(currentOwnerId())) {
+                    if (ready.getNotice() != null) {
+                        homeViewModel.enter(new AccountScope(currentOwnerId()), today());
+                    }
                     if (currentScreen != FitnessScreen.HOME) {
                         rerender();
                     }
@@ -589,7 +567,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         handle -> new ExercisePickerViewModel(
                                 handle,
                                 exerciseMasterRepository,
-                                routineRepository,
+                                appContainer.getRoutineRepositoryApi(),
                                 appContainer.getWorkoutRepository()
                         )
                 )
@@ -795,17 +773,17 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             return;
         }
         if (requestCode == REQUEST_FLEEK_CSV_IMPORT) {
-            importFleekCsv(uri);
+            dataTransferCoordinator.importFleekCsv(uri);
         } else if (requestCode == REQUEST_LOCAL_BACKUP_EXPORT) {
-            writeLocalBackup(uri);
+            dataTransferCoordinator.writeLocalBackup(uri);
         } else if (requestCode == REQUEST_LOCAL_BACKUP_RESTORE) {
-            previewLocalBackup(uri);
+            dataTransferCoordinator.previewLocalBackup(uri);
         } else if (requestCode == REQUEST_RECORDS_CSV_EXPORT) {
-            writeRecordsCsv(uri);
+            dataTransferCoordinator.writeRecordsCsv(uri);
         } else if (requestCode == REQUEST_WORKOUT_TRANSFER_IMPORT) {
-            importWorkoutTransfer(uri);
+            dataTransferCoordinator.importWorkoutTransfer(uri);
         } else if (requestCode == REQUEST_WORKOUT_TRANSFER_EXPORT) {
-            writeWorkoutTransfer(uri);
+            dataTransferCoordinator.writeWorkoutTransfer(uri);
         }
     }
 
@@ -1540,7 +1518,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         scope,
                         screen,
                         sessionState.activeRecordId(),
-                        sessionState.replacementExerciseId()
+                        sessionState.replacementExerciseId(),
+                        selectedRoutineId
                 );
                 return;
             default:
@@ -1749,7 +1728,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     @Override
     public void selectRoutine(String routineId) {
         selectedRoutineId = routineId;
-        routineRepository.selectRoutine(routineId);
     }
 
     @Override
@@ -1762,6 +1740,15 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         sessionState.setActiveRecordId(recordId);
         sessionState.setActiveExerciseId(null);
         navigate(FitnessScreen.WORKOUT_SESSION);
+    }
+
+    @Override
+    public void openRecord(String recordId) {
+        if (recordId != null && cardioRepository.isCardioSession(recordId)) {
+            openCardioSummary(recordId);
+        } else {
+            openWorkoutSession(recordId);
+        }
     }
 
     @Override
@@ -1815,11 +1802,25 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         String recordId = appContainer.getWorkoutRepository().createSessionFromRoutine(
                 new AccountScope(currentOwnerId()),
                 today(),
-                routineRepository.activeRoutineName(),
-                routineRepository.activeRoutineId(),
+                routineNameForStart(),
+                selectedRoutineId,
                 routineExercises);
         toast("루틴 운동을 시작했습니다.");
         openWorkoutSession(recordId);
+    }
+
+    private String routineNameForStart() {
+        RoutineEntryUiState state = routineEntryViewModel.getUiState().getValue();
+        if (state instanceof RoutineEntryUiState.Ready) {
+            RoutineEntryUiState.Ready ready = (RoutineEntryUiState.Ready) state;
+            String routineId = selectedRoutineId == null ? ready.getActiveRoutineId() : selectedRoutineId;
+            for (RoutineSummary routine : ready.getRoutines()) {
+                if (routine.id.equals(routineId)) {
+                    return routine.name;
+                }
+            }
+        }
+        return "운동";
     }
 
     @Override
@@ -1869,10 +1870,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             return;
         }
 
-        String activeRoutineId = routineRepository.activeRoutineId();
-        List<RoutineRepository.RoutineSummary> routines = routineRepository.routines();
-        RoutineRepository.RoutineSummary[] selectedRoutine = {null};
-        for (RoutineRepository.RoutineSummary routine : routines) {
+        RoutineEntryUiState routineState = routineEntryViewModel.getUiState().getValue();
+        String activeRoutineId = selectedRoutineId;
+        if (activeRoutineId == null && routineState instanceof RoutineEntryUiState.Ready) {
+            activeRoutineId = ((RoutineEntryUiState.Ready) routineState).getActiveRoutineId();
+        }
+        List<RoutineSummary> routines = homeViewModel.routines();
+        RoutineSummary[] selectedRoutine = {null};
+        for (RoutineSummary routine : routines) {
             if (routine.id.equals(activeRoutineId)) {
                 selectedRoutine[0] = routine;
                 break;
@@ -1889,7 +1894,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             labels[0] = "루틴 없이 운동";
             int checked = 0;
             for (int index = 0; index < routines.size(); index++) {
-                RoutineRepository.RoutineSummary routine = routines.get(index);
+                RoutineSummary routine = routines.get(index);
                 labels[index + 1] = manualWorkoutRoutineLabel(routine);
                 if (selectedRoutine[0] != null && routine.id.equals(selectedRoutine[0].id)) {
                     checked = index + 1;
@@ -1926,18 +1931,16 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                     throw new IllegalArgumentException("종료 시각이 현재보다 늦을 수 없습니다.");
                 }
 
-                RoutineRepository.RoutineSummary routine = selectedRoutine[0];
+                RoutineSummary routine = selectedRoutine[0];
                 List<RoutineExerciseInstance> exercises = routine == null
                         ? java.util.Collections.emptyList()
-                        : routineRepository.routineExercises(routine.id);
+                        : homeViewModel.routineExercises(routine.id);
                 String recordId = appContainer.getWorkoutRepository().createManualPastSessionFromRoutine(
                         new AccountScope(currentOwnerId()),
                         selectedDate.toString(),
                         routine == null ? "루틴 없이 운동" : routine.name,
                         routine == null ? null : routine.id,
-                        exercises.stream()
-                                .map(RoutineExerciseInstance::toFeatureModel)
-                                .collect(java.util.stream.Collectors.toList()),
+                        exercises,
                         startedAt.toString(),
                         endedAt.toString()
                 );
@@ -1954,7 +1957,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         });
     }
 
-    private static String manualWorkoutRoutineLabel(RoutineRepository.RoutineSummary routine) {
+    private static String manualWorkoutRoutineLabel(RoutineSummary routine) {
         return routine == null
                 ? "루틴 없이 운동"
                 : routine.name + " · " + routine.exerciseCount + "종목";
@@ -2611,75 +2614,27 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void createLocalBackup() {
-        if (isDataTransferInProgress || isDataImporting) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        openCreateDocument(
-                "application/json",
-                "fitness-os-backup-" + today() + ".json",
-                REQUEST_LOCAL_BACKUP_EXPORT
-        );
+        dataTransferCoordinator.createLocalBackup();
     }
 
     @Override
     public void restoreLocalBackup() {
-        if (isDataTransferInProgress || isDataImporting) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("application/json");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, REQUEST_LOCAL_BACKUP_RESTORE);
-        } catch (Exception error) {
-            toast("백업 파일 선택기를 열지 못했습니다.");
-        }
+        dataTransferCoordinator.restoreLocalBackup();
     }
 
     @Override
     public void exportRecordsCsv() {
-        if (isDataTransferInProgress || isDataImporting) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        openCreateDocument(
-                "text/csv",
-                "fitness-os-records-" + today() + ".csv",
-                REQUEST_RECORDS_CSV_EXPORT
-        );
+        dataTransferCoordinator.exportRecordsCsv();
     }
 
     @Override
     public void openWorkoutTransferImport() {
-        if (isDataTransferInProgress || isDataImporting) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("application/json");
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, REQUEST_WORKOUT_TRANSFER_IMPORT);
-        } catch (Exception error) {
-            toast("운동 전송 JSON 선택기를 열지 못했습니다.");
-        }
+        dataTransferCoordinator.openWorkoutTransferImport();
     }
 
     @Override
     public void exportWorkoutTransfer() {
-        if (isDataTransferInProgress || isDataImporting) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        openCreateDocument(
-                "application/json",
-                "yeonsik-workout-transfer-" + today() + ".json",
-                REQUEST_WORKOUT_TRANSFER_EXPORT
-        );
+        dataTransferCoordinator.exportWorkoutTransfer();
     }
 
     @Override
@@ -2692,227 +2647,34 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         return dataTransferDetail;
     }
 
-    private void openCreateDocument(String mimeType, String fileName, int requestCode) {
-        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType(mimeType);
-        intent.putExtra(Intent.EXTRA_TITLE, fileName);
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, requestCode);
-        } catch (Exception error) {
-            toast("파일 저장 위치를 열지 못했습니다.");
-        }
-    }
 
-    private LocalDataBackupService localDataBackupService() {
-        return new LocalDataBackupService(
-                roomDatabase,
-                this,
-                currentOwnerId(),
-                nutritionSupabaseConfig.effectiveUserId()
-        );
-    }
 
-    private void writeLocalBackup(Uri uri) {
-        beginDataTransfer("백업 파일을 만드는 중입니다.");
-        executor.execute(() -> {
-            try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
-                if (output == null) {
-                    throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
-                }
-                localDataBackupService().writeBackup(output);
-                finishDataTransfer("전체 백업을 저장했습니다.", null);
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(error, "백업을 저장하지 못했습니다."));
-            }
-        });
-    }
 
-    private void previewLocalBackup(Uri uri) {
-        beginDataTransfer("백업 파일을 확인하는 중입니다.");
-        executor.execute(() -> {
-            try (InputStream input = getContentResolver().openInputStream(uri)) {
-                if (input == null) {
-                    throw new IOException("선택한 백업 파일을 읽을 수 없습니다.");
-                }
-                LocalDataBackupService.BackupPreview preview =
-                        localDataBackupService().previewBackup(input);
-                runOnUiThread(() -> {
-                    isDataTransferInProgress = false;
-                    dataTransferDetail = preview.getTotalRows() + "개 항목 확인됨";
-                    render();
-                    ui.confirmSheet(
-                            "백업 복원",
-                            preview.getTotalRows() + "개 항목을 현재 기록에 합칩니다. "
-                                    + "기존 기록은 유지하고 같은 항목은 건너뜁니다.",
-                            null,
-                            "병합 복원",
-                            () -> restoreLocalBackup(uri)
-                    );
-                });
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(error, "백업 파일을 확인하지 못했습니다."));
-            }
-        });
-    }
 
-    private void restoreLocalBackup(Uri uri) {
-        beginDataTransfer("백업을 복원하는 중입니다.");
-        executor.execute(() -> {
-            try (InputStream input = getContentResolver().openInputStream(uri)) {
-                if (input == null) {
-                    throw new IOException("선택한 백업 파일을 다시 읽을 수 없습니다.");
-                }
-                LocalDataBackupService.RestoreResult result =
-                        localDataBackupService().restoreBackup(input);
-                fitnessSummaryStore.reconcileSharedWorkoutSummaries(currentOwnerId());
-                finishDataTransfer(
-                        result.getImportedRows() + "개 복원 · "
-                                + result.getSkippedRows() + "개 중복 건너뜀",
-                        null
-                );
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(error, "백업을 복원하지 못했습니다."));
-            }
-        });
-    }
 
-    private void writeRecordsCsv(Uri uri) {
-        beginDataTransfer("기록 요약 CSV를 만드는 중입니다.");
-        executor.execute(() -> {
-            try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
-                if (output == null) {
-                    throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
-                }
-                localDataBackupService().writeRecordsSummaryCsv(output);
-                finishDataTransfer("기록 요약 CSV를 저장했습니다.", null);
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(error, "CSV를 저장하지 못했습니다."));
-            }
-        });
-    }
 
-    private void writeWorkoutTransfer(Uri uri) {
-        beginDataTransfer("운동 전송 JSON을 만드는 중입니다.");
-        executor.execute(() -> {
-            try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
-                if (output == null) {
-                    throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
-                }
-                new WorkoutTransferService(workoutInterchangeStore, currentOwnerId()).writeJson(output);
-                finishDataTransfer("Workout Transfer v2 JSON을 저장했습니다.", null);
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(
-                        error,
-                        "운동 전송 JSON을 저장하지 못했습니다."
-                ));
-            }
-        });
-    }
 
-    private void importWorkoutTransfer(Uri uri) {
-        beginDataTransfer("운동 전송 JSON을 읽고 기록을 합치는 중입니다.");
-        executor.execute(() -> {
-            try (InputStream input = getContentResolver().openInputStream(uri)) {
-                if (input == null) {
-                    throw new IOException("선택한 운동 전송 파일을 읽을 수 없습니다.");
-                }
-                WorkoutInterchangeResult result =
-                        new WorkoutTransferService(workoutInterchangeStore, currentOwnerId()).importJson(input);
-                fitnessSummaryStore.reconcileSharedWorkoutSummaries(currentOwnerId());
-                finishDataTransfer(result.summary(), null);
-            } catch (Exception error) {
-                finishDataTransfer(null, dataTransferError(
-                        error,
-                        "운동 전송 JSON을 가져오지 못했습니다."
-                ));
-            }
-        });
-    }
 
-    private void beginDataTransfer(String detail) {
-        isDataTransferInProgress = true;
-        dataTransferDetail = detail;
-        render();
-    }
 
-    private void finishDataTransfer(String success, String failure) {
-        runOnUiThread(() -> {
-            isDataTransferInProgress = false;
-            dataTransferDetail = failure == null ? success : failure;
-            render();
-            toast(dataTransferDetail);
-        });
-    }
 
-    private static String dataTransferError(Exception error, String fallback) {
-        String message = error.getMessage();
-        if (message == null || message.trim().isEmpty()) {
-            return fallback;
-        }
-        return message.matches(".*[ㄱ-ㅎㅏ-ㅣ가-힣].*") ? message : fallback;
-    }
+
+
+
+
+
+
+
+
+
+
+
 
     @Override
     public void openFleekDataImport() {
-        if (isDataImporting || isDataTransferInProgress) {
-            toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
-            return;
-        }
-        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        intent.addCategory(Intent.CATEGORY_OPENABLE);
-        intent.setType("text/*");
-        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
-                "text/csv",
-                "text/comma-separated-values",
-                "application/csv",
-                "application/vnd.ms-excel",
-                "text/plain"
-        });
-        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        try {
-            startActivityForResult(intent, REQUEST_FLEEK_CSV_IMPORT);
-        } catch (Exception error) {
-            toast("CSV 파일 선택기를 열지 못했습니다.");
-        }
+        dataTransferCoordinator.openFleekDataImport();
     }
 
-    private void importFleekCsv(Uri uri) {
-        if (isDataImporting) return;
-        isDataImporting = true;
-        dataImportDetail = "CSV를 읽고 운동 기록을 변환하는 중입니다.";
-        render();
-        executor.execute(() -> {
-            try (InputStream input = getContentResolver().openInputStream(uri)) {
-                if (input == null) {
-                    throw new IllegalArgumentException("선택한 CSV 파일을 읽지 못했습니다.");
-                }
-                FleekCsvImporter.ImportPlan plan = FleekCsvImporter.parse(
-                        new InputStreamReader(input, StandardCharsets.UTF_8),
-                        exerciseMasterRepository.getAllWeightExercises()
-                );
-                WorkoutInterchangeResult result = workoutInterchangeStore.importFleek(currentOwnerId(), plan);
-                runOnUiThread(() -> {
-                    isDataImporting = false;
-                    dataImportDetail = result.summary();
-                    toast(result.importedSessions > 0
-                            ? "FLEEK 운동 기록을 가져왔습니다."
-                            : "이미 가져온 기록이라 새로 저장된 세션이 없습니다.");
-                    render();
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> {
-                    isDataImporting = false;
-                    dataImportDetail = error.getMessage() == null
-                            ? "FLEEK CSV 가져오기에 실패했습니다."
-                            : error.getMessage();
-                    toast("FLEEK CSV 가져오기에 실패했습니다.");
-                    render();
-                });
-            }
-        });
-    }
+
 
     @Override
     public boolean isDataImporting() {
@@ -3463,15 +3225,21 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                     }
                 }
                 lastSyncedAt = result.syncedAt;
-                final boolean completedWithNutritionFailure = nutritionFailed;
+                final boolean summaryFailed = !result.summaryPublicationSucceeded;
+                final boolean completedWithPartialFailure = nutritionFailed || summaryFailed;
+                final int legacyPushedRows = result.pushedRows - result.summaryPublishedRows;
                 final String completedNutritionStatus = nutritionStatus;
+                final String completedSummaryStatus = summaryFailed
+                        ? "Summary v2 실패: " + result.summaryPublicationError
+                        : "Summary v2 " + result.summaryPublishedRows + "건";
                 runOnUiThread(() -> {
                     isManualSyncing = false;
-                    syncLabel = completedWithNutritionFailure ? "partial" : "synced";
-                    syncDetail = "공통 DB push " + result.pushedRows + "건 · pull "
-                            + result.pulledRows + "건 · " + completedNutritionStatus;
-                    toast(completedWithNutritionFailure
-                            ? "공통 DB 동기화는 완료했지만 영양 DB 동기화는 실패했습니다."
+                    syncLabel = completedWithPartialFailure ? "partial" : "synced";
+                    syncDetail = "공통 DB push " + legacyPushedRows + "건 · pull "
+                            + result.pulledRows + "건 · " + completedSummaryStatus
+                            + " · " + completedNutritionStatus;
+                    toast(completedWithPartialFailure
+                            ? "공통 DB 동기화는 완료했지만 일부 원격 publication이 실패했습니다."
                             : "두 DB의 수동 동기화를 완료했습니다.");
                     render();
                 });
@@ -3488,15 +3256,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private void applyAuthenticatedSharedConfig(SupabaseConfig config) {
-        supabaseConfig = config;
-        String userId = config.effectiveUserId();
-        accountOwnershipService.claimLocalRows(userId);
-        bodyMetricsRepository.setUserId(userId);
-        cardioRepository.setUserId(userId);
-        routineRepository.setUserId(userId);
-        developmentRepository.normalizeLocalUserId(userId);
-        supplementRepository.normalizeLocalUserId(userId);
-        mealRecordRepository.setUserId(userId);
+        appContainer.applyAuthenticatedSharedConfig(config);
+        supabaseConfig = appContainer.getSupabaseConfig();
     }
 
     private void completeSharedAuthentication(SupabaseConfig config, String successMessage) {
@@ -3516,22 +3277,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private void applySharedSessionConfig(SupabaseConfig config) {
-        supabaseConfig = config;
-        String userId = config.effectiveUserId();
-        accountOwnershipService.setOwnerId(userId);
-        bodyMetricsRepository.setUserId(userId);
-        cardioRepository.setUserId(userId);
-        routineRepository.setUserId(userId);
-        developmentRepository.setUserId(userId);
-        supplementRepository.setUserId(userId);
-        mealRecordRepository.setUserId(userId);
+        appContainer.applySharedSessionConfig(config);
+        supabaseConfig = appContainer.getSupabaseConfig();
     }
 
     private void applyAuthenticatedNutritionConfig(SupabaseConfig config) {
-        nutritionSupabaseConfig = config;
-        String userId = config.effectiveUserId();
-        nutritionCatalogRepository.normalizeLocalUserId(userId);
-        nutritionCatalogRepository.setSupabaseConfig(config);
+        appContainer.applyAuthenticatedNutritionConfig(config);
+        nutritionSupabaseConfig = appContainer.getNutritionSupabaseConfig();
     }
 
     private void completeNutritionAuthentication(SupabaseConfig config, String successMessage) {
@@ -3551,15 +3303,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private void applyNutritionSessionConfig(SupabaseConfig config) {
-        nutritionSupabaseConfig = config;
-        nutritionCatalogRepository.setUserId(config.effectiveUserId());
-        nutritionCatalogRepository.setSupabaseConfig(config);
+        appContainer.applyNutritionSessionConfig(config);
+        nutritionSupabaseConfig = appContainer.getNutritionSupabaseConfig();
     }
 
     private void applyPriceTraceSessionConfig(SupabaseConfig config) {
-        priceTraceSupabaseConfig = config;
-        productReadClient.setConfig(config);
-        restaurantMenuReadClient.setConfig(config);
+        appContainer.applyPriceTraceSessionConfig(config);
+        priceTraceSupabaseConfig = appContainer.getPriceTraceSupabaseConfig();
     }
 
     private void applySyncStatusFromConfig() {
@@ -3610,4 +3360,295 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
         return SupabaseConfig.DEFAULT_USER_ID;
     }
+
+    /**
+     * Coordinates file import/export work while MainActivity retains only platform callbacks and
+     * ScreenHost action forwarding.
+     */
+    private final class DataTransferCoordinator {
+        private void createLocalBackup() {
+            if (isDataTransferInProgress || isDataImporting) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            openCreateDocument(
+                    "application/json",
+                    "fitness-os-backup-" + today() + ".json",
+                    REQUEST_LOCAL_BACKUP_EXPORT
+            );
+        }
+
+        private void restoreLocalBackup() {
+            if (isDataTransferInProgress || isDataImporting) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivityForResult(intent, REQUEST_LOCAL_BACKUP_RESTORE);
+            } catch (Exception error) {
+                toast("백업 파일 선택기를 열지 못했습니다.");
+            }
+        }
+
+        private void exportRecordsCsv() {
+            if (isDataTransferInProgress || isDataImporting) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            openCreateDocument(
+                    "text/csv",
+                    "fitness-os-records-" + today() + ".csv",
+                    REQUEST_RECORDS_CSV_EXPORT
+            );
+        }
+
+        private void openWorkoutTransferImport() {
+            if (isDataTransferInProgress || isDataImporting) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivityForResult(intent, REQUEST_WORKOUT_TRANSFER_IMPORT);
+            } catch (Exception error) {
+                toast("운동 전송 JSON 선택기를 열지 못했습니다.");
+            }
+        }
+
+        private void exportWorkoutTransfer() {
+            if (isDataTransferInProgress || isDataImporting) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            openCreateDocument(
+                    "application/json",
+                    "yeonsik-workout-transfer-" + today() + ".json",
+                    REQUEST_WORKOUT_TRANSFER_EXPORT
+            );
+        }
+
+    private void openCreateDocument(String mimeType, String fileName, int requestCode) {
+            Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType(mimeType);
+            intent.putExtra(Intent.EXTRA_TITLE, fileName);
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+            try {
+                startActivityForResult(intent, requestCode);
+            } catch (Exception error) {
+                toast("파일 저장 위치를 열지 못했습니다.");
+            }
+        }
+
+    private LocalDataBackupService localDataBackupService() {
+            return appContainer.localDataBackupService();
+        }
+
+    private void writeLocalBackup(Uri uri) {
+            beginDataTransfer("백업 파일을 만드는 중입니다.");
+            executor.execute(() -> {
+                try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+                    if (output == null) {
+                        throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
+                    }
+                    localDataBackupService().writeBackup(output);
+                    finishDataTransfer("전체 백업을 저장했습니다.", null);
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(error, "백업을 저장하지 못했습니다."));
+                }
+            });
+        }
+
+    private void previewLocalBackup(Uri uri) {
+            beginDataTransfer("백업 파일을 확인하는 중입니다.");
+            executor.execute(() -> {
+                try (InputStream input = getContentResolver().openInputStream(uri)) {
+                    if (input == null) {
+                        throw new IOException("선택한 백업 파일을 읽을 수 없습니다.");
+                    }
+                    LocalDataBackupService.BackupPreview preview =
+                            localDataBackupService().previewBackup(input);
+                    runOnUiThread(() -> {
+                        isDataTransferInProgress = false;
+                        dataTransferDetail = preview.getTotalRows() + "개 항목 확인됨";
+                        render();
+                        ui.confirmSheet(
+                                "백업 복원",
+                                preview.getTotalRows() + "개 항목을 현재 기록에 합칩니다. "
+                                        + "기존 기록은 유지하고 같은 항목은 건너뜁니다.",
+                                null,
+                                "병합 복원",
+                                () -> restoreLocalBackup(uri)
+                        );
+                    });
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(error, "백업 파일을 확인하지 못했습니다."));
+                }
+            });
+        }
+
+    private void restoreLocalBackup(Uri uri) {
+            beginDataTransfer("백업을 복원하는 중입니다.");
+            executor.execute(() -> {
+                try (InputStream input = getContentResolver().openInputStream(uri)) {
+                    if (input == null) {
+                        throw new IOException("선택한 백업 파일을 다시 읽을 수 없습니다.");
+                    }
+                    LocalDataBackupService.RestoreResult result =
+                            localDataBackupService().restoreBackup(input);
+                    fitnessSummaryStore.reconcileSharedWorkoutSummaries(currentOwnerId());
+                    finishDataTransfer(
+                            result.getImportedRows() + "개 복원 · "
+                                    + result.getSkippedRows() + "개 중복 건너뜀",
+                            null
+                    );
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(error, "백업을 복원하지 못했습니다."));
+                }
+            });
+        }
+
+    private void writeRecordsCsv(Uri uri) {
+            beginDataTransfer("기록 요약 CSV를 만드는 중입니다.");
+            executor.execute(() -> {
+                try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+                    if (output == null) {
+                        throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
+                    }
+                    localDataBackupService().writeRecordsSummaryCsv(output);
+                    finishDataTransfer("기록 요약 CSV를 저장했습니다.", null);
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(error, "CSV를 저장하지 못했습니다."));
+                }
+            });
+        }
+
+    private void writeWorkoutTransfer(Uri uri) {
+            beginDataTransfer("운동 전송 JSON을 만드는 중입니다.");
+            executor.execute(() -> {
+                try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+                    if (output == null) {
+                        throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
+                    }
+                    appContainer.workoutTransferService().writeJson(output);
+                    finishDataTransfer("Workout Transfer v2 JSON을 저장했습니다.", null);
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(
+                            error,
+                            "운동 전송 JSON을 저장하지 못했습니다."
+                    ));
+                }
+            });
+        }
+
+    private void importWorkoutTransfer(Uri uri) {
+            beginDataTransfer("운동 전송 JSON을 읽고 기록을 합치는 중입니다.");
+            executor.execute(() -> {
+                try (InputStream input = getContentResolver().openInputStream(uri)) {
+                    if (input == null) {
+                        throw new IOException("선택한 운동 전송 파일을 읽을 수 없습니다.");
+                    }
+                    WorkoutInterchangeResult result =
+                            appContainer.workoutTransferService().importJson(input);
+                    fitnessSummaryStore.reconcileSharedWorkoutSummaries(currentOwnerId());
+                    finishDataTransfer(result.summary(), null);
+                } catch (Exception error) {
+                    finishDataTransfer(null, dataTransferError(
+                            error,
+                            "운동 전송 JSON을 가져오지 못했습니다."
+                    ));
+                }
+            });
+        }
+
+    private void beginDataTransfer(String detail) {
+            isDataTransferInProgress = true;
+            dataTransferDetail = detail;
+            render();
+        }
+
+    private void finishDataTransfer(String success, String failure) {
+            runOnUiThread(() -> {
+                isDataTransferInProgress = false;
+                dataTransferDetail = failure == null ? success : failure;
+                render();
+                toast(dataTransferDetail);
+            });
+        }
+
+    private static String dataTransferError(Exception error, String fallback) {
+            String message = error.getMessage();
+            if (message == null || message.trim().isEmpty()) {
+                return fallback;
+            }
+            return message.matches(".*[ㄱ-ㅎㅏ-ㅣ가-힣].*") ? message : fallback;
+        }
+
+        private void openFleekDataImport() {
+            if (isDataImporting || isDataTransferInProgress) {
+                toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
+                return;
+            }
+            Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(Intent.CATEGORY_OPENABLE);
+            intent.setType("text/*");
+            intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                    "text/csv",
+                    "text/comma-separated-values",
+                    "application/csv",
+                    "application/vnd.ms-excel",
+                    "text/plain"
+            });
+            intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try {
+                startActivityForResult(intent, REQUEST_FLEEK_CSV_IMPORT);
+            } catch (Exception error) {
+                toast("CSV 파일 선택기를 열지 못했습니다.");
+            }
+        }
+
+    private void importFleekCsv(Uri uri) {
+            if (isDataImporting) return;
+            isDataImporting = true;
+            dataImportDetail = "CSV를 읽고 운동 기록을 변환하는 중입니다.";
+            render();
+            executor.execute(() -> {
+                try (InputStream input = getContentResolver().openInputStream(uri)) {
+                    if (input == null) {
+                        throw new IllegalArgumentException("선택한 CSV 파일을 읽지 못했습니다.");
+                    }
+                    FleekCsvImporter.ImportPlan plan = FleekCsvImporter.parse(
+                            new InputStreamReader(input, StandardCharsets.UTF_8),
+                            exerciseMasterRepository.getAllWeightExercises()
+                    );
+                    WorkoutInterchangeResult result = workoutInterchangeStore.importFleek(currentOwnerId(), plan);
+                    runOnUiThread(() -> {
+                        isDataImporting = false;
+                        dataImportDetail = result.summary();
+                        toast(result.importedSessions > 0
+                                ? "FLEEK 운동 기록을 가져왔습니다."
+                                : "이미 가져온 기록이라 새로 저장된 세션이 없습니다.");
+                        render();
+                    });
+                } catch (Exception error) {
+                    runOnUiThread(() -> {
+                        isDataImporting = false;
+                        dataImportDetail = error.getMessage() == null
+                                ? "FLEEK CSV 가져오기에 실패했습니다."
+                                : error.getMessage();
+                        toast("FLEEK CSV 가져오기에 실패했습니다.");
+                        render();
+                    });
+                }
+            });
+        }
+    }
+
 }

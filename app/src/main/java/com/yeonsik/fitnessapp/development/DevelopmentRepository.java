@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-public final class DevelopmentRepository {
+public final class DevelopmentRepository implements com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi {
     private static final List<String> REPORT_BODY_PARTS = Arrays.asList(
             DevelopmentGoal.BODY_PART_CHEST,
             DevelopmentGoal.BODY_PART_BACK,
@@ -159,6 +159,7 @@ public final class DevelopmentRepository {
         db().insertWithOnConflict("development_goals", null, values, SQLiteDatabase.CONFLICT_REPLACE);
     }
 
+    @Override
     public DevelopmentReport buildReport(LocalDate referenceDate) {
         LocalDate safeReferenceDate = referenceDate == null ? LocalDate.now() : referenceDate;
         LocalDate weekStart = safeReferenceDate.with(DayOfWeek.MONDAY);

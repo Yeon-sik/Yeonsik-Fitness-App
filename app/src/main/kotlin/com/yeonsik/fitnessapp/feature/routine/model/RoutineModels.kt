@@ -20,3 +20,20 @@ data class RoutineExerciseInstance(
     @JvmField val order: Int,
     @JvmField val familyIdentity: ExerciseFamilyIdentity?
 )
+
+/**
+ * Feature-owned input for adding an exercise to a routine.
+ *
+ * The repository adapter translates these stable values to the legacy exercise
+ * catalog only at the Java implementation boundary.
+ */
+data class RoutineExerciseDraft(
+    @JvmField val exerciseId: String,
+    @JvmField val nameKo: String,
+    @JvmField val nameEn: String,
+    @JvmField val bodyPartId: String?,
+    @JvmField val equipmentVariantId: String?,
+    @JvmField val primarySubPart: String?,
+    @JvmField val recordType: String?,
+    @JvmField val familyIdentity: ExerciseFamilyIdentity?
+)

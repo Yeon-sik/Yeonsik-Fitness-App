@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.UUID;
 
 /** Local-first supplement plans, effective-dated schedules and intake snapshots. */
-public final class SupplementRepository {
+public final class SupplementRepository implements com.yeonsik.fitnessapp.feature.supplement.api.SupplementRepositoryApi {
     public static final List<String> DOSE_UNITS = Collections.unmodifiableList(Arrays.asList(
             "mg", "g", "µg", "IU", "mL", "정", "캡슐", "포", "스쿱", "방울", "CFU", "억 CFU"));
     public static final List<String> TIMING_LABELS = Collections.unmodifiableList(Arrays.asList(
@@ -128,6 +128,25 @@ public final class SupplementRepository {
             planned += p.planned; taken += p.taken; skipped += p.skipped;
         }
         return new AdherenceSummary(planned, taken, skipped);
+    }
+
+    @Override
+    public com.yeonsik.fitnessapp.feature.supplement.model.SupplementProgress loadProgress(String date) {
+        Progress value = progress(date);
+        return new com.yeonsik.fitnessapp.feature.supplement.model.SupplementProgress(
+                value.planned, value.taken, value.skipped
+        );
+    }
+
+    @Override
+    public com.yeonsik.fitnessapp.feature.supplement.model.SupplementAdherence loadAdherence(
+            LocalDate endDate,
+            int days
+    ) {
+        AdherenceSummary value = adherence(endDate, days);
+        return new com.yeonsik.fitnessapp.feature.supplement.model.SupplementAdherence(
+                value.planned, value.taken, value.skipped
+        );
     }
 
     /** Compatibility overload for existing callers and v30 records. */

@@ -44,7 +44,7 @@ import java.util.UUID;
  * Nutrition Supabase 프로젝트에 있으며, Personal OS 공통 DB의 meal_records 같은 사용자
  * 섭취 기록은 이 카탈로그에 절대 들어가지 않는다.</p>
  */
-public final class NutritionCatalogRepository {
+public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi {
     /** 영양 전용 DB의 카탈로그 테이블. 공통 사용자 기록 테이블은 여기 들어올 수 없다. */
     static final List<String> CATALOG_TABLES = java.util.Collections.unmodifiableList(
             java.util.Arrays.asList(
@@ -230,6 +230,7 @@ public final class NutritionCatalogRepository {
         this.supabaseConfig = supabaseConfig == null ? SupabaseConfig.empty() : supabaseConfig;
     }
 
+    @Override
     public List<NutritionFood> searchFoods(String query) {
         List<NutritionFood> foods = new ArrayList<>();
         String term = query == null ? "" : query.trim();
@@ -399,6 +400,7 @@ public final class NutritionCatalogRepository {
         return value.trim().replaceAll("\\s+", " ").toLowerCase(Locale.ROOT);
     }
 
+    @Override
     public NutritionFood findFoodById(String foodId) {
         String normalizedId = requireName(foodId);
         List<NutritionFood> foods = readFoods(

@@ -46,6 +46,8 @@ public final class AccountOwnershipService {
                     );
                 }
                 claimSingletonNutritionGoal(normalizedOwnerId);
+                claimSingletonBodyProfile(normalizedOwnerId);
+                claimSingletonDevelopmentGoal(normalizedOwnerId);
                 claimConflictFreeDailyRows(normalizedOwnerId);
                 database.delete(
                         "devices",
@@ -80,7 +82,19 @@ public final class AccountOwnershipService {
                 "cardio_route_points",
                 "routines",
                 "routine_exercises",
-                "exercise_picker_preferences"
+                "exercise_picker_preferences",
+                "body_profiles",
+                "development_goals",
+                "composition_templates",
+                "composition_groups",
+                "composition_members",
+                "dining_out_menu_add_on_links",
+                "supplement_items",
+                "supplement_schedules",
+                "supplement_schedule_slots",
+                "supplement_intake_records",
+                "supplement_effect_checkins",
+                "verified_receipt_items"
         );
     }
 
@@ -106,6 +120,56 @@ public final class AccountOwnershipService {
         );
         database.delete(
                 "nutrition_goals",
+                "user_id = ?",
+                new String[]{SupabaseConfig.DEFAULT_USER_ID}
+        );
+    }
+
+    private void claimSingletonBodyProfile(String nextOwnerId) {
+        database.execSQL(
+                "INSERT OR REPLACE INTO body_profiles (" +
+                        "user_id, height_cm, created_at, updated_at) " +
+                        "SELECT ?, source.height_cm, source.created_at, source.updated_at " +
+                        "FROM body_profiles source WHERE source.user_id = ? " +
+                        "AND (NOT EXISTS (SELECT 1 FROM body_profiles target " +
+                        "WHERE target.user_id = ?) OR julianday(source.updated_at) > " +
+                        "julianday((SELECT target.updated_at FROM body_profiles target " +
+                        "WHERE target.user_id = ? LIMIT 1)))",
+                new Object[]{
+                        nextOwnerId,
+                        SupabaseConfig.DEFAULT_USER_ID,
+                        nextOwnerId,
+                        nextOwnerId
+                }
+        );
+        database.delete(
+                "body_profiles",
+                "user_id = ?",
+                new String[]{SupabaseConfig.DEFAULT_USER_ID}
+        );
+    }
+
+    private void claimSingletonDevelopmentGoal(String nextOwnerId) {
+        database.execSQL(
+                "INSERT OR REPLACE INTO development_goals (" +
+                        "user_id, objective, weekly_sessions_target, focus_body_part, " +
+                        "effective_from, created_at, updated_at) " +
+                        "SELECT ?, source.objective, source.weekly_sessions_target, " +
+                        "source.focus_body_part, source.effective_from, source.created_at, " +
+                        "source.updated_at FROM development_goals source " +
+                        "WHERE source.user_id = ? AND (NOT EXISTS (SELECT 1 " +
+                        "FROM development_goals target WHERE target.user_id = ?) OR " +
+                        "julianday(source.updated_at) > julianday((SELECT target.updated_at " +
+                        "FROM development_goals target WHERE target.user_id = ? LIMIT 1)))",
+                new Object[]{
+                        nextOwnerId,
+                        SupabaseConfig.DEFAULT_USER_ID,
+                        nextOwnerId,
+                        nextOwnerId
+                }
+        );
+        database.delete(
+                "development_goals",
                 "user_id = ?",
                 new String[]{SupabaseConfig.DEFAULT_USER_ID}
         );

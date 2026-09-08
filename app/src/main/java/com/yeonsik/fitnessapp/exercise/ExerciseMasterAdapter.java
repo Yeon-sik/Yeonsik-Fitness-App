@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.exercise;
 
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement;
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft;
 
 public final class ExerciseMasterAdapter {
     private ExerciseMasterAdapter() {
@@ -41,6 +42,23 @@ public final class ExerciseMasterAdapter {
                 preset.primarySubPartNameKo,
                 preset.recordType,
                 identity
+        );
+    }
+
+    /** Builds the feature boundary model without exposing the legacy routine DTO. */
+    public static RoutineExerciseDraft toRoutineExerciseDraft(RuntimeExercisePreset preset) {
+        if (preset == null) {
+            return null;
+        }
+        return new RoutineExerciseDraft(
+                preset.storageExerciseId,
+                preset.displayName(),
+                preset.nameEn,
+                preset.defaultUiPart,
+                preset.equipmentVariantId,
+                preset.primarySubPartNameKo,
+                preset.recordType,
+                ExerciseFamilyCatalog.empty().identityForPreset(preset)
         );
     }
 

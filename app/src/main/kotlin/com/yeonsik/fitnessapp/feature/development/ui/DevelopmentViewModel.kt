@@ -6,7 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.development.DevelopmentReport
-import com.yeonsik.fitnessapp.development.DevelopmentRepository
+import com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi
 import java.time.LocalDate
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -20,7 +20,7 @@ sealed interface DevelopmentUiState {
 
 class DevelopmentViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
-    private val repository: DevelopmentRepository,
+    private val repository: DevelopmentRepositoryApi,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : ViewModel() {
     private val mutableState = MutableLiveData<DevelopmentUiState>(DevelopmentUiState.Idle)

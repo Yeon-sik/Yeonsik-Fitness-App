@@ -25,7 +25,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /** Owns account-scoped runtime meal-record writes for the meal feature. */
-public final class MealRecordRepository {
+public final class MealRecordRepository implements com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi {
     private static final String DEVICE_ID = "android-local";
 
     private final FitnessDatabaseConnection database;
@@ -42,11 +42,13 @@ public final class MealRecordRepository {
         setUserId(userId);
     }
 
+    @Override
     public void setUserId(String userId) {
         String normalized = userId == null ? "" : userId.trim();
         this.userId = normalized.isEmpty() ? "local-user" : normalized;
     }
 
+    @Override
     public String saveFoodMeal(AccountScope scope, String date, String mealTime, String foodId, double quantity) {
         String ownerId = requireActiveOwner(scope);
         NutritionFood food = nutritionCatalog.findFoodById(foodId);
@@ -137,6 +139,33 @@ public final class MealRecordRepository {
             double sugarsGrams,
             double saturatedFatGrams
     ) {
+        return saveManualDiningOut(
+                scope, date, mealTime, storeName, branchName, menuName,
+                calories, proteinGrams, carbsGrams, fatGrams, sodiumMg,
+                sugarsGrams, saturatedFatGrams, null, null, null, null
+        );
+    }
+
+    @Override
+    public String saveManualDiningOut(
+            AccountScope scope,
+            String date,
+            String mealTime,
+            String storeName,
+            String branchName,
+            String menuName,
+            int calories,
+            double proteinGrams,
+            double carbsGrams,
+            double fatGrams,
+            double sodiumMg,
+            double sugarsGrams,
+            double saturatedFatGrams,
+            String restaurantId,
+            String restaurantLocationId,
+            String restaurantMenuId,
+            String catalogProductId
+    ) {
         String ownerId = requireActiveOwner(scope);
         String store = MealEntryPolicy.requireDiningOutStoreName(storeName);
         String menu = MealEntryPolicy.requireDiningOutMenuName(menuName);
@@ -169,7 +198,8 @@ public final class MealRecordRepository {
         MealItemSnapshot snapshot = MealItemSnapshot.of(MealCompositionItem.from(food, 1d), 0);
         return insertDiningOutRecord(
                 ownerId, date, mealTime, store, optional(branchName), menu,
-                calories, proteinGrams, carbsGrams, fatGrams, snapshot
+                calories, proteinGrams, carbsGrams, fatGrams, snapshot,
+                restaurantId, restaurantLocationId, restaurantMenuId, catalogProductId
         );
     }
 
@@ -184,7 +214,11 @@ public final class MealRecordRepository {
             double protein,
             double carbs,
             double fat,
-            MealItemSnapshot snapshot
+            MealItemSnapshot snapshot,
+            String restaurantId,
+            String restaurantLocationId,
+            String restaurantMenuId,
+            String catalogProductId
     ) {
         LocalDate today = LocalDate.now();
         LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, today);
@@ -201,10 +235,10 @@ public final class MealRecordRepository {
         values.put("store_name", store);
         putNullable(values, "branch_name", branch);
         values.put("menu_name", menu);
-        values.putNull("restaurant_id");
-        values.putNull("restaurant_location_id");
-        values.putNull("restaurant_menu_id");
-        values.putNull("catalog_product_id");
+        putNullable(values, "restaurant_id", optional(restaurantId));
+        putNullable(values, "restaurant_location_id", optional(restaurantLocationId));
+        putNullable(values, "restaurant_menu_id", optional(restaurantMenuId));
+        putNullable(values, "catalog_product_id", optional(catalogProductId));
         values.putNull("composition_template_id");
         values.putNull("composition_template_revision");
         values.putNull("nutrition_calculation_contract");
@@ -222,7 +256,10 @@ public final class MealRecordRepository {
         }
         values.put("source_app", "fitness");
         values.put("scope", "fitness");
-        values.put("metadata", diningMetadata(ownerId, recordDate.toString(), eatenAt, store, branch, menu));
+        values.put("metadata", diningMetadata(
+                ownerId, recordDate.toString(), eatenAt, store, branch, menu,
+                restaurantId, restaurantLocationId, restaurantMenuId, catalogProductId
+        ));
         values.put("contract_version", 1);
 
         database.beginTransaction();
@@ -307,7 +344,11 @@ public final class MealRecordRepository {
             String eatenAt,
             String store,
             String branch,
-            String menu
+            String menu,
+            String restaurantId,
+            String restaurantLocationId,
+            String restaurantMenuId,
+            String catalogProductId
     ) {
         try {
             int index = (int) database.longForQuery(
@@ -326,6 +367,10 @@ public final class MealRecordRepository {
             json.put("nutrition_status", "estimated");
             json.put("nutrition_source", "manual_estimate");
             json.put("estimated", "true");
+            putOptional(json, "restaurant_id", restaurantId);
+            putOptional(json, "restaurant_location_id", restaurantLocationId);
+            putOptional(json, "restaurant_menu_id", restaurantMenuId);
+            putOptional(json, "catalog_product_id", catalogProductId);
             json.put("composition_version", "3");
             json.put("composition_contract", CompositionTemplate.CONTRACT_VERSION);
             json.put("composition_kind", "standalone");
@@ -356,5 +401,10 @@ public final class MealRecordRepository {
         else if (value instanceof Double) values.put(key, (Double) value);
         else if (value instanceof Integer) values.put(key, (Integer) value);
         else throw new IllegalArgumentException("Unsupported ContentValues type for " + key);
+    }
+
+    private static void putOptional(JSONObject values, String key, String value) throws Exception {
+        String normalized = optional(value);
+        if (normalized != null) values.put(key, normalized);
     }
 }
