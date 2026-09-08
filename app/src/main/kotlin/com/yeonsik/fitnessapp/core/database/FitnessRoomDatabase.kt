@@ -877,6 +877,24 @@ interface CardioRoomDao {
     fun deleteSession(recordId: String, userId: String): Int
 }
 
+@Dao
+interface MealRoomDao {
+    @Query(
+        "SELECT COUNT(*) FROM meal_records WHERE deleted_at IS NULL " +
+            "AND user_id=:userId AND scope IN ('fitness','both') AND date=:date"
+    )
+    fun mealCountForDate(userId: String, date: String): Long
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertRecord(record: MealRecordsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertItem(item: MealRecordItemsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertNutrient(nutrient: MealRecordItemNutrientsRoomEntity)
+}
+
 @Database(
     entities = [
         BodyProfileEntity::class,
@@ -928,4 +946,5 @@ abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun supplementRoomDao(): SupplementRoomDao
     abstract fun workoutRoomDao(): WorkoutRoomDao
     abstract fun cardioRoomDao(): CardioRoomDao
+    abstract fun mealRoomDao(): MealRoomDao
 }

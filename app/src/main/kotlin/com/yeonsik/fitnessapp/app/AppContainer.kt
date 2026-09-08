@@ -89,7 +89,7 @@ class AppContainer(context: Context) {
         nutritionSupabaseConfig
     )
     private val mealRecordRepository = MealRecordRepository(
-        databaseConnection,
+        roomDatabase,
         nutritionCatalogRepository,
         supabaseConfig.effectiveUserId()
     )
