@@ -139,6 +139,13 @@ interface BodyRoomDao {
     )
     fun visibleWeightDates(userId: String, startDate: String, endDate: String): List<String>
 
+    @Query(
+        "SELECT * FROM weight_records WHERE user_id = :userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness', 'both') AND date BETWEEN :startDate AND :endDate " +
+            "ORDER BY date, updated_at DESC"
+    )
+    fun visibleWeightsBetween(userId: String, startDate: String, endDate: String): List<WeightRecordEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(record: WeightRecordEntity)
 
@@ -816,6 +823,14 @@ interface WorkoutRoomDao {
             "AND (source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%') ORDER BY date"
     )
     fun completedWorkoutDates(userId: String, startDate: String, endDate: String): List<String>
+
+    @Query(
+        "SELECT COUNT(*) FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND workout_type='strength' " +
+            "AND date BETWEEN :startDate AND :endDate " +
+            "AND (source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')"
+    )
+    fun completedResistanceSessions(userId: String, startDate: String, endDate: String): Int
 }
 
 @Dao
@@ -998,6 +1013,26 @@ interface MealRoomDao {
             "ORDER BY r.created_at, r.id"
     )
     fun visibleMealReadRows(userId: String, date: String): List<MealReadRow>
+
+    @Query(
+        "SELECT r.id, r.date, r.menu, r.calories, r.protein_grams, r.carbs_grams, " +
+            "r.fat_grams, r.metadata, r.created_at, r.meal_kind, r.fulfillment_mode, " +
+            "r.store_name, r.branch_name, r.menu_name, " +
+            "(SELECT i.food_name_snapshot FROM meal_record_items i " +
+            "WHERE i.meal_record_id=r.id AND i.user_id=r.user_id AND i.deleted_at IS NULL " +
+            "ORDER BY i.order_index, i.id LIMIT 1) AS first_food_name, " +
+            "(SELECT COUNT(*) FROM meal_record_items i " +
+            "WHERE i.meal_record_id=r.id AND i.user_id=r.user_id AND i.deleted_at IS NULL) " +
+            "AS composition_count, r.device_id FROM meal_records r " +
+            "WHERE r.user_id=:userId AND r.deleted_at IS NULL " +
+            "AND r.scope IN ('fitness','both') AND r.date BETWEEN :startDate AND :endDate " +
+            "ORDER BY r.created_at, r.id"
+    )
+    fun visibleMealReadRowsBetween(
+        userId: String,
+        startDate: String,
+        endDate: String
+    ): List<MealReadRow>
 
     @Query(
         "SELECT COUNT(DISTINCT date) FROM meal_records WHERE user_id=:userId " +

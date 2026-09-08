@@ -17,6 +17,8 @@ import com.yeonsik.fitnessapp.exercise.RoutineExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentBodyPartSets
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentWeekProgress
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Duration
@@ -367,6 +369,36 @@ class WorkoutRoomStorage(
                     metadataValue(metadata, "routine_name") == routineName)
         }?.date
     }
+
+    fun weekProgress(scope: AccountScope, startDate: String, endDate: String): DevelopmentWeekProgress {
+        val progress = workoutDao.completedWeekProgress(scope.ownerId, startDate, endDate)
+        return DevelopmentWeekProgress(progress.completedSessions, progress.completedDays)
+    }
+
+    fun strengthSetsByBodyPart(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<DevelopmentBodyPartSets> = workoutDao.recentStrengthSetsByBodyPart(
+        scope.ownerId, startDate, endDate
+    ).map { row -> DevelopmentBodyPartSets(row.uiPart, row.setCount) }
+
+    fun latestDetailedTrainingDate(
+        scope: AccountScope,
+        referenceDate: String,
+        bodyPartAliases: List<String>
+    ): String? = workoutDao.latestDetailedTrainingDateForBodyPart(
+        scope.ownerId, referenceDate, bodyPartAliases
+    )
+
+    fun completedRecordedDays(scope: AccountScope, startDate: String, endDate: String): Int =
+        workoutDao.completedWorkoutRecordedDays(scope.ownerId, startDate, endDate)
+
+    fun completedDates(scope: AccountScope, startDate: String, endDate: String): List<String> =
+        workoutDao.completedWorkoutDates(scope.ownerId, startDate, endDate)
+
+    fun completedResistanceSessions(scope: AccountScope, startDate: String, endDate: String): Int =
+        workoutDao.completedResistanceSessions(scope.ownerId, startDate, endDate)
 
     fun recentSessionVolumes(scope: AccountScope, currentRecordId: String, limit: Int): List<VolumePoint> {
         if (limit <= 0) return emptyList()

@@ -36,3 +36,10 @@ data class MealReadSummary(
     val subtitle: String,
     val accessibilityLabel: String
 )
+
+data class MealNutritionReadSummary(
+    val proteinGrams: Double,
+    val recordedDays: Int,
+    val mealCount: Int,
+    val estimatedMealCount: Int
+)

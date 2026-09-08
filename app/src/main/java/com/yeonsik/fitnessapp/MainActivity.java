@@ -528,7 +528,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new DevelopmentViewModel(
                                 handle,
-                                appContainer.getDevelopmentRepositoryApi()
+                                appContainer.getDevelopmentReportApi()
                         )
                 )
         ).get(DevelopmentViewModel.class);

@@ -1,53 +1,104 @@
 package com.yeonsik.fitnessapp.development;
 
-import android.database.Cursor;
-
+import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
+import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi;
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository;
+import com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry;
+import com.yeonsik.fitnessapp.feature.body.model.BodyWeightWindow;
+import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReadApi;
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentReadRepository;
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentCheckInSummary;
+import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi;
+import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository;
+import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary;
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutReadApi;
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutReadRepository;
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentBodyPartSets;
 
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * FitnessApp의 로컬 기록을 논문 조언 엔진 입력으로 연결하는 adapter.
- * 원격 데이터나 UI 상태를 읽지 않으며, 결측값은 결측으로 보존한다.
+ * Builds the paper-advice input from feature read APIs. It does not own or execute SQL.
  */
 public final class PaperAdviceSnapshotAssembler {
     private static final int RECENT_WINDOW_DAYS = 14;
     private static final int DECISION_WINDOW_DAYS = 7;
     private static final int MIN_WEIGHT_DAYS_PER_WINDOW = 4;
-    private static final String SCOPE_FILTER = "scope IN ('fitness', 'both')";
-    private static final String COMPLETED_WORKOUT =
-            "(source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')";
 
-    private final FitnessDatabaseConnection database;
-    private final DevelopmentRepository developmentRepository;
+    private final WorkoutReadApi workouts;
+    private final MealReadApi meals;
+    private final BodyMetricsReadApi body;
+    private final DevelopmentReadApi development;
+    private final String ownerId;
     private final PaperAdviceEngine adviceEngine;
 
+    /** Public feature composition constructor. */
     public PaperAdviceSnapshotAssembler(
-            FitnessDatabaseHelper dbHelper,
-            DevelopmentRepository developmentRepository
+            WorkoutReadApi workouts,
+            MealReadApi meals,
+            BodyMetricsReadApi body,
+            DevelopmentReadApi development,
+            String ownerId
     ) {
-        if (dbHelper == null || developmentRepository == null) {
-            throw new IllegalArgumentException("논문 조언 adapter에는 저장소가 필요합니다.");
+        if (workouts == null || meals == null || body == null || development == null) {
+            throw new IllegalArgumentException("논문 조언 adapter에는 읽기 API가 필요합니다.");
         }
-        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
-        this.developmentRepository = developmentRepository;
+        this.workouts = workouts;
+        this.meals = meals;
+        this.body = body;
+        this.development = development;
+        this.ownerId = requireOwner(ownerId);
         this.adviceEngine = new PaperAdviceEngine();
     }
 
+    /** Compatibility constructor for legacy instrumentation fixtures. */
+    @Deprecated
+    public PaperAdviceSnapshotAssembler(
+            FitnessDatabaseHelper helper,
+            DevelopmentRepository developmentRepository
+    ) {
+        this(
+                roomFromHelper(helper),
+                requireHelper(helper).applicationContext(),
+                developmentRepository
+        );
+    }
+
+    /** Compatibility constructor for legacy Room connection fixtures. */
+    @Deprecated
     public PaperAdviceSnapshotAssembler(
             FitnessDatabaseConnection database,
             DevelopmentRepository developmentRepository
     ) {
-        if (database == null || developmentRepository == null) {
-            throw new IllegalArgumentException("논문 조언 adapter에는 저장소가 필요합니다.");
-        }
-        this.database = database;
-        this.developmentRepository = developmentRepository;
-        this.adviceEngine = new PaperAdviceEngine();
+        this(
+                roomFromConnection(database),
+                database == null ? null : database.applicationContext(),
+                developmentRepository
+        );
+    }
+
+    private PaperAdviceSnapshotAssembler(
+            FitnessRoomDatabase roomDatabase,
+            android.content.Context context,
+            DevelopmentRepository developmentRepository
+    ) {
+        this(
+                new WorkoutReadRepository(roomDatabase, requireContext(context)),
+                new MealReadRepository(roomDatabase),
+                new BodyMetricsReadRepository(roomDatabase),
+                new DevelopmentReadRepository(roomDatabase),
+                requireDevelopmentRepository(developmentRepository).currentUserId()
+        );
     }
 
     /** 기준일 이전의 로컬 기록을 읽어 엔진 입력 snapshot을 만든다. */
@@ -57,49 +108,56 @@ public final class PaperAdviceSnapshotAssembler {
         LocalDate decisionStart = safeDate.minusDays(DECISION_WINDOW_DAYS - 1L);
         LocalDate previousWeightStart = safeDate.minusDays((DECISION_WINDOW_DAYS * 2L) - 1L);
         LocalDate previousWeightEnd = safeDate.minusDays(DECISION_WINDOW_DAYS);
-        String userId = developmentRepository.currentUserId();
+        AccountScope scope = new AccountScope(ownerId);
 
-        DevelopmentGoal goal = developmentRepository.developmentGoal();
-        Double bodyWeightKg = latestWeightKg(userId, safeDate);
-        NutritionSummary nutrition = loggedNutrition(
-                userId,
-                decisionStart,
-                safeDate,
-                bodyWeightKg
+        DevelopmentGoal goal = development.developmentGoal(scope);
+        BodyReadEntry latestWeight = body.latestBodyMetricOnOrBefore(scope, safeDate.toString());
+        Double bodyWeightKg = latestWeight == null ? null : latestWeight.getWeightKg();
+        MealNutritionReadSummary nutrition = meals.nutritionSummary(
+                scope, decisionStart.toString(), safeDate.toString()
         );
-        CheckInSummary checkIn = recentCheckIns(userId, decisionStart, safeDate);
-        WeightWindowSummary currentWeight = weightWindow(userId, decisionStart, safeDate);
-        WeightWindowSummary previousWeight = weightWindow(
-                userId,
-                previousWeightStart,
-                previousWeightEnd
+        Double proteinGPerKg = null;
+        if (nutrition.getRecordedDays() > 0 && bodyWeightKg != null && bodyWeightKg > 0) {
+            double loggedDayAverage = nutrition.getProteinGrams() / nutrition.getRecordedDays();
+            proteinGPerKg = loggedDayAverage / bodyWeightKg;
+        }
+        DevelopmentCheckInSummary checkIn = development.checkInSummary(
+                scope, decisionStart.toString(), safeDate.toString()
         );
-        Map<String, Double> hardSets = recentHardSets(userId, recentStart, safeDate);
+        BodyWeightWindow currentWeight = body.weightWindow(
+                scope, decisionStart.toString(), safeDate.toString()
+        );
+        BodyWeightWindow previousWeight = body.weightWindow(
+                scope, previousWeightStart.toString(), previousWeightEnd.toString()
+        );
         Double weeklyWeightChangePct = weeklyWeightChangePct(currentWeight, previousWeight);
+        Map<String, Double> hardSets = recentHardSets(
+                scope, recentStart.toString(), safeDate.toString()
+        );
 
         PaperAdviceInput.Builder builder = PaperAdviceInput.builder()
                 .referenceDate(safeDate)
                 .goal(normalizeGoal(goal))
                 .bodyWeightKg(bodyWeightKg)
-                .proteinGPerKg(nutrition.proteinGPerKg)
-                .proteinRecordedDays(nutrition.recordedDays)
+                .proteinGPerKg(proteinGPerKg)
+                .proteinRecordedDays(nutrition.getRecordedDays())
                 .proteinWindowDays(DECISION_WINDOW_DAYS)
-                .mealCount(nutrition.mealCount)
-                .estimatedMealCount(nutrition.estimatedMealCount)
-                .sleepHours(checkIn.sleepHours)
-                .sleepRecordedDays(checkIn.sleepRecordedDays)
-                .lowEnergyOrReadinessDays(checkIn.lowEnergyOrReadinessDays)
-                .energyScore(checkIn.energyScore)
-                .readinessScore(checkIn.readinessScore)
-                .currentWeight7DayAverageKg(currentWeight.averageKg)
-                .currentWeightRecordedDays(currentWeight.recordedDays)
-                .previousWeight7DayAverageKg(previousWeight.averageKg)
-                .previousWeightRecordedDays(previousWeight.recordedDays)
+                .mealCount(nutrition.getMealCount())
+                .estimatedMealCount(nutrition.getEstimatedMealCount())
+                .sleepHours(checkIn.getAverageSleepHours())
+                .sleepRecordedDays(checkIn.getSleepRecordedDays())
+                .lowEnergyOrReadinessDays(checkIn.getLowEnergyOrReadinessDays())
+                .energyScore(checkIn.getLatestEnergyScore())
+                .readinessScore(checkIn.getLatestReadinessScore())
+                .currentWeight7DayAverageKg(currentWeight.getAverageKg())
+                .currentWeightRecordedDays(currentWeight.getRecordedDays())
+                .previousWeight7DayAverageKg(previousWeight.getAverageKg())
+                .previousWeightRecordedDays(previousWeight.getRecordedDays())
                 .weeklyWeightChangePct(weeklyWeightChangePct)
                 .resistanceTrainingSessionsPerWeek(
-                        completedResistanceSessions(userId, decisionStart, safeDate)
+                        workouts.completedResistanceSessions(scope, decisionStart.toString(), safeDate.toString())
                 )
-                .recentDataDays(recentDataDays(userId, recentStart, safeDate));
+                .recentDataDays(recentDataDays(scope, recentStart.toString(), safeDate.toString()));
 
         for (Map.Entry<String, Double> entry : hardSets.entrySet()) {
             builder.weeklyHardSets(entry.getKey(), entry.getValue());
@@ -112,285 +170,92 @@ public final class PaperAdviceSnapshotAssembler {
         return builder.build();
     }
 
-    /** 실제 앱 통로에서 호출할 편의 메서드: snapshot 생성 후 논문 조언을 평가한다. */
     public List<PaperAdvice> evaluate(LocalDate referenceDate) {
         return assess(referenceDate).advice;
     }
 
-    /** 화면이 관찰값과 조언을 동일한 snapshot 기준으로 표시하게 한다. */
     public PaperAdviceAssessment assess(LocalDate referenceDate) {
         PaperAdviceInput input = assemble(referenceDate);
         return new PaperAdviceAssessment(input, adviceEngine.evaluate(input));
     }
 
     static String normalizeGoal(DevelopmentGoal goal) {
-        if (goal == null || !goal.isConfigured()) {
-            return "";
-        }
+        if (goal == null || !goal.isConfigured()) return "";
         switch (goal.objective) {
-            case DevelopmentGoal.OBJECTIVE_MUSCLE_GAIN:
-                return "hypertrophy";
-            case DevelopmentGoal.OBJECTIVE_STRENGTH:
-                return "max_strength";
-            case DevelopmentGoal.OBJECTIVE_FAT_LOSS:
-                return "fat_loss";
-            case DevelopmentGoal.OBJECTIVE_ENDURANCE:
-                return "endurance";
-            default:
-                return "maintenance";
-        }
-    }
-
-    private Double latestWeightKg(String userId, LocalDate referenceDate) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT weight_kg FROM weight_records WHERE user_id = ? AND deleted_at IS NULL "
-                        + "AND " + SCOPE_FILTER + " AND date <= ? "
-                        + "ORDER BY date DESC, updated_at DESC LIMIT 1",
-                new String[]{userId, referenceDate.toString()}
-        )) {
-            return cursor.moveToFirst() ? cursor.getDouble(0) : null;
-        }
-    }
-
-    private NutritionSummary loggedNutrition(
-            String userId,
-            LocalDate startDate,
-            LocalDate endDate,
-            Double bodyWeightKg
-    ) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT SUM(protein_grams), COUNT(DISTINCT date), COUNT(*), "
-                        + "SUM(CASE WHEN metadata LIKE '%\"estimated\":true%' "
-                        + "OR metadata LIKE '%\"nutrition_status\":\"estimated\"%' "
-                        + "THEN 1 ELSE 0 END) FROM meal_records "
-                        + "WHERE user_id = ? AND deleted_at IS NULL AND " + SCOPE_FILTER
-                        + " AND date BETWEEN ? AND ?",
-                new String[]{userId, startDate.toString(), endDate.toString()}
-        )) {
-            if (!cursor.moveToFirst()) {
-                return NutritionSummary.empty();
-            }
-            int recordedDays = cursor.getInt(1);
-            int mealCount = cursor.getInt(2);
-            int estimatedMealCount = cursor.isNull(3) ? 0 : cursor.getInt(3);
-            Double proteinGPerKg = null;
-            if (!cursor.isNull(0) && recordedDays > 0 && bodyWeightKg != null && bodyWeightKg > 0) {
-                double loggedDayAverage = cursor.getDouble(0) / recordedDays;
-                proteinGPerKg = loggedDayAverage / bodyWeightKg;
-            }
-            return new NutritionSummary(
-                    proteinGPerKg,
-                    recordedDays,
-                    mealCount,
-                    estimatedMealCount
-            );
-        }
-    }
-
-    private CheckInSummary recentCheckIns(
-            String userId,
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
-        Double averageSleepHours = null;
-        int sleepRecordedDays = 0;
-        int lowEnergyOrReadinessDays = 0;
-        try (Cursor cursor = db().rawQuery(
-                "SELECT AVG(sleep_hours), COUNT(sleep_hours), SUM(CASE "
-                        + "WHEN ((energy_score IS NOT NULL AND energy_score <= 2) "
-                        + "OR (training_readiness_score IS NOT NULL "
-                        + "AND training_readiness_score <= 2)) THEN 1 ELSE 0 END) "
-                        + "FROM nutrition_daily_checkins WHERE user_id = ? "
-                        + "AND date BETWEEN ? AND ?",
-                new String[]{userId, startDate.toString(), endDate.toString()}
-        )) {
-            if (cursor.moveToFirst()) {
-                averageSleepHours = cursor.isNull(0) ? null : cursor.getDouble(0);
-                sleepRecordedDays = cursor.getInt(1);
-                lowEnergyOrReadinessDays = cursor.isNull(2) ? 0 : cursor.getInt(2);
-            }
-        }
-        Integer latestEnergy = null;
-        Integer latestReadiness = null;
-        try (Cursor cursor = db().rawQuery(
-                "SELECT energy_score, training_readiness_score "
-                        + "FROM nutrition_daily_checkins WHERE user_id = ? AND date BETWEEN ? AND ? "
-                        + "ORDER BY date DESC, updated_at DESC LIMIT 1",
-                new String[]{userId, startDate.toString(), endDate.toString()}
-        )) {
-            if (cursor.moveToFirst()) {
-                latestEnergy = cursor.isNull(0) ? null : cursor.getInt(0);
-                latestReadiness = cursor.isNull(1) ? null : cursor.getInt(1);
-            }
-        }
-        return new CheckInSummary(
-                averageSleepHours,
-                sleepRecordedDays,
-                lowEnergyOrReadinessDays,
-                latestEnergy,
-                latestReadiness
-        );
-    }
-
-    private WeightWindowSummary weightWindow(
-            String userId,
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT AVG(day_weight), COUNT(*) FROM ("
-                        + "SELECT date, AVG(weight_kg) AS day_weight FROM weight_records "
-                        + "WHERE user_id = ? AND deleted_at IS NULL AND " + SCOPE_FILTER
-                        + " AND date BETWEEN ? AND ? GROUP BY date)",
-                new String[]{userId, startDate.toString(), endDate.toString()}
-        )) {
-            if (cursor.moveToFirst() && !cursor.isNull(0)) {
-                return new WeightWindowSummary(cursor.getDouble(0), cursor.getInt(1));
-            }
-        }
-        return WeightWindowSummary.empty();
-    }
-
-    private static Double weeklyWeightChangePct(
-            WeightWindowSummary current,
-            WeightWindowSummary previous
-    ) {
-        if (current.recordedDays < MIN_WEIGHT_DAYS_PER_WINDOW
-                || previous.recordedDays < MIN_WEIGHT_DAYS_PER_WINDOW
-                || current.averageKg == null
-                || previous.averageKg == null
-                || previous.averageKg <= 0) {
-            return null;
-        }
-        return ((current.averageKg - previous.averageKg) / previous.averageKg) * 100d;
-    }
-
-    private int completedResistanceSessions(
-            String userId,
-            LocalDate startDate,
-            LocalDate endDate
-    ) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT COUNT(*) FROM workout_records WHERE user_id = ? AND deleted_at IS NULL "
-                        + "AND " + SCOPE_FILTER + " AND workout_type = 'strength' "
-                        + "AND date BETWEEN ? AND ? AND " + COMPLETED_WORKOUT,
-                new String[]{userId, startDate.toString(), endDate.toString()}
-        )) {
-            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+            case DevelopmentGoal.OBJECTIVE_MUSCLE_GAIN: return "hypertrophy";
+            case DevelopmentGoal.OBJECTIVE_STRENGTH: return "max_strength";
+            case DevelopmentGoal.OBJECTIVE_FAT_LOSS: return "fat_loss";
+            case DevelopmentGoal.OBJECTIVE_ENDURANCE: return "endurance";
+            default: return "maintenance";
         }
     }
 
     private Map<String, Double> recentHardSets(
-            String userId,
-            LocalDate startDate,
-            LocalDate endDate
+            AccountScope scope,
+            String startDate,
+            String endDate
     ) {
         Map<String, Double> result = new LinkedHashMap<>();
-        try (Cursor cursor = db().rawQuery(
-                "SELECT lower(trim(we.ui_part)), COUNT(ws.id) FROM workout_sets ws "
-                        + "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id "
-                        + "AND we.user_id = ws.user_id AND we.deleted_at IS NULL "
-                        + "INNER JOIN workout_records wr ON wr.id = we.record_id "
-                        + "AND wr.user_id = we.user_id AND wr.deleted_at IS NULL "
-                        + "WHERE ws.user_id = ? AND ws.deleted_at IS NULL AND ws.is_completed = 1 "
-                        + "AND wr." + SCOPE_FILTER + " AND wr.workout_type = 'strength' "
-                        + "AND wr.date BETWEEN ? AND ? AND " + COMPLETED_WORKOUT
-                        + " GROUP BY lower(trim(we.ui_part))",
-                new String[]{userId, startDate.toString(), endDate.toString()}
-        )) {
-            while (cursor.moveToNext()) {
-                String bodyPart = cursor.getString(0);
-                if (bodyPart != null && !bodyPart.trim().isEmpty()) {
-                    result.put(bodyPart, (double) cursor.getInt(1));
-                }
-            }
+        for (DevelopmentBodyPartSets row : workouts.strengthSetsByBodyPart(scope, startDate, endDate)) {
+            String bodyPart = row.getUiPart();
+            if (bodyPart == null || bodyPart.trim().isEmpty()) continue;
+            String normalized = bodyPart.trim().toLowerCase(Locale.US);
+            result.put(normalized, result.containsKey(normalized)
+                    ? result.get(normalized) + row.getSetCount()
+                    : (double) row.getSetCount());
         }
         return result;
     }
 
-    private int recentDataDays(String userId, LocalDate startDate, LocalDate endDate) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT COUNT(*) FROM ("
-                        + "SELECT date FROM workout_records WHERE user_id = ? AND deleted_at IS NULL "
-                        + "AND " + SCOPE_FILTER + " AND date BETWEEN ? AND ? AND " + COMPLETED_WORKOUT
-                        + " GROUP BY date UNION "
-                        + "SELECT date FROM meal_records WHERE user_id = ? AND deleted_at IS NULL "
-                        + "AND " + SCOPE_FILTER + " AND date BETWEEN ? AND ? GROUP BY date UNION "
-                        + "SELECT date FROM weight_records WHERE user_id = ? AND deleted_at IS NULL "
-                        + "AND " + SCOPE_FILTER + " AND date BETWEEN ? AND ? GROUP BY date UNION "
-                        + "SELECT date FROM nutrition_daily_checkins WHERE user_id = ? "
-                        + "AND date BETWEEN ? AND ? GROUP BY date)",
-                new String[]{
-                        userId, startDate.toString(), endDate.toString(),
-                        userId, startDate.toString(), endDate.toString(),
-                        userId, startDate.toString(), endDate.toString(),
-                        userId, startDate.toString(), endDate.toString()
-                }
-        )) {
-            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
-        }
+    private int recentDataDays(AccountScope scope, String startDate, String endDate) {
+        Set<String> dates = new LinkedHashSet<>();
+        dates.addAll(workouts.completedDates(scope, startDate, endDate));
+        dates.addAll(meals.dates(scope, startDate, endDate));
+        dates.addAll(body.dates(scope, startDate, endDate));
+        dates.addAll(development.checkInDates(scope, startDate, endDate));
+        return dates.size();
     }
 
-    private FitnessDatabaseConnection db() {
-        return database;
+    private static Double weeklyWeightChangePct(BodyWeightWindow current, BodyWeightWindow previous) {
+        if (current.getRecordedDays() < MIN_WEIGHT_DAYS_PER_WINDOW
+                || previous.getRecordedDays() < MIN_WEIGHT_DAYS_PER_WINDOW
+                || current.getAverageKg() == null
+                || previous.getAverageKg() == null
+                || previous.getAverageKg() <= 0) {
+            return null;
+        }
+        return ((current.getAverageKg() - previous.getAverageKg()) / previous.getAverageKg()) * 100d;
     }
 
-    private static final class NutritionSummary {
-        final Double proteinGPerKg;
-        final int recordedDays;
-        final int mealCount;
-        final int estimatedMealCount;
-
-        NutritionSummary(
-                Double proteinGPerKg,
-                int recordedDays,
-                int mealCount,
-                int estimatedMealCount
-        ) {
-            this.proteinGPerKg = proteinGPerKg;
-            this.recordedDays = recordedDays;
-            this.mealCount = mealCount;
-            this.estimatedMealCount = estimatedMealCount;
-        }
-
-        static NutritionSummary empty() {
-            return new NutritionSummary(null, 0, 0, 0);
-        }
+    private static String requireOwner(String value) {
+        String normalized = value == null ? "" : value.trim();
+        if (normalized.isEmpty()) throw new IllegalArgumentException("논문 조언 계정 식별자가 필요합니다.");
+        return normalized;
     }
 
-    private static final class CheckInSummary {
-        final Double sleepHours;
-        final int sleepRecordedDays;
-        final int lowEnergyOrReadinessDays;
-        final Integer energyScore;
-        final Integer readinessScore;
-
-        CheckInSummary(
-                Double sleepHours,
-                int sleepRecordedDays,
-                int lowEnergyOrReadinessDays,
-                Integer energyScore,
-                Integer readinessScore
-        ) {
-            this.sleepHours = sleepHours;
-            this.sleepRecordedDays = sleepRecordedDays;
-            this.lowEnergyOrReadinessDays = lowEnergyOrReadinessDays;
-            this.energyScore = energyScore;
-            this.readinessScore = readinessScore;
-        }
+    private static FitnessDatabaseHelper requireHelper(FitnessDatabaseHelper helper) {
+        if (helper == null) throw new IllegalArgumentException("논문 조언 adapter에는 저장소가 필요합니다.");
+        return helper;
     }
 
-    private static final class WeightWindowSummary {
-        final Double averageKg;
-        final int recordedDays;
+    private static DevelopmentRepository requireDevelopmentRepository(DevelopmentRepository repository) {
+        if (repository == null) throw new IllegalArgumentException("논문 조언 adapter에는 저장소가 필요합니다.");
+        return repository;
+    }
 
-        WeightWindowSummary(Double averageKg, int recordedDays) {
-            this.averageKg = averageKg;
-            this.recordedDays = recordedDays;
-        }
+    private static android.content.Context requireContext(android.content.Context context) {
+        if (context == null) throw new IllegalArgumentException("논문 조언 adapter에는 Context가 필요합니다.");
+        return context;
+    }
 
-        static WeightWindowSummary empty() {
-            return new WeightWindowSummary(null, 0);
+    private static FitnessRoomDatabase roomFromHelper(FitnessDatabaseHelper helper) {
+        return FitnessRoomDatabaseProvider.get(requireHelper(helper).applicationContext());
+    }
+
+    private static FitnessRoomDatabase roomFromConnection(FitnessDatabaseConnection database) {
+        if (database == null || database.applicationContext() == null) {
+            throw new IllegalArgumentException("논문 조언 adapter에는 Room Context가 필요합니다.");
         }
+        return FitnessRoomDatabaseProvider.get(database.applicationContext());
     }
 }

@@ -24,8 +24,9 @@ import com.yeonsik.fitnessapp.feature.home.data.HomeReadRepository
 import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository
 import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentReadRepository
-import com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi
+import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService
+import com.yeonsik.fitnessapp.feature.development.application.DevelopmentReportService
 import com.yeonsik.fitnessapp.feature.exercise.api.ExerciseMasterRepositoryApi
 import com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository
 import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository
@@ -127,7 +128,12 @@ class AppContainer(context: Context) {
     val workoutRepository: WorkoutRepositoryApi = workoutRepositoryImplementation
     val cardioRepositoryApi: CardioRepositoryApi = cardioRepository
     val exerciseMasterRepositoryApi: ExerciseMasterRepositoryApi = exerciseMasterRepository
-    val developmentRepositoryApi: DevelopmentRepositoryApi = developmentRepository
+    val developmentReportApi: DevelopmentReportApi = DevelopmentReportService(
+        workoutReadRepository,
+        mealReadRepository,
+        bodyMetricsReadRepository,
+        developmentReadRepository
+    )
     val supplementRepositoryApi: SupplementRepositoryApi = supplementRepository
     val mealRecordRepositoryApi: MealRecordRepositoryApi = mealRecordRepository
     val nutritionCatalogRepositoryApi: NutritionCatalogRepositoryApi = nutritionCatalogRepository

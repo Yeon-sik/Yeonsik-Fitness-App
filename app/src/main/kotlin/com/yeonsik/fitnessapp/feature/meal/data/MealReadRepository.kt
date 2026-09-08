@@ -9,6 +9,7 @@ import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotal
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotals
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadSummary
+import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary
 import org.json.JSONObject
 
 /** Meal-owned read adapter for the Home projection. */
@@ -44,6 +45,28 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
         mealDao.visibleMealReadRows(scope.ownerId, date)
             .mapIndexed { index, row -> row.toReadSummary(index) }
             .sortedWith(compareBy<MealReadSummary> { it.mealTime == "시간 미기록" }.thenBy { it.mealTime })
+
+    override fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int =
+        mealDao.visibleMealRecordedDays(scope.ownerId, startDate, endDate)
+
+    override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> =
+        mealDao.visibleMealDates(scope.ownerId, startDate, endDate)
+
+    override fun nutritionSummary(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): MealNutritionReadSummary {
+        val rows = mealDao.visibleMealReadRowsBetween(scope.ownerId, startDate, endDate)
+        val protein = rows.sumOf { it.proteinGrams ?: 0.0 }
+        val recordedDays = rows.map { it.date }.toSet().size
+        val estimatedMealCount = rows.count { row ->
+            val metadata = row.metadata
+            metadata.contains("\"estimated\":true") ||
+                metadata.contains("\"nutrition_status\":\"estimated\"")
+        }
+        return MealNutritionReadSummary(protein, recordedDays, rows.size, estimatedMealCount)
+    }
 
     private fun MealRoomDao.MealReadRow.toReadSummary(index: Int): MealReadSummary {
         val mealKind = MealRecordKind.normalize(firstNonBlank(mealKind, metadataValue(metadata, "meal_kind")))
