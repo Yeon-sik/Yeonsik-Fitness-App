@@ -31,6 +31,7 @@ import com.yeonsik.fitnessapp.feature.development.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.meal.ui.*
+import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitnessapp.feature.workout.model.*
@@ -202,8 +203,8 @@ private fun DiningOutEditor(host: ScreenHost, ownerId: String, editor: MealUiSta
 @Composable
 private fun PriceTraceDiningOutPicker(host: ScreenHost, editor: MealUiState.Ready) {
     var query by rememberSaveable { mutableStateOf("") }
-    var restaurants by remember { mutableStateOf<List<RestaurantMenuReadV1Client.RestaurantSummary>>(emptyList()) }
-    var detail by remember { mutableStateOf<RestaurantMenuReadV1Client.RestaurantDetail?>(null) }
+    var restaurants by remember { mutableStateOf<List<NutritionIntegrationService.RestaurantSummary>>(emptyList()) }
+    var detail by remember { mutableStateOf<NutritionIntegrationService.RestaurantDetail?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     val mainHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
 
@@ -211,7 +212,7 @@ private fun PriceTraceDiningOutPicker(host: ScreenHost, editor: MealUiState.Read
     AppButton(
         onClick = {
             host.searchPriceTraceRestaurants(query, object : ScreenHost.RestaurantSearchCallback {
-                override fun onComplete(value: List<RestaurantMenuReadV1Client.RestaurantSummary>) {
+                override fun onComplete(value: List<NutritionIntegrationService.RestaurantSummary>) {
                     mainHandler.post { restaurants = value; detail = null; error = null }
                 }
 
@@ -228,7 +229,7 @@ private fun PriceTraceDiningOutPicker(host: ScreenHost, editor: MealUiState.Read
         AppOutlinedButton(
             onClick = {
                 host.loadPriceTraceRestaurant(restaurant.restaurantId, object : ScreenHost.RestaurantLoadCallback {
-                    override fun onComplete(value: RestaurantMenuReadV1Client.RestaurantDetail) {
+                    override fun onComplete(value: NutritionIntegrationService.RestaurantDetail) {
                         mainHandler.post { detail = value; error = null }
                     }
 

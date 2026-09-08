@@ -3,11 +3,10 @@ package com.yeonsik.fitnessapp.ui;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
-import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client;
 import com.yeonsik.fitnessapp.development.DevelopmentInsight;
+import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
@@ -231,19 +230,19 @@ public interface ScreenHost {
             PublicNutritionCallback callback
     );
 
-    void syncNutritionCatalog(NutritionCatalogRepository.SyncCallback callback);
+    void syncNutritionCatalog(NutritionSyncCallback callback);
 
     void setNutritionFoodPublication(
             String nutritionFoodId,
             String catalogProductId,
             boolean publish,
-            NutritionCatalogRepository.PublicationCallback callback
+            NutritionPublicationCallback callback
     );
 
     void setDiningOutMenuPublication(
             String nutritionFoodId,
             boolean publish,
-            NutritionCatalogRepository.PublicationCallback callback
+            NutritionPublicationCallback callback
     );
 
     void runManualSync();
@@ -275,19 +274,31 @@ public interface ScreenHost {
     }
 
     interface RestaurantSearchCallback {
-        void onComplete(List<RestaurantMenuReadV1Client.RestaurantSummary> restaurants);
+        void onComplete(List<NutritionIntegrationService.RestaurantSummary> restaurants);
 
         void onError(Exception error);
     }
 
     interface RestaurantLoadCallback {
-        void onComplete(RestaurantMenuReadV1Client.RestaurantDetail restaurant);
+        void onComplete(NutritionIntegrationService.RestaurantDetail restaurant);
 
         void onError(Exception error);
     }
 
     interface PublicNutritionCallback {
-        void onComplete(NutritionCatalogRepository.PublicProductNutrition nutrition);
+        void onComplete(NutritionIntegrationService.PublicProductNutrition nutrition);
+
+        void onError(Exception error);
+    }
+
+    interface NutritionSyncCallback {
+        void onComplete(int pushedRows, int pulledRows);
+
+        void onError(Exception error);
+    }
+
+    interface NutritionPublicationCallback {
+        void onComplete(NutritionIntegrationService.PublicationState state);
 
         void onError(Exception error);
     }
