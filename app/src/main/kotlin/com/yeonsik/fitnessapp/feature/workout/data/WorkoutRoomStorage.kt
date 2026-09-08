@@ -1,10 +1,12 @@
 package com.yeonsik.fitnessapp.feature.workout.data
 
-import android.content.ContentValues
 import android.content.Context
-import androidx.room.RoomDatabase
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
+import com.yeonsik.fitnessapp.core.database.WorkoutExercisesRoomEntity
+import com.yeonsik.fitnessapp.core.database.WorkoutRecordsRoomEntity
+import com.yeonsik.fitnessapp.core.database.WorkoutRoomDao
+import com.yeonsik.fitnessapp.core.database.WorkoutSetsRoomEntity
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.data.MassUnit
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog
@@ -95,8 +97,7 @@ class WorkoutRoomStorage(
         val totalDurationSeconds: Int
     )
 
-    private val database: androidx.sqlite.db.SupportSQLiteDatabase
-        get() = roomDatabase.openHelper.writableDatabase
+    private val workoutDao: WorkoutRoomDao = roomDatabase.workoutRoomDao()
 
     fun nowValue(): String = now()
 
@@ -112,35 +113,34 @@ class WorkoutRoomStorage(
         require(scope.ownerId.isNotBlank()) { "Workout owner is required." }
         val id = UUID.randomUUID().toString()
         val createdAt = now()
-        val values = ContentValues().apply {
-            put("id", id)
-            put("user_id", scope.ownerId)
-            put("date", date.ifBlank { java.time.LocalDate.now().toString() })
-            put("workout_type", sessionType.ifBlank { "other" })
-            put("category", sessionType.ifBlank { "other" })
-            put("exercise_name", title.ifBlank { "Workout" })
-            put("total_volume_kg", 0.0)
-            putNull("duration_seconds")
-            putNull("average_heart_rate")
-            put("is_backfilled", 0)
-            putNull("backfilled_at")
-            putNull("backfill_reason")
-            put("source_app", "fitness")
-            put("scope", "fitness")
-            put("metadata", JSONObject().apply {
+        workoutDao.insertRecord(WorkoutRecordsRoomEntity(
+            id,
+            scope.ownerId,
+            date.ifBlank { java.time.LocalDate.now().toString() },
+            sessionType.ifBlank { "other" },
+            sessionType.ifBlank { "other" },
+            title.ifBlank { "Workout" },
+            null,
+            0.0,
+            null,
+            createdAt,
+            0L,
+            null,
+            null,
+            createdAt,
+            null,
+            "android-local",
+            "fitness",
+            "fitness",
+            JSONObject().apply {
                 put("contract_version", FitnessRecordContract.VERSION)
                 put("status", if (endedAt.isBlank()) "in_progress" else "completed")
                 put("started_at", startedAt)
                 if (endedAt.isBlank()) put("ended_at", JSONObject.NULL) else put("ended_at", endedAt)
                 put("memo", memo)
-            }.toString())
-            put("created_at", createdAt)
-            put("updated_at", createdAt)
-            putNull("deleted_at")
-            put("device_id", "android-local")
-            put("contract_version", FitnessRecordContract.VERSION)
-        }
-        check(database.insert("workout_records", 0, values) != -1L) { "운동 기록을 저장하지 못했습니다." }
+            }.toString(),
+            FitnessRecordContract.VERSION.toLong()
+        ))
         return id
     }
 
@@ -171,20 +171,20 @@ class WorkoutRoomStorage(
                 .seconds.toInt().takeIf { it > 0 }
         } catch (_: Exception) { null }
         require(duration != null) { "운동 시작 시각과 운동 시간을 확인하세요." }
-        database.update("workout_records", 0, ContentValues().apply {
-            put("duration_seconds", duration)
-            put("is_backfilled", 1)
-            put("backfilled_at", now())
-            put("backfill_reason", "manual_entry")
-            put("metadata", JSONObject(sessionInfoMetadata(scope, recordId).ifBlank { "{}" }).apply {
+        workoutDao.updateManualPastSession(
+            recordId,
+            scope.ownerId,
+            duration,
+            now(),
+            JSONObject(sessionInfoMetadata(scope, recordId).ifBlank { "{}" }).apply {
                 put("status", "in_progress")
                 put("started_at", startedAt)
                 put("ended_at", endedAt)
                 put("duration_seconds", duration)
                 put("total_volume_kg", 0.0)
                 put("contract_version", FitnessRecordContract.VERSION)
-            }.toString())
-        }, "id = ? AND user_id = ?", arrayOf(recordId, scope.ownerId))
+            }.toString()
+        )
         populateSessionFromRoutine(scope, recordId, routineId, routineExercises)
         return recordId
     }
@@ -197,119 +197,96 @@ class WorkoutRoomStorage(
     ) {
         if (!routineId.isNullOrBlank()) {
             val metadata = sessionInfoMetadata(scope, recordId)
-            database.update("workout_records", 0, ContentValues().apply {
-                put("metadata", JSONObject(metadata.ifBlank { "{}" }).put("routine_id", routineId).toString())
-            }, "id = ? AND user_id = ?", arrayOf(recordId, scope.ownerId))
+            workoutDao.updateRecordMetadata(
+                recordId,
+                scope.ownerId,
+                JSONObject(metadata.ifBlank { "{}" }).put("routine_id", routineId).toString()
+            )
         }
         routineExercises.forEach { exercise ->
             val identity = exercise.familyIdentity ?: familyCatalog.identityForStorageExerciseId(exercise.exerciseId)
             val id = UUID.randomUUID().toString()
             val createdAt = now()
-            check(database.insert("workout_exercises", 0, ContentValues().apply {
-                put("id", id)
-                put("user_id", scope.ownerId)
-                put("record_id", recordId)
-                put("order_index", exercise.order)
-                put("exercise_id", exercise.exerciseId.ifBlank { "manual" })
-                put("exercise_name_snapshot", canonicalName(exercise.nameKo, identity))
-                put("ui_part", exercise.uiPart.ifBlank { "other" })
-                put("primary_sub_part_snapshot", exercise.primarySubPart)
-                if (exercise.equipment.isBlank()) putNull("equipment_snapshot") else put("equipment_snapshot", exercise.equipment)
-                put("record_type", FitnessRecordContract.normalizeRecordType(exercise.recordType))
-                put("family_id", identity?.familyId)
-                put("preset_id", identity?.presetId)
-                put("canonical_variant_key", identity?.canonicalVariantKey)
-                put("visual_variant_key", identity?.visualVariantKey)
-                putNull("memo")
-                put("created_at", createdAt)
-                put("updated_at", createdAt)
-                putNull("deleted_at")
-                put("device_id", "android-local")
-                put("contract_version", FitnessRecordContract.VERSION)
-            }) != -1L) { "운동 종목을 저장하지 못했습니다." }
+            workoutDao.insertExercise(WorkoutExercisesRoomEntity(
+                id,
+                scope.ownerId,
+                recordId,
+                exercise.order.toLong(),
+                exercise.exerciseId.ifBlank { "manual" },
+                canonicalName(exercise.nameKo, identity),
+                exercise.uiPart.ifBlank { "other" },
+                exercise.primarySubPart,
+                exercise.equipment.takeIf { it.isNotBlank() },
+                FitnessRecordContract.normalizeRecordType(exercise.recordType),
+                identity?.familyId,
+                identity?.presetId,
+                identity?.canonicalVariantKey,
+                identity?.visualVariantKey,
+                null,
+                createdAt,
+                createdAt,
+                null,
+                "android-local",
+                FitnessRecordContract.VERSION.toLong()
+            ))
         }
     }
 
     private fun sessionInfoMetadata(scope: AccountScope, recordId: String): String =
-        database.query("SELECT metadata FROM workout_records WHERE id = ? AND user_id = ? LIMIT 1",
-            arrayOf(recordId, scope.ownerId)).use { cursor ->
-            if (cursor.moveToFirst()) cursor.getString(0).orEmpty() else "{}"
-        }
+        workoutDao.visibleRecord(recordId, scope.ownerId)?.metadata.orEmpty().ifBlank { "{}" }
 
     fun deleteSession(scope: AccountScope, recordId: String): Boolean {
         val timestamp = now()
-        val values = ContentValues().apply { put("deleted_at", timestamp); put("updated_at", timestamp) }
-        database.beginTransaction()
-        return try {
-            val exercises = mutableListOf<String>()
-            database.query("SELECT id FROM workout_exercises WHERE record_id = ? AND user_id = ? AND deleted_at IS NULL",
-                arrayOf(recordId, scope.ownerId)).use { cursor ->
-                while (cursor.moveToNext()) exercises += cursor.getString(0)
+        var updated = 0
+        roomDatabase.runInTransaction {
+            workoutDao.visibleExercises(recordId, scope.ownerId).forEach { exercise ->
+                workoutDao.tombstoneSetsForExercise(exercise.id, scope.ownerId, timestamp, timestamp)
             }
-            exercises.forEach { id -> database.update("workout_sets", 0, values,
-                "workout_exercise_id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(id, scope.ownerId)) }
-            database.update("workout_exercises", 0, values,
-                "record_id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(recordId, scope.ownerId))
-            val updated = database.update("workout_records", 0, values,
-                "id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(recordId, scope.ownerId))
-            database.setTransactionSuccessful()
-            updated > 0
-        } finally { database.endTransaction() }
+            workoutDao.tombstoneExercisesForRecord(recordId, scope.ownerId, timestamp, timestamp)
+            updated = workoutDao.tombstoneRecord(recordId, scope.ownerId, timestamp, timestamp)
+        }
+        return updated > 0
     }
 
     fun sessionInfo(scope: AccountScope, recordId: String): SessionInfo? {
-        return database.query(
-            "SELECT exercise_name, date, duration_seconds, metadata, workout_type " +
-                "FROM workout_records WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
-            arrayOf(recordId, scope.ownerId)
-        ).use { cursor ->
-            if (!cursor.moveToFirst()) return@use null
-            val metadata = cursor.getString(3)
-            SessionInfo(
-                cursor.getString(0).orEmpty(),
-                cursor.getString(1).orEmpty(),
+        val record = workoutDao.visibleRecord(recordId, scope.ownerId) ?: return null
+        val metadata = record.metadata
+        return SessionInfo(
+                record.exerciseName,
+                record.date,
                 metadataValue(metadata, "started_at"),
                 metadataValue(metadata, "status"),
                 resolvedDurationSeconds(
-                    cursor.getString(1),
-                    if (cursor.isNull(2)) null else cursor.getInt(2),
+                    record.date,
+                    record.durationSeconds?.toInt(),
                     metadata
                 ),
-                cursor.getString(4).orEmpty()
+                record.workoutType
             )
-        }
     }
 
     fun exercises(scope: AccountScope, recordId: String): List<ExerciseRow> {
         val result = mutableListOf<ExerciseRow>()
-        database.query(
-            "SELECT id, exercise_id, order_index, exercise_name_snapshot, ui_part, " +
-                "equipment_snapshot, record_type, family_id, preset_id, canonical_variant_key, " +
-                "visual_variant_key FROM workout_exercises WHERE record_id = ? AND user_id = ? " +
-                "AND deleted_at IS NULL ORDER BY order_index",
-            arrayOf(recordId, scope.ownerId)
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                val exerciseId = cursor.getString(1)
+        for (row in workoutDao.visibleExercises(recordId, scope.ownerId)) {
+                val exerciseId = row.exerciseId
                 val identity = identityForRow(
                     exerciseId,
-                    cursor.getString(3),
-                    cursor.getString(7),
-                    cursor.getString(8),
-                    cursor.getString(9),
-                    cursor.getString(10)
+                    row.exerciseNameSnapshot,
+                    row.familyId,
+                    row.presetId,
+                    row.canonicalVariantKey,
+                    row.visualVariantKey
                 )
                 result += ExerciseRow(
-                    cursor.getString(0),
+                    row.id,
                     exerciseId,
-                    cursor.getInt(2),
-                    canonicalName(cursor.getString(3), identity),
-                    cursor.getString(4).orEmpty(),
-                    cursor.getString(5).orEmpty(),
-                    FitnessRecordContract.normalizeRecordType(cursor.getString(6)),
+                    row.orderIndex.toInt(),
+                    canonicalName(row.exerciseNameSnapshot, identity),
+                    row.uiPart,
+                    row.equipmentSnapshot.orEmpty(),
+                    FitnessRecordContract.normalizeRecordType(row.recordType),
                     identity
                 )
-            }
         }
         return result
     }
@@ -317,29 +294,21 @@ class WorkoutRoomStorage(
     fun sets(scope: AccountScope, exerciseId: String): List<SetRow> {
         val exercise = exerciseById(scope, exerciseId)
         val result = mutableListOf<SetRow>()
-        database.query(
-            "SELECT id, set_index, weight_kg, actual_reps, rir, rest_seconds, is_completed, " +
-                "duration_seconds, distance_meters, assisted_weight_kg, added_weight_kg, volume_kg, " +
-                "load_state, input_load_value, input_load_unit FROM workout_sets " +
-                "WHERE workout_exercise_id = ? AND user_id = ? AND deleted_at IS NULL " +
-                "ORDER BY set_index",
-            arrayOf(exerciseId, scope.ownerId)
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                val rawInput = if (cursor.isNull(13)) null else cursor.getDouble(13)
-                val rawUnit = if (cursor.isNull(14)) null else MassUnit.parse(cursor.getString(14))
+        for (row in workoutDao.visibleSets(exerciseId, scope.ownerId)) {
+                val rawInput = row.inputLoadValue
+                val rawUnit = row.inputLoadUnit?.let(MassUnit::parse)
                 val validInput = rawInput?.takeIf { it.isFinite() && it >= 0.0 }?.let { value ->
                     if (rawUnit == null) null else value to rawUnit
                 }
                 result += SetRow(
-                    cursor.getString(0), cursor.getInt(1), number(cursor, 2), integer(cursor, 3),
-                    nullableInt(cursor, 4), nullableInt(cursor, 5), cursor.getInt(6) == 1,
-                    integer(cursor, 7), number(cursor, 8), number(cursor, 9), number(cursor, 10), number(cursor, 11),
+                    row.id, row.setIndex.toInt(), row.weightKg ?: 0.0, row.actualReps?.toInt() ?: 0,
+                    row.rir?.toInt(), row.restSeconds?.toInt(), row.isCompleted == 1L,
+                    row.durationSeconds?.toInt() ?: 0, row.distanceMeters ?: 0.0,
+                    row.assistedWeightKg ?: 0.0, row.addedWeightKg ?: 0.0, row.volumeKg ?: 0.0,
                     loadStateForRead(exercise?.recordType, exercise?.familyIdentity,
-                        if (cursor.isNull(12)) null else cursor.getString(12), number(cursor, 10)),
+                        row.loadState, row.addedWeightKg ?: 0.0),
                     validInput?.first, validInput?.second
                 )
-            }
         }
         return result
     }
@@ -365,84 +334,50 @@ class WorkoutRoomStorage(
         var sets = 0
         var volume = 0.0
         var duration = 0
-        database.query(
-            "SELECT id, date, duration_seconds, metadata FROM workout_records WHERE user_id = ? " +
-                "AND deleted_at IS NULL AND scope IN ('fitness', 'both') AND date = ?",
-            arrayOf(scope.ownerId, date)
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
+        for (record in workoutDao.visibleRecordsForDate(scope.ownerId, date)) {
                 sessions++
-                val metrics = metrics(scope, cursor.getString(0))
+                val metrics = metrics(scope, record.id)
                 sets += metrics.setCount
                 volume += metrics.totalVolumeKg
                 duration += resolvedDurationSeconds(
-                    cursor.getString(1),
-                    if (cursor.isNull(2)) null else cursor.getInt(2),
-                    cursor.getString(3)
+                    record.date,
+                    record.durationSeconds?.toInt(),
+                    record.metadata
                 )
-            }
         }
         return DayMetrics(sessions, sets, volume, duration)
     }
 
     fun sessionsForDate(scope: AccountScope, date: String): List<String> {
-        val result = mutableListOf<String>()
-        database.query(
-            "SELECT id FROM workout_records WHERE user_id = ? AND deleted_at IS NULL " +
-                "AND scope IN ('fitness', 'both') AND date = ? ORDER BY updated_at DESC",
-            arrayOf(scope.ownerId, date)
-        ).use { cursor -> while (cursor.moveToNext()) result += cursor.getString(0) }
-        return result
+        return workoutDao.visibleRecordsForDate(scope.ownerId, date)
+            .sortedByDescending { it.updatedAt }
+            .map { it.id }
     }
 
     fun latestInProgress(scope: AccountScope): String? {
-        return database.query(
-            "SELECT id, metadata FROM workout_records WHERE user_id = ? AND deleted_at IS NULL " +
-                "AND scope IN ('fitness', 'both') ORDER BY updated_at DESC LIMIT 20",
-            arrayOf(scope.ownerId)
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                if (metadataValue(cursor.getString(1), "status") == "in_progress") return@use cursor.getString(0)
-            }
-            null
-        }
+        return workoutDao.recentVisibleRecords(scope.ownerId, 20)
+            .firstOrNull { metadataValue(it.metadata, "status") == "in_progress" }?.id
     }
 
     fun latestCompletedForRoutine(scope: AccountScope, routineId: String, routineName: String): String? {
-        return database.query(
-            "SELECT date, metadata FROM workout_records WHERE user_id = ? AND deleted_at IS NULL " +
-                "AND scope IN ('fitness', 'both') AND workout_type = 'strength' " +
-                "ORDER BY date DESC, updated_at DESC",
-            arrayOf(scope.ownerId)
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                val metadata = cursor.getString(1)
-                if (metadataValue(metadata, "status") != "completed") continue
-                if (metadataValue(metadata, "routine_id") == routineId ||
-                    metadataValue(metadata, "routine_name") == routineName) return@use cursor.getString(0)
-            }
-            null
-        }
+        return workoutDao.strengthRecords(scope.ownerId).firstOrNull { record ->
+            val metadata = record.metadata
+            metadataValue(metadata, "status") == "completed" &&
+                (metadataValue(metadata, "routine_id") == routineId ||
+                    metadataValue(metadata, "routine_name") == routineName)
+        }?.date
     }
 
     fun recentSessionVolumes(scope: AccountScope, currentRecordId: String, limit: Int): List<VolumePoint> {
         if (limit <= 0) return emptyList()
         val points = mutableListOf<VolumePoint>()
-        database.query(
-            "SELECT id, date, exercise_name, metadata, source_app FROM workout_records WHERE user_id = ? " +
-                "AND deleted_at IS NULL AND scope IN ('fitness', 'both') AND id != ? " +
-                "ORDER BY date DESC, updated_at DESC LIMIT $limit",
-            arrayOf(scope.ownerId, currentRecordId)
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                if (metadataValue(cursor.getString(3), "status") != "completed" &&
-                    cursor.getString(4) != "os") continue
+        for (record in workoutDao.recentRecordsExcept(scope.ownerId, currentRecordId, limit)) {
+                if (metadataValue(record.metadata, "status") != "completed" && record.sourceApp != "os") continue
                 points += VolumePoint(
-                    cursor.getString(1).orEmpty(),
-                    cursor.getString(2).orEmpty(),
-                    metrics(scope, cursor.getString(0)).totalVolumeKg
+                    record.date,
+                    record.exerciseName,
+                    metrics(scope, record.id).totalVolumeKg
                 )
-            }
         }
         return points.asReversed()
     }
@@ -455,18 +390,11 @@ class WorkoutRoomStorage(
     ): List<VolumePoint> {
         if (limit <= 0) return emptyList()
         val points = linkedMapOf<String, VolumePoint>()
-        database.query(
-            "SELECT we.record_id, wr.date, wr.exercise_name FROM workout_exercises we " +
-                "INNER JOIN workout_records wr ON wr.id = we.record_id AND wr.deleted_at IS NULL " +
-                "WHERE wr.user_id = ? AND we.user_id = ? AND we.deleted_at IS NULL " +
-                "AND we.record_id != ? AND wr.scope IN ('fitness', 'both') " +
-                "AND ((we.exercise_id != 'manual' AND we.exercise_id = ?) OR " +
-                "(we.exercise_id = 'manual' AND we.exercise_name_snapshot = ?)) " +
-                "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 100",
-            arrayOf(scope.ownerId, scope.ownerId, currentRecordId, exercise.exerciseId, exercise.name)
-        ).use { cursor ->
-            while (cursor.moveToNext() && points.size < limit) {
-                val recordId = cursor.getString(0)
+        for (candidate in workoutDao.exerciseHistoryCandidates(
+            scope.ownerId, currentRecordId, exercise.exerciseId, exercise.name
+        )) {
+            if (points.size >= limit) break
+                val recordId = candidate.recordId
                 val matchingExercise = exercises(scope, recordId).firstOrNull {
                     it.exerciseId == exercise.exerciseId ||
                         (it.exerciseId == "manual" && it.name == exercise.name)
@@ -474,26 +402,18 @@ class WorkoutRoomStorage(
                 val volume = sets(scope, matchingExercise.id)
                     .filter { it.isCompleted }
                     .sumOf { volumeForSet(matchingExercise, it) }
-                points[recordId] = VolumePoint(cursor.getString(1).orEmpty(), cursor.getString(2).orEmpty(), volume)
-            }
+                points[recordId] = VolumePoint(candidate.date, candidate.exerciseName, volume)
         }
         return points.values.toList().asReversed()
     }
 
     fun lastExerciseHistory(scope: AccountScope, exercise: ExerciseRow, currentRecordId: String): History? {
-        val row = database.query(
-            "SELECT we.id, wr.date FROM workout_exercises we INNER JOIN workout_records wr " +
-                "ON wr.id = we.record_id AND wr.deleted_at IS NULL WHERE wr.user_id = ? " +
-                "AND we.user_id = ? AND we.deleted_at IS NULL AND we.record_id != ? " +
-                "AND ((we.exercise_id != 'manual' AND we.exercise_id = ?) OR " +
-                "(we.exercise_id = 'manual' AND we.exercise_name_snapshot = ?)) " +
-                "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 1",
-            arrayOf(scope.ownerId, scope.ownerId, currentRecordId, exercise.exerciseId, exercise.name)
-        ).use { cursor -> if (cursor.moveToFirst()) cursor.getString(0) to cursor.getString(1) else null }
-            ?: return null
-        val sets = sets(scope, row.first).filter { it.isCompleted }
+        val row = workoutDao.lastExerciseCandidate(
+            scope.ownerId, currentRecordId, exercise.exerciseId, exercise.name
+        ) ?: return null
+        val sets = sets(scope, row.recordId).filter { it.isCompleted }
         if (sets.isEmpty()) return null
-        return History(row.second.orEmpty(), sets.sumOf { volumeForSet(exercise, it) }, sets)
+        return History(row.date, sets.sumOf { volumeForSet(exercise, it) }, sets)
     }
 
     fun bests(scope: AccountScope, exercise: ExerciseRow, currentRecordId: String): Bests {
@@ -504,27 +424,17 @@ class WorkoutRoomStorage(
         var bestVolumeDate = ""
         val sessionVolumes = linkedMapOf<String, Double>()
         val sessionDates = linkedMapOf<String, String>()
-        database.query(
-            "SELECT we.record_id, wr.date, ws.weight_kg, ws.actual_reps, ws.added_weight_kg, " +
-                "ws.assisted_weight_kg, ws.load_state FROM workout_sets ws " +
-                "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id " +
-                "INNER JOIN workout_records wr ON wr.id = we.record_id " +
-                "WHERE wr.user_id = ? AND we.user_id = ? AND ws.user_id = ? " +
-                "AND we.record_id != ? AND we.deleted_at IS NULL AND ws.deleted_at IS NULL " +
-                "AND ws.is_completed = 1 AND ((we.exercise_id != 'manual' AND we.exercise_id = ?) OR " +
-                "(we.exercise_id = 'manual' AND we.exercise_name_snapshot = ?))",
-            arrayOf(scope.ownerId, scope.ownerId, scope.ownerId, currentRecordId,
-                exercise.exerciseId, exercise.name)
-        ).use { cursor ->
-            while (cursor.moveToNext()) {
-                val recordId = cursor.getString(0)
-                val date = cursor.getString(1).orEmpty()
-                val weight = number(cursor, 2)
-                val reps = integer(cursor, 3)
+        for (row in workoutDao.bestSetRows(
+            scope.ownerId, currentRecordId, exercise.exerciseId, exercise.name
+        )) {
+                val recordId = row.recordId
+                val date = row.date
+                val weight = row.weightKg ?: 0.0
+                val reps = row.actualReps?.toInt() ?: 0
                 val set = SetRow("", 0, weight, reps, null, null, true, 0, 0.0,
-                    number(cursor, 5), number(cursor, 4), 0.0,
+                    row.assistedWeightKg ?: 0.0, row.addedWeightKg ?: 0.0, 0.0,
                     loadStateForRead(exercise.recordType, exercise.familyIdentity,
-                        if (cursor.isNull(6)) null else cursor.getString(6), number(cursor, 4)),
+                        row.loadState, row.addedWeightKg ?: 0.0),
                     null, null)
                 val setVolume = volumeForSet(exercise, set)
                 sessionVolumes[recordId] = (sessionVolumes[recordId] ?: 0.0) + setVolume
@@ -535,7 +445,6 @@ class WorkoutRoomStorage(
                     repsAtMax = reps
                     maxDate = date
                 }
-            }
         }
         sessionVolumes.forEach { (recordId, value) ->
             if (value > bestVolume) {
@@ -595,30 +504,9 @@ class WorkoutRoomStorage(
         val exercise = exerciseById(scope, exerciseId) ?: return false
         val state = input.loadState ?: defaultLoadState(exercise.recordType, input)
         val now = now()
-        val values = ContentValues().apply {
-            put("id", UUID.randomUUID().toString())
-            put("user_id", scope.ownerId)
-            put("workout_exercise_id", exerciseId)
-            put("set_index", maxOf(1, setIndex))
-            putNullable("target_reps", input.reps)
-            putNullable("actual_reps", input.reps)
-            putLoadStateValues(this, input, state)
-            putNullable("duration_seconds", input.durationSeconds)
-            putNullable("distance_meters", input.distanceMeters)
-            putNullable("rest_seconds", input.restSeconds)
-            putNullable("rir", input.rir)
-            put("load_state", state?.id())
-            putNullable("input_load_value", input.inputLoadValue)
-            put("input_load_unit", input.inputLoadUnit?.id())
-            put("is_completed", if (input.completed) 1 else 0)
-            put("volume_kg", volumeForInput(exercise, input, state))
-            put("created_at", now)
-            put("updated_at", now)
-            putNull("deleted_at")
-            put("device_id", "android-local")
-            put("contract_version", 1)
-        }
-        database.insert("workout_sets", 0, values)
+        workoutDao.insertSet(inputEntity(
+            UUID.randomUUID().toString(), scope.ownerId, exerciseId, maxOf(1, setIndex), exercise, input, state, now
+        ))
         refreshRecordTotal(scope, recordId)
         return true
     }
@@ -626,102 +514,61 @@ class WorkoutRoomStorage(
     fun updateSet(scope: AccountScope, recordId: String, setId: String, input: WorkoutSetInput): Boolean {
         val exercise = exerciseForSet(scope, setId) ?: return false
         val state = input.loadState ?: defaultLoadState(exercise.recordType, input)
-        val values = ContentValues().apply {
-            putNullable("target_reps", input.reps)
-            putNullable("actual_reps", input.reps)
-            putLoadStateValues(this, input, state)
-            putNullable("duration_seconds", input.durationSeconds)
-            putNullable("distance_meters", input.distanceMeters)
-            putNullable("rest_seconds", input.restSeconds)
-            putNullable("rir", input.rir)
-            put("load_state", state?.id())
-            putNullable("input_load_value", input.inputLoadValue)
-            put("input_load_unit", input.inputLoadUnit?.id())
-            put("is_completed", if (input.completed) 1 else 0)
-            put("volume_kg", volumeForInput(exercise, input, state))
-            put("updated_at", now())
-        }
-        val updated = database.update("workout_sets", 0, values,
-            "id = ? AND user_id = ? AND workout_exercise_id IN (SELECT id FROM workout_exercises WHERE record_id = ? AND user_id = ?) AND deleted_at IS NULL",
-            arrayOf(setId, scope.ownerId, recordId, scope.ownerId))
+        val updated = workoutDao.updateSet(
+            setId, scope.ownerId, recordId, input.reps, input.reps,
+            weightKg(input, state), input.durationSeconds, input.distanceMeters, input.restSeconds,
+            assistedWeightKg(input, state), addedWeightKg(input, state), state?.id(),
+            input.inputLoadValue, input.inputLoadUnit?.id(), if (input.completed) 1 else 0,
+            volumeForInput(exercise, input, state), input.rir, now()
+        )
         if (updated > 0) refreshRecordTotal(scope, recordId)
         return updated > 0
     }
 
     fun deleteSet(scope: AccountScope, recordId: String, setId: String): Boolean {
-        val values = ContentValues().apply { put("deleted_at", now()); put("updated_at", now()) }
-        val updated = database.update("workout_sets", 0, values,
-            "id = ? AND user_id = ? AND workout_exercise_id IN (SELECT id FROM workout_exercises WHERE record_id = ? AND user_id = ?) AND deleted_at IS NULL",
-            arrayOf(setId, scope.ownerId, recordId, scope.ownerId))
+        val timestamp = now()
+        val updated = workoutDao.tombstoneSet(setId, scope.ownerId, recordId, timestamp, timestamp)
         if (updated > 0) refreshRecordTotal(scope, recordId)
         return updated > 0
     }
 
     fun deleteExercise(scope: AccountScope, recordId: String, exerciseId: String): Boolean {
-        val values = ContentValues().apply { put("deleted_at", now()); put("updated_at", now()) }
-        database.update("workout_sets", 0, values,
-            "workout_exercise_id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(exerciseId, scope.ownerId))
-        val updated = database.update("workout_exercises", 0, values,
-            "id = ? AND record_id = ? AND user_id = ? AND deleted_at IS NULL",
-            arrayOf(exerciseId, recordId, scope.ownerId))
+        val timestamp = now()
+        workoutDao.tombstoneSetsForExercise(exerciseId, scope.ownerId, timestamp, timestamp)
+        val updated = workoutDao.tombstoneExercise(exerciseId, recordId, scope.ownerId, timestamp, timestamp)
         if (updated > 0) refreshRecordTotal(scope, recordId)
         return updated > 0
     }
 
     fun addExercise(scope: AccountScope, recordId: String,
                     exercise: WorkoutExerciseReplacement): Boolean {
-        check(database.query(
-            "SELECT 1 FROM workout_records WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
-            arrayOf(recordId, scope.ownerId)
-        ).use { it.moveToFirst() }) { "Workout record is not owned by the requested account." }
+        check(workoutDao.ownsRecord(recordId, scope.ownerId) != null) {
+            "Workout record is not owned by the requested account."
+        }
         val identity = exercise.familyIdentity
             ?: familyCatalog.identityForStorageExerciseId(exercise.masterExerciseId)
         val timestamp = now()
-        val order = database.query(
-            "SELECT COALESCE(MAX(order_index), 0) + 1 FROM workout_exercises " +
-                "WHERE record_id = ? AND user_id = ? AND deleted_at IS NULL",
-            arrayOf(recordId, scope.ownerId)
-        ).use { if (it.moveToFirst()) it.getInt(0) else 1 }
-        val values = ContentValues().apply {
-            put("id", UUID.randomUUID().toString())
-            put("user_id", scope.ownerId)
-            put("record_id", recordId)
-            put("order_index", order)
-            put("exercise_id", exercise.masterExerciseId.ifBlank { "manual" })
-            put("exercise_name_snapshot", canonicalName(exercise.nameKo, identity))
-            put("ui_part", exercise.bodyPart?.labelKo() ?: identity?.defaultUiPart.orEmpty())
-            put("primary_sub_part_snapshot", exercise.primarySubPart.orEmpty())
-            put("equipment_snapshot", exercise.equipmentType?.labelKo())
-            put("record_type", FitnessRecordContract.normalizeRecordType(exercise.recordType))
-            put("family_id", identity?.familyId)
-            put("preset_id", identity?.presetId)
-            put("canonical_variant_key", identity?.canonicalVariantKey)
-            put("visual_variant_key", identity?.visualVariantKey)
-            putNull("memo")
-            put("created_at", timestamp)
-            put("updated_at", timestamp)
-            putNull("deleted_at")
-            put("device_id", "android-local")
-        }
-        return database.insert("workout_exercises", 0, values) != -1L
+        val order = workoutDao.nextExerciseOrder(recordId, scope.ownerId)
+        workoutDao.insertExercise(WorkoutExercisesRoomEntity(
+            UUID.randomUUID().toString(), scope.ownerId, recordId, order.toLong(),
+            exercise.masterExerciseId.ifBlank { "manual" }, canonicalName(exercise.nameKo, identity),
+            exercise.bodyPart?.labelKo() ?: identity?.defaultUiPart.orEmpty(),
+            exercise.primarySubPart.orEmpty(), exercise.equipmentType?.labelKo(),
+            FitnessRecordContract.normalizeRecordType(exercise.recordType), identity?.familyId,
+            identity?.presetId, identity?.canonicalVariantKey, identity?.visualVariantKey, null,
+            timestamp, timestamp, null, "android-local", FitnessRecordContract.VERSION.toLong()
+        ))
+        return true
     }
     fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String, replacement: WorkoutExerciseReplacement): Boolean {
-        val values = ContentValues().apply {
-            put("exercise_id", replacement.masterExerciseId.ifBlank { "manual" })
-            put("exercise_name_snapshot", replacement.nameKo)
-            put("ui_part", replacement.bodyPart?.labelKo() ?: "other")
-            put("primary_sub_part_snapshot", replacement.primarySubPart.orEmpty())
-            put("equipment_snapshot", replacement.equipmentType?.labelKo())
-            put("record_type", FitnessRecordContract.normalizeRecordType(replacement.recordType))
-            put("family_id", replacement.familyIdentity?.familyId)
-            put("preset_id", replacement.familyIdentity?.presetId)
-            put("canonical_variant_key", replacement.familyIdentity?.canonicalVariantKey)
-            put("visual_variant_key", replacement.familyIdentity?.visualVariantKey)
-            put("updated_at", now())
-        }
-        val updated = database.update("workout_exercises", 0, values,
-            "id = ? AND record_id = ? AND user_id = ? AND deleted_at IS NULL",
-            arrayOf(exerciseId, recordId, scope.ownerId))
+        val updated = workoutDao.replaceExercise(
+            exerciseId, recordId, scope.ownerId,
+            replacement.masterExerciseId.ifBlank { "manual" }, replacement.nameKo,
+            replacement.bodyPart?.labelKo() ?: "other", replacement.primarySubPart.orEmpty(),
+            replacement.equipmentType?.labelKo(), FitnessRecordContract.normalizeRecordType(replacement.recordType),
+            replacement.familyIdentity?.familyId, replacement.familyIdentity?.presetId,
+            replacement.familyIdentity?.canonicalVariantKey, replacement.familyIdentity?.visualVariantKey, now()
+        )
         if (updated > 0) refreshRecordTotal(scope, recordId)
         return updated > 0
     }
@@ -731,17 +578,8 @@ class WorkoutRoomStorage(
         val metrics = metrics(scope, recordId)
         if (metrics.setCount == 0) return false
         val endedAt = now()
-        val recordState = database.query(
-            "SELECT metadata, source_app, scope, duration_seconds, is_backfilled FROM workout_records " +
-                "WHERE id = ? AND user_id = ? AND deleted_at IS NULL",
-            arrayOf(recordId, scope.ownerId)
-        ).use { cursor ->
-            if (cursor.moveToFirst()) listOf(
-                cursor.getString(0), cursor.getString(1), cursor.getString(2),
-                if (cursor.isNull(3)) "0" else cursor.getInt(3).toString(), cursor.getInt(4).toString()
-            ) else listOf("{}", "fitness", "fitness", "0", "0")
-        }
-        val metadata = recordState[0]
+        val record = workoutDao.visibleRecord(recordId, scope.ownerId) ?: return false
+        val metadata = record.metadata
         val category = categoryFor(scope, recordId)
         val merged = try {
             JSONObject(metadata ?: "{}")
@@ -752,61 +590,45 @@ class WorkoutRoomStorage(
                 .put("category_codes", FitnessRecordContract.categoryCodes(listOf(category)))
                 .toString()
         } catch (_: Exception) { metadata }
-        val values = ContentValues().apply {
-            put("metadata", merged)
-            val storedDuration = recordState[3].toIntOrNull() ?: 0
-            val duration = if (recordState[4] == "1" && storedDuration > 0) storedDuration
+        val storedDuration = record.durationSeconds?.toInt() ?: 0
+        val duration = if (record.isBackfilled == 1L && storedDuration > 0) storedDuration
                 else maxOf(info.durationSeconds, elapsedSeconds(info.startedAt))
-            put("duration_seconds", duration)
-            put("total_volume_kg", metrics.totalVolumeKg)
-            put("updated_at", endedAt)
-            if (recordState[1] == "fitness") put("category", category)
-            if (recordState[1] == "fitness") put("scope", "both") else put("scope", recordState[2])
-        }
-        database.update("workout_records", 0, values, "id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(recordId, scope.ownerId))
-        return true
+        val sourceApp = record.sourceApp
+        val nextScope = if (sourceApp == "fitness") "both" else record.scope
+        val nextCategory = if (sourceApp == "fitness") category else record.category
+        return workoutDao.completeRecord(
+            recordId, scope.ownerId, merged, duration, metrics.totalVolumeKg,
+            endedAt, nextCategory, nextScope
+        ) > 0
     }
 
     fun discard(scope: AccountScope, recordId: String): Boolean {
-        val values = ContentValues().apply { put("deleted_at", now()); put("updated_at", now()) }
-        return database.update("workout_records", 0, values,
-            "id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(recordId, scope.ownerId)) > 0
+        val timestamp = now()
+        return workoutDao.tombstoneRecord(recordId, scope.ownerId, timestamp, timestamp) > 0
     }
 
     private fun exerciseById(scope: AccountScope, id: String): ExerciseRow? =
-        database.query(
-            "SELECT record_id FROM workout_exercises WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
-            arrayOf(id, scope.ownerId)
-        ).use { cursor ->
-            if (!cursor.moveToFirst()) null else exercises(scope, recordId = cursor.getString(0)).firstOrNull { it.id == id }
+        workoutDao.visibleExercise(id, scope.ownerId)?.let { row ->
+            exercises(scope, row.recordId).firstOrNull { it.id == id }
         }
 
     private fun exerciseForSet(scope: AccountScope, setId: String): ExerciseRow? =
-        database.query(
-            "SELECT workout_exercise_id FROM workout_sets WHERE id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
-            arrayOf(setId, scope.ownerId)
-        ).use { cursor -> if (!cursor.moveToFirst()) null else exerciseById(scope, cursor.getString(0)) }
+        workoutDao.visibleSet(setId, scope.ownerId)?.let { exerciseById(scope, it.workoutExerciseId) }
 
     private fun requireOwnedExercise(scope: AccountScope, recordId: String, exerciseId: String) {
-        check(database.query(
-            "SELECT 1 FROM workout_exercises WHERE id = ? AND record_id = ? AND user_id = ? AND deleted_at IS NULL LIMIT 1",
-            arrayOf(exerciseId, recordId, scope.ownerId)
-        ).use { it.moveToFirst() }) { "Workout exercise is not owned by the requested account." }
+        check(workoutDao.ownsExercise(exerciseId, recordId, scope.ownerId) != null) {
+            "Workout exercise is not owned by the requested account."
+        }
     }
 
     private fun refreshRecordTotal(scope: AccountScope, recordId: String) {
-        val values = ContentValues().apply {
-            put("total_volume_kg", metrics(scope, recordId).totalVolumeKg)
-            put("updated_at", now())
-        }
-        database.update("workout_records", 0, values, "id = ? AND user_id = ? AND deleted_at IS NULL", arrayOf(recordId, scope.ownerId))
+        workoutDao.updateRecordTotal(recordId, scope.ownerId, metrics(scope, recordId).totalVolumeKg, now())
     }
 
     private fun categoryFor(scope: AccountScope, recordId: String): String {
         val values = mutableListOf<String>()
-        database.query("SELECT ui_part FROM workout_exercises WHERE record_id = ? AND user_id = ? AND deleted_at IS NULL ORDER BY order_index", arrayOf(recordId, scope.ownerId)).use { cursor ->
-            while (cursor.moveToNext()) {
-                val value = when (cursor.getString(0)?.lowercase()) {
+        for (uiPart in workoutDao.visibleUiParts(recordId, scope.ownerId)) {
+                val value = when (uiPart.lowercase()) {
                     "chest", "가슴", "가슴운동" -> "가슴"
                     "back", "등", "등운동" -> "등"
                     "legs", "하체", "하체운동" -> "하체"
@@ -817,7 +639,6 @@ class WorkoutRoomStorage(
                     else -> ""
                 }
                 if (value.isNotEmpty() && value !in values) values += value
-            }
         }
         return values.firstOrNull() ?: "기타"
     }
@@ -834,34 +655,61 @@ class WorkoutRoomStorage(
         )
     }
 
-    private fun putLoadStateValues(values: ContentValues, input: WorkoutSetInput, state: LoadState?) {
-        when (state) {
-            LoadState.EXTERNAL_LOAD -> {
-                values.putNullable("weight_kg", input.weightKg)
-                values.putNull("assisted_weight_kg")
-                values.putNull("added_weight_kg")
-            }
-            LoadState.ADDED_WEIGHT -> {
-                values.putNull("weight_kg")
-                values.putNull("assisted_weight_kg")
-                values.putNullable("added_weight_kg", input.addedWeightKg)
-            }
-            LoadState.ASSISTED, LoadState.BAND_ASSISTED -> {
-                values.putNull("weight_kg")
-                values.putNullable("assisted_weight_kg", input.assistedWeightKg)
-                values.putNull("added_weight_kg")
-            }
-            LoadState.BAND_RESISTED -> {
-                values.putNullable("weight_kg", input.weightKg)
-                values.putNull("assisted_weight_kg")
-                values.putNull("added_weight_kg")
-            }
-            else -> {
-                values.putNullable("weight_kg", input.weightKg)
-                values.putNullable("assisted_weight_kg", input.assistedWeightKg)
-                values.putNullable("added_weight_kg", input.addedWeightKg)
-            }
-        }
+    private fun inputEntity(
+        id: String,
+        userId: String,
+        exerciseId: String,
+        setIndex: Int,
+        exercise: ExerciseRow,
+        input: WorkoutSetInput,
+        state: LoadState?,
+        timestamp: String
+    ): WorkoutSetsRoomEntity {
+        return WorkoutSetsRoomEntity(
+            id,
+            userId,
+            exerciseId,
+            setIndex.toLong(),
+            input.reps?.toLong(),
+            input.reps?.toLong(),
+            weightKg(input, state),
+            volumeForInput(exercise, input, state),
+            input.durationSeconds?.toLong(),
+            input.distanceMeters,
+            input.restSeconds?.toLong(),
+            assistedWeightKg(input, state),
+            addedWeightKg(input, state),
+            input.inputLoadValue,
+            input.inputLoadUnit?.id(),
+            state?.id(),
+            if (input.completed) 1L else 0L,
+            null,
+            input.rir?.toLong(),
+            null,
+            timestamp,
+            timestamp,
+            null,
+            "android-local",
+            FitnessRecordContract.VERSION.toLong()
+        )
+    }
+
+    private fun weightKg(input: WorkoutSetInput, state: LoadState?): Double? = when (state) {
+        LoadState.EXTERNAL_LOAD, LoadState.BAND_RESISTED -> input.weightKg
+        LoadState.ADDED_WEIGHT, LoadState.ASSISTED, LoadState.BAND_ASSISTED -> null
+        else -> input.weightKg
+    }
+
+    private fun assistedWeightKg(input: WorkoutSetInput, state: LoadState?): Double? = when (state) {
+        LoadState.ASSISTED, LoadState.BAND_ASSISTED -> input.assistedWeightKg
+        LoadState.EXTERNAL_LOAD, LoadState.ADDED_WEIGHT, LoadState.BAND_RESISTED -> null
+        else -> input.assistedWeightKg
+    }
+
+    private fun addedWeightKg(input: WorkoutSetInput, state: LoadState?): Double? = when (state) {
+        LoadState.ADDED_WEIGHT -> input.addedWeightKg
+        LoadState.EXTERNAL_LOAD, LoadState.ASSISTED, LoadState.BAND_ASSISTED, LoadState.BAND_RESISTED -> null
+        else -> input.addedWeightKg
     }
 
     private fun laterality(identity: ExerciseFamilyIdentity): String? {
@@ -906,20 +754,4 @@ class WorkoutRoomStorage(
     } catch (_: Exception) { 0 }
 
     private fun now(): String = OffsetDateTime.now().toString()
-    private fun number(cursor: android.database.Cursor, index: Int): Double = if (cursor.isNull(index)) 0.0 else cursor.getDouble(index)
-    private fun integer(cursor: android.database.Cursor, index: Int): Int = if (cursor.isNull(index)) 0 else cursor.getInt(index)
-    private fun nullableInt(cursor: android.database.Cursor, index: Int): Int? = if (cursor.isNull(index)) null else cursor.getInt(index)
-    private fun ContentValues.putNullable(key: String, value: Number?) {
-        when (value) {
-            null -> putNull(key)
-            is Int -> put(key, value)
-            is Long -> put(key, value)
-            is Float -> put(key, value)
-            is Double -> put(key, value)
-            is Short -> put(key, value)
-            is Byte -> put(key, value)
-            else -> put(key, value.toDouble())
-        }
-    }
-    private fun ContentValues.putNull(key: String) = putNull(key)
 }

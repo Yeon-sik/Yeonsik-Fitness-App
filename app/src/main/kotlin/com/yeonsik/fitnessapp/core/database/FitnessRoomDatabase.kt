@@ -461,6 +461,238 @@ interface SupplementRoomDao {
     ): Int
 }
 
+@Dao
+interface WorkoutRoomDao {
+    data class ExerciseHistoryCandidate(
+        @ColumnInfo(name = "record_id") val recordId: String,
+        val date: String,
+        @ColumnInfo(name = "exercise_name") val exerciseName: String
+    )
+
+    data class BestSetRow(
+        @ColumnInfo(name = "record_id") val recordId: String,
+        val date: String,
+        @ColumnInfo(name = "weight_kg") val weightKg: Double?,
+        @ColumnInfo(name = "actual_reps") val actualReps: Long?,
+        @ColumnInfo(name = "added_weight_kg") val addedWeightKg: Double?,
+        @ColumnInfo(name = "assisted_weight_kg") val assistedWeightKg: Double?,
+        @ColumnInfo(name = "load_state") val loadState: String?
+    )
+
+    @Query(
+        "SELECT * FROM workout_records WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL LIMIT 1"
+    )
+    fun visibleRecord(recordId: String, userId: String): WorkoutRecordsRoomEntity?
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND date=:date"
+    )
+    fun visibleRecordsForDate(userId: String, date: String): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') ORDER BY updated_at DESC LIMIT :limit"
+    )
+    fun recentVisibleRecords(userId: String, limit: Int): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND workout_type='strength' " +
+            "ORDER BY date DESC, updated_at DESC"
+    )
+    fun strengthRecords(userId: String): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND id != :currentRecordId " +
+            "ORDER BY date DESC, updated_at DESC LIMIT :limit"
+    )
+    fun recentRecordsExcept(userId: String, currentRecordId: String, limit: Int): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_exercises WHERE record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY order_index"
+    )
+    fun visibleExercises(recordId: String, userId: String): List<WorkoutExercisesRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_exercises WHERE id=:exerciseId AND user_id=:userId " +
+            "AND deleted_at IS NULL LIMIT 1"
+    )
+    fun visibleExercise(exerciseId: String, userId: String): WorkoutExercisesRoomEntity?
+
+    @Query(
+        "SELECT * FROM workout_sets WHERE workout_exercise_id=:exerciseId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY set_index"
+    )
+    fun visibleSets(exerciseId: String, userId: String): List<WorkoutSetsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_sets WHERE id=:setId AND user_id=:userId AND deleted_at IS NULL LIMIT 1"
+    )
+    fun visibleSet(setId: String, userId: String): WorkoutSetsRoomEntity?
+
+    @Query(
+        "SELECT we.record_id AS record_id, wr.date AS date, wr.exercise_name AS exercise_name " +
+            "FROM workout_exercises we INNER JOIN workout_records wr ON wr.id=we.record_id " +
+            "AND wr.deleted_at IS NULL WHERE wr.user_id=:userId AND we.user_id=:userId " +
+            "AND we.deleted_at IS NULL AND we.record_id != :currentRecordId " +
+            "AND wr.scope IN ('fitness','both') AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
+            "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName)) " +
+            "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 100"
+    )
+    fun exerciseHistoryCandidates(
+        userId: String, currentRecordId: String, exerciseId: String, exerciseName: String
+    ): List<ExerciseHistoryCandidate>
+
+    @Query(
+        "SELECT we.id AS record_id, wr.date AS date, wr.exercise_name AS exercise_name " +
+            "FROM workout_exercises we INNER JOIN workout_records wr ON wr.id=we.record_id " +
+            "AND wr.deleted_at IS NULL WHERE wr.user_id=:userId AND we.user_id=:userId " +
+            "AND we.deleted_at IS NULL AND we.record_id != :currentRecordId " +
+            "AND wr.scope IN ('fitness','both') AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
+            "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName)) " +
+            "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 1"
+    )
+    fun lastExerciseCandidate(
+        userId: String, currentRecordId: String, exerciseId: String, exerciseName: String
+    ): ExerciseHistoryCandidate?
+
+    @Query(
+        "SELECT we.record_id AS record_id, wr.date AS date, ws.weight_kg AS weight_kg, " +
+            "ws.actual_reps AS actual_reps, ws.added_weight_kg AS added_weight_kg, " +
+            "ws.assisted_weight_kg AS assisted_weight_kg, ws.load_state AS load_state " +
+            "FROM workout_sets ws INNER JOIN workout_exercises we ON we.id=ws.workout_exercise_id " +
+            "INNER JOIN workout_records wr ON wr.id=we.record_id WHERE wr.user_id=:userId " +
+            "AND we.user_id=:userId AND ws.user_id=:userId AND we.record_id != :currentRecordId " +
+            "AND we.deleted_at IS NULL AND ws.deleted_at IS NULL AND ws.is_completed=1 " +
+            "AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
+            "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName))"
+    )
+    fun bestSetRows(
+        userId: String, currentRecordId: String, exerciseId: String, exerciseName: String
+    ): List<BestSetRow>
+
+    @Query(
+        "SELECT ui_part FROM workout_exercises WHERE record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY order_index"
+    )
+    fun visibleUiParts(recordId: String, userId: String): List<String>
+
+    @Query(
+        "SELECT COALESCE(MAX(order_index),0)+1 FROM workout_exercises WHERE record_id=:recordId " +
+            "AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun nextExerciseOrder(recordId: String, userId: String): Int
+
+    @Query("SELECT 1 FROM workout_records WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL LIMIT 1")
+    fun ownsRecord(recordId: String, userId: String): Int?
+
+    @Query(
+        "SELECT 1 FROM workout_exercises WHERE id=:exerciseId AND record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL LIMIT 1"
+    )
+    fun ownsExercise(exerciseId: String, recordId: String, userId: String): Int?
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertRecord(record: WorkoutRecordsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertExercise(exercise: WorkoutExercisesRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertSet(set: WorkoutSetsRoomEntity)
+
+    @Query(
+        "UPDATE workout_records SET duration_seconds=:durationSeconds, is_backfilled=1, " +
+            "backfilled_at=:backfilledAt, backfill_reason='manual_entry', metadata=:metadata " +
+            "WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateManualPastSession(
+        recordId: String, userId: String, durationSeconds: Int, backfilledAt: String, metadata: String
+    ): Int
+
+    @Query("UPDATE workout_records SET metadata=:metadata WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL")
+    fun updateRecordMetadata(recordId: String, userId: String, metadata: String): Int
+
+    @Query(
+        "UPDATE workout_sets SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE workout_exercise_id=:exerciseId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneSetsForExercise(exerciseId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_exercises SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneExercisesForRecord(recordId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_records SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneRecord(recordId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_sets SET target_reps=:targetReps, actual_reps=:actualReps, weight_kg=:weightKg, " +
+            "duration_seconds=:durationSeconds, distance_meters=:distanceMeters, rest_seconds=:restSeconds, " +
+            "assisted_weight_kg=:assistedWeightKg, added_weight_kg=:addedWeightKg, load_state=:loadState, " +
+            "input_load_value=:inputLoadValue, input_load_unit=:inputLoadUnit, is_completed=:isCompleted, " +
+            "volume_kg=:volumeKg, rir=:rir, updated_at=:updatedAt WHERE id=:setId AND user_id=:userId " +
+            "AND workout_exercise_id IN (SELECT id FROM workout_exercises WHERE record_id=:recordId AND user_id=:userId) " +
+            "AND deleted_at IS NULL"
+    )
+    fun updateSet(
+        setId: String, userId: String, recordId: String, targetReps: Int?, actualReps: Int?, weightKg: Double?,
+        durationSeconds: Int?, distanceMeters: Double?, restSeconds: Int?, assistedWeightKg: Double?,
+        addedWeightKg: Double?, loadState: String?, inputLoadValue: Double?, inputLoadUnit: String?,
+        isCompleted: Int, volumeKg: Double, rir: Int?, updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE workout_sets SET deleted_at=:deletedAt, updated_at=:updatedAt WHERE id=:setId AND user_id=:userId " +
+            "AND workout_exercise_id IN (SELECT id FROM workout_exercises WHERE record_id=:recordId AND user_id=:userId) " +
+            "AND deleted_at IS NULL"
+    )
+    fun tombstoneSet(setId: String, userId: String, recordId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_exercises SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE id=:exerciseId AND record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneExercise(exerciseId: String, recordId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_exercises SET exercise_id=:exerciseId, exercise_name_snapshot=:exerciseName, " +
+            "ui_part=:uiPart, primary_sub_part_snapshot=:primarySubPart, equipment_snapshot=:equipment, " +
+            "record_type=:recordType, family_id=:familyId, preset_id=:presetId, " +
+            "canonical_variant_key=:canonicalVariantKey, visual_variant_key=:visualVariantKey, updated_at=:updatedAt " +
+            "WHERE id=:oldExerciseId AND record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun replaceExercise(
+        oldExerciseId: String, recordId: String, userId: String, exerciseId: String, exerciseName: String,
+        uiPart: String, primarySubPart: String, equipment: String?, recordType: String, familyId: String?,
+        presetId: String?, canonicalVariantKey: String?, visualVariantKey: String?, updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE workout_records SET total_volume_kg=:totalVolumeKg, updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateRecordTotal(recordId: String, userId: String, totalVolumeKg: Double, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_records SET metadata=:metadata, duration_seconds=:durationSeconds, " +
+            "total_volume_kg=:totalVolumeKg, updated_at=:updatedAt, category=:category, scope=:scope " +
+            "WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun completeRecord(
+        recordId: String, userId: String, metadata: String, durationSeconds: Int,
+        totalVolumeKg: Double, updatedAt: String, category: String, scope: String
+    ): Int
+}
+
 @Database(
     entities = [
         BodyProfileEntity::class,
@@ -510,4 +742,5 @@ abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun deviceRoomDao(): DeviceRoomDao
     abstract fun routineRoomDao(): RoutineRoomDao
     abstract fun supplementRoomDao(): SupplementRoomDao
+    abstract fun workoutRoomDao(): WorkoutRoomDao
 }
