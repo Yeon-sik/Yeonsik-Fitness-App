@@ -16,11 +16,11 @@ import com.yeonsik.fitnessapp.data.MealCompositionItem;
 import com.yeonsik.fitnessapp.data.MealEntryPolicy;
 import com.yeonsik.fitnessapp.data.MealItemSnapshot;
 import com.yeonsik.fitnessapp.data.MealRecordKind;
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionUnit;
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi;
+import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi;
 
 import org.json.JSONObject;
 
@@ -38,12 +38,12 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
 
     private final FitnessRoomDatabase roomDatabase;
     private final MealRoomDao mealDao;
-    private final NutritionCatalogRepository nutritionCatalog;
+    private final NutritionCatalogRepositoryApi nutritionCatalog;
     private String userId;
 
     public MealRecordRepository(
             FitnessRoomDatabase roomDatabase,
-            NutritionCatalogRepository nutritionCatalog,
+            NutritionCatalogRepositoryApi nutritionCatalog,
             String userId
     ) {
         this.roomDatabase = roomDatabase;
@@ -56,7 +56,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
     @Deprecated
     public MealRecordRepository(
             FitnessDatabaseConnection legacyDatabase,
-            NutritionCatalogRepository nutritionCatalog,
+            NutritionCatalogRepositoryApi nutritionCatalog,
             String userId
     ) {
         this(
