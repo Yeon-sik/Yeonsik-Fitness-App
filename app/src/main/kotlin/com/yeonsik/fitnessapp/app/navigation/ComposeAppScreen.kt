@@ -7,8 +7,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
-import androidx.compose.material3.Text
-import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
+import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.ScreenHost
@@ -65,8 +64,3 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
     }
 }
 
-@Composable
-internal fun StateMessage(title: String, message: String) {
-    AppHeader(title)
-    AppCard(Modifier.fillMaxWidth()) { Text(message, Modifier.padding(AppSpacing.card)) }
-}
