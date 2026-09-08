@@ -125,6 +125,20 @@ interface BodyRoomDao {
     )
     fun latestVisibleWeightOnOrBefore(userId: String, date: String): WeightRecordEntity?
 
+    @Query(
+        "SELECT COUNT(DISTINCT date) FROM weight_records WHERE user_id = :userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness', 'both') " +
+            "AND date BETWEEN :startDate AND :endDate"
+    )
+    fun visibleWeightRecordedDays(userId: String, startDate: String, endDate: String): Int
+
+    @Query(
+        "SELECT DISTINCT date FROM weight_records WHERE user_id = :userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness', 'both') " +
+            "AND date BETWEEN :startDate AND :endDate ORDER BY date"
+    )
+    fun visibleWeightDates(userId: String, startDate: String, endDate: String): List<String>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(record: WeightRecordEntity)
 
@@ -464,6 +478,16 @@ interface SupplementRoomDao {
 
 @Dao
 interface WorkoutRoomDao {
+    data class WeekProgress(
+        @ColumnInfo(name = "completed_sessions") val completedSessions: Int,
+        @ColumnInfo(name = "completed_days") val completedDays: Int
+    )
+
+    data class BodyPartSetCount(
+        @ColumnInfo(name = "ui_part") val uiPart: String?,
+        @ColumnInfo(name = "set_count") val setCount: Int
+    )
+
     data class ExerciseHistoryCandidate(
         @ColumnInfo(name = "record_id") val recordId: String,
         val date: String,
@@ -738,6 +762,60 @@ interface WorkoutRoomDao {
     fun updateCardioHeartRate(
         recordId: String, userId: String, averageHeartRate: Double?, metadata: String, updatedAt: String
     ): Int
+
+    @Query(
+        "SELECT COUNT(*) AS completed_sessions, COUNT(DISTINCT date) AS completed_days " +
+            "FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND date BETWEEN :startDate AND :endDate " +
+            "AND (source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')"
+    )
+    fun completedWeekProgress(userId: String, startDate: String, endDate: String): WeekProgress
+
+    @Query(
+        "SELECT we.ui_part AS ui_part, COUNT(ws.id) AS set_count FROM workout_sets ws " +
+            "INNER JOIN workout_exercises we ON we.id=ws.workout_exercise_id " +
+            "AND we.user_id=ws.user_id AND we.deleted_at IS NULL " +
+            "INNER JOIN workout_records wr ON wr.id=we.record_id " +
+            "AND wr.user_id=we.user_id AND wr.deleted_at IS NULL " +
+            "WHERE ws.user_id=:userId AND ws.deleted_at IS NULL AND ws.is_completed=1 " +
+            "AND wr.scope IN ('fitness','both') AND wr.source_app='fitness' " +
+            "AND wr.metadata LIKE '%\"status\":\"completed\"%' AND wr.workout_type='strength' " +
+            "AND wr.date BETWEEN :startDate AND :endDate GROUP BY we.ui_part"
+    )
+    fun recentStrengthSetsByBodyPart(
+        userId: String, startDate: String, endDate: String
+    ): List<BodyPartSetCount>
+
+    @Query(
+        "SELECT MAX(wr.date) FROM workout_sets ws " +
+            "INNER JOIN workout_exercises we ON we.id=ws.workout_exercise_id " +
+            "AND we.user_id=ws.user_id AND we.deleted_at IS NULL " +
+            "INNER JOIN workout_records wr ON wr.id=we.record_id " +
+            "AND wr.user_id=we.user_id AND wr.deleted_at IS NULL " +
+            "WHERE ws.user_id=:userId AND ws.deleted_at IS NULL AND ws.is_completed=1 " +
+            "AND wr.scope IN ('fitness','both') AND wr.source_app='fitness' " +
+            "AND wr.metadata LIKE '%\"status\":\"completed\"%' AND wr.workout_type='strength' " +
+            "AND wr.date <= :referenceDate AND lower(trim(we.ui_part)) IN (:bodyPartAliases)"
+    )
+    fun latestDetailedTrainingDateForBodyPart(
+        userId: String, referenceDate: String, bodyPartAliases: List<String>
+    ): String?
+
+    @Query(
+        "SELECT COUNT(DISTINCT date) FROM workout_records WHERE user_id=:userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness','both') " +
+            "AND date BETWEEN :startDate AND :endDate " +
+            "AND (source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')"
+    )
+    fun completedWorkoutRecordedDays(userId: String, startDate: String, endDate: String): Int
+
+    @Query(
+        "SELECT DISTINCT date FROM workout_records WHERE user_id=:userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness','both') " +
+            "AND date BETWEEN :startDate AND :endDate " +
+            "AND (source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%') ORDER BY date"
+    )
+    fun completedWorkoutDates(userId: String, startDate: String, endDate: String): List<String>
 }
 
 @Dao
@@ -885,6 +963,20 @@ interface MealRoomDao {
     )
     fun mealCountForDate(userId: String, date: String): Long
 
+    @Query(
+        "SELECT COUNT(DISTINCT date) FROM meal_records WHERE user_id=:userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness','both') " +
+            "AND date BETWEEN :startDate AND :endDate"
+    )
+    fun visibleMealRecordedDays(userId: String, startDate: String, endDate: String): Int
+
+    @Query(
+        "SELECT DISTINCT date FROM meal_records WHERE user_id=:userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness','both') " +
+            "AND date BETWEEN :startDate AND :endDate ORDER BY date"
+    )
+    fun visibleMealDates(userId: String, startDate: String, endDate: String): List<String>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertRecord(record: MealRecordsRoomEntity)
 
@@ -893,6 +985,67 @@ interface MealRoomDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertNutrient(nutrient: MealRecordItemNutrientsRoomEntity)
+}
+
+@Dao
+interface DevelopmentRoomDao {
+    data class CheckInStats(
+        @ColumnInfo(name = "recorded_days") val recordedDays: Int,
+        @ColumnInfo(name = "low_energy_or_readiness_days") val lowEnergyOrReadinessDays: Int
+    )
+
+    data class CheckInSummary(
+        @ColumnInfo(name = "average_sleep_hours") val averageSleepHours: Double?,
+        @ColumnInfo(name = "sleep_recorded_days") val sleepRecordedDays: Int,
+        @ColumnInfo(name = "low_energy_or_readiness_days") val lowEnergyOrReadinessDays: Int
+    )
+
+    data class LatestCheckIn(
+        @ColumnInfo(name = "energy_score") val energyScore: Long?,
+        @ColumnInfo(name = "training_readiness_score") val trainingReadinessScore: Long?
+    )
+
+    @Query("SELECT * FROM development_goals WHERE user_id=:userId LIMIT 1")
+    fun goal(userId: String): DevelopmentGoalsRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun replaceGoal(goal: DevelopmentGoalsRoomEntity)
+
+    @Query("DELETE FROM development_goals WHERE user_id=:userId")
+    fun deleteGoal(userId: String): Int
+
+    @Query(
+        "SELECT COUNT(*) AS recorded_days, COALESCE(SUM(CASE " +
+            "WHEN ((energy_score IS NOT NULL AND energy_score <= 2) " +
+            "OR (training_readiness_score IS NOT NULL AND training_readiness_score <= 2)) " +
+            "THEN 1 ELSE 0 END), 0) AS low_energy_or_readiness_days " +
+            "FROM nutrition_daily_checkins WHERE user_id=:userId " +
+            "AND date BETWEEN :startDate AND :endDate"
+    )
+    fun recentCheckInStats(userId: String, startDate: String, endDate: String): CheckInStats
+
+    @Query(
+        "SELECT AVG(sleep_hours) AS average_sleep_hours, COUNT(sleep_hours) AS sleep_recorded_days, " +
+            "COALESCE(SUM(CASE WHEN ((energy_score IS NOT NULL AND energy_score <= 2) " +
+            "OR (training_readiness_score IS NOT NULL AND training_readiness_score <= 2)) " +
+            "THEN 1 ELSE 0 END), 0) AS low_energy_or_readiness_days " +
+            "FROM nutrition_daily_checkins WHERE user_id=:userId " +
+            "AND date BETWEEN :startDate AND :endDate"
+    )
+    fun recentCheckInSummary(userId: String, startDate: String, endDate: String): CheckInSummary
+
+    @Query(
+        "SELECT energy_score, training_readiness_score FROM nutrition_daily_checkins " +
+            "WHERE user_id=:userId AND date BETWEEN :startDate AND :endDate " +
+            "ORDER BY date DESC, updated_at DESC LIMIT 1"
+    )
+    fun latestCheckIn(userId: String, startDate: String, endDate: String): LatestCheckIn?
+
+    @Query(
+        "SELECT DISTINCT date FROM nutrition_daily_checkins WHERE user_id=:userId " +
+            "AND date BETWEEN :startDate AND :endDate ORDER BY date"
+    )
+    fun checkInDates(userId: String, startDate: String, endDate: String): List<String>
 }
 
 @Dao
@@ -1181,4 +1334,5 @@ abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun cardioRoomDao(): CardioRoomDao
     abstract fun mealRoomDao(): MealRoomDao
     abstract fun nutritionRoomDao(): NutritionRoomDao
+    abstract fun developmentRoomDao(): DevelopmentRoomDao
 }

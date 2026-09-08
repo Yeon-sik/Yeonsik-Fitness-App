@@ -1,11 +1,14 @@
 package com.yeonsik.fitnessapp.development;
 
-import android.content.ContentValues;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
-
+import com.yeonsik.fitnessapp.core.database.BodyProfileEntity;
+import com.yeonsik.fitnessapp.core.database.BodyRoomDao;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
+import com.yeonsik.fitnessapp.core.database.DevelopmentGoalsRoomEntity;
+import com.yeonsik.fitnessapp.core.database.DevelopmentRoomDao;
+import com.yeonsik.fitnessapp.core.database.MealRoomDao;
+import com.yeonsik.fitnessapp.core.database.WorkoutRoomDao;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
@@ -16,10 +19,12 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public final class DevelopmentRepository implements com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi {
     private static final List<String> REPORT_BODY_PARTS = Arrays.asList(
@@ -37,27 +42,42 @@ public final class DevelopmentRepository implements com.yeonsik.fitnessapp.featu
             "wr.source_app = 'fitness' AND wr.metadata LIKE '%\"status\":\"completed\"%' " +
                     "AND wr.workout_type = 'strength'";
 
+    private final FitnessRoomDatabase roomDatabase;
+    private final BodyRoomDao bodyDao;
+    private final DevelopmentRoomDao developmentDao;
+    private final WorkoutRoomDao workoutDao;
+    private final MealRoomDao mealDao;
+    /** Temporary compatibility dependency for PaperAdviceSnapshotAssembler; removed in D2. */
     private final FitnessDatabaseConnection database;
     private String userId;
 
     public DevelopmentRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        if (dbHelper == null) {
-            throw new IllegalArgumentException("DevelopmentRepository에는 데이터베이스 헬퍼가 필요합니다.");
-        }
-        this.database = FitnessDatabaseConnection.fromLegacy(dbHelper);
-        this.userId = normalizeUserId(userId);
+        this(legacyRoom(dbHelper), legacyConnection(dbHelper), userId);
     }
 
     public DevelopmentRepository(FitnessDatabaseConnection database, String userId) {
-        if (database == null) {
-            throw new IllegalArgumentException("DevelopmentRepository에는 데이터베이스 연결이 필요합니다.");
-        }
-        this.database = database;
-        this.userId = normalizeUserId(userId);
+        this(roomFromLegacy(database), database, userId);
     }
 
     public DevelopmentRepository(FitnessRoomDatabase roomDatabase, android.content.Context context, String userId) {
-        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context), userId);
+        this(roomDatabase, FitnessDatabaseConnection.fromRoom(roomDatabase, context), userId);
+    }
+
+    private DevelopmentRepository(
+            FitnessRoomDatabase roomDatabase,
+            FitnessDatabaseConnection database,
+            String userId
+    ) {
+        if (roomDatabase == null) {
+            throw new IllegalArgumentException("DevelopmentRepository에는 Room 데이터베이스가 필요합니다.");
+        }
+        this.roomDatabase = roomDatabase;
+        this.bodyDao = roomDatabase.bodyRoomDao();
+        this.developmentDao = roomDatabase.developmentRoomDao();
+        this.workoutDao = roomDatabase.workoutRoomDao();
+        this.mealDao = roomDatabase.mealRoomDao();
+        this.database = database;
+        this.userId = normalizeUserId(userId);
     }
 
     public void setUserId(String userId) {
@@ -71,31 +91,22 @@ public final class DevelopmentRepository implements com.yeonsik.fitnessapp.featu
     public void normalizeLocalUserId(String userId) {
         String nextUserId = normalizeUserId(userId);
         if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
-            FitnessDatabaseConnection database = db();
-            database.beginTransaction();
-            try {
-                claimBodyProfile(database, nextUserId);
-                claimDevelopmentGoal(database, nextUserId);
-                database.setTransactionSuccessful();
-            } finally {
-                database.endTransaction();
-            }
+            roomDatabase.runInTransaction(() -> {
+                claimBodyProfile(nextUserId);
+                claimDevelopmentGoal(nextUserId);
+            });
         }
         this.userId = nextUserId;
     }
 
     public BodyProfile bodyProfile() {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT height_cm, created_at, updated_at FROM body_profiles WHERE user_id = ? LIMIT 1",
-                new String[]{userId}
-        )) {
-            if (cursor.moveToFirst()) {
-                return new BodyProfile(
-                        cursor.getInt(0),
-                        cursor.getString(1),
-                        cursor.getString(2)
-                );
-            }
+        BodyProfileEntity profile = bodyDao.bodyProfile(userId);
+        if (profile != null) {
+            return new BodyProfile(
+                    profile.getHeightCm(),
+                    profile.getCreatedAt(),
+                    profile.getUpdatedAt()
+            );
         }
         return BodyProfile.empty();
     }
@@ -105,35 +116,30 @@ public final class DevelopmentRepository implements com.yeonsik.fitnessapp.featu
             throw new IllegalArgumentException("신체 프로필이 필요합니다.");
         }
         if (!profile.isConfigured()) {
-            db().delete("body_profiles", "user_id = ?", new String[]{userId});
+            bodyDao.deleteBodyProfile(userId);
             return;
         }
         String now = now();
-        String createdAt = existingCreatedAt("body_profiles");
-        ContentValues values = new ContentValues();
-        values.put("user_id", userId);
-        values.put("height_cm", profile.heightCm);
-        values.put("created_at", createdAt == null ? now : createdAt);
-        values.put("updated_at", now);
-        db().insertWithOnConflict("body_profiles", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+        BodyProfileEntity existing = bodyDao.bodyProfile(userId);
+        bodyDao.replaceBodyProfile(new BodyProfileEntity(
+                userId,
+                profile.heightCm,
+                existing == null ? now : existing.getCreatedAt(),
+                now
+        ));
     }
 
     public DevelopmentGoal developmentGoal() {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT objective, weekly_sessions_target, focus_body_part, effective_from, created_at, updated_at " +
-                        "FROM development_goals WHERE user_id = ? LIMIT 1",
-                new String[]{userId}
-        )) {
-            if (cursor.moveToFirst()) {
-                return new DevelopmentGoal(
-                        cursor.getString(0),
-                        cursor.getInt(1),
-                        cursor.getString(2),
-                        cursor.getString(3),
-                        cursor.getString(4),
-                        cursor.getString(5)
-                );
-            }
+        DevelopmentGoalsRoomEntity goal = developmentDao.goal(userId);
+        if (goal != null) {
+            return new DevelopmentGoal(
+                    goal.getObjective(),
+                    (int) goal.getWeeklySessionsTarget(),
+                    goal.getFocusBodyPart(),
+                    goal.getEffectiveFrom(),
+                    goal.getCreatedAt(),
+                    goal.getUpdatedAt()
+            );
         }
         return DevelopmentGoal.empty();
     }
@@ -143,20 +149,20 @@ public final class DevelopmentRepository implements com.yeonsik.fitnessapp.featu
             throw new IllegalArgumentException("발전 목표가 필요합니다.");
         }
         if (!goal.isConfigured()) {
-            db().delete("development_goals", "user_id = ?", new String[]{userId});
+            developmentDao.deleteGoal(userId);
             return;
         }
         String now = now();
-        String createdAt = existingCreatedAt("development_goals");
-        ContentValues values = new ContentValues();
-        values.put("user_id", userId);
-        values.put("objective", goal.objective);
-        values.put("weekly_sessions_target", goal.weeklySessionsTarget);
-        values.put("focus_body_part", goal.focusBodyPart);
-        values.put("effective_from", goal.effectiveFrom);
-        values.put("created_at", createdAt == null ? now : createdAt);
-        values.put("updated_at", now);
-        db().insertWithOnConflict("development_goals", null, values, SQLiteDatabase.CONFLICT_REPLACE);
+        DevelopmentGoalsRoomEntity existing = developmentDao.goal(userId);
+        developmentDao.replaceGoal(new DevelopmentGoalsRoomEntity(
+                userId,
+                goal.objective,
+                goal.weeklySessionsTarget,
+                goal.focusBodyPart,
+                goal.effectiveFrom,
+                existing == null ? now : existing.getCreatedAt(),
+                now
+        ));
     }
 
     @Override
@@ -234,215 +240,131 @@ public final class DevelopmentRepository implements com.yeonsik.fitnessapp.featu
     }
 
     private Double latestWeightOnOrBefore(LocalDate referenceDate) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT weight_kg FROM weight_records WHERE user_id = ? AND deleted_at IS NULL " +
-                        "AND " + SCOPE_FILTER + " AND date <= ? " +
-                        "ORDER BY date DESC, updated_at DESC LIMIT 1",
-                new String[]{userId, referenceDate.toString()}
-        )) {
-            if (cursor.moveToFirst()) {
-                return cursor.getDouble(0);
-            }
-        }
-        return null;
+        com.yeonsik.fitnessapp.core.database.WeightRecordEntity record =
+                bodyDao.latestVisibleWeightOnOrBefore(userId, referenceDate.toString());
+        return record == null ? null : record.getWeightKg();
     }
 
     private WeekProgress weekProgress(LocalDate weekStart, LocalDate referenceDate) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT COUNT(*), COUNT(DISTINCT date) FROM workout_records " +
-                        "WHERE user_id = ? AND deleted_at IS NULL AND " + SCOPE_FILTER + " " +
-                        "AND date BETWEEN ? AND ? AND " + COMPLETED_OR_OS_WORKOUT,
-                new String[]{userId, weekStart.toString(), referenceDate.toString()}
-        )) {
-            if (cursor.moveToFirst()) {
-                return new WeekProgress(cursor.getInt(0), cursor.getInt(1));
-            }
-        }
-        return new WeekProgress(0, 0);
+        WorkoutRoomDao.WeekProgress progress = workoutDao.completedWeekProgress(
+                userId,
+                weekStart.toString(),
+                referenceDate.toString()
+        );
+        return progress == null
+                ? new WeekProgress(0, 0)
+                : new WeekProgress(progress.getCompletedSessions(), progress.getCompletedDays());
     }
 
     private Map<String, Integer> recentStrengthSetsByBodyPart(LocalDate startDate, LocalDate endDate) {
         LinkedHashMap<String, Integer> counts = emptyBodyPartCounts();
-        try (Cursor cursor = db().rawQuery(
-                "SELECT we.ui_part, COUNT(ws.id) FROM workout_sets ws " +
-                        "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id " +
-                        "AND we.user_id = ws.user_id AND we.deleted_at IS NULL " +
-                        "INNER JOIN workout_records wr ON wr.id = we.record_id " +
-                        "AND wr.user_id = we.user_id AND wr.deleted_at IS NULL " +
-                        "WHERE ws.user_id = ? AND ws.deleted_at IS NULL AND ws.is_completed = 1 " +
-                        "AND wr." + SCOPE_FILTER + " AND " + COMPLETED_FITNESS_STRENGTH + " " +
-                        "AND wr.date BETWEEN ? AND ? GROUP BY we.ui_part",
-                new String[]{userId, startDate.toString(), endDate.toString()}
+        for (WorkoutRoomDao.BodyPartSetCount row : workoutDao.recentStrengthSetsByBodyPart(
+                userId, startDate.toString(), endDate.toString()
         )) {
-            while (cursor.moveToNext()) {
-                String normalizedPart = normalizeReportBodyPart(cursor.getString(0));
-                if (normalizedPart != null) {
-                    counts.put(normalizedPart, counts.get(normalizedPart) + cursor.getInt(1));
-                }
+            String normalizedPart = normalizeReportBodyPart(row.getUiPart());
+            if (normalizedPart != null) {
+                counts.put(normalizedPart, counts.get(normalizedPart) + row.getSetCount());
             }
         }
         return counts;
     }
 
     private String latestDetailedTrainingDateForBodyPart(String bodyPart, LocalDate referenceDate) {
-        String[] aliases = bodyPartAliases(bodyPart);
-        StringBuilder placeholders = new StringBuilder();
-        String[] args = new String[aliases.length + 2];
-        args[0] = userId;
-        args[1] = referenceDate.toString();
-        for (int i = 0; i < aliases.length; i++) {
-            if (i > 0) {
-                placeholders.append(", ");
-            }
-            placeholders.append("?");
-            args[i + 2] = aliases[i];
-        }
-        try (Cursor cursor = db().rawQuery(
-                "SELECT MAX(wr.date) FROM workout_sets ws " +
-                        "INNER JOIN workout_exercises we ON we.id = ws.workout_exercise_id " +
-                        "AND we.user_id = ws.user_id AND we.deleted_at IS NULL " +
-                        "INNER JOIN workout_records wr ON wr.id = we.record_id " +
-                        "AND wr.user_id = we.user_id AND wr.deleted_at IS NULL " +
-                        "WHERE ws.user_id = ? AND ws.deleted_at IS NULL AND ws.is_completed = 1 " +
-                        "AND wr." + SCOPE_FILTER + " AND " + COMPLETED_FITNESS_STRENGTH + " " +
-                        "AND wr.date <= ? AND lower(trim(we.ui_part)) IN (" + placeholders + ")",
-                args
-        )) {
-            if (cursor.moveToFirst() && !cursor.isNull(0)) {
-                return cursor.getString(0);
-            }
-        }
-        return null;
+        return workoutDao.latestDetailedTrainingDateForBodyPart(
+                userId,
+                referenceDate.toString(),
+                Arrays.asList(bodyPartAliases(bodyPart))
+        );
     }
 
     private int recentMealRecordedDays(LocalDate startDate, LocalDate endDate) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT COUNT(DISTINCT date) FROM meal_records WHERE user_id = ? " +
-                        "AND deleted_at IS NULL AND " + SCOPE_FILTER + " AND date BETWEEN ? AND ?",
-                new String[]{userId, startDate.toString(), endDate.toString()}
-        )) {
-            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
-        }
+        return mealDao.visibleMealRecordedDays(userId, startDate.toString(), endDate.toString());
     }
 
     private CheckInStats recentCheckInStats(LocalDate startDate, LocalDate endDate) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT COUNT(*), SUM(CASE " +
-                        "WHEN ((energy_score IS NOT NULL AND energy_score <= 2) " +
-                        "OR (training_readiness_score IS NOT NULL AND training_readiness_score <= 2)) " +
-                        "THEN 1 ELSE 0 END) " +
-                        "FROM nutrition_daily_checkins WHERE user_id = ? AND date BETWEEN ? AND ?",
-                new String[]{userId, startDate.toString(), endDate.toString()}
-        )) {
-            if (cursor.moveToFirst()) {
-                return new CheckInStats(
-                        cursor.getInt(0),
-                        cursor.isNull(1) ? 0 : cursor.getInt(1)
-                );
-            }
-        }
-        return new CheckInStats(0, 0);
+        DevelopmentRoomDao.CheckInStats stats = developmentDao.recentCheckInStats(
+                userId, startDate.toString(), endDate.toString()
+        );
+        return stats == null
+                ? new CheckInStats(0, 0)
+                : new CheckInStats(stats.getRecordedDays(), stats.getLowEnergyOrReadinessDays());
     }
 
     private int recentWorkoutRecordedDays(LocalDate startDate, LocalDate endDate) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT COUNT(DISTINCT date) FROM workout_records WHERE user_id = ? " +
-                        "AND deleted_at IS NULL AND " + SCOPE_FILTER + " " +
-                        "AND date BETWEEN ? AND ? AND " + COMPLETED_OR_OS_WORKOUT,
-                new String[]{userId, startDate.toString(), endDate.toString()}
-        )) {
-            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
-        }
+        return workoutDao.completedWorkoutRecordedDays(userId, startDate.toString(), endDate.toString());
     }
 
     private int recentWeightRecordedDays(LocalDate startDate, LocalDate endDate) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT COUNT(DISTINCT date) FROM weight_records WHERE user_id = ? " +
-                        "AND deleted_at IS NULL AND " + SCOPE_FILTER + " AND date BETWEEN ? AND ?",
-                new String[]{userId, startDate.toString(), endDate.toString()}
-        )) {
-            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
-        }
+        return bodyDao.visibleWeightRecordedDays(userId, startDate.toString(), endDate.toString());
     }
 
     private int recentDaysWithAnyData(LocalDate startDate, LocalDate endDate) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT COUNT(*) FROM (" +
-                        "SELECT date FROM workout_records WHERE user_id = ? AND deleted_at IS NULL " +
-                        "AND " + SCOPE_FILTER + " AND date BETWEEN ? AND ? AND " + COMPLETED_OR_OS_WORKOUT +
-                        " GROUP BY date " +
-                        "UNION " +
-                        "SELECT date FROM meal_records WHERE user_id = ? AND deleted_at IS NULL " +
-                        "AND " + SCOPE_FILTER + " AND date BETWEEN ? AND ? GROUP BY date " +
-                        "UNION " +
-                        "SELECT date FROM weight_records WHERE user_id = ? AND deleted_at IS NULL " +
-                        "AND " + SCOPE_FILTER + " AND date BETWEEN ? AND ? GROUP BY date " +
-                        "UNION " +
-                        "SELECT date FROM nutrition_daily_checkins WHERE user_id = ? AND date BETWEEN ? AND ? GROUP BY date" +
-                        ")",
-                new String[]{
-                        userId, startDate.toString(), endDate.toString(),
-                        userId, startDate.toString(), endDate.toString(),
-                        userId, startDate.toString(), endDate.toString(),
-                        userId, startDate.toString(), endDate.toString()
-                }
-        )) {
-            return cursor.moveToFirst() ? cursor.getInt(0) : 0;
+        Set<String> dates = new HashSet<>();
+        dates.addAll(workoutDao.completedWorkoutDates(userId, startDate.toString(), endDate.toString()));
+        dates.addAll(mealDao.visibleMealDates(userId, startDate.toString(), endDate.toString()));
+        dates.addAll(bodyDao.visibleWeightDates(userId, startDate.toString(), endDate.toString()));
+        dates.addAll(developmentDao.checkInDates(userId, startDate.toString(), endDate.toString()));
+        return dates.size();
+    }
+
+    private void claimBodyProfile(String nextUserId) {
+        BodyProfileEntity source = bodyDao.bodyProfile(SupabaseConfig.DEFAULT_USER_ID);
+        BodyProfileEntity target = bodyDao.bodyProfile(nextUserId);
+        if (source != null && (target == null || isLater(source.getUpdatedAt(), target.getUpdatedAt()))) {
+            bodyDao.replaceBodyProfile(new BodyProfileEntity(
+                    nextUserId,
+                    source.getHeightCm(),
+                    source.getCreatedAt(),
+                    source.getUpdatedAt()
+            ));
+        }
+        bodyDao.deleteBodyProfile(SupabaseConfig.DEFAULT_USER_ID);
+    }
+
+    private void claimDevelopmentGoal(String nextUserId) {
+        DevelopmentGoalsRoomEntity source = developmentDao.goal(SupabaseConfig.DEFAULT_USER_ID);
+        DevelopmentGoalsRoomEntity target = developmentDao.goal(nextUserId);
+        if (source != null && (target == null || isLater(source.getUpdatedAt(), target.getUpdatedAt()))) {
+            developmentDao.replaceGoal(new DevelopmentGoalsRoomEntity(
+                    nextUserId,
+                    source.getObjective(),
+                    source.getWeeklySessionsTarget(),
+                    source.getFocusBodyPart(),
+                    source.getEffectiveFrom(),
+                    source.getCreatedAt(),
+                    source.getUpdatedAt()
+            ));
+        }
+        developmentDao.deleteGoal(SupabaseConfig.DEFAULT_USER_ID);
+    }
+
+    private static boolean isLater(String candidate, String current) {
+        try {
+            return OffsetDateTime.parse(candidate).isAfter(OffsetDateTime.parse(current));
+        } catch (RuntimeException ignored) {
+            return candidate != null && current != null && candidate.compareTo(current) > 0;
         }
     }
 
-    private void claimBodyProfile(FitnessDatabaseConnection database, String nextUserId) {
-        database.execSQL(
-                "INSERT OR REPLACE INTO body_profiles (user_id, height_cm, created_at, updated_at) " +
-                        "SELECT ?, source.height_cm, source.created_at, source.updated_at " +
-                        "FROM body_profiles source WHERE source.user_id = ? " +
-                        "AND (NOT EXISTS (SELECT 1 FROM body_profiles target WHERE target.user_id = ?) " +
-                        "OR julianday(source.updated_at) > julianday((SELECT target.updated_at " +
-                        "FROM body_profiles target WHERE target.user_id = ? LIMIT 1)))",
-                new Object[]{
-                        nextUserId,
-                        SupabaseConfig.DEFAULT_USER_ID,
-                        nextUserId,
-                        nextUserId
-                }
-        );
-        database.delete("body_profiles", "user_id = ?", new String[]{SupabaseConfig.DEFAULT_USER_ID});
-    }
-
-    private void claimDevelopmentGoal(FitnessDatabaseConnection database, String nextUserId) {
-        database.execSQL(
-                "INSERT OR REPLACE INTO development_goals (" +
-                        "user_id, objective, weekly_sessions_target, focus_body_part, effective_from, created_at, updated_at" +
-                        ") SELECT ?, source.objective, source.weekly_sessions_target, source.focus_body_part, " +
-                        "source.effective_from, source.created_at, source.updated_at " +
-                        "FROM development_goals source WHERE source.user_id = ? " +
-                        "AND (NOT EXISTS (SELECT 1 FROM development_goals target WHERE target.user_id = ?) " +
-                        "OR julianday(source.updated_at) > julianday((SELECT target.updated_at " +
-                        "FROM development_goals target WHERE target.user_id = ? LIMIT 1)))",
-                new Object[]{
-                        nextUserId,
-                        SupabaseConfig.DEFAULT_USER_ID,
-                        nextUserId,
-                        nextUserId
-                }
-        );
-        database.delete("development_goals", "user_id = ?", new String[]{SupabaseConfig.DEFAULT_USER_ID});
-    }
-
-    private String existingCreatedAt(String tableName) {
-        try (Cursor cursor = db().rawQuery(
-                "SELECT created_at FROM " + tableName + " WHERE user_id = ? LIMIT 1",
-                new String[]{userId}
-        )) {
-            if (cursor.moveToFirst()) {
-                return cursor.getString(0);
-            }
+    private static FitnessRoomDatabase legacyRoom(FitnessDatabaseHelper helper) {
+        if (helper == null) {
+            throw new IllegalArgumentException("DevelopmentRepository에는 데이터베이스 헬퍼가 필요합니다.");
         }
-        return null;
+        return FitnessRoomDatabaseProvider.get(FitnessDatabaseConnection.fromLegacy(helper).applicationContext());
     }
 
-    private FitnessDatabaseConnection db() {
-        return database;
+    private static FitnessDatabaseConnection legacyConnection(FitnessDatabaseHelper helper) {
+        if (helper == null) {
+            throw new IllegalArgumentException("DevelopmentRepository에는 데이터베이스 헬퍼가 필요합니다.");
+        }
+        return FitnessDatabaseConnection.fromLegacy(helper);
+    }
+
+    private static FitnessRoomDatabase roomFromLegacy(FitnessDatabaseConnection database) {
+        if (database == null) {
+            throw new IllegalArgumentException("DevelopmentRepository에는 데이터베이스 연결이 필요합니다.");
+        }
+        return FitnessRoomDatabaseProvider.get(database.applicationContext());
     }
 
     private static LinkedHashMap<String, Integer> emptyBodyPartCounts() {
