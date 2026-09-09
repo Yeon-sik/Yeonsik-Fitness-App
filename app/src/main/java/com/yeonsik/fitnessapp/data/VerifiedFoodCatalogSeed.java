@@ -7,6 +7,11 @@ import android.database.sqlite.SQLiteDatabase;
 
 import androidx.sqlite.db.SupportSQLiteDatabase;
 
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.NutritionFoodNutrientsRoomEntity;
+import com.yeonsik.fitnessapp.core.database.NutritionFoodsRoomEntity;
+import com.yeonsik.fitnessapp.core.database.NutritionRoomDao;
+
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -75,6 +80,27 @@ public final class VerifiedFoodCatalogSeed {
         seed(context, new SupportLegacyMigrationDatabase(database));
     }
 
+    /**
+     * Reconciles the curated catalog through the Nutrition Room DAO.
+     *
+     * <p>This is the runtime path used by backup restore. The legacy migration adapter above is
+     * retained only for historical schema creation and compatibility fixtures.</p>
+     */
+    public static void seedWithRoom(Context context, FitnessRoomDatabase roomDatabase) {
+        if (context == null) {
+            throw new IllegalArgumentException("Context is required for verified food seed.");
+        }
+        if (roomDatabase == null) {
+            throw new IllegalArgumentException("FitnessRoomDatabase is required.");
+        }
+        Runnable seed = () -> seedWithRoomDao(context, roomDatabase.nutritionRoomDao());
+        if (roomDatabase.getOpenHelper().getWritableDatabase().inTransaction()) {
+            seed.run();
+        } else {
+            roomDatabase.runInTransaction(seed);
+        }
+    }
+
     static void seed(Context context, LegacyMigrationDatabase database) {
         if (context == null) {
             throw new IllegalArgumentException("Context is required for verified food seed.");
@@ -101,6 +127,115 @@ public final class VerifiedFoodCatalogSeed {
                 database.endTransaction();
             }
         }
+    }
+
+    private static void seedWithRoomDao(Context context, NutritionRoomDao database) {
+        Map<String, SeedFood> foods = loadFoods(context);
+        retireLegacyV1Foods(database);
+        for (SeedFood food : foods.values()) {
+            upsertFood(database, food);
+        }
+    }
+
+    private static void upsertFood(NutritionRoomDao database, SeedFood food) {
+        NutritionRoomDao.VerifiedSeedFoodRow existing = database.verifiedSeedFood(food.id);
+        if (existing != null && !canBeUpdated(existing)) {
+            // Stable IDs must never overwrite a private/user-owned or unrelated public row.
+            return;
+        }
+
+        String timestamp = OffsetDateTime.now().toString();
+        String createdAt = existing != null && existing.getCreatedAt() != null
+                ? existing.getCreatedAt()
+                : timestamp;
+        NutritionFoodsRoomEntity entity = new NutritionFoodsRoomEntity(
+                food.id,
+                null,
+                food.metadata.name,
+                food.metadata.brand,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                NutritionFood.KIND_INGREDIENT,
+                food.metadata.category,
+                100.0,
+                NutritionUnit.GRAM,
+                NutritionFood.prepStateForCookingMethod(food.metadata.cookingMethod),
+                food.metadata.cookingMethod,
+                food.profile.calories(),
+                food.profile.proteinGrams(),
+                food.profile.carbsGrams(),
+                food.profile.fatGrams(),
+                food.profile.sodiumMg(),
+                food.profile.saturatedFatGrams(),
+                food.profile.sugarsGrams(),
+                food.profile.fiberGrams(),
+                food.profile.addedSugarsGrams(),
+                food.profile.transFatGrams(),
+                food.profile.cholesterolMg(),
+                food.metadata.sourceType,
+                food.sourceReference,
+                food.sourceVersion,
+                food.profile.hasAllRequired()
+                        ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN
+                        : NutritionFood.DATA_VERSION_MACROS_ONLY,
+                1L,
+                "public",
+                createdAt,
+                timestamp,
+                null
+        );
+        database.upsertFood(entity);
+        database.deleteNutrients(food.id);
+        for (String nutrientCode : food.profile.knownMicronutrientCodes()) {
+            Double amount = food.profile.value(nutrientCode);
+            if (amount == null) {
+                continue;
+            }
+            database.upsertNutrient(new NutritionFoodNutrientsRoomEntity(
+                    food.id + ":" + nutrientCode,
+                    null,
+                    food.id,
+                    nutrientCode,
+                    amount,
+                    NutrientCode.unitOf(nutrientCode),
+                    timestamp,
+                    timestamp,
+                    null
+            ));
+        }
+    }
+
+    private static void retireLegacyV1Foods(NutritionRoomDao database) {
+        String timestamp = OffsetDateTime.now().toString();
+        for (String code : LEGACY_V1_CODES) {
+            String foodId = FOOD_ID_PREFIX + code;
+            String reference = sourceReference(code);
+            int retired = database.retireVerifiedSeedFood(
+                    foodId,
+                    SOURCE_TYPE,
+                    reference,
+                    timestamp,
+                    timestamp
+            );
+            if (retired > 0) {
+                database.retireVerifiedSeedNutrients(foodId, timestamp, timestamp);
+            }
+        }
+    }
+
+    private static boolean canBeUpdated(NutritionRoomDao.VerifiedSeedFoodRow existing) {
+        return existing.getOwnerId() == null
+                && (SOURCE_TYPE.equals(existing.getSourceType())
+                || RICE_SOURCE_TYPE.equals(existing.getSourceType())
+                || RICE_SOURCE_REFERENCE.equals(existing.getSourceReference()))
+                && existing.getSourceReference() != null
+                && (existing.getSourceReference().startsWith(SOURCE_REFERENCE_PREFIX)
+                || RICE_SOURCE_REFERENCE.equals(existing.getSourceReference()));
     }
 
     /** Stronger than source_type alone so a private/manual row cannot receive the official badge. */

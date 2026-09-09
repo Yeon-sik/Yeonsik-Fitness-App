@@ -1517,6 +1517,13 @@ interface NutritionRoomDao {
         @ColumnInfo(name = "updated_at") val updatedAt: String?
     )
 
+    data class VerifiedSeedFoodRow(
+        @ColumnInfo(name = "owner_id") val ownerId: String?,
+        @ColumnInfo(name = "source_type") val sourceType: String?,
+        @ColumnInfo(name = "source_reference") val sourceReference: String?,
+        @ColumnInfo(name = "created_at") val createdAt: String?
+    )
+
     data class ProductLinkRow(
         val id: String,
         @ColumnInfo(name = "owner_id") val ownerId: String,
@@ -1607,6 +1614,31 @@ interface NutritionRoomDao {
         riceSourceType: String,
         riceSourceReference: String
     ): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT owner_id, source_type, source_reference, created_at FROM nutrition_foods " +
+            "WHERE id=:foodId LIMIT 1"
+    )
+    fun verifiedSeedFood(foodId: String): VerifiedSeedFoodRow?
+
+    @Query(
+        "UPDATE nutrition_foods SET updated_at=:updatedAt, deleted_at=:deletedAt " +
+            "WHERE id=:foodId AND owner_id IS NULL AND source_type=:sourceType " +
+            "AND source_reference=:sourceReference AND deleted_at IS NULL"
+    )
+    fun retireVerifiedSeedFood(
+        foodId: String,
+        sourceType: String,
+        sourceReference: String,
+        updatedAt: String,
+        deletedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE nutrition_food_nutrients SET updated_at=:updatedAt, deleted_at=:deletedAt " +
+            "WHERE food_id=:foodId AND owner_id IS NULL AND deleted_at IS NULL"
+    )
+    fun retireVerifiedSeedNutrients(foodId: String, updatedAt: String, deletedAt: String): Int
 
     @Query(
         "SELECT * FROM nutrition_food_nutrients WHERE deleted_at IS NULL " +

@@ -1,10 +1,11 @@
 package com.yeonsik.fitnessapp.integration.transfer;
 
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.backup.BackupDatabaseStorage;
 import com.yeonsik.fitnessapp.data.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.LocalDataBackupService;
 import com.yeonsik.fitnessapp.data.WorkoutTransferService;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
+import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogBackupApi;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutSummaryApi;
 import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeResult;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutInterchangeApi;
@@ -23,22 +24,25 @@ import java.nio.charset.StandardCharsets;
  * repository or interchange store directly.
  */
 public final class LocalDataTransferApplicationService {
-    private final FitnessDatabaseConnection database;
+    private final BackupDatabaseStorage database;
+    private final NutritionCatalogBackupApi nutritionCatalogBackupApi;
     private final WorkoutInterchangeApi workoutInterchangeStore;
     private final WorkoutSummaryApi fitnessSummaryStore;
     private final ExerciseMasterRepository exerciseMasterRepository;
 
     public LocalDataTransferApplicationService(
-            FitnessDatabaseConnection database,
+            BackupDatabaseStorage database,
+            NutritionCatalogBackupApi nutritionCatalogBackupApi,
             WorkoutInterchangeApi workoutInterchangeStore,
             WorkoutSummaryApi fitnessSummaryStore,
             ExerciseMasterRepository exerciseMasterRepository
     ) {
         if (database == null || workoutInterchangeStore == null || fitnessSummaryStore == null
-                || exerciseMasterRepository == null) {
+                || exerciseMasterRepository == null || nutritionCatalogBackupApi == null) {
             throw new IllegalArgumentException("로컬 데이터 전송 의존성이 없습니다.");
         }
         this.database = database;
+        this.nutritionCatalogBackupApi = nutritionCatalogBackupApi;
         this.workoutInterchangeStore = workoutInterchangeStore;
         this.fitnessSummaryStore = fitnessSummaryStore;
         this.exerciseMasterRepository = exerciseMasterRepository;
@@ -114,6 +118,7 @@ public final class LocalDataTransferApplicationService {
     private LocalDataBackupService backupService(String recordOwnerId, String nutritionOwnerId) {
         return new LocalDataBackupService(
                 database,
+                nutritionCatalogBackupApi,
                 requireOwner(recordOwnerId),
                 requireOwner(nutritionOwnerId)
         );

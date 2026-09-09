@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
 import android.content.ContentValues;
+import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 
@@ -17,6 +18,7 @@ import com.yeonsik.fitnessapp.core.database.PricetraceProductCacheRoomEntity;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogSyncStore;
+import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogBackupApi;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionCatalogSyncSnapshot;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionComponentSyncRow;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodSyncRow;
@@ -49,7 +51,8 @@ import java.util.UUID;
  */
 public final class NutritionCatalogRepository implements
         com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi,
-        NutritionCatalogSyncStore {
+        NutritionCatalogSyncStore,
+        NutritionCatalogBackupApi {
     /** 영양 전용 DB의 카탈로그 테이블. 공통 사용자 기록 테이블은 여기 들어올 수 없다. */
     static final List<String> CATALOG_TABLES = java.util.Collections.unmodifiableList(
             java.util.Arrays.asList(
@@ -131,6 +134,7 @@ public final class NutritionCatalogRepository implements
     private final NutritionRoomDao nutritionDao;
     /** Transitional account-claim adapter; local catalog CRUD uses nutritionDao. */
     private final FitnessDatabaseConnection database;
+    private final Context applicationContext;
     private volatile String userId;
 
     public NutritionCatalogRepository(
@@ -142,7 +146,8 @@ public final class NutritionCatalogRepository implements
                 FitnessRoomDatabaseProvider.get(dbHelper.applicationContext()),
                 FitnessDatabaseConnection.fromLegacy(dbHelper),
                 userId,
-                ignoredNetworkConfig
+                ignoredNetworkConfig,
+                dbHelper.applicationContext()
         );
     }
 
@@ -155,7 +160,8 @@ public final class NutritionCatalogRepository implements
                 roomDatabase,
                 FitnessDatabaseConnection.fromRoom(roomDatabase),
                 userId,
-                ignoredNetworkConfig
+                ignoredNetworkConfig,
+                null
         );
     }
 
@@ -163,11 +169,15 @@ public final class NutritionCatalogRepository implements
             FitnessRoomDatabase roomDatabase,
             FitnessDatabaseConnection database,
             String userId,
-            Object ignoredNetworkConfig
+            Object ignoredNetworkConfig,
+            Context context
     ) {
         this.roomDatabase = roomDatabase;
         this.nutritionDao = roomDatabase.nutritionRoomDao();
         this.database = database;
+        this.applicationContext = context == null
+                ? database.applicationContext()
+                : context.getApplicationContext();
         this.userId = normalizeUserId(userId);
     }
 
@@ -180,7 +190,8 @@ public final class NutritionCatalogRepository implements
                 FitnessRoomDatabaseProvider.get(database.applicationContext()),
                 database,
                 userId,
-                ignoredNetworkConfig
+                ignoredNetworkConfig,
+                database.applicationContext()
         );
     }
 
@@ -194,12 +205,21 @@ public final class NutritionCatalogRepository implements
                 roomDatabase,
                 FitnessDatabaseConnection.fromRoom(roomDatabase, context),
                 userId,
-                ignoredNetworkConfig
+                ignoredNetworkConfig,
+                context
         );
     }
 
     public void setUserId(String userId) {
         this.userId = normalizeUserId(userId);
+    }
+
+    @Override
+    public void reconcileVerifiedFoodCatalog() {
+        if (applicationContext == null) {
+            throw new IllegalStateException("Nutrition catalog context is required for seed.");
+        }
+        VerifiedFoodCatalogSeed.seedWithRoom(applicationContext, roomDatabase);
     }
 
     @Override

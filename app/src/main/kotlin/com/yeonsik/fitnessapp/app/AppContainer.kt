@@ -7,10 +7,10 @@ import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore
 import com.yeonsik.fitnessapp.config.SupabaseConfig
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore
 import com.yeonsik.fitnessapp.core.account.AccountOwnershipService
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
+import com.yeonsik.fitnessapp.core.database.backup.RoomBackupDatabaseStorage
 import com.yeonsik.fitnessapp.data.BodyMetricsRepository
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository
 import com.yeonsik.fitnessapp.data.ProductReadV1Client
@@ -77,8 +77,7 @@ class AppContainer(context: Context) {
 
     val roomDatabase: FitnessRoomDatabase = FitnessRoomDatabaseProvider.get(appContext)
     val roomTransactionRunner = RoomTransactionRunner(roomDatabase)
-    val databaseConnection: FitnessDatabaseConnection =
-        FitnessDatabaseConnection.fromRoom(roomDatabase, appContext)
+    private val backupDatabaseStorage = RoomBackupDatabaseStorage(roomDatabase)
 
     private val accountOwnershipService = AccountOwnershipService(
         roomDatabase,
@@ -202,7 +201,8 @@ class AppContainer(context: Context) {
         nutritionIntegrationService
     )
     val localDataTransferApplicationService = LocalDataTransferApplicationService(
-        databaseConnection,
+        backupDatabaseStorage,
+        nutritionCatalogRepository,
         workoutInterchangeStore,
         fitnessSummaryStore,
         exerciseMasterRepository
