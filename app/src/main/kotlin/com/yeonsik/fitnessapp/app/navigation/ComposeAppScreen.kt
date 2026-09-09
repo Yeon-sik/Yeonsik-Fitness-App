@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.ComposeView
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitnessapp.cardio.CardioActivityType
 import com.yeonsik.fitnessapp.data.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.ScreenHost
@@ -48,6 +49,23 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
         .observeAsState(WorkoutSessionUiState.Idle)
     val workoutDetailState by host.workoutExerciseDetailViewModel().uiState
         .observeAsState(WorkoutExerciseDetailUiState.Idle)
+    val cardioState by host.cardioSessionViewModel().uiState
+        .observeAsState(CardioSessionUiState.Idle)
+    val cardioRouteState by host.cardioSessionViewModel().routeState
+        .observeAsState(CardioRouteUiState.Idle)
+    val cardioActions = object : CardioScreenActions {
+        override fun start(activityType: CardioActivityType) = host.startCardioWorkout(activityType)
+        override fun back() { host.back() }
+        override fun refresh() = host.refreshCardioSession()
+        override fun pause() = host.pauseCardioWorkout()
+        override fun resume() = host.resumeCardioWorkout()
+        override fun editAverageHeartRate() = host.editCardioAverageHeartRate()
+        override fun finish() = host.finishCardioWorkout()
+        override fun cancel() = host.cancelCardioWorkout()
+        override fun loadRoute(recordId: String) {
+            host.cardioSessionViewModel().loadRoute(AccountScope(ownerId), recordId)
+        }
+    }
     Column(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)
@@ -84,7 +102,7 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
                     ) = host.startRoutineWorkout(exercises)
                 }
             )
-            FitnessScreen.CARDIO -> CardioStartScreen(host)
+            FitnessScreen.CARDIO -> CardioStartScreen(cardioActions)
             FitnessScreen.RECORDS -> RecordsScreen(host, ownerId, today, unit)
             FitnessScreen.DEVELOPMENT -> DevelopmentScreen(host, ownerId, today, unit)
             FitnessScreen.SETTINGS -> SettingsScreen(host)
@@ -151,8 +169,13 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
                 unit,
                 host::back
             )
-            FitnessScreen.CARDIO_SESSION -> CardioSessionScreen(host, ownerId)
-            FitnessScreen.CARDIO_SUMMARY -> CardioSummaryScreen(host, ownerId)
+            FitnessScreen.CARDIO_SESSION -> CardioSessionScreen(cardioState, ownerId, cardioActions)
+            FitnessScreen.CARDIO_SUMMARY -> CardioSummaryScreen(
+                cardioState,
+                cardioRouteState,
+                ownerId,
+                cardioActions
+            )
             FitnessScreen.MEALS -> MealScreen(host, ownerId, today, unit)
             FitnessScreen.SUPPLEMENTS -> SupplementScreen(host, ownerId, today)
             FitnessScreen.ROUTINE_DETAIL -> RoutineDetailScreen(host, ownerId)

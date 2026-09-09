@@ -39,7 +39,6 @@ import com.yeonsik.fitnessapp.app.SavedStateViewModelFactory;
 import com.yeonsik.fitnessapp.app.navigation.ComposeAppScreen;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioMetrics;
-import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
@@ -59,7 +58,6 @@ import com.yeonsik.fitnessapp.state.FitnessNavigationHistory;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService;
-import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService;
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService;
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService;
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
@@ -77,6 +75,9 @@ import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionActionEvent;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionActionOutcome;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionAction;
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionActionEvent;
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionActionOutcome;
 import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary;
@@ -182,7 +183,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private AppContainer appContainer;
     private BodyMetricsApplicationService bodyMetricsApplicationService;
     private DevelopmentApplicationService developmentApplicationService;
-    private CardioSessionApplicationService cardioSessionApplicationService;
     private WorkoutSessionApplicationService workoutSessionApplicationService;
     private NutritionIntegrationService nutritionIntegrationService;
     private SyncApplicationService syncApplicationService;
@@ -263,6 +263,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private String knownInProgressRecordId;
     private CardioActivityType pendingCardioActivityType;
     private String pendingCardioResumeRecordId;
+    private boolean pendingCardioFinishRequested;
     private boolean waitingForLocationSettings;
     private final DataTransferCoordinator dataTransferCoordinator = new DataTransferCoordinator();
 
@@ -282,7 +283,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         priceTraceAuthManager = appContainer.getPriceTraceAuthManager();
         bodyMetricsApplicationService = appContainer.getBodyMetricsApplicationService();
         developmentApplicationService = appContainer.getDevelopmentApplicationService();
-        cardioSessionApplicationService = appContainer.getCardioSessionApplicationService();
         workoutSessionApplicationService = appContainer.getWorkoutSessionApplicationService();
         nutritionIntegrationService = appContainer.getNutritionIntegrationService();
         syncApplicationService = appContainer.getSyncApplicationService();
@@ -456,7 +456,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new CardioSessionViewModel(
                                 handle,
-                                appContainer.getCardioRepositoryApi()
+                                appContainer.getCardioRepositoryApi(),
+                                appContainer.getCardioSessionApplicationService()
                         )
                 )
         ).get(CardioSessionViewModel.class);
@@ -480,6 +481,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 }
             }
         });
+        cardioSessionViewModel.getActionState().observe(this, this::handleCardioSessionAction);
         routineEntryViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -683,6 +685,164 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         ? FitnessScreen.CARDIO
                         : FitnessScreen.STRENGTH);
             }
+        }
+    }
+
+    /** Applies one-shot cardio results while keeping GPS permission/service work platform-owned. */
+    private void handleCardioSessionAction(CardioSessionActionEvent event) {
+        if (event == null
+                || !currentOwnerId().equals(event.getOwnerId())
+                || !event.consume()) {
+            return;
+        }
+        CardioSessionActionOutcome outcome = event.getOutcome();
+        if (outcome == CardioSessionActionOutcome.FAILURE
+                || outcome == CardioSessionActionOutcome.NOT_FOUND) {
+            toast(event.getMessage() == null
+                    ? "유산소 작업을 완료하지 못했습니다."
+                    : event.getMessage());
+            return;
+        }
+
+        String recordId = event.getRecordId();
+        CardioSessionSnapshot session = event.getSession();
+        switch (event.getAction()) {
+            case OPEN:
+                openCardioSessionLoaded(session);
+                if (pendingCardioFinishRequested) {
+                    pendingCardioFinishRequested = false;
+                    if (session != null
+                            && !CardioSessionSnapshot.STATUS_COMPLETED.equals(session.getStatus())) {
+                        finishCardioWorkout();
+                    }
+                }
+                return;
+            case START:
+                if (session == null || recordId == null) {
+                    toast("유산소 기록을 시작하지 못했습니다.");
+                    return;
+                }
+                knownInProgressRecordId = recordId;
+                sessionState.setActiveRecordId(recordId);
+                sessionState.setActiveExerciseId(null);
+                dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
+                toast(cardioActivityType(session).labelKo() + " 기록을 시작했습니다.");
+                navigate(FitnessScreen.CARDIO_SESSION);
+                return;
+            case PREPARE_RESUME:
+                if (session == null || recordId == null) {
+                    toast("재개할 유산소 기록을 찾지 못했습니다.");
+                    return;
+                }
+                pendingCardioActivityType = cardioActivityType(session);
+                pendingCardioResumeRecordId = recordId;
+                requestCardioPermissionsAndContinue();
+                return;
+            case RESUME:
+                if (recordId == null) {
+                    toast("재개할 유산소 기록을 찾지 못했습니다.");
+                    return;
+                }
+                knownInProgressRecordId = recordId;
+                sessionState.setActiveRecordId(recordId);
+                sessionState.setActiveExerciseId(null);
+                dispatchCardioService(CardioTrackingService.ACTION_RESUME, recordId, true);
+                toast("GPS 기록을 재개했습니다.");
+                navigate(FitnessScreen.CARDIO_SESSION);
+                return;
+            case PAUSE:
+                if (recordId == null) {
+                    toast("일시정지할 유산소 기록을 찾지 못했습니다.");
+                    return;
+                }
+                dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
+                toast("GPS 기록을 일시정지했습니다.");
+                cardioSessionViewModel.refresh(new AccountScope(currentOwnerId()), recordId);
+                return;
+            case PREPARE_FINISH:
+                if (outcome == CardioSessionActionOutcome.COMPLETED) {
+                    openCardioSessionLoaded(session);
+                    return;
+                }
+                if (recordId == null || session == null) {
+                    toast("완료할 유산소 기록을 찾지 못했습니다.");
+                    return;
+                }
+                if (event.getPausedByFinish()) {
+                    dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
+                    render();
+                }
+                showCardioHeartRateSheet(recordId, true, session);
+                return;
+            case FINISH:
+                if (recordId == null || session == null) {
+                    toast("평균 심박수를 저장하지 못했습니다.");
+                    return;
+                }
+                knownInProgressRecordId = null;
+                stopService(new Intent(this, CardioTrackingService.class));
+                toast("유산소 운동을 완료했습니다.");
+                sessionState.setActiveRecordId(recordId);
+                sessionState.setActiveExerciseId(null);
+                if (currentScreen == FitnessScreen.CARDIO_SESSION) {
+                    replace(FitnessScreen.CARDIO_SUMMARY);
+                } else {
+                    navigate(FitnessScreen.CARDIO_SUMMARY);
+                }
+                return;
+            case PREPARE_HEART_RATE_EDIT:
+                if (recordId == null || session == null) {
+                    toast("수정할 유산소 기록을 찾지 못했습니다.");
+                    return;
+                }
+                showCardioHeartRateSheet(recordId, false, session);
+                return;
+            case UPDATE_HEART_RATE:
+                if (recordId == null || session == null) {
+                    toast("평균 심박수를 저장하지 못했습니다.");
+                    return;
+                }
+                toast("평균 심박수를 저장했습니다.");
+                cardioSessionViewModel.refresh(new AccountScope(currentOwnerId()), recordId);
+                return;
+            case PREPARE_CANCEL:
+                if (recordId == null || session == null) {
+                    toast("취소할 유산소 기록을 찾지 못했습니다.");
+                    return;
+                }
+                ui.confirmSheet(
+                        "유산소 기록 취소",
+                        "현재 " + CardioMetrics.formatDistanceKilometers(
+                                session.getDistanceMeters()
+                        ) + "km 기록을 저장하지 않습니다.",
+                        "이 기기에 저장된 GPS 좌표도 함께 삭제됩니다.",
+                        "기록 취소",
+                        () -> {
+                            stopService(new Intent(this, CardioTrackingService.class));
+                            cardioSessionViewModel.cancel(
+                                    new AccountScope(currentOwnerId()), recordId
+                            );
+                        }
+                );
+                return;
+            case CANCEL:
+                if (recordId == null) {
+                    toast("취소할 유산소 기록을 찾지 못했습니다.");
+                    return;
+                }
+                stopService(new Intent(this, CardioTrackingService.class));
+                if (recordId.equals(knownInProgressRecordId)) {
+                    knownInProgressRecordId = null;
+                }
+                sessionState.clearIfMatches(recordId);
+                toast("유산소 기록을 취소했습니다.");
+                replace(FitnessScreen.CARDIO);
+                return;
+            case LOAD_ROUTE:
+                // The route callback adapter is migrated in the next cardio UI boundary step.
+                return;
+            default:
+                return;
         }
     }
 
@@ -2029,56 +2189,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         if (recordId == null) {
             return;
         }
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                if (!cardioSessionApplicationService.isCardioSession(
-                        new AccountScope(ownerId),
-                        recordId
-                )) {
-                    runOnUiThread(() -> toast("이 기기의 GPS 세부 기록을 찾지 못했습니다."));
-                    return;
-                }
-                runOnUiThread(() -> {
-                    sessionState.setActiveRecordId(recordId);
-                    sessionState.setActiveExerciseId(null);
-                    if (currentScreen == FitnessScreen.CARDIO_SESSION) {
-                        replace(FitnessScreen.CARDIO_SUMMARY);
-                    } else {
-                        navigate(FitnessScreen.CARDIO_SUMMARY);
-                    }
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("유산소 기록을 열지 못했습니다."));
-            }
-        });
-    }
-
-    @Override
-    public void loadCardioRoute(String recordId, CardioRouteCallback callback) {
-        if (callback == null || isFinishing() || isDestroyed()) {
-            return;
-        }
-        executor.execute(() -> {
-            try {
-                CardioRouteProjection projection = cardioSessionApplicationService.route(
-                        new AccountScope(currentOwnerId()),
-                        recordId
-                );
-                dispatchCardioRouteCallback(() -> callback.onComplete(projection));
-            } catch (Exception error) {
-                dispatchCardioRouteCallback(() -> callback.onError(error));
-            }
-        });
-    }
-
-    private void dispatchCardioRouteCallback(Runnable callback) {
-        runOnUiThread(() -> {
-            if (isFinishing() || isDestroyed()) {
-                return;
-            }
-            callback.run();
-        });
+        cardioSessionViewModel.open(new AccountScope(currentOwnerId()), recordId);
     }
 
     private void registerBackCallback() {
@@ -2125,26 +2236,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("일시정지할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                boolean paused = cardioSessionApplicationService.pause(
-                        new AccountScope(ownerId),
-                        recordId
-                );
-                runOnUiThread(() -> {
-                    if (!paused) {
-                        toast("일시정지할 유산소 기록을 찾지 못했습니다.");
-                        return;
-                    }
-                    dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
-                    toast("GPS 기록을 일시정지했습니다.");
-                    render();
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("유산소 기록을 일시정지하지 못했습니다."));
-            }
-        });
+        cardioSessionViewModel.pause(new AccountScope(currentOwnerId()), recordId);
     }
 
     @Override
@@ -2154,27 +2246,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("재개할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(
-                        new AccountScope(ownerId),
-                        recordId
-                );
-                runOnUiThread(() -> {
-                    if (snapshot == null
-                            || !CardioSessionSnapshot.STATUS_PAUSED.equals(snapshot.getStatus())) {
-                        toast("재개할 유산소 기록을 찾지 못했습니다.");
-                        return;
-                    }
-                    pendingCardioActivityType = cardioActivityType(snapshot);
-                    pendingCardioResumeRecordId = recordId;
-                    requestCardioPermissionsAndContinue();
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("재개할 유산소 기록을 찾지 못했습니다."));
-            }
-        });
+        cardioSessionViewModel.prepareResume(new AccountScope(currentOwnerId()), recordId);
     }
 
     @Override
@@ -2184,40 +2256,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("완료할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                AccountScope scope = new AccountScope(ownerId);
-                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(scope, recordId);
-                if (snapshot == null) {
-                    runOnUiThread(() -> toast("완료할 유산소 기록을 찾지 못했습니다."));
-                    return;
-                }
-                if (CardioSessionSnapshot.STATUS_COMPLETED.equals(snapshot.getStatus())) {
-                    runOnUiThread(() -> openCardioSummary(recordId));
-                    return;
-                }
-                if (CardioSessionSnapshot.STATUS_TRACKING.equals(snapshot.getStatus())
-                        && cardioSessionApplicationService.pause(scope, recordId)) {
-                    snapshot = cardioSessionApplicationService.load(scope, recordId);
-                    CardioSessionSnapshot pausedSnapshot = snapshot;
-                    runOnUiThread(() -> {
-                        dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
-                        render();
-                        showCardioHeartRateSheet(recordId, true, pausedSnapshot);
-                    });
-                    return;
-                }
-                CardioSessionSnapshot currentSnapshot = snapshot;
-                runOnUiThread(() -> showCardioHeartRateSheet(
-                        recordId,
-                        true,
-                        currentSnapshot
-                ));
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("유산소 기록을 완료할 수 없습니다."));
-            }
-        });
+        cardioSessionViewModel.prepareFinish(new AccountScope(currentOwnerId()), recordId);
     }
 
     @Override
@@ -2227,25 +2266,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("수정할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(
-                        new AccountScope(ownerId),
-                        recordId
-                );
-                runOnUiThread(() -> {
-                    if (snapshot == null
-                            || !CardioSessionSnapshot.STATUS_COMPLETED.equals(snapshot.getStatus())) {
-                        toast("수정할 유산소 기록을 찾지 못했습니다.");
-                        return;
-                    }
-                    showCardioHeartRateSheet(recordId, false, snapshot);
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("유산소 기록을 찾지 못했습니다."));
-            }
-        });
+        cardioSessionViewModel.prepareAverageHeartRateEdit(
+                new AccountScope(currentOwnerId()), recordId
+        );
     }
 
     @Override
@@ -2255,52 +2278,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("취소할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(
-                        new AccountScope(ownerId),
-                        recordId
-                );
-                runOnUiThread(() -> {
-                    if (snapshot == null) {
-                        toast("취소할 유산소 기록을 찾지 못했습니다.");
-                        return;
-                    }
-                    ui.confirmSheet(
-                            "유산소 기록 취소",
-                            "현재 " + CardioMetrics.formatDistanceKilometers(
-                                    snapshot.getDistanceMeters()
-                            ) + "km 기록을 저장하지 않습니다.",
-                            "이 기기에 저장된 GPS 좌표도 함께 삭제됩니다.",
-                            "기록 취소",
-                            () -> {
-                                stopService(new Intent(this, CardioTrackingService.class));
-                                executor.execute(() -> {
-                                    try {
-                                        cardioSessionApplicationService.cancel(
-                                                new AccountScope(ownerId),
-                                                recordId
-                                        );
-                                        runOnUiThread(() -> {
-                                            if (recordId.equals(knownInProgressRecordId)) {
-                                                knownInProgressRecordId = null;
-                                            }
-                                            sessionState.clearIfMatches(recordId);
-                                            toast("유산소 기록을 취소했습니다.");
-                                            replace(FitnessScreen.CARDIO);
-                                        });
-                                    } catch (Exception error) {
-                                        runOnUiThread(() -> toast("유산소 기록을 취소하지 못했습니다."));
-                                    }
-                                });
-                            }
-                    );
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("취소할 유산소 기록을 찾지 못했습니다."));
-            }
-        });
+        cardioSessionViewModel.prepareCancel(new AccountScope(currentOwnerId()), recordId);
     }
 
     private void openCardioSession(String recordId) {
@@ -2308,18 +2286,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             toast("GPS 유산소 상태를 찾지 못했습니다.");
             return;
         }
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(
-                        new AccountScope(ownerId),
-                        recordId
-                );
-                runOnUiThread(() -> openCardioSessionLoaded(snapshot));
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("GPS 유산소 상태를 찾지 못했습니다."));
-            }
-        });
+        cardioSessionViewModel.open(new AccountScope(currentOwnerId()), recordId);
     }
 
     private void openCardioSessionLoaded(CardioSessionSnapshot snapshot) {
@@ -2388,40 +2355,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         return false;
                     }
 
-                    String ownerId = currentOwnerId();
-                    executor.execute(() -> {
-                        try {
-                            AccountScope scope = new AccountScope(ownerId);
-                            CardioSessionSnapshot saved = finishAfterSave
-                                    ? cardioSessionApplicationService.finish(
-                                            scope,
-                                            recordId,
-                                            averageHeartRateBpm
-                                    )
-                                    : cardioSessionApplicationService.updateAverageHeartRate(
-                                            scope,
-                                            recordId,
-                                            averageHeartRateBpm
-                                    );
-                            runOnUiThread(() -> {
-                                if (saved == null) {
-                                    toast("평균 심박수를 저장하지 못했습니다.");
-                                    return;
-                                }
-                                if (finishAfterSave) {
-                                    knownInProgressRecordId = null;
-                                    stopService(new Intent(this, CardioTrackingService.class));
-                                    toast("유산소 운동을 완료했습니다.");
-                                    openCardioSummary(recordId);
-                                } else {
-                                    toast("평균 심박수를 저장했습니다.");
-                                    render();
-                                }
-                            });
-                        } catch (Exception error) {
-                            runOnUiThread(() -> toast("평균 심박수를 저장하지 못했습니다."));
-                        }
-                    });
+                    AccountScope scope = new AccountScope(currentOwnerId());
+                    if (finishAfterSave) {
+                        cardioSessionViewModel.finish(scope, recordId, averageHeartRateBpm);
+                    } else {
+                        cardioSessionViewModel.updateAverageHeartRate(
+                                scope, recordId, averageHeartRateBpm
+                        );
+                    }
                     return true;
                 }
         );
@@ -2499,59 +2440,12 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         if (activityType == null || !hasPreciseLocationPermission()) {
             return;
         }
-        String ownerId = currentOwnerId();
-        String date = today();
-        executor.execute(() -> {
-            try {
-                AccountScope scope = new AccountScope(ownerId);
-                if (resumeRecordId != null) {
-                    CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(
-                            scope,
-                            resumeRecordId
-                    );
-                    if (snapshot == null || !cardioSessionApplicationService.resume(
-                            scope,
-                            resumeRecordId
-                    )) {
-                        runOnUiThread(() -> toast("재개할 유산소 기록을 찾지 못했습니다."));
-                        return;
-                    }
-                    runOnUiThread(() -> {
-                        knownInProgressRecordId = resumeRecordId;
-                        dispatchCardioService(
-                                CardioTrackingService.ACTION_RESUME,
-                                resumeRecordId,
-                                true
-                        );
-                        sessionState.setActiveRecordId(resumeRecordId);
-                        toast("GPS 기록을 재개했습니다.");
-                        navigate(FitnessScreen.CARDIO_SESSION);
-                    });
-                    return;
-                }
-
-                CardioSessionSnapshot snapshot = cardioSessionApplicationService.start(
-                        scope,
-                        activityType,
-                        date
-                );
-                if (snapshot == null) {
-                    runOnUiThread(() -> toast("유산소 기록을 시작하지 못했습니다."));
-                    return;
-                }
-                runOnUiThread(() -> {
-                    String recordId = snapshot.getRecordId();
-                    knownInProgressRecordId = recordId;
-                    sessionState.setActiveRecordId(recordId);
-                    sessionState.setActiveExerciseId(null);
-                    dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
-                    toast(activityType.labelKo() + " 기록을 시작했습니다.");
-                    navigate(FitnessScreen.CARDIO_SESSION);
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("유산소 기록을 시작하지 못했습니다."));
-            }
-        });
+        AccountScope scope = new AccountScope(currentOwnerId());
+        if (resumeRecordId != null) {
+            cardioSessionViewModel.resume(scope, resumeRecordId);
+        } else {
+            cardioSessionViewModel.start(scope, activityType, today());
+        }
     }
 
     private void dispatchCardioService(String action, String recordId, boolean foregroundStart) {
@@ -2566,7 +2460,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private void handleCardioIntent(Intent intent) {
-        if (intent == null || cardioSessionApplicationService == null) {
+        if (intent == null || cardioSessionViewModel == null) {
             return;
         }
         String recordId = intent.getStringExtra(CardioTrackingService.EXTRA_RECORD_ID);
@@ -2577,29 +2471,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 CardioTrackingService.EXTRA_FINISH_REQUESTED, false);
         intent.removeExtra(CardioTrackingService.EXTRA_RECORD_ID);
         intent.removeExtra(CardioTrackingService.EXTRA_FINISH_REQUESTED);
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                AccountScope scope = new AccountScope(ownerId);
-                if (!cardioSessionApplicationService.isCardioSession(scope, recordId)) {
-                    return;
-                }
-                CardioSessionSnapshot snapshot = cardioSessionApplicationService.load(scope, recordId);
-                runOnUiThread(() -> {
-                    if (snapshot != null
-                            && CardioSessionSnapshot.STATUS_COMPLETED.equals(snapshot.getStatus())) {
-                        openCardioSummary(recordId);
-                    } else {
-                        openCardioSession(recordId);
-                        if (finishRequested) {
-                            finishCardioWorkout();
-                        }
-                    }
-                });
-            } catch (Exception ignored) {
-                // A stale service notification must not reopen a different account's record.
-            }
-        });
+        pendingCardioFinishRequested = finishRequested;
+        cardioSessionViewModel.open(new AccountScope(currentOwnerId()), recordId);
     }
 
     private static CardioActivityType cardioActivityType(CardioSessionSnapshot snapshot) {

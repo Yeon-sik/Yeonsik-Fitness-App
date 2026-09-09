@@ -1,7 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
-import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
@@ -105,8 +104,6 @@ public interface ScreenHost {
     void startCardioWorkout(CardioActivityType activityType);
 
     void openCardioSummary(String recordId);
-
-    void loadCardioRoute(String recordId, CardioRouteCallback callback);
 
     void pauseCardioWorkout();
 
@@ -254,12 +251,6 @@ public interface ScreenHost {
     String syncDetail();
 
     String repositoryUserLabel();
-
-    interface CardioRouteCallback {
-        void onComplete(CardioRouteProjection projection);
-
-        void onError(Exception error);
-    }
 
     interface ProductSearchCallback {
         void onComplete(List<ProductReadV1> products);
