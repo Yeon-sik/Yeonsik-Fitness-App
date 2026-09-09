@@ -16,6 +16,7 @@ import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryStore;
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutInterchangeApi;
 
 import org.json.JSONObject;
 
@@ -33,7 +34,7 @@ import java.util.Map;
 import java.util.UUID;
 
 /** Persistence boundary for FLEEK and workout-transfer interchange formats. */
-public final class WorkoutInterchangeStore {
+public final class WorkoutInterchangeStore implements WorkoutInterchangeApi {
     private static final String DEVICE_ID = "android-local";
 
     private final FitnessDatabaseConnection database;

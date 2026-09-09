@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
 import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeResult;
-import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeStore;
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutInterchangeApi;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,10 +14,10 @@ import java.nio.charset.StandardCharsets;
 
 /** Application service separating the settings JSON transfer flow from local backups. */
 public final class WorkoutTransferService {
-    private final WorkoutInterchangeStore store;
+    private final WorkoutInterchangeApi store;
     private final String ownerId;
 
-    public WorkoutTransferService(WorkoutInterchangeStore store, String ownerId) {
+    public WorkoutTransferService(WorkoutInterchangeApi store, String ownerId) {
         if (store == null || ownerId == null || ownerId.trim().isEmpty()) {
             throw new IllegalArgumentException("운동 저장소가 없습니다.");
         }

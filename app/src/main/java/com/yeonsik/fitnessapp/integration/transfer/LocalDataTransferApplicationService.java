@@ -7,7 +7,7 @@ import com.yeonsik.fitnessapp.data.WorkoutTransferService;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryStore;
 import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeResult;
-import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeStore;
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutInterchangeApi;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,13 +24,13 @@ import java.nio.charset.StandardCharsets;
  */
 public final class LocalDataTransferApplicationService {
     private final FitnessDatabaseConnection database;
-    private final WorkoutInterchangeStore workoutInterchangeStore;
+    private final WorkoutInterchangeApi workoutInterchangeStore;
     private final FitnessSummaryStore fitnessSummaryStore;
     private final ExerciseMasterRepository exerciseMasterRepository;
 
     public LocalDataTransferApplicationService(
             FitnessDatabaseConnection database,
-            WorkoutInterchangeStore workoutInterchangeStore,
+            WorkoutInterchangeApi workoutInterchangeStore,
             FitnessSummaryStore fitnessSummaryStore,
             ExerciseMasterRepository exerciseMasterRepository
     ) {

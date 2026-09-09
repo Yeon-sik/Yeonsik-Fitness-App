@@ -485,6 +485,56 @@ interface SupplementRoomDao {
 
 @Dao
 interface WorkoutRoomDao {
+    data class TransferSetRow(
+        val id: String,
+        @ColumnInfo(name = "volume_kg") val volumeKg: Double?,
+        @ColumnInfo(name = "weight_kg") val weightKg: Double?,
+        @ColumnInfo(name = "actual_reps") val actualReps: Long?,
+        @ColumnInfo(name = "added_weight_kg") val addedWeightKg: Double?,
+        @ColumnInfo(name = "assisted_weight_kg") val assistedWeightKg: Double?,
+        @ColumnInfo(name = "load_state") val loadState: String?,
+        @ColumnInfo(name = "record_id") val recordId: String,
+        @ColumnInfo(name = "exercise_id") val exerciseId: String,
+        @ColumnInfo(name = "exercise_name_snapshot") val exerciseNameSnapshot: String,
+        @ColumnInfo(name = "family_id") val familyId: String?,
+        @ColumnInfo(name = "preset_id") val presetId: String?,
+        @ColumnInfo(name = "canonical_variant_key") val canonicalVariantKey: String?,
+        @ColumnInfo(name = "visual_variant_key") val visualVariantKey: String?,
+        @ColumnInfo(name = "record_type") val recordType: String,
+        @ColumnInfo(name = "is_completed") val isCompleted: Long
+    )
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') ORDER BY date ASC, created_at ASC"
+    )
+    fun transferRecords(userId: String): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND source_app=:sourceApp"
+    )
+    fun recordsBySource(userId: String, sourceApp: String): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT ws.id, ws.volume_kg, ws.weight_kg, ws.actual_reps, " +
+            "ws.added_weight_kg, ws.assisted_weight_kg, ws.load_state, " +
+            "we.record_id, we.exercise_id, we.exercise_name_snapshot, we.family_id, " +
+            "we.preset_id, we.canonical_variant_key, we.visual_variant_key, " +
+            "we.record_type, ws.is_completed " +
+            "FROM workout_sets ws INNER JOIN workout_exercises we " +
+            "ON we.id=ws.workout_exercise_id AND we.user_id=ws.user_id " +
+            "WHERE ws.user_id=:userId AND ws.deleted_at IS NULL AND we.deleted_at IS NULL"
+    )
+    fun transferSetRows(userId: String): List<TransferSetRow>
+
+    @Query(
+        "UPDATE workout_sets SET volume_kg=:volumeKg, updated_at=:updatedAt " +
+            "WHERE id=:setId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateTransferSetVolume(
+        setId: String, userId: String, volumeKg: Double, updatedAt: String
+    ): Int
+
     data class WeekProgress(
         @ColumnInfo(name = "completed_sessions") val completedSessions: Int,
         @ColumnInfo(name = "completed_days") val completedDays: Int

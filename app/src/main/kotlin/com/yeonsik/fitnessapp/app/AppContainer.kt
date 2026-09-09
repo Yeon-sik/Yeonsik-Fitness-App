@@ -45,7 +45,7 @@ import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryStore
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
-import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeStore
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutInterchangeRepository
 import com.yeonsik.fitnessapp.routine.RoutineRepository
 import com.yeonsik.fitnessapp.supplement.SupplementRepository
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
@@ -84,7 +84,11 @@ class AppContainer(context: Context) {
         supabaseConfig.effectiveUserId()
     )
     private val fitnessSummaryStore = FitnessSummaryStore(databaseConnection)
-    private val workoutInterchangeStore = WorkoutInterchangeStore(databaseConnection, appContext)
+    private val workoutInterchangeStore = WorkoutInterchangeRepository(
+        roomDatabase,
+        appContext,
+        roomTransactionRunner
+    )
     private val bodyMetricsRepository = BodyMetricsRepository(
         roomDatabase,
         supabaseConfig.effectiveUserId()
