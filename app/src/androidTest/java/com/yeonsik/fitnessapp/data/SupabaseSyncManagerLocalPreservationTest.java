@@ -11,7 +11,11 @@ import android.database.sqlite.SQLiteDatabase;
 
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.room.Room;
 
+import com.yeonsik.fitnessapp.core.database.FitnessDatabaseContract;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomMigrations;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
 
@@ -36,6 +40,13 @@ public final class SupabaseSyncManagerLocalPreservationTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = Room.databaseBuilder(
+                        context,
+                        FitnessRoomDatabase.class,
+                        FitnessDatabaseContract.NAME
+                )
+                .addMigrations(FitnessRoomMigrations.all(context))
+                .build();
         try {
             FitnessRepository repository = new FitnessRepository(helper, USER_ID);
             String date = LocalDate.now().minusDays(1).toString();
@@ -62,11 +73,8 @@ public final class SupabaseSyncManagerLocalPreservationTest {
             remoteRow.put("updated_at", "2099-01-01T00:00:00Z");
             JSONArray remoteRows = new JSONArray().put(remoteRow);
 
-            int applied = new SupabaseSyncManager(helper).applyRows(
-                    helper.getWritableDatabase(),
-                    "meal_records",
-                    remoteRows,
-                    USER_ID
+            int applied = new SupabaseSyncManager(room, context).applyRows(
+                    "meal_records", remoteRows, USER_ID
             );
 
             assertEquals(1, applied);
@@ -78,6 +86,7 @@ public final class SupabaseSyncManagerLocalPreservationTest {
             assertEquals("dining_out", scalar(database,
                     "SELECT meal_kind FROM meal_records WHERE id = '" + recordId + "'"));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -90,6 +99,13 @@ public final class SupabaseSyncManagerLocalPreservationTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = Room.databaseBuilder(
+                        context,
+                        FitnessRoomDatabase.class,
+                        FitnessDatabaseContract.NAME
+                )
+                .addMigrations(FitnessRoomMigrations.all(context))
+                .build();
         try {
             FitnessRepository repository = new FitnessRepository(helper, USER_ID);
             String date = LocalDate.now().minusDays(1).toString();
@@ -105,11 +121,8 @@ public final class SupabaseSyncManagerLocalPreservationTest {
                     Collections.emptyList()
             );
 
-            int applied = new SupabaseSyncManager(helper).applyRows(
-                    helper.getWritableDatabase(),
-                    "meal_records",
-                    new JSONArray(),
-                    USER_ID
+            int applied = new SupabaseSyncManager(room, context).applyRows(
+                    "meal_records", new JSONArray(), USER_ID
             );
 
             assertEquals(0, applied);
@@ -120,6 +133,7 @@ public final class SupabaseSyncManagerLocalPreservationTest {
                     "SELECT COUNT(*) FROM meal_records WHERE user_id = '" + USER_ID + "'")
                     .equals("1"));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -137,6 +151,11 @@ public final class SupabaseSyncManagerLocalPreservationTest {
     private static final class IsolatedDatabaseContext extends ContextWrapper {
         private IsolatedDatabaseContext(Context base) {
             super(base);
+        }
+
+        @Override
+        public Context getApplicationContext() {
+            return this;
         }
 
         @Override

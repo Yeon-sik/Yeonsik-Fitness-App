@@ -185,6 +185,138 @@ interface DeviceRoomDao {
 }
 
 @Dao
+interface LegacyFitnessSyncRoomDao {
+    @Query("SELECT * FROM devices WHERE user_id=:userId AND id=:deviceId LIMIT 1")
+    fun device(userId: String, deviceId: String): DevicesRoomEntity?
+
+    @Query(
+        "SELECT * FROM devices WHERE user_id=:userId AND id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR last_seen_at > :cursorVersion " +
+            "OR (last_seen_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY last_seen_at, id LIMIT :limit"
+    )
+    fun devices(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<DevicesRoomEntity>
+
+    @Query("SELECT * FROM workout_records WHERE id=:id AND user_id=:userId LIMIT 1")
+    fun workoutRecord(id: String, userId: String): WorkoutRecordsRoomEntity?
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND device_id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR updated_at > :cursorVersion " +
+            "OR (updated_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY updated_at, id LIMIT :limit"
+    )
+    fun workoutRecords(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<WorkoutRecordsRoomEntity>
+
+    @Query("SELECT * FROM workout_exercises WHERE id=:id AND user_id=:userId LIMIT 1")
+    fun workoutExercise(id: String, userId: String): WorkoutExercisesRoomEntity?
+
+    @Query(
+        "SELECT * FROM workout_exercises WHERE user_id=:userId AND device_id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR updated_at > :cursorVersion " +
+            "OR (updated_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY updated_at, id LIMIT :limit"
+    )
+    fun workoutExercises(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<WorkoutExercisesRoomEntity>
+
+    @Query("SELECT * FROM workout_sets WHERE id=:id AND user_id=:userId LIMIT 1")
+    fun workoutSet(id: String, userId: String): WorkoutSetsRoomEntity?
+
+    @Query(
+        "SELECT * FROM workout_sets WHERE user_id=:userId AND device_id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR updated_at > :cursorVersion " +
+            "OR (updated_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY updated_at, id LIMIT :limit"
+    )
+    fun workoutSets(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<WorkoutSetsRoomEntity>
+
+    @Query("SELECT * FROM meal_records WHERE id=:id AND user_id=:userId LIMIT 1")
+    fun mealRecord(id: String, userId: String): MealRecordsRoomEntity?
+
+    @Query(
+        "SELECT * FROM meal_records WHERE user_id=:userId AND device_id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR updated_at > :cursorVersion " +
+            "OR (updated_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY updated_at, id LIMIT :limit"
+    )
+    fun mealRecords(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<MealRecordsRoomEntity>
+
+    @Query("SELECT * FROM weight_records WHERE id=:id AND user_id=:userId LIMIT 1")
+    fun weightRecord(id: String, userId: String): WeightRecordEntity?
+
+    @Query(
+        "SELECT * FROM weight_records WHERE user_id=:userId AND device_id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR updated_at > :cursorVersion " +
+            "OR (updated_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY updated_at, id LIMIT :limit"
+    )
+    fun weightRecords(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<WeightRecordEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertDevice(entity: DevicesRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertWorkoutRecord(entity: WorkoutRecordsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertWorkoutExercise(entity: WorkoutExercisesRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertWorkoutSet(entity: WorkoutSetsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertMealRecord(entity: MealRecordsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertWeightRecord(entity: WeightRecordEntity)
+
+    @Query(
+        "SELECT * FROM sync_state WHERE scope_key=:scopeKey AND table_name=:tableName " +
+            "AND direction=:direction LIMIT 1"
+    )
+    fun syncState(scopeKey: String, tableName: String, direction: String): SyncStateRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertSyncState(entity: SyncStateRoomEntity)
+}
+
+@Dao
 interface RoutineRoomDao {
     @Query(
         "SELECT * FROM routines WHERE user_id = :userId AND deleted_at IS NULL " +
@@ -1542,6 +1674,7 @@ interface NutritionRoomDao {
 abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun bodyRoomDao(): BodyRoomDao
     abstract fun deviceRoomDao(): DeviceRoomDao
+    abstract fun legacyFitnessSyncRoomDao(): LegacyFitnessSyncRoomDao
     abstract fun routineRoomDao(): RoutineRoomDao
     abstract fun supplementRoomDao(): SupplementRoomDao
     abstract fun workoutRoomDao(): WorkoutRoomDao
