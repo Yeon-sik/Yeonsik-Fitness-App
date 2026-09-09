@@ -81,7 +81,8 @@ class AppContainer(context: Context) {
         FitnessDatabaseConnection.fromRoom(roomDatabase, appContext)
 
     private val accountOwnershipService = AccountOwnershipService(
-        databaseConnection,
+        roomDatabase,
+        roomTransactionRunner,
         supabaseConfig.effectiveUserId()
     )
     private val fitnessSummaryStore: WorkoutSummaryApi = WorkoutSummaryRepository(roomDatabase)

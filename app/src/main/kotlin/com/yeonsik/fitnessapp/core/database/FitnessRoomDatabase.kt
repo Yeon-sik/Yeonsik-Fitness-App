@@ -185,6 +185,168 @@ interface DeviceRoomDao {
 }
 
 @Dao
+interface AccountOwnershipRoomDao {
+    @Query("UPDATE workout_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimWorkoutRecords(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE workout_exercises SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimWorkoutExercises(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE workout_sets SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimWorkoutSets(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecords(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE dining_out_menu_component_links SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimDiningOutMenuComponentLinks(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_record_items SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecordItems(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_record_item_nutrients SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecordItemNutrients(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_record_item_components SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecordItemComponents(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_record_item_component_nutrients SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecordItemComponentNutrients(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_record_item_consumptions SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecordItemConsumptions(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE weight_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimWeightRecords(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE cardio_sessions SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimCardioSessions(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE cardio_route_points SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimCardioRoutePoints(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE routines SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimRoutines(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE routine_exercises SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimRoutineExercises(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE exercise_picker_preferences SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimExercisePickerPreferences(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE composition_templates SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimCompositionTemplates(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE composition_groups SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimCompositionGroups(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE composition_members SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimCompositionMembers(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE dining_out_menu_add_on_links SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimDiningOutMenuAddOnLinks(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_items SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSupplementItems(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_schedules SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSupplementSchedules(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_schedule_slots SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSupplementScheduleSlots(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_intake_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSupplementIntakeRecords(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_effect_checkins SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSupplementEffectCheckins(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE verified_receipt_items SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimVerifiedReceiptItems(sourceUserId: String, nextUserId: String): Int
+
+    @Query(
+        "INSERT OR REPLACE INTO nutrition_goals (" +
+            "user_id, phase, calories_kcal, protein_grams, carbs_grams, fat_grams, " +
+            "fiber_grams, sodium_mg, water_ml, created_at, updated_at) " +
+            "SELECT :nextUserId, source.phase, source.calories_kcal, source.protein_grams, " +
+            "source.carbs_grams, source.fat_grams, source.fiber_grams, source.sodium_mg, " +
+            "source.water_ml, source.created_at, source.updated_at FROM nutrition_goals source " +
+            "WHERE source.user_id=:sourceUserId AND (NOT EXISTS (SELECT 1 FROM nutrition_goals target " +
+            "WHERE target.user_id=:nextUserId) OR julianday(source.updated_at) > julianday((" +
+            "SELECT target.updated_at FROM nutrition_goals target WHERE target.user_id=:nextUserId LIMIT 1)))"
+    )
+    fun claimNutritionGoal(sourceUserId: String, nextUserId: String): Long
+
+    @Query("DELETE FROM nutrition_goals WHERE user_id=:sourceUserId")
+    fun deleteAnonymousNutritionGoal(sourceUserId: String): Int
+
+    @Query(
+        "INSERT OR REPLACE INTO body_profiles (user_id, height_cm, created_at, updated_at) " +
+            "SELECT :nextUserId, source.height_cm, source.created_at, source.updated_at " +
+            "FROM body_profiles source WHERE source.user_id=:sourceUserId AND (NOT EXISTS " +
+            "(SELECT 1 FROM body_profiles target WHERE target.user_id=:nextUserId) OR " +
+            "julianday(source.updated_at) > julianday((SELECT target.updated_at FROM body_profiles target " +
+            "WHERE target.user_id=:nextUserId LIMIT 1)))"
+    )
+    fun claimBodyProfile(sourceUserId: String, nextUserId: String): Long
+
+    @Query("DELETE FROM body_profiles WHERE user_id=:sourceUserId")
+    fun deleteAnonymousBodyProfile(sourceUserId: String): Int
+
+    @Query(
+        "INSERT OR REPLACE INTO development_goals (" +
+            "user_id, objective, weekly_sessions_target, focus_body_part, effective_from, " +
+            "created_at, updated_at) SELECT :nextUserId, source.objective, " +
+            "source.weekly_sessions_target, source.focus_body_part, source.effective_from, " +
+            "source.created_at, source.updated_at FROM development_goals source " +
+            "WHERE source.user_id=:sourceUserId AND (NOT EXISTS (SELECT 1 FROM development_goals target " +
+            "WHERE target.user_id=:nextUserId) OR julianday(source.updated_at) > julianday((" +
+            "SELECT target.updated_at FROM development_goals target WHERE target.user_id=:nextUserId LIMIT 1)))"
+    )
+    fun claimDevelopmentGoal(sourceUserId: String, nextUserId: String): Long
+
+    @Query("DELETE FROM development_goals WHERE user_id=:sourceUserId")
+    fun deleteAnonymousDevelopmentGoal(sourceUserId: String): Int
+
+    @Query(
+        "INSERT OR REPLACE INTO nutrition_daily_checkins (" +
+            "id, user_id, date, water_ml, sleep_hours, energy_score, hunger_score, " +
+            "digestion_score, training_readiness_score, note, created_at, updated_at) " +
+            "SELECT source.id, :nextUserId, source.date, source.water_ml, source.sleep_hours, " +
+            "source.energy_score, source.hunger_score, source.digestion_score, " +
+            "source.training_readiness_score, source.note, source.created_at, source.updated_at " +
+            "FROM nutrition_daily_checkins source WHERE source.user_id=:sourceUserId AND " +
+            "(NOT EXISTS (SELECT 1 FROM nutrition_daily_checkins target WHERE target.user_id=:nextUserId " +
+            "AND target.date=source.date) OR julianday(source.updated_at) > julianday((" +
+            "SELECT target.updated_at FROM nutrition_daily_checkins target WHERE target.user_id=:nextUserId " +
+            "AND target.date=source.date LIMIT 1)))"
+    )
+    fun claimNutritionDailyCheckins(sourceUserId: String, nextUserId: String): Long
+
+    @Query("DELETE FROM nutrition_daily_checkins WHERE user_id=:sourceUserId")
+    fun deleteAnonymousNutritionDailyCheckins(sourceUserId: String): Int
+
+    @Query(
+        "INSERT OR REPLACE INTO meal_menu_presets (" +
+            "id, user_id, name, calories, protein_grams, carbs_grams, fat_grams, created_at, updated_at) " +
+            "SELECT source.id, :nextUserId, source.name, source.calories, source.protein_grams, " +
+            "source.carbs_grams, source.fat_grams, source.created_at, source.updated_at " +
+            "FROM meal_menu_presets source WHERE source.user_id=:sourceUserId AND (NOT EXISTS " +
+            "(SELECT 1 FROM meal_menu_presets target WHERE target.user_id=:nextUserId " +
+            "AND target.name=source.name COLLATE NOCASE) OR julianday(source.updated_at) > julianday((" +
+            "SELECT target.updated_at FROM meal_menu_presets target WHERE target.user_id=:nextUserId " +
+            "AND target.name=source.name COLLATE NOCASE LIMIT 1)))"
+    )
+    fun claimMealMenuPresets(sourceUserId: String, nextUserId: String): Long
+
+    @Query("DELETE FROM meal_menu_presets WHERE user_id=:sourceUserId")
+    fun deleteAnonymousMealMenuPresets(sourceUserId: String): Int
+
+    @Query("DELETE FROM devices WHERE user_id=:sourceUserId")
+    fun deleteAnonymousDevices(sourceUserId: String): Int
+}
+
+@Dao
 interface LegacyFitnessSyncRoomDao {
     @Query("SELECT * FROM devices WHERE user_id=:userId AND id=:deviceId LIMIT 1")
     fun device(userId: String, deviceId: String): DevicesRoomEntity?
@@ -1674,6 +1836,7 @@ interface NutritionRoomDao {
 abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun bodyRoomDao(): BodyRoomDao
     abstract fun deviceRoomDao(): DeviceRoomDao
+    abstract fun accountOwnershipRoomDao(): AccountOwnershipRoomDao
     abstract fun legacyFitnessSyncRoomDao(): LegacyFitnessSyncRoomDao
     abstract fun routineRoomDao(): RoutineRoomDao
     abstract fun supplementRoomDao(): SupplementRoomDao
