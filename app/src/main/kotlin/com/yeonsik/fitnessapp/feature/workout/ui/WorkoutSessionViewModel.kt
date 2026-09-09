@@ -26,6 +26,15 @@ sealed interface WorkoutSessionUiState {
     data class Error(val ownerId: String, val message: String) : WorkoutSessionUiState
 }
 
+sealed interface WorkoutRestTimerState {
+    data object Inactive : WorkoutRestTimerState
+    data class Active(
+        val ownerId: String,
+        val endsAtMillis: Long,
+        val totalSeconds: Int
+    ) : WorkoutRestTimerState
+}
+
 enum class WorkoutSessionAction {
     OPEN_RECORD,
     CONTINUE,
@@ -75,6 +84,8 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     val uiState: LiveData<WorkoutSessionUiState> = mutableState
     private val mutableActionState = MutableLiveData<WorkoutSessionActionEvent>()
     val actionState: LiveData<WorkoutSessionActionEvent> = mutableActionState
+    private val mutableRestTimerState = MutableLiveData<WorkoutRestTimerState>(restoreRestTimerState())
+    val restTimerState: LiveData<WorkoutRestTimerState> = mutableRestTimerState
     private var requestVersion = 0L
     private var actionVersion = 0L
 
@@ -231,6 +242,42 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         }
     }
 
+    fun startRestTimer(ownerId: String, restSeconds: Int?) {
+        val seconds = restSeconds?.takeIf { it > 0 } ?: DEFAULT_REST_SECONDS
+        val endsAtMillis = System.currentTimeMillis() + seconds * 1000L
+        savedStateHandle[KEY_REST_OWNER_ID] = ownerId
+        savedStateHandle[KEY_REST_ENDS_AT] = endsAtMillis
+        savedStateHandle[KEY_REST_TOTAL_SECONDS] = seconds
+        mutableRestTimerState.value = WorkoutRestTimerState.Active(
+            ownerId,
+            endsAtMillis,
+            seconds
+        )
+    }
+
+    fun stopRestTimer() {
+        savedStateHandle.remove<String>(KEY_REST_OWNER_ID)
+        savedStateHandle.remove<Long>(KEY_REST_ENDS_AT)
+        savedStateHandle.remove<Int>(KEY_REST_TOTAL_SECONDS)
+        mutableRestTimerState.value = WorkoutRestTimerState.Inactive
+    }
+
+    private fun restoreRestTimerState(): WorkoutRestTimerState {
+        val ownerId: String? = savedStateHandle[KEY_REST_OWNER_ID]
+        val endsAtMillis: Long? = savedStateHandle[KEY_REST_ENDS_AT]
+        val totalSeconds: Int? = savedStateHandle[KEY_REST_TOTAL_SECONDS]
+        return if (!ownerId.isNullOrBlank()
+            && endsAtMillis != null
+            && totalSeconds != null
+            && endsAtMillis > System.currentTimeMillis()
+            && totalSeconds > 0
+        ) {
+            WorkoutRestTimerState.Active(ownerId, endsAtMillis, totalSeconds)
+        } else {
+            WorkoutRestTimerState.Inactive
+        }
+    }
+
     private fun executeAction(
         scope: AccountScope,
         action: WorkoutSessionAction,
@@ -290,5 +337,9 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
 
     private companion object {
         const val KEY_RECORD_ID = "workout_session.record_id"
+        const val KEY_REST_OWNER_ID = "workout_rest.owner_id"
+        const val KEY_REST_ENDS_AT = "workout_rest.ends_at"
+        const val KEY_REST_TOTAL_SECONDS = "workout_rest.total_seconds"
+        const val DEFAULT_REST_SECONDS = 90
     }
 }

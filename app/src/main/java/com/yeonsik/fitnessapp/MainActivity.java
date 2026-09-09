@@ -71,6 +71,7 @@ import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutRestTimerState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionAction;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionActionEvent;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionActionOutcome;
@@ -151,8 +152,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private static final String STATE_MEAL_DATE = "runtime.meal_date";
     private static final String STATE_ROUTINE_ID = "runtime.routine_id";
     private static final String STATE_NAVIGATION_HISTORY = "runtime.navigation_history";
-    private static final String STATE_REST_ENDS_AT = "runtime.rest_ends_at";
-    private static final String STATE_REST_TOTAL_SECONDS = "runtime.rest_total_seconds";
     private static final int COMPOSE_VIEW_ID_BASE = 0x6f100000;
 
     public static final String DEBUG_PROVISION_SESSION_ACTION =
@@ -222,6 +221,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private LinearLayout restTimerBar;
     private TextView restCountdownView;
     private LinearLayout restProgressTrack;
+    // Cached only for the retained legacy View chrome. Ownership lives in WorkoutSessionViewModel.
     private long restEndsAtMillis;
     private int restTotalSeconds;
     private int lastPulsedSecond = -1;
@@ -330,12 +330,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         if (inputUnit != null) sessionState.setSessionInputMassUnit(inputUnit);
         selectedMealDate = state.getString(STATE_MEAL_DATE, lastKnownDate);
         selectedRoutineId = state.getString(STATE_ROUTINE_ID);
-        restEndsAtMillis = state.getLong(STATE_REST_ENDS_AT, 0L);
-        restTotalSeconds = state.getInt(STATE_REST_TOTAL_SECONDS, 0);
-        if (restEndsAtMillis <= System.currentTimeMillis() || restTotalSeconds <= 0) {
-            restEndsAtMillis = 0L;
-            restTotalSeconds = 0;
-        }
     }
 
     @Override
@@ -349,8 +343,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         outState.putString(STATE_MEAL_DATE, selectedMealDate);
         outState.putString(STATE_ROUTINE_ID, selectedRoutineId);
         outState.putStringArrayList(STATE_NAVIGATION_HISTORY, navigationHistory.savedScreenNames());
-        outState.putLong(STATE_REST_ENDS_AT, restEndsAtMillis);
-        outState.putInt(STATE_REST_TOTAL_SECONDS, restTotalSeconds);
         super.onSaveInstanceState(outState);
     }
 
@@ -411,6 +403,28 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             }
         });
         workoutSessionViewModel.getActionState().observe(this, this::handleWorkoutSessionAction);
+        workoutSessionViewModel.getRestTimerState().observe(this, state -> {
+            if (state instanceof WorkoutRestTimerState.Active
+                    && currentOwnerId().equals(((WorkoutRestTimerState.Active) state).getOwnerId())) {
+                WorkoutRestTimerState.Active active = (WorkoutRestTimerState.Active) state;
+                restEndsAtMillis = active.getEndsAtMillis();
+                restTotalSeconds = active.getTotalSeconds();
+                if (restTimerBar != null && restTimerVisibleOnScreen()) {
+                    populateRestTimerBar();
+                    restTimerBar.setVisibility(View.VISIBLE);
+                    updateRestTimerBar();
+                    restTimerBar.removeCallbacks(restTick);
+                    restTimerBar.postDelayed(restTick, 250);
+                }
+            } else {
+                restEndsAtMillis = 0L;
+                restTotalSeconds = 0;
+                if (restTimerBar != null) {
+                    restTimerBar.removeCallbacks(restTick);
+                    restTimerBar.setVisibility(View.GONE);
+                }
+            }
+        });
         workoutExerciseDetailViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -1106,24 +1120,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void startRestTimer(Integer restSeconds) {
-        int seconds = restSeconds == null || restSeconds <= 0 ? 90 : restSeconds;
-        restTotalSeconds = seconds;
-        restEndsAtMillis = System.currentTimeMillis() + seconds * 1000L;
         lastPulsedSecond = -1;
-        populateRestTimerBar();
-        updateRestTimerBar();
-        if (restTimerBar.getVisibility() != View.VISIBLE && restTimerVisibleOnScreen()) {
-            restTimerBar.setVisibility(View.VISIBLE);
-            restTimerBar.setAlpha(0f);
-            restTimerBar.setTranslationY(ui.dp(20));
-            restTimerBar.animate().alpha(1f).translationY(0f).setDuration(220).start();
-        }
-        restTimerBar.removeCallbacks(restTick);
-        restTimerBar.postDelayed(restTick, 250);
+        workoutSessionViewModel.startRestTimer(currentOwnerId(), restSeconds);
     }
 
     private void stopRestTimer() {
+        workoutSessionViewModel.stopRestTimer();
         restEndsAtMillis = 0;
+        restTotalSeconds = 0;
         restTimerBar.removeCallbacks(restTick);
         restTimerBar.setVisibility(View.GONE);
     }
