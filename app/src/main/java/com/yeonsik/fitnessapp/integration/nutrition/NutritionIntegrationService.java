@@ -1,13 +1,16 @@
 package com.yeonsik.fitnessapp.integration.nutrition;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.data.ProductReadV1Client;
 import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client;
+import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi;
+import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogSyncStore;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 
+import java.io.IOException;
 import java.util.Collections;
 import java.util.ArrayList;
 import java.util.List;
@@ -20,16 +23,20 @@ import java.util.List;
  * repository/client sequence itself.
  */
 public final class NutritionIntegrationService {
-    private final NutritionCatalogRepository nutritionCatalog;
+    private final NutritionCatalogSyncStore nutritionCatalogSync;
+    private final NutritionCatalogRepositoryApi nutritionCatalog;
     private final ProductReadV1Client productReadClient;
     private final RestaurantMenuReadV1Client restaurantReadClient;
     private final SupabaseAuthManager nutritionAuth;
     private final SupabaseAuthManager priceTraceAuth;
     private final NutritionPublicNutritionClient publicNutritionClient;
+    private final NutritionPublicationClient publicationClient;
+    private final NutritionCatalogSyncClient syncClient;
     private volatile SupabaseConfig nutritionConfig;
 
     public NutritionIntegrationService(
-            NutritionCatalogRepository nutritionCatalog,
+            NutritionCatalogRepositoryApi nutritionCatalog,
+            NutritionCatalogSyncStore nutritionCatalogSync,
             ProductReadV1Client productReadClient,
             RestaurantMenuReadV1Client restaurantReadClient,
             SupabaseAuthManager nutritionAuth,
@@ -37,6 +44,7 @@ public final class NutritionIntegrationService {
     ) {
         this(
                 nutritionCatalog,
+                nutritionCatalogSync,
                 productReadClient,
                 restaurantReadClient,
                 nutritionAuth,
@@ -46,23 +54,28 @@ public final class NutritionIntegrationService {
     }
 
     public NutritionIntegrationService(
-            NutritionCatalogRepository nutritionCatalog,
+            NutritionCatalogRepositoryApi nutritionCatalog,
+            NutritionCatalogSyncStore nutritionCatalogSync,
             ProductReadV1Client productReadClient,
             RestaurantMenuReadV1Client restaurantReadClient,
             SupabaseAuthManager nutritionAuth,
             SupabaseAuthManager priceTraceAuth,
             SupabaseConfig nutritionConfig
     ) {
-        if (nutritionCatalog == null || productReadClient == null || restaurantReadClient == null
+        if (nutritionCatalog == null || nutritionCatalogSync == null
+                || productReadClient == null || restaurantReadClient == null
                 || nutritionAuth == null || priceTraceAuth == null) {
             throw new IllegalArgumentException("영양 통합 서비스 의존성이 없습니다.");
         }
+        this.nutritionCatalogSync = nutritionCatalogSync;
         this.nutritionCatalog = nutritionCatalog;
         this.productReadClient = productReadClient;
         this.restaurantReadClient = restaurantReadClient;
         this.nutritionAuth = nutritionAuth;
         this.priceTraceAuth = priceTraceAuth;
         this.publicNutritionClient = new NutritionPublicNutritionClient();
+        this.publicationClient = new NutritionPublicationClient();
+        this.syncClient = new NutritionCatalogSyncClient();
         this.nutritionConfig = nutritionConfig == null
                 ? SupabaseConfig.empty()
                 : nutritionConfig;
@@ -127,7 +140,10 @@ public final class NutritionIntegrationService {
 
     public SyncResult syncCatalog(SupabaseConfig configuredNutrition) throws Exception {
         SupabaseConfig active = refreshNutrition(configuredNutrition);
-        NutritionCatalogRepository.CatalogSyncResult result = nutritionCatalog.syncRemote();
+        NutritionCatalogSyncClient.SyncResult result = syncClient.sync(
+                active,
+                nutritionCatalogSync
+        );
         return new SyncResult(active, result.pushedRows, result.pulledRows);
     }
 
@@ -138,12 +154,13 @@ public final class NutritionIntegrationService {
             boolean publish
     ) throws Exception {
         SupabaseConfig active = requireNutritionAccount(configuredNutrition);
-        NutritionCatalogRepository.PublicationState state =
-                nutritionCatalog.setProductNutritionPublication(
-                        nutritionFoodId,
-                        catalogProductId,
-                        publish
-                );
+        NutritionPublicationClient.PublicationState state = publicationClient.publishProductNutrition(
+                active,
+                nutritionFoodId,
+                catalogProductId,
+                publish
+        );
+        applyLocalPublication(active, state);
         return new PublicationResult(active, null, state);
     }
 
@@ -158,13 +175,41 @@ public final class NutritionIntegrationService {
         if (publish) {
             activePriceTrace = requirePriceTraceAccount(configuredPriceTrace);
         }
-        NutritionCatalogRepository.PublicationState state =
-                nutritionCatalog.publishDiningOutMenuToPriceTrace(
-                        nutritionFoodId,
-                        publish,
-                        activePriceTrace
-                );
+        NutritionFood food = nutritionCatalog.findFoodById(nutritionFoodId);
+        NutritionPublicationClient.PublicationState state = publicationClient.publishDiningOut(
+                activeNutrition,
+                activePriceTrace,
+                food,
+                publish
+        );
+        applyLocalPublication(activeNutrition, state);
         return new PublicationResult(activeNutrition, activePriceTrace, state);
+    }
+
+    private void applyLocalPublication(
+            SupabaseConfig activeNutrition,
+            NutritionPublicationClient.PublicationState state
+    ) throws IOException {
+        String ownerId = activeNutrition.effectiveUserId();
+        if (state.sourceReference != null
+                && !nutritionCatalog.applySourceReference(
+                state.nutritionFoodId,
+                ownerId,
+                state.sourceReference,
+                state.sourceReferenceUpdatedAt == null
+                        ? state.updatedAt
+                        : state.sourceReferenceUpdatedAt
+        )) {
+            throw new IOException("FT 식당 메뉴 identity를 기기 카탈로그에 반영하지 못했습니다.");
+        }
+        if (!nutritionCatalog.applyPublicationVisibility(
+                state.nutritionFoodId,
+                ownerId,
+                state.isPublic ? "public" : "private",
+                state.updatedAt
+        )) {
+            throw new IOException("공개된 영양정보를 기기 카탈로그에 반영하지 못했습니다.");
+        }
     }
 
     private SupabaseConfig refreshNutrition(SupabaseConfig configured) throws Exception {
@@ -175,7 +220,6 @@ public final class NutritionIntegrationService {
         if (active.isConfigured()) {
             active = nutritionAuth.refresh(active);
             nutritionCatalog.setUserId(active.effectiveUserId());
-            nutritionCatalog.setSupabaseConfig(active);
         }
         nutritionConfig = active;
         return active;
@@ -219,7 +263,7 @@ public final class NutritionIntegrationService {
         private PublicationResult(
                 SupabaseConfig nutritionConfig,
                 SupabaseConfig priceTraceConfig,
-                NutritionCatalogRepository.PublicationState state
+                NutritionPublicationClient.PublicationState state
         ) {
             this.nutritionConfig = nutritionConfig;
             this.priceTraceConfig = priceTraceConfig;

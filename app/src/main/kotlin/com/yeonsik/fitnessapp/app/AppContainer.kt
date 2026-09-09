@@ -183,6 +183,7 @@ class AppContainer(context: Context) {
     )
     val nutritionIntegrationService = NutritionIntegrationService(
         nutritionCatalogRepository,
+        nutritionCatalogRepository,
         productReadClient,
         restaurantMenuReadClient,
         nutritionAuthManager,
@@ -235,7 +236,6 @@ class AppContainer(context: Context) {
         nutritionSupabaseConfig = config
         nutritionIntegrationService.setNutritionConfig(config)
         nutritionCatalogRepository.setUserId(config.effectiveUserId())
-        nutritionCatalogRepository.setSupabaseConfig(config)
     }
 
     fun applyAuthenticatedNutritionConfig(config: SupabaseConfig) {
@@ -243,7 +243,6 @@ class AppContainer(context: Context) {
         nutritionIntegrationService.setNutritionConfig(config)
         val ownerId = config.effectiveUserId()
         nutritionCatalogRepository.normalizeLocalUserId(ownerId)
-        nutritionCatalogRepository.setSupabaseConfig(config)
     }
 
     fun applyPriceTraceSessionConfig(config: SupabaseConfig) {

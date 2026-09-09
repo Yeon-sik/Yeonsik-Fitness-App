@@ -1124,6 +1124,11 @@ interface DevelopmentRoomDao {
 
 @Dao
 interface NutritionRoomDao {
+    data class SyncVersionRow(
+        val revision: Long?,
+        @ColumnInfo(name = "updated_at") val updatedAt: String?
+    )
+
     data class ProductLinkRow(
         val id: String,
         @ColumnInfo(name = "owner_id") val ownerId: String,
@@ -1254,6 +1259,9 @@ interface NutritionRoomDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertNutrient(nutrient: NutritionFoodNutrientsRoomEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertComponent(component: NutritionFoodComponentsRoomEntity)
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertComponent(component: NutritionFoodComponentsRoomEntity)
 
@@ -1273,6 +1281,17 @@ interface NutritionRoomDao {
             "WHERE id=:foodId AND owner_id=:userId AND deleted_at IS NULL"
     )
     fun updateVisibility(foodId: String, userId: String, visibility: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE nutrition_foods SET source_reference=:sourceReference, updated_at=:updatedAt " +
+            "WHERE id=:foodId AND owner_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateSourceReference(
+        foodId: String,
+        userId: String,
+        sourceReference: String,
+        updatedAt: String
+    ): Int
 
     @Query(
         "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND kind=:kind " +
@@ -1312,6 +1331,33 @@ interface NutritionRoomDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertProductLink(link: ProductNutritionLinksRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertProductLink(link: ProductNutritionLinksRoomEntity)
+
+    @Query("SELECT revision, updated_at FROM nutrition_foods WHERE id=:id LIMIT 1")
+    fun foodSyncVersion(id: String): SyncVersionRow?
+
+    @Query("SELECT NULL AS revision, updated_at FROM nutrition_food_nutrients WHERE id=:id LIMIT 1")
+    fun nutrientSyncVersion(id: String): SyncVersionRow?
+
+    @Query("SELECT NULL AS revision, updated_at FROM nutrition_food_components WHERE id=:id LIMIT 1")
+    fun componentSyncVersion(id: String): SyncVersionRow?
+
+    @Query("SELECT revision, updated_at FROM product_nutrition_links WHERE id=:id LIMIT 1")
+    fun productLinkSyncVersion(id: String): SyncVersionRow?
+
+    @Query(
+        "SELECT updated_at FROM product_nutrition_links " +
+            "WHERE owner_id=:userId AND nutrition_food_id=:nutritionFoodId " +
+            "AND id != :exceptId AND status='approved' AND deleted_at IS NULL " +
+            "ORDER BY updated_at DESC LIMIT 1"
+    )
+    fun otherApprovedLinkUpdatedAt(
+        userId: String,
+        nutritionFoodId: String,
+        exceptId: String
+    ): String?
 
     @Query(
         "UPDATE product_nutrition_links SET deleted_at=:updatedAt, updated_at=:updatedAt, " +

@@ -16,21 +16,16 @@ import com.yeonsik.fitnessapp.core.database.ProductNutritionLinksRoomEntity;
 import com.yeonsik.fitnessapp.core.database.PricetraceProductCacheRoomEntity;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
-import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogSyncStore;
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionCatalogSyncSnapshot;
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionComponentSyncRow;
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodSyncRow;
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionNutrientSyncRow;
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionProductLinkSyncRow;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -44,15 +39,17 @@ import java.util.UUID;
 /**
  * Local-first food catalog and recipe repository.
  *
- * <p>The app can record and search foods without a network connection. When a Supabase
- * connection is configured, public catalog rows are pulled and authenticated user rows are
- * pushed/pulled through the REST API.</p>
+ * <p>The app can record and search foods without a network connection. Remote publication and
+ * catalog synchronization are integration concerns; this repository exposes only typed local
+ * catalog operations to those clients.</p>
  *
  * <p>이 저장소는 <b>음식·레시피·영양성분만</b> 다룬다. 원격 테이블은 FitnessApp 전용
  * Nutrition Supabase 프로젝트에 있으며, Personal OS 공통 DB의 meal_records 같은 사용자
  * 섭취 기록은 이 카탈로그에 절대 들어가지 않는다.</p>
  */
-public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi {
+public final class NutritionCatalogRepository implements
+        com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi,
+        NutritionCatalogSyncStore {
     /** 영양 전용 DB의 카탈로그 테이블. 공통 사용자 기록 테이블은 여기 들어올 수 없다. */
     static final List<String> CATALOG_TABLES = java.util.Collections.unmodifiableList(
             java.util.Arrays.asList(
@@ -132,34 +129,33 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
 
     private final FitnessRoomDatabase roomDatabase;
     private final NutritionRoomDao nutritionDao;
-    /** Transitional sync adapter; local catalog CRUD uses nutritionDao. */
+    /** Transitional account-claim adapter; local catalog CRUD uses nutritionDao. */
     private final FitnessDatabaseConnection database;
     private volatile String userId;
-    private volatile SupabaseConfig supabaseConfig;
 
     public NutritionCatalogRepository(
             FitnessDatabaseHelper dbHelper,
             String userId,
-            SupabaseConfig supabaseConfig
+            Object ignoredNetworkConfig
     ) {
         this(
                 FitnessRoomDatabaseProvider.get(dbHelper.applicationContext()),
                 FitnessDatabaseConnection.fromLegacy(dbHelper),
                 userId,
-                supabaseConfig
+                ignoredNetworkConfig
         );
     }
 
     public NutritionCatalogRepository(
             FitnessRoomDatabase roomDatabase,
             String userId,
-            SupabaseConfig supabaseConfig
+            Object ignoredNetworkConfig
     ) {
         this(
                 roomDatabase,
                 FitnessDatabaseConnection.fromRoom(roomDatabase),
                 userId,
-                supabaseConfig
+                ignoredNetworkConfig
         );
     }
 
@@ -167,25 +163,24 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
             FitnessRoomDatabase roomDatabase,
             FitnessDatabaseConnection database,
             String userId,
-            SupabaseConfig supabaseConfig
+            Object ignoredNetworkConfig
     ) {
         this.roomDatabase = roomDatabase;
         this.nutritionDao = roomDatabase.nutritionRoomDao();
         this.database = database;
         this.userId = normalizeUserId(userId);
-        this.supabaseConfig = supabaseConfig == null ? SupabaseConfig.empty() : supabaseConfig;
     }
 
     public NutritionCatalogRepository(
             FitnessDatabaseConnection database,
             String userId,
-            SupabaseConfig supabaseConfig
+            Object ignoredNetworkConfig
     ) {
         this(
                 FitnessRoomDatabaseProvider.get(database.applicationContext()),
                 database,
                 userId,
-                supabaseConfig
+                ignoredNetworkConfig
         );
     }
 
@@ -193,18 +188,51 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
             FitnessRoomDatabase roomDatabase,
             android.content.Context context,
             String userId,
-            SupabaseConfig supabaseConfig
+            Object ignoredNetworkConfig
     ) {
         this(
                 roomDatabase,
                 FitnessDatabaseConnection.fromRoom(roomDatabase, context),
                 userId,
-                supabaseConfig
+                ignoredNetworkConfig
         );
     }
 
     public void setUserId(String userId) {
         this.userId = normalizeUserId(userId);
+    }
+
+    @Override
+    public boolean applyPublicationVisibility(
+            String foodId,
+            String ownerId,
+            String visibility,
+            String updatedAt
+    ) {
+        return nutritionDao.updateVisibility(
+                requireName(foodId),
+                normalizeUserId(ownerId),
+                requireName(visibility),
+                requireName(updatedAt)
+        ) == 1;
+    }
+
+    @Override
+    public boolean applySourceReference(
+            String foodId,
+            String ownerId,
+            String sourceReference,
+            String updatedAt
+    ) {
+        if (sourceReference == null || sourceReference.trim().isEmpty()) {
+            return false;
+        }
+        return nutritionDao.updateSourceReference(
+                requireName(foodId),
+                normalizeUserId(ownerId),
+                sourceReference,
+                requireName(updatedAt)
+        ) == 1;
     }
 
     public void normalizeLocalUserId(String nextUserId) {
@@ -225,7 +253,7 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                             table,
                             values,
                             "owner_id = ?",
-                            new String[]{SupabaseConfig.DEFAULT_USER_ID}
+                    new String[]{"local-user"}
                     );
                 }
                 database.setTransactionSuccessful();
@@ -250,7 +278,7 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                         "AND target.deleted_at IS NULL " +
                         "WHERE source.owner_id = ? AND source.status = 'approved' " +
                         "AND source.deleted_at IS NULL",
-                new String[]{nextUserId, SupabaseConfig.DEFAULT_USER_ID}
+                new String[]{nextUserId, "local-user"}
         )) {
             while (cursor.moveToNext()) {
                 conflicts.add(new String[]{
@@ -272,10 +300,6 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                     new Object[]{winningTimestamp, winningTimestamp, losingId}
             );
         }
-    }
-
-    public void setSupabaseConfig(SupabaseConfig supabaseConfig) {
-        this.supabaseConfig = supabaseConfig == null ? SupabaseConfig.empty() : supabaseConfig;
     }
 
     @Override
@@ -1887,410 +1911,12 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         return food != null && "public".equals(food.getVisibility());
     }
 
-    /**
-     * Publishes or unpublishes only through the authenticated, validated Nutrition RPC.
-     * The local visibility is updated from the authoritative RPC response.
-     */
-    public PublicationState setProductNutritionPublication(
-            String nutritionFoodId,
-            String catalogProductId,
-            boolean publish
-    ) throws Exception {
-        SupabaseConfig config = supabaseConfig;
-        if (config == null || !config.isConfigured()) {
-            throw new IllegalStateException("영양 DB 계정 로그인이 필요합니다.");
-        }
-        String normalizedFoodId = requireName(nutritionFoodId);
-        String normalizedCatalogProductId;
-        try {
-            normalizedCatalogProductId = UUID.fromString(catalogProductId).toString();
-        } catch (Exception error) {
-            throw new IllegalArgumentException("PriceTrace 정확 규격 ID가 올바르지 않습니다.", error);
-        }
-
-        HttpURLConnection connection = openConnection(
-                joinUrl(config.supabaseUrl,
-                        "/rest/v1/rpc/set_product_nutrition_publication_v1"),
-                "POST",
-                config
-        );
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setDoOutput(true);
-        JSONObject request = new JSONObject();
-        request.put("p_nutrition_food_id", normalizedFoodId);
-        request.put("p_catalog_product_id", normalizedCatalogProductId);
-        request.put("p_publish", publish);
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
-        }
-
-        String body = readResponseOrThrow(connection, 200);
-        JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
-        if (rows.length() != 1) {
-            throw new IOException("영양 공개 RPC가 정확히 한 행을 반환하지 않았습니다.");
-        }
-        JSONObject row = rows.getJSONObject(0);
-        String returnedFoodId = nullableString(row, "nutrition_food_id");
-        String returnedCatalogProductId = nullableString(row, "catalog_product_id");
-        String visibility = nullableString(row, "visibility");
-        if (!normalizedFoodId.equals(returnedFoodId)
-                || !normalizedCatalogProductId.equals(returnedCatalogProductId)
-                || !("public".equals(visibility) || "private".equals(visibility))
-                || publish != "public".equals(visibility)) {
-            throw new IOException("영양 공개 RPC 응답이 요청한 항목과 일치하지 않습니다.");
-        }
-
-        String updatedAt = emptyToDefault(nullableString(row, "updated_at"), now());
-        int changed = nutritionDao.updateVisibility(
-                normalizedFoodId,
-                config.effectiveUserId(),
-                visibility,
-                updatedAt
-        );
-        if (changed != 1) {
-            throw new IOException("공개된 영양정보를 기기 카탈로그에 반영하지 못했습니다.");
-        }
-        return new PublicationState(
-                normalizedFoodId,
-                normalizedCatalogProductId,
-                "public".equals(visibility),
-                Math.max(1, row.optInt("publication_revision", 1)),
-                nullableString(row, "published_at")
-        );
-    }
-
-    /** Publishes a dining-out menu through the exact restaurant/menu identity contract. */
-    public PublicationState setDiningOutMenuPublication(
-            String nutritionFoodId,
-            boolean publish
-    ) throws Exception {
-        SupabaseConfig config = supabaseConfig;
-        if (config == null || !config.isConfigured()) {
-            throw new IllegalStateException("영양 DB 계정 로그인이 필요합니다.");
-        }
-        String normalizedFoodId = requireName(nutritionFoodId);
-        HttpURLConnection connection = openConnection(
-                joinUrl(config.supabaseUrl,
-                        "/rest/v1/rpc/set_dining_out_menu_publication_v1"),
-                "POST",
-                config
-        );
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setDoOutput(true);
-        JSONObject request = new JSONObject();
-        request.put("p_nutrition_food_id", normalizedFoodId);
-        request.put("p_publish", publish);
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
-        }
-
-        String body = readResponseOrThrow(connection, 200);
-        JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
-        if (rows.length() != 1) {
-            throw new IOException("식당 메뉴 공개 RPC가 정확히 한 행을 반환하지 않았습니다.");
-        }
-        JSONObject row = rows.getJSONObject(0);
-        String returnedFoodId = nullableString(row, "nutrition_food_id");
-        String visibility = nullableString(row, "visibility");
-        if (!normalizedFoodId.equals(returnedFoodId)
-                || !("public".equals(visibility) || "private".equals(visibility))
-                || publish != "public".equals(visibility)) {
-            throw new IOException("식당 메뉴 공개 RPC 응답이 요청한 항목과 일치하지 않습니다.");
-        }
-
-        String updatedAt = emptyToDefault(nullableString(row, "updated_at"), now());
-        int changed = nutritionDao.updateVisibility(
-                normalizedFoodId,
-                config.effectiveUserId(),
-                visibility,
-                updatedAt
-        );
-        if (changed != 1) {
-            throw new IOException("식당 메뉴 공개 상태를 기기 카탈로그에 반영하지 못했습니다.");
-        }
-        return new PublicationState(
-                normalizedFoodId,
-                nullableString(row, "catalog_product_id"),
-                "public".equals(visibility),
-                Math.max(1, row.optInt("publication_revision", 1)),
-                nullableString(row, "published_at")
-        );
-    }
-
-    /** Registers the FT-owned menu in PT first, then publishes its Nutrition projection. */
-    public PublicationState publishDiningOutMenuToPriceTrace(
-            String nutritionFoodId,
-            boolean publish,
-            SupabaseConfig priceTraceConfig
-    ) throws Exception {
-        if (!publish) {
-            return setDiningOutMenuPublication(nutritionFoodId, false);
-        }
-        SupabaseConfig nutritionConfig = supabaseConfig;
-        if (nutritionConfig == null || !nutritionConfig.isConfigured()) {
-            throw new IllegalStateException("영양 DB 계정 로그인이 필요합니다.");
-        }
-        if (priceTraceConfig == null || !priceTraceConfig.isConfigured()) {
-            throw new IllegalStateException("PT 관리자 계정 로그인이 필요합니다.");
-        }
-
-        String normalizedFoodId = requireName(nutritionFoodId);
-        NutritionFood food = findFoodById(normalizedFoodId);
-        if (food == null || !food.isDiningOutMenu()) {
-            throw new IllegalArgumentException("공개할 FT 식당 메뉴를 찾을 수 없습니다.");
-        }
-
-        JSONObject identity = new JSONObject();
-        if (food.sourceReference != null && !food.sourceReference.trim().isEmpty()) {
-            try {
-                identity = new JSONObject(food.sourceReference);
-            } catch (JSONException ignored) {
-                // Legacy "dining_out" rows use the new FitnessApp source identity below.
-            }
-        }
-
-        String restaurantName = emptyToDefault(
-                nullableString(identity, "restaurant_name"),
-                emptyToDefault(food.brand, "식당명 미기록")
-        );
-        String menuName = emptyToDefault(nullableString(identity, "menu_name"), food.name);
-        String restaurantId = nullableString(identity, "restaurant_id");
-        String locationId = nullableString(identity, "restaurant_location_id");
-        String menuId = nullableString(identity, "restaurant_menu_id");
-        String catalogProductId = nullableString(identity, "catalog_product_id");
-        boolean hasAnyPriceTraceId = restaurantId != null
-                || locationId != null
-                || menuId != null
-                || catalogProductId != null;
-        boolean hasAllPriceTraceIds = restaurantId != null
-                && locationId != null
-                && menuId != null
-                && catalogProductId != null;
-        if (hasAnyPriceTraceId && !hasAllPriceTraceIds) {
-            throw new IllegalStateException("PT 식당·지점·메뉴 identity가 일부만 저장되어 있습니다.");
-        }
-
-        String locationSourceNamespace = nullableString(identity, "source_namespace");
-        if (locationSourceNamespace == null) {
-            locationSourceNamespace = nullableString(identity, "location_source_namespace");
-        }
-        if (locationSourceNamespace == null) {
-            String legacyNamespace = nullableString(identity, "namespace");
-            locationSourceNamespace = DiningOutIdentity.NAMESPACE.equals(legacyNamespace)
-                    ? null : legacyNamespace;
-        }
-        String sourceLocationCode = nullableString(identity, "source_location_code");
-        if (hasAllPriceTraceIds) {
-            SourceLocationIdentity sourceLocation = resolvePriceTraceLocation(
-                    priceTraceConfig,
-                    restaurantId,
-                    locationId,
-                    locationSourceNamespace,
-                    sourceLocationCode
-            );
-            locationSourceNamespace = emptyToDefault(
-                    sourceLocation.locationSourceNamespace,
-                    DiningOutIdentity.NAMESPACE
-            );
-            sourceLocationCode = sourceLocation.code;
-            if (sourceLocationCode == null) {
-                throw new IllegalStateException(
-                        "PriceTrace 지점 응답에 source identity가 없습니다. PT 지점 설정을 확인하세요."
-                );
-            }
-        } else {
-            locationSourceNamespace = "fitnessapp";
-            sourceLocationCode = "restaurant:" + restaurantName.trim().toLowerCase(Locale.US);
-        }
-
-        JSONObject request = new JSONObject();
-        request.put("p_idempotency_key", "fitnessapp:dining-out:" + normalizedFoodId);
-        request.put("p_nutrition_food_id", normalizedFoodId);
-        request.put("p_nutrition_revision", Math.max(1, food.revision));
-        putNullable(request, "p_restaurant_id", restaurantId);
-        request.put("p_restaurant_name", restaurantName);
-        putNullable(request, "p_restaurant_location_id", locationId);
-        request.put("p_source_location_namespace", locationSourceNamespace);
-        request.put("p_source_location_code", sourceLocationCode);
-        putNullable(request, "p_location_label", nullableString(identity, "branch_name"));
-        putNullable(request, "p_restaurant_menu_id", menuId);
-        putNullable(request, "p_catalog_product_id", catalogProductId);
-        request.put("p_menu_name", menuName);
-        request.put("p_menu_category_label", NutritionFood.categoryLabel(food.category));
-        request.put("p_serving_label", food.basisLabel());
-
-        HttpURLConnection ptConnection = openConnection(
-                joinUrl(priceTraceConfig.supabaseUrl,
-                        "/rest/v1/rpc/admin_publish_fitness_dining_out_v1"),
-                "POST",
-                priceTraceConfig
-        );
-        ptConnection.setRequestProperty("Content-Type", "application/json");
-        ptConnection.setRequestProperty("Accept", "application/json");
-        ptConnection.setDoOutput(true);
-        try (OutputStream output = ptConnection.getOutputStream()) {
-            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
-        }
-        String ptBody = readResponseOrThrow(ptConnection, 200);
-        JSONArray ptRows = ptBody.isEmpty() ? new JSONArray() : new JSONArray(ptBody);
-        if (ptRows.length() != 1) {
-            throw new IOException("PT 식당 메뉴 등록 RPC가 정확히 한 행을 반환하지 않았습니다.");
-        }
-        JSONObject ptRow = ptRows.getJSONObject(0);
-        String registeredRestaurantId = requireReturnedUuid(ptRow, "restaurant_id");
-        String registeredLocationId = requireReturnedUuid(ptRow, "restaurant_location_id");
-        String registeredMenuId = requireReturnedUuid(ptRow, "restaurant_menu_id");
-        String registeredCatalogProductId = requireReturnedUuid(ptRow, "catalog_product_id");
-
-        attachDiningOutMenuIdentity(
-                nutritionConfig,
-                normalizedFoodId,
-                registeredRestaurantId,
-                registeredLocationId,
-                registeredMenuId,
-                registeredCatalogProductId
-        );
-        attachDiningOutMenuNutritionLink(
-                nutritionConfig,
-                normalizedFoodId,
-                registeredCatalogProductId
-        );
-        return setDiningOutMenuPublication(normalizedFoodId, true);
-    }
-
-    private SourceLocationIdentity resolvePriceTraceLocation(
-            SupabaseConfig priceTraceConfig,
-            String restaurantId,
-            String locationId,
-            String storedLocationSourceNamespace,
-            String storedSourceLocationCode
-    ) throws Exception {
-        if (storedSourceLocationCode != null && !storedSourceLocationCode.trim().isEmpty()) {
-            return new SourceLocationIdentity(
-                    storedLocationSourceNamespace,
-                    storedSourceLocationCode.trim()
-            );
-        }
-
-        RestaurantMenuReadV1Client.RestaurantDetail detail =
-                new RestaurantMenuReadV1Client(priceTraceConfig).loadRestaurant(restaurantId);
-        for (RestaurantMenuReadV1Client.RestaurantLocation location : detail.locations) {
-            if (locationId.equals(location.restaurantLocationId)) {
-                String sourceLocationCode = location.sourceLocationCode == null
-                        ? ""
-                        : location.sourceLocationCode.trim();
-                return new SourceLocationIdentity(
-                        location.locationSourceNamespace,
-                        sourceLocationCode.isEmpty() ? null : sourceLocationCode
-                );
-            }
-        }
-        throw new IOException("PriceTrace 응답에서 요청한 지점 identity를 찾지 못했습니다.");
-    }
-
-    private static final class SourceLocationIdentity {
-        private final String locationSourceNamespace;
-        private final String code;
-
-        private SourceLocationIdentity(String locationSourceNamespace, String code) {
-            this.locationSourceNamespace = locationSourceNamespace;
-            this.code = code;
-        }
-    }
-
-    private void attachDiningOutMenuIdentity(
-            SupabaseConfig config,
-            String nutritionFoodId,
-            String restaurantId,
-            String locationId,
-            String menuId,
-            String catalogProductId
-    ) throws Exception {
-        HttpURLConnection connection = openConnection(
-                joinUrl(config.supabaseUrl,
-                        "/rest/v1/rpc/attach_dining_out_menu_identity_v1"),
-                "POST",
-                config
-        );
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setDoOutput(true);
-        JSONObject request = new JSONObject();
-        request.put("p_nutrition_food_id", nutritionFoodId);
-        request.put("p_restaurant_id", restaurantId);
-        request.put("p_restaurant_location_id", locationId);
-        request.put("p_restaurant_menu_id", menuId);
-        request.put("p_catalog_product_id", catalogProductId);
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
-        }
-        String body = readResponseOrThrow(connection, 200);
-        JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
-        if (rows.length() != 1) {
-            throw new IOException("FT 식당 메뉴 identity 연결 RPC가 정확히 한 행을 반환하지 않았습니다.");
-        }
-        JSONObject row = rows.getJSONObject(0);
-        String returnedFoodId = nullableString(row, "nutrition_food_id");
-        String sourceReference = nullableString(row, "source_reference");
-        if (!nutritionFoodId.equals(returnedFoodId) || sourceReference == null) {
-            throw new IOException("FT 식당 메뉴 identity 연결 응답이 요청과 일치하지 않습니다.");
-        }
-        ContentValues values = new ContentValues();
-        values.put("source_reference", sourceReference);
-        values.put("updated_at", emptyToDefault(nullableString(row, "updated_at"), now()));
-        int changed = database.update(
-                "nutrition_foods",
-                values,
-                "id = ? AND owner_id = ? AND deleted_at IS NULL",
-                new String[]{nutritionFoodId, config.effectiveUserId()}
-        );
-        if (changed != 1) {
-            throw new IOException("FT 식당 메뉴 identity를 기기 카탈로그에 반영하지 못했습니다.");
-        }
-    }
-
-    private void attachDiningOutMenuNutritionLink(
-            SupabaseConfig config,
-            String nutritionFoodId,
-            String catalogProductId
-    ) throws Exception {
-        HttpURLConnection connection = openConnection(
-                joinUrl(config.supabaseUrl,
-                        "/rest/v1/rpc/attach_dining_out_menu_nutrition_link_v1"),
-                "POST",
-                config
-        );
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("Accept", "application/json");
-        connection.setDoOutput(true);
-        JSONObject request = new JSONObject();
-        request.put("p_nutrition_food_id", nutritionFoodId);
-        request.put("p_catalog_product_id", catalogProductId);
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(request.toString().getBytes(StandardCharsets.UTF_8));
-        }
-        String body = readResponseOrThrow(connection, 200);
-        JSONArray rows = body.isEmpty() ? new JSONArray() : new JSONArray(body);
-        if (rows.length() != 1) {
-            throw new IOException("FT 식당 메뉴 영양 링크 RPC가 정확히 한 행을 반환하지 않았습니다.");
-        }
-        JSONObject row = rows.getJSONObject(0);
-        String returnedFoodId = nullableString(row, "nutrition_food_id");
-        String returnedCatalogProductId = nullableString(row, "catalog_product_id");
-        if (!nutritionFoodId.equals(returnedFoodId)
-                || !catalogProductId.equals(returnedCatalogProductId)
-                || !"approved".equals(nullableString(row, "status"))) {
-            throw new IOException("FT 식당 메뉴 영양 링크 응답이 요청한 exact identity와 일치하지 않습니다.");
-        }
-    }
-
     /** Pending owner-specific suggestions written by a trusted PriceTrace integration. */
     public List<ProductNutritionLink> pendingProductLinkSuggestions(String nutritionFoodId) {
         return readProductLinks(nutritionFoodId, ProductNutritionLink.STATUS_SUGGESTED);
     }
 
+    @Override
     public void cachePriceTraceProducts(List<ProductReadV1> products) {
         if (products == null || products.isEmpty()) {
             return;
@@ -2539,550 +2165,362 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         values.put("catalog_package_count", product.packageCount);
     }
 
-    public synchronized CatalogSyncResult syncRemote() throws Exception {
-        SupabaseConfig config = supabaseConfig;
-        if (config == null || !config.isConnectionConfigured()) {
-            return new CatalogSyncResult(0, 0);
-        }
-
-        int pulledRows = pullFoods(config);
-        pulledRows += pullNutrients(config);
-        pulledRows += pullComponents(config);
-        if (config.isConfigured()) {
-            pulledRows += pullProductLinks(config);
-        }
-
-        int pushedRows = 0;
-        if (config.isConfigured()) {
-            pushedRows += pushTable(config, "nutrition_foods", FOOD_SYNC_COLUMNS);
-            pushedRows += pushTable(config, "nutrition_food_nutrients", NUTRIENT_SYNC_COLUMNS);
-            pushedRows += pushTable(config, "nutrition_food_components", COMPONENT_SYNC_COLUMNS);
-            pushedRows += pushProductLinks(config);
-
-            // Conditional writes can lose a race without overwriting it. Pull once more to
-            // converge on the remote winner and to receive deletion tombstones.
-            pulledRows += pullFoods(config);
-            pulledRows += pullNutrients(config);
-            pulledRows += pullComponents(config);
-            pulledRows += pullProductLinks(config);
-        }
-        return new CatalogSyncResult(pushedRows, pulledRows);
+    @Override
+    public NutritionCatalogSyncSnapshot exportSyncSnapshot(String ownerId) {
+        String normalizedOwnerId = normalizeUserId(ownerId);
+        return new NutritionCatalogSyncSnapshot(
+                readFoodSyncRows(normalizedOwnerId),
+                readNutrientSyncRows(normalizedOwnerId),
+                readComponentSyncRows(normalizedOwnerId),
+                readProductLinkSyncRows(normalizedOwnerId)
+        );
     }
 
-    private int pushTable(SupabaseConfig config, String table, String[] columns) throws Exception {
-        if (!CATALOG_TABLES.contains(table)) {
-            throw new IllegalArgumentException(
-                    "Nutrition catalog only syncs food data, not user records: " + table
-            );
-        }
-        JSONArray rows = new JSONArray();
-        FitnessDatabaseConnection database = this.database;
+    private List<NutritionFoodSyncRow> readFoodSyncRows(String ownerId) {
+        List<NutritionFoodSyncRow> rows = new ArrayList<>();
         try (Cursor cursor = database.rawQuery(
-                "SELECT " + String.join(", ", columns) + " FROM " + table +
-                        publicationSafePushWhere(table),
-                new String[]{userId}
+                "SELECT " + String.join(", ", FOOD_SYNC_COLUMNS) +
+                        " FROM nutrition_foods" + publicationSafePushWhere("nutrition_foods"),
+                new String[]{ownerId}
         )) {
             while (cursor.moveToNext()) {
-                JSONObject row = new JSONObject();
-                for (int index = 0; index < columns.length; index++) {
-                    putCursorValue(row, columns[index], cursor, index);
-                }
-                rows.put(row);
+                int index = 0;
+                rows.add(new NutritionFoodSyncRow(
+                        cursor.getString(index++),
+                        nullableString(cursor, index++),
+                        cursor.getString(index++),
+                        nullableString(cursor, index++),
+                        nullableString(cursor, index++),
+                        nullableString(cursor, index++),
+                        nullableString(cursor, index++),
+                        nullableString(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        nullableString(cursor, index++),
+                        nullableLong(cursor, index++),
+                        cursor.getString(index++),
+                        cursor.getString(index++),
+                        cursor.getDouble(index++),
+                        cursor.getString(index++),
+                        cursor.getString(index++),
+                        cursor.getString(index++),
+                        nullableDouble(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        nullableDouble(cursor, index++),
+                        cursor.getString(index++),
+                        nullableString(cursor, index++),
+                        nullableString(cursor, index++),
+                        cursor.getInt(index++),
+                        cursor.getInt(index++),
+                        cursor.getString(index++),
+                        cursor.getString(index++),
+                        cursor.getString(index++),
+                        nullableString(cursor, index++)
+                ));
             }
         }
-        return postRows(config, table, rows);
+        return rows;
     }
 
-    /** Public rows are immutable through ordinary sync; publication RPCs own that transition. */
-    static String publicationSafePushWhere(String table) {
-        if ("nutrition_foods".equals(table)) {
-            return " WHERE owner_id = ? AND visibility = 'private'" +
-                    " AND lower(COALESCE(source_type, '')) IN " +
-                    "('manual', 'manual_estimate', 'manual_option', 'manual_recipe', " +
-                    "'pricetrace_manual', 'pricetrace_standard')" +
-                    " AND (lower(COALESCE(source_type, '')) <> 'manual_estimate'" +
-                    " OR COALESCE(source_reference, '') NOT LIKE '%fitness-nutrition-verified-import.v1%')";
+    private List<NutritionNutrientSyncRow> readNutrientSyncRows(String ownerId) {
+        List<NutritionNutrientSyncRow> rows = new ArrayList<>();
+        try (Cursor cursor = database.rawQuery(
+                "SELECT id, owner_id, food_id, nutrient_code, amount, unit, created_at, " +
+                        "updated_at, deleted_at FROM nutrition_food_nutrients" +
+                        publicationSafePushWhere("nutrition_food_nutrients"),
+                new String[]{ownerId}
+        )) {
+            while (cursor.moveToNext()) {
+                rows.add(new NutritionNutrientSyncRow(
+                        cursor.getString(0),
+                        nullableString(cursor, 1),
+                        cursor.getString(2),
+                        cursor.getString(3),
+                        nullableDouble(cursor, 4),
+                        cursor.getString(5),
+                        cursor.getString(6),
+                        cursor.getString(7),
+                        nullableString(cursor, 8)
+                ));
+            }
         }
-        if ("nutrition_food_nutrients".equals(table)) {
-            return " WHERE owner_id = ? AND EXISTS (" +
-                    "SELECT 1 FROM nutrition_foods parent " +
-                    "WHERE parent.id = nutrition_food_nutrients.food_id " +
-                    "AND parent.visibility = 'private')";
-        }
-        if ("nutrition_food_components".equals(table)) {
-            return " WHERE owner_id = ? AND EXISTS (" +
-                    "SELECT 1 FROM nutrition_foods parent " +
-                    "WHERE parent.id = nutrition_food_components.parent_food_id " +
-                    "AND parent.visibility = 'private')";
-        }
-        if ("product_nutrition_links".equals(table)) {
-            return " WHERE owner_id = ? AND EXISTS (" +
-                    "SELECT 1 FROM nutrition_foods parent " +
-                    "WHERE parent.id = product_nutrition_links.nutrition_food_id " +
-                    "AND parent.visibility = 'private')";
-        }
-        return " WHERE owner_id = ?";
+        return rows;
     }
 
-    /**
-     * Manual rows can be inserted/upserted by the owner. Trusted PriceTrace suggestions are
-     * service-role-created, so the app only PATCHes their review state and never re-inserts them.
-     */
-    private int pushProductLinks(SupabaseConfig config) throws Exception {
-        JSONArray deletedManualRows = new JSONArray();
-        JSONArray activeManualRows = new JSONArray();
-        List<JSONObject> deletedSuggestionRows = new ArrayList<>();
-        List<JSONObject> activeSuggestionDecisions = new ArrayList<>();
-        FitnessDatabaseConnection database = this.database;
+    private List<NutritionComponentSyncRow> readComponentSyncRows(String ownerId) {
+        List<NutritionComponentSyncRow> rows = new ArrayList<>();
+        try (Cursor cursor = database.rawQuery(
+                "SELECT id, owner_id, parent_food_id, child_food_id, quantity, unit, " +
+                        "order_index, created_at, updated_at, deleted_at " +
+                        "FROM nutrition_food_components" +
+                        publicationSafePushWhere("nutrition_food_components"),
+                new String[]{ownerId}
+        )) {
+            while (cursor.moveToNext()) {
+                rows.add(new NutritionComponentSyncRow(
+                        cursor.getString(0),
+                        nullableString(cursor, 1),
+                        cursor.getString(2),
+                        cursor.getString(3),
+                        cursor.getDouble(4),
+                        cursor.getString(5),
+                        cursor.getLong(6),
+                        cursor.getString(7),
+                        cursor.getString(8),
+                        nullableString(cursor, 9)
+                ));
+            }
+        }
+        return rows;
+    }
+
+    private List<NutritionProductLinkSyncRow> readProductLinkSyncRows(String ownerId) {
+        List<NutritionProductLinkSyncRow> rows = new ArrayList<>();
         try (Cursor cursor = database.rawQuery(
                 "SELECT " + String.join(", ", PRODUCT_LINK_SYNC_COLUMNS) +
                         " FROM product_nutrition_links" +
                         publicationSafePushWhere("product_nutrition_links"),
-                new String[]{userId}
+                new String[]{ownerId}
         )) {
             while (cursor.moveToNext()) {
-                JSONObject row = new JSONObject();
-                for (int index = 0; index < PRODUCT_LINK_SYNC_COLUMNS.length; index++) {
-                    putCursorValue(row, PRODUCT_LINK_SYNC_COLUMNS[index], cursor, index);
-                }
-                String sourceType = nullableString(row, "source_type");
-                boolean deleted = nullableString(row, "deleted_at") != null;
-                if (ProductNutritionLink.SOURCE_MANUAL.equals(sourceType)) {
-                    (deleted ? deletedManualRows : activeManualRows).put(row);
-                    continue;
-                }
-                String status = nullableString(row, "status");
-                if (!ProductNutritionLink.STATUS_SUGGESTED.equals(status)
-                        || deleted) {
-                    (deleted ? deletedSuggestionRows : activeSuggestionDecisions).add(row);
-                }
+                rows.add(new NutritionProductLinkSyncRow(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getString(2),
+                        cursor.getString(3),
+                        nullableString(cursor, 4),
+                        cursor.getString(5),
+                        cursor.getString(6),
+                        nullableString(cursor, 7),
+                        nullableString(cursor, 8),
+                        nullableString(cursor, 9),
+                        nullableDouble(cursor, 10),
+                        nullableString(cursor, 11),
+                        nullableLong(cursor, 12),
+                        cursor.getInt(13),
+                        nullableString(cursor, 14),
+                        cursor.getString(15),
+                        cursor.getString(16),
+                        nullableString(cursor, 17)
+                ));
             }
         }
-
-        // Release an existing approved slot before activating its replacement.
-        int pushed = postRows(config, "product_nutrition_links", deletedManualRows);
-        for (JSONObject decision : deletedSuggestionRows) {
-            pushed += patchSuggestionDecision(config, decision);
-        }
-        pushed += postRows(config, "product_nutrition_links", activeManualRows);
-        for (JSONObject decision : activeSuggestionDecisions) {
-            pushed += patchSuggestionDecision(config, decision);
-        }
-        return pushed;
-    }
-
-    private int patchSuggestionDecision(SupabaseConfig config, JSONObject row) throws Exception {
-        String id = nullableString(row, "id");
-        if (id == null) {
-            return 0;
-        }
-        JSONArray remoteRows = getRows(
-                config,
-                "/rest/v1/product_nutrition_links?owner_id=eq."
-                        + encode(config.effectiveUserId()) + "&select=*"
-        );
-        JSONObject remote = rowsById(remoteRows).get(id);
-        if (remote == null || compareRowVersions(row, remote, "revision") <= 0) {
-            return 0;
-        }
-        if (hasActiveApprovedLink(row)) {
-            JSONObject conflicting = approvedSlotConflict(remoteRows, row);
-            if (conflicting != null
-                    && (compareVersions(
-                    nullableString(row, "updated_at"),
-                    nullableString(conflicting, "updated_at")
-            ) <= 0 || retireRemoteApprovedLink(config, conflicting, row) == 0)) {
-                return 0;
-            }
-        }
-        return patchRowIfUnchanged(
-                config,
-                "product_nutrition_links",
-                row,
-                remote,
-                "revision"
-        );
-    }
-
-    private int pullFoods(SupabaseConfig config) throws Exception {
-        int rows = 0;
-        rows += upsertFoodRows(getRows(
-                config,
-                "/rest/v1/nutrition_foods?visibility=eq.public&deleted_at=is.null&select=*"
-        ));
-        if (config.isConfigured()) {
-            rows += upsertFoodRows(getRows(
-                    config,
-                    "/rest/v1/nutrition_foods?owner_id=eq." + encode(config.effectiveUserId()) +
-                            "&select=*"
-            ));
-        }
         return rows;
     }
 
-    private int pullNutrients(SupabaseConfig config) throws Exception {
-        int rows = 0;
-        rows += upsertNutrientRows(getRows(
-                config,
-                "/rest/v1/nutrition_food_nutrients?owner_id=is.null&deleted_at=is.null&select=*"
-        ));
-        if (config.isConfigured()) {
-            rows += upsertNutrientRows(getRows(
-                    config,
-                    "/rest/v1/nutrition_food_nutrients?owner_id=eq." +
-                            encode(config.effectiveUserId()) + "&select=*"
-            ));
-        }
-        return rows;
-    }
-
-    private int pullComponents(SupabaseConfig config) throws Exception {
-        int rows = 0;
-        rows += upsertComponentRows(getRows(
-                config,
-                "/rest/v1/nutrition_food_components?owner_id=is.null&deleted_at=is.null&select=*"
-        ));
-        if (config.isConfigured()) {
-            rows += upsertComponentRows(getRows(
-                    config,
-                    "/rest/v1/nutrition_food_components?owner_id=eq." +
-                            encode(config.effectiveUserId()) + "&select=*"
-            ));
-        }
-        return rows;
-    }
-
-    private int pullProductLinks(SupabaseConfig config) throws Exception {
-        return upsertProductLinkRows(getRows(
-                config,
-                "/rest/v1/product_nutrition_links?owner_id=eq." +
-                        encode(config.effectiveUserId()) + "&select=*"
-        ));
-    }
-
-    private int upsertFoodRows(JSONArray rows) throws JSONException {
-        FitnessDatabaseConnection database = this.database;
-        int applied = 0;
-        database.beginTransaction();
-        try {
-            for (int index = 0; index < rows.length(); index++) {
-                JSONObject row = rows.getJSONObject(index);
-                String id = nullableString(row, "id");
-                String name = nullableString(row, "name");
-                if (id == null || name == null) {
+    @Override
+    public int applyRemoteFoodRows(List<NutritionFoodSyncRow> rows) {
+        final int[] applied = {0};
+        roomDatabase.runInTransaction(() -> {
+            for (NutritionFoodSyncRow row : rows) {
+                if (row == null || row.getId() == null || row.getName() == null
+                        || !shouldApplyRemoteRoomRow(
+                        "nutrition_foods", row.getId(), row.getRevision(), row.getUpdatedAt())) {
                     continue;
-                }
-                int remoteRevision = Math.max(1, row.optInt("revision", 1));
-                String remoteUpdatedAt = nullableString(row, "updated_at");
-                if (!shouldApplyRemoteRow(
-                        database,
-                        "nutrition_foods",
-                        id,
-                        remoteRevision,
-                        remoteUpdatedAt
-                )) {
-                    continue;
-                }
-                ContentValues values = new ContentValues();
-                values.put("id", id);
-                putNullable(values, "owner_id", nullableString(row, "owner_id"));
-                values.put("name", name);
-                putNullable(values, "brand", nullableString(row, "brand"));
-                putNullable(values, "manufacturer_name", nullableString(row, "manufacturer_name"));
-                putNullable(values, "brand_name", nullableString(row, "brand_name"));
-                putNullable(values, "sub_brand_name", nullableString(row, "sub_brand_name"));
-                putNullable(values, "product_name", nullableString(row, "product_name"));
-                putNullableDouble(values, "package_amount", nullableDouble(row, "package_amount"));
-                putNullable(values, "package_unit", nullableString(row, "package_unit"));
-                if (row.has("package_count") && !row.isNull("package_count")) {
-                    values.put("package_count", row.optInt("package_count"));
-                } else {
-                    values.putNull("package_count");
                 }
                 String kind = NutritionFood.normalizeKind(
-                        row.optString("kind", NutritionFood.KIND_EXTERNAL_MENU));
-                values.put("kind", kind);
-                values.put("category", NutritionFood.normalizeCategory(
-                        row.optString("category", NutritionFood.categoryForKind(kind))));
-                values.put("basis_amount", positiveOrDefault(row.optDouble("basis_amount", 1.0)));
-                values.put("basis_unit", emptyToDefault(row.optString("basis_unit", "serving"), "serving"));
-                values.put("prep_state", NutritionFood.normalizePrepState(
-                        row.optString("prep_state", NutritionFood.PREP_UNSPECIFIED)));
-                values.put("cooking_method", NutritionFood.normalizeCookingMethod(
-                        row.optString("cooking_method", NutritionFood.COOKING_METHOD_UNSPECIFIED)));
-                putNullableDouble(values, "calories_kcal", nullableDouble(row, "calories_kcal"));
-                putNullableDouble(values, "protein_grams", nullableDouble(row, "protein_grams"));
-                putNullableDouble(values, "carbs_grams", nullableDouble(row, "carbs_grams"));
-                putNullableDouble(values, "fat_grams", nullableDouble(row, "fat_grams"));
-                // 원격에 값이 없으면 0이 아니라 NULL로 남겨 "모름"을 보존한다.
-                for (String key : nullableTypedKeys()) {
-                    putNullableDouble(values, key, nullableDouble(row, key));
-                }
-                values.put("source_type", emptyToDefault(row.optString("source_type", "manual"), "manual"));
-                putNullable(values, "source_reference", nullableString(row, "source_reference"));
-                putNullable(values, "source_version", nullableString(row, "source_version"));
-                values.put("data_version", row.optInt(
-                        "data_version", NutritionFood.DATA_VERSION_MACROS_ONLY));
-                values.put("revision", remoteRevision);
-                values.put("visibility", emptyToDefault(row.optString("visibility", "public"), "public"));
-                values.put("created_at", emptyToDefault(row.optString("created_at", ""), now()));
-                values.put("updated_at", emptyToDefault(row.optString("updated_at", ""), now()));
-                putNullable(values, "deleted_at", nullableString(row, "deleted_at"));
-                database.insertWithOnConflict(
-                        "nutrition_foods",
-                        null,
-                        values,
-                        SQLiteDatabase.CONFLICT_REPLACE
+                        emptyToDefault(row.getKind(), NutritionFood.KIND_EXTERNAL_MENU)
                 );
-                applied++;
+                nutritionDao.upsertFood(new NutritionFoodsRoomEntity(
+                        row.getId(),
+                        row.getOwnerId(),
+                        row.getName(),
+                        row.getBrand(),
+                        row.getManufacturerName(),
+                        row.getBrandName(),
+                        row.getSubBrandName(),
+                        row.getProductName(),
+                        row.getPackageAmount(),
+                        row.getPackageUnit(),
+                        row.getPackageCount(),
+                        kind,
+                        NutritionFood.normalizeCategory(
+                                emptyToDefault(row.getCategory(), NutritionFood.categoryForKind(kind))
+                        ),
+                        positiveOrDefault(row.getBasisAmount()),
+                        emptyToDefault(row.getBasisUnit(), "serving"),
+                        NutritionFood.normalizePrepState(
+                                emptyToDefault(row.getPrepState(), NutritionFood.PREP_UNSPECIFIED)
+                        ),
+                        NutritionFood.normalizeCookingMethod(
+                                emptyToDefault(row.getCookingMethod(), NutritionFood.COOKING_METHOD_UNSPECIFIED)
+                        ),
+                        row.getCaloriesKcal(),
+                        row.getProteinGrams(),
+                        row.getCarbsGrams(),
+                        row.getFatGrams(),
+                        row.getSodiumMg(),
+                        row.getSaturatedFatGrams(),
+                        row.getSugarsGrams(),
+                        row.getFiberGrams(),
+                        row.getAddedSugarsGrams(),
+                        row.getTransFatGrams(),
+                        row.getCholesterolMg(),
+                        emptyToDefault(row.getSourceType(), "manual"),
+                        row.getSourceReference(),
+                        row.getSourceVersion(),
+                        row.getDataVersion(),
+                        row.getRevision(),
+                        emptyToDefault(row.getVisibility(), "public"),
+                        emptyToDefault(row.getCreatedAt(), now()),
+                        emptyToDefault(row.getUpdatedAt(), now()),
+                        row.getDeletedAt()
+                ));
+                applied[0]++;
             }
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
-        return applied;
+        });
+        return applied[0];
     }
 
-    private int upsertNutrientRows(JSONArray rows) throws JSONException {
-        FitnessDatabaseConnection database = this.database;
-        int applied = 0;
-        database.beginTransaction();
-        try {
-            for (int index = 0; index < rows.length(); index++) {
-                JSONObject row = rows.getJSONObject(index);
-                String id = nullableString(row, "id");
-                String foodId = nullableString(row, "food_id");
-                String code = NutrientCode.normalize(nullableString(row, "nutrient_code"));
-                if (id == null || foodId == null || !NutrientCode.isKnown(code)) {
+    @Override
+    public int applyRemoteNutrientRows(List<NutritionNutrientSyncRow> rows) {
+        final int[] applied = {0};
+        roomDatabase.runInTransaction(() -> {
+            for (NutritionNutrientSyncRow row : rows) {
+                String code = row == null ? null : NutrientCode.normalize(row.getNutrientCode());
+                if (row == null || row.getId() == null || row.getFoodId() == null
+                        || !NutrientCode.isKnown(code)
+                        || !shouldApplyRemoteRoomRow(
+                        "nutrition_food_nutrients", row.getId(), null, row.getUpdatedAt())) {
                     continue;
                 }
-                if (!shouldApplyRemoteRow(
-                        database,
-                        "nutrition_food_nutrients",
-                        id,
-                        null,
-                        nullableString(row, "updated_at")
-                )) {
-                    continue;
-                }
-                ContentValues values = new ContentValues();
-                values.put("id", id);
-                putNullable(values, "owner_id", nullableString(row, "owner_id"));
-                values.put("food_id", foodId);
-                values.put("nutrient_code", code);
-                putNullableDouble(values, "amount", nullableDouble(row, "amount"));
-                values.put("unit", NutrientCode.unitOf(code));
-                values.put("created_at", emptyToDefault(row.optString("created_at", ""), now()));
-                values.put("updated_at", emptyToDefault(row.optString("updated_at", ""), now()));
-                putNullable(values, "deleted_at", nullableString(row, "deleted_at"));
-                database.insertWithOnConflict(
-                        "nutrition_food_nutrients",
-                        null,
-                        values,
-                        SQLiteDatabase.CONFLICT_REPLACE
-                );
-                applied++;
+                nutritionDao.upsertNutrient(new NutritionFoodNutrientsRoomEntity(
+                        row.getId(),
+                        row.getOwnerId(),
+                        row.getFoodId(),
+                        code,
+                        row.getAmount(),
+                        NutrientCode.unitOf(code),
+                        emptyToDefault(row.getCreatedAt(), now()),
+                        emptyToDefault(row.getUpdatedAt(), now()),
+                        row.getDeletedAt()
+                ));
+                applied[0]++;
             }
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
-        return applied;
+        });
+        return applied[0];
     }
 
-    private int upsertComponentRows(JSONArray rows) throws JSONException {
-        FitnessDatabaseConnection database = this.database;
-        int applied = 0;
-        database.beginTransaction();
-        try {
-            for (int index = 0; index < rows.length(); index++) {
-                JSONObject row = rows.getJSONObject(index);
-                String id = nullableString(row, "id");
-                String parentId = nullableString(row, "parent_food_id");
-                String childId = nullableString(row, "child_food_id");
-                if (id == null || parentId == null || childId == null) {
+    @Override
+    public int applyRemoteComponentRows(List<NutritionComponentSyncRow> rows) {
+        final int[] applied = {0};
+        roomDatabase.runInTransaction(() -> {
+            for (NutritionComponentSyncRow row : rows) {
+                if (row == null || row.getId() == null || row.getParentFoodId() == null
+                        || row.getChildFoodId() == null
+                        || !shouldApplyRemoteRoomRow(
+                        "nutrition_food_components", row.getId(), null, row.getUpdatedAt())) {
                     continue;
                 }
-                if (!shouldApplyRemoteRow(
-                        database,
-                        "nutrition_food_components",
-                        id,
-                        null,
-                        nullableString(row, "updated_at")
-                )) {
-                    continue;
-                }
-                ContentValues values = new ContentValues();
-                values.put("id", id);
-                putNullable(values, "owner_id", nullableString(row, "owner_id"));
-                values.put("parent_food_id", parentId);
-                values.put("child_food_id", childId);
-                values.put("quantity", row.optDouble("quantity", 1.0));
-                values.put("unit", emptyToDefault(row.optString("unit", "serving"), "serving"));
-                values.put("order_index", row.optInt("order_index", 0));
-                values.put("created_at", emptyToDefault(row.optString("created_at", ""), now()));
-                values.put("updated_at", emptyToDefault(row.optString("updated_at", ""), now()));
-                putNullable(values, "deleted_at", nullableString(row, "deleted_at"));
-                database.insertWithOnConflict(
-                        "nutrition_food_components",
-                        null,
-                        values,
-                        SQLiteDatabase.CONFLICT_REPLACE
-                );
-                applied++;
+                nutritionDao.upsertComponent(new NutritionFoodComponentsRoomEntity(
+                        row.getId(),
+                        row.getOwnerId(),
+                        row.getParentFoodId(),
+                        row.getChildFoodId(),
+                        row.getQuantity(),
+                        emptyToDefault(row.getUnit(), "serving"),
+                        row.getOrderIndex(),
+                        emptyToDefault(row.getCreatedAt(), now()),
+                        emptyToDefault(row.getUpdatedAt(), now()),
+                        row.getDeletedAt()
+                ));
+                applied[0]++;
             }
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
-        return applied;
+        });
+        return applied[0];
     }
 
-    private int upsertProductLinkRows(JSONArray rows) throws JSONException {
-        FitnessDatabaseConnection database = this.database;
-        int applied = 0;
-        database.beginTransaction();
-        try {
-            for (int index = 0; index < rows.length(); index++) {
-                JSONObject row = rows.getJSONObject(index);
-                String id = nullableString(row, "id");
-                String ownerId = nullableString(row, "owner_id");
-                String foodId = nullableString(row, "nutrition_food_id");
-                String catalogProductId = nullableString(row, "catalog_product_id");
-                String status = nullableString(row, "status");
-                String sourceType = nullableString(row, "source_type");
-                if (id == null || ownerId == null || foodId == null || catalogProductId == null
-                        || !isKnownLinkStatus(status) || !isKnownLinkSource(sourceType)) {
+    @Override
+    public int applyRemoteProductLinkRows(List<NutritionProductLinkSyncRow> rows) {
+        final int[] applied = {0};
+        roomDatabase.runInTransaction(() -> {
+            for (NutritionProductLinkSyncRow row : rows) {
+                if (row == null || row.getId() == null || row.getOwnerId() == null
+                        || row.getNutritionFoodId() == null || row.getCatalogProductId() == null
+                        || !isKnownLinkStatus(row.getStatus())
+                        || !isKnownLinkSource(row.getSourceType())) {
                     continue;
                 }
-                int remoteRevision = Math.max(1, row.optInt("revision", 1));
-                String remoteUpdatedAt = nullableString(row, "updated_at");
-                if (ProductNutritionLink.STATUS_APPROVED.equals(status)
-                        && nullableString(row, "deleted_at") == null) {
-                    String localApprovedUpdatedAt = otherApprovedLinkUpdatedAt(
-                            database,
-                            foodId,
-                            id
+                if (ProductNutritionLink.STATUS_APPROVED.equals(row.getStatus())
+                        && row.getDeletedAt() == null) {
+                    String localApprovedUpdatedAt = nutritionDao.otherApprovedLinkUpdatedAt(
+                            row.getOwnerId(), row.getNutritionFoodId(), row.getId()
                     );
-                    if (compareVersions(localApprovedUpdatedAt, remoteUpdatedAt) > 0) {
+                    if (compareVersions(localApprovedUpdatedAt, row.getUpdatedAt()) > 0) {
                         continue;
                     }
-                    softDeleteApprovedLinks(
-                            database,
-                            foodId,
-                            id,
-                            emptyToDefault(remoteUpdatedAt, now())
+                    nutritionDao.softDeleteApprovedLinks(
+                            row.getOwnerId(),
+                            row.getNutritionFoodId(),
+                            row.getId(),
+                            emptyToDefault(row.getUpdatedAt(), now())
                     );
                 }
-                if (!shouldApplyRemoteRow(
-                        database,
-                        "product_nutrition_links",
-                        id,
-                        remoteRevision,
-                        remoteUpdatedAt
-                )) {
+                if (!shouldApplyRemoteRoomRow(
+                        "product_nutrition_links", row.getId(), row.getRevision(), row.getUpdatedAt())) {
                     continue;
                 }
-                ContentValues values = new ContentValues();
-                values.put("id", id);
-                values.put("owner_id", ownerId);
-                values.put("nutrition_food_id", foodId);
-                values.put("catalog_product_id", catalogProductId);
-                putNullable(values, "standard_product_id", nullableString(row, "standard_product_id"));
-                values.put("status", status);
-                values.put("source_type", sourceType);
-                putNullable(values, "proposal_reference", nullableString(row, "proposal_reference"));
-                values.put(
-                        "product_contract_version",
-                        emptyToDefault(
-                                nullableString(row, "product_contract_version"),
-                                ProductReadV1.CONTRACT_VERSION
-                        )
-                );
-                putNullable(values, "catalog_product_revision", nullableString(row, "catalog_product_revision"));
-                putNullableDouble(values, "catalog_content_amount", nullableDouble(row, "catalog_content_amount"));
-                putNullable(values, "catalog_content_unit", nullableString(row, "catalog_content_unit"));
-                if (row.isNull("catalog_package_count")) {
-                    values.putNull("catalog_package_count");
-                } else {
-                    values.put("catalog_package_count", row.optInt("catalog_package_count"));
-                }
-                values.put("revision", remoteRevision);
-                putNullable(values, "reviewed_at", nullableString(row, "reviewed_at"));
-                values.put("created_at", emptyToDefault(row.optString("created_at", ""), now()));
-                values.put("updated_at", emptyToDefault(row.optString("updated_at", ""), now()));
-                putNullable(values, "deleted_at", nullableString(row, "deleted_at"));
-                database.insertWithOnConflict(
-                        "product_nutrition_links",
-                        null,
-                        values,
-                        SQLiteDatabase.CONFLICT_REPLACE
-                );
-                applied++;
+                nutritionDao.upsertProductLink(new ProductNutritionLinksRoomEntity(
+                        row.getId(),
+                        row.getOwnerId(),
+                        row.getNutritionFoodId(),
+                        row.getCatalogProductId(),
+                        row.getStandardProductId(),
+                        row.getStatus(),
+                        row.getSourceType(),
+                        row.getProposalReference(),
+                        emptyToDefault(row.getProductContractVersion(), ProductReadV1.CONTRACT_VERSION),
+                        row.getCatalogProductRevision(),
+                        row.getCatalogContentAmount(),
+                        row.getCatalogContentUnit(),
+                        row.getCatalogPackageCount(),
+                        row.getRevision(),
+                        row.getReviewedAt(),
+                        emptyToDefault(row.getCreatedAt(), now()),
+                        emptyToDefault(row.getUpdatedAt(), now()),
+                        row.getDeletedAt()
+                ));
+                applied[0]++;
             }
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
-        return applied;
+        });
+        return applied[0];
     }
 
-    private String otherApprovedLinkUpdatedAt(
-            FitnessDatabaseConnection database,
-            String nutritionFoodId,
-            String exceptId
+    private boolean shouldApplyRemoteRoomRow(
+            String table,
+            String id,
+            Integer remoteRevision,
+            String remoteUpdatedAt
     ) {
-        try (Cursor cursor = database.rawQuery(
-                "SELECT updated_at FROM product_nutrition_links " +
-                        "WHERE owner_id = ? AND nutrition_food_id = ? AND id <> ? " +
-                        "AND status = 'approved' AND deleted_at IS NULL " +
-                        "ORDER BY updated_at DESC LIMIT 1",
-                new String[]{userId, nutritionFoodId, exceptId}
-        )) {
-            return cursor.moveToFirst() && !cursor.isNull(0) ? cursor.getString(0) : null;
-        }
-    }
-
-    private ContentValues foodValues(NutritionFood food, String timestamp) {
-        ContentValues values = new ContentValues();
-        values.put("id", food.id);
-        values.put("owner_id", food.ownerId);
-        values.put("name", food.name);
-        putNullable(values, "brand", food.brand);
-        putNullable(values, "manufacturer_name", food.manufacturerName);
-        putNullable(values, "brand_name", food.brandName);
-        putNullable(values, "sub_brand_name", food.subBrandName);
-        putNullable(values, "product_name", food.productName);
-        putNullableDouble(values, "package_amount", food.packageAmount);
-        putNullable(values, "package_unit", food.packageUnit);
-        if (food.packageCount == null) {
-            values.putNull("package_count");
+        NutritionRoomDao.SyncVersionRow local;
+        if ("nutrition_foods".equals(table)) {
+            local = nutritionDao.foodSyncVersion(id);
+        } else if ("nutrition_food_nutrients".equals(table)) {
+            local = nutritionDao.nutrientSyncVersion(id);
+        } else if ("nutrition_food_components".equals(table)) {
+            local = nutritionDao.componentSyncVersion(id);
         } else {
-            values.put("package_count", food.packageCount);
+            local = nutritionDao.productLinkSyncVersion(id);
         }
-        values.put("kind", food.kind);
-        values.put("category", food.category);
-        values.put("basis_amount", food.basisAmount);
-        values.put("basis_unit", food.basisUnit);
-        values.put("prep_state", food.prepState);
-        values.put("cooking_method", food.cookingMethod);
-        putNullableDouble(values, "calories_kcal", food.profile.value(NutritionProfile.CALORIES_KCAL));
-        putNullableDouble(values, "protein_grams", food.profile.value(NutritionProfile.PROTEIN_GRAMS));
-        putNullableDouble(values, "carbs_grams", food.profile.value(NutritionProfile.CARBS_GRAMS));
-        putNullableDouble(values, "fat_grams", food.profile.value(NutritionProfile.FAT_GRAMS));
-        for (String key : nullableTypedKeys()) {
-            putNullableDouble(values, key, food.profile.value(key));
+        if (local == null) {
+            return true;
         }
-        values.put("source_type", food.sourceType);
-        putNullable(values, "source_reference", food.sourceReference);
-        putNullable(values, "source_version", food.sourceVersion);
-        values.put("data_version", food.dataVersion);
-        values.put("revision", food.revision);
-        values.put("visibility", "private");
-        values.put("created_at", timestamp);
-        values.put("updated_at", timestamp);
-        values.putNull("deleted_at");
-        return values;
+        if (remoteRevision != null && local.getRevision() != null) {
+            if (remoteRevision > local.getRevision()) {
+                return true;
+            }
+            if (remoteRevision < local.getRevision()) {
+                return false;
+            }
+        }
+        return compareVersions(remoteUpdatedAt, local.getUpdatedAt()) > 0;
     }
 
     private NutritionFoodsRoomEntity foodEntity(NutritionFood food, String timestamp) {
@@ -3174,29 +2612,6 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         }
     }
 
-    private void replaceMicronutrients(FitnessDatabaseConnection database, NutritionFood food) {
-        database.delete("nutrition_food_nutrients", "food_id = ?", new String[]{food.id});
-        String timestamp = now();
-        for (String code : food.profile.knownMicronutrientCodes()) {
-            ContentValues values = new ContentValues();
-            values.put("id", UUID.randomUUID().toString());
-            values.put("owner_id", food.ownerId);
-            values.put("food_id", food.id);
-            values.put("nutrient_code", code);
-            values.put("amount", food.profile.value(code));
-            values.put("unit", NutrientCode.unitOf(code));
-            values.put("created_at", timestamp);
-            values.put("updated_at", timestamp);
-            values.putNull("deleted_at");
-            database.insertWithOnConflict(
-                    "nutrition_food_nutrients",
-                    null,
-                    values,
-                    SQLiteDatabase.CONFLICT_REPLACE
-            );
-        }
-    }
-
     /** 필수 7종이 다 있는지 확인하고, 없으면 무엇이 빠졌는지 알려 준다. */
     private static NutritionProfile requireRequiredNutrients(NutritionProfile profile) {
         NutritionProfile safeProfile = profile == null ? NutritionProfile.empty() : profile;
@@ -3213,15 +2628,6 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         return safeProfile;
     }
 
-    private static List<String> nullableTypedKeys() {
-        List<String> keys = new ArrayList<>();
-        keys.add(NutritionProfile.SODIUM_MG);
-        keys.add(NutritionProfile.SATURATED_FAT_GRAMS);
-        keys.add(NutritionProfile.SUGARS_GRAMS);
-        keys.addAll(NutritionProfile.RECOMMENDED_TYPED_KEYS);
-        return keys;
-    }
-
     private static String[] syncColumns() {
         List<String> columns = new ArrayList<>(java.util.Arrays.asList(FOOD_COLUMNS));
         columns.add("visibility");
@@ -3231,36 +2637,35 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         return columns.toArray(new String[0]);
     }
 
-    private boolean shouldApplyRemoteRow(
-            FitnessDatabaseConnection database,
-            String table,
-            String id,
-            Integer remoteRevision,
-            String remoteUpdatedAt
-    ) {
-        String select = remoteRevision == null ? "updated_at" : "revision, updated_at";
-        try (Cursor cursor = database.rawQuery(
-                "SELECT " + select + " FROM " + table + " WHERE id = ? LIMIT 1",
-                new String[]{id}
-        )) {
-            if (!cursor.moveToFirst()) {
-                return true;
-            }
-            int updatedAtIndex = remoteRevision == null ? 0 : 1;
-            if (remoteRevision != null) {
-                int localRevision = cursor.getInt(0);
-                if (remoteRevision > localRevision) {
-                    return true;
-                }
-                if (remoteRevision < localRevision) {
-                    return false;
-                }
-            }
-            String localUpdatedAt = cursor.isNull(updatedAtIndex)
-                    ? null
-                    : cursor.getString(updatedAtIndex);
-            return compareVersions(remoteUpdatedAt, localUpdatedAt) > 0;
+    /** Public rows are immutable through ordinary sync; publication RPCs own that transition. */
+    static String publicationSafePushWhere(String table) {
+        if ("nutrition_foods".equals(table)) {
+            return " WHERE owner_id = ? AND visibility = 'private'" +
+                    " AND lower(COALESCE(source_type, '')) IN " +
+                    "('manual', 'manual_estimate', 'manual_option', 'manual_recipe', " +
+                    "'pricetrace_manual', 'pricetrace_standard')" +
+                    " AND (lower(COALESCE(source_type, '')) <> 'manual_estimate'" +
+                    " OR COALESCE(source_reference, '') NOT LIKE '%fitness-nutrition-verified-import.v1%')";
         }
+        if ("nutrition_food_nutrients".equals(table)) {
+            return " WHERE owner_id = ? AND EXISTS (" +
+                    "SELECT 1 FROM nutrition_foods parent " +
+                    "WHERE parent.id = nutrition_food_nutrients.food_id " +
+                    "AND parent.visibility = 'private')";
+        }
+        if ("nutrition_food_components".equals(table)) {
+            return " WHERE owner_id = ? AND EXISTS (" +
+                    "SELECT 1 FROM nutrition_foods parent " +
+                    "WHERE parent.id = nutrition_food_components.parent_food_id " +
+                    "AND parent.visibility = 'private')";
+        }
+        if ("product_nutrition_links".equals(table)) {
+            return " WHERE owner_id = ? AND EXISTS (" +
+                    "SELECT 1 FROM nutrition_foods parent " +
+                    "WHERE parent.id = product_nutrition_links.nutrition_food_id " +
+                    "AND parent.visibility = 'private')";
+        }
+        return " WHERE owner_id = ?";
     }
 
     static int compareVersions(String left, String right) {
@@ -3278,298 +2683,6 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
                     .compareTo(OffsetDateTime.parse(right).toInstant());
         } catch (Exception ignored) {
             return left.compareTo(right);
-        }
-    }
-
-    private int postRows(SupabaseConfig config, String table, JSONArray rows) throws Exception {
-        if (rows.length() == 0) {
-            return 0;
-        }
-        JSONArray remoteRows = getRows(
-                config,
-                "/rest/v1/" + table + "?owner_id=eq."
-                        + encode(config.effectiveUserId()) + "&select=*"
-        );
-        Map<String, JSONObject> remoteById = rowsById(remoteRows);
-        int pushed = 0;
-        for (int index = 0; index < rows.length(); index++) {
-            JSONObject local = rows.getJSONObject(index);
-            String id = nullableString(local, "id");
-            if (id == null) {
-                continue;
-            }
-            JSONObject remote = remoteById.get(id);
-            if (remote == null) {
-                if ("product_nutrition_links".equals(table)
-                        && hasActiveApprovedLink(local)) {
-                    JSONObject conflicting = approvedSlotConflict(remoteRows, local);
-                    if (conflicting != null) {
-                        if (compareVersions(
-                                nullableString(local, "updated_at"),
-                                nullableString(conflicting, "updated_at")
-                        ) <= 0 || retireRemoteApprovedLink(config, conflicting, local) == 0) {
-                            continue;
-                        }
-                    }
-                }
-                JSONObject insertPayload = local;
-                if ("product_nutrition_links".equals(table)) {
-                    // The remote RLS contract does not allow a client INSERT to claim
-                    // trusted PriceTrace specification metadata. Insert the owner-approved
-                    // link first, then apply the locally verified metadata through the
-                    // authenticated UPDATE path below.
-                    insertPayload = directInsertProductLinkPayload(local);
-                }
-                int inserted = insertRowIfAbsent(config, table, insertPayload);
-                pushed += inserted;
-                if (inserted > 0
-                        && "product_nutrition_links".equals(table)) {
-                    patchRowIfUnchanged(config, table, local, insertPayload, "revision");
-                }
-                continue;
-            }
-
-            String versionKey = usesRevision(table) ? "revision" : "updated_at";
-            if (compareRowVersions(local, remote, versionKey) <= 0) {
-                continue;
-            }
-            pushed += patchRowIfUnchanged(config, table, local, remote, versionKey);
-        }
-        return pushed;
-    }
-
-    private JSONArray getRows(SupabaseConfig config, String path) throws Exception {
-        final int pageSize = 500;
-        JSONArray allRows = new JSONArray();
-        for (int offset = 0; ; offset += pageSize) {
-            String separator = path.contains("?") ? "&" : "?";
-            String pagedPath = path + separator + "order=id.asc&limit=" + pageSize
-                    + "&offset=" + offset;
-            HttpURLConnection connection = openConnection(
-                    joinUrl(config.supabaseUrl, pagedPath),
-                    "GET",
-                    config
-            );
-            connection.setRequestProperty("Accept", "application/json");
-            String body = readResponseOrThrow(connection, 200, 206);
-            JSONArray page = body.isEmpty() ? new JSONArray() : new JSONArray(body);
-            for (int index = 0; index < page.length(); index++) {
-                allRows.put(page.get(index));
-            }
-            if (page.length() < pageSize) {
-                return allRows;
-            }
-        }
-    }
-
-    private Map<String, JSONObject> rowsById(JSONArray rows) throws JSONException {
-        Map<String, JSONObject> indexed = new LinkedHashMap<>();
-        for (int index = 0; index < rows.length(); index++) {
-            JSONObject row = rows.getJSONObject(index);
-            String id = nullableString(row, "id");
-            if (id != null) {
-                indexed.put(id, row);
-            }
-        }
-        return indexed;
-    }
-
-    private boolean usesRevision(String table) {
-        return "nutrition_foods".equals(table)
-                || "product_nutrition_links".equals(table);
-    }
-
-    private int compareRowVersions(JSONObject local, JSONObject remote, String versionKey) {
-        if ("revision".equals(versionKey)) {
-            int revisionComparison = Integer.compare(
-                    Math.max(1, local.optInt("revision", 1)),
-                    Math.max(1, remote.optInt("revision", 1))
-            );
-            if (revisionComparison != 0) {
-                return revisionComparison;
-            }
-        }
-        return compareVersions(
-                nullableString(local, "updated_at"),
-                nullableString(remote, "updated_at")
-        );
-    }
-
-    private int insertRowIfAbsent(
-            SupabaseConfig config,
-            String table,
-            JSONObject row
-    ) throws Exception {
-        HttpURLConnection connection = openConnection(
-                joinUrl(config.supabaseUrl, "/rest/v1/" + table + "?on_conflict=id"),
-                "POST",
-                config
-        );
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty(
-                "Prefer",
-                "resolution=ignore-duplicates,return=representation"
-        );
-        connection.setDoOutput(true);
-        JSONArray payload = new JSONArray();
-        payload.put(row);
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(payload.toString().getBytes(StandardCharsets.UTF_8));
-        }
-        String body = readResponseOrThrow(connection, 200, 201);
-        return body.isEmpty() ? 0 : new JSONArray(body).length();
-    }
-
-    private int patchRowIfUnchanged(
-            SupabaseConfig config,
-            String table,
-            JSONObject local,
-            JSONObject remote,
-            String versionKey
-    ) throws Exception {
-        String expected = "revision".equals(versionKey)
-                ? String.valueOf(Math.max(1, remote.optInt("revision", 1)))
-                : nullableString(remote, "updated_at");
-        String filter = expected == null ? "is.null" : "eq." + encode(expected);
-        String endpoint = joinUrl(
-                config.supabaseUrl,
-                "/rest/v1/" + table
-                        + "?id=eq." + encode(local.getString("id"))
-                        + "&owner_id=eq." + encode(config.effectiveUserId())
-                        + "&" + versionKey + "=" + filter
-        );
-        HttpURLConnection connection = openConnection(endpoint, "PATCH", config);
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("Prefer", "return=representation");
-        connection.setDoOutput(true);
-        JSONObject patch = new JSONObject(local.toString());
-        patch.remove("id");
-        patch.remove("owner_id");
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(patch.toString().getBytes(StandardCharsets.UTF_8));
-        }
-        String body = readResponseOrThrow(connection, 200);
-        return body.isEmpty() ? 0 : new JSONArray(body).length();
-    }
-
-    private boolean hasActiveApprovedLink(JSONObject row) {
-        return ProductNutritionLink.STATUS_APPROVED.equals(nullableString(row, "status"))
-                && nullableString(row, "deleted_at") == null;
-    }
-
-    static JSONObject directInsertProductLinkPayload(JSONObject row) throws JSONException {
-        JSONObject payload = new JSONObject(row.toString());
-        payload.put("catalog_product_revision", JSONObject.NULL);
-        payload.put("catalog_content_amount", JSONObject.NULL);
-        payload.put("catalog_content_unit", JSONObject.NULL);
-        payload.put("catalog_package_count", JSONObject.NULL);
-        return payload;
-    }
-
-    private JSONObject approvedSlotConflict(JSONArray remoteRows, JSONObject local)
-            throws JSONException {
-        String foodId = nullableString(local, "nutrition_food_id");
-        String localId = nullableString(local, "id");
-        for (int index = 0; index < remoteRows.length(); index++) {
-            JSONObject remote = remoteRows.getJSONObject(index);
-            if (hasActiveApprovedLink(remote)
-                    && foodId != null
-                    && foodId.equals(nullableString(remote, "nutrition_food_id"))
-                    && !localId.equals(nullableString(remote, "id"))) {
-                return remote;
-            }
-        }
-        return null;
-    }
-
-    private int retireRemoteApprovedLink(
-            SupabaseConfig config,
-            JSONObject remote,
-            JSONObject localReplacement
-    ) throws Exception {
-        String replacementTimestamp = emptyToDefault(
-                nullableString(localReplacement, "updated_at"),
-                now()
-        );
-        String endpoint = joinUrl(
-                config.supabaseUrl,
-                "/rest/v1/product_nutrition_links"
-                        + "?id=eq." + encode(remote.getString("id"))
-                        + "&owner_id=eq." + encode(config.effectiveUserId())
-                        + "&revision=eq." + Math.max(1, remote.optInt("revision", 1))
-        );
-        HttpURLConnection connection = openConnection(endpoint, "PATCH", config);
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setRequestProperty("Prefer", "return=representation");
-        connection.setDoOutput(true);
-        JSONObject patch = new JSONObject();
-        patch.put("deleted_at", replacementTimestamp);
-        patch.put("updated_at", replacementTimestamp);
-        patch.put("revision", Math.max(1, remote.optInt("revision", 1)) + 1);
-        try (OutputStream output = connection.getOutputStream()) {
-            output.write(patch.toString().getBytes(StandardCharsets.UTF_8));
-        }
-        String body = readResponseOrThrow(connection, 200);
-        return body.isEmpty() ? 0 : new JSONArray(body).length();
-    }
-
-    private HttpURLConnection openConnection(String endpoint, String method, SupabaseConfig config)
-            throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(endpoint).openConnection();
-        connection.setRequestMethod(method);
-        connection.setConnectTimeout(15000);
-        connection.setReadTimeout(20000);
-        connection.setRequestProperty("apikey", config.supabaseAnonKey);
-        String bearer = config.accessToken.isEmpty() ? config.supabaseAnonKey : config.accessToken;
-        connection.setRequestProperty("Authorization", "Bearer " + bearer);
-        return connection;
-    }
-
-    private String readResponseOrThrow(HttpURLConnection connection, int... okCodes) throws IOException {
-        int statusCode = connection.getResponseCode();
-        for (int okCode : okCodes) {
-            if (statusCode == okCode) {
-                return readStream(connection.getInputStream());
-            }
-        }
-        throw new IOException(
-                "Nutrition catalog sync failed (" + statusCode + "): " +
-                        readStream(connection.getErrorStream())
-        );
-    }
-
-    private String readStream(InputStream stream) throws IOException {
-        if (stream == null) {
-            return "";
-        }
-        StringBuilder builder = new StringBuilder();
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(stream, StandardCharsets.UTF_8)
-        )) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                builder.append(line);
-            }
-        }
-        return builder.toString();
-    }
-
-    private void putCursorValue(JSONObject row, String name, Cursor cursor, int index)
-            throws JSONException {
-        if (cursor.isNull(index)) {
-            row.put(name, JSONObject.NULL);
-            return;
-        }
-        switch (cursor.getType(index)) {
-            case Cursor.FIELD_TYPE_INTEGER:
-                row.put(name, cursor.getLong(index));
-                break;
-            case Cursor.FIELD_TYPE_FLOAT:
-                row.put(name, cursor.getDouble(index));
-                break;
-            default:
-                row.put(name, cursor.getString(index));
-                break;
         }
     }
 
@@ -3592,29 +2705,16 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         return !object.has(key) || object.isNull(key) ? null : object.optString(key, null);
     }
 
-    private static void putNullable(JSONObject object, String key, String value)
-            throws JSONException {
-        object.put(key, value == null ? JSONObject.NULL : value);
+    private static String nullableString(Cursor cursor, int index) {
+        return cursor.isNull(index) ? null : cursor.getString(index);
     }
 
-    private static String requireReturnedUuid(JSONObject object, String key) throws IOException {
-        String value = nullableString(object, key);
-        if (value == null) {
-            throw new IOException("PT 등록 응답에 " + key + "가 없습니다.");
-        }
-        try {
-            return UUID.fromString(value).toString();
-        } catch (IllegalArgumentException error) {
-            throw new IOException("PT 등록 응답의 " + key + "가 UUID가 아닙니다.", error);
-        }
+    private static Double nullableDouble(Cursor cursor, int index) {
+        return cursor.isNull(index) ? null : cursor.getDouble(index);
     }
 
-    private static Double nullableDouble(JSONObject object, String key) {
-        if (!object.has(key) || object.isNull(key)) {
-            return null;
-        }
-        double value = object.optDouble(key, Double.NaN);
-        return Double.isNaN(value) ? null : value;
+    private static Long nullableLong(Cursor cursor, int index) {
+        return cursor.isNull(index) ? null : cursor.getLong(index);
     }
 
     private static String requireName(String value) {
@@ -3627,7 +2727,7 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
 
     private static String normalizeUserId(String value) {
         String normalized = value == null ? "" : value.trim();
-        return normalized.isEmpty() ? SupabaseConfig.DEFAULT_USER_ID : normalized;
+        return normalized.isEmpty() ? "local-user" : normalized;
     }
 
     private static String emptyToDefault(String value, String fallback) {
@@ -3769,17 +2869,6 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         }
     }
 
-    private static String encode(String value) throws Exception {
-        return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
-    }
-
-    private static String joinUrl(String baseUrl, String path) {
-        if (baseUrl.endsWith("/")) {
-            return baseUrl.substring(0, baseUrl.length() - 1) + path;
-        }
-        return baseUrl + path;
-    }
-
     private static String now() {
         return OffsetDateTime.now().toString();
     }
@@ -3796,47 +2885,4 @@ public final class NutritionCatalogRepository implements com.yeonsik.fitnessapp.
         }
     }
 
-    public interface SyncCallback {
-        void onComplete(int pushedRows, int pulledRows);
-
-        void onError(Exception error);
-    }
-
-    public interface PublicationCallback {
-        void onComplete(PublicationState state);
-
-        void onError(Exception error);
-    }
-
-    public static final class PublicationState {
-        public final String nutritionFoodId;
-        public final String catalogProductId;
-        public final boolean isPublic;
-        public final int publicationRevision;
-        public final String publishedAt;
-
-        PublicationState(
-                String nutritionFoodId,
-                String catalogProductId,
-                boolean isPublic,
-                int publicationRevision,
-                String publishedAt
-        ) {
-            this.nutritionFoodId = nutritionFoodId;
-            this.catalogProductId = catalogProductId;
-            this.isPublic = isPublic;
-            this.publicationRevision = publicationRevision;
-            this.publishedAt = publishedAt;
-        }
-    }
-
-    public static final class CatalogSyncResult {
-        public final int pushedRows;
-        public final int pulledRows;
-
-        public CatalogSyncResult(int pushedRows, int pulledRows) {
-            this.pushedRows = pushedRows;
-            this.pulledRows = pulledRows;
-        }
-    }
 }
