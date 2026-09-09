@@ -8,7 +8,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -18,32 +17,23 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
-import com.yeonsik.fitnessapp.BuildConfig
-import com.yeonsik.fitnessapp.app.navigation.*
-import com.yeonsik.fitnessapp.cardio.*
-import com.yeonsik.fitnessapp.config.*
-import com.yeonsik.fitnessapp.core.account.*
 import com.yeonsik.fitnessapp.core.ui.*
-import com.yeonsik.fitnessapp.data.*
-import com.yeonsik.fitnessapp.feature.cardio.model.*
-import com.yeonsik.fitnessapp.feature.cardio.ui.*
-import com.yeonsik.fitnessapp.feature.development.ui.*
-import com.yeonsik.fitnessapp.feature.exercise.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
-import com.yeonsik.fitnessapp.feature.meal.ui.*
 import com.yeonsik.fitnessapp.feature.routine.ui.*
-import com.yeonsik.fitnessapp.feature.supplement.ui.*
+import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitnessapp.data.MassFormatter
+import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.feature.workout.model.*
-import com.yeonsik.fitnessapp.feature.workout.ui.*
 import com.yeonsik.fitnessapp.state.FitnessScreen
-import com.yeonsik.fitnessapp.ui.*
-import kotlinx.coroutines.delay
-import java.time.LocalDate
 
 @Composable
-internal fun WorkoutOverview(host: ScreenHost, ownerId: String, today: String, unit: MassUnit) {
-    val state by host.homeViewModel().uiState.observeAsState(HomeUiState.Idle)
-    LaunchedEffect(ownerId, today) { host.homeViewModel().enter(AccountScope(ownerId), today) }
+internal fun WorkoutOverview(
+    state: HomeUiState,
+    ownerId: String,
+    today: String,
+    unit: MassUnit,
+    actions: WorkoutOverviewActions
+) {
     val ready = state as? HomeUiState.Ready
     if (ready == null || ready.snapshot.ownerId != ownerId) {
         StateMessage("운동", "오늘 기록을 불러오는 중입니다.")
@@ -57,24 +47,27 @@ internal fun WorkoutOverview(host: ScreenHost, ownerId: String, today: String, u
         second = { FitnessFactCard("식사", "${snapshot.mealCounts[today] ?: 0}끼", "오늘") }
     )
     if (snapshot.inProgressSessionId != null) {
-        AppButton(onClick = { host.continueWorkoutIfAvailable() }, Modifier.fillMaxWidth()) {
+        AppButton(onClick = actions::continueWorkout, Modifier.fillMaxWidth()) {
             Text("진행 중인 운동 이어가기")
         }
     }
-    AppButton(onClick = { host.navigate(FitnessScreen.STRENGTH) }, Modifier.fillMaxWidth()) {
+    AppButton(onClick = { actions.navigate(FitnessScreen.STRENGTH) }, Modifier.fillMaxWidth()) {
         Text("무산소 운동")
     }
-    AppOutlinedButton(onClick = { host.navigate(FitnessScreen.CARDIO) }, Modifier.fillMaxWidth()) {
+    AppOutlinedButton(onClick = { actions.navigate(FitnessScreen.CARDIO) }, Modifier.fillMaxWidth()) {
         Text("유산소 운동")
     }
-    AppOutlinedButton(onClick = { host.showBodyMetricDialog() }, Modifier.fillMaxWidth()) { Text("체중 기록") }
-    AppOutlinedButton(onClick = { host.openMealManagement() }, Modifier.fillMaxWidth()) { Text("식사 기록") }
+    AppOutlinedButton(onClick = actions::showBodyMetric, Modifier.fillMaxWidth()) { Text("체중 기록") }
+    AppOutlinedButton(onClick = actions::openMeals, Modifier.fillMaxWidth()) { Text("식사 기록") }
 }
 
 @Composable
-internal fun StrengthScreen(host: ScreenHost, ownerId: String) {
-    val home by host.homeViewModel().uiState.observeAsState(HomeUiState.Idle)
-    val routine by host.routineEntryViewModel().uiState.observeAsState(RoutineEntryUiState.Idle)
+internal fun StrengthScreen(
+    home: HomeUiState,
+    routine: RoutineEntryUiState,
+    ownerId: String,
+    actions: StrengthActions
+) {
     val ready = home as? HomeUiState.Ready
     val routineReady = routine as? RoutineEntryUiState.Ready
     var newRoutineName by rememberSaveable { mutableStateOf("") }
@@ -91,25 +84,25 @@ internal fun StrengthScreen(host: ScreenHost, ownerId: String) {
     )
     AppOutlinedButton(
         onClick = {
-            host.routineEntryViewModel().createRoutine(AccountScope(ownerId), newRoutineName)
+            actions.createRoutine(newRoutineName)
             newRoutineName = ""
         },
         enabled = newRoutineName.isNotBlank(),
         modifier = Modifier.fillMaxWidth()
     ) { Text("루틴 만들기") }
-    AppButton(onClick = { host.startEmptyWorkout() }, Modifier.fillMaxWidth()) { Text("루틴 없이 운동 시작") }
-    AppOutlinedButton(onClick = { host.showPastWorkoutDialog() }, Modifier.fillMaxWidth()) { Text("지난 운동 수동 등록") }
+    AppButton(onClick = actions::startEmptyWorkout, Modifier.fillMaxWidth()) { Text("루틴 없이 운동 시작") }
+    AppOutlinedButton(onClick = actions::showPastWorkout, Modifier.fillMaxWidth()) { Text("지난 운동 수동 등록") }
     ready.snapshot.routines.forEach { routineRow ->
         AppCard(Modifier.fillMaxWidth().clickable {
-            host.selectRoutine(routineRow.id)
-            host.navigate(FitnessScreen.ROUTINE_DETAIL)
+            actions.selectRoutine(routineRow.id)
+            actions.navigate(FitnessScreen.ROUTINE_DETAIL)
         }) {
             Column(Modifier.padding(AppSpacing.card)) {
                 Text(routineRow.name, fontWeight = FontWeight.Bold)
                 Text("${routineRow.exerciseCount}개 종목", style = MaterialTheme.typography.bodySmall)
                 AppButton(onClick = {
-                    host.selectRoutine(routineRow.id)
-                    host.startRoutineWorkout(ready.snapshot.routineExercises[routineRow.id].orEmpty())
+                    actions.selectRoutine(routineRow.id)
+                    actions.startRoutineWorkout(ready.snapshot.routineExercises[routineRow.id].orEmpty())
                 }) { Text("이 루틴으로 시작") }
             }
         }
@@ -117,23 +110,31 @@ internal fun StrengthScreen(host: ScreenHost, ownerId: String) {
 }
 
 @Composable
-internal fun WorkoutSessionScreen(host: ScreenHost, ownerId: String, unit: MassUnit) {
-    val state by host.workoutSessionViewModel().uiState.observeAsState(WorkoutSessionUiState.Idle)
+internal fun WorkoutSessionScreen(
+    state: WorkoutSessionUiState,
+    ownerId: String,
+    unit: MassUnit,
+    onExercise: (String) -> Unit
+) {
     val ready = state as? WorkoutSessionUiState.Ready
     if (ready == null || ready.ownerId != ownerId) {
         StateMessage("운동 진행", "운동을 불러오는 중입니다.")
         return
     }
     // Back/add/finish stay in the existing fixed Activity bars, with their original callbacks.
-    AppWorkoutSessionContent(ready.session, unit) { host.openWorkoutExerciseDetail(it) }
+    AppWorkoutSessionContent(ready.session, unit, onExercise)
 }
 
 @Composable
-internal fun WorkoutDetailScreen(host: ScreenHost, ownerId: String, unit: MassUnit) {
+internal fun WorkoutDetailScreen(
+    state: WorkoutExerciseDetailUiState,
+    ownerId: String,
+    unit: MassUnit,
+    actions: WorkoutDetailActions
+) {
     val drafts = rememberSaveableStateHolder()
-    val state by host.workoutExerciseDetailViewModel().uiState.observeAsState(WorkoutExerciseDetailUiState.Idle)
     val ready = state as? WorkoutExerciseDetailUiState.Ready
-    AppHeader(ready?.detail?.activeExercise?.name ?: "운동 종목", back = { host.back() })
+    AppHeader(ready?.detail?.activeExercise?.name ?: "운동 종목", back = actions::back)
     if (ready == null || ready.ownerId != ownerId) {
         Text("세트를 불러오는 중입니다.")
         return
@@ -141,23 +142,33 @@ internal fun WorkoutDetailScreen(host: ScreenHost, ownerId: String, unit: MassUn
     val detail = ready.detail
     detail.sets.forEach { set ->
         drafts.SaveableStateProvider("$ownerId:${detail.recordId}:${set.id}") {
-            WorkoutSetEditor(host, ownerId, detail.recordId, detail.activeExercise.recordType, detail.allowedLoadStates[detail.activeExercise.recordType].orEmpty(), set, unit)
+            WorkoutSetEditor(
+                actions,
+                ownerId,
+                detail.recordId,
+                detail.activeExercise.recordType,
+                detail.allowedLoadStates[detail.activeExercise.recordType].orEmpty(),
+                set,
+                unit
+            )
         }
     }
     AppOutlinedButton(onClick = {
         val next = (detail.sets.maxOfOrNull { it.setIndex } ?: 0) + 1
-        host.workoutExerciseDetailViewModel().addTypedSet(
-            AccountScope(ownerId), detail.recordId, detail.activeExercise.id, next,
+        actions.addSet(
+            detail.recordId,
+            detail.activeExercise.id,
+            next,
             WorkoutSetInput(null, null, null, null, null, null, null, 90, false, null, null, unit)
-        ) { ok -> if (ok) host.refreshWorkoutExerciseDetail() else host.toast("세트를 추가하지 못했습니다.") }
+        ) { ok -> if (ok) actions.refresh() else actions.toast("세트를 추가하지 못했습니다.") }
     }, Modifier.fillMaxWidth()) { Text("세트 추가") }
-    AppOutlinedButton(onClick = { host.openWorkoutExerciseReplacementPicker(detail.activeExercise.id) }, Modifier.fillMaxWidth()) { Text("종목 교체") }
+    AppOutlinedButton(onClick = { actions.replaceExercise(detail.activeExercise.id) }, Modifier.fillMaxWidth()) { Text("종목 교체") }
 }
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
 private fun WorkoutSetEditor(
-    host: ScreenHost,
+    actions: WorkoutDetailActions,
     ownerId: String,
     recordId: String,
     rawRecordType: String,
@@ -244,16 +255,16 @@ private fun WorkoutSetEditor(
                         },
                         unit
                     )
-                    host.workoutExerciseDetailViewModel().updateTypedSet(AccountScope(ownerId), recordId, set.id, input) { ok ->
+                    actions.updateSet(recordId, set.id, input) { ok ->
                         if (ok) {
-                            if (completed) host.startRestTimer(rest.toIntOrNull())
-                            host.refreshWorkoutExerciseDetail()
-                        } else host.toast("세트를 저장하지 못했습니다.")
+                            if (completed) actions.startRestTimer(rest.toIntOrNull())
+                            actions.refresh()
+                        } else actions.toast("세트를 저장하지 못했습니다.")
                     }
                 }) { Text("저장") }
                 AppOutlinedButton(destructive = true, onClick = {
-                    host.workoutExerciseDetailViewModel().deleteSet(AccountScope(ownerId), recordId, set.id) {
-                        if (it) host.refreshWorkoutExerciseDetail() else host.toast("세트를 삭제하지 못했습니다.")
+                    actions.deleteSet(recordId, set.id) {
+                        if (it) actions.refresh() else actions.toast("세트를 삭제하지 못했습니다.")
                     }
                 }) { Text("삭제") }
             }
@@ -262,10 +273,14 @@ private fun WorkoutSetEditor(
 }
 
 @Composable
-internal fun WorkoutSummaryScreen(host: ScreenHost, ownerId: String, unit: MassUnit) {
-    val state by host.workoutSessionViewModel().uiState.observeAsState(WorkoutSessionUiState.Idle)
+internal fun WorkoutSummaryScreen(
+    state: WorkoutSessionUiState,
+    ownerId: String,
+    unit: MassUnit,
+    onBack: () -> Unit
+) {
     val ready = state as? WorkoutSessionUiState.Ready
-    AppHeader("운동 요약", back = { host.back() })
+    AppHeader("운동 요약", back = onBack)
     if (ready == null || ready.ownerId != ownerId) {
         Text("요약을 불러오는 중입니다.")
         return
