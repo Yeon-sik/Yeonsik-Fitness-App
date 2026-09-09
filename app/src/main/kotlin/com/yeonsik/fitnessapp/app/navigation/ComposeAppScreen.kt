@@ -56,9 +56,24 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
         .observeAsState(CardioRouteUiState.Idle)
     val developmentState by host.developmentViewModel().uiState
         .observeAsState(DevelopmentUiState.Idle)
+    val mealState by host.mealViewModel().uiState.observeAsState(MealUiState.Idle)
+    val mealPriceTraceState by host.mealViewModel().priceTraceState
+        .observeAsState(PriceTraceUiState.Idle)
     LaunchedEffect(screen, ownerId, today) {
-        if (screen == FitnessScreen.DEVELOPMENT) {
-            host.developmentViewModel().enter(AccountScope(ownerId), today)
+        when (screen) {
+            FitnessScreen.DEVELOPMENT ->
+                host.developmentViewModel().enter(AccountScope(ownerId), today)
+            FitnessScreen.MEALS -> {
+                host.homeViewModel().enter(AccountScope(ownerId), today)
+                host.mealViewModel().enter(AccountScope(ownerId), today)
+            }
+            else -> Unit
+        }
+    }
+    val mealNotice = (mealState as? MealUiState.Ready)?.notice
+    LaunchedEffect(screen, ownerId, today, mealNotice) {
+        if (screen == FitnessScreen.MEALS && mealNotice != null) {
+            host.homeViewModel().enter(AccountScope(ownerId), today)
         }
     }
     val cardioActions = object : CardioScreenActions {
@@ -73,6 +88,55 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
         override fun loadRoute(recordId: String) {
             host.cardioSessionViewModel().loadRoute(AccountScope(ownerId), recordId)
         }
+    }
+    val mealActions = object : MealScreenActions {
+        override fun back() { host.back() }
+        override fun startDraft() = host.mealViewModel().startDraft()
+        override fun closeDraft() = host.mealViewModel().closeDraft()
+        override fun chooseFood() = host.mealViewModel().chooseFood()
+        override fun chooseDiningOut() = host.mealViewModel().chooseDiningOut()
+        override fun searchFood(query: String) = host.mealViewModel().search(query)
+        override fun selectFood(food: com.yeonsik.fitnessapp.data.NutritionFood) {
+            host.mealViewModel().selectFood(food)
+        }
+        override fun updateQuantity(value: String) = host.mealViewModel().updateQuantity(value)
+        override fun updateTime(value: String) = host.mealViewModel().updateTime(value)
+        override fun saveFood() = host.mealViewModel().saveFood(AccountScope(ownerId)) { }
+        override fun updateStore(value: String) = host.mealViewModel().updateStore(value)
+        override fun updateBranch(value: String) = host.mealViewModel().updateBranch(value)
+        override fun updateMenu(value: String) = host.mealViewModel().updateMenu(value)
+        override fun updateCalories(value: String) = host.mealViewModel().updateCalories(value)
+        override fun updateCarbs(value: String) = host.mealViewModel().updateCarbs(value)
+        override fun updateProtein(value: String) = host.mealViewModel().updateProtein(value)
+        override fun updateFat(value: String) = host.mealViewModel().updateFat(value)
+        override fun updateSodium(value: String) = host.mealViewModel().updateSodium(value)
+        override fun updateSugars(value: String) = host.mealViewModel().updateSugars(value)
+        override fun updateSaturatedFat(value: String) = host.mealViewModel().updateSaturatedFat(value)
+        override fun updatePriceTraceQuery(value: String) =
+            host.mealViewModel().updatePriceTraceQuery(value)
+        override fun searchPriceTraceRestaurants() =
+            host.mealViewModel().searchPriceTraceRestaurants()
+        override fun loadPriceTraceRestaurant(restaurantId: String) =
+            host.mealViewModel().loadPriceTraceRestaurant(restaurantId)
+        override fun applyPriceTraceSelection(
+            restaurantId: String,
+            restaurantName: String,
+            locationId: String,
+            branchName: String,
+            menuId: String,
+            menuName: String,
+            catalogProductId: String
+        ) = host.mealViewModel().applyPriceTraceSelection(
+            restaurantId,
+            restaurantName,
+            locationId,
+            branchName,
+            menuId,
+            menuName,
+            catalogProductId
+        )
+        override fun saveDiningOut() = host.mealViewModel().save(AccountScope(ownerId)) { }
+        override fun showBodyMetric() = host.showBodyMetricDialog(today, null)
     }
     Column(
         Modifier.fillMaxWidth(),
@@ -195,7 +259,15 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
                 ownerId,
                 cardioActions
             )
-            FitnessScreen.MEALS -> MealScreen(host, ownerId, today, unit)
+            FitnessScreen.MEALS -> MealScreen(
+                homeState,
+                mealState,
+                mealPriceTraceState,
+                ownerId,
+                today,
+                unit,
+                mealActions
+            )
             FitnessScreen.SUPPLEMENTS -> SupplementScreen(host, ownerId, today)
             FitnessScreen.ROUTINE_DETAIL -> RoutineDetailScreen(host, ownerId)
             FitnessScreen.ROUTINE_ADD,

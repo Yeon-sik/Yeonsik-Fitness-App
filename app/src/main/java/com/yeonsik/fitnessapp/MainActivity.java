@@ -677,7 +677,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         handle -> new MealViewModel(
                                 handle,
                                 appContainer.getMealRecordRepositoryApi(),
-                                appContainer.getNutritionCatalogRepositoryApi()
+                                appContainer.getNutritionCatalogRepositoryApi(),
+                                appContainer.getNutritionIntegrationService()
                         )
                 )
         ).get(MealViewModel.class);
@@ -3248,46 +3249,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 ProductReadV1 product = nutritionIntegrationService.loadProduct(catalogProductId);
                 if (callback != null) {
                     callback.onComplete(product);
-                }
-            } catch (Exception error) {
-                if (callback != null) {
-                    callback.onError(error);
-                }
-            }
-        });
-    }
-
-    @Override
-    public void searchPriceTraceRestaurants(String query, RestaurantSearchCallback callback) {
-        executor.execute(() -> {
-            try {
-                List<NutritionIntegrationService.RestaurantSummary> restaurants =
-                        nutritionIntegrationService.searchRestaurants(query);
-                if (callback != null) {
-                    callback.onComplete(restaurants);
-                }
-            } catch (Exception error) {
-                Log.w(
-                        PRICE_TRACE_LOG_TAG,
-                        "restaurant-directory.v1 search failed: "
-                                + error.getClass().getSimpleName(),
-                        error
-                );
-                if (callback != null) {
-                    callback.onError(error);
-                }
-            }
-        });
-    }
-
-    @Override
-    public void loadPriceTraceRestaurant(String restaurantId, RestaurantLoadCallback callback) {
-        executor.execute(() -> {
-            try {
-                NutritionIntegrationService.RestaurantDetail restaurant =
-                        nutritionIntegrationService.loadRestaurant(restaurantId);
-                if (callback != null) {
-                    callback.onComplete(restaurant);
                 }
             } catch (Exception error) {
                 if (callback != null) {

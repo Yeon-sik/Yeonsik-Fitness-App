@@ -8,6 +8,7 @@ import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.NutritionFood
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
+import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ExecutorService
@@ -45,8 +46,21 @@ sealed interface MealUiState {
         val error: String? = null,
         val notice: String? = null,
         val selectedFood: NutritionFood? = null,
-        val quantity: String = ""
+        val quantity: String = "",
+        val priceTraceQuery: String = ""
     ) : MealUiState
+}
+
+sealed interface PriceTraceUiState {
+    data object Idle : PriceTraceUiState
+    data class Ready(
+        val ownerId: String,
+        val query: String = "",
+        val restaurants: List<NutritionIntegrationService.RestaurantSummary> = emptyList(),
+        val detail: NutritionIntegrationService.RestaurantDetail? = null,
+        val loading: Boolean = false,
+        val error: String? = null
+    ) : PriceTraceUiState
 }
 
 /** Owns meal editor/search state; Compose only renders state and emits actions. */
@@ -54,13 +68,17 @@ class MealViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
     private val mealRepository: MealRecordRepositoryApi,
     private val nutritionCatalog: NutritionCatalogRepositoryApi,
+    private val nutritionIntegration: NutritionIntegrationService,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : ViewModel() {
     private val mutableState = MutableLiveData<MealUiState>(MealUiState.Idle)
     val uiState: LiveData<MealUiState> = mutableState
+    private val mutablePriceTraceState = MutableLiveData<PriceTraceUiState>(PriceTraceUiState.Idle)
+    val priceTraceState: LiveData<PriceTraceUiState> = mutablePriceTraceState
     private var ownerId = ""
     private var date = ""
     private var requestVersion = 0L
+    private var priceTraceRequestVersion = 0L
     private var selectedFood: NutritionFood? = null
 
     fun enter(scope: AccountScope, date: String) {
@@ -69,6 +87,10 @@ class MealViewModel @JvmOverloads constructor(
         mealRepository.setUserId(scope.ownerId)
         val request = ++requestVersion
         mutableState.value = ready().copy(ownerId = scope.ownerId, date = date)
+        mutablePriceTraceState.value = PriceTraceUiState.Ready(
+            ownerId = scope.ownerId,
+            query = savedStateHandle[KEY_PRICE_TRACE_QUERY] ?: ""
+        )
         val selectedId = savedStateHandle.get<String>(KEY_FOOD_ID).orEmpty()
         if (selectedFood == null && selectedId.isNotBlank()) {
             executor.execute {
@@ -103,6 +125,7 @@ class MealViewModel @JvmOverloads constructor(
         savedStateHandle.remove<String>(KEY_RESTAURANT_LOCATION_ID)
         savedStateHandle.remove<String>(KEY_RESTAURANT_MENU_ID)
         savedStateHandle.remove<String>(KEY_CATALOG_PRODUCT_ID)
+        savedStateHandle.remove<String>(KEY_PRICE_TRACE_QUERY)
         selectedFood = null
         mutableState.value = ready().copy(editing = true, diningOut = true, draft = DiningOutDraft())
     }
@@ -118,6 +141,76 @@ class MealViewModel @JvmOverloads constructor(
     fun updateSugars(value: String) = draft(KEY_SUGARS, value)
     fun updateSaturatedFat(value: String) = draft(KEY_SATURATED_FAT, value)
     fun updateTime(value: String) = draft(KEY_TIME, value)
+
+    fun updatePriceTraceQuery(value: String) {
+        savedStateHandle[KEY_PRICE_TRACE_QUERY] = value
+        update { it.copy(priceTraceQuery = value) }
+        val state = priceTraceReady()
+        mutablePriceTraceState.value = state.copy(query = value, error = null)
+    }
+
+    fun searchPriceTraceRestaurants() {
+        val query = priceTraceReady().query.trim()
+        if (query.isEmpty()) {
+            mutablePriceTraceState.value = priceTraceReady().copy(error = "식당 검색어를 입력하세요.")
+            return
+        }
+        val request = ++priceTraceRequestVersion
+        mutablePriceTraceState.value = priceTraceReady().copy(
+            loading = true,
+            error = null,
+            detail = null
+        )
+        executor.execute {
+            try {
+                val restaurants = nutritionIntegration.searchRestaurants(query)
+                if (request == priceTraceRequestVersion) {
+                    mutablePriceTraceState.postValue(
+                        priceTraceReady().copy(
+                            query = query,
+                            restaurants = restaurants,
+                            detail = null,
+                            loading = false,
+                            error = null
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                if (request == priceTraceRequestVersion) {
+                    mutablePriceTraceState.postValue(
+                        priceTraceReady().copy(
+                            loading = false,
+                            error = error.message ?: "PriceTrace 식당을 찾지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun loadPriceTraceRestaurant(restaurantId: String) {
+        val request = ++priceTraceRequestVersion
+        mutablePriceTraceState.value = priceTraceReady().copy(loading = true, error = null)
+        executor.execute {
+            try {
+                val detail = nutritionIntegration.loadRestaurant(restaurantId)
+                if (request == priceTraceRequestVersion) {
+                    mutablePriceTraceState.postValue(
+                        priceTraceReady().copy(detail = detail, loading = false, error = null)
+                    )
+                }
+            } catch (error: Exception) {
+                if (request == priceTraceRequestVersion) {
+                    mutablePriceTraceState.postValue(
+                        priceTraceReady().copy(
+                            loading = false,
+                            error = error.message ?: "PriceTrace 메뉴를 불러오지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
 
     fun applyPriceTraceSelection(
         restaurantId: String,
@@ -280,12 +373,17 @@ class MealViewModel @JvmOverloads constructor(
         date = date,
         editing = false,
         diningOut = false,
-        query = savedStateHandle[KEY_QUERY] ?: "",
-        searchResults = emptyList(),
-        draft = savedDraft(),
-        selectedFood = selectedFood,
-        quantity = savedStateHandle[KEY_QUANTITY] ?: ""
+            query = savedStateHandle[KEY_QUERY] ?: "",
+            searchResults = emptyList(),
+            draft = savedDraft(),
+            selectedFood = selectedFood,
+        quantity = savedStateHandle[KEY_QUANTITY] ?: "",
+        priceTraceQuery = savedStateHandle[KEY_PRICE_TRACE_QUERY] ?: ""
     )
+
+    private fun priceTraceReady(): PriceTraceUiState.Ready =
+        (mutablePriceTraceState.value as? PriceTraceUiState.Ready)
+            ?: PriceTraceUiState.Ready(ownerId = ownerId)
 
     private fun savedDraft() = DiningOutDraft(
         savedStateHandle[KEY_STORE] ?: "", savedStateHandle[KEY_BRANCH] ?: "",
@@ -304,7 +402,7 @@ class MealViewModel @JvmOverloads constructor(
         listOf(KEY_STORE, KEY_BRANCH, KEY_MENU, KEY_CALORIES, KEY_CARBS, KEY_PROTEIN,
             KEY_FAT, KEY_SODIUM, KEY_SUGARS, KEY_SATURATED_FAT, KEY_TIME, KEY_QUERY,
             KEY_FOOD_ID, KEY_QUANTITY, KEY_RESTAURANT_ID, KEY_RESTAURANT_LOCATION_ID,
-            KEY_RESTAURANT_MENU_ID, KEY_CATALOG_PRODUCT_ID)
+            KEY_RESTAURANT_MENU_ID, KEY_CATALOG_PRODUCT_ID, KEY_PRICE_TRACE_QUERY)
             .forEach { savedStateHandle.remove<String>(it) }
     }
 
@@ -344,6 +442,7 @@ class MealViewModel @JvmOverloads constructor(
         const val KEY_RESTAURANT_LOCATION_ID = "meal.restaurant_location_id"
         const val KEY_RESTAURANT_MENU_ID = "meal.restaurant_menu_id"
         const val KEY_CATALOG_PRODUCT_ID = "meal.catalog_product_id"
+        const val KEY_PRICE_TRACE_QUERY = "meal.price_trace_query"
         fun number(value: Double): String = if (value % 1.0 == 0.0) value.toInt().toString() else value.toString()
     }
 }

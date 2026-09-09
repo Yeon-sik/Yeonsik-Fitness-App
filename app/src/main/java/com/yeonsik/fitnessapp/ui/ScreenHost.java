@@ -218,10 +218,6 @@ public interface ScreenHost {
 
     void loadPriceTraceProduct(String catalogProductId, ProductLoadCallback callback);
 
-    void searchPriceTraceRestaurants(String query, RestaurantSearchCallback callback);
-
-    void loadPriceTraceRestaurant(String restaurantId, RestaurantLoadCallback callback);
-
     void loadPublicProductNutrition(
             String catalogProductId,
             PublicNutritionCallback callback
@@ -260,18 +256,6 @@ public interface ScreenHost {
 
     interface ProductLoadCallback {
         void onComplete(ProductReadV1 product);
-
-        void onError(Exception error);
-    }
-
-    interface RestaurantSearchCallback {
-        void onComplete(List<NutritionIntegrationService.RestaurantSummary> restaurants);
-
-        void onError(Exception error);
-    }
-
-    interface RestaurantLoadCallback {
-        void onComplete(NutritionIntegrationService.RestaurantDetail restaurant);
 
         void onError(Exception error);
     }
