@@ -71,6 +71,9 @@ import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionAction;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionActionEvent;
+import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionActionOutcome;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
 import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
@@ -360,7 +363,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         handle -> new WorkoutSessionViewModel(
                                 handle,
                                 appContainer.getWorkoutRepository(),
-                                appContainer.getCompleteWorkout()
+                                appContainer.getCompleteWorkout(),
+                                appContainer.getWorkoutSessionApplicationService()
                         )
                 )
         ).get(WorkoutSessionViewModel.class);
@@ -406,6 +410,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 }
             }
         });
+        workoutSessionViewModel.getActionState().observe(this, this::handleWorkoutSessionAction);
         workoutExerciseDetailViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -593,6 +598,78 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         )
                 )
         ).get(MealViewModel.class);
+    }
+
+    /**
+     * Applies one-shot workout action results. The ViewModel owns the database work; this
+     * Activity only performs platform navigation, confirmation feedback, and legacy chrome
+     * updates until U3 moves those concerns into the Compose root.
+     */
+    private void handleWorkoutSessionAction(WorkoutSessionActionEvent event) {
+        if (event == null
+                || !currentOwnerId().equals(event.getOwnerId())
+                || !event.consume()) {
+            return;
+        }
+        WorkoutSessionActionOutcome outcome = event.getOutcome();
+        if (outcome == WorkoutSessionActionOutcome.FAILURE
+                || outcome == WorkoutSessionActionOutcome.NONE) {
+            toast(event.getMessage() == null
+                    ? "운동 작업을 완료하지 못했습니다."
+                    : event.getMessage());
+            return;
+        }
+
+        String recordId = event.getRecordId();
+        if (recordId == null) {
+            toast("운동 기록을 찾지 못했습니다.");
+            return;
+        }
+
+        if (outcome == WorkoutSessionActionOutcome.OPEN_EXISTING) {
+            knownInProgressRecordId = recordId;
+            if (event.getMessage() != null) {
+                toast(event.getMessage());
+            }
+            if (event.getAction() == WorkoutSessionAction.OPEN_RECORD) {
+                if (event.getCardioSession()) {
+                    openCardioSummary(recordId);
+                } else {
+                    openWorkoutSession(recordId);
+                }
+            } else if (event.getCardioSession()) {
+                openCardioSession(recordId);
+            } else {
+                openWorkoutSession(recordId);
+            }
+            return;
+        }
+
+        if (outcome == WorkoutSessionActionOutcome.CREATED) {
+            knownInProgressRecordId = recordId;
+            if (event.getAction() == WorkoutSessionAction.START_ROUTINE) {
+                toast("루틴 운동을 시작했습니다.");
+            } else if (event.getAction() == WorkoutSessionAction.START_MANUAL_PAST) {
+                toast("세트와 횟수를 입력한 뒤 운동 완료를 누르세요.");
+            }
+            openWorkoutSession(recordId);
+            return;
+        }
+
+        if (outcome == WorkoutSessionActionOutcome.DELETED) {
+            if (recordId.equals(knownInProgressRecordId)) {
+                knownInProgressRecordId = null;
+            }
+            sessionState.clearIfMatches(recordId);
+            toast("운동 기록을 삭제했습니다.");
+            if (currentScreen == FitnessScreen.RECORDS) {
+                render();
+            } else {
+                replace(event.getCardioSession()
+                        ? FitnessScreen.CARDIO
+                        : FitnessScreen.STRENGTH);
+            }
+        }
     }
 
     @Override
@@ -1731,24 +1808,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         if (recordId == null) {
             return;
         }
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                boolean cardioSession = workoutSessionApplicationService.isCardioSession(
-                        new AccountScope(ownerId),
-                        recordId
-                );
-                runOnUiThread(() -> {
-                    if (cardioSession) {
-                        openCardioSummary(recordId);
-                    } else {
-                        openWorkoutSession(recordId);
-                    }
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("기록을 열지 못했습니다."));
-            }
-        });
+        workoutSessionViewModel.openRecord(new AccountScope(currentOwnerId()), recordId);
     }
 
     @Override
@@ -1775,32 +1835,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void continueWorkoutIfAvailable() {
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                String recordId = workoutSessionApplicationService.latestInProgress(
-                        new AccountScope(ownerId)
-                );
-                if (recordId == null) {
-                    runOnUiThread(() -> toast("진행 중인 운동이 없습니다."));
-                    return;
-                }
-                boolean cardioSession = workoutSessionApplicationService.isCardioSession(
-                        new AccountScope(ownerId),
-                        recordId
-                );
-                runOnUiThread(() -> {
-                    knownInProgressRecordId = recordId;
-                    if (cardioSession) {
-                        openCardioSession(recordId);
-                    } else {
-                        openWorkoutSession(recordId);
-                    }
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("진행 중인 운동을 찾지 못했습니다."));
-            }
-        });
+        workoutSessionViewModel.continueIfAvailable(new AccountScope(currentOwnerId()));
     }
 
     @Override
@@ -1815,40 +1850,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         String date = today();
         String title = routineNameForStart();
         String routineId = selectedRoutineId;
-        executor.execute(() -> {
-            try {
-                AccountScope scope = new AccountScope(ownerId);
-                String activeRecordId = workoutSessionApplicationService.latestInProgress(scope);
-                if (activeRecordId != null) {
-                    boolean cardioSession = workoutSessionApplicationService.isCardioSession(
-                            scope,
-                            activeRecordId
-                    );
-                    runOnUiThread(() -> {
-                        knownInProgressRecordId = activeRecordId;
-                        toast("진행 중인 운동을 먼저 이어갑니다.");
-                        if (cardioSession) {
-                            openCardioSession(activeRecordId);
-                        } else {
-                            openWorkoutSession(activeRecordId);
-                        }
-                    });
-                    return;
-                }
-                String recordId = workoutSessionApplicationService.createSessionFromRoutine(
-                        scope, date, title, routineId, routineExercises
-                );
-                runOnUiThread(() -> {
-                    knownInProgressRecordId = recordId;
-                    toast("루틴 운동을 시작했습니다.");
-                    openWorkoutSession(recordId);
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast(error.getMessage() == null
-                        ? "루틴 운동을 시작하지 못했습니다."
-                        : error.getMessage()));
-            }
-        });
+        workoutSessionViewModel.startRoutine(
+                new AccountScope(ownerId),
+                date,
+                title,
+                routineId,
+                routineExercises
+        );
     }
 
     private String routineNameForStart() {
@@ -1885,69 +1893,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 "삭제된 기록은 기록 탭에서 더 이상 보이지 않습니다.",
                 "삭제", () -> {
                     String ownerId = currentOwnerId();
-                    executor.execute(() -> {
-                        try {
-                            WorkoutSessionApplicationService.DeleteResult result =
-                                    workoutSessionApplicationService.delete(
-                                            new AccountScope(ownerId),
-                                            recordId
-                                    );
-                            runOnUiThread(() -> {
-                                if (recordId.equals(knownInProgressRecordId)) {
-                                    knownInProgressRecordId = null;
-                                }
-                                sessionState.clearIfMatches(recordId);
-                                toast("운동 기록을 삭제했습니다.");
-                                if (currentScreen == FitnessScreen.RECORDS) {
-                                    render();
-                                } else {
-                                    replace(result.cardioSession
-                                            ? FitnessScreen.CARDIO
-                                            : FitnessScreen.STRENGTH);
-                                }
-                            });
-                        } catch (Exception error) {
-                            runOnUiThread(() -> toast("운동 기록을 삭제하지 못했습니다."));
-                        }
-                    });
+                    workoutSessionViewModel.delete(new AccountScope(ownerId), recordId);
                 });
     }
 
     @Override
     public void startEmptyWorkout() {
-        String ownerId = currentOwnerId();
-        String date = today();
-        executor.execute(() -> {
-            try {
-                AccountScope scope = new AccountScope(ownerId);
-                String activeRecordId = workoutSessionApplicationService.latestInProgress(scope);
-                if (activeRecordId != null) {
-                    boolean cardioSession = workoutSessionApplicationService.isCardioSession(
-                            scope,
-                            activeRecordId
-                    );
-                    runOnUiThread(() -> {
-                        knownInProgressRecordId = activeRecordId;
-                        toast("진행 중인 운동을 먼저 이어갑니다.");
-                        if (cardioSession) {
-                            openCardioSession(activeRecordId);
-                        } else {
-                            openWorkoutSession(activeRecordId);
-                        }
-                    });
-                    return;
-                }
-                String recordId = workoutSessionApplicationService.createEmptySession(scope, date);
-                runOnUiThread(() -> {
-                    knownInProgressRecordId = recordId;
-                    openWorkoutSession(recordId);
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast(error.getMessage() == null
-                        ? "운동을 시작하지 못했습니다."
-                        : error.getMessage()));
-            }
-        });
+        workoutSessionViewModel.startEmpty(new AccountScope(currentOwnerId()), today());
     }
 
     @Override
@@ -2028,29 +1980,15 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 String routineId = routine == null ? null : routine.id;
                 String started = startedAt.toString();
                 String ended = endedAt.toString();
-                executor.execute(() -> {
-                    try {
-                        String recordId = workoutSessionApplicationService
-                                .createManualPastSessionFromRoutine(
-                                        new AccountScope(ownerId),
-                                        date,
-                                        title,
-                                        routineId,
-                                        exercises,
-                                        started,
-                                        ended
-                                );
-                        runOnUiThread(() -> {
-                            knownInProgressRecordId = recordId;
-                            toast("세트와 횟수를 입력한 뒤 운동 완료를 누르세요.");
-                            openWorkoutSession(recordId);
-                        });
-                    } catch (Exception error) {
-                        runOnUiThread(() -> toast(error.getMessage() == null
-                                ? "지난 운동을 저장하지 못했습니다."
-                                : error.getMessage()));
-                    }
-                });
+                workoutSessionViewModel.startManualPast(
+                        new AccountScope(ownerId),
+                        date,
+                        title,
+                        routineId,
+                        exercises,
+                        started,
+                        ended
+                );
                 return true;
             } catch (DateTimeParseException error) {
                 toast("날짜는 YYYY-MM-DD, 시작 시각은 HH:mm 형식으로 입력하세요.");
