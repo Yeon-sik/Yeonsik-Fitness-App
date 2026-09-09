@@ -5,7 +5,7 @@ import com.yeonsik.fitnessapp.data.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.LocalDataBackupService;
 import com.yeonsik.fitnessapp.data.WorkoutTransferService;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
-import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryStore;
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutSummaryApi;
 import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeResult;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutInterchangeApi;
 
@@ -25,13 +25,13 @@ import java.nio.charset.StandardCharsets;
 public final class LocalDataTransferApplicationService {
     private final FitnessDatabaseConnection database;
     private final WorkoutInterchangeApi workoutInterchangeStore;
-    private final FitnessSummaryStore fitnessSummaryStore;
+    private final WorkoutSummaryApi fitnessSummaryStore;
     private final ExerciseMasterRepository exerciseMasterRepository;
 
     public LocalDataTransferApplicationService(
             FitnessDatabaseConnection database,
             WorkoutInterchangeApi workoutInterchangeStore,
-            FitnessSummaryStore fitnessSummaryStore,
+            WorkoutSummaryApi fitnessSummaryStore,
             ExerciseMasterRepository exerciseMasterRepository
     ) {
         if (database == null || workoutInterchangeStore == null || fitnessSummaryStore == null

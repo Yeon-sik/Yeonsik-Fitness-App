@@ -7,8 +7,9 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutSummaryApi;
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutSummaryRepository;
 import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisher;
-import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryStore;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -27,7 +28,7 @@ public final class SupabaseSyncManager {
     public static final List<String> TABLES = LegacyFitnessSyncAdapter.TABLES;
 
     private final LegacyFitnessSyncAdapter legacyAdapter;
-    private final FitnessSummaryStore summaryStore;
+    private final WorkoutSummaryApi summaryStore;
     private final FitnessSummaryPublisher summaryPublisher;
 
     public SupabaseSyncManager(FitnessDatabaseHelper dbHelper) {
@@ -35,14 +36,19 @@ public final class SupabaseSyncManager {
     }
 
     public SupabaseSyncManager(FitnessRoomDatabase roomDatabase, Context context) {
-        this(FitnessDatabaseConnection.fromRoom(roomDatabase, context));
+        this(
+                FitnessDatabaseConnection.fromRoom(roomDatabase, context),
+                new LegacyFitnessSyncAdapter(roomDatabase, context),
+                new WorkoutSummaryRepository(roomDatabase),
+                new FitnessSummaryPublisher()
+        );
     }
 
     public SupabaseSyncManager(FitnessDatabaseConnection database) {
         this(
                 database,
                 new LegacyFitnessSyncAdapter(database),
-                new FitnessSummaryStore(database),
+                new EmptyWorkoutSummaryApi(),
                 new FitnessSummaryPublisher()
         );
     }
@@ -50,7 +56,7 @@ public final class SupabaseSyncManager {
     SupabaseSyncManager(
             FitnessDatabaseConnection database,
             LegacyFitnessSyncAdapter legacyAdapter,
-            FitnessSummaryStore summaryStore,
+            WorkoutSummaryApi summaryStore,
             FitnessSummaryPublisher summaryPublisher
     ) {
         if (database == null || legacyAdapter == null || summaryStore == null
@@ -60,6 +66,29 @@ public final class SupabaseSyncManager {
         this.legacyAdapter = legacyAdapter;
         this.summaryStore = summaryStore;
         this.summaryPublisher = summaryPublisher;
+    }
+
+    /** Compatibility constructor used only by legacy sync instrumentation fixtures. */
+    private static final class EmptyWorkoutSummaryApi implements WorkoutSummaryApi {
+        @Override
+        public int reconcileSharedWorkoutSummaries(String ownerId) {
+            return 0;
+        }
+
+        @Override
+        public boolean updateSharedWorkoutSummary(
+                String ownerId,
+                String recordId,
+                boolean publishToOs
+        ) {
+            return false;
+        }
+
+        @Override
+        public java.util.List<com.yeonsik.fitnessapp.data.FitnessSummaryProjectionV2>
+                completedFitnessSummaryProjectionsV2(String ownerId) {
+            return java.util.Collections.emptyList();
+        }
     }
 
     public SyncResult manualSync(SupabaseConfig config) throws Exception {

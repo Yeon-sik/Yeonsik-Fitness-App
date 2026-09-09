@@ -485,6 +485,50 @@ interface SupplementRoomDao {
 
 @Dao
 interface WorkoutRoomDao {
+    data class SummarySetCount(
+        @ColumnInfo(name = "ui_part") val uiPart: String?,
+        @ColumnInfo(name = "primary_sub_part_snapshot") val primarySubPart: String?,
+        @ColumnInfo(name = "set_count") val setCount: Int
+    )
+
+    @Query(
+        "SELECT id FROM workout_records WHERE source_app='fitness' AND user_id=:userId " +
+            "AND deleted_at IS NULL AND device_id='android-local' " +
+            "AND metadata LIKE '%\"status\":\"completed\"%'"
+    )
+    fun sharedSummaryRecordIds(userId: String): List<String>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE source_app='fitness' AND user_id=:userId " +
+            "AND metadata LIKE '%\"status\":\"completed\"%' " +
+            "ORDER BY date DESC, updated_at DESC, id ASC"
+    )
+    fun completedSummaryRecords(userId: String): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT we.ui_part AS ui_part, we.primary_sub_part_snapshot AS primary_sub_part_snapshot, " +
+            "COUNT(ws.id) AS set_count FROM workout_sets ws " +
+            "INNER JOIN workout_exercises we ON we.id=ws.workout_exercise_id " +
+            "WHERE we.record_id=:recordId AND we.user_id=:userId AND ws.user_id=:userId " +
+            "AND we.deleted_at IS NULL AND ws.deleted_at IS NULL AND ws.is_completed=1 " +
+            "GROUP BY we.ui_part, we.primary_sub_part_snapshot"
+    )
+    fun summarySetCounts(recordId: String, userId: String): List<SummarySetCount>
+
+    @Query(
+        "UPDATE workout_records SET category=:category, metadata=:metadata, scope=:scope, " +
+            "updated_at=:updatedAt WHERE id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL"
+    )
+    fun updateSharedSummary(
+        recordId: String,
+        userId: String,
+        category: String,
+        metadata: String,
+        scope: String,
+        updatedAt: String
+    ): Int
+
     data class TransferSetRow(
         val id: String,
         @ColumnInfo(name = "volume_kg") val volumeKg: Double?,
