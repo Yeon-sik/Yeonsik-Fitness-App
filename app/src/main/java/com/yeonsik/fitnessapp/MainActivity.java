@@ -58,6 +58,8 @@ import com.yeonsik.fitnessapp.state.FitnessNavigationHistory;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService;
+import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsEditorUiState;
+import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel;
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService;
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService;
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
@@ -87,6 +89,8 @@ import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.ComposeHomeScreen;
 import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
+import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentProfileEditorUiState;
+import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentGoalEditorUiState;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerUiState;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
@@ -181,8 +185,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private String selectedRoutineId;
 
     private AppContainer appContainer;
-    private BodyMetricsApplicationService bodyMetricsApplicationService;
-    private DevelopmentApplicationService developmentApplicationService;
     private WorkoutSessionApplicationService workoutSessionApplicationService;
     private NutritionIntegrationService nutritionIntegrationService;
     private SyncApplicationService syncApplicationService;
@@ -193,6 +195,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private RoutineEntryViewModel routineEntryViewModel;
     private HomeViewModel homeViewModel;
     private DevelopmentViewModel developmentViewModel;
+    private BodyMetricsViewModel bodyMetricsViewModel;
     private SupplementViewModel supplementViewModel;
     private ExercisePickerViewModel exercisePickerViewModel;
     private MealViewModel mealViewModel;
@@ -281,8 +284,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         authManager = appContainer.getSupabaseAuthManager();
         nutritionAuthManager = appContainer.getNutritionAuthManager();
         priceTraceAuthManager = appContainer.getPriceTraceAuthManager();
-        bodyMetricsApplicationService = appContainer.getBodyMetricsApplicationService();
-        developmentApplicationService = appContainer.getDevelopmentApplicationService();
         workoutSessionApplicationService = appContainer.getWorkoutSessionApplicationService();
         nutritionIntegrationService = appContainer.getNutritionIntegrationService();
         syncApplicationService = appContainer.getSyncApplicationService();
@@ -347,6 +348,33 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private void initializeFeatureViewModels() {
+        bodyMetricsViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new BodyMetricsViewModel(
+                                handle,
+                                appContainer.getBodyMetricsApplicationService()
+                        )
+                )
+        ).get(BodyMetricsViewModel.class);
+        bodyMetricsViewModel.getEditorState().observe(this, state -> {
+            if (state instanceof BodyMetricsEditorUiState.Ready) {
+                BodyMetricsEditorUiState.Ready ready = (BodyMetricsEditorUiState.Ready) state;
+                if (ready.getOwnerId().equals(currentOwnerId())) {
+                    showBodyMetricDialogForm(ready.getOwnerId(), ready.getEditor());
+                }
+            } else if (state instanceof BodyMetricsEditorUiState.Saved
+                    || state instanceof BodyMetricsEditorUiState.Deleted) {
+                render();
+            } else if (state instanceof BodyMetricsEditorUiState.Error) {
+                BodyMetricsEditorUiState.Error error = (BodyMetricsEditorUiState.Error) state;
+                if (error.getOwnerId().equals(currentOwnerId())) {
+                    toast(error.getMessage());
+                }
+            }
+        });
         workoutSessionViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -549,10 +577,49 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         null,
                         handle -> new DevelopmentViewModel(
                                 handle,
-                                appContainer.getDevelopmentReportApi()
+                                appContainer.getDevelopmentReportApi(),
+                                appContainer.getDevelopmentApplicationService()
                         )
                 )
         ).get(DevelopmentViewModel.class);
+        developmentViewModel.getProfileEditorState().observe(this, state -> {
+            if (state instanceof DevelopmentProfileEditorUiState.Ready) {
+                DevelopmentProfileEditorUiState.Ready ready =
+                        (DevelopmentProfileEditorUiState.Ready) state;
+                if (ready.getOwnerId().equals(currentOwnerId())) {
+                    showDevelopmentBodyProfileDialogForm(
+                            ready.getOwnerId(),
+                            ready.getDate(),
+                            ready.getEditor()
+                    );
+                }
+            } else if (state instanceof DevelopmentProfileEditorUiState.Saved) {
+                render();
+            } else if (state instanceof DevelopmentProfileEditorUiState.Error) {
+                DevelopmentProfileEditorUiState.Error error =
+                        (DevelopmentProfileEditorUiState.Error) state;
+                if (error.getOwnerId().equals(currentOwnerId())) {
+                    toast(error.getMessage());
+                }
+            }
+        });
+        developmentViewModel.getGoalEditorState().observe(this, state -> {
+            if (state instanceof DevelopmentGoalEditorUiState.Ready) {
+                DevelopmentGoalEditorUiState.Ready ready =
+                        (DevelopmentGoalEditorUiState.Ready) state;
+                if (ready.getOwnerId().equals(currentOwnerId())) {
+                    showDevelopmentGoalDialogForm(ready.getOwnerId(), ready.getGoal());
+                }
+            } else if (state instanceof DevelopmentGoalEditorUiState.Saved) {
+                render();
+            } else if (state instanceof DevelopmentGoalEditorUiState.Error) {
+                DevelopmentGoalEditorUiState.Error error =
+                        (DevelopmentGoalEditorUiState.Error) state;
+                if (error.getOwnerId().equals(currentOwnerId())) {
+                    toast(error.getMessage());
+                }
+            }
+        });
         supplementViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -2512,19 +2579,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void showBodyMetricDialog(String date, String recordId) {
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                BodyMetricsApplicationService.Editor existing = bodyMetricsApplicationService.load(
-                        new AccountScope(ownerId),
-                        date,
-                        recordId
-                );
-                runOnUiThread(() -> showBodyMetricDialogForm(ownerId, existing));
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("체중 기록을 불러오지 못했습니다."));
-            }
-        });
+        bodyMetricsViewModel.open(new AccountScope(currentOwnerId()), date, recordId);
     }
 
     private void showBodyMetricDialogForm(
@@ -2553,20 +2608,13 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         }
                         double selectedWeightKg = MassUnit.toKg(selectedWeight, inputUnit);
                         String selectedMemo = FitnessUi.inputText(memo);
-                        executor.execute(() -> {
-                            try {
-                                bodyMetricsApplicationService.save(
-                                        new AccountScope(ownerId),
-                                        existing.recordId,
-                                        selectedDate,
-                                        selectedWeightKg,
-                                        selectedMemo
-                                );
-                                runOnUiThread(() -> render());
-                            } catch (Exception error) {
-                                runOnUiThread(() -> toast("체중 기록을 저장하지 못했습니다."));
-                            }
-                        });
+                        bodyMetricsViewModel.save(
+                                new AccountScope(ownerId),
+                                existing.recordId,
+                                selectedDate,
+                                selectedWeightKg,
+                                selectedMemo
+                        );
                         return true;
                     } catch (IllegalArgumentException error) {
                         toast(error.getMessage());
@@ -2575,17 +2623,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 },
                 !existing.exists() ? null : "이 기록 삭제",
                 !existing.exists() ? null : () -> {
-                    executor.execute(() -> {
-                        try {
-                            bodyMetricsApplicationService.delete(
-                                    new AccountScope(ownerId),
-                                    existing.recordId
-                            );
-                            runOnUiThread(() -> render());
-                        } catch (Exception error) {
-                            runOnUiThread(() -> toast("체중 기록을 삭제하지 못했습니다."));
-                        }
-                    });
+                    bodyMetricsViewModel.delete(
+                            new AccountScope(ownerId),
+                            existing.recordId
+                    );
                 });
     }
 
@@ -2613,20 +2654,10 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void showDevelopmentBodyProfileDialog() {
-        String ownerId = currentOwnerId();
-        String date = today();
-        executor.execute(() -> {
-            try {
-                DevelopmentApplicationService.ProfileEditor editor =
-                        developmentApplicationService.loadProfileEditor(
-                                new AccountScope(ownerId),
-                                date
-                        );
-                runOnUiThread(() -> showDevelopmentBodyProfileDialogForm(ownerId, date, editor));
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("바디 정보를 불러오지 못했습니다."));
-            }
-        });
+        developmentViewModel.openProfileEditor(
+                new AccountScope(currentOwnerId()),
+                today()
+        );
     }
 
     private void showDevelopmentBodyProfileDialogForm(
@@ -2674,21 +2705,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                 BodyProfile savedProfile = nextProfile;
                 Double savedWeightKg = nextWeightKg;
                 String weightMemo = editor.weightMemo;
-                executor.execute(() -> {
-                    try {
-                        developmentApplicationService.saveProfileAndWeight(
-                                new AccountScope(ownerId),
-                                savedProfile,
-                                editor.weightRecordId,
-                                date,
-                                savedWeightKg,
-                                weightMemo
-                        );
-                        runOnUiThread(() -> render());
-                    } catch (Exception error) {
-                        runOnUiThread(() -> toast("바디 정보를 저장하지 못했습니다."));
-                    }
-                });
+                developmentViewModel.saveProfileAndWeight(
+                        new AccountScope(ownerId),
+                        savedProfile,
+                        editor.weightRecordId,
+                        date,
+                        savedWeightKg,
+                        weightMemo
+                );
                 return true;
             } catch (NumberFormatException error) {
                 toast("숫자 형식이 올바르지 않습니다.");
@@ -2702,17 +2726,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
     @Override
     public void showDevelopmentGoalDialog() {
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                DevelopmentGoal currentGoal = developmentApplicationService.loadGoal(
-                        new AccountScope(ownerId)
-                );
-                runOnUiThread(() -> showDevelopmentGoalDialogForm(ownerId, currentGoal));
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("발전 목표를 불러오지 못했습니다."));
-            }
-        });
+        developmentViewModel.openGoalEditor(new AccountScope(currentOwnerId()));
     }
 
     private void showDevelopmentGoalDialogForm(
@@ -2790,17 +2804,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
                         "",
                         ""
                 );
-                executor.execute(() -> {
-                    try {
-                        developmentApplicationService.saveGoal(
-                                new AccountScope(ownerId),
-                                nextGoal
-                        );
-                        runOnUiThread(() -> render());
-                    } catch (Exception error) {
-                        runOnUiThread(() -> toast("발전 목표를 저장하지 못했습니다."));
-                    }
-                });
+                developmentViewModel.saveGoal(new AccountScope(ownerId), nextGoal);
                 return true;
             } catch (NumberFormatException error) {
                 toast("주간 세션은 숫자로 입력해 주세요.");

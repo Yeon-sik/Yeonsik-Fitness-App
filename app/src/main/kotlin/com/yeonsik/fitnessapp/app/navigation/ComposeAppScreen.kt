@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Modifier
@@ -53,6 +54,13 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
         .observeAsState(CardioSessionUiState.Idle)
     val cardioRouteState by host.cardioSessionViewModel().routeState
         .observeAsState(CardioRouteUiState.Idle)
+    val developmentState by host.developmentViewModel().uiState
+        .observeAsState(DevelopmentUiState.Idle)
+    LaunchedEffect(screen, ownerId, today) {
+        if (screen == FitnessScreen.DEVELOPMENT) {
+            host.developmentViewModel().enter(AccountScope(ownerId), today)
+        }
+    }
     val cardioActions = object : CardioScreenActions {
         override fun start(activityType: CardioActivityType) = host.startCardioWorkout(activityType)
         override fun back() { host.back() }
@@ -104,7 +112,18 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
             )
             FitnessScreen.CARDIO -> CardioStartScreen(cardioActions)
             FitnessScreen.RECORDS -> RecordsScreen(host, ownerId, today, unit)
-            FitnessScreen.DEVELOPMENT -> DevelopmentScreen(host, ownerId, today, unit)
+            FitnessScreen.DEVELOPMENT -> DevelopmentScreen(
+                developmentState,
+                ownerId,
+                unit,
+                object : DevelopmentScreenActions {
+                    override fun showBodyProfile() = host.showDevelopmentBodyProfileDialog()
+                    override fun showGoal() = host.showDevelopmentGoalDialog()
+                    override fun openInsightAction(insight: com.yeonsik.fitnessapp.development.DevelopmentInsight) {
+                        host.openDevelopmentInsightAction(insight)
+                    }
+                }
+            )
             FitnessScreen.SETTINGS -> SettingsScreen(host)
             FitnessScreen.WORKOUT_SESSION -> WorkoutSessionScreen(
                 workoutState,

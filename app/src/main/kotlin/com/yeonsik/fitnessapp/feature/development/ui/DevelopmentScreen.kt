@@ -25,6 +25,7 @@ import com.yeonsik.fitnessapp.config.*
 import com.yeonsik.fitnessapp.core.account.*
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.*
+import com.yeonsik.fitnessapp.development.DevelopmentInsight
 import com.yeonsik.fitnessapp.feature.cardio.model.*
 import com.yeonsik.fitnessapp.feature.cardio.ui.*
 import com.yeonsik.fitnessapp.feature.development.ui.*
@@ -40,10 +41,19 @@ import com.yeonsik.fitnessapp.ui.*
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 
+interface DevelopmentScreenActions {
+    fun showBodyProfile()
+    fun showGoal()
+    fun openInsightAction(insight: DevelopmentInsight)
+}
+
 @Composable
-internal fun DevelopmentScreen(host: ScreenHost, ownerId: String, today: String, unit: MassUnit) {
-    val state by host.developmentViewModel().uiState.observeAsState(DevelopmentUiState.Idle)
-    LaunchedEffect(ownerId, today) { host.developmentViewModel().enter(AccountScope(ownerId), today) }
+internal fun DevelopmentScreen(
+    state: DevelopmentUiState,
+    ownerId: String,
+    unit: MassUnit,
+    actions: DevelopmentScreenActions
+) {
     val ready = state as? DevelopmentUiState.Ready
     AppHeader("발전", "최근 기록을 기반으로 계산합니다.")
     if (ready == null || ready.ownerId != ownerId) {
@@ -61,7 +71,7 @@ internal fun DevelopmentScreen(host: ScreenHost, ownerId: String, today: String,
         "키 ${report.bodyProfile.heightLabelKo()} · 체중 " +
             (report.latestWeightKg?.let { MassFormatter.withUnit(it, unit) } ?: "미기록")
     )
-    AppOutlinedButton(onClick = { host.showDevelopmentBodyProfileDialog() }, Modifier.fillMaxWidth()) {
+    AppOutlinedButton(onClick = actions::showBodyProfile, Modifier.fillMaxWidth()) {
         Text("신체 정보 수정")
     }
     Text("발전 목표", fontWeight = FontWeight.Bold)
@@ -69,13 +79,13 @@ internal fun DevelopmentScreen(host: ScreenHost, ownerId: String, today: String,
         report.goal.objectiveLabelKo(),
         "${report.goal.focusBodyPartLabelKo()} · 주 ${report.goal.weeklySessionsTarget ?: 0}일"
     )
-    AppOutlinedButton(onClick = { host.showDevelopmentGoalDialog() }, Modifier.fillMaxWidth()) {
+    AppOutlinedButton(onClick = actions::showGoal, Modifier.fillMaxWidth()) {
         Text("발전 목표 수정")
     }
     Text("우선 행동", fontWeight = FontWeight.Bold)
     if (report.insights.isEmpty()) Text("현재 기록에서 추가로 경고할 우선 행동이 없습니다.")
     report.insights.forEach { insight ->
-        AppCard(Modifier.fillMaxWidth().clickable { host.openDevelopmentInsightAction(insight) }) {
+        AppCard(Modifier.fillMaxWidth().clickable { actions.openInsightAction(insight) }) {
             Column(Modifier.padding(AppSpacing.card)) {
                 Text(insight.title, fontWeight = FontWeight.Bold)
                 Text(insight.evidence)
