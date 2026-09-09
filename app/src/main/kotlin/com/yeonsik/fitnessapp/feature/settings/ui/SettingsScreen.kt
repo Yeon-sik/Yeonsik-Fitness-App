@@ -40,63 +40,75 @@ import com.yeonsik.fitnessapp.ui.*
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 
+interface SettingsScreenActions {
+    fun setPreferredMassUnit(unit: MassUnit)
+    fun setThemeMode(mode: String)
+    fun runManualSync()
+    fun openFleekDataImport()
+    fun openWorkoutTransferImport()
+    fun exportWorkoutTransfer()
+    fun createLocalBackup()
+    fun restoreLocalBackup()
+    fun exportRecordsCsv()
+    fun saveConnection(connection: SettingsConnection, url: String, anonKey: String)
+    fun signIn(connection: SettingsConnection, email: String, password: String)
+    fun signUp(connection: SettingsConnection, email: String, password: String)
+    fun signOut(connection: SettingsConnection)
+}
+
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
-internal fun SettingsScreen(host: ScreenHost) {
+internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActions) {
     var advancedConnectionsVisible by rememberSaveable { mutableStateOf(false) }
     AppHeader("설정")
     Text("표시 단위")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
         MassUnit.values().forEach { unit ->
-            AppOutlinedButton(onClick = { host.setPreferredMassUnit(unit) }, selected = host.preferredMassUnit() == unit) { Text(unit.labelKo()) }
+            AppOutlinedButton(onClick = { actions.setPreferredMassUnit(unit) }, selected = state.preferredMassUnit == unit) { Text(unit.labelKo()) }
         }
     }
     Text("테마")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
         listOf("light", "dark", "system").forEach { mode ->
-            AppOutlinedButton(onClick = { host.setThemeMode(mode) }, selected = host.themeMode() == mode) { Text(mode) }
+            AppOutlinedButton(onClick = { actions.setThemeMode(mode) }, selected = state.themeMode == mode) { Text(mode) }
         }
     }
-    AppButton(onClick = { host.runManualSync() }, enabled = !host.isManualSyncing(),
-        modifier = Modifier.fillMaxWidth()) { Text(host.syncLabel()) }
-    Text(host.syncDetail())
-    AppOutlinedButton(onClick = { host.openFleekDataImport() }, enabled = !host.isDataImporting(),
+    AppButton(onClick = actions::runManualSync, enabled = !state.isManualSyncing,
+        modifier = Modifier.fillMaxWidth()) { Text(state.syncLabel) }
+    Text(state.syncDetail)
+    AppOutlinedButton(onClick = actions::openFleekDataImport, enabled = !state.isDataImporting,
         modifier = Modifier.fillMaxWidth()) { Text("FLEEK 가져오기") }
-    AppOutlinedButton(onClick = { host.openWorkoutTransferImport() }, enabled = !host.isDataTransferInProgress(),
+    AppOutlinedButton(onClick = actions::openWorkoutTransferImport, enabled = !state.isDataTransferInProgress,
         modifier = Modifier.fillMaxWidth()) { Text("운동 전송 가져오기") }
-    AppOutlinedButton(onClick = { host.exportWorkoutTransfer() }, enabled = !host.isDataTransferInProgress(),
+    AppOutlinedButton(onClick = actions::exportWorkoutTransfer, enabled = !state.isDataTransferInProgress,
         modifier = Modifier.fillMaxWidth()) { Text("운동 전송 내보내기") }
-    AppOutlinedButton(onClick = { host.createLocalBackup() }, Modifier.fillMaxWidth()) { Text("로컬 백업") }
-    AppOutlinedButton(onClick = { host.restoreLocalBackup() }, Modifier.fillMaxWidth()) { Text("백업 복원") }
-    AppOutlinedButton(onClick = { host.exportRecordsCsv() }, Modifier.fillMaxWidth()) { Text("CSV 내보내기") }
-    if (host.isDeveloperSurfaceAllowed()) {
+    AppOutlinedButton(onClick = actions::createLocalBackup, Modifier.fillMaxWidth()) { Text("로컬 백업") }
+    AppOutlinedButton(onClick = actions::restoreLocalBackup, Modifier.fillMaxWidth()) { Text("백업 복원") }
+    AppOutlinedButton(onClick = actions::exportRecordsCsv, Modifier.fillMaxWidth()) { Text("CSV 내보내기") }
+    if (state.developerSurfaceAllowed) {
         AppOutlinedButton(
             onClick = { advancedConnectionsVisible = !advancedConnectionsVisible },
             Modifier.fillMaxWidth()
         ) { Text(if (advancedConnectionsVisible) "연결 설정 접기" else "연결 설정") }
         if (advancedConnectionsVisible) {
             ConnectionAccountSection(
-                "Personal OS 공통 DB", host.supabaseConfig(), host.isSharedSupabaseConnectionManaged(),
-                host::saveSupabaseConfig, host::signInToSupabase, host::signUpToSupabase,
-                host::signOutFromSupabase
+                "Personal OS 공통 DB", SettingsConnection.SHARED,
+                state.sharedConfig, state.sharedConnectionManaged, actions
             )
             ConnectionAccountSection(
-                "영양 전용 DB", host.nutritionSupabaseConfig(), host.isNutritionSupabaseConnectionManaged(),
-                host::saveNutritionSupabaseConfig, host::signInToNutritionSupabase,
-                host::signUpToNutritionSupabase, host::signOutFromNutritionSupabase
+                "영양 전용 DB", SettingsConnection.NUTRITION,
+                state.nutritionConfig, state.nutritionConnectionManaged, actions
             )
             ConnectionAccountSection(
-                "PriceTrace DB", host.priceTraceSupabaseConfig(), host.isPriceTraceSupabaseConnectionManaged(),
-                host::savePriceTraceSupabaseConfig, host::signInToPriceTraceSupabase,
-                host::signUpToPriceTraceSupabase, host::signOutFromPriceTraceSupabase
+                "PriceTrace DB", SettingsConnection.PRICE_TRACE,
+                state.priceTraceConfig, state.priceTraceConnectionManaged, actions
             )
         }
     } else {
         AccountControls(
-            host.supabaseConfig(), host::signInToSupabase, host::signUpToSupabase,
-            host::signOutFromSupabase
+            state.sharedConfig, SettingsConnection.SHARED, actions
         )
     }
 }
@@ -104,12 +116,10 @@ internal fun SettingsScreen(host: ScreenHost) {
 @Composable
 private fun ConnectionAccountSection(
     title: String,
+    connection: SettingsConnection,
     config: com.yeonsik.fitnessapp.config.SupabaseConfig,
     managed: Boolean,
-    saveConnection: (String, String) -> Unit,
-    signIn: (String, String) -> Unit,
-    signUp: (String, String) -> Unit,
-    signOut: () -> Unit
+    actions: SettingsScreenActions
 ) {
     var url by rememberSaveable(config.supabaseUrl) { mutableStateOf(config.supabaseUrl) }
     var key by rememberSaveable(config.supabaseAnonKey) { mutableStateOf(config.supabaseAnonKey) }
@@ -118,24 +128,29 @@ private fun ConnectionAccountSection(
     if (!managed) {
         AppTextField(url, { url = it }, Modifier.fillMaxWidth(), label = { Text("DB URL") })
         AppTextField(key, { key = it }, Modifier.fillMaxWidth(), label = { Text("DB anon key") })
-        AppOutlinedButton(onClick = { saveConnection(url, key) }, Modifier.fillMaxWidth()) { Text("연결 저장") }
+        AppOutlinedButton(
+            onClick = { actions.saveConnection(connection, url, key) },
+            Modifier.fillMaxWidth()
+        ) { Text("연결 저장") }
     } else {
         Text("빌드 기본값으로 연결되었습니다.")
     }
-    AccountControls(config, signIn, signUp, signOut)
+    AccountControls(config, connection, actions)
 }
 
 @Composable
 private fun AccountControls(
     config: com.yeonsik.fitnessapp.config.SupabaseConfig,
-    signIn: (String, String) -> Unit,
-    signUp: (String, String) -> Unit,
-    signOut: () -> Unit
+    connection: SettingsConnection,
+    actions: SettingsScreenActions
 ) {
     var email by rememberSaveable(config.email) { mutableStateOf(config.email) }
     var password by rememberSaveable(config.projectRef()) { mutableStateOf("") }
     if (config.isConfigured) {
-        AppOutlinedButton(onClick = signOut, Modifier.fillMaxWidth()) { Text("로그아웃") }
+        AppOutlinedButton(
+            onClick = { actions.signOut(connection) },
+            Modifier.fillMaxWidth()
+        ) { Text("로그아웃") }
     } else if (config.isConnectionConfigured) {
         AppTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("이메일") })
         AppTextField(
@@ -143,8 +158,14 @@ private fun AccountControls(
             visualTransformation = PasswordVisualTransformation()
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
-            AppButton(onClick = { signIn(email, password) }, Modifier.weight(1f)) { Text("로그인") }
-            AppOutlinedButton(onClick = { signUp(email, password) }, Modifier.weight(1f)) { Text("계정 만들기") }
+            AppButton(
+                onClick = { actions.signIn(connection, email, password) },
+                Modifier.weight(1f)
+            ) { Text("로그인") }
+            AppOutlinedButton(
+                onClick = { actions.signUp(connection, email, password) },
+                Modifier.weight(1f)
+            ) { Text("계정 만들기") }
         }
     }
 }

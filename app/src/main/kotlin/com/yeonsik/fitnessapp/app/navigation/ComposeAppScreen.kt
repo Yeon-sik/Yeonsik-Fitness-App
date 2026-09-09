@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -59,6 +60,7 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
     val mealState by host.mealViewModel().uiState.observeAsState(MealUiState.Idle)
     val mealPriceTraceState by host.mealViewModel().priceTraceState
         .observeAsState(PriceTraceUiState.Idle)
+    val settingsState by host.settingsViewModel().uiState.observeAsState()
     LaunchedEffect(screen, ownerId, today) {
         when (screen) {
             FitnessScreen.DEVELOPMENT ->
@@ -67,6 +69,7 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
                 host.homeViewModel().enter(AccountScope(ownerId), today)
                 host.mealViewModel().enter(AccountScope(ownerId), today)
             }
+            FitnessScreen.SETTINGS -> host.settingsViewModel().enter()
             else -> Unit
         }
     }
@@ -138,6 +141,25 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
         override fun saveDiningOut() = host.mealViewModel().save(AccountScope(ownerId)) { }
         override fun showBodyMetric() = host.showBodyMetricDialog(today, null)
     }
+    val settingsActions = object : SettingsScreenActions {
+        override fun setPreferredMassUnit(unit: MassUnit) = host.setPreferredMassUnit(unit)
+        override fun setThemeMode(mode: String) = host.setThemeMode(mode)
+        override fun runManualSync() = host.settingsViewModel().runManualSync()
+        override fun openFleekDataImport() = host.openFleekDataImport()
+        override fun openWorkoutTransferImport() = host.openWorkoutTransferImport()
+        override fun exportWorkoutTransfer() = host.exportWorkoutTransfer()
+        override fun createLocalBackup() = host.createLocalBackup()
+        override fun restoreLocalBackup() = host.restoreLocalBackup()
+        override fun exportRecordsCsv() = host.exportRecordsCsv()
+        override fun saveConnection(connection: SettingsConnection, url: String, anonKey: String) =
+            host.settingsViewModel().saveConnection(connection, url, anonKey)
+        override fun signIn(connection: SettingsConnection, email: String, password: String) =
+            host.settingsViewModel().signIn(connection, email, password)
+        override fun signUp(connection: SettingsConnection, email: String, password: String) =
+            host.settingsViewModel().signUp(connection, email, password)
+        override fun signOut(connection: SettingsConnection) =
+            host.settingsViewModel().signOut(connection)
+    }
     Column(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)
@@ -188,7 +210,9 @@ private fun AppDestination(host: ScreenHost, screen: FitnessScreen, ownerId: Str
                     }
                 }
             )
-            FitnessScreen.SETTINGS -> SettingsScreen(host)
+            FitnessScreen.SETTINGS -> settingsState?.let {
+                SettingsScreen(it, settingsActions)
+            } ?: Text("설정을 불러오는 중입니다.")
             FitnessScreen.WORKOUT_SESSION -> WorkoutSessionScreen(
                 workoutState,
                 ownerId,

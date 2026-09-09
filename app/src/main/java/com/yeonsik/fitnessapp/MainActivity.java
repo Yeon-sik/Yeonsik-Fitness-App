@@ -95,6 +95,10 @@ import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerUiState;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
 import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
+import com.yeonsik.fitnessapp.feature.settings.ui.SettingsConnection;
+import com.yeonsik.fitnessapp.feature.settings.ui.SettingsEvent;
+import com.yeonsik.fitnessapp.feature.settings.ui.SettingsUiState;
+import com.yeonsik.fitnessapp.feature.settings.ui.SettingsViewModel;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -196,6 +200,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private HomeViewModel homeViewModel;
     private DevelopmentViewModel developmentViewModel;
     private BodyMetricsViewModel bodyMetricsViewModel;
+    private SettingsViewModel settingsViewModel;
     private SupplementViewModel supplementViewModel;
     private ExercisePickerViewModel exercisePickerViewModel;
     private MealViewModel mealViewModel;
@@ -256,10 +261,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     private View settingsTabProgressMarker;
 
     private boolean isManualSyncing = false;
-    private boolean isDataImporting = false;
-    private String dataImportDetail = "";
-    private boolean isDataTransferInProgress;
-    private String dataTransferDetail = "";
+    private Uri pendingRestoreUri;
     private String syncLabel = "local-only";
     private String syncDetail = "로컬 전용 모드";
     private String lastSyncedAt = "";
@@ -289,14 +291,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         syncApplicationService = appContainer.getSyncApplicationService();
         localDataTransferApplicationService =
                 appContainer.getLocalDataTransferApplicationService();
+        themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
+                .getString(KEY_THEME_MODE, THEME_LIGHT);
         String startupOwnerId = currentOwnerId();
         initializeFeatureViewModels();
         executor.execute(() -> localDataTransferApplicationService
                 .reconcileSharedWorkoutSummaries(startupOwnerId));
         applySyncStatusFromConfig();
 
-        themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
-                .getString(KEY_THEME_MODE, THEME_LIGHT);
         ui = new FitnessUi(this, this::isDarkTheme);
         registerBackCallback();
         restoreNavigationState(savedInstanceState);
@@ -348,6 +350,27 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     private void initializeFeatureViewModels() {
+        settingsViewModel = new ViewModelProvider(
+                this,
+                new SavedStateViewModelFactory<>(
+                        this,
+                        null,
+                        handle -> new SettingsViewModel(
+                                handle,
+                                massUnitPreferences,
+                                appContainer.getConfigStore(),
+                                appContainer.getNutritionConfigStore(),
+                                appContainer.getPriceTraceConfigStore(),
+                                appContainer.getSupabaseAuthManager(),
+                                appContainer.getNutritionAuthManager(),
+                                appContainer.getPriceTraceAuthManager(),
+                                appContainer.getSyncApplicationService(),
+                                appContainer.getLocalDataTransferApplicationService()
+                        )
+                )
+        ).get(SettingsViewModel.class);
+        settingsViewModel.setThemeMode(themeMode);
+        settingsViewModel.getEvents().observe(this, this::handleSettingsEvent);
         bodyMetricsViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -756,6 +779,110 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
     }
 
+    private void handleSettingsEvent(SettingsEvent event) {
+        if (event == null || !event.consume()) {
+            return;
+        }
+        if (event instanceof SettingsEvent.ConfigSaved) {
+            SettingsEvent.ConfigSaved saved = (SettingsEvent.ConfigSaved) event;
+            applySettingsConfig(saved.getConnection(), saved.getConfig());
+            settingsViewModel.refresh();
+            toast(saved.getMessage());
+            render();
+        } else if (event instanceof SettingsEvent.Authenticated) {
+            SettingsEvent.Authenticated authenticated = (SettingsEvent.Authenticated) event;
+            if (authenticated.getConfirmationRequired()) {
+                settingsViewModel.refresh();
+                toast(authenticated.getMessage());
+                render();
+                return;
+            }
+            if (authenticated.getConnection() == SettingsConnection.SHARED) {
+                completeSharedAuthentication(
+                        authenticated.getConfig(),
+                        authenticated.getMessage()
+                );
+            } else if (authenticated.getConnection() == SettingsConnection.NUTRITION) {
+                completeNutritionAuthentication(
+                        authenticated.getConfig(),
+                        authenticated.getMessage()
+                );
+            } else {
+                applyPriceTraceSessionConfig(authenticated.getConfig());
+                settingsViewModel.refresh();
+                toast(authenticated.getMessage());
+                render();
+            }
+        } else if (event instanceof SettingsEvent.SignedOut) {
+            SettingsEvent.SignedOut signedOut = (SettingsEvent.SignedOut) event;
+            applySettingsConfig(signedOut.getConnection(), signedOut.getConfig());
+            settingsViewModel.refresh();
+            toast(signedOut.getMessage());
+            render();
+        } else if (event instanceof SettingsEvent.SyncCompleted) {
+            SettingsEvent.SyncCompleted completed = (SettingsEvent.SyncCompleted) event;
+            SyncApplicationService.Result result = completed.getResult();
+            applySharedSessionConfig(result.sharedConfig);
+            if (result.nutritionConfig != null) {
+                applyNutritionSessionConfig(result.nutritionConfig);
+            }
+            settingsViewModel.refresh();
+            toast("수동 동기화 결과를 반영했습니다.");
+            render();
+        } else if (event instanceof SettingsEvent.BackupPreviewReady) {
+            SettingsEvent.BackupPreviewReady previewReady =
+                    (SettingsEvent.BackupPreviewReady) event;
+            LocalDataTransferApplicationService.BackupPreview preview = previewReady.getPreview();
+            render();
+            if (pendingRestoreUri != null) {
+                Uri restoreUri = pendingRestoreUri;
+                ui.confirmSheet(
+                        "백업 복원",
+                        preview.totalRows + "개 항목을 현재 기록에 합칩니다. "
+                                + "기존 기록은 유지하고 같은 항목은 건너뜁니다.",
+                        null,
+                        "병합 복원",
+                        () -> startRestoreBackup(restoreUri)
+                );
+            }
+        } else if (event instanceof SettingsEvent.Notice) {
+            toast(((SettingsEvent.Notice) event).getMessage());
+            settingsViewModel.refresh();
+            render();
+        } else if (event instanceof SettingsEvent.Failure) {
+            toast(((SettingsEvent.Failure) event).getMessage());
+            settingsViewModel.refresh();
+            render();
+        }
+    }
+
+    private void applySettingsConfig(SettingsConnection connection, SupabaseConfig config) {
+        if (connection == SettingsConnection.SHARED) {
+            applySharedSessionConfig(config);
+        } else if (connection == SettingsConnection.NUTRITION) {
+            applyNutritionSessionConfig(config);
+        } else {
+            applyPriceTraceSessionConfig(config);
+        }
+    }
+
+    private void startRestoreBackup(Uri uri) {
+        try {
+            InputStream input = getContentResolver().openInputStream(uri);
+            if (input == null) {
+                throw new IOException("선택한 백업 파일을 다시 읽을 수 없습니다.");
+            }
+            pendingRestoreUri = null;
+            settingsViewModel.restoreBackup(
+                    currentOwnerId(),
+                    nutritionSupabaseConfig.effectiveUserId(),
+                    input
+            );
+        } catch (Exception error) {
+            toast("백업 파일을 다시 읽지 못했습니다.");
+        }
+    }
+
     /** Applies one-shot cardio results while keeping GPS permission/service work platform-owned. */
     private void handleCardioSessionAction(CardioSessionActionEvent event) {
         if (event == null
@@ -1076,17 +1203,90 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             return;
         }
         if (requestCode == REQUEST_FLEEK_CSV_IMPORT) {
-            dataTransferCoordinator.importFleekCsv(uri);
+            dispatchFleekImport(uri);
         } else if (requestCode == REQUEST_LOCAL_BACKUP_EXPORT) {
-            dataTransferCoordinator.writeLocalBackup(uri);
+            dispatchBackupExport(uri);
         } else if (requestCode == REQUEST_LOCAL_BACKUP_RESTORE) {
-            dataTransferCoordinator.previewLocalBackup(uri);
+            dispatchBackupPreview(uri);
         } else if (requestCode == REQUEST_RECORDS_CSV_EXPORT) {
-            dataTransferCoordinator.writeRecordsCsv(uri);
+            dispatchRecordsCsvExport(uri);
         } else if (requestCode == REQUEST_WORKOUT_TRANSFER_IMPORT) {
-            dataTransferCoordinator.importWorkoutTransfer(uri);
+            dispatchWorkoutTransferImport(uri);
         } else if (requestCode == REQUEST_WORKOUT_TRANSFER_EXPORT) {
-            dataTransferCoordinator.writeWorkoutTransfer(uri);
+            dispatchWorkoutTransferExport(uri);
+        }
+    }
+
+    private void dispatchFleekImport(Uri uri) {
+        try {
+            InputStream input = getContentResolver().openInputStream(uri);
+            if (input == null) throw new IOException("선택한 CSV 파일을 읽지 못했습니다.");
+            settingsViewModel.importFleek(currentOwnerId(), input);
+        } catch (Exception error) {
+            toast("CSV 파일을 읽지 못했습니다.");
+        }
+    }
+
+    private void dispatchBackupExport(Uri uri) {
+        try {
+            OutputStream output = getContentResolver().openOutputStream(uri, "wt");
+            if (output == null) throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
+            settingsViewModel.writeBackup(
+                    currentOwnerId(),
+                    nutritionSupabaseConfig.effectiveUserId(),
+                    output
+            );
+        } catch (Exception error) {
+            toast("백업 파일을 열지 못했습니다.");
+        }
+    }
+
+    private void dispatchBackupPreview(Uri uri) {
+        try {
+            pendingRestoreUri = uri;
+            InputStream input = getContentResolver().openInputStream(uri);
+            if (input == null) throw new IOException("선택한 백업 파일을 읽을 수 없습니다.");
+            settingsViewModel.previewBackup(
+                    currentOwnerId(),
+                    nutritionSupabaseConfig.effectiveUserId(),
+                    input
+            );
+        } catch (Exception error) {
+            toast("백업 파일을 읽지 못했습니다.");
+        }
+    }
+
+    private void dispatchRecordsCsvExport(Uri uri) {
+        try {
+            OutputStream output = getContentResolver().openOutputStream(uri, "wt");
+            if (output == null) throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
+            settingsViewModel.writeRecordsCsv(
+                    currentOwnerId(),
+                    nutritionSupabaseConfig.effectiveUserId(),
+                    output
+            );
+        } catch (Exception error) {
+            toast("CSV 파일을 열지 못했습니다.");
+        }
+    }
+
+    private void dispatchWorkoutTransferImport(Uri uri) {
+        try {
+            InputStream input = getContentResolver().openInputStream(uri);
+            if (input == null) throw new IOException("선택한 운동 전송 파일을 읽을 수 없습니다.");
+            settingsViewModel.importWorkoutTransfer(currentOwnerId(), input);
+        } catch (Exception error) {
+            toast("운동 전송 파일을 읽지 못했습니다.");
+        }
+    }
+
+    private void dispatchWorkoutTransferExport(Uri uri) {
+        try {
+            OutputStream output = getContentResolver().openOutputStream(uri, "wt");
+            if (output == null) throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
+            settingsViewModel.writeWorkoutTransfer(currentOwnerId(), output);
+        } catch (Exception error) {
+            toast("운동 전송 파일을 열지 못했습니다.");
         }
     }
 
@@ -1128,6 +1328,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     @Override
     public void setThemeMode(String mode) {
         themeMode = mode;
+        if (settingsViewModel != null) {
+            settingsViewModel.setThemeMode(mode);
+        }
         getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
                 .putString(KEY_THEME_MODE, mode).apply();
         render();
@@ -1144,6 +1347,9 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     public void setPreferredMassUnit(MassUnit unit) {
         if (massUnitPreferences != null) {
             massUnitPreferences.setPreferredMassUnit(unit);
+        }
+        if (settingsViewModel != null) {
+            settingsViewModel.setPreferredMassUnit(unit);
         }
         render();
     }
@@ -1960,6 +2166,11 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     @Override
+    public SettingsViewModel settingsViewModel() {
+        return settingsViewModel;
+    }
+
+    @Override
     public SupplementViewModel supplementViewModel() {
         return supplementViewModel;
     }
@@ -2649,11 +2860,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
     }
 
     @Override
-    public boolean isDeveloperSurfaceAllowed() {
-        return AppSurfacePolicy.allowsDeveloperSurface();
-    }
-
-    @Override
     public void showDevelopmentBodyProfileDialog() {
         developmentViewModel.openProfileEditor(
                 new AccountScope(currentOwnerId()),
@@ -2873,14 +3079,14 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         dataTransferCoordinator.exportWorkoutTransfer();
     }
 
-    @Override
-    public boolean isDataTransferInProgress() {
-        return isDataTransferInProgress;
+    private boolean isDataTransferInProgress() {
+        SettingsUiState state = settingsState();
+        return state != null && state.isDataTransferInProgress();
     }
 
-    @Override
-    public String dataTransferDetail() {
-        return dataTransferDetail;
+    private String dataTransferDetail() {
+        SettingsUiState state = settingsState();
+        return state == null ? "" : state.getDataTransferDetail();
     }
 
 
@@ -2912,14 +3118,18 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
 
 
 
-    @Override
-    public boolean isDataImporting() {
-        return isDataImporting;
+    private boolean isDataImporting() {
+        SettingsUiState state = settingsState();
+        return state != null && state.isDataImporting();
     }
 
-    @Override
-    public String dataImportDetail() {
-        return dataImportDetail;
+    private String dataImportDetail() {
+        SettingsUiState state = settingsState();
+        return state == null ? "" : state.getDataImportDetail();
+    }
+
+    private SettingsUiState settingsState() {
+        return settingsViewModel == null ? null : settingsViewModel.getUiState().getValue();
     }
 
     @Override
@@ -3522,7 +3732,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
      */
     private final class DataTransferCoordinator {
         private void createLocalBackup() {
-            if (isDataTransferInProgress || isDataImporting) {
+            if (isDataTransferInProgress() || isDataImporting()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -3534,7 +3744,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
 
         private void restoreLocalBackup() {
-            if (isDataTransferInProgress || isDataImporting) {
+            if (isDataTransferInProgress() || isDataImporting()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -3550,7 +3760,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
 
         private void exportRecordsCsv() {
-            if (isDataTransferInProgress || isDataImporting) {
+            if (isDataTransferInProgress() || isDataImporting()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -3562,7 +3772,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
 
         private void openWorkoutTransferImport() {
-            if (isDataTransferInProgress || isDataImporting) {
+            if (isDataTransferInProgress() || isDataImporting()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -3578,7 +3788,7 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
         }
 
         private void exportWorkoutTransfer() {
-            if (isDataTransferInProgress || isDataImporting) {
+            if (isDataTransferInProgress() || isDataImporting()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -3602,168 +3812,8 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             }
         }
 
-    private void writeLocalBackup(Uri uri) {
-            beginDataTransfer("백업 파일을 만드는 중입니다.");
-            executor.execute(() -> {
-                try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
-                    if (output == null) {
-                        throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
-                    }
-                    localDataTransferApplicationService.writeBackup(
-                            currentOwnerId(),
-                            nutritionSupabaseConfig.effectiveUserId(),
-                            output
-                    );
-                    finishDataTransfer("전체 백업을 저장했습니다.", null);
-                } catch (Exception error) {
-                    finishDataTransfer(null, dataTransferError(error, "백업을 저장하지 못했습니다."));
-                }
-            });
-        }
-
-    private void previewLocalBackup(Uri uri) {
-            beginDataTransfer("백업 파일을 확인하는 중입니다.");
-            executor.execute(() -> {
-                try (InputStream input = getContentResolver().openInputStream(uri)) {
-                    if (input == null) {
-                        throw new IOException("선택한 백업 파일을 읽을 수 없습니다.");
-                    }
-                    LocalDataTransferApplicationService.BackupPreview preview =
-                            localDataTransferApplicationService.previewBackup(
-                                    currentOwnerId(),
-                                    nutritionSupabaseConfig.effectiveUserId(),
-                                    input
-                            );
-                    runOnUiThread(() -> {
-                        isDataTransferInProgress = false;
-                        dataTransferDetail = preview.totalRows + "개 항목 확인됨";
-                        render();
-                        ui.confirmSheet(
-                                "백업 복원",
-                                preview.totalRows + "개 항목을 현재 기록에 합칩니다. "
-                                        + "기존 기록은 유지하고 같은 항목은 건너뜁니다.",
-                                null,
-                                "병합 복원",
-                                () -> restoreLocalBackup(uri)
-                        );
-                    });
-                } catch (Exception error) {
-                    finishDataTransfer(null, dataTransferError(error, "백업 파일을 확인하지 못했습니다."));
-                }
-            });
-        }
-
-    private void restoreLocalBackup(Uri uri) {
-            beginDataTransfer("백업을 복원하는 중입니다.");
-            executor.execute(() -> {
-                try (InputStream input = getContentResolver().openInputStream(uri)) {
-                    if (input == null) {
-                        throw new IOException("선택한 백업 파일을 다시 읽을 수 없습니다.");
-                    }
-                    LocalDataTransferApplicationService.RestoreResult result =
-                            localDataTransferApplicationService.restoreBackup(
-                                    currentOwnerId(),
-                                    nutritionSupabaseConfig.effectiveUserId(),
-                                    input
-                            );
-                    finishDataTransfer(
-                            result.importedRows + "개 복원 · "
-                                    + result.skippedRows + "개 중복 건너뜀",
-                            null
-                    );
-                } catch (Exception error) {
-                    finishDataTransfer(null, dataTransferError(error, "백업을 복원하지 못했습니다."));
-                }
-            });
-        }
-
-    private void writeRecordsCsv(Uri uri) {
-            beginDataTransfer("기록 요약 CSV를 만드는 중입니다.");
-            executor.execute(() -> {
-                try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
-                    if (output == null) {
-                        throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
-                    }
-                    localDataTransferApplicationService.writeRecordsSummaryCsv(
-                            currentOwnerId(),
-                            nutritionSupabaseConfig.effectiveUserId(),
-                            output
-                    );
-                    finishDataTransfer("기록 요약 CSV를 저장했습니다.", null);
-                } catch (Exception error) {
-                    finishDataTransfer(null, dataTransferError(error, "CSV를 저장하지 못했습니다."));
-                }
-            });
-        }
-
-    private void writeWorkoutTransfer(Uri uri) {
-            beginDataTransfer("운동 전송 JSON을 만드는 중입니다.");
-            executor.execute(() -> {
-                try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
-                    if (output == null) {
-                        throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
-                    }
-                    localDataTransferApplicationService.writeWorkoutTransfer(
-                            currentOwnerId(),
-                            output
-                    );
-                    finishDataTransfer("Workout Transfer v2 JSON을 저장했습니다.", null);
-                } catch (Exception error) {
-                    finishDataTransfer(null, dataTransferError(
-                            error,
-                            "운동 전송 JSON을 저장하지 못했습니다."
-                    ));
-                }
-            });
-        }
-
-    private void importWorkoutTransfer(Uri uri) {
-            beginDataTransfer("운동 전송 JSON을 읽고 기록을 합치는 중입니다.");
-            executor.execute(() -> {
-                try (InputStream input = getContentResolver().openInputStream(uri)) {
-                    if (input == null) {
-                        throw new IOException("선택한 운동 전송 파일을 읽을 수 없습니다.");
-                    }
-                    LocalDataTransferApplicationService.ImportResult result =
-                            localDataTransferApplicationService.importWorkoutTransfer(
-                                    currentOwnerId(),
-                                    input
-                            );
-                    finishDataTransfer(result.summary(), null);
-                } catch (Exception error) {
-                    finishDataTransfer(null, dataTransferError(
-                            error,
-                            "운동 전송 JSON을 가져오지 못했습니다."
-                    ));
-                }
-            });
-        }
-
-    private void beginDataTransfer(String detail) {
-            isDataTransferInProgress = true;
-            dataTransferDetail = detail;
-            render();
-        }
-
-    private void finishDataTransfer(String success, String failure) {
-            runOnUiThread(() -> {
-                isDataTransferInProgress = false;
-                dataTransferDetail = failure == null ? success : failure;
-                render();
-                toast(dataTransferDetail);
-            });
-        }
-
-    private static String dataTransferError(Exception error, String fallback) {
-            String message = error.getMessage();
-            if (message == null || message.trim().isEmpty()) {
-                return fallback;
-            }
-            return message.matches(".*[ㄱ-ㅎㅏ-ㅣ가-힣].*") ? message : fallback;
-        }
-
         private void openFleekDataImport() {
-            if (isDataImporting || isDataTransferInProgress) {
+            if (isDataImporting() || isDataTransferInProgress()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -3785,41 +3835,6 @@ public final class MainActivity extends ComponentActivity implements ScreenHost 
             }
         }
 
-    private void importFleekCsv(Uri uri) {
-            if (isDataImporting) return;
-            isDataImporting = true;
-            dataImportDetail = "CSV를 읽고 운동 기록을 변환하는 중입니다.";
-            render();
-            executor.execute(() -> {
-                try (InputStream input = getContentResolver().openInputStream(uri)) {
-                    if (input == null) {
-                        throw new IllegalArgumentException("선택한 CSV 파일을 읽지 못했습니다.");
-                    }
-                    LocalDataTransferApplicationService.ImportResult result =
-                            localDataTransferApplicationService.importFleek(
-                                    currentOwnerId(),
-                                    input
-                            );
-                    runOnUiThread(() -> {
-                        isDataImporting = false;
-                        dataImportDetail = result.summary();
-                        toast(result.importedSessions > 0
-                                ? "FLEEK 운동 기록을 가져왔습니다."
-                                : "이미 가져온 기록이라 새로 저장된 세션이 없습니다.");
-                        render();
-                    });
-                } catch (Exception error) {
-                    runOnUiThread(() -> {
-                        isDataImporting = false;
-                        dataImportDetail = error.getMessage() == null
-                                ? "FLEEK CSV 가져오기에 실패했습니다."
-                                : error.getMessage();
-                        toast("FLEEK CSV 가져오기에 실패했습니다.");
-                        render();
-                    });
-                }
-            });
-        }
     }
 
 }

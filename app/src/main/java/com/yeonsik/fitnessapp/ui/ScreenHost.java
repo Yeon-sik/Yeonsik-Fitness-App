@@ -16,6 +16,7 @@ import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
 import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
+import com.yeonsik.fitnessapp.feature.settings.ui.SettingsViewModel;
 
 import java.util.List;
 
@@ -44,6 +45,8 @@ public interface ScreenHost {
     ExercisePickerViewModel exercisePickerViewModel();
 
     MealViewModel mealViewModel();
+
+    SettingsViewModel settingsViewModel();
 
     String selectedRoutineId();
 
@@ -125,11 +128,6 @@ public interface ScreenHost {
 
     void openMealManagement(String date, FitnessScreen returnScreen);
 
-    /** True only for the personal/developer surface that may show topology controls. */
-    default boolean isDeveloperSurfaceAllowed() {
-        return false;
-    }
-
     void showDevelopmentBodyProfileDialog();
 
     void showDevelopmentGoalDialog();
@@ -158,10 +156,6 @@ public interface ScreenHost {
 
     void openFleekDataImport();
 
-    boolean isDataImporting();
-
-    String dataImportDetail();
-
     default void openWorkoutTransferImport() {
     }
 
@@ -174,10 +168,8 @@ public interface ScreenHost {
 
     void exportRecordsCsv();
 
-    boolean isDataTransferInProgress();
-
-    String dataTransferDetail();
-
+    // Transitional compatibility methods retained until the single Compose root removes
+    // the host interface entirely. SettingsScreen uses SettingsViewModel instead.
     SupabaseConfig supabaseConfig();
 
     boolean isSharedSupabaseConnectionManaged();
@@ -218,10 +210,7 @@ public interface ScreenHost {
 
     void loadPriceTraceProduct(String catalogProductId, ProductLoadCallback callback);
 
-    void loadPublicProductNutrition(
-            String catalogProductId,
-            PublicNutritionCallback callback
-    );
+    void loadPublicProductNutrition(String catalogProductId, PublicNutritionCallback callback);
 
     void syncNutritionCatalog(NutritionSyncCallback callback);
 
@@ -277,4 +266,5 @@ public interface ScreenHost {
 
         void onError(Exception error);
     }
+
 }
