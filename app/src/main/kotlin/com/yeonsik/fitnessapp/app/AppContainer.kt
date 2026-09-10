@@ -109,8 +109,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     private val nutritionCatalogRepository = NutritionCatalogRepository(
         roomDatabase,
         appContext,
-        nutritionSupabaseConfig.effectiveUserId(),
-        nutritionSupabaseConfig
+        nutritionSupabaseConfig.effectiveUserId()
     )
     private val mealRecordRepository = MealRecordRepository(
         roomDatabase,

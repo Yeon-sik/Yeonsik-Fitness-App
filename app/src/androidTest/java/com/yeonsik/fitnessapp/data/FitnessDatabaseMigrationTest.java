@@ -188,8 +188,7 @@ public final class FitnessDatabaseMigrationTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     isolatedContext,
-                    "local-user",
-                    SupabaseConfig.empty()
+                    "local-user"
             );
             NutritionFood legacyFood = catalog.findFoodById("legacy-option-1");
             assertNotNull(legacyFood);
@@ -313,8 +312,7 @@ public final class FitnessDatabaseMigrationTest {
                 NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                         room,
                         isolatedContext,
-                        "preview-user",
-                        SupabaseConfig.empty()
+                        "preview-user"
                 );
                 assertNotNull(catalog.findFoodById(diningOutId));
                 assertTrue(catalog.savedDiningOutMenus().stream()
@@ -425,8 +423,7 @@ public final class FitnessDatabaseMigrationTest {
             NutritionCatalogRepository catalogRepository = new NutritionCatalogRepository(
                     room,
                     isolatedContext,
-                    "local-user",
-                    SupabaseConfig.empty()
+                    "local-user"
             );
             catalogRepository.normalizeLocalUserId(AUTH_USER_ID);
             DevelopmentRepository developmentRepository = new DevelopmentRepository(

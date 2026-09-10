@@ -747,7 +747,7 @@ public final class MainActivityDiningOutTabTest {
         com.yeonsik.fitnessapp.config.SupabaseConfig config = store.load();
         return new NutritionCatalogRepository(
                 FitnessRoomDatabaseProvider.get(activity), activity,
-                config.effectiveUserId(), config
+                config.effectiveUserId()
         );
     }
 

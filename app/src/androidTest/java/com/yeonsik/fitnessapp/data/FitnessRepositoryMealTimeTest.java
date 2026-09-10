@@ -434,8 +434,7 @@ public final class FitnessRepositoryMealTimeTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    com.yeonsik.fitnessapp.config.SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood savedMenu = catalog.saveDiningOutMenu(
                     "강남식당",
@@ -502,8 +501,7 @@ public final class FitnessRepositoryMealTimeTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    com.yeonsik.fitnessapp.config.SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood savedMenu = catalog.saveDiningOutMenuWithNutrition(
                     "강남식당",
@@ -661,8 +659,7 @@ public final class FitnessRepositoryMealTimeTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    com.yeonsik.fitnessapp.config.SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood friedRice = catalog.buildRecipeForMeal("Fried rice", ingredients);
             MealMenuSelection menu = MealMenuSelection.composed(

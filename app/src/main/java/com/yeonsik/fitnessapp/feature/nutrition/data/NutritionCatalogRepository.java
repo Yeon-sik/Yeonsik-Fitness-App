@@ -12,7 +12,6 @@ import com.yeonsik.fitnessapp.core.database.ProductNutritionLinksRoomEntity;
 import com.yeonsik.fitnessapp.core.database.PricetraceProductCacheRoomEntity;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
-import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.CompositionGroupType;
 import com.yeonsik.fitnessapp.data.CompositionTemplate;
 import com.yeonsik.fitnessapp.data.DiningOutComponent;
@@ -99,23 +98,13 @@ public final class NutritionCatalogRepository implements
     private final Context applicationContext;
     private volatile String userId;
 
-    public NutritionCatalogRepository(
-            FitnessRoomDatabase roomDatabase,
-            String userId,
-            Object ignoredNetworkConfig
-    ) {
-        this(
-                roomDatabase,
-                userId,
-                ignoredNetworkConfig,
-                null
-        );
+    public NutritionCatalogRepository(FitnessRoomDatabase roomDatabase, String userId) {
+        this(roomDatabase, userId, null);
     }
 
     private NutritionCatalogRepository(
             FitnessRoomDatabase roomDatabase,
             String userId,
-            Object ignoredNetworkConfig,
             Context context
     ) {
         this.roomDatabase = roomDatabase;
@@ -127,15 +116,9 @@ public final class NutritionCatalogRepository implements
     public NutritionCatalogRepository(
             FitnessRoomDatabase roomDatabase,
             android.content.Context context,
-            String userId,
-            Object ignoredNetworkConfig
+            String userId
     ) {
-        this(
-                roomDatabase,
-                userId,
-                ignoredNetworkConfig,
-                context
-        );
+        this(roomDatabase, userId, context);
     }
 
     public void setUserId(String userId) {
@@ -186,26 +169,27 @@ public final class NutritionCatalogRepository implements
     public void normalizeLocalUserId(String nextUserId) {
         String normalizedNextUserId = normalizeUserId(nextUserId);
         String previousUserId = userId;
+        String anonymousOwnerId = AccountOwnerPolicy.loggedOutOwnerId();
         if (AccountOwnerPolicy.shouldClaimLocalRows(
                 previousUserId,
                 normalizedNextUserId
         )) {
             roomDatabase.runInTransaction(() -> {
                 resolveApprovedLinkClaimConflicts(
-                        SupabaseConfig.DEFAULT_USER_ID,
+                        anonymousOwnerId,
                         normalizedNextUserId
                 );
-                nutritionDao.claimFoodRows(SupabaseConfig.DEFAULT_USER_ID, normalizedNextUserId);
+                nutritionDao.claimFoodRows(anonymousOwnerId, normalizedNextUserId);
                 nutritionDao.claimNutrientRows(
-                        SupabaseConfig.DEFAULT_USER_ID,
+                        anonymousOwnerId,
                         normalizedNextUserId
                 );
                 nutritionDao.claimComponentRows(
-                        SupabaseConfig.DEFAULT_USER_ID,
+                        anonymousOwnerId,
                         normalizedNextUserId
                 );
                 nutritionDao.claimProductLinkRows(
-                        SupabaseConfig.DEFAULT_USER_ID,
+                        anonymousOwnerId,
                         normalizedNextUserId
                 );
             });

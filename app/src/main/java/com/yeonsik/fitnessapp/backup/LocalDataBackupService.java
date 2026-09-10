@@ -64,7 +64,7 @@ public final class LocalDataBackupService {
     ) {
         this(
                 new RoomBackupDatabaseStorage(roomDatabase),
-                new NutritionCatalogRepository(roomDatabase, context, nutritionUserId, null),
+                new NutritionCatalogRepository(roomDatabase, context, nutritionUserId),
                 recordUserId,
                 nutritionUserId
         );

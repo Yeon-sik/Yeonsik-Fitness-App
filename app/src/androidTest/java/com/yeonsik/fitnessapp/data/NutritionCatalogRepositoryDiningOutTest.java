@@ -46,8 +46,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood first = repository.saveDiningOutMenu(
                     " 식당   A ",
@@ -113,8 +112,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionProfile optionProfile = NutritionProfile.builder()
                     .value(NutritionProfile.CALORIES_KCAL, 120d)
@@ -176,8 +174,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             assertThrows(IllegalArgumentException.class, () ->
                     repository.saveDiningOutMenuWithNutrition(
@@ -224,8 +221,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             DiningOutIdentity identity = DiningOutIdentity.fromPriceTrace(
                     "91111111-1111-4111-8111-111111111111",
@@ -319,8 +315,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             DiningOutIdentity firstIdentity = identity(
                     "11111111-1111-4111-8111-111111111111",

@@ -43,8 +43,7 @@ public final class DiningOutComponentReviewRegressionTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood side = catalog.saveDiningOutComponent(
                     "식당",
@@ -94,8 +93,7 @@ public final class DiningOutComponentReviewRegressionTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood menu = catalog.saveDiningOutMenu("식당", "대표 메뉴", 40d, 20d, 10d);
             NutritionFood ordinaryMenu = catalog.saveDiningOutMenu(

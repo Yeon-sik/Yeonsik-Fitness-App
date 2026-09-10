@@ -44,8 +44,7 @@ public final class DiningOutComponentPersistenceTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood menu = catalog.saveDiningOutMenu("식당", "대표 메뉴", 40d, 20d, 10d);
             List<NutritionFood> savedComponents = new ArrayList<>();
@@ -112,8 +111,7 @@ public final class DiningOutComponentPersistenceTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood menu = catalog.saveDiningOutMenu("식당", "치킨", 40d, 20d, 10d);
             NutritionProfile profile = NutritionProfile.builder()

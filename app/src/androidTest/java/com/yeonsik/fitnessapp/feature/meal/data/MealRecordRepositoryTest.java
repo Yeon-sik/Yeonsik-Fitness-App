@@ -130,7 +130,7 @@ public final class MealRecordRepositoryTest {
             Context context,
             String owner
     ) {
-        return new NutritionCatalogRepository(room, context, owner, SupabaseConfig.empty());
+        return new NutritionCatalogRepository(room, context, owner);
     }
 
     private static NutritionProfile requiredProfile() {

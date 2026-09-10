@@ -58,8 +58,7 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
                     room,
                     isolatedContext,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
 
             for (int index = 0; index < 120; index++) {
@@ -171,8 +170,7 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
                     room,
                     isolatedContext,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
 
             List<NutritionFood> foods = repository.searchVerifiedFoods("밥", 10);
@@ -215,8 +213,7 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
                     room,
                     isolatedContext,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
 
             assertSeafoodSearch(

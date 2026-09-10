@@ -179,7 +179,7 @@ public final class DiningOutMultiMenuTest {
         FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    room, context, USER_ID, SupabaseConfig.empty()
+                    room, context, USER_ID
             );
             NutritionFood menuA = catalog.saveDiningOutMenu("식당", "메뉴 A", 40d, 20d, 10d);
             NutritionFood menuB = catalog.saveDiningOutMenu("식당", "메뉴 B", 30d, 15d, 8d);
@@ -223,7 +223,7 @@ public final class DiningOutMultiMenuTest {
         FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    room, context, USER_ID, SupabaseConfig.empty()
+                    room, context, USER_ID
             );
             DiningOutIdentity menuAIdentity = DiningOutIdentity.fromPriceTrace(
                     "11111111-1111-4111-8111-111111111111",
@@ -351,7 +351,7 @@ public final class DiningOutMultiMenuTest {
         FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    room, context, USER_ID, SupabaseConfig.empty()
+                    room, context, USER_ID
             );
             NutritionFood saved = catalog.saveDiningOutMenuWithNutrition(
                     "식당",

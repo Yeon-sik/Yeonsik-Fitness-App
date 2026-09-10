@@ -50,8 +50,7 @@ public final class FoodCatalogNormalizationTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood first = catalog.saveDiningOutMenuWithNutrition(
                     " 식당   A ",
@@ -99,8 +98,7 @@ public final class FoodCatalogNormalizationTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood first = catalog.saveDiningOutComponent(
                     "식당 A",
@@ -180,8 +178,7 @@ public final class FoodCatalogNormalizationTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood first = savePackaged(
                     catalog,
@@ -237,8 +234,7 @@ public final class FoodCatalogNormalizationTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood legacy = catalog.saveFood(
                     "햇반",
@@ -277,8 +273,7 @@ public final class FoodCatalogNormalizationTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood product = savePackaged(
                     catalog,
@@ -338,8 +333,7 @@ public final class FoodCatalogNormalizationTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionProfile unknownSodium = NutritionProfile.ofMacros(100d, 5d, 12d, 3d);
             NutritionFood component = catalog.saveDiningOutComponent(

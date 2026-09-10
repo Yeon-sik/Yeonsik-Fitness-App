@@ -79,8 +79,7 @@ public final class DiningOutFulfillmentModeTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood menu = catalog.saveDiningOutMenuWithNutrition(
                     "식당 A",
@@ -144,8 +143,7 @@ public final class DiningOutFulfillmentModeTest {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
                     room,
                     context,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    USER_ID
             );
             NutritionFood menu = catalog.saveDiningOutMenuWithNutrition(
                     "식당 A",
