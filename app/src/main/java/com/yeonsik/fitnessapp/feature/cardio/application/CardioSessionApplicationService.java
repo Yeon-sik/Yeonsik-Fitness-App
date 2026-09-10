@@ -46,6 +46,11 @@ public final class CardioSessionApplicationService {
         return repository.loadSession(scope, recordId);
     }
 
+    public String latestInProgress(AccountScope scope) {
+        requireScope(scope);
+        return workoutRepository.latestInProgressSession(scope);
+    }
+
     public boolean isCardioSession(AccountScope scope, String recordId) {
         requireScope(scope);
         return repository.isCardioSession(scope, recordId);

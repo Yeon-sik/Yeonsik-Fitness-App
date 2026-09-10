@@ -47,7 +47,11 @@ interface HomeScreenActions {
     fun navigate(screen: FitnessScreen)
     fun startEmptyWorkout()
     fun selectRoutine(routineId: String)
-    fun startRoutineWorkout(exercises: List<RoutineExerciseInstance>)
+    fun startRoutineWorkout(
+        routineId: String?,
+        title: String,
+        exercises: List<RoutineExerciseInstance>
+    )
     fun showBodyMetric()
     fun openMealManagement(date: String, returnScreen: FitnessScreen)
 }
@@ -121,7 +125,11 @@ internal fun HomeDestination(
                             Row(horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
                                 FitnessOutlinedButton(onClick = {
                                     actions.selectRoutine(routine.id)
-                                    actions.startRoutineWorkout(snapshot.routineExercises[routine.id].orEmpty())
+                                    actions.startRoutineWorkout(
+                                        routine.id,
+                                        routine.name,
+                                        snapshot.routineExercises[routine.id].orEmpty()
+                                    )
                                 }, Modifier.weight(1f)) { Text("시작") }
                                 FitnessOutlinedButton(onClick = {
                                     actions.selectRoutine(routine.id)

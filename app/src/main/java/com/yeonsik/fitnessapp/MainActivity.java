@@ -49,10 +49,6 @@ import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel;
-import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService;
-import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
-import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService;
-import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.AppUiActions;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
@@ -61,8 +57,6 @@ import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutRestTimerState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance;
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
@@ -76,6 +70,8 @@ import com.yeonsik.fitnessapp.feature.settings.ui.SettingsConnection;
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsEvent;
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsUiState;
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsViewModel;
+import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService;
+import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -89,9 +85,6 @@ import java.time.format.DateTimeParseException;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.EnumMap;
-import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 /**
  * 얇은 진입점: 의존성 초기화, 현재 화면 상태, 하단 내비게이션, 화면 간 공유 액션만 담당한다.
@@ -141,16 +134,11 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     public static final String THEME_DARK = "dark";
     public static final String THEME_SYSTEM = "system";
 
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final WorkoutSessionState sessionState = new WorkoutSessionState();
     private String lastKnownDate = LocalDate.now().toString();
     private FitnessScreen mealReturnScreen = FitnessScreen.WORKOUT;
 
     private AppContainer appContainer;
-    private WorkoutSessionApplicationService workoutSessionApplicationService;
-    private NutritionIntegrationService nutritionIntegrationService;
-    private SyncApplicationService syncApplicationService;
-    private LocalDataTransferApplicationService localDataTransferApplicationService;
     private WorkoutSessionViewModel workoutSessionViewModel;
     private WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel;
     private CardioSessionViewModel cardioSessionViewModel;
@@ -206,11 +194,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         authManager = appContainer.getSupabaseAuthManager();
         nutritionAuthManager = appContainer.getNutritionAuthManager();
         priceTraceAuthManager = appContainer.getPriceTraceAuthManager();
-        workoutSessionApplicationService = appContainer.getWorkoutSessionApplicationService();
-        nutritionIntegrationService = appContainer.getNutritionIntegrationService();
-        syncApplicationService = appContainer.getSyncApplicationService();
-        localDataTransferApplicationService =
-                appContainer.getLocalDataTransferApplicationService();
         themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_THEME_MODE, THEME_LIGHT);
         String startupOwnerId = currentOwnerId();
@@ -223,8 +206,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         handle -> new AppNavigationViewModel(handle)
                 )
         ).get(AppNavigationViewModel.class);
-        executor.execute(() -> localDataTransferApplicationService
-                .reconcileSharedWorkoutSummaries(startupOwnerId));
+        settingsViewModel.reconcileSharedWorkoutSummaries(startupOwnerId);
         ui = new FitnessUi(this, this::isDarkTheme);
         registerBackCallback();
         restoreNavigationState(savedInstanceState);
@@ -781,6 +763,9 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             if (hasPreciseLocationPermission()) {
                 continuePendingCardioAction();
             } else {
+                if (pendingCardioResumeRecordId == null && cardioSessionViewModel != null) {
+                    cardioSessionViewModel.clearPendingStart();
+                }
                 clearPendingCardioAction();
                 toast("GPS 거리 측정에는 정확한 위치 권한이 필요합니다.");
             }
@@ -903,7 +888,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backInvokedCallback);
             backInvokedCallback = null;
         }
-        executor.shutdownNow();
         super.onDestroy();
     }
 
@@ -997,7 +981,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         return root;
     }
 
-    @Override
     public void startRestTimer(Integer restSeconds) {
         workoutSessionViewModel.startRestTimer(currentOwnerId(), restSeconds);
     }
@@ -1170,15 +1153,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         navigate(FitnessScreen.WORKOUT_SESSION);
     }
 
-    @Override
-    public void openRecord(String recordId) {
-        if (recordId == null) {
-            return;
-        }
-        workoutSessionViewModel.openRecord(new AccountScope(currentOwnerId()), recordId);
-    }
-
-    @Override
     public void openWorkoutExercisePicker() {
         String recordId = currentWorkoutRecordId();
         if (recordId == null) {
@@ -1190,7 +1164,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
     }
 
-    @Override
     public void finishActiveWorkout() {
         String recordId = sessionState.activeRecordId();
         if (recordId == null) {
@@ -1198,47 +1171,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             return;
         }
         workoutSessionViewModel.finish(new AccountScope(currentOwnerId()), recordId);
-    }
-
-    @Override
-    public void continueWorkoutIfAvailable() {
-        workoutSessionViewModel.continueIfAvailable(new AccountScope(currentOwnerId()));
-    }
-
-    @Override
-    public void startRoutineWorkout(
-            List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> routineExercises
-    ) {
-        if (routineExercises == null || routineExercises.isEmpty()) {
-            toast("만들어진 루틴이 없습니다.");
-            return;
-        }
-        String ownerId = currentOwnerId();
-        String date = today();
-        String title = routineNameForStart();
-        String routineId = selectedRoutineId();
-        workoutSessionViewModel.startRoutine(
-                new AccountScope(ownerId),
-                date,
-                title,
-                routineId,
-                routineExercises
-        );
-    }
-
-    private String routineNameForStart() {
-        RoutineEntryUiState state = routineEntryViewModel.getUiState().getValue();
-        if (state instanceof RoutineEntryUiState.Ready) {
-            RoutineEntryUiState.Ready ready = (RoutineEntryUiState.Ready) state;
-            String selectedRoutineId = selectedRoutineId();
-            String routineId = selectedRoutineId == null ? ready.getActiveRoutineId() : selectedRoutineId;
-            for (RoutineSummary routine : ready.getRoutines()) {
-                if (routine.id.equals(routineId)) {
-                    return routine.name;
-                }
-            }
-        }
-        return "운동";
     }
 
     @Override
@@ -1267,34 +1199,15 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         return homeViewModel == null ? null : homeViewModel.latestInProgressSessionId();
     }
 
-    @Override
     public void confirmDeleteSession(String recordId) {
-        ui.confirmSheet("운동 기록 삭제",
-                "이 운동 기록과 세부 운동/세트 기록을 삭제 표시합니다.",
-                "삭제된 기록은 기록 탭에서 더 이상 보이지 않습니다.",
-                "삭제", () -> {
-                    String ownerId = currentOwnerId();
-                    workoutSessionViewModel.delete(new AccountScope(ownerId), recordId);
-                });
+        workoutSessionViewModel.openDeleteConfirmation(
+                new AccountScope(currentOwnerId()), recordId
+        );
     }
 
-    @Override
+    /** Compatibility entry point for existing instrumentation fixtures. */
     public void startEmptyWorkout() {
         workoutSessionViewModel.startEmpty(new AccountScope(currentOwnerId()), today());
-    }
-
-    @Override
-    public void startCardioWorkout(CardioActivityType activityType) {
-        if (activityType == null) {
-            toast("유산소 유형을 선택하세요.");
-            return;
-        }
-        final CardioActivityType requestedActivityType = activityType;
-        continueExistingWorkoutIfPresent(() -> {
-            pendingCardioActivityType = requestedActivityType;
-            pendingCardioResumeRecordId = null;
-            requestCardioPermissionsAndContinue();
-        });
     }
 
     private void registerBackCallback() {
@@ -1367,6 +1280,17 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     @Override
+    public void requestCardioStart(CardioActivityType activityType) {
+        if (activityType == null) {
+            toast("유산소 유형을 선택하세요.");
+            return;
+        }
+        pendingCardioActivityType = activityType;
+        pendingCardioResumeRecordId = null;
+        requestCardioPermissionsAndContinue();
+    }
+
+    @Override
     public void requestCardioResume(CardioActivityType activityType, String recordId) {
         if (activityType == null || recordId == null) {
             toast("재개할 유산소 기록을 찾지 못했습니다.");
@@ -1402,35 +1326,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         if (recordId != null && recordId.equals(knownInProgressRecordId)) {
             knownInProgressRecordId = null;
         }
-    }
-
-    private void continueExistingWorkoutIfPresent(Runnable ifNone) {
-        String ownerId = currentOwnerId();
-        executor.execute(() -> {
-            try {
-                AccountScope scope = new AccountScope(ownerId);
-                String activeRecordId = workoutSessionApplicationService.latestInProgress(scope);
-                if (activeRecordId == null) {
-                    runOnUiThread(ifNone);
-                    return;
-                }
-                boolean cardioSession = workoutSessionApplicationService.isCardioSession(
-                        scope,
-                        activeRecordId
-                );
-                runOnUiThread(() -> {
-                    knownInProgressRecordId = activeRecordId;
-                    toast("진행 중인 운동을 먼저 이어갑니다.");
-                    if (cardioSession) {
-                        cardioSessionViewModel.open(scope, activeRecordId);
-                    } else {
-                        openWorkoutSession(activeRecordId);
-                    }
-                });
-            } catch (Exception error) {
-                runOnUiThread(() -> toast("진행 중인 운동을 확인하지 못했습니다."));
-            }
-        });
     }
 
     private void requestCardioPermissionsAndContinue() {
@@ -1480,7 +1375,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         if (resumeRecordId != null) {
             cardioSessionViewModel.resume(scope, resumeRecordId);
         } else {
-            cardioSessionViewModel.start(scope, activityType, today());
+            cardioSessionViewModel.startAfterPermissions(scope);
         }
     }
 

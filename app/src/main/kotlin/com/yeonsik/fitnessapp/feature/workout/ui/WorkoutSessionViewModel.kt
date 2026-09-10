@@ -32,6 +32,12 @@ sealed interface ManualPastWorkoutUiState {
     data class Error(val ownerId: String, val message: String) : ManualPastWorkoutUiState
 }
 
+sealed interface WorkoutDeleteConfirmationUiState {
+    data object Idle : WorkoutDeleteConfirmationUiState
+    data class Ready(val ownerId: String, val recordId: String) :
+        WorkoutDeleteConfirmationUiState
+}
+
 sealed interface WorkoutRestTimerState {
     data object Inactive : WorkoutRestTimerState
     data class Active(
@@ -114,6 +120,11 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     private val mutableManualPastState =
         MutableLiveData<ManualPastWorkoutUiState>(restoreManualPastState())
     val manualPastState: LiveData<ManualPastWorkoutUiState> = mutableManualPastState
+    private val mutableDeleteConfirmationState = MutableLiveData<WorkoutDeleteConfirmationUiState>(
+        restoreDeleteConfirmationState()
+    )
+    val deleteConfirmationState: LiveData<WorkoutDeleteConfirmationUiState> =
+        mutableDeleteConfirmationState
     private val mutableRestTimerState = MutableLiveData<WorkoutRestTimerState>(restoreRestTimerState())
     val restTimerState: LiveData<WorkoutRestTimerState> = mutableRestTimerState
     private var requestVersion = 0L
@@ -369,6 +380,30 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         mutableManualPastState.value = ManualPastWorkoutUiState.Idle
     }
 
+    fun openDeleteConfirmation(scope: AccountScope, recordId: String) {
+        if (recordId.isBlank()) return
+        savedStateHandle[KEY_DELETE_OWNER_ID] = scope.ownerId
+        savedStateHandle[KEY_DELETE_RECORD_ID] = recordId
+        mutableDeleteConfirmationState.value = WorkoutDeleteConfirmationUiState.Ready(
+            scope.ownerId,
+            recordId
+        )
+    }
+
+    fun confirmDelete(scope: AccountScope) {
+        val current = mutableDeleteConfirmationState.value
+            as? WorkoutDeleteConfirmationUiState.Ready ?: return
+        if (current.ownerId != scope.ownerId) return
+        dismissDeleteConfirmation()
+        delete(scope, current.recordId)
+    }
+
+    fun dismissDeleteConfirmation() {
+        savedStateHandle.remove<String>(KEY_DELETE_OWNER_ID)
+        savedStateHandle.remove<String>(KEY_DELETE_RECORD_ID)
+        mutableDeleteConfirmationState.value = WorkoutDeleteConfirmationUiState.Idle
+    }
+
     fun delete(scope: AccountScope, recordId: String) {
         executeAction(scope, WorkoutSessionAction.DELETE) {
             val result = requireSessionApplicationService().delete(scope, recordId)
@@ -414,6 +449,16 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
             WorkoutRestTimerState.Active(ownerId, endsAtMillis, totalSeconds)
         } else {
             WorkoutRestTimerState.Inactive
+        }
+    }
+
+    private fun restoreDeleteConfirmationState(): WorkoutDeleteConfirmationUiState {
+        val ownerId: String? = savedStateHandle[KEY_DELETE_OWNER_ID]
+        val recordId: String? = savedStateHandle[KEY_DELETE_RECORD_ID]
+        return if (!ownerId.isNullOrBlank() && !recordId.isNullOrBlank()) {
+            WorkoutDeleteConfirmationUiState.Ready(ownerId, recordId)
+        } else {
+            WorkoutDeleteConfirmationUiState.Idle
         }
     }
 
@@ -492,6 +537,8 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         const val KEY_REST_OWNER_ID = "workout_rest.owner_id"
         const val KEY_REST_ENDS_AT = "workout_rest.ends_at"
         const val KEY_REST_TOTAL_SECONDS = "workout_rest.total_seconds"
+        const val KEY_DELETE_OWNER_ID = "workout_delete.owner_id"
+        const val KEY_DELETE_RECORD_ID = "workout_delete.record_id"
         const val KEY_MANUAL_PAST_OWNER_ID = "workout_manual_past.owner_id"
         const val DEFAULT_REST_SECONDS = 90
     }

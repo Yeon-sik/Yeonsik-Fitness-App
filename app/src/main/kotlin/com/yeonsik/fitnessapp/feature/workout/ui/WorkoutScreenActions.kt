@@ -25,7 +25,11 @@ internal interface StrengthActions {
     fun showPastWorkout()
     fun selectRoutine(routineId: String)
     fun navigate(screen: FitnessScreen)
-    fun startRoutineWorkout(exercises: List<RoutineExerciseInstance>)
+    fun startRoutineWorkout(
+        routineId: String?,
+        title: String,
+        exercises: List<RoutineExerciseInstance>
+    )
 }
 
 internal interface WorkoutDetailActions {

@@ -45,7 +45,11 @@ interface RoutineDetailActions {
     fun copy(routineId: String, name: String)
     fun delete(routineId: String)
     fun navigate(screen: FitnessScreen)
-    fun startWorkout(exercises: List<RoutineExerciseInstance>)
+    fun startWorkout(
+        routineId: String,
+        title: String,
+        exercises: List<RoutineExerciseInstance>
+    )
 }
 
 @Composable
@@ -98,6 +102,10 @@ internal fun RoutineDetailScreen(
     val exercises = ready.snapshot.routineExercises[routineId].orEmpty()
     exercises.forEach { AppDataRow("${it.order + 1}. ${it.nameKo}", it.equipment) }
     AppOutlinedButton(onClick = { actions.navigate(FitnessScreen.ROUTINE_ADD) }, Modifier.fillMaxWidth()) { Text("종목 추가") }
-    AppButton(onClick = { actions.startWorkout(exercises) }, enabled = exercises.isNotEmpty(),
+    AppButton(
+        onClick = {
+            actions.startWorkout(routine?.id ?: routineId.orEmpty(), routine?.name ?: "운동", exercises)
+        },
+        enabled = exercises.isNotEmpty(),
         modifier = Modifier.fillMaxWidth()) { Text("이 루틴으로 시작") }
 }

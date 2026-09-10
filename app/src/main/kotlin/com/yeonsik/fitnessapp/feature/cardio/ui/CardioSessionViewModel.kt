@@ -35,6 +35,7 @@ sealed interface CardioRouteUiState {
 }
 
 enum class CardioSessionAction {
+    PREPARE_START,
     OPEN,
     START,
     PREPARE_RESUME,
@@ -50,6 +51,8 @@ enum class CardioSessionAction {
 }
 
 enum class CardioSessionActionOutcome {
+    START_READY,
+    EXISTING_WORKOUT,
     OPENED,
     STARTED,
     RESUME_READY,
@@ -76,7 +79,8 @@ class CardioSessionActionEvent(
     val session: CardioSessionSnapshot?,
     val route: CardioRouteProjection?,
     val pausedByFinish: Boolean,
-    val message: String?
+    val message: String?,
+    val existingCardioSession: Boolean = true
 ) {
     private val consumed = AtomicBoolean(false)
 
@@ -157,6 +161,57 @@ class CardioSessionViewModel @JvmOverloads constructor(
         if (refreshPending) return
         refreshPending = true
         load(scope, recordId, requestVersion)
+    }
+
+    fun prepareStart(scope: AccountScope, activityType: CardioActivityType, date: String) {
+        executeAction(scope, CardioSessionAction.PREPARE_START) {
+            val service = requireService()
+            val existingRecordId = service.latestInProgress(scope)
+            if (existingRecordId != null) {
+                val cardioSession = service.isCardioSession(scope, existingRecordId)
+                ActionResult(
+                    CardioSessionActionOutcome.EXISTING_WORKOUT,
+                    existingRecordId,
+                    if (cardioSession) service.load(scope, existingRecordId) else null,
+                    null,
+                    false,
+                    "진행 중인 운동을 먼저 이어갑니다.",
+                    cardioSession
+                )
+            } else {
+                savedStateHandle[KEY_PENDING_START_TYPE] = activityType.id()
+                savedStateHandle[KEY_PENDING_START_DATE] = date
+                ActionResult(
+                    CardioSessionActionOutcome.START_READY,
+                    null,
+                    null,
+                    null,
+                    false,
+                    null,
+                    false
+                )
+            }
+        }
+    }
+
+    fun pendingStartActivityType(): CardioActivityType? {
+        val id: String? = savedStateHandle[KEY_PENDING_START_TYPE]
+        return runCatching { CardioActivityType.fromId(id) }.getOrNull()
+    }
+
+    fun startAfterPermissions(scope: AccountScope) {
+        val activityType = pendingStartActivityType()
+        val date: String? = savedStateHandle[KEY_PENDING_START_DATE]
+        if (activityType == null || date.isNullOrBlank()) {
+            return
+        }
+        clearPendingStart()
+        start(scope, activityType, date)
+    }
+
+    fun clearPendingStart() {
+        savedStateHandle.remove<String>(KEY_PENDING_START_TYPE)
+        savedStateHandle.remove<String>(KEY_PENDING_START_DATE)
     }
 
     fun open(scope: AccountScope, recordId: String) {
@@ -471,7 +526,8 @@ class CardioSessionViewModel @JvmOverloads constructor(
                         result.session,
                         result.route,
                         result.pausedByFinish,
-                        result.message
+                        result.message,
+                        result.existingCardioSession
                     )
                 )
             } catch (error: Exception) {
@@ -575,7 +631,8 @@ class CardioSessionViewModel @JvmOverloads constructor(
         val session: CardioSessionSnapshot?,
         val route: CardioRouteProjection?,
         val pausedByFinish: Boolean,
-        val message: String?
+        val message: String?,
+        val existingCardioSession: Boolean = false
     )
 
     private fun load(scope: AccountScope, recordId: String, request: Long) {
@@ -610,5 +667,7 @@ class CardioSessionViewModel @JvmOverloads constructor(
         const val KEY_HEART_RATE_INPUT = "cardio_heart_rate.input"
         const val KEY_CANCEL_OWNER_ID = "cardio_cancel.owner_id"
         const val KEY_CANCEL_RECORD_ID = "cardio_cancel.record_id"
+        const val KEY_PENDING_START_TYPE = "cardio_pending_start.activity_type"
+        const val KEY_PENDING_START_DATE = "cardio_pending_start.date"
     }
 }

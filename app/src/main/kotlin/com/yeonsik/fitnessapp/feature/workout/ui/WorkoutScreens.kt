@@ -102,7 +102,11 @@ internal fun StrengthScreen(
                 Text("${routineRow.exerciseCount}개 종목", style = MaterialTheme.typography.bodySmall)
                 AppButton(onClick = {
                     actions.selectRoutine(routineRow.id)
-                    actions.startRoutineWorkout(ready.snapshot.routineExercises[routineRow.id].orEmpty())
+                    actions.startRoutineWorkout(
+                        routineRow.id,
+                        routineRow.name,
+                        ready.snapshot.routineExercises[routineRow.id].orEmpty()
+                    )
                 }) { Text("이 루틴으로 시작") }
             }
         }

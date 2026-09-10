@@ -106,6 +106,18 @@ class SettingsViewModel @JvmOverloads constructor(
         mutableState.postValue(snapshot())
     }
 
+    fun reconcileSharedWorkoutSummaries(ownerId: String) {
+        val normalizedOwnerId = ownerId.trim()
+        if (normalizedOwnerId.isEmpty()) return
+        executor.execute {
+            runCatching {
+                localDataTransferApplicationService.reconcileSharedWorkoutSummaries(
+                    normalizedOwnerId
+                )
+            }
+        }
+    }
+
     fun setThemeMode(mode: String) {
         savedStateHandle[KEY_THEME_MODE] = mode
         mutableState.value = snapshot()
