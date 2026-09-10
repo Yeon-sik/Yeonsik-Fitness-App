@@ -49,7 +49,6 @@ public final class MainActivityBottomNavigationTest {
                 FitnessRepository repository = testRepository(activity);
                 String recordId = repository.createEmptySession(activity.today());
                 try {
-                    activity.rerender();
                     View root = activity.getWindow().getDecorView();
                     View homeTab = bottomTab(root, "메인");
                     View workoutTab = bottomTab(root, "피트니스");
@@ -69,7 +68,6 @@ public final class MainActivityBottomNavigationTest {
                     assertEquals(View.VISIBLE, progressMarker(workoutTab).getVisibility());
                 } finally {
                     repository.deleteSession(recordId);
-                    activity.rerender();
                 }
             });
         }

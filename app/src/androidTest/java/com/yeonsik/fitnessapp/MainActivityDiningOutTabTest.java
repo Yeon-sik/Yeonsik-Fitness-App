@@ -351,7 +351,6 @@ public final class MainActivityDiningOutTabTest {
                 assertNotNull(findViewWithContentDescription(root, rowDescription));
                 clickContentDescription(root, rowDescription);
 
-                activity.rerender();
                 assertNotNull(findEditTextWithContentDescription(
                         root,
                         "식품명 또는 상품명 검색"

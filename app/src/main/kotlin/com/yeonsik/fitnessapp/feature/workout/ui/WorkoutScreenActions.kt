@@ -8,7 +8,7 @@ import com.yeonsik.fitnessapp.state.FitnessScreen
 /**
  * Actions exposed to workout composables by the application route.
  *
- * The UI does not know about Activity, ScreenHost, repositories, or another
+ * The UI does not know about Activity, repositories, or another
  * feature's ViewModel. Route assembly owns those adapters until the remaining
  * U2 work moves the operations into feature ViewModels.
  */

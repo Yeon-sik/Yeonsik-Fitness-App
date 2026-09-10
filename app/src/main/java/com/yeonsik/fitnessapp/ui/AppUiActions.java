@@ -7,16 +7,6 @@ import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.development.DevelopmentInsight;
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
-import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
-import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
-import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
-import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
-import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
-import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
-import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
-import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
-import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
-import com.yeonsik.fitnessapp.feature.settings.ui.SettingsViewModel;
 
 import java.util.List;
 
@@ -24,29 +14,9 @@ import java.util.List;
  * 화면 렌더러가 MainActivity에 접근하는 유일한 통로.
  * 화면은 "어떻게 그릴지"만 담당하고, 내비게이션·의존성·앱 수준 상태는 host가 소유한다.
  */
-public interface ScreenHost {
+public interface AppUiActions {
     /** Owner id used to reject stale ViewModel work after an account switch. */
     String currentOwnerId();
-
-    WorkoutSessionViewModel workoutSessionViewModel();
-
-    WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel();
-
-    CardioSessionViewModel cardioSessionViewModel();
-
-    RoutineEntryViewModel routineEntryViewModel();
-
-    HomeViewModel homeViewModel();
-
-    DevelopmentViewModel developmentViewModel();
-
-    SupplementViewModel supplementViewModel();
-
-    ExercisePickerViewModel exercisePickerViewModel();
-
-    MealViewModel mealViewModel();
-
-    SettingsViewModel settingsViewModel();
 
     String selectedRoutineId();
 
@@ -69,8 +39,6 @@ public interface ScreenHost {
     default void replace(FitnessScreen screen) {
         navigate(screen);
     }
-
-    void rerender();
 
     void toast(String message);
 
@@ -168,103 +136,5 @@ public interface ScreenHost {
 
     void exportRecordsCsv();
 
-    // Transitional compatibility methods retained until the single Compose root removes
-    // the host interface entirely. SettingsScreen uses SettingsViewModel instead.
-    SupabaseConfig supabaseConfig();
-
-    boolean isSharedSupabaseConnectionManaged();
-
-    void saveSupabaseConfig(String url, String anonKey);
-
-    void signInToSupabase(String email, String password);
-
-    void signUpToSupabase(String email, String password);
-
-    void signOutFromSupabase();
-
-    SupabaseConfig nutritionSupabaseConfig();
-
-    boolean isNutritionSupabaseConnectionManaged();
-
-    void saveNutritionSupabaseConfig(String url, String anonKey);
-
-    void signInToNutritionSupabase(String email, String password);
-
-    void signUpToNutritionSupabase(String email, String password);
-
-    void signOutFromNutritionSupabase();
-
-    SupabaseConfig priceTraceSupabaseConfig();
-
-    boolean isPriceTraceSupabaseConnectionManaged();
-
-    void savePriceTraceSupabaseConfig(String url, String anonKey);
-
-    void signInToPriceTraceSupabase(String email, String password);
-
-    void signUpToPriceTraceSupabase(String email, String password);
-
-    void signOutFromPriceTraceSupabase();
-
-    void searchPriceTraceProducts(String query, ProductSearchCallback callback);
-
-    void loadPriceTraceProduct(String catalogProductId, ProductLoadCallback callback);
-
-    void loadPublicProductNutrition(String catalogProductId, PublicNutritionCallback callback);
-
-    void syncNutritionCatalog(NutritionSyncCallback callback);
-
-    void setNutritionFoodPublication(
-            String nutritionFoodId,
-            String catalogProductId,
-            boolean publish,
-            NutritionPublicationCallback callback
-    );
-
-    void setDiningOutMenuPublication(
-            String nutritionFoodId,
-            boolean publish,
-            NutritionPublicationCallback callback
-    );
-
-    void runManualSync();
-
-    boolean isManualSyncing();
-
-    String syncLabel();
-
-    String syncDetail();
-
-    String repositoryUserLabel();
-
-    interface ProductSearchCallback {
-        void onComplete(List<ProductReadV1> products);
-
-        void onError(Exception error);
-    }
-
-    interface ProductLoadCallback {
-        void onComplete(ProductReadV1 product);
-
-        void onError(Exception error);
-    }
-
-    interface PublicNutritionCallback {
-        void onComplete(NutritionIntegrationService.PublicProductNutrition nutrition);
-
-        void onError(Exception error);
-    }
-
-    interface NutritionSyncCallback {
-        void onComplete(int pushedRows, int pulledRows);
-
-        void onError(Exception error);
-    }
-
-    interface NutritionPublicationCallback {
-        void onComplete(NutritionIntegrationService.PublicationState state);
-
-        void onError(Exception error);
-    }
-
 }
+
