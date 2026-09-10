@@ -1,5 +1,6 @@
-package com.yeonsik.fitnessapp.data;
+package com.yeonsik.fitnessapp.integration.transfer;
 
+import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.WeightExercise;

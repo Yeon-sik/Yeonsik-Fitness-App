@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.sync;
+package com.yeonsik.fitnessapp.integration.personalos;
 
 import android.content.Context;
 
@@ -7,6 +7,7 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutSummaryApi;
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutSummaryRepository;
 import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisher;
+import com.yeonsik.fitnessapp.integration.personalos.LegacyFitnessSyncAdapter;
 
 import org.json.JSONArray;
 import org.json.JSONException;

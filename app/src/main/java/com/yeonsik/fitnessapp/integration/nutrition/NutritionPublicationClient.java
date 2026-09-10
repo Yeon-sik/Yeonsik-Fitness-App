@@ -3,7 +3,7 @@ package com.yeonsik.fitnessapp.integration.nutrition;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.DiningOutIdentity;
 import com.yeonsik.fitnessapp.data.NutritionFood;
-import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client;
+import com.yeonsik.fitnessapp.integration.pricetrace.RestaurantMenuReadV1Client;
 
 import org.json.JSONArray;
 import org.json.JSONException;

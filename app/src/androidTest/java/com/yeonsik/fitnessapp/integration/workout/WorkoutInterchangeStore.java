@@ -5,9 +5,9 @@ import android.database.Cursor;
 
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
-import com.yeonsik.fitnessapp.data.FleekCsvImporter;
+import com.yeonsik.fitnessapp.integration.transfer.FleekCsvImporter;
 import com.yeonsik.fitnessapp.data.MassUnit;
-import com.yeonsik.fitnessapp.data.WorkoutTransferCodec;
+import com.yeonsik.fitnessapp.integration.transfer.WorkoutTransferCodec;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.ExerciseVolumeCalculator;

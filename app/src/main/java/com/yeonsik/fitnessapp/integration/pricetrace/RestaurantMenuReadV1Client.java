@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.data;
+package com.yeonsik.fitnessapp.integration.pricetrace;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 

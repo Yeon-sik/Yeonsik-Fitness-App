@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.sync;
 
+import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;

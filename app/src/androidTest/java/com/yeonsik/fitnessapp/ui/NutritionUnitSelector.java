@@ -7,7 +7,7 @@ import com.yeonsik.fitnessapp.data.NutritionUnit;
 import java.util.Arrays;
 import java.util.Locale;
 
-/** List-backed selector that prevents unsupported nutrition basis-unit input. */
+/** Test-only selector that prevents unsupported nutrition basis-unit input. */
 final class NutritionUnitSelector {
     private NutritionUnitSelector() {
     }

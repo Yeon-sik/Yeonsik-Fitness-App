@@ -10,7 +10,7 @@ import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionUnit;
 
-/** Binds a live per-unit nutrition preview to the registration form. */
+/** Test-only live per-unit nutrition preview for the registration form. */
 final class NutritionUnitPreview {
     private NutritionUnitPreview() {
     }

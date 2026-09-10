@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.data;
+package com.yeonsik.fitnessapp.backup;
 
 import android.content.ContentValues;
 import android.database.Cursor;
@@ -9,6 +9,9 @@ import android.content.Context;
 import com.yeonsik.fitnessapp.core.database.backup.BackupDatabaseStorage;
 import com.yeonsik.fitnessapp.core.database.backup.RoomBackupDatabaseStorage;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.data.CompositionGroupType;
+import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
+import com.yeonsik.fitnessapp.data.VerifiedFoodCatalogSeed;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogBackupApi;
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
 

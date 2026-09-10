@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.data;
+package com.yeonsik.fitnessapp.integration.transfer;
 
 import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeResult;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutInterchangeApi;

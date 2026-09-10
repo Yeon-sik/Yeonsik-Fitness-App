@@ -3,6 +3,7 @@ package com.yeonsik.fitnessapp.data;
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.WeightExercise;
+import com.yeonsik.fitnessapp.integration.transfer.FleekCsvImporter;
 
 import org.junit.Test;
 

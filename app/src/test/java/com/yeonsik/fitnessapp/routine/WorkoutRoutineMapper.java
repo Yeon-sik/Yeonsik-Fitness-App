@@ -16,7 +16,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
-/** Converts a completed workout snapshot into a reusable routine without copying set data. */
+/** Test fixture that converts a completed workout snapshot into a reusable routine. */
 public final class WorkoutRoutineMapper {
     private WorkoutRoutineMapper() {
     }

@@ -10,7 +10,7 @@ import android.widget.TextView;
 import com.yeonsik.fitnessapp.data.NutritionCalculator;
 
 /**
- * One editable nutrition value with the shared row, parsing and accessibility contract.
+ * Test-only editable nutrition value with the shared row and parsing contract.
  *
  * <p>Meal-domain forms decide whether a field is required and how the parsed value is used;
  * this primitive owns the repeated input mechanics so product and dining-out forms cannot

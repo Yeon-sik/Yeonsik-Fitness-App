@@ -1,9 +1,9 @@
 package com.yeonsik.fitnessapp.integration.transfer;
 
 import com.yeonsik.fitnessapp.core.database.backup.BackupDatabaseStorage;
-import com.yeonsik.fitnessapp.data.FleekCsvImporter;
-import com.yeonsik.fitnessapp.data.LocalDataBackupService;
-import com.yeonsik.fitnessapp.data.WorkoutTransferService;
+import com.yeonsik.fitnessapp.integration.transfer.FleekCsvImporter;
+import com.yeonsik.fitnessapp.backup.LocalDataBackupService;
+import com.yeonsik.fitnessapp.integration.transfer.WorkoutTransferService;
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogBackupApi;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutSummaryApi;

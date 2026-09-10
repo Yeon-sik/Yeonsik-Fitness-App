@@ -1,7 +1,11 @@
-package com.yeonsik.fitnessapp.sync;
+package com.yeonsik.fitnessapp.integration.personalos;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.sync.LegacyFitnessSyncStore;
+import com.yeonsik.fitnessapp.sync.LegacySyncCursor;
+import com.yeonsik.fitnessapp.sync.LegacySyncRow;
+import com.yeonsik.fitnessapp.sync.RoomLegacyFitnessSyncStore;
 
 import org.json.JSONArray;
 import org.json.JSONException;

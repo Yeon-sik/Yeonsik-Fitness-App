@@ -1,6 +1,8 @@
 /* Legacy database compatibility fixture; production runtime no longer packages this facade. */
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.integration.transfer.FleekCsvImporter;
+import com.yeonsik.fitnessapp.integration.transfer.WorkoutTransferCodec;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;

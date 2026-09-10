@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.WeakHashMap;
 
 /**
- * Shared form composition layer for Android View screens.
+ * Test-only shared form composition layer for Android View fixture screens.
  *
  * <p>{@link FitnessUi} owns the theme primitives. This class owns the form grammar: labels,
  * controls, helper/error copy, compact nutrient rows, selectors and the bottom action. Keeping

@@ -1,6 +1,7 @@
-package com.yeonsik.fitnessapp.data;
+package com.yeonsik.fitnessapp.integration.pricetrace;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.data.ProductReadV1;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

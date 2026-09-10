@@ -13,8 +13,8 @@ import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
 import com.yeonsik.fitnessapp.core.database.backup.RoomBackupDatabaseStorage
 import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsRepository
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository
-import com.yeonsik.fitnessapp.data.ProductReadV1Client
-import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client
+import com.yeonsik.fitnessapp.integration.pricetrace.ProductReadV1Client
+import com.yeonsik.fitnessapp.integration.pricetrace.RestaurantMenuReadV1Client
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
@@ -50,7 +50,7 @@ import com.yeonsik.fitnessapp.feature.workout.data.WorkoutInterchangeRepository
 import com.yeonsik.fitnessapp.feature.routine.data.RoutineRepository
 import com.yeonsik.fitnessapp.feature.supplement.data.SupplementRepository
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
-import com.yeonsik.fitnessapp.sync.SupabaseSyncManager
+import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager
 
 /**
  * Activity-scoped dependency composition root for the single :app module.

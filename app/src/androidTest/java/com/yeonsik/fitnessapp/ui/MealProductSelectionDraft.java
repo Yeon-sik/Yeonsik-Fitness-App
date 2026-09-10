@@ -2,7 +2,7 @@ package com.yeonsik.fitnessapp.ui;
 
 import com.yeonsik.fitnessapp.data.ProductReadV1;
 
-/** Restorable draft values for selecting and clearing a PriceTrace product. */
+/** Test-only restorable draft values for selecting and clearing a PriceTrace product. */
 public final class MealProductSelectionDraft {
     private String manualName;
     private String manualBrand;
