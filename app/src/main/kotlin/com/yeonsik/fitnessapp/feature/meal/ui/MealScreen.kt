@@ -19,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.BuildConfig
-import com.yeonsik.fitnessapp.app.navigation.*
 import com.yeonsik.fitnessapp.cardio.*
 import com.yeonsik.fitnessapp.config.*
 import com.yeonsik.fitnessapp.core.account.*

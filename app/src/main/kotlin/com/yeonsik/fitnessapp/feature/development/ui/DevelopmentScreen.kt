@@ -22,7 +22,6 @@ import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.development.BodyProfile
 import com.yeonsik.fitnessapp.development.DevelopmentGoal
 import com.yeonsik.fitnessapp.BuildConfig
-import com.yeonsik.fitnessapp.app.navigation.*
 import com.yeonsik.fitnessapp.cardio.*
 import com.yeonsik.fitnessapp.config.*
 import com.yeonsik.fitnessapp.core.account.*
