@@ -6,9 +6,7 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.database.BodyProfileEntity;
 import com.yeonsik.fitnessapp.core.database.BodyRoomDao;
 import com.yeonsik.fitnessapp.core.database.DevicesRoomEntity;
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.WeightRecordEntity;
 import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsRepositoryApi;
@@ -34,12 +32,6 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
         this.roomDatabase = roomDatabase;
         this.bodyDao = roomDatabase.bodyRoomDao();
         this.userId = normalizeUserId(userId);
-    }
-
-    /** Temporary source-compatible adapter for legacy repository tests. */
-    @Deprecated
-    public BodyMetricsRepository(FitnessDatabaseConnection legacyDatabase, String userId) {
-        this(FitnessRoomDatabaseProvider.get(legacyDatabase.applicationContext()), userId);
     }
 
     @Override

@@ -4,14 +4,11 @@ import androidx.annotation.Nullable;
 
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.MealRecordItemNutrientsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.MealRecordItemsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.MealRecordsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.MealRoomDao;
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.data.CompositionTemplate;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.MealCompositionItem;
 import com.yeonsik.fitnessapp.data.MealEntryPolicy;
 import com.yeonsik.fitnessapp.data.MealItemSnapshot;
@@ -50,20 +47,6 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         this.mealDao = roomDatabase.mealRoomDao();
         this.nutritionCatalog = nutritionCatalog;
         setUserId(userId);
-    }
-
-    /** Temporary source-compatible adapter for legacy repository tests. */
-    @Deprecated
-    public MealRecordRepository(
-            FitnessDatabaseConnection legacyDatabase,
-            NutritionCatalogRepositoryApi nutritionCatalog,
-            String userId
-    ) {
-        this(
-                FitnessRoomDatabaseProvider.get(legacyDatabase.applicationContext()),
-                nutritionCatalog,
-                userId
-        );
     }
 
     @Override

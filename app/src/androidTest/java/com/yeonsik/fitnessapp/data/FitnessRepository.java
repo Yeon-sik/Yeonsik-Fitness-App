@@ -8,6 +8,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.content.Context;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
@@ -67,7 +68,10 @@ public final class FitnessRepository {
         this.familyCatalog = ExerciseFamilyCatalog.load(context);
         this.userId = normalizeUserId(userId);
         this.compositionTemplateRepository = new CompositionTemplateRepository(database, this.userId);
-        this.bodyMetricsRepository = new BodyMetricsRepository(database, this.userId);
+        this.bodyMetricsRepository = new BodyMetricsRepository(
+                FitnessRoomDatabaseProvider.get(context),
+                this.userId
+        );
     }
 
     public void setUserId(String userId) {

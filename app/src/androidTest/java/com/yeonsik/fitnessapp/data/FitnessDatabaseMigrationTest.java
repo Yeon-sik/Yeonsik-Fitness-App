@@ -10,6 +10,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.development.DevelopmentRepository;
 
 import org.junit.Test;
@@ -407,7 +408,7 @@ public final class FitnessDatabaseMigrationTest {
             );
             catalogRepository.normalizeLocalUserId(AUTH_USER_ID);
             DevelopmentRepository developmentRepository = new DevelopmentRepository(
-                    helper,
+                    FitnessRoomDatabaseProvider.get(helper.applicationContext()),
                     "local-user"
             );
             developmentRepository.normalizeLocalUserId(AUTH_USER_ID);

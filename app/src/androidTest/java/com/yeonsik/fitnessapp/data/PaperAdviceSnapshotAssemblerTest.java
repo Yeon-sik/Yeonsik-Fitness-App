@@ -8,11 +8,17 @@ import android.database.sqlite.SQLiteDatabase;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.development.DevelopmentRepository;
 import com.yeonsik.fitnessapp.development.PaperAdvice;
 import com.yeonsik.fitnessapp.development.PaperAdviceInput;
 import com.yeonsik.fitnessapp.development.PaperAdviceSnapshotAssembler;
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository;
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentReadRepository;
+import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository;
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutReadRepository;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -41,7 +47,9 @@ public final class PaperAdviceSnapshotAssemblerTest {
         try {
             helper = new FitnessDatabaseHelper(context);
             FitnessRepository fitness = new FitnessRepository(helper, USER_ID);
-            DevelopmentRepository development = new DevelopmentRepository(helper, USER_ID);
+            DevelopmentRepository development = new DevelopmentRepository(
+                    FitnessRoomDatabaseProvider.get(context), USER_ID
+            );
             development.saveDevelopmentGoal(new DevelopmentGoal(
                     DevelopmentGoal.OBJECTIVE_MUSCLE_GAIN,
                     3,
@@ -91,10 +99,7 @@ public final class PaperAdviceSnapshotAssemblerTest {
             String exerciseId = fitness.addExercise(recordId, "벤치프레스", "가슴", 1, "");
             fitness.addSet(recordId, exerciseId, 1, 60.0, 8, true);
 
-            PaperAdviceSnapshotAssembler adapter = new PaperAdviceSnapshotAssembler(
-                    helper,
-                    development
-            );
+            PaperAdviceSnapshotAssembler adapter = paperAdviceAssembler(context, USER_ID);
             PaperAdviceInput input = adapter.assemble(REFERENCE_DATE);
             List<PaperAdvice> advice = adapter.evaluate(REFERENCE_DATE);
 
@@ -136,8 +141,7 @@ public final class PaperAdviceSnapshotAssemblerTest {
         FitnessDatabaseHelper helper = null;
         try {
             helper = new FitnessDatabaseHelper(context);
-            DevelopmentRepository development = new DevelopmentRepository(helper, USER_ID);
-            PaperAdviceInput input = new PaperAdviceSnapshotAssembler(helper, development)
+            PaperAdviceInput input = paperAdviceAssembler(context, USER_ID)
                     .assemble(REFERENCE_DATE);
 
             assertNull(input.painReported);
@@ -149,6 +153,20 @@ public final class PaperAdviceSnapshotAssemblerTest {
             }
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
+    }
+
+    private static PaperAdviceSnapshotAssembler paperAdviceAssembler(
+            Context context,
+            String ownerId
+    ) {
+        FitnessRoomDatabase roomDatabase = FitnessRoomDatabaseProvider.get(context);
+        return new PaperAdviceSnapshotAssembler(
+                new WorkoutReadRepository(roomDatabase, context),
+                new MealReadRepository(roomDatabase),
+                new BodyMetricsReadRepository(roomDatabase),
+                new DevelopmentReadRepository(roomDatabase),
+                ownerId
+        );
     }
 
     private static void assertAdvice(List<PaperAdvice> advice, String adviceId) {

@@ -2,15 +2,12 @@ package com.yeonsik.fitnessapp.development;
 
 import com.yeonsik.fitnessapp.core.database.BodyProfileEntity;
 import com.yeonsik.fitnessapp.core.database.BodyRoomDao;
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.DevelopmentGoalsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.DevelopmentRoomDao;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 
 import java.time.OffsetDateTime;
 import java.time.LocalDate;
@@ -22,14 +19,6 @@ public final class DevelopmentRepository {
     private final BodyRoomDao bodyDao;
     private final DevelopmentRoomDao developmentDao;
     private String userId;
-
-    public DevelopmentRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        this(legacyRoom(dbHelper), userId);
-    }
-
-    public DevelopmentRepository(FitnessDatabaseConnection database, String userId) {
-        this(roomFromLegacy(database), userId);
-    }
 
     public DevelopmentRepository(FitnessRoomDatabase roomDatabase, String userId) {
         if (roomDatabase == null) {
@@ -167,27 +156,6 @@ public final class DevelopmentRepository {
         } catch (RuntimeException ignored) {
             return candidate != null && current != null && candidate.compareTo(current) > 0;
         }
-    }
-
-    private static FitnessRoomDatabase legacyRoom(FitnessDatabaseHelper helper) {
-        if (helper == null) {
-            throw new IllegalArgumentException("DevelopmentRepository에는 데이터베이스 헬퍼가 필요합니다.");
-        }
-        return FitnessRoomDatabaseProvider.get(FitnessDatabaseConnection.fromLegacy(helper).applicationContext());
-    }
-
-    private static FitnessDatabaseConnection legacyConnection(FitnessDatabaseHelper helper) {
-        if (helper == null) {
-            throw new IllegalArgumentException("DevelopmentRepository에는 데이터베이스 헬퍼가 필요합니다.");
-        }
-        return FitnessDatabaseConnection.fromLegacy(helper);
-    }
-
-    private static FitnessRoomDatabase roomFromLegacy(FitnessDatabaseConnection database) {
-        if (database == null) {
-            throw new IllegalArgumentException("DevelopmentRepository에는 데이터베이스 연결이 필요합니다.");
-        }
-        return FitnessRoomDatabaseProvider.get(database.applicationContext());
     }
 
     private static String normalizeUserId(String value) {

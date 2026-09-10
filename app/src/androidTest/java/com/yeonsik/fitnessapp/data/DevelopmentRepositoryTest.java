@@ -44,7 +44,9 @@ public final class DevelopmentRepositoryTest {
         try {
             helper = new FitnessDatabaseHelper(context);
             FitnessRepository fitness = new FitnessRepository(helper, USER_ID);
-            DevelopmentRepository development = new DevelopmentRepository(helper, USER_ID);
+            DevelopmentRepository development = new DevelopmentRepository(
+                    FitnessRoomDatabaseProvider.get(context), USER_ID
+            );
 
             development.saveBodyProfile(new BodyProfile(181, "", ""));
             development.saveDevelopmentGoal(new DevelopmentGoal(

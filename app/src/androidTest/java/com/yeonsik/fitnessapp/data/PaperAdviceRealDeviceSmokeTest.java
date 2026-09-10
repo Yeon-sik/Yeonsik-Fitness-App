@@ -10,10 +10,16 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.development.DevelopmentRepository;
 import com.yeonsik.fitnessapp.development.PaperAdvice;
 import com.yeonsik.fitnessapp.development.PaperAdviceInput;
 import com.yeonsik.fitnessapp.development.PaperAdviceSnapshotAssembler;
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository;
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentReadRepository;
+import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository;
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutReadRepository;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,12 +46,16 @@ public final class PaperAdviceRealDeviceSmokeTest {
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
         try {
             DevelopmentRepository development = new DevelopmentRepository(
-                    helper,
+                    FitnessRoomDatabaseProvider.get(context),
                     config.effectiveUserId()
             );
+            FitnessRoomDatabase roomDatabase = FitnessRoomDatabaseProvider.get(context);
             PaperAdviceSnapshotAssembler adapter = new PaperAdviceSnapshotAssembler(
-                    helper,
-                    development
+                    new WorkoutReadRepository(roomDatabase, context),
+                    new MealReadRepository(roomDatabase),
+                    new BodyMetricsReadRepository(roomDatabase),
+                    new DevelopmentReadRepository(roomDatabase),
+                    config.effectiveUserId()
             );
             PaperAdviceInput input = adapter.assemble(LocalDate.now());
             List<PaperAdvice> advice = adapter.evaluate(LocalDate.now());

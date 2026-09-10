@@ -12,6 +12,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
@@ -51,7 +52,9 @@ public final class MealRecordRepositoryTest {
                     "v1"
             );
             FitnessDatabaseConnection database = FitnessDatabaseConnection.fromLegacy(helper);
-            MealRecordRepository repository = new MealRecordRepository(database, catalog, OWNER);
+            MealRecordRepository repository = new MealRecordRepository(
+                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER
+            );
 
             String recordId = repository.saveFoodMeal(
                     new AccountScope(OWNER),
@@ -105,7 +108,7 @@ public final class MealRecordRepositoryTest {
                     "v1"
             );
             MealRecordRepository repository = new MealRecordRepository(
-                    FitnessDatabaseConnection.fromLegacy(helper), catalog, OWNER);
+                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER);
             repository.setUserId("meal-owner-b");
 
             assertThrows(IllegalStateException.class, () -> repository.saveFoodMeal(

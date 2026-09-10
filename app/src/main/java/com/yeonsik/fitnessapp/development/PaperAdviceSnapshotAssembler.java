@@ -1,10 +1,6 @@
 package com.yeonsik.fitnessapp.development;
 
 import com.yeonsik.fitnessapp.core.account.AccountScope;
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi;
 import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository;
 import com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry;
@@ -59,46 +55,6 @@ public final class PaperAdviceSnapshotAssembler {
         this.development = development;
         this.ownerId = requireOwner(ownerId);
         this.adviceEngine = new PaperAdviceEngine();
-    }
-
-    /** Compatibility constructor for legacy instrumentation fixtures. */
-    @Deprecated
-    public PaperAdviceSnapshotAssembler(
-            FitnessDatabaseHelper helper,
-            DevelopmentRepository developmentRepository
-    ) {
-        this(
-                roomFromHelper(helper),
-                requireHelper(helper).applicationContext(),
-                developmentRepository
-        );
-    }
-
-    /** Compatibility constructor for legacy Room connection fixtures. */
-    @Deprecated
-    public PaperAdviceSnapshotAssembler(
-            FitnessDatabaseConnection database,
-            DevelopmentRepository developmentRepository
-    ) {
-        this(
-                roomFromConnection(database),
-                database == null ? null : database.applicationContext(),
-                developmentRepository
-        );
-    }
-
-    private PaperAdviceSnapshotAssembler(
-            FitnessRoomDatabase roomDatabase,
-            android.content.Context context,
-            DevelopmentRepository developmentRepository
-    ) {
-        this(
-                new WorkoutReadRepository(roomDatabase, requireContext(context)),
-                new MealReadRepository(roomDatabase),
-                new BodyMetricsReadRepository(roomDatabase),
-                new DevelopmentReadRepository(roomDatabase),
-                requireDevelopmentRepository(developmentRepository).currentUserId()
-        );
     }
 
     /** 기준일 이전의 로컬 기록을 읽어 엔진 입력 snapshot을 만든다. */
@@ -233,29 +189,4 @@ public final class PaperAdviceSnapshotAssembler {
         return normalized;
     }
 
-    private static FitnessDatabaseHelper requireHelper(FitnessDatabaseHelper helper) {
-        if (helper == null) throw new IllegalArgumentException("논문 조언 adapter에는 저장소가 필요합니다.");
-        return helper;
-    }
-
-    private static DevelopmentRepository requireDevelopmentRepository(DevelopmentRepository repository) {
-        if (repository == null) throw new IllegalArgumentException("논문 조언 adapter에는 저장소가 필요합니다.");
-        return repository;
-    }
-
-    private static android.content.Context requireContext(android.content.Context context) {
-        if (context == null) throw new IllegalArgumentException("논문 조언 adapter에는 Context가 필요합니다.");
-        return context;
-    }
-
-    private static FitnessRoomDatabase roomFromHelper(FitnessDatabaseHelper helper) {
-        return FitnessRoomDatabaseProvider.get(requireHelper(helper).applicationContext());
-    }
-
-    private static FitnessRoomDatabase roomFromConnection(FitnessDatabaseConnection database) {
-        if (database == null || database.applicationContext() == null) {
-            throw new IllegalArgumentException("논문 조언 adapter에는 Room Context가 필요합니다.");
-        }
-        return FitnessRoomDatabaseProvider.get(database.applicationContext());
-    }
 }
