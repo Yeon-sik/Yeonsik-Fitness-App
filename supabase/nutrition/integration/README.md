@@ -1,10 +1,13 @@
 # Nutrition canonical import integration test
 
 `canonical-import.integration.mjs` exercises the real Nutrition Supabase project
-through Auth, PostgREST, and the `import_canonical_nutrition_v2` RPC. It verifies
-owner-scoped RLS, anonymous rejection, the label and estimate contracts, seven
-provenance rows, replay/collision behavior, v1/v2 idempotency namespace separation,
-malformed payload rejection, and the direct `nutrition_foods` write boundary.
+through Auth, PostgREST, and the canonical import RPCs. It verifies owner-scoped
+RLS, anonymous rejection, the v1/v2 evidence contracts, packaged-product v3
+hierarchy round-trip (including nulls and `sub_brand_name`), seven provenance
+rows, replay/collision behavior including changed hierarchy, v1/v2
+idempotency namespace separation, exact product↔Nutrition links, restaurant
+hierarchy rejection, malformed payload rejection, and the direct
+`nutrition_foods` write boundary.
 
 The test is intentionally opt-in because it creates real rows. Use a dedicated
 integration project or dedicated test users. It requires a service-role key for
