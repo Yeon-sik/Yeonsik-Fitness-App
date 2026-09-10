@@ -38,16 +38,12 @@ import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
-import com.yeonsik.fitnessapp.data.MassFormatter;
-import com.yeonsik.fitnessapp.data.MassUnit;
-import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.AppUiActions;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
-import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutRestTimerState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
@@ -64,14 +60,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.util.Arrays;
 import java.util.ArrayList;
-import java.util.EnumMap;
 
 /**
  * 얇은 진입점: 의존성 초기화, 현재 화면 상태, 하단 내비게이션, 화면 간 공유 액션만 담당한다.
@@ -79,9 +68,6 @@ import java.util.EnumMap;
  */
 public final class MainActivity extends ComponentActivity implements AppUiActions {
 
-    private static final DateTimeFormatter MANUAL_WORKOUT_TIME_FORMAT =
-            DateTimeFormatter.ofPattern("H:mm");
-    private static final ZoneOffset KOREA_OFFSET = ZoneOffset.ofHours(9);
     private static final int REQUEST_FLEEK_CSV_IMPORT = 4101;
     private static final int REQUEST_CARDIO_LOCATION = 4102;
     private static final int REQUEST_CARDIO_NOTIFICATIONS = 4103;
@@ -136,11 +122,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
     private ComposeView rootView;
 
-    private boolean isManualSyncing = false;
     private Uri pendingRestoreUri;
-    private String syncLabel = "local-only";
-    private String syncDetail = "로컬 전용 모드";
-    private String lastSyncedAt = "";
     private boolean waitingForLocationSettings;
     private final DataTransferCoordinator dataTransferCoordinator = new DataTransferCoordinator();
 
@@ -686,32 +668,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         return false;
     }
 
-    @Override
-    public String themeMode() {
-        return settingsViewModel == null ? THEME_LIGHT : settingsViewModel.themeMode();
-    }
-
-    @Override
-    public void setThemeMode(String mode) {
-        if (settingsViewModel != null) {
-            settingsViewModel.setThemeMode(mode);
-        }
-    }
-
-    @Override
-    public MassUnit preferredMassUnit() {
-        return settingsViewModel == null
-                ? MassUnit.KG
-                : settingsViewModel.preferredMassUnit();
-    }
-
-    @Override
-    public void setPreferredMassUnit(MassUnit unit) {
-        if (settingsViewModel != null) {
-            settingsViewModel.setPreferredMassUnit(unit);
-        }
-    }
-
     // ── 창 / 루트 뷰 ──────────────────────────────────────────────────
 
     private void configureWindow() {
@@ -753,10 +709,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                 )
         );
         return root;
-    }
-
-    public void startRestTimer(Integer restSeconds) {
-        workoutSessionViewModel.startRestTimer(currentOwnerId(), restSeconds);
     }
 
     private void applySystemBarAppearance(
@@ -817,12 +769,10 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         return navigationViewModel.currentScreen();
     }
 
-    @Override
     public void navigate(FitnessScreen screen) {
         navigationViewModel.navigate(screen);
     }
 
-    @Override
     public boolean back() {
         if (!navigationViewModel.back()) {
             return false;
@@ -830,7 +780,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         return true;
     }
 
-    @Override
     public void replace(FitnessScreen screen) {
         navigationViewModel.replace(screen);
     }
@@ -876,104 +825,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     @Override
-    public String selectedRoutineId() {
-        return navigationViewModel.selectedRoutineId();
-    }
-
-    @Override
-    public void openWorkoutExerciseDetail(String exerciseId) {
-        workoutExerciseDetailViewModel.rememberActiveExercise(exerciseId);
-        navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
-    }
-
-    @Override
-    public void openWorkoutExerciseReplacementPicker(String exerciseId) {
-        exercisePickerViewModel.rememberReplacementExercise(exerciseId);
-        navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
-    }
-
-    @Override
-    public void refreshWorkoutExerciseDetail() {
-        String recordId = workoutSessionViewModel.activeRecordId();
-        if (recordId != null) {
-            workoutExerciseDetailViewModel.enter(
-                    new AccountScope(currentOwnerId()),
-                    recordId,
-                    workoutExerciseDetailViewModel.activeExerciseId()
-            );
-            workoutSessionViewModel.enter(new AccountScope(currentOwnerId()), recordId);
-        }
-    }
-
-    @Override
     public void toast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
-    }
-
-    @Override
-    public void selectRoutine(String routineId) {
-        navigationViewModel.selectRoutine(routineId);
-    }
-
-    @Override
-    public void openWorkoutSession(String recordId) {
-        workoutSessionViewModel.rememberActiveRecord(recordId);
-        workoutExerciseDetailViewModel.clearActiveExercise();
-        navigate(FitnessScreen.WORKOUT_SESSION);
-    }
-
-    public void openWorkoutExercisePicker() {
-        String recordId = currentWorkoutRecordId();
-        if (recordId == null) {
-            toast("먼저 운동을 시작하세요.");
-            return;
-        }
-        exercisePickerViewModel.clearReplacementExercise();
-        workoutSessionViewModel.rememberActiveRecord(recordId);
-        navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
-    }
-
-    public void finishActiveWorkout() {
-        String recordId = workoutSessionViewModel.activeRecordId();
-        if (recordId == null) {
-            toast("진행 중인 운동을 찾지 못했습니다.");
-            return;
-        }
-        workoutSessionViewModel.finish(new AccountScope(currentOwnerId()), recordId);
-    }
-
-    @Override
-    public String currentWorkoutRecordId() {
-        FitnessScreen screen = currentScreen();
-        boolean onSessionScreen = screen == FitnessScreen.WORKOUT_SESSION
-                || screen == FitnessScreen.WORKOUT_EXERCISE_DETAIL;
-        if (onSessionScreen && workoutSessionViewModel != null) {
-            return workoutSessionViewModel.activeRecordId();
-        }
-        if ((screen == FitnessScreen.CARDIO_SESSION || screen == FitnessScreen.CARDIO_SUMMARY)
-                && cardioSessionViewModel != null) {
-            return cardioSessionViewModel.activeRecordId();
-        }
-        if (screen == FitnessScreen.WORKOUT_EXERCISE_ADD && workoutSessionViewModel != null) {
-            return workoutSessionViewModel.activeRecordId();
-        }
-        return homeViewModel == null ? null : homeViewModel.latestInProgressSessionId();
-    }
-
-    @Override
-    public String currentWorkoutReplacementExerciseId() {
-        return exercisePickerViewModel.activeReplacementId();
-    }
-
-    public void confirmDeleteSession(String recordId) {
-        workoutSessionViewModel.openDeleteConfirmation(
-                new AccountScope(currentOwnerId()), recordId
-        );
-    }
-
-    /** Compatibility entry point for existing instrumentation fixtures. */
-    public void startEmptyWorkout() {
-        workoutSessionViewModel.startEmpty(new AccountScope(currentOwnerId()), today());
     }
 
     private void registerBackCallback() {
@@ -1057,15 +910,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             return;
         }
         requestCardioPermissionsAndContinue();
-    }
-
-    @Override
-    public void clearActiveWorkout(String recordId) {
-        if (recordId == null) {
-            return;
-        }
-        workoutSessionViewModel.clearActiveRecordIfMatches(recordId);
-        cardioSessionViewModel.clearActiveRecordIfMatches(recordId);
     }
 
     private void requestCardioPermissionsAndContinue() {
@@ -1160,22 +1004,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
     private void clearPendingCardioAction() {
         waitingForLocationSettings = false;
-    }
-
-    @Override
-    public void openMealManagement() {
-        openMealManagement(today(), FitnessScreen.WORKOUT);
-    }
-
-    @Override
-    public void openMealManagement(String date) {
-        openMealManagement(date, FitnessScreen.WORKOUT);
-    }
-
-    @Override
-    public void openMealManagement(String date, FitnessScreen returnScreen) {
-        navigationViewModel.selectMealDate(date == null ? today() : date);
-        navigate(FitnessScreen.MEALS);
     }
 
     // ── 설정 / 동기화 ─────────────────────────────────────────────────

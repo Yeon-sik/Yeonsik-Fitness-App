@@ -9,6 +9,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitnessapp.MainActivity
+import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerUiState
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState
@@ -37,10 +38,21 @@ class FitnessVisualQaTest {
     @Test
     fun workoutInputThemeRecreationAndCompletion() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
-            scenario.onActivity { it.setThemeMode("light"); it.startEmptyWorkout() }
+            scenario.onActivity {
+                it.settingsViewModel().setThemeMode("light")
+                it.workoutSessionViewModel().startEmpty(
+                    AccountScope(it.currentOwnerId()), it.today()
+                )
+            }
             await { onActivity(scenario) { it.workoutSessionViewModel().uiState.value is WorkoutSessionUiState.Ready } }
             capture("session-empty-light")
-            scenario.onActivity { it.openWorkoutExercisePicker() }
+            scenario.onActivity {
+                val recordId = it.workoutSessionViewModel().activeRecordId()
+                assertNotNull(recordId)
+                it.exercisePickerViewModel().clearReplacementExercise()
+                it.workoutSessionViewModel().rememberActiveRecord(recordId!!)
+                it.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
+            }
             await { onActivity(scenario) { it.exercisePickerViewModel().uiState.value is ExercisePickerUiState.Ready } }
             capture("exercise-picker-light")
             scenario.onActivity {
@@ -53,7 +65,10 @@ class FitnessVisualQaTest {
             capture("session-light")
             scenario.onActivity {
                 val ready = it.workoutSessionViewModel().uiState.value as WorkoutSessionUiState.Ready
-                it.openWorkoutExerciseDetail(ready.session.exercises.first().id)
+                it.workoutExerciseDetailViewModel().rememberActiveExercise(
+                    ready.session.exercises.first().id
+                )
+                it.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
             }
             await { editors().size >= 2 }
             val weight = editors()[0]
@@ -80,7 +95,9 @@ class FitnessVisualQaTest {
                 assertTrue(it.back())
                 // Existing recreation policy restores a HOME-rooted stack; resume through the public action.
                 assertEquals(FitnessScreen.HOME, it.currentScreen())
-                it.openWorkoutSession(recordId)
+                it.workoutSessionViewModel().rememberActiveRecord(recordId)
+                it.workoutExerciseDetailViewModel().clearActiveExercise()
+                it.navigate(FitnessScreen.WORKOUT_SESSION)
             }
             await { onActivity(scenario) {
                 (it.workoutSessionViewModel().uiState.value as? WorkoutSessionUiState.Ready)?.session?.completedSetCount == 1
@@ -90,24 +107,37 @@ class FitnessVisualQaTest {
                 assertEquals(164.0, ready.session.totalVolumeKg, 0.001)
             }
             capture("session-completed-set-light")
-            scenario.onActivity { it.setThemeMode("dark") }
+            scenario.onActivity { it.settingsViewModel().setThemeMode("dark") }
             capture("session-dark")
-            scenario.onActivity { it.openWorkoutExerciseDetail(
-                (it.workoutSessionViewModel().uiState.value as WorkoutSessionUiState.Ready).session.exercises.first().id
-            ) }
+            scenario.onActivity {
+                it.workoutExerciseDetailViewModel().rememberActiveExercise(
+                    (it.workoutSessionViewModel().uiState.value as WorkoutSessionUiState.Ready)
+                        .session.exercises.first().id
+                )
+                it.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+            }
             await { editors().size >= 2 }
             editors()[0].performAction(AccessibilityNodeInfo.ACTION_CLICK)
             capture("detail-keyboard-dark")
-            scenario.onActivity { it.back(); it.finishActiveWorkout() }
+            scenario.onActivity {
+                it.back()
+                val recordId = it.workoutSessionViewModel().activeRecordId()
+                assertNotNull(recordId)
+                it.workoutSessionViewModel().finish(
+                    AccountScope(it.currentOwnerId()), recordId!!
+                )
+            }
             await { onActivity(scenario) { it.currentScreen() == FitnessScreen.WORKOUT_SUMMARY && it.workoutSessionViewModel().uiState.value is WorkoutSessionUiState.Ready } }
             capture("summary-dark")
             // Remove only the synthetic session created by this test through its existing confirmation UI.
             scenario.onActivity {
                 val ready = it.workoutSessionViewModel().uiState.value as WorkoutSessionUiState.Ready
-                it.confirmDeleteSession(ready.session.recordId)
+                it.workoutSessionViewModel().openDeleteConfirmation(
+                    AccountScope(it.currentOwnerId()), ready.session.recordId
+                )
             }
             tap("삭제")
-            scenario.onActivity { it.setThemeMode("light") }
+            scenario.onActivity { it.settingsViewModel().setThemeMode("light") }
         }
     }
 
@@ -119,7 +149,7 @@ class FitnessVisualQaTest {
                 FitnessScreen.MEALS, FitnessScreen.SUPPLEMENTS, FitnessScreen.ROUTINE_DETAIL, FitnessScreen.CARDIO)
             for (mode in listOf("light", "dark")) {
                 for (screen in screens) {
-                    scenario.onActivity { it.setThemeMode(mode); it.navigate(screen) }
+                    scenario.onActivity { it.settingsViewModel().setThemeMode(mode); it.navigate(screen) }
                     capture("${screen.name.lowercase()}-$mode")
                     assertNotNull(automation.rootInActiveWindow)
                     // A new destination must not inherit the previous screen's scroll offset.
@@ -142,7 +172,7 @@ class FitnessVisualQaTest {
                     capture("${screen.name.lowercase()}-$mode-bottom")
                 }
             }
-            scenario.onActivity { it.setThemeMode("light") }
+            scenario.onActivity { it.settingsViewModel().setThemeMode("light") }
         }
     }
 

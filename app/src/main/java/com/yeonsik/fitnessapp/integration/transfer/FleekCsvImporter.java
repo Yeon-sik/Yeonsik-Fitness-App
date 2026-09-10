@@ -118,7 +118,7 @@ public final class FleekCsvImporter {
         return new ImportPlan(rows.size() - 1, skippedRows, matchedSets, result);
     }
 
-    static String normalizeExerciseName(String value) {
+    public static String normalizeExerciseName(String value) {
         String normalized = Normalizer.normalize(value == null ? "" : value, Normalizer.Form.NFKC)
                 .toLowerCase(Locale.ROOT);
         StringBuilder result = new StringBuilder();

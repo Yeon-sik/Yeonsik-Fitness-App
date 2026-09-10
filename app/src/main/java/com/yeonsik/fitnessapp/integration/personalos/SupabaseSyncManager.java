@@ -84,15 +84,15 @@ public final class SupabaseSyncManager {
         return legacyAdapter.applyRows(table, rows, userId);
     }
 
-    static boolean isRpcUnavailable(int statusCode, String body) {
+    public static boolean isRpcUnavailable(int statusCode, String body) {
         return LegacyFitnessSyncAdapter.isRpcUnavailable(statusCode, body);
     }
 
-    static boolean shouldSyncColumn(String table, String column) {
+    public static boolean shouldSyncColumn(String table, String column) {
         return LegacyFitnessSyncAdapter.shouldSyncColumn(table, column);
     }
 
-    static int compareVersions(String left, String right) {
+    public static int compareVersions(String left, String right) {
         return LegacyFitnessSyncAdapter.compareVersions(left, right);
     }
 

@@ -8,6 +8,8 @@ import android.widget.TextView;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.yeonsik.fitnessapp.state.FitnessScreen;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -32,7 +34,7 @@ public final class MainActivityVerifiedSingleFoodTabTest {
     public void verifiedSingleFoodTabShowsBuiltInFoodAndAddsItToCurrentMealDraft() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
 
                 clickText(root, "새 끼니 기록");
@@ -60,7 +62,7 @@ public final class MainActivityVerifiedSingleFoodTabTest {
     public void verifiedSingleFoodSearchDistinguishesRawAndGrilledFish() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
 
                 clickText(root, "새 끼니 기록");
