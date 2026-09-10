@@ -19,6 +19,9 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomMigrations;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutSummaryRepository;
+import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisher;
+import com.yeonsik.fitnessapp.integration.personalos.LegacyFitnessSyncAdapter;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -74,7 +77,11 @@ public final class SupabaseSyncManagerLocalPreservationTest {
             remoteRow.put("updated_at", "2099-01-01T00:00:00Z");
             JSONArray remoteRows = new JSONArray().put(remoteRow);
 
-            int applied = new SupabaseSyncManager(room, context).applyRows(
+            int applied = new SupabaseSyncManager(
+                    new LegacyFitnessSyncAdapter(room),
+                    new WorkoutSummaryRepository(room),
+                    new FitnessSummaryPublisher()
+            ).applyRows(
                     "meal_records", remoteRows, USER_ID
             );
 
@@ -122,7 +129,11 @@ public final class SupabaseSyncManagerLocalPreservationTest {
                     Collections.emptyList()
             );
 
-            int applied = new SupabaseSyncManager(room, context).applyRows(
+            int applied = new SupabaseSyncManager(
+                    new LegacyFitnessSyncAdapter(room),
+                    new WorkoutSummaryRepository(room),
+                    new FitnessSummaryPublisher()
+            ).applyRows(
                     "meal_records", new JSONArray(), USER_ID
             );
 

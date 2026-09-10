@@ -1,13 +1,7 @@
 package com.yeonsik.fitnessapp.integration.personalos;
 
-import android.content.Context;
-
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutSummaryApi;
-import com.yeonsik.fitnessapp.feature.workout.data.WorkoutSummaryRepository;
-import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisher;
-import com.yeonsik.fitnessapp.integration.personalos.LegacyFitnessSyncAdapter;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -29,19 +23,7 @@ public final class SupabaseSyncManager {
     private final WorkoutSummaryApi summaryStore;
     private final FitnessSummaryPublisher summaryPublisher;
 
-    public SupabaseSyncManager(FitnessRoomDatabase roomDatabase, Context context) {
-        this(roomDatabase);
-    }
-
-    public SupabaseSyncManager(FitnessRoomDatabase roomDatabase) {
-        this(
-                new LegacyFitnessSyncAdapter(roomDatabase),
-                new WorkoutSummaryRepository(roomDatabase),
-                new FitnessSummaryPublisher()
-        );
-    }
-
-    SupabaseSyncManager(
+    public SupabaseSyncManager(
             LegacyFitnessSyncAdapter legacyAdapter,
             WorkoutSummaryApi summaryStore,
             FitnessSummaryPublisher summaryPublisher
