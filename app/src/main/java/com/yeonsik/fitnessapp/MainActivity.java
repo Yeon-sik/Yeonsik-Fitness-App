@@ -37,9 +37,9 @@ import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel;
-import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.AppUiActions;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
@@ -503,7 +503,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     private int pageBackgroundColor() {
-        return isDarkTheme() ? FitnessUi.COLOR_D_BACKGROUND : FitnessUi.COLOR_BACKGROUND;
+        return FitnessUiTokens.pageBackground(isDarkTheme());
     }
 
     private View buildRootView() {

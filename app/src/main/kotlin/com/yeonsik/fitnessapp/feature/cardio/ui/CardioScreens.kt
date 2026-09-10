@@ -14,7 +14,7 @@ import com.yeonsik.fitnessapp.BuildConfig
 import com.yeonsik.fitnessapp.cardio.CardioActivityType
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot
-import com.yeonsik.fitnessapp.ui.FitnessUi
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import kotlinx.coroutines.delay
 
 @Composable
@@ -47,7 +47,7 @@ internal fun CardioSessionScreen(
     }
     val session = ready.session
     FitnessFactRow(
-        first = { FitnessFactCard("시간", FitnessUi.formatElapsed(session.elapsedSeconds(System.currentTimeMillis())), "진행 시간") },
+        first = { FitnessFactCard("시간", FitnessUiTokens.formatElapsed(session.elapsedSeconds(System.currentTimeMillis())), "진행 시간") },
         second = { FitnessFactCard("거리", String.format("%.2f km", session.distanceMeters / 1_000.0), session.activityLabel) }
     )
     Text("GPS · ${session.gpsStatus} · ${session.acceptedPointCount} points")
@@ -80,7 +80,7 @@ internal fun CardioSummaryScreen(
     }
     Text(session.activityLabel, fontWeight = FontWeight.Bold)
     FitnessFactRow(
-        first = { FitnessFactCard("시간", FitnessUi.formatElapsed(session.elapsedSeconds(System.currentTimeMillis())), "완료 기록") },
+        first = { FitnessFactCard("시간", FitnessUiTokens.formatElapsed(session.elapsedSeconds(System.currentTimeMillis())), "완료 기록") },
         second = { FitnessFactCard("거리", String.format("%.2f km", session.distanceMeters / 1_000.0), "완료 기록") }
     )
     Text(session.averageHeartRateBpm?.let { String.format("평균 심박 %.0f bpm", it) } ?: "평균 심박 미기록")

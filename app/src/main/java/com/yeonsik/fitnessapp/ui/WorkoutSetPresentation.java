@@ -4,6 +4,7 @@ import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.data.MassFormatter;
 import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.exercise.LoadState;
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens;
 
 import java.util.List;
 
@@ -50,7 +51,7 @@ public final class WorkoutSetPresentation {
     public static String totalVolumeComparisonMessage(double currentKg, double previousKg) {
         double delta = currentKg - previousKg;
         if (Math.abs(delta) < 0.0001d) return "전체 세트 기준, 지난 운동과 같은 볼륨이에요";
-        return "전체 세트 기준, 지난 운동보다 " + FitnessUi.formatVolume(Math.abs(delta))
+        return "전체 세트 기준, 지난 운동보다 " + FitnessUiTokens.formatVolume(Math.abs(delta))
                 + " KG " + (delta < 0 ? "덜" : "더") + " 들었어요";
     }
 

@@ -36,7 +36,7 @@ import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState
 import com.yeonsik.fitnessapp.state.FitnessScreen
-import com.yeonsik.fitnessapp.ui.FitnessUi
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -343,7 +343,7 @@ private fun weeklyComparison(current: Double, previous: Double, unit: MassUnit):
     val direction = if (difference > 0) "증가" else "감소"
     val amount = MassFormatter.withUnit(kotlin.math.abs(difference), unit)
     if (previous <= 0.01) return "지난주 대비 $amount $direction"
-    return "지난주 대비 $amount $direction (${FitnessUi.formatVolume(kotlin.math.abs(difference) / previous * 100)}%)"
+    return "지난주 대비 $amount $direction (${FitnessUiTokens.formatVolume(kotlin.math.abs(difference) / previous * 100)}%)"
 }
 
 private fun mealComparison(current: Int, previous: Int): String = when {
@@ -357,7 +357,7 @@ private fun stripLeadingDate(value: String): String {
     return if (split > 0) value.substring(split + 2) else value
 }
 
-private fun formatDuration(seconds: Int): String = FitnessUi.formatDuration(seconds)
+private fun formatDuration(seconds: Int): String = FitnessUiTokens.formatDuration(seconds)
 
 @Composable
 private fun LoadingHome() {

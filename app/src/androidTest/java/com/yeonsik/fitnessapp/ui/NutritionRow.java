@@ -10,12 +10,7 @@ import android.widget.TextView;
 import com.yeonsik.fitnessapp.data.NutrientCode;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 
-/**
- * A compact nutrition value row used by both forms and read-only summaries.
- *
- * <p>The row deliberately has no card background. The label, value and unit stay on one
- * scan line so a menu total and an editable menu use the same visual grammar.</p>
- */
+/** Test-only legacy View fixture for the preserved FormSystem instrumentation scenarios. */
 public final class NutritionRow {
     private final LinearLayout root;
     private final EditText input;
@@ -98,7 +93,6 @@ public final class NutritionRow {
         ));
     }
 
-    /** Creates an editable row for a nutrient key. */
     public static NutritionRow input(
             FitnessUi ui,
             Activity activity,
@@ -109,7 +103,6 @@ public final class NutritionRow {
         return new NutritionRow(ui, activity, label, unit, value, true);
     }
 
-    /** Wraps an existing input so draft-backed forms can keep their field references. */
     public static NutritionRow input(
             FitnessUi ui,
             Activity activity,
@@ -120,7 +113,6 @@ public final class NutritionRow {
         return new NutritionRow(ui, activity, label, unit, "", true, existingInput);
     }
 
-    /** Creates a read-only row for a nutrient key or a calculated total. */
     public static NutritionRow readOnly(
             FitnessUi ui,
             Activity activity,
@@ -148,16 +140,11 @@ public final class NutritionRow {
         valueView.setContentDescription(root.getContentDescription() + " " + display);
     }
 
-    /** Returns the component label used by the product UI, not the storage key. */
     public static String displayLabel(String key) {
-        return NutritionProfile.CALORIES_KCAL.equals(key)
-                ? "칼로리"
-                : NutritionProfile.labelOf(key);
+        return com.yeonsik.fitnessapp.core.ui.NutritionRow.displayLabel(key);
     }
 
-    /** Returns the display unit while keeping the stored unit contract unchanged. */
     public static String displayUnit(String key) {
-        String unit = NutritionProfile.unitOf(key);
-        return NutrientCode.displayUnit(unit == null ? "" : unit);
+        return com.yeonsik.fitnessapp.core.ui.NutritionRow.displayUnit(key);
     }
 }

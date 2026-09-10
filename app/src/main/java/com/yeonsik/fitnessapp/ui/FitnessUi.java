@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens;
+
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.app.Activity;
@@ -31,13 +33,11 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
-import java.time.OffsetDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.function.BooleanSupplier;
 
 /**
@@ -48,122 +48,122 @@ import java.util.function.BooleanSupplier;
  */
 public final class FitnessUi {
     // ── Light semantic tokens ─────────────────────────────────────────
-    public static final int COLOR_BACKGROUND = 0xFFF7F9FC;
-    public static final int COLOR_SURFACE = 0xFFFFFFFF;
-    public static final int COLOR_SUBTLE = 0xFFF0F5F9;
-    public static final int COLOR_TEXT = 0xFF111827;
-    public static final int COLOR_MUTED = 0xFF667085;
+    public static final int COLOR_BACKGROUND = FitnessUiTokens.COLOR_BACKGROUND;
+    public static final int COLOR_SURFACE = FitnessUiTokens.COLOR_SURFACE;
+    public static final int COLOR_SUBTLE = FitnessUiTokens.COLOR_SUBTLE;
+    public static final int COLOR_TEXT = FitnessUiTokens.COLOR_TEXT;
+    public static final int COLOR_MUTED = FitnessUiTokens.COLOR_MUTED;
     // Legacy tertiary text is kept as an alias so old callers use the same semantic secondary token.
     public static final int COLOR_TERTIARY = COLOR_MUTED;
-    public static final int COLOR_BORDER = 0xFFDCE5EC;
-    public static final int COLOR_PASTEL_BLUE = 0xFFA9D6F5;
-    public static final int COLOR_BLUE_CONTAINER = 0xFFEAF6FF;
-    public static final int COLOR_BLUE_INK = 0xFF173B55;
+    public static final int COLOR_BORDER = FitnessUiTokens.COLOR_BORDER;
+    public static final int COLOR_PASTEL_BLUE = FitnessUiTokens.COLOR_PASTEL_BLUE;
+    public static final int COLOR_BLUE_CONTAINER = FitnessUiTokens.COLOR_BLUE_CONTAINER;
+    public static final int COLOR_BLUE_INK = FitnessUiTokens.COLOR_BLUE_INK;
 
     // Compatibility names for the previous API. New code should use pastelBlue()/blueContainer().
-    public static final int COLOR_PRIMARY = COLOR_PASTEL_BLUE;
-    public static final int COLOR_INVERSE_TEXT = Color.WHITE;
-    public static final int COLOR_INVERSE_MUTED = 0xE6FFFFFF;
+    public static final int COLOR_PRIMARY = FitnessUiTokens.COLOR_PRIMARY;
+    public static final int COLOR_INVERSE_TEXT = FitnessUiTokens.COLOR_INVERSE_TEXT;
+    public static final int COLOR_INVERSE_MUTED = FitnessUiTokens.COLOR_INVERSE_MUTED;
 
     // Status colors intentionally remain separate from brand/selection colors.
-    public static final int COLOR_POSITIVE = 0xFF2E7D5B;
-    public static final int COLOR_NEGATIVE = 0xFFC0453E;
+    public static final int COLOR_POSITIVE = FitnessUiTokens.COLOR_POSITIVE;
+    public static final int COLOR_NEGATIVE = FitnessUiTokens.COLOR_NEGATIVE;
     // Amber chosen to keep normal-size warning text above WCAG AA on light surfaces.
-    public static final int COLOR_WARNING = 0xFF8A5A00;
+    public static final int COLOR_WARNING = FitnessUiTokens.COLOR_WARNING;
 
     // Chart semantic colors are independent from interaction/selection state.
-    public static final int COLOR_CHART_CALORIES = 0xFF2F6F9F;
-    public static final int COLOR_CHART_CARBS = 0xFF2B7A78;
-    public static final int COLOR_CHART_PROTEIN = 0xFF8B5E3C;
-    public static final int COLOR_CHART_FAT = 0xFF8A5A83;
+    public static final int COLOR_CHART_CALORIES = FitnessUiTokens.COLOR_CHART_CALORIES;
+    public static final int COLOR_CHART_CARBS = FitnessUiTokens.COLOR_CHART_CARBS;
+    public static final int COLOR_CHART_PROTEIN = FitnessUiTokens.COLOR_CHART_PROTEIN;
+    public static final int COLOR_CHART_FAT = FitnessUiTokens.COLOR_CHART_FAT;
 
-    public static final int COLOR_RIPPLE_LIGHT = 0x18111827;
-    public static final int COLOR_RIPPLE_DARK = 0x24F5F8FA;
-    public static final int COLOR_BAR_MUTED = 0x38111827;
-    public static final int COLOR_BAR_EMPTY = 0x16111827;
-    public static final int COLOR_TRACK_LIGHT = 0x12111827;
-    public static final int COLOR_TRACK_DARK = 0x2EF5F8FA;
-    public static final int COLOR_INVERSE_CHIP = 0x1EFFFFFF;
-    public static final int COLOR_INVERSE_LINE = 0x1AFFFFFF;
+    public static final int COLOR_RIPPLE_LIGHT = FitnessUiTokens.COLOR_RIPPLE_LIGHT;
+    public static final int COLOR_RIPPLE_DARK = FitnessUiTokens.COLOR_RIPPLE_DARK;
+    public static final int COLOR_BAR_MUTED = FitnessUiTokens.COLOR_BAR_MUTED;
+    public static final int COLOR_BAR_EMPTY = FitnessUiTokens.COLOR_BAR_EMPTY;
+    public static final int COLOR_TRACK_LIGHT = FitnessUiTokens.COLOR_TRACK_LIGHT;
+    public static final int COLOR_TRACK_DARK = FitnessUiTokens.COLOR_TRACK_DARK;
+    public static final int COLOR_INVERSE_CHIP = FitnessUiTokens.COLOR_INVERSE_CHIP;
+    public static final int COLOR_INVERSE_LINE = FitnessUiTokens.COLOR_INVERSE_LINE;
 
     // ── Dark semantic tokens ──────────────────────────────────────────
-    public static final int COLOR_D_BACKGROUND = 0xFF0E141A;
-    public static final int COLOR_D_SURFACE = 0xFF151C23;
-    public static final int COLOR_D_SUBTLE = 0xFF1B2530;
-    public static final int COLOR_D_TEXT = 0xFFF5F8FA;
-    public static final int COLOR_D_MUTED = 0xFFA6B0BA;
+    public static final int COLOR_D_BACKGROUND = FitnessUiTokens.COLOR_D_BACKGROUND;
+    public static final int COLOR_D_SURFACE = FitnessUiTokens.COLOR_D_SURFACE;
+    public static final int COLOR_D_SUBTLE = FitnessUiTokens.COLOR_D_SUBTLE;
+    public static final int COLOR_D_TEXT = FitnessUiTokens.COLOR_D_TEXT;
+    public static final int COLOR_D_MUTED = FitnessUiTokens.COLOR_D_MUTED;
     public static final int COLOR_D_TERTIARY = COLOR_D_MUTED;
-    public static final int COLOR_D_BORDER = 0xFF2A3742;
-    public static final int COLOR_D_PASTEL_BLUE = 0xFF8FC8EE;
-    public static final int COLOR_D_BLUE_CONTAINER = 0xFF18384D;
+    public static final int COLOR_D_BORDER = FitnessUiTokens.COLOR_D_BORDER;
+    public static final int COLOR_D_PASTEL_BLUE = FitnessUiTokens.COLOR_D_PASTEL_BLUE;
+    public static final int COLOR_D_BLUE_CONTAINER = FitnessUiTokens.COLOR_D_BLUE_CONTAINER;
     // Verified against COLOR_D_BLUE_CONTAINER: contrast is above WCAG AA for normal text.
-    public static final int COLOR_D_BLUE_INK = 0xFFD9F0FF;
-    public static final int COLOR_D_ON_PASTEL_BLUE = 0xFF0E2938;
-    public static final int COLOR_D_HERO_END = 0xFF214A63;
+    public static final int COLOR_D_BLUE_INK = FitnessUiTokens.COLOR_D_BLUE_INK;
+    public static final int COLOR_D_ON_PASTEL_BLUE = FitnessUiTokens.COLOR_D_ON_PASTEL_BLUE;
+    public static final int COLOR_D_HERO_END = FitnessUiTokens.COLOR_D_HERO_END;
     // Dark Hero gradient range (#18384D -> #214A63): minimum normal-text contrast is 4.78:1.
-    public static final int COLOR_D_HERO_MUTED = 0xFFAFBAC4;
-    public static final int COLOR_D_HERO_BORDER = 0xFF2A526A;
-    public static final int COLOR_D_POSITIVE = 0xFF69D39E;
-    public static final int COLOR_D_NEGATIVE = 0xFFFF8A80;
-    public static final int COLOR_D_WARNING = 0xFFFFCA68;
+    public static final int COLOR_D_HERO_MUTED = FitnessUiTokens.COLOR_D_HERO_MUTED;
+    public static final int COLOR_D_HERO_BORDER = FitnessUiTokens.COLOR_D_HERO_BORDER;
+    public static final int COLOR_D_POSITIVE = FitnessUiTokens.COLOR_D_POSITIVE;
+    public static final int COLOR_D_NEGATIVE = FitnessUiTokens.COLOR_D_NEGATIVE;
+    public static final int COLOR_D_WARNING = FitnessUiTokens.COLOR_D_WARNING;
 
     // Compatibility names for the previous API.
-    public static final int COLOR_D_ACCENT = COLOR_D_PASTEL_BLUE;
-    public static final int COLOR_D_ON_ACCENT_MUTED = 0xB80E2938;
-    public static final int COLOR_D_CHIP_ON_ACCENT = 0x1E0E2938;
-    public static final int COLOR_D_LINE_ON_ACCENT = 0x1E0E2938;
-    public static final int COLOR_D_TRACK_ON_ACCENT = 0x300E2938;
-    public static final int COLOR_D_BAR_MUTED = 0x78F5F8FA;
-    public static final int COLOR_D_BAR_EMPTY = 0x1AF5F8FA;
+    public static final int COLOR_D_ACCENT = FitnessUiTokens.COLOR_D_ACCENT;
+    public static final int COLOR_D_ON_ACCENT_MUTED = FitnessUiTokens.COLOR_D_ON_ACCENT_MUTED;
+    public static final int COLOR_D_CHIP_ON_ACCENT = FitnessUiTokens.COLOR_D_CHIP_ON_ACCENT;
+    public static final int COLOR_D_LINE_ON_ACCENT = FitnessUiTokens.COLOR_D_LINE_ON_ACCENT;
+    public static final int COLOR_D_TRACK_ON_ACCENT = FitnessUiTokens.COLOR_D_TRACK_ON_ACCENT;
+    public static final int COLOR_D_BAR_MUTED = FitnessUiTokens.COLOR_D_BAR_MUTED;
+    public static final int COLOR_D_BAR_EMPTY = FitnessUiTokens.COLOR_D_BAR_EMPTY;
 
     // ── Shape/depth tokens ─────────────────────────────────────────────
-    public static final int CARD_RADIUS_DP = 16;
-    public static final int HERO_RADIUS_DP = 24;
-    public static final int INPUT_RADIUS_DP = 12;
-    public static final int BUTTON_RADIUS_DP = 12;
-    public static final int CHIP_RADIUS_DP = 999;
-    public static final int SHEET_RADIUS_DP = 24;
-    public static final int DEPTH_FLAT_DP = 0;
-    public static final int DEPTH_SURFACE_DP = 1;
-    public static final int DEPTH_EMPHASIS_DP = 3;
+    public static final int CARD_RADIUS_DP = FitnessUiTokens.CARD_RADIUS_DP;
+    public static final int HERO_RADIUS_DP = FitnessUiTokens.HERO_RADIUS_DP;
+    public static final int INPUT_RADIUS_DP = FitnessUiTokens.INPUT_RADIUS_DP;
+    public static final int BUTTON_RADIUS_DP = FitnessUiTokens.BUTTON_RADIUS_DP;
+    public static final int CHIP_RADIUS_DP = FitnessUiTokens.CHIP_RADIUS_DP;
+    public static final int SHEET_RADIUS_DP = FitnessUiTokens.SHEET_RADIUS_DP;
+    public static final int DEPTH_FLAT_DP = FitnessUiTokens.DEPTH_FLAT_DP;
+    public static final int DEPTH_SURFACE_DP = FitnessUiTokens.DEPTH_SURFACE_DP;
+    public static final int DEPTH_EMPHASIS_DP = FitnessUiTokens.DEPTH_EMPHASIS_DP;
     private static final int COLOR_SHADOW_LIGHT = 0x26000000;
     private static final int COLOR_SHADOW_DARK = 0x66000000;
 
     // ── Layout/spacing tokens ─────────────────────────────────────────
     // Keep shell rhythm in one place so device review changes do not require
     // editing every screen renderer.
-    public static final int PAGE_HORIZONTAL_PADDING_DP = 20;
-    public static final int PAGE_TOP_PADDING_DP = 20;
-    public static final int PAGE_BOTTOM_PADDING_DP = 28;
-    public static final int SCREEN_TITLE_TOP_SPACING_DP = 4;
-    public static final int SCREEN_TITLE_BOTTOM_SPACING_DP = 18;
-    public static final int SECTION_TOP_SPACING_DP = 26;
-    public static final int SECTION_BOTTOM_SPACING_DP = 10;
-    public static final int CARD_GAP_DP = 12;
-    public static final int FIELD_LABEL_GAP_DP = 6;
-    public static final int FORM_ITEM_GAP_DP = 8;
+    public static final int PAGE_HORIZONTAL_PADDING_DP = FitnessUiTokens.PAGE_HORIZONTAL_PADDING_DP;
+    public static final int PAGE_TOP_PADDING_DP = FitnessUiTokens.PAGE_TOP_PADDING_DP;
+    public static final int PAGE_BOTTOM_PADDING_DP = FitnessUiTokens.PAGE_BOTTOM_PADDING_DP;
+    public static final int SCREEN_TITLE_TOP_SPACING_DP = FitnessUiTokens.SCREEN_TITLE_TOP_SPACING_DP;
+    public static final int SCREEN_TITLE_BOTTOM_SPACING_DP = FitnessUiTokens.SCREEN_TITLE_BOTTOM_SPACING_DP;
+    public static final int SECTION_TOP_SPACING_DP = FitnessUiTokens.SECTION_TOP_SPACING_DP;
+    public static final int SECTION_BOTTOM_SPACING_DP = FitnessUiTokens.SECTION_BOTTOM_SPACING_DP;
+    public static final int CARD_GAP_DP = FitnessUiTokens.CARD_GAP_DP;
+    public static final int FIELD_LABEL_GAP_DP = FitnessUiTokens.FIELD_LABEL_GAP_DP;
+    public static final int FORM_ITEM_GAP_DP = FitnessUiTokens.FORM_ITEM_GAP_DP;
     // Nutrition inputs keep one value per compact row across all meal forms.
-    public static final int NUTRITION_ROW_MIN_HEIGHT_DP = 56;
-    public static final int NUTRITION_ROW_VERTICAL_PADDING_DP = 4;
-    public static final int NUTRITION_VALUE_WIDTH_DP = 96;
-    public static final int NUTRITION_UNIT_WIDTH_DP = 36;
-    public static final int NUTRITION_LABEL_MAX_LINES = 2;
-    public static final int NUTRITION_INPUT_HEIGHT_DP = 48;
-    public static final int BUTTON_GAP_DP = 5;
-    public static final int TREND_CHART_HEIGHT_DP = 128;
+    public static final int NUTRITION_ROW_MIN_HEIGHT_DP = FitnessUiTokens.NUTRITION_ROW_MIN_HEIGHT_DP;
+    public static final int NUTRITION_ROW_VERTICAL_PADDING_DP = FitnessUiTokens.NUTRITION_ROW_VERTICAL_PADDING_DP;
+    public static final int NUTRITION_VALUE_WIDTH_DP = FitnessUiTokens.NUTRITION_VALUE_WIDTH_DP;
+    public static final int NUTRITION_UNIT_WIDTH_DP = FitnessUiTokens.NUTRITION_UNIT_WIDTH_DP;
+    public static final int NUTRITION_LABEL_MAX_LINES = FitnessUiTokens.NUTRITION_LABEL_MAX_LINES;
+    public static final int NUTRITION_INPUT_HEIGHT_DP = FitnessUiTokens.NUTRITION_INPUT_HEIGHT_DP;
+    public static final int BUTTON_GAP_DP = FitnessUiTokens.BUTTON_GAP_DP;
+    public static final int TREND_CHART_HEIGHT_DP = FitnessUiTokens.TREND_CHART_HEIGHT_DP;
 
     // Bottom navigation keeps a 48dp touch target but no longer renders each
     // tab as a prominent pill/card.
-    public static final int NAV_ITEM_RADIUS_DP = 12;
-    public static final int NAV_ITEM_MIN_HEIGHT_DP = 48;
-    public static final int NAV_BAR_HORIZONTAL_PADDING_DP = 8;
-    public static final int NAV_BAR_TOP_PADDING_DP = 8;
-    public static final int NAV_BAR_BOTTOM_PADDING_DP = 12;
-    public static final int NAV_ITEM_GAP_DP = 4;
-    public static final int NAV_MARKER_SLOT_HEIGHT_DP = 14;
-    public static final int NAV_ACTIVE_MARKER_WIDTH_DP = 24;
-    public static final int NAV_ACTIVE_MARKER_HEIGHT_DP = 4;
-    public static final int NAV_PROGRESS_MARKER_SIZE_DP = 6;
+    public static final int NAV_ITEM_RADIUS_DP = FitnessUiTokens.NAV_ITEM_RADIUS_DP;
+    public static final int NAV_ITEM_MIN_HEIGHT_DP = FitnessUiTokens.NAV_ITEM_MIN_HEIGHT_DP;
+    public static final int NAV_BAR_HORIZONTAL_PADDING_DP = FitnessUiTokens.NAV_BAR_HORIZONTAL_PADDING_DP;
+    public static final int NAV_BAR_TOP_PADDING_DP = FitnessUiTokens.NAV_BAR_TOP_PADDING_DP;
+    public static final int NAV_BAR_BOTTOM_PADDING_DP = FitnessUiTokens.NAV_BAR_BOTTOM_PADDING_DP;
+    public static final int NAV_ITEM_GAP_DP = FitnessUiTokens.NAV_ITEM_GAP_DP;
+    public static final int NAV_MARKER_SLOT_HEIGHT_DP = FitnessUiTokens.NAV_MARKER_SLOT_HEIGHT_DP;
+    public static final int NAV_ACTIVE_MARKER_WIDTH_DP = FitnessUiTokens.NAV_ACTIVE_MARKER_WIDTH_DP;
+    public static final int NAV_ACTIVE_MARKER_HEIGHT_DP = FitnessUiTokens.NAV_ACTIVE_MARKER_HEIGHT_DP;
+    public static final int NAV_PROGRESS_MARKER_SIZE_DP = FitnessUiTokens.NAV_PROGRESS_MARKER_SIZE_DP;
 
     private final Activity activity;
     private final BooleanSupplier inverseSupplier;
@@ -2075,55 +2075,27 @@ public final class FitnessUi {
     // ── 포맷터 ────────────────────────────────────────────────────────
 
     public static String trimDouble(double value) {
-        if (value == Math.rint(value)) {
-            return String.valueOf((long) value);
-        }
-        return String.valueOf(value);
+        return FitnessUiTokens.trimDouble(value);
     }
 
     public static String formatVolume(double kg) {
-        if (kg == Math.rint(kg)) {
-            return String.format(Locale.KOREAN, "%,d", (long) kg);
-        }
-        return String.format(Locale.KOREAN, "%,.1f", kg);
+        return FitnessUiTokens.formatVolume(kg);
     }
 
     public static String formatDuration(int durationSeconds) {
-        if (durationSeconds <= 0) {
-            return "미기록";
-        }
-        int hours = durationSeconds / 3600;
-        int minutes = (durationSeconds % 3600) / 60;
-        if (hours > 0) {
-            return minutes > 0 ? hours + "시간 " + minutes + "분" : hours + "시간";
-        }
-        if (minutes > 0) {
-            return minutes + "분";
-        }
-        return durationSeconds + "초";
+        return FitnessUiTokens.formatDuration(durationSeconds);
     }
 
     public static String formatElapsed(int seconds) {
-        int hours = seconds / 3600;
-        int minutes = (seconds % 3600) / 60;
-        int remainder = seconds % 60;
-        return String.format(Locale.ROOT, "%02d:%02d:%02d", hours, minutes, remainder);
+        return FitnessUiTokens.formatElapsed(seconds);
     }
 
     public static String formatStartTime(String startedAt) {
-        if (startedAt == null || startedAt.trim().isEmpty()) {
-            return "미기록";
-        }
-        try {
-            return OffsetDateTime.parse(startedAt.trim()).toLocalTime().format(DateTimeFormatter.ofPattern("HH:mm"));
-        } catch (Exception error) {
-            return startedAt;
-        }
+        return FitnessUiTokens.formatStartTime(startedAt);
     }
 
     /** "YYYY. MM. DD  본문" 형태 문자열에서 앞 날짜 토큰을 제거한다. */
     public static String stripLeadingDate(String value) {
-        int split = value.indexOf("  ");
-        return split > 0 ? value.substring(split + 2) : value;
+        return FitnessUiTokens.stripLeadingDate(value);
     }
 }
