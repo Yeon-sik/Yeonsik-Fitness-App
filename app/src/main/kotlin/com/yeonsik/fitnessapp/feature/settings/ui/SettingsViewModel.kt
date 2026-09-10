@@ -10,6 +10,7 @@ import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore
 import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore
 import com.yeonsik.fitnessapp.config.SupabaseConfig
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore
+import com.yeonsik.fitnessapp.config.ThemeModePreferences
 import com.yeonsik.fitnessapp.data.MassUnit
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService
@@ -84,6 +85,7 @@ sealed class SettingsEvent {
 class SettingsViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
     private val massUnitPreferences: MassUnitPreferences,
+    private val themeModePreferences: ThemeModePreferences,
     private val sharedConfigStore: SupabaseConfigStore,
     private val nutritionConfigStore: NutritionSupabaseConfigStore,
     private val priceTraceConfigStore: PriceTraceSupabaseConfigStore,
@@ -121,6 +123,7 @@ class SettingsViewModel @JvmOverloads constructor(
     }
 
     fun setThemeMode(mode: String) {
+        themeModePreferences.setThemeMode(mode)
         savedStateHandle[KEY_THEME_MODE] = mode
         mutableState.value = snapshot()
     }
@@ -130,7 +133,7 @@ class SettingsViewModel @JvmOverloads constructor(
         mutableState.value = snapshot()
     }
 
-    fun themeMode(): String = savedStateHandle[KEY_THEME_MODE] ?: "light"
+    fun themeMode(): String = savedStateHandle[KEY_THEME_MODE] ?: themeModePreferences.themeMode()
 
     fun preferredMassUnit(): MassUnit = massUnitPreferences.preferredMassUnit()
 
@@ -402,7 +405,7 @@ class SettingsViewModel @JvmOverloads constructor(
         }
         val current = mutableState.value
         return SettingsUiState(
-            themeMode = savedStateHandle[KEY_THEME_MODE] ?: "light",
+            themeMode = themeMode(),
             preferredMassUnit = massUnitPreferences.preferredMassUnit(),
             syncLabel = current?.syncLabel?.takeIf { current.isManualSyncing || it == "authenticating" || it == "authentication failed" || it == "sync failed" }
                 ?: syncLabel,

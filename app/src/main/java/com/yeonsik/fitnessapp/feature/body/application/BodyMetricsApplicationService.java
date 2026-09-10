@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.feature.body.application;
 
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.data.BodyMetricEntry;
+import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsRepositoryApi;
 
 /**
@@ -54,6 +55,16 @@ public final class BodyMetricsApplicationService {
     public void delete(AccountScope scope, String recordId) {
         requireScope(scope);
         repository.deleteBodyMetric(recordId);
+    }
+
+    public BodyProfile loadProfile(AccountScope scope) {
+        requireScope(scope);
+        return repository.bodyProfile();
+    }
+
+    public void saveProfile(AccountScope scope, BodyProfile profile) {
+        requireScope(scope);
+        repository.saveBodyProfile(profile);
     }
 
     private void requireScope(AccountScope scope) {

@@ -37,7 +37,7 @@ public final class DevelopmentApplicationService {
         requireScope(scope);
         BodyMetricsApplicationService.Editor weight = bodyMetrics.load(scope, date, null);
         return new ProfileEditor(
-                developmentRepository.bodyProfile(),
+                bodyMetrics.loadProfile(scope),
                 weight.exists() ? weight.recordId : null,
                 weight.exists() ? weight.weightKg : null,
                 weight.exists() ? weight.memo : ""
@@ -54,7 +54,7 @@ public final class DevelopmentApplicationService {
     ) {
         requireScope(scope);
         if (profile != null) {
-            developmentRepository.saveBodyProfile(profile);
+            bodyMetrics.saveProfile(scope, profile);
         }
         if (weightKg != null) {
             bodyMetrics.save(scope, weightRecordId, weightDate, weightKg, weightMemo);

@@ -1,14 +1,11 @@
 package com.yeonsik.fitnessapp.feature.development.data;
 
-import com.yeonsik.fitnessapp.core.database.BodyProfileEntity;
-import com.yeonsik.fitnessapp.core.database.BodyRoomDao;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.DevelopmentGoalsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.DevelopmentRoomDao;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 
 import java.time.OffsetDateTime;
@@ -18,7 +15,6 @@ import java.util.Locale;
 
 public final class DevelopmentRepository {
     private final FitnessRoomDatabase roomDatabase;
-    private final BodyRoomDao bodyDao;
     private final DevelopmentRoomDao developmentDao;
     private String userId;
 
@@ -27,7 +23,6 @@ public final class DevelopmentRepository {
             throw new IllegalArgumentException("DevelopmentRepository에는 Room 데이터베이스가 필요합니다.");
         }
         this.roomDatabase = roomDatabase;
-        this.bodyDao = roomDatabase.bodyRoomDao();
         this.developmentDao = roomDatabase.developmentRoomDao();
         this.userId = normalizeUserId(userId);
     }
@@ -48,41 +43,10 @@ public final class DevelopmentRepository {
         String nextUserId = normalizeUserId(userId);
         if (AccountOwnerPolicy.shouldClaimLocalRows(this.userId, nextUserId)) {
             roomDatabase.runInTransaction(() -> {
-                claimBodyProfile(nextUserId);
                 claimDevelopmentGoal(nextUserId);
             });
         }
         this.userId = nextUserId;
-    }
-
-    public BodyProfile bodyProfile() {
-        BodyProfileEntity profile = bodyDao.bodyProfile(userId);
-        if (profile != null) {
-            return new BodyProfile(
-                    profile.getHeightCm(),
-                    profile.getCreatedAt(),
-                    profile.getUpdatedAt()
-            );
-        }
-        return BodyProfile.empty();
-    }
-
-    public void saveBodyProfile(BodyProfile profile) {
-        if (profile == null) {
-            throw new IllegalArgumentException("신체 프로필이 필요합니다.");
-        }
-        if (!profile.isConfigured()) {
-            bodyDao.deleteBodyProfile(userId);
-            return;
-        }
-        String now = now();
-        BodyProfileEntity existing = bodyDao.bodyProfile(userId);
-        bodyDao.replaceBodyProfile(new BodyProfileEntity(
-                userId,
-                profile.heightCm,
-                existing == null ? now : existing.getCreatedAt(),
-                now
-        ));
     }
 
     public DevelopmentGoal developmentGoal() {
@@ -119,20 +83,6 @@ public final class DevelopmentRepository {
                 existing == null ? now : existing.getCreatedAt(),
                 now
         ));
-    }
-
-    private void claimBodyProfile(String nextUserId) {
-        BodyProfileEntity source = bodyDao.bodyProfile(SupabaseConfig.DEFAULT_USER_ID);
-        BodyProfileEntity target = bodyDao.bodyProfile(nextUserId);
-        if (source != null && (target == null || isLater(source.getUpdatedAt(), target.getUpdatedAt()))) {
-            bodyDao.replaceBodyProfile(new BodyProfileEntity(
-                    nextUserId,
-                    source.getHeightCm(),
-                    source.getCreatedAt(),
-                    source.getUpdatedAt()
-            ));
-        }
-        bodyDao.deleteBodyProfile(SupabaseConfig.DEFAULT_USER_ID);
     }
 
     private void claimDevelopmentGoal(String nextUserId) {

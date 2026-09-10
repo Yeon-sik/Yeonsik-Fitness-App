@@ -15,6 +15,7 @@ import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.development.DevelopmentReport;
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository;
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsRepository;
 import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository;
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentReportService;
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentReadRepository;
@@ -44,11 +45,11 @@ public final class DevelopmentRepositoryTest {
         try {
             helper = new FitnessDatabaseHelper(context);
             FitnessRepository fitness = new FitnessRepository(helper, USER_ID);
-            DevelopmentRepository development = new DevelopmentRepository(
-                    FitnessRoomDatabaseProvider.get(context), USER_ID
-            );
+            FitnessRoomDatabase roomDatabase = FitnessRoomDatabaseProvider.get(context);
+            DevelopmentRepository development = new DevelopmentRepository(roomDatabase, USER_ID);
+            BodyMetricsRepository bodyMetrics = new BodyMetricsRepository(roomDatabase, USER_ID);
 
-            development.saveBodyProfile(new BodyProfile(181, "", ""));
+            bodyMetrics.saveBodyProfile(new BodyProfile(181, "", ""));
             development.saveDevelopmentGoal(new DevelopmentGoal(
                     DevelopmentGoal.OBJECTIVE_STRENGTH,
                     1,
@@ -82,7 +83,6 @@ public final class DevelopmentRepositoryTest {
             String exerciseId = fitness.addExercise(recordId, "덤벨 컬", "이두", 1, "");
             fitness.addSet(recordId, exerciseId, 1, 12.5, 10, true);
 
-            FitnessRoomDatabase roomDatabase = FitnessRoomDatabaseProvider.get(context);
             DevelopmentReport report = new DevelopmentReportService(
                     new WorkoutReadRepository(roomDatabase, context),
                     new MealReadRepository(roomDatabase),

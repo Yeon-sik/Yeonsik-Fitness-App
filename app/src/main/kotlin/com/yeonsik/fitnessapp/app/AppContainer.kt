@@ -6,6 +6,8 @@ import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore
 import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore
 import com.yeonsik.fitnessapp.config.SupabaseConfig
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore
+import com.yeonsik.fitnessapp.config.MassUnitPreferences
+import com.yeonsik.fitnessapp.config.ThemeModePreferences
 import com.yeonsik.fitnessapp.core.account.AccountOwnershipService
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider
@@ -65,6 +67,8 @@ import java.util.concurrent.Executors
 class AppContainer(context: Context) : SettingsSessionCoordinator {
     private val appContext = context.applicationContext
     private val workoutWriteExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    val massUnitPreferences = MassUnitPreferences(appContext)
+    val themeModePreferences = ThemeModePreferences(appContext)
 
     val configStore = SupabaseConfigStore(appContext)
     val nutritionConfigStore = NutritionSupabaseConfigStore(appContext)

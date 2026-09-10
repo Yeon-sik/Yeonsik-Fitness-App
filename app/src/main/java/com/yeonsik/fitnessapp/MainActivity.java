@@ -36,7 +36,6 @@ import com.yeonsik.fitnessapp.app.navigation.ComposeAppScreen;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
-import com.yeonsik.fitnessapp.config.MassUnitPreferences;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.data.MassFormatter;
@@ -80,8 +79,6 @@ import java.util.EnumMap;
  */
 public final class MainActivity extends ComponentActivity implements AppUiActions {
 
-    private static final String UI_PREFS = "fitness_ui_prefs";
-    private static final String KEY_THEME_MODE = "theme_mode";
     private static final DateTimeFormatter MANUAL_WORKOUT_TIME_FORMAT =
             DateTimeFormatter.ofPattern("H:mm");
     private static final ZoneOffset KOREA_OFFSET = ZoneOffset.ofHours(9);
@@ -133,11 +130,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private SupplementViewModel supplementViewModel;
     private ExercisePickerViewModel exercisePickerViewModel;
     private MealViewModel mealViewModel;
-    private MassUnitPreferences massUnitPreferences;
-
     private FitnessUi ui;
     private OnBackInvokedCallback backInvokedCallback;
-    private String themeMode = THEME_LIGHT;
     private AppNavigationViewModel navigationViewModel;
 
     private ComposeView rootView;
@@ -153,10 +147,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        massUnitPreferences = new MassUnitPreferences(this);
         appContainer = new AppContainer(this);
-        themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
-                .getString(KEY_THEME_MODE, THEME_LIGHT);
         String startupOwnerId = currentOwnerId();
         initializeFeatureViewModels();
         navigationViewModel = new ViewModelProvider(
@@ -219,7 +210,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         null,
                         handle -> new SettingsViewModel(
                                 handle,
-                                massUnitPreferences,
+                                appContainer.getMassUnitPreferences(),
+                                appContainer.getThemeModePreferences(),
                                 appContainer.getConfigStore(),
                                 appContainer.getNutritionConfigStore(),
                                 appContainer.getPriceTraceConfigStore(),
@@ -232,7 +224,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         )
                 )
         ).get(SettingsViewModel.class);
-        settingsViewModel.setThemeMode(themeMode);
         settingsViewModel.getEvents().observe(this, this::handleSettingsEvent);
         bodyMetricsViewModel = new ViewModelProvider(
                 this,
@@ -681,10 +672,13 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
     /** 현재 유효 테마. system 모드는 OS의 다크 모드 설정을 따른다. */
     private boolean isDarkTheme() {
-        if (THEME_DARK.equals(themeMode)) {
+        String currentThemeMode = settingsViewModel == null
+                ? THEME_LIGHT
+                : settingsViewModel.themeMode();
+        if (THEME_DARK.equals(currentThemeMode)) {
             return true;
         }
-        if (THEME_SYSTEM.equals(themeMode)) {
+        if (THEME_SYSTEM.equals(currentThemeMode)) {
             int nightMask = getResources().getConfiguration().uiMode
                     & android.content.res.Configuration.UI_MODE_NIGHT_MASK;
             return nightMask == android.content.res.Configuration.UI_MODE_NIGHT_YES;
@@ -694,31 +688,25 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
     @Override
     public String themeMode() {
-        return themeMode;
+        return settingsViewModel == null ? THEME_LIGHT : settingsViewModel.themeMode();
     }
 
     @Override
     public void setThemeMode(String mode) {
-        themeMode = mode;
         if (settingsViewModel != null) {
             settingsViewModel.setThemeMode(mode);
         }
-        getSharedPreferences(UI_PREFS, MODE_PRIVATE).edit()
-                .putString(KEY_THEME_MODE, mode).apply();
     }
 
     @Override
     public MassUnit preferredMassUnit() {
-        return massUnitPreferences == null
+        return settingsViewModel == null
                 ? MassUnit.KG
-                : massUnitPreferences.preferredMassUnit();
+                : settingsViewModel.preferredMassUnit();
     }
 
     @Override
     public void setPreferredMassUnit(MassUnit unit) {
-        if (massUnitPreferences != null) {
-            massUnitPreferences.setPreferredMassUnit(unit);
-        }
         if (settingsViewModel != null) {
             settingsViewModel.setPreferredMassUnit(unit);
         }
