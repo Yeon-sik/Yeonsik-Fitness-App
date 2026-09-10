@@ -1,5 +1,9 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -41,11 +45,12 @@ public final class FoodCatalogNormalizationTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             NutritionFood first = catalog.saveDiningOutMenuWithNutrition(
                     " 식당   A ",
@@ -75,6 +80,7 @@ public final class FoodCatalogNormalizationTest {
                     )
             );
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -87,11 +93,12 @@ public final class FoodCatalogNormalizationTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             NutritionFood first = catalog.saveDiningOutComponent(
                     "식당 A",
@@ -153,6 +160,7 @@ public final class FoodCatalogNormalizationTest {
                     }
             );
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -165,11 +173,12 @@ public final class FoodCatalogNormalizationTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             NutritionFood first = savePackaged(
                     catalog,
@@ -207,6 +216,7 @@ public final class FoodCatalogNormalizationTest {
             assertProfileEquals(fullProfile(0d), first.profile);
             assertProfileEquals(fullProfile(10d), second.profile);
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -219,11 +229,12 @@ public final class FoodCatalogNormalizationTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             NutritionFood legacy = catalog.saveFood(
                     "햇반",
@@ -244,6 +255,7 @@ public final class FoodCatalogNormalizationTest {
             assertEquals(legacy.id, products.get(0).id);
             assertEquals("청정원 · 햇반", products.get(0).packagedProductLabel());
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -256,11 +268,12 @@ public final class FoodCatalogNormalizationTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             NutritionFood product = savePackaged(
                     catalog,
@@ -302,6 +315,7 @@ public final class FoodCatalogNormalizationTest {
             assertEquals("g", entry.packageUnitSnapshot);
             assertEquals(Integer.valueOf(1), entry.packageCountSnapshot);
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -314,11 +328,12 @@ public final class FoodCatalogNormalizationTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             NutritionProfile unknownSodium = NutritionProfile.ofMacros(100d, 5d, 12d, 3d);
             NutritionFood component = catalog.saveDiningOutComponent(
@@ -346,6 +361,7 @@ public final class FoodCatalogNormalizationTest {
                     .isKnown(NutritionProfile.SODIUM_MG));
             assertNull(component.profile.value(NutritionProfile.SODIUM_MG));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }

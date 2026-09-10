@@ -1,5 +1,9 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -46,13 +50,15 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
         isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
 
         FitnessDatabaseHelper helper = null;
+        FitnessRoomDatabase room = null;
         try {
             helper = new FitnessDatabaseHelper(isolatedContext);
             SQLiteDatabase database = helper.getWritableDatabase();
+            room = FitnessRoomTestDatabase.open(isolatedContext);
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    isolatedContext,
+                    USER_ID
             );
 
             for (int index = 0; index < 120; index++) {
@@ -139,6 +145,9 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
             assertNull(findById(foods, "kfind:private-fake"));
             assertNull(findById(foods, "kfind:R999-000000001-0000"));
         } finally {
+            if (room != null) {
+                room.close();
+            }
             if (helper != null) {
                 helper.close();
             }
@@ -154,12 +163,14 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
         isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
 
         FitnessDatabaseHelper helper = null;
+        FitnessRoomDatabase room = null;
         try {
             helper = new FitnessDatabaseHelper(isolatedContext);
+            room = FitnessRoomTestDatabase.open(isolatedContext);
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    isolatedContext,
+                    USER_ID
             );
 
             List<NutritionFood> foods = repository.searchVerifiedFoods("밥", 10);
@@ -177,6 +188,9 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
             );
             assertEquals(NutritionFood.PREP_COOKED, whiteRice.prepState);
         } finally {
+            if (room != null) {
+                room.close();
+            }
             if (helper != null) {
                 helper.close();
             }
@@ -192,12 +206,14 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
         isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
 
         FitnessDatabaseHelper helper = null;
+        FitnessRoomDatabase room = null;
         try {
             helper = new FitnessDatabaseHelper(isolatedContext);
+            room = FitnessRoomTestDatabase.open(isolatedContext);
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    isolatedContext,
+                    USER_ID
             );
 
             assertSeafoodSearch(
@@ -234,6 +250,9 @@ public final class NutritionCatalogRepositoryVerifiedSearchTest {
                     NutritionFood.COOKING_METHOD_GRILLED
             );
         } finally {
+            if (room != null) {
+                room.close();
+            }
             if (helper != null) {
                 helper.close();
             }

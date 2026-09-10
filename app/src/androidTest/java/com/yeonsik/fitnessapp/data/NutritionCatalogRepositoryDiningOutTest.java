@@ -1,5 +1,9 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
+
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.database.DatabaseErrorHandler;
@@ -37,11 +41,12 @@ public final class NutritionCatalogRepositoryDiningOutTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             NutritionFood first = repository.saveDiningOutMenu(
                     " 식당   A ",
@@ -89,6 +94,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
                     ).size()
             );
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -101,11 +107,12 @@ public final class NutritionCatalogRepositoryDiningOutTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             NutritionProfile optionProfile = NutritionProfile.builder()
                     .value(NutritionProfile.CALORIES_KCAL, 120d)
@@ -149,6 +156,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             assertFalse(profile.isKnown(NutritionProfile.SODIUM_MG));
             assertNull(profile.value(NutritionProfile.SODIUM_MG));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -161,11 +169,12 @@ public final class NutritionCatalogRepositoryDiningOutTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             assertThrows(IllegalArgumentException.class, () ->
                     repository.saveDiningOutMenuWithNutrition(
@@ -194,6 +203,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             assertEquals(12d, saved.profile.value(NutritionProfile.CARBS_GRAMS), 0.001d);
             assertFalse(saved.profile.isKnown(NutritionProfile.SODIUM_MG));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -206,11 +216,12 @@ public final class NutritionCatalogRepositoryDiningOutTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository repository = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             DiningOutIdentity identity = DiningOutIdentity.fromPriceTrace(
                     "91111111-1111-4111-8111-111111111111",
@@ -286,6 +297,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             assertEquals(identity.sourceLocationCode,
                     optionSource.getString("source_location_code"));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -298,11 +310,12 @@ public final class NutritionCatalogRepositoryDiningOutTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             DiningOutIdentity firstIdentity = identity(
                     "11111111-1111-4111-8111-111111111111",
@@ -382,6 +395,7 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             assertEquals(2, catalog.savedDiningOutMenus().size());
             assertTrue(!differentMenu.id.equals(first.id));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }

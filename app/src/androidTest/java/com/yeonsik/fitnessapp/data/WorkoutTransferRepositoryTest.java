@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.integration.transfer.WorkoutTransferCodec;
+import com.yeonsik.fitnessapp.integration.transfer.WorkoutTransferService;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.database.DatabaseErrorHandler;

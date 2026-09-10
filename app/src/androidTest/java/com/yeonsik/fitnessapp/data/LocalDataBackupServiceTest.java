@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.backup.LocalDataBackupService;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.content.SharedPreferences;
@@ -43,7 +46,8 @@ public final class LocalDataBackupServiceTest {
         try {
             seedSource(source);
             LocalDataBackupService exporter = new LocalDataBackupService(
-                    source.helper,
+                    source.room,
+                    source.context,
                     SOURCE_RECORD_USER,
                     SOURCE_NUTRITION_USER
             );
@@ -99,7 +103,8 @@ public final class LocalDataBackupServiceTest {
             assertFalse(rawBackup.contains("ignored-public-food"));
 
             LocalDataBackupService restorer = new LocalDataBackupService(
-                    target.helper,
+                    target.room,
+                    target.context,
                     TARGET_RECORD_USER,
                     TARGET_NUTRITION_USER
             );
@@ -212,7 +217,8 @@ public final class LocalDataBackupServiceTest {
         try {
             seedSource(source);
             LocalDataBackupService service = new LocalDataBackupService(
-                    source.helper,
+                    source.room,
+                    source.context,
                     SOURCE_RECORD_USER,
                     SOURCE_NUTRITION_USER
             );
@@ -251,7 +257,8 @@ public final class LocalDataBackupServiceTest {
             seedTargetBaseline(target.database);
 
             LocalDataBackupService exporter = new LocalDataBackupService(
-                    source.helper,
+                    source.room,
+                    source.context,
                     SOURCE_RECORD_USER,
                     SOURCE_NUTRITION_USER
             );
@@ -260,7 +267,8 @@ public final class LocalDataBackupServiceTest {
             byte[] validPayload = output.toByteArray();
 
             LocalDataBackupService restorer = new LocalDataBackupService(
-                    target.helper,
+                    target.room,
+                    target.context,
                     TARGET_RECORD_USER,
                     TARGET_NUTRITION_USER
             );
@@ -285,7 +293,8 @@ public final class LocalDataBackupServiceTest {
         try {
             seedSource(source);
             LocalDataBackupService exporter = new LocalDataBackupService(
-                    source.helper,
+                    source.room,
+                    source.context,
                     SOURCE_RECORD_USER,
                     SOURCE_NUTRITION_USER
             );
@@ -313,7 +322,8 @@ public final class LocalDataBackupServiceTest {
             }
 
             LocalDataBackupService restorer = new LocalDataBackupService(
-                    target.helper,
+                    target.room,
+                    target.context,
                     TARGET_RECORD_USER,
                     TARGET_NUTRITION_USER
             );
@@ -345,7 +355,8 @@ public final class LocalDataBackupServiceTest {
             seedLegacyCookedCatalogUsage(source.database);
 
             LocalDataBackupService exporter = new LocalDataBackupService(
-                    source.helper,
+                    source.room,
+                    source.context,
                     SOURCE_RECORD_USER,
                     SOURCE_NUTRITION_USER
             );
@@ -353,7 +364,8 @@ public final class LocalDataBackupServiceTest {
             exporter.writeBackup(output);
 
             LocalDataBackupService restorer = new LocalDataBackupService(
-                    target.helper,
+                    target.room,
+                    target.context,
                     TARGET_RECORD_USER,
                     TARGET_NUTRITION_USER
             );
@@ -392,7 +404,8 @@ public final class LocalDataBackupServiceTest {
         try {
             seedSource(source);
             LocalDataBackupService exporter = new LocalDataBackupService(
-                    source.helper,
+                    source.room,
+                    source.context,
                     SOURCE_RECORD_USER,
                     SOURCE_NUTRITION_USER
             );
@@ -415,7 +428,8 @@ public final class LocalDataBackupServiceTest {
             tables.remove("development_goals");
 
             LocalDataBackupService restorer = new LocalDataBackupService(
-                    target.helper,
+                    target.room,
+                    target.context,
                     TARGET_RECORD_USER,
                     TARGET_NUTRITION_USER
             );
@@ -451,7 +465,8 @@ public final class LocalDataBackupServiceTest {
             seedTargetBaseline(target.database);
 
             LocalDataBackupService exporter = new LocalDataBackupService(
-                    source.helper,
+                    source.room,
+                    source.context,
                     SOURCE_RECORD_USER,
                     SOURCE_NUTRITION_USER
             );
@@ -472,7 +487,8 @@ public final class LocalDataBackupServiceTest {
             }
 
             LocalDataBackupService restorer = new LocalDataBackupService(
-                    target.helper,
+                    target.room,
+                    target.context,
                     TARGET_RECORD_USER,
                     TARGET_NUTRITION_USER
             );
@@ -493,7 +509,8 @@ public final class LocalDataBackupServiceTest {
             seedTargetBaseline(target.database);
 
             LocalDataBackupService exporter = new LocalDataBackupService(
-                    source.helper,
+                    source.room,
+                    source.context,
                     SOURCE_RECORD_USER,
                     SOURCE_NUTRITION_USER
             );
@@ -527,7 +544,8 @@ public final class LocalDataBackupServiceTest {
                     .put("segment_distance_meters", JSONObject.NULL));
 
             LocalDataBackupService restorer = new LocalDataBackupService(
-                    target.helper,
+                    target.room,
+                    target.context,
                     TARGET_RECORD_USER,
                     TARGET_NUTRITION_USER
             );
@@ -1025,7 +1043,8 @@ public final class LocalDataBackupServiceTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
-        return new TestDatabase(context, helper, helper.getWritableDatabase());
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
+        return new TestDatabase(context, helper, helper.getWritableDatabase(), room);
     }
 
     private static String scalar(SQLiteDatabase database, String sql) {
@@ -1046,14 +1065,22 @@ public final class LocalDataBackupServiceTest {
         private final Context context;
         private final FitnessDatabaseHelper helper;
         private final SQLiteDatabase database;
+        private final FitnessRoomDatabase room;
 
-        private TestDatabase(Context context, FitnessDatabaseHelper helper, SQLiteDatabase database) {
+        private TestDatabase(
+                Context context,
+                FitnessDatabaseHelper helper,
+                SQLiteDatabase database,
+                FitnessRoomDatabase room
+        ) {
             this.context = context;
             this.helper = helper;
             this.database = database;
+            this.room = room;
         }
 
         private void closeAndDelete() {
+            room.close();
             helper.close();
             SharedPreferences preferences = context.getSharedPreferences("backup-test", Context.MODE_PRIVATE);
             preferences.edit().clear().commit();

@@ -12,10 +12,13 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
+import com.yeonsik.fitnessapp.feature.routine.data.RoutineRepository;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -40,9 +43,10 @@ public final class RoutineRepositoryWriteOperationTest {
     public void renameRoutineChangesOnlyAnOwnedRoutine() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
-            RoutineRepository owner = new RoutineRepository(helper, USER_ID);
-            RoutineRepository other = new RoutineRepository(helper, OTHER_USER_ID);
+            RoutineRepository owner = new RoutineRepository(room, context, USER_ID);
+            RoutineRepository other = new RoutineRepository(room, context, OTHER_USER_ID);
             String ownedId = owner.createRoutine("원본 루틴", definitions());
             String foreignId = other.createRoutine("다른 사용자 루틴", definitions());
 
@@ -51,6 +55,7 @@ public final class RoutineRepositoryWriteOperationTest {
             assertFalse(owner.renameRoutine(foreignId, "탈취된 이름"));
             assertEquals("다른 사용자 루틴", other.routineName(foreignId));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -60,8 +65,9 @@ public final class RoutineRepositoryWriteOperationTest {
     public void copyRoutineCopiesDefinitionIdentityAndOrderWithoutHistoryOrSourceMutation() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
-            RoutineRepository routines = new RoutineRepository(helper, USER_ID);
+            RoutineRepository routines = new RoutineRepository(room, context, USER_ID);
             String sourceId = routines.createRoutine("원본 루틴", definitions());
             List<RoutineExerciseInstance> sourceExercises = routines.routineExercises(sourceId);
             String recordId = createCompletedHistory(helper, sourceId, sourceExercises);
@@ -110,6 +116,7 @@ public final class RoutineRepositoryWriteOperationTest {
                     "SELECT COUNT(*) FROM workout_sets WHERE workout_exercise_id IN "
                             + "(SELECT id FROM workout_exercises WHERE record_id = ?)", recordId));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -119,8 +126,9 @@ public final class RoutineRepositoryWriteOperationTest {
     public void deleteRoutineSoftDeletesDefinitionAndPreservesCompletedHistory() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
-            RoutineRepository routines = new RoutineRepository(helper, USER_ID);
+            RoutineRepository routines = new RoutineRepository(room, context, USER_ID);
             String routineId = routines.createRoutine("삭제 대상 루틴", definitions());
             String recordId = createCompletedHistory(
                     helper,
@@ -151,6 +159,7 @@ public final class RoutineRepositoryWriteOperationTest {
             assertEquals("completed", new FitnessRepository(helper, USER_ID)
                     .sessionInfo(recordId).status);
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -160,9 +169,10 @@ public final class RoutineRepositoryWriteOperationTest {
     public void renameCopyAndDeleteRejectAnotherUsersRoutine() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
-            RoutineRepository owner = new RoutineRepository(helper, USER_ID);
-            RoutineRepository other = new RoutineRepository(helper, OTHER_USER_ID);
+            RoutineRepository owner = new RoutineRepository(room, context, USER_ID);
+            RoutineRepository other = new RoutineRepository(room, context, OTHER_USER_ID);
             String foreignId = other.createRoutine("다른 사용자 루틴", definitions());
 
             assertFalse(owner.renameRoutine(foreignId, "변경 불가"));
@@ -171,6 +181,7 @@ public final class RoutineRepositoryWriteOperationTest {
             assertEquals("다른 사용자 루틴", other.routineName(foreignId));
             assertEquals(1, other.routines().size());
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }

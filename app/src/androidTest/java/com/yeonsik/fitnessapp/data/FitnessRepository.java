@@ -1,6 +1,8 @@
 /* Legacy database compatibility fixture; production runtime no longer packages this facade. */
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.integration.transfer.FleekCsvImporter;
+import com.yeonsik.fitnessapp.integration.transfer.WorkoutTransferCodec;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -8,8 +10,10 @@ import android.database.sqlite.SQLiteDatabase;
 import android.content.Context;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsRepository;
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
@@ -67,7 +71,10 @@ public final class FitnessRepository {
         this.familyCatalog = ExerciseFamilyCatalog.load(context);
         this.userId = normalizeUserId(userId);
         this.compositionTemplateRepository = new CompositionTemplateRepository(database, this.userId);
-        this.bodyMetricsRepository = new BodyMetricsRepository(database, this.userId);
+        this.bodyMetricsRepository = new BodyMetricsRepository(
+                FitnessRoomDatabaseProvider.get(context),
+                this.userId
+        );
     }
 
     public void setUserId(String userId) {

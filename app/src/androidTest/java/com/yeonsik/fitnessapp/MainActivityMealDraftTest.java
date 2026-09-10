@@ -27,7 +27,7 @@ public final class MainActivityMealDraftTest {
     public void mealBuilderDraftSurvivesNavigationCloseReopenAndExplicitReset() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "직접 만든 메뉴 추가");
@@ -37,7 +37,7 @@ public final class MainActivityMealDraftTest {
                 menuName.setText("내 메뉴");
 
                 activity.navigate(FitnessScreen.WORKOUT);
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 root = activity.getWindow().getDecorView();
                 assertEquals("내 메뉴", findEditTextWithHint(root, MENU_NAME_HINT)
                         .getText().toString());
@@ -59,7 +59,7 @@ public final class MainActivityMealDraftTest {
     public void directFoodAndFinishedProductDraftsSurviveNavigationAndReset() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
 
@@ -71,7 +71,7 @@ public final class MainActivityMealDraftTest {
                 calories.setText("123");
 
                 activity.navigate(FitnessScreen.WORKOUT);
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 root = activity.getWindow().getDecorView();
                 assertEquals("내 단일 식품", findEditTextWithHint(root, SINGLE_FOOD_HINT)
                         .getText().toString());
@@ -84,7 +84,7 @@ public final class MainActivityMealDraftTest {
                 finishedProduct.setText("내 완제품");
 
                 activity.navigate(FitnessScreen.WORKOUT);
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 root = activity.getWindow().getDecorView();
                 assertEquals("내 완제품", findEditTextWithHint(root, FINISHED_PRODUCT_HINT)
                         .getText().toString());
@@ -106,7 +106,7 @@ public final class MainActivityMealDraftTest {
     public void savedFinishedProductUsesServingPercentageAndScalesAtFiftyPercent() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickLastButtonWithText(root, "완제품");

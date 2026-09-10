@@ -12,7 +12,7 @@ import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.CompositionGroup;
 import com.yeonsik.fitnessapp.data.CompositionGroupType;
 import com.yeonsik.fitnessapp.data.CompositionMember;
@@ -37,7 +37,7 @@ public final class MainActivityDiningOutTabTest {
     public void diningOutEntryOpensAfterDatabaseMigration() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -52,7 +52,7 @@ public final class MainActivityDiningOutTabTest {
     public void diningOutDraftSurvivesNavigationWithMenuOptionAndConsumedPercent() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -81,7 +81,7 @@ public final class MainActivityDiningOutTabTest {
                 consumedPercent.setText("60");
 
                 activity.navigate(FitnessScreen.WORKOUT);
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 root = activity.getWindow().getDecorView();
 
                 assertEquals(
@@ -118,7 +118,7 @@ public final class MainActivityDiningOutTabTest {
     public void diningOutMenuAndOptionUseSharedNutrientRows() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -151,7 +151,7 @@ public final class MainActivityDiningOutTabTest {
     public void diningOutValidationShowsInlineErrorAndClearsAfterFieldEdit() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -173,7 +173,7 @@ public final class MainActivityDiningOutTabTest {
     public void diningOutTabSeparatesStoreAndMenuAndSavesTheEntry() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
 
                 clickText(root, "새 끼니 기록");
@@ -246,7 +246,7 @@ public final class MainActivityDiningOutTabTest {
                         menuIdentity
                 );
 
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 EditText catalogSearch = findEditTextWithContentDescription(
@@ -328,7 +328,7 @@ public final class MainActivityDiningOutTabTest {
                         otherIdentity
                 );
 
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -351,7 +351,6 @@ public final class MainActivityDiningOutTabTest {
                 assertNotNull(findViewWithContentDescription(root, rowDescription));
                 clickContentDescription(root, rowDescription);
 
-                activity.rerender();
                 assertNotNull(findEditTextWithContentDescription(
                         root,
                         "식품명 또는 상품명 검색"
@@ -365,7 +364,7 @@ public final class MainActivityDiningOutTabTest {
     public void diningOutMenuAddCreatesAnotherTopLevelMenu() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -383,7 +382,7 @@ public final class MainActivityDiningOutTabTest {
     public void switchingDiningOutMenusKeepsOptionsIsolatedAfterRerender() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -419,7 +418,7 @@ public final class MainActivityDiningOutTabTest {
     public void deletingDiningOutOptionDoesNotResurrectAfterRerender() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -473,7 +472,7 @@ public final class MainActivityDiningOutTabTest {
                         ))
                 );
                 testFitnessRepository(activity).compositionTemplates().save(template);
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -523,7 +522,7 @@ public final class MainActivityDiningOutTabTest {
                         700d, 9d, 4d
                 );
 
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -580,7 +579,7 @@ public final class MainActivityDiningOutTabTest {
                 );
                 testFitnessRepository(activity).compositionTemplates().save(template);
 
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -644,7 +643,7 @@ public final class MainActivityDiningOutTabTest {
                         700d, 9d, 4d, otherIdentity
                 );
 
-                activity.openMealManagement();
+                activity.navigate(FitnessScreen.MEALS);
                 View root = activity.getWindow().getDecorView();
                 clickText(root, "새 끼니 기록");
                 clickText(root, "외식");
@@ -748,7 +747,7 @@ public final class MainActivityDiningOutTabTest {
         com.yeonsik.fitnessapp.config.SupabaseConfig config = store.load();
         return new NutritionCatalogRepository(
                 FitnessRoomDatabaseProvider.get(activity), activity,
-                config.effectiveUserId(), config
+                config.effectiveUserId()
         );
     }
 

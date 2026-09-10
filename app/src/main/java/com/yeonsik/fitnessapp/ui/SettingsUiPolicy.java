@@ -1,20 +1,22 @@
 package com.yeonsik.fitnessapp.ui;
 
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens;
+
 /** Pure presentation policy shared by the Compose settings surface and tests. */
 public final class SettingsUiPolicy {
     private SettingsUiPolicy() {}
 
     public static int syncStatusColorForLabel(String label) {
-        if ("synced".equals(label) || "configured".equals(label)) return FitnessUi.COLOR_POSITIVE;
+        if ("synced".equals(label) || "configured".equals(label)) return FitnessUiTokens.COLOR_POSITIVE;
         if ("sync failed".equals(label) || "authentication failed".equals(label)
                 || "local ownership failed".equals(label) || "nutrition ownership failed".equals(label)) {
-            return FitnessUi.COLOR_NEGATIVE;
+            return FitnessUiTokens.COLOR_NEGATIVE;
         }
         if ("syncing".equals(label) || "authenticating".equals(label) || "partial".equals(label)
                 || "login required".equals(label) || "confirmation required".equals(label)) {
-            return FitnessUi.COLOR_WARNING;
+            return FitnessUiTokens.COLOR_WARNING;
         }
-        return FitnessUi.COLOR_TERTIARY;
+        return FitnessUiTokens.COLOR_TERTIARY;
     }
 
     public static String syncStatusLabel(String label) {

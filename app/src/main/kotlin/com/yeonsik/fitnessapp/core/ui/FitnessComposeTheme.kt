@@ -17,45 +17,43 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.yeonsik.fitnessapp.ui.FitnessUi
-
 /** View and Compose share the existing tokens; docs/UI_DESIGN_SYSTEM.md owns the direction. */
 object FitnessSpacing {
     val micro = 4.dp
-    val small = FitnessUi.FORM_ITEM_GAP_DP.dp
-    val gap = FitnessUi.CARD_GAP_DP.dp
+    val small = FitnessUiTokens.FORM_ITEM_GAP_DP.dp
+    val gap = FitnessUiTokens.CARD_GAP_DP.dp
     val card = 16.dp
-    val page = FitnessUi.PAGE_HORIZONTAL_PADDING_DP.dp
-    val section = FitnessUi.SECTION_TOP_SPACING_DP.dp
-    val touch = FitnessUi.NAV_ITEM_MIN_HEIGHT_DP.dp
+    val page = FitnessUiTokens.PAGE_HORIZONTAL_PADDING_DP.dp
+    val section = FitnessUiTokens.SECTION_TOP_SPACING_DP.dp
+    val touch = FitnessUiTokens.NAV_ITEM_MIN_HEIGHT_DP.dp
 }
 
 object FitnessShape {
-    val card = RoundedCornerShape(FitnessUi.CARD_RADIUS_DP.dp)
-    val input = RoundedCornerShape(FitnessUi.INPUT_RADIUS_DP.dp)
-    val button = RoundedCornerShape(FitnessUi.BUTTON_RADIUS_DP.dp)
+    val card = RoundedCornerShape(FitnessUiTokens.CARD_RADIUS_DP.dp)
+    val input = RoundedCornerShape(FitnessUiTokens.INPUT_RADIUS_DP.dp)
+    val button = RoundedCornerShape(FitnessUiTokens.BUTTON_RADIUS_DP.dp)
 }
 
 data class FitnessSemanticColors(val action: Color, val onAction: Color, val success: Color, val warning: Color)
 private val LightSemantic = FitnessSemanticColors(
-    Color(FitnessUi.COLOR_PASTEL_BLUE), Color(FitnessUi.COLOR_BLUE_INK),
-    Color(FitnessUi.COLOR_POSITIVE), Color(FitnessUi.COLOR_WARNING)
+    Color(FitnessUiTokens.COLOR_PASTEL_BLUE), Color(FitnessUiTokens.COLOR_BLUE_INK),
+    Color(FitnessUiTokens.COLOR_POSITIVE), Color(FitnessUiTokens.COLOR_WARNING)
 )
 private val DarkSemantic = FitnessSemanticColors(
-    Color(FitnessUi.COLOR_D_PASTEL_BLUE), Color(FitnessUi.COLOR_D_ON_PASTEL_BLUE),
-    Color(FitnessUi.COLOR_D_POSITIVE), Color(FitnessUi.COLOR_D_WARNING)
+    Color(FitnessUiTokens.COLOR_D_PASTEL_BLUE), Color(FitnessUiTokens.COLOR_D_ON_PASTEL_BLUE),
+    Color(FitnessUiTokens.COLOR_D_POSITIVE), Color(FitnessUiTokens.COLOR_D_WARNING)
 )
 val LocalFitnessColors = staticCompositionLocalOf { LightSemantic }
 
 private fun colors(dark: Boolean) = run {
-    val surface = Color(if (dark) FitnessUi.COLOR_D_SURFACE else FitnessUi.COLOR_SURFACE)
-    val background = Color(if (dark) FitnessUi.COLOR_D_BACKGROUND else FitnessUi.COLOR_BACKGROUND)
-    val subtle = Color(if (dark) FitnessUi.COLOR_D_SUBTLE else FitnessUi.COLOR_SUBTLE)
-    val ink = Color(if (dark) FitnessUi.COLOR_D_TEXT else FitnessUi.COLOR_TEXT)
-    val muted = Color(if (dark) FitnessUi.COLOR_D_MUTED else FitnessUi.COLOR_MUTED)
-    val border = Color(if (dark) FitnessUi.COLOR_D_BORDER else FitnessUi.COLOR_BORDER)
-    val blueInk = Color(if (dark) FitnessUi.COLOR_D_BLUE_INK else FitnessUi.COLOR_BLUE_INK)
-    val blueContainer = Color(if (dark) FitnessUi.COLOR_D_BLUE_CONTAINER else FitnessUi.COLOR_BLUE_CONTAINER)
+    val surface = Color(if (dark) FitnessUiTokens.COLOR_D_SURFACE else FitnessUiTokens.COLOR_SURFACE)
+    val background = Color(if (dark) FitnessUiTokens.COLOR_D_BACKGROUND else FitnessUiTokens.COLOR_BACKGROUND)
+    val subtle = Color(if (dark) FitnessUiTokens.COLOR_D_SUBTLE else FitnessUiTokens.COLOR_SUBTLE)
+    val ink = Color(if (dark) FitnessUiTokens.COLOR_D_TEXT else FitnessUiTokens.COLOR_TEXT)
+    val muted = Color(if (dark) FitnessUiTokens.COLOR_D_MUTED else FitnessUiTokens.COLOR_MUTED)
+    val border = Color(if (dark) FitnessUiTokens.COLOR_D_BORDER else FitnessUiTokens.COLOR_BORDER)
+    val blueInk = Color(if (dark) FitnessUiTokens.COLOR_D_BLUE_INK else FitnessUiTokens.COLOR_BLUE_INK)
+    val blueContainer = Color(if (dark) FitnessUiTokens.COLOR_D_BLUE_CONTAINER else FitnessUiTokens.COLOR_BLUE_CONTAINER)
     val semantic = if (dark) DarkSemantic else LightSemantic
     val base = if (dark) darkColorScheme() else lightColorScheme()
     base.copy(
@@ -69,9 +67,9 @@ private fun colors(dark: Boolean) = run {
         surfaceContainerLowest = background, surfaceContainerLow = surface, surfaceContainer = surface,
         surfaceContainerHigh = subtle, surfaceContainerHighest = subtle, surfaceTint = Color.Transparent,
         inverseSurface = ink, inverseOnSurface = surface, outline = muted, outlineVariant = border,
-        error = Color(if (dark) FitnessUi.COLOR_D_NEGATIVE else FitnessUi.COLOR_NEGATIVE),
+        error = Color(if (dark) FitnessUiTokens.COLOR_D_NEGATIVE else FitnessUiTokens.COLOR_NEGATIVE),
         onError = surface, errorContainer = subtle,
-        onErrorContainer = Color(if (dark) FitnessUi.COLOR_D_NEGATIVE else FitnessUi.COLOR_NEGATIVE)
+        onErrorContainer = Color(if (dark) FitnessUiTokens.COLOR_D_NEGATIVE else FitnessUiTokens.COLOR_NEGATIVE)
     )
 }
 
@@ -101,7 +99,7 @@ fun FitnessComposeTheme(dark: Boolean, content: @Composable () -> Unit) {
             shapes = Shapes(
                 extraSmall = FitnessShape.input, small = FitnessShape.input,
                 medium = FitnessShape.card, large = FitnessShape.card,
-                extraLarge = RoundedCornerShape(FitnessUi.SHEET_RADIUS_DP.dp)
+                extraLarge = RoundedCornerShape(FitnessUiTokens.SHEET_RADIUS_DP.dp)
             ), content = {
                 CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onBackground) { content() }
             }

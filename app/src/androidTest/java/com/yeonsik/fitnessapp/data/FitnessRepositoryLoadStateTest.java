@@ -16,7 +16,9 @@ import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
-import com.yeonsik.fitnessapp.routine.RoutineRepository;
+import com.yeonsik.fitnessapp.feature.routine.data.RoutineRepository;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -544,13 +546,14 @@ public final class FitnessRepositoryLoadStateTest {
     public void preservesRuntimeSubPartWhenSavingAReusableRoutine() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             FitnessRepository repository = new FitnessRepository(helper, USER_ID);
             RuntimeExercisePreset preset = repository.familyCatalog()
                     .runtimeCatalog()
                     .presetForStorageExerciseId("back_bodyweight_pull_up");
             assertNotNull(preset);
-            RoutineRepository routines = new RoutineRepository(helper, USER_ID);
+            RoutineRepository routines = new RoutineRepository(room, context, USER_ID);
             String routineId = routines.createRoutine(
                     "Runtime routine",
                     Arrays.asList(ExerciseMasterAdapter.toRoutineExercise(preset))
@@ -563,6 +566,7 @@ public final class FitnessRepositoryLoadStateTest {
             assertNotNull(exercises.get(0).familyIdentity);
             assertEquals("pull_up", exercises.get(0).familyIdentity.familyId);
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }

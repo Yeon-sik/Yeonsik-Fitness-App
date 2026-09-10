@@ -103,7 +103,7 @@ public final class CardioDistanceFilter {
             return new Result(true, segmentDistanceMeters, Reason.ACCEPTED);
         }
 
-        static Result rejected(Reason reason) {
+        public static Result rejected(Reason reason) {
             return new Result(false, 0d, reason);
         }
     }

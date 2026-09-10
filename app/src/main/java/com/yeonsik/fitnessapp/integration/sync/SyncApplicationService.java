@@ -3,7 +3,7 @@ package com.yeonsik.fitnessapp.integration.sync;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
-import com.yeonsik.fitnessapp.sync.SupabaseSyncManager;
+import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager;
 
 /** Coordinates the shared Summary-v2 sync and optional Nutrition catalog sync. */
 public final class SyncApplicationService {

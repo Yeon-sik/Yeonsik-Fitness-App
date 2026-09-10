@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.integration.transfer.WorkoutTransferCodec;
 import org.json.JSONObject;
 import org.junit.Test;
 

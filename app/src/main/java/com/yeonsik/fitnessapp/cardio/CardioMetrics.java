@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.cardio;
 
+import com.yeonsik.fitnessapp.feature.cardio.data.CardioRepository;
+
 import java.util.Locale;
 
 /** 유산소 화면과 알림이 공유하는 거리·시간·페이스 표시 규칙. */

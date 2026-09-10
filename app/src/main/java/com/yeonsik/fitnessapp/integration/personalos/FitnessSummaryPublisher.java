@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.integration.personalos;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.FitnessSummaryProjectionV2;
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutSummaryApi;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -20,7 +21,7 @@ public final class FitnessSummaryPublisher {
     private static final String SUMMARY_PROJECTION_V2_RPC =
             "/rest/v1/rpc/upsert_fitness_summary_projection_v2";
 
-    public int publish(SupabaseConfig config, FitnessSummaryStore summaryStore) throws Exception {
+    public int publish(SupabaseConfig config, WorkoutSummaryApi summaryStore) throws Exception {
         if (config == null || !config.isConfigured()) {
             throw new IllegalStateException("Supabase 설정이 비어 있습니다.");
         }

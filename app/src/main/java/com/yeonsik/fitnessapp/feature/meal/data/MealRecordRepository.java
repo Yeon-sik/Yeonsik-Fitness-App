@@ -1,18 +1,23 @@
 package com.yeonsik.fitnessapp.feature.meal.data;
 
-import android.content.ContentValues;
+import androidx.annotation.Nullable;
 
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.MealRecordItemNutrientsRoomEntity;
+import com.yeonsik.fitnessapp.core.database.MealRecordItemsRoomEntity;
+import com.yeonsik.fitnessapp.core.database.MealRecordsRoomEntity;
+import com.yeonsik.fitnessapp.core.database.MealRoomDao;
 import com.yeonsik.fitnessapp.data.CompositionTemplate;
 import com.yeonsik.fitnessapp.data.MealCompositionItem;
 import com.yeonsik.fitnessapp.data.MealEntryPolicy;
 import com.yeonsik.fitnessapp.data.MealItemSnapshot;
 import com.yeonsik.fitnessapp.data.MealRecordKind;
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionUnit;
+import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi;
+import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi;
 
 import org.json.JSONObject;
 
@@ -25,19 +30,21 @@ import java.util.Map;
 import java.util.UUID;
 
 /** Owns account-scoped runtime meal-record writes for the meal feature. */
-public final class MealRecordRepository implements com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi {
+public final class MealRecordRepository implements MealRecordRepositoryApi {
     private static final String DEVICE_ID = "android-local";
 
-    private final FitnessDatabaseConnection database;
-    private final NutritionCatalogRepository nutritionCatalog;
+    private final FitnessRoomDatabase roomDatabase;
+    private final MealRoomDao mealDao;
+    private final NutritionCatalogRepositoryApi nutritionCatalog;
     private String userId;
 
     public MealRecordRepository(
-            FitnessDatabaseConnection database,
-            NutritionCatalogRepository nutritionCatalog,
+            FitnessRoomDatabase roomDatabase,
+            NutritionCatalogRepositoryApi nutritionCatalog,
             String userId
     ) {
-        this.database = database;
+        this.roomDatabase = roomDatabase;
+        this.mealDao = roomDatabase.mealRoomDao();
         this.nutritionCatalog = nutritionCatalog;
         setUserId(userId);
     }
@@ -61,69 +68,53 @@ public final class MealRecordRepository implements com.yeonsik.fitnessapp.featur
         LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, today);
         String eatenAt = MealEntryPolicy.eatenAt(recordDate, mealTime, ZoneId.systemDefault());
         boolean backfilled = MealEntryPolicy.isBackfilled(recordDate, today);
-        String now = DateTimeFormatter.ISO_INSTANT.format(OffsetDateTime.now(ZoneOffset.UTC));
+        String now = now();
         String recordId = UUID.randomUUID().toString();
-        int mealIndex = (int) database.longForQuery(
-                "SELECT COUNT(*) FROM meal_records WHERE deleted_at IS NULL "
-                        + "AND user_id = ? AND scope IN ('fitness', 'both') AND date = ?",
-                new String[]{ownerId, recordDate.toString()}
-        );
+        int mealIndex = safeInt(mealDao.mealCountForDate(ownerId, recordDate.toString()));
         String mealLabel = MealEntryPolicy.labelForIndex(mealIndex);
 
-        ContentValues values = baseValues(recordId, now, ownerId);
-        values.put("date", recordDate.toString());
-        values.put("menu", MealEntryPolicy.previewTitle(food.displayName(), 1, mealLabel + " 식사"));
-        values.put("meal_kind", MealRecordKind.FOOD);
-        values.putNull("fulfillment_mode");
-        values.putNull("store_name");
-        values.putNull("branch_name");
-        values.putNull("menu_name");
-        values.putNull("restaurant_id");
-        values.putNull("restaurant_location_id");
-        values.putNull("restaurant_menu_id");
-        values.putNull("catalog_product_id");
-        values.putNull("composition_template_id");
-        values.putNull("composition_template_revision");
-        values.putNull("nutrition_calculation_contract");
-        values.put("calories", (int) Math.round(item.calories));
-        values.put("protein_grams", item.proteinGrams);
-        values.put("carbs_grams", item.carbsGrams);
-        values.put("fat_grams", item.fatGrams);
-        values.put("is_backfilled", backfilled ? 1 : 0);
-        if (backfilled) {
-            values.put("backfilled_at", now);
-            values.put("backfill_reason", "manual past meal entry");
-        } else {
-            values.putNull("backfilled_at");
-            values.putNull("backfill_reason");
-        }
-        values.put("source_app", "fitness");
-        values.put("scope", "fitness");
-        JSONObject metadata = new JSONObject();
-        try {
-            metadata.put("item_type", "meal");
-            metadata.put("meal_kind", MealRecordKind.FOOD);
-            metadata.put("meal_type", mealLabel);
-            metadata.put("eaten_at", eatenAt);
-            metadata.put("estimated", "false");
-            metadata.put("composition_version", "2");
-            metadata.put("item_count", "1");
-        } catch (Exception error) {
-            throw new IllegalStateException("식단 메타데이터를 만들지 못했습니다.", error);
-        }
-        values.put("metadata", metadata.toString());
-        values.put("contract_version", 1);
+        String metadata = foodMetadata(mealLabel, eatenAt);
+        MealRecordsRoomEntity record = new MealRecordsRoomEntity(
+                recordId,
+                ownerId,
+                recordDate.toString(),
+                MealEntryPolicy.previewTitle(food.displayName(), 1, mealLabel + " 식사"),
+                MealRecordKind.FOOD,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Math.round(item.calories),
+                item.proteinGrams,
+                item.carbsGrams,
+                item.fatGrams,
+                now,
+                backfilled ? 1L : 0L,
+                backfilled ? now : null,
+                backfilled ? "manual past meal entry" : null,
+                now,
+                null,
+                DEVICE_ID,
+                "fitness",
+                "fitness",
+                metadata,
+                1L
+        );
 
-        database.beginTransaction();
-        try {
-            database.insertOrThrow("meal_records", null, values);
+        roomDatabase.runInTransaction(() -> {
+            mealDao.insertRecord(record);
             insertItemSnapshot(recordId, snapshot, now, ownerId);
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
+        });
         return recordId;
     }
+
     public String saveManualDiningOut(
             AccountScope scope,
             String date,
@@ -224,123 +215,146 @@ public final class MealRecordRepository implements com.yeonsik.fitnessapp.featur
         LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, today);
         String eatenAt = MealEntryPolicy.eatenAt(recordDate, mealTime, ZoneId.systemDefault());
         boolean backfilled = MealEntryPolicy.isBackfilled(recordDate, today);
-        String now = DateTimeFormatter.ISO_INSTANT.format(OffsetDateTime.now(ZoneOffset.UTC));
+        String now = now();
         String recordId = UUID.randomUUID().toString();
+        int mealIndex = safeInt(mealDao.mealCountForDate(ownerId, recordDate.toString()));
 
-        ContentValues values = baseValues(recordId, now, ownerId);
-        values.put("date", recordDate.toString());
-        values.put("menu", menu);
-        values.put("meal_kind", MealRecordKind.DINING_OUT);
-        values.putNull("fulfillment_mode");
-        values.put("store_name", store);
-        putNullable(values, "branch_name", branch);
-        values.put("menu_name", menu);
-        putNullable(values, "restaurant_id", optional(restaurantId));
-        putNullable(values, "restaurant_location_id", optional(restaurantLocationId));
-        putNullable(values, "restaurant_menu_id", optional(restaurantMenuId));
-        putNullable(values, "catalog_product_id", optional(catalogProductId));
-        values.putNull("composition_template_id");
-        values.putNull("composition_template_revision");
-        values.putNull("nutrition_calculation_contract");
-        values.put("calories", calories);
-        values.put("protein_grams", protein);
-        values.put("carbs_grams", carbs);
-        values.put("fat_grams", fat);
-        values.put("is_backfilled", backfilled ? 1 : 0);
-        if (backfilled) {
-            values.put("backfilled_at", now);
-            values.put("backfill_reason", "manual past dining-out entry");
-        } else {
-            values.putNull("backfilled_at");
-            values.putNull("backfill_reason");
-        }
-        values.put("source_app", "fitness");
-        values.put("scope", "fitness");
-        values.put("metadata", diningMetadata(
-                ownerId, recordDate.toString(), eatenAt, store, branch, menu,
-                restaurantId, restaurantLocationId, restaurantMenuId, catalogProductId
-        ));
-        values.put("contract_version", 1);
+        MealRecordsRoomEntity record = new MealRecordsRoomEntity(
+                recordId,
+                ownerId,
+                recordDate.toString(),
+                menu,
+                MealRecordKind.DINING_OUT,
+                null,
+                store,
+                branch,
+                menu,
+                optional(restaurantId),
+                optional(restaurantLocationId),
+                optional(restaurantMenuId),
+                optional(catalogProductId),
+                null,
+                null,
+                null,
+                calories,
+                protein,
+                carbs,
+                fat,
+                now,
+                backfilled ? 1L : 0L,
+                backfilled ? now : null,
+                backfilled ? "manual past dining-out entry" : null,
+                now,
+                null,
+                DEVICE_ID,
+                "fitness",
+                "fitness",
+                diningMetadata(
+                        mealIndex,
+                        eatenAt,
+                        store,
+                        branch,
+                        menu,
+                        restaurantId,
+                        restaurantLocationId,
+                        restaurantMenuId,
+                        catalogProductId
+                ),
+                1L
+        );
 
-        database.beginTransaction();
-        try {
-            database.insertOrThrow("meal_records", null, values);
+        roomDatabase.runInTransaction(() -> {
+            mealDao.insertRecord(record);
             insertItemSnapshot(recordId, snapshot, now, ownerId);
-            database.setTransactionSuccessful();
-        } finally {
-            database.endTransaction();
-        }
+        });
         return recordId;
     }
 
     private void insertItemSnapshot(String recordId, MealItemSnapshot snapshot, String now, String ownerId) {
         String itemId = UUID.randomUUID().toString();
-        ContentValues values = new ContentValues();
-        values.put("id", itemId);
-        values.put("user_id", ownerId);
-        values.put("meal_record_id", recordId);
-        values.putNull("composition_template_id");
-        values.putNull("composition_template_revision_snapshot");
-        putNullable(values, "food_id", snapshot.foodId);
-        values.put("food_name_snapshot", snapshot.foodNameSnapshot);
-        putNullable(values, "brand_snapshot", snapshot.brandSnapshot);
-        putNullable(values, "manufacturer_name_snapshot", snapshot.manufacturerNameSnapshot);
-        putNullable(values, "brand_name_snapshot", snapshot.brandNameSnapshot);
-        putNullable(values, "sub_brand_name_snapshot", snapshot.subBrandNameSnapshot);
-        putNullable(values, "product_name_snapshot", snapshot.productNameSnapshot);
-        putNullable(values, "package_amount_snapshot", snapshot.packageAmountSnapshot);
-        putNullable(values, "package_unit_snapshot", snapshot.packageUnitSnapshot);
-        putNullable(values, "package_count_snapshot", snapshot.packageCountSnapshot);
-        values.put("food_kind_snapshot", snapshot.foodKindSnapshot);
-        values.put("quantity", snapshot.quantity);
-        values.put("unit", snapshot.unit);
-        values.put("basis_amount_snapshot", snapshot.basisAmountSnapshot);
-        values.put("basis_unit_snapshot", snapshot.basisUnitSnapshot);
-        values.putNull("portion_basis_snapshot");
-        values.putNull("nominal_servings_snapshot");
-        values.put("prep_state_snapshot", snapshot.prepStateSnapshot);
-        for (Map.Entry<String, Double> field : snapshot.typedNutritionColumns().entrySet()) {
-            String column = NutritionProfile.CALORIES_KCAL.equals(field.getKey())
-                    ? "calories" : field.getKey();
-            if (field.getValue() == null) values.putNull(column);
-            else values.put(column, field.getValue());
-        }
-        putNullable(values, "source_type_snapshot", snapshot.sourceTypeSnapshot);
-        putNullable(values, "source_reference_snapshot", snapshot.sourceReferenceSnapshot);
-        putNullable(values, "source_version_snapshot", snapshot.sourceVersionSnapshot);
-        values.put("food_data_version_snapshot", snapshot.foodDataVersionSnapshot);
-        values.put("order_index", snapshot.orderIndex);
-        values.put("created_at", now);
-        values.put("updated_at", now);
-        values.putNull("deleted_at");
-        values.put("device_id", DEVICE_ID);
-        database.insertOrThrow("meal_record_items", null, values);
+        Map<String, Double> typed = snapshot.typedNutritionColumns();
+        MealRecordItemsRoomEntity item = new MealRecordItemsRoomEntity(
+                itemId,
+                ownerId,
+                recordId,
+                null,
+                null,
+                optional(snapshot.foodId),
+                snapshot.foodNameSnapshot,
+                snapshot.brandSnapshot,
+                snapshot.manufacturerNameSnapshot,
+                snapshot.brandNameSnapshot,
+                snapshot.subBrandNameSnapshot,
+                snapshot.productNameSnapshot,
+                snapshot.packageAmountSnapshot,
+                snapshot.packageUnitSnapshot,
+                snapshot.packageCountSnapshot == null ? null : snapshot.packageCountSnapshot.longValue(),
+                snapshot.foodKindSnapshot,
+                snapshot.quantity,
+                snapshot.unit,
+                snapshot.basisAmountSnapshot,
+                snapshot.basisUnitSnapshot,
+                null,
+                null,
+                snapshot.prepStateSnapshot,
+                required(typed, NutritionProfile.CALORIES_KCAL),
+                required(typed, NutritionProfile.PROTEIN_GRAMS),
+                required(typed, NutritionProfile.CARBS_GRAMS),
+                required(typed, NutritionProfile.FAT_GRAMS),
+                typed.get(NutritionProfile.SODIUM_MG),
+                typed.get(NutritionProfile.SATURATED_FAT_GRAMS),
+                typed.get(NutritionProfile.SUGARS_GRAMS),
+                typed.get(NutritionProfile.FIBER_GRAMS),
+                typed.get(NutritionProfile.ADDED_SUGARS_GRAMS),
+                typed.get(NutritionProfile.TRANS_FAT_GRAMS),
+                typed.get(NutritionProfile.CHOLESTEROL_MG),
+                snapshot.sourceTypeSnapshot,
+                snapshot.sourceReferenceSnapshot,
+                snapshot.sourceVersionSnapshot,
+                (long) snapshot.foodDataVersionSnapshot,
+                (long) snapshot.orderIndex,
+                now,
+                now,
+                null,
+                DEVICE_ID
+        );
+        mealDao.insertItem(item);
 
         for (MealItemSnapshot.MicronutrientRow row : snapshot.micronutrientRows()) {
-            ContentValues nutrient = baseValues(UUID.randomUUID().toString(), now, ownerId);
-            nutrient.put("meal_record_id", recordId);
-            nutrient.put("meal_record_item_id", itemId);
-            nutrient.put("nutrient_code", row.nutrientCode);
-            nutrient.put("amount", row.amount);
-            nutrient.put("unit", row.unit);
-            database.insertOrThrow("meal_record_item_nutrients", null, nutrient);
+            mealDao.insertNutrient(new MealRecordItemNutrientsRoomEntity(
+                    UUID.randomUUID().toString(),
+                    ownerId,
+                    recordId,
+                    itemId,
+                    row.nutrientCode,
+                    row.amount,
+                    row.unit,
+                    now,
+                    now,
+                    null,
+                    DEVICE_ID
+            ));
         }
     }
 
-    private ContentValues baseValues(String id, String now, String ownerId) {
-        ContentValues values = new ContentValues();
-        values.put("id", id);
-        values.put("user_id", ownerId);
-        values.put("created_at", now);
-        values.put("updated_at", now);
-        values.putNull("deleted_at");
-        values.put("device_id", DEVICE_ID);
-        return values;
+    private String foodMetadata(String mealLabel, String eatenAt) {
+        try {
+            JSONObject metadata = new JSONObject();
+            metadata.put("item_type", "meal");
+            metadata.put("meal_kind", MealRecordKind.FOOD);
+            metadata.put("meal_type", mealLabel);
+            metadata.put("eaten_at", eatenAt);
+            metadata.put("estimated", "false");
+            metadata.put("composition_version", "2");
+            metadata.put("item_count", "1");
+            return metadata.toString();
+        } catch (Exception error) {
+            throw new IllegalStateException("식단 메타데이터를 만들지 못했습니다.", error);
+        }
     }
 
     private String diningMetadata(
-            String ownerId,
-            String date,
+            int mealIndex,
             String eatenAt,
             String store,
             String branch,
@@ -351,15 +365,10 @@ public final class MealRecordRepository implements com.yeonsik.fitnessapp.featur
             String catalogProductId
     ) {
         try {
-            int index = (int) database.longForQuery(
-                    "SELECT COUNT(*) FROM meal_records WHERE deleted_at IS NULL "
-                            + "AND user_id = ? AND scope IN ('fitness', 'both') AND date = ?",
-                    new String[]{ownerId, date}
-            );
             JSONObject json = new JSONObject();
             json.put("item_type", "meal");
             json.put("meal_kind", MealRecordKind.DINING_OUT);
-            json.put("meal_type", MealEntryPolicy.labelForIndex(index));
+            json.put("meal_type", MealEntryPolicy.labelForIndex(mealIndex));
             json.put("eaten_at", eatenAt);
             json.put("store_name", store);
             if (branch != null) json.put("branch_name", branch);
@@ -390,17 +399,25 @@ public final class MealRecordRepository implements com.yeonsik.fitnessapp.featur
         return requested;
     }
 
+    private static Double required(Map<String, Double> values, String key) {
+        Double value = values.get(key);
+        if (value == null) {
+            throw new IllegalStateException("필수 영양소가 없습니다: " + key);
+        }
+        return value;
+    }
+
+    private static String now() {
+        return DateTimeFormatter.ISO_INSTANT.format(OffsetDateTime.now(ZoneOffset.UTC));
+    }
+
+    private static int safeInt(long value) {
+        return value > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) value;
+    }
+
     private static String optional(String value) {
         String normalized = value == null ? "" : value.trim();
         return normalized.isEmpty() ? null : normalized;
-    }
-
-    private static void putNullable(ContentValues values, String key, Object value) {
-        if (value == null) values.putNull(key);
-        else if (value instanceof String) values.put(key, (String) value);
-        else if (value instanceof Double) values.put(key, (Double) value);
-        else if (value instanceof Integer) values.put(key, (Integer) value);
-        else throw new IllegalArgumentException("Unsupported ContentValues type for " + key);
     }
 
     private static void putOptional(JSONObject values, String key, String value) throws Exception {

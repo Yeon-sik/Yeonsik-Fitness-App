@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
+import com.yeonsik.fitnessapp.core.ui.NutritionRow;
 import com.yeonsik.fitnessapp.data.CompositionGroupType;
 import com.yeonsik.fitnessapp.data.DiningOutProvisionType;
 import com.yeonsik.fitnessapp.data.FitnessRepository;

@@ -10,7 +10,9 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.supplement.SupplementPlan;
-import com.yeonsik.fitnessapp.supplement.SupplementRepository;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.feature.supplement.data.SupplementRepository;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -33,9 +35,11 @@ public final class SupplementRepositoryTest {
         Context context = new IsolatedDatabaseContext(ApplicationProvider.getApplicationContext());
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = null;
+        FitnessRoomDatabase room = null;
         try {
             helper = new FitnessDatabaseHelper(context);
-            SupplementRepository repository = new SupplementRepository(helper, USER_ID);
+            room = FitnessRoomTestDatabase.open(context);
+            SupplementRepository repository = new SupplementRepository(room, USER_ID, context);
             String date = LocalDate.now().toString();
 
             repository.savePlan(null, "creatine", "테스트 브랜드", 3, "g", 2,
@@ -70,6 +74,7 @@ public final class SupplementRepositoryTest {
             assertEquals("테스트 브랜드", repository.activePlans(date).get(0).brandName);
             assertEquals(1, repository.history(LocalDate.parse(date), 7).size());
         } finally {
+            if (room != null) room.close();
             if (helper != null) helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -80,9 +85,11 @@ public final class SupplementRepositoryTest {
         Context context = new IsolatedDatabaseContext(ApplicationProvider.getApplicationContext());
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = null;
+        FitnessRoomDatabase room = null;
         try {
             helper = new FitnessDatabaseHelper(context);
-            SupplementRepository repository = new SupplementRepository(helper, USER_ID);
+            room = FitnessRoomTestDatabase.open(context);
+            SupplementRepository repository = new SupplementRepository(room, USER_ID, context);
             LocalDate today = LocalDate.now();
             LocalDate yesterday = today.minusDays(1);
 
@@ -120,6 +127,7 @@ public final class SupplementRepositoryTest {
             repository.deleteRecord(backfill.id);
             assertTrue(repository.history(today, 7).isEmpty());
         } finally {
+            if (room != null) room.close();
             if (helper != null) helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }

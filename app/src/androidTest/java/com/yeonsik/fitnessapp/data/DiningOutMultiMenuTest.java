@@ -1,5 +1,9 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
+
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.database.Cursor;
@@ -172,9 +176,10 @@ public final class DiningOutMultiMenuTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper, USER_ID, SupabaseConfig.empty()
+                    room, context, USER_ID
             );
             NutritionFood menuA = catalog.saveDiningOutMenu("식당", "메뉴 A", 40d, 20d, 10d);
             NutritionFood menuB = catalog.saveDiningOutMenu("식당", "메뉴 B", 30d, 15d, 8d);
@@ -202,6 +207,7 @@ public final class DiningOutMultiMenuTest {
             assertThrows(IllegalArgumentException.class,
                     () -> catalog.linkDiningOutAddOnToMenu(menuA.id, side.id));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -214,9 +220,10 @@ public final class DiningOutMultiMenuTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper, USER_ID, SupabaseConfig.empty()
+                    room, context, USER_ID
             );
             DiningOutIdentity menuAIdentity = DiningOutIdentity.fromPriceTrace(
                     "11111111-1111-4111-8111-111111111111",
@@ -253,6 +260,7 @@ public final class DiningOutMultiMenuTest {
                             "' AND (calories_kcal = 0 OR protein_grams = 0 OR " +
                             "carbs_grams = 0 OR fat_grams = 0)"));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -340,9 +348,10 @@ public final class DiningOutMultiMenuTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper, USER_ID, SupabaseConfig.empty()
+                    room, context, USER_ID
             );
             NutritionFood saved = catalog.saveDiningOutMenuWithNutrition(
                     "식당",
@@ -371,6 +380,7 @@ public final class DiningOutMultiMenuTest {
                 assertTrue(cursor.isNull(3));
             }
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }

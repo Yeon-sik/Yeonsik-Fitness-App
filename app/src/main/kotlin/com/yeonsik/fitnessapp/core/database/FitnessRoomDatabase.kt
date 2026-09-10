@@ -10,6 +10,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
+import androidx.room.Update
 
 @Entity(tableName = "body_profiles")
 data class BodyProfileEntity(
@@ -110,6 +111,41 @@ interface BodyRoomDao {
     )
     fun visibleWeight(id: String, userId: String): WeightRecordEntity?
 
+    @Query(
+        "SELECT * FROM weight_records WHERE user_id = :userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness', 'both') AND date = :date " +
+            "ORDER BY date DESC, updated_at DESC LIMIT 20"
+    )
+    fun visibleWeightsForDate(userId: String, date: String): List<WeightRecordEntity>
+
+    @Query(
+        "SELECT * FROM weight_records WHERE user_id = :userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness', 'both') AND date <= :date " +
+            "ORDER BY date DESC, updated_at DESC LIMIT 1"
+    )
+    fun latestVisibleWeightOnOrBefore(userId: String, date: String): WeightRecordEntity?
+
+    @Query(
+        "SELECT COUNT(DISTINCT date) FROM weight_records WHERE user_id = :userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness', 'both') " +
+            "AND date BETWEEN :startDate AND :endDate"
+    )
+    fun visibleWeightRecordedDays(userId: String, startDate: String, endDate: String): Int
+
+    @Query(
+        "SELECT DISTINCT date FROM weight_records WHERE user_id = :userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness', 'both') " +
+            "AND date BETWEEN :startDate AND :endDate ORDER BY date"
+    )
+    fun visibleWeightDates(userId: String, startDate: String, endDate: String): List<String>
+
+    @Query(
+        "SELECT * FROM weight_records WHERE user_id = :userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness', 'both') AND date BETWEEN :startDate AND :endDate " +
+            "ORDER BY date, updated_at DESC"
+    )
+    fun visibleWeightsBetween(userId: String, startDate: String, endDate: String): List<WeightRecordEntity>
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insert(record: WeightRecordEntity)
 
@@ -131,6 +167,315 @@ interface BodyRoomDao {
             "WHERE id = :id AND user_id = :userId AND deleted_at IS NULL"
     )
     fun tombstoneVisibleWeight(id: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query("SELECT * FROM body_profiles WHERE user_id = :userId LIMIT 1")
+    fun bodyProfile(userId: String): BodyProfileEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun replaceBodyProfile(profile: BodyProfileEntity)
+
+    @Query("DELETE FROM body_profiles WHERE user_id = :userId")
+    fun deleteBodyProfile(userId: String): Int
+}
+
+@Dao
+interface DeviceRoomDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsert(device: DevicesRoomEntity)
+}
+
+@Dao
+interface AccountOwnershipRoomDao {
+    @Query("UPDATE workout_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimWorkoutRecords(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE workout_exercises SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimWorkoutExercises(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE workout_sets SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimWorkoutSets(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecords(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE dining_out_menu_component_links SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimDiningOutMenuComponentLinks(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_record_items SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecordItems(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_record_item_nutrients SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecordItemNutrients(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_record_item_components SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecordItemComponents(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_record_item_component_nutrients SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecordItemComponentNutrients(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE meal_record_item_consumptions SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimMealRecordItemConsumptions(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE weight_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimWeightRecords(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE cardio_sessions SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimCardioSessions(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE cardio_route_points SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimCardioRoutePoints(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE routines SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimRoutines(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE routine_exercises SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimRoutineExercises(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE exercise_picker_preferences SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimExercisePickerPreferences(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE composition_templates SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimCompositionTemplates(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE composition_groups SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimCompositionGroups(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE composition_members SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimCompositionMembers(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE dining_out_menu_add_on_links SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimDiningOutMenuAddOnLinks(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_items SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSupplementItems(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_schedules SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSupplementSchedules(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_schedule_slots SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSupplementScheduleSlots(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_intake_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSupplementIntakeRecords(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_effect_checkins SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSupplementEffectCheckins(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE verified_receipt_items SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimVerifiedReceiptItems(sourceUserId: String, nextUserId: String): Int
+
+    @Query(
+        "INSERT OR REPLACE INTO nutrition_goals (" +
+            "user_id, phase, calories_kcal, protein_grams, carbs_grams, fat_grams, " +
+            "fiber_grams, sodium_mg, water_ml, created_at, updated_at) " +
+            "SELECT :nextUserId, source.phase, source.calories_kcal, source.protein_grams, " +
+            "source.carbs_grams, source.fat_grams, source.fiber_grams, source.sodium_mg, " +
+            "source.water_ml, source.created_at, source.updated_at FROM nutrition_goals source " +
+            "WHERE source.user_id=:sourceUserId AND (NOT EXISTS (SELECT 1 FROM nutrition_goals target " +
+            "WHERE target.user_id=:nextUserId) OR julianday(source.updated_at) > julianday((" +
+            "SELECT target.updated_at FROM nutrition_goals target WHERE target.user_id=:nextUserId LIMIT 1)))"
+    )
+    fun claimNutritionGoal(sourceUserId: String, nextUserId: String): Long
+
+    @Query("DELETE FROM nutrition_goals WHERE user_id=:sourceUserId")
+    fun deleteAnonymousNutritionGoal(sourceUserId: String): Int
+
+    @Query(
+        "INSERT OR REPLACE INTO body_profiles (user_id, height_cm, created_at, updated_at) " +
+            "SELECT :nextUserId, source.height_cm, source.created_at, source.updated_at " +
+            "FROM body_profiles source WHERE source.user_id=:sourceUserId AND (NOT EXISTS " +
+            "(SELECT 1 FROM body_profiles target WHERE target.user_id=:nextUserId) OR " +
+            "julianday(source.updated_at) > julianday((SELECT target.updated_at FROM body_profiles target " +
+            "WHERE target.user_id=:nextUserId LIMIT 1)))"
+    )
+    fun claimBodyProfile(sourceUserId: String, nextUserId: String): Long
+
+    @Query("DELETE FROM body_profiles WHERE user_id=:sourceUserId")
+    fun deleteAnonymousBodyProfile(sourceUserId: String): Int
+
+    @Query(
+        "INSERT OR REPLACE INTO development_goals (" +
+            "user_id, objective, weekly_sessions_target, focus_body_part, effective_from, " +
+            "created_at, updated_at) SELECT :nextUserId, source.objective, " +
+            "source.weekly_sessions_target, source.focus_body_part, source.effective_from, " +
+            "source.created_at, source.updated_at FROM development_goals source " +
+            "WHERE source.user_id=:sourceUserId AND (NOT EXISTS (SELECT 1 FROM development_goals target " +
+            "WHERE target.user_id=:nextUserId) OR julianday(source.updated_at) > julianday((" +
+            "SELECT target.updated_at FROM development_goals target WHERE target.user_id=:nextUserId LIMIT 1)))"
+    )
+    fun claimDevelopmentGoal(sourceUserId: String, nextUserId: String): Long
+
+    @Query("DELETE FROM development_goals WHERE user_id=:sourceUserId")
+    fun deleteAnonymousDevelopmentGoal(sourceUserId: String): Int
+
+    @Query(
+        "INSERT OR REPLACE INTO nutrition_daily_checkins (" +
+            "id, user_id, date, water_ml, sleep_hours, energy_score, hunger_score, " +
+            "digestion_score, training_readiness_score, note, created_at, updated_at) " +
+            "SELECT source.id, :nextUserId, source.date, source.water_ml, source.sleep_hours, " +
+            "source.energy_score, source.hunger_score, source.digestion_score, " +
+            "source.training_readiness_score, source.note, source.created_at, source.updated_at " +
+            "FROM nutrition_daily_checkins source WHERE source.user_id=:sourceUserId AND " +
+            "(NOT EXISTS (SELECT 1 FROM nutrition_daily_checkins target WHERE target.user_id=:nextUserId " +
+            "AND target.date=source.date) OR julianday(source.updated_at) > julianday((" +
+            "SELECT target.updated_at FROM nutrition_daily_checkins target WHERE target.user_id=:nextUserId " +
+            "AND target.date=source.date LIMIT 1)))"
+    )
+    fun claimNutritionDailyCheckins(sourceUserId: String, nextUserId: String): Long
+
+    @Query("DELETE FROM nutrition_daily_checkins WHERE user_id=:sourceUserId")
+    fun deleteAnonymousNutritionDailyCheckins(sourceUserId: String): Int
+
+    @Query(
+        "INSERT OR REPLACE INTO meal_menu_presets (" +
+            "id, user_id, name, calories, protein_grams, carbs_grams, fat_grams, created_at, updated_at) " +
+            "SELECT source.id, :nextUserId, source.name, source.calories, source.protein_grams, " +
+            "source.carbs_grams, source.fat_grams, source.created_at, source.updated_at " +
+            "FROM meal_menu_presets source WHERE source.user_id=:sourceUserId AND (NOT EXISTS " +
+            "(SELECT 1 FROM meal_menu_presets target WHERE target.user_id=:nextUserId " +
+            "AND target.name=source.name COLLATE NOCASE) OR julianday(source.updated_at) > julianday((" +
+            "SELECT target.updated_at FROM meal_menu_presets target WHERE target.user_id=:nextUserId " +
+            "AND target.name=source.name COLLATE NOCASE LIMIT 1)))"
+    )
+    fun claimMealMenuPresets(sourceUserId: String, nextUserId: String): Long
+
+    @Query("DELETE FROM meal_menu_presets WHERE user_id=:sourceUserId")
+    fun deleteAnonymousMealMenuPresets(sourceUserId: String): Int
+
+    @Query("DELETE FROM devices WHERE user_id=:sourceUserId")
+    fun deleteAnonymousDevices(sourceUserId: String): Int
+}
+
+@Dao
+interface LegacyFitnessSyncRoomDao {
+    @Query("SELECT * FROM devices WHERE user_id=:userId AND id=:deviceId LIMIT 1")
+    fun device(userId: String, deviceId: String): DevicesRoomEntity?
+
+    @Query(
+        "SELECT * FROM devices WHERE user_id=:userId AND id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR last_seen_at > :cursorVersion " +
+            "OR (last_seen_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY last_seen_at, id LIMIT :limit"
+    )
+    fun devices(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<DevicesRoomEntity>
+
+    @Query("SELECT * FROM workout_records WHERE id=:id AND user_id=:userId LIMIT 1")
+    fun workoutRecord(id: String, userId: String): WorkoutRecordsRoomEntity?
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND device_id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR updated_at > :cursorVersion " +
+            "OR (updated_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY updated_at, id LIMIT :limit"
+    )
+    fun workoutRecords(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<WorkoutRecordsRoomEntity>
+
+    @Query("SELECT * FROM workout_exercises WHERE id=:id AND user_id=:userId LIMIT 1")
+    fun workoutExercise(id: String, userId: String): WorkoutExercisesRoomEntity?
+
+    @Query(
+        "SELECT * FROM workout_exercises WHERE user_id=:userId AND device_id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR updated_at > :cursorVersion " +
+            "OR (updated_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY updated_at, id LIMIT :limit"
+    )
+    fun workoutExercises(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<WorkoutExercisesRoomEntity>
+
+    @Query("SELECT * FROM workout_sets WHERE id=:id AND user_id=:userId LIMIT 1")
+    fun workoutSet(id: String, userId: String): WorkoutSetsRoomEntity?
+
+    @Query(
+        "SELECT * FROM workout_sets WHERE user_id=:userId AND device_id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR updated_at > :cursorVersion " +
+            "OR (updated_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY updated_at, id LIMIT :limit"
+    )
+    fun workoutSets(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<WorkoutSetsRoomEntity>
+
+    @Query("SELECT * FROM meal_records WHERE id=:id AND user_id=:userId LIMIT 1")
+    fun mealRecord(id: String, userId: String): MealRecordsRoomEntity?
+
+    @Query(
+        "SELECT * FROM meal_records WHERE user_id=:userId AND device_id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR updated_at > :cursorVersion " +
+            "OR (updated_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY updated_at, id LIMIT :limit"
+    )
+    fun mealRecords(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<MealRecordsRoomEntity>
+
+    @Query("SELECT * FROM weight_records WHERE id=:id AND user_id=:userId LIMIT 1")
+    fun weightRecord(id: String, userId: String): WeightRecordEntity?
+
+    @Query(
+        "SELECT * FROM weight_records WHERE user_id=:userId AND device_id=:deviceId " +
+            "AND (:cursorVersion IS NULL OR updated_at > :cursorVersion " +
+            "OR (updated_at=:cursorVersion AND id>:cursorId)) " +
+            "ORDER BY updated_at, id LIMIT :limit"
+    )
+    fun weightRecords(
+        userId: String,
+        deviceId: String,
+        cursorVersion: String?,
+        cursorId: String,
+        limit: Int
+    ): List<WeightRecordEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertDevice(entity: DevicesRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertWorkoutRecord(entity: WorkoutRecordsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertWorkoutExercise(entity: WorkoutExercisesRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertWorkoutSet(entity: WorkoutSetsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertMealRecord(entity: MealRecordsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertWeightRecord(entity: WeightRecordEntity)
+
+    @Query(
+        "SELECT * FROM sync_state WHERE scope_key=:scopeKey AND table_name=:tableName " +
+            "AND direction=:direction LIMIT 1"
+    )
+    fun syncState(scopeKey: String, tableName: String, direction: String): SyncStateRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertSyncState(entity: SyncStateRoomEntity)
 }
 
 @Dao
@@ -147,11 +492,1408 @@ interface RoutineRoomDao {
     )
     fun visibleExercises(routineId: String, userId: String): List<RoutineExerciseEntity>
 
+    data class RoutineSummaryProjection(
+        val id: String,
+        val name: String,
+        val exerciseCount: Int
+    )
+
+    @Query(
+        "SELECT r.id AS id, r.name AS name, COUNT(re.id) AS exerciseCount " +
+            "FROM routines r LEFT JOIN routine_exercises re ON re.routine_id = r.id " +
+            "AND re.user_id = r.user_id AND re.deleted_at IS NULL " +
+            "WHERE r.user_id = :userId AND r.deleted_at IS NULL " +
+            "GROUP BY r.id, r.name, r.is_default, r.created_at " +
+            "ORDER BY r.is_default DESC, r.created_at"
+    )
+    fun visibleRoutineSummaries(userId: String): List<RoutineSummaryProjection>
+
+    @Query(
+        "SELECT * FROM routines WHERE id = :routineId AND user_id = :userId " +
+            "AND deleted_at IS NULL LIMIT 1"
+    )
+    fun visibleRoutine(routineId: String, userId: String): RoutineEntity?
+
+    @Query(
+        "SELECT COALESCE(MAX(order_index), 0) + 1 FROM routine_exercises " +
+            "WHERE routine_id = :routineId AND user_id = :userId AND deleted_at IS NULL"
+    )
+    fun nextExerciseOrder(routineId: String, userId: String): Int
+
+    @Query(
+        "UPDATE routines SET user_id = :nextUserId WHERE user_id = :sourceUserId"
+    )
+    fun claimRoutines(sourceUserId: String, nextUserId: String): Int
+
+    @Query(
+        "UPDATE routine_exercises SET user_id = :nextUserId WHERE user_id = :sourceUserId"
+    )
+    fun claimRoutineExercises(sourceUserId: String, nextUserId: String): Int
+
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertRoutine(routine: RoutineEntity)
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertExercise(exercise: RoutineExerciseEntity)
+
+    @Query(
+        "UPDATE routines SET name = :name, updated_at = :updatedAt " +
+            "WHERE id = :routineId AND user_id = :userId AND deleted_at IS NULL"
+    )
+    fun renameRoutine(routineId: String, userId: String, name: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE routine_exercises SET deleted_at = :deletedAt, updated_at = :updatedAt " +
+            "WHERE routine_id = :routineId AND user_id = :userId AND deleted_at IS NULL"
+    )
+    fun tombstoneRoutineExercises(routineId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE routines SET deleted_at = :deletedAt, updated_at = :updatedAt " +
+            "WHERE id = :routineId AND user_id = :userId AND deleted_at IS NULL"
+    )
+    fun tombstoneRoutine(routineId: String, userId: String, deletedAt: String, updatedAt: String): Int
+}
+
+@Dao
+interface SupplementRoomDao {
+    data class ActivePlanRow(
+        @ColumnInfo(name = "item_id") val itemId: String,
+        @ColumnInfo(name = "schedule_id") val scheduleId: String,
+        @ColumnInfo(name = "type_code") val typeCode: String,
+        @ColumnInfo(name = "type_name") val typeName: String,
+        @ColumnInfo(name = "brand_name") val brandName: String,
+        @ColumnInfo(name = "product_form") val productForm: String,
+        @ColumnInfo(name = "purpose_code") val purposeCode: String,
+        @ColumnInfo(name = "serving_amount") val servingAmount: Double,
+        @ColumnInfo(name = "serving_unit") val servingUnit: String,
+        @ColumnInfo(name = "active_ingredient_amount") val activeIngredientAmount: Double?,
+        @ColumnInfo(name = "active_ingredient_unit") val activeIngredientUnit: String,
+        @ColumnInfo(name = "ingredient_details") val ingredientDetails: String,
+        @ColumnInfo(name = "times_per_day") val timesPerDay: Long,
+        @ColumnInfo(name = "timing_label") val timingLabel: String,
+        @ColumnInfo(name = "effective_from") val effectiveFrom: String,
+        @ColumnInfo(name = "effective_to") val effectiveTo: String?,
+        @ColumnInfo(name = "is_current") val currentlyActive: Long,
+        @ColumnInfo(name = "taken_count") val takenCount: Long,
+        @ColumnInfo(name = "skipped_count") val skippedCount: Long
+    )
+
+    data class PlanSnapshotRow(
+        @ColumnInfo(name = "item_id") val itemId: String,
+        @ColumnInfo(name = "type_code") val typeCode: String,
+        @ColumnInfo(name = "type_name") val typeName: String,
+        @ColumnInfo(name = "brand_name") val brandName: String,
+        @ColumnInfo(name = "serving_amount") val servingAmount: Double,
+        @ColumnInfo(name = "serving_unit") val servingUnit: String,
+        @ColumnInfo(name = "active_ingredient_amount") val activeIngredientAmount: Double?,
+        @ColumnInfo(name = "active_ingredient_unit") val activeIngredientUnit: String,
+        @ColumnInfo(name = "ingredient_details") val ingredientDetails: String,
+        @ColumnInfo(name = "times_per_day") val timesPerDay: Long,
+        @ColumnInfo(name = "timing_label") val timingLabel: String
+    )
+
+    @Query(
+        "SELECT i.id AS item_id, s.id AS schedule_id, " +
+            "COALESCE(NULLIF(s.type_code_snapshot,''), i.supplement_type_code) AS type_code, " +
+            "COALESCE(NULLIF(s.type_name_snapshot,''), i.supplement_type_name) AS type_name, " +
+            "COALESCE(NULLIF(s.brand_name_snapshot,''), i.brand_name) AS brand_name, " +
+            "COALESCE(NULLIF(s.product_form_snapshot,''), i.product_form) AS product_form, " +
+            "COALESCE(NULLIF(s.purpose_code_snapshot,''), i.purpose_code) AS purpose_code, " +
+            "COALESCE(s.serving_amount,s.dose_amount) AS serving_amount, " +
+            "COALESCE(s.serving_unit,s.dose_unit) AS serving_unit, " +
+            "s.active_ingredient_amount AS active_ingredient_amount, " +
+            "COALESCE(s.active_ingredient_unit,'') AS active_ingredient_unit, " +
+            "COALESCE(s.ingredient_details,'') AS ingredient_details, " +
+            "s.times_per_day AS times_per_day, s.timing_label AS timing_label, " +
+            "s.effective_from AS effective_from, s.effective_to AS effective_to, " +
+            "CASE WHEN i.is_active=1 AND i.deleted_at IS NULL AND s.is_active=1 " +
+            "AND s.effective_to IS NULL THEN 1 ELSE 0 END AS is_current, " +
+            "COALESCE(SUM(CASE WHEN r.status='taken' THEN 1 ELSE 0 END),0) AS taken_count, " +
+            "COALESCE(SUM(CASE WHEN r.status='skipped' THEN 1 ELSE 0 END),0) AS skipped_count " +
+            "FROM supplement_schedules s INNER JOIN supplement_items i " +
+            "ON i.id=s.supplement_item_id AND i.user_id=s.user_id " +
+            "LEFT JOIN supplement_intake_records r ON r.schedule_id=s.id " +
+            "AND r.user_id=s.user_id AND r.date=:date " +
+            "WHERE s.user_id=:userId AND s.deleted_at IS NULL AND s.effective_from<=:date " +
+            "AND (s.effective_to IS NULL OR s.effective_to>=:date) " +
+            "GROUP BY i.id,s.id ORDER BY s.created_at ASC"
+    )
+    fun activePlans(userId: String, date: String): List<ActivePlanRow>
+
+    @Query(
+        "SELECT s.supplement_item_id AS item_id, " +
+            "COALESCE(NULLIF(s.type_code_snapshot,''),i.supplement_type_code) AS type_code, " +
+            "COALESCE(NULLIF(s.type_name_snapshot,''),i.supplement_type_name) AS type_name, " +
+            "COALESCE(NULLIF(s.brand_name_snapshot,''),i.brand_name) AS brand_name, " +
+            "COALESCE(s.serving_amount,s.dose_amount) AS serving_amount, " +
+            "COALESCE(s.serving_unit,s.dose_unit) AS serving_unit, " +
+            "s.active_ingredient_amount AS active_ingredient_amount, " +
+            "COALESCE(s.active_ingredient_unit,'') AS active_ingredient_unit, " +
+            "COALESCE(s.ingredient_details,'') AS ingredient_details, " +
+            "s.times_per_day AS times_per_day, s.timing_label AS timing_label " +
+            "FROM supplement_schedules s JOIN supplement_items i " +
+            "ON i.id=s.supplement_item_id AND i.user_id=s.user_id " +
+            "WHERE s.id=:scheduleId AND s.user_id=:userId AND s.deleted_at IS NULL " +
+            "AND s.effective_from<=:date AND (s.effective_to IS NULL OR s.effective_to>=:date) LIMIT 1"
+    )
+    fun planSnapshot(scheduleId: String, userId: String, date: String): PlanSnapshotRow?
+
+    @Query(
+        "SELECT * FROM supplement_schedule_slots WHERE user_id=:userId AND schedule_id=:scheduleId " +
+            "AND deleted_at IS NULL ORDER BY slot_index"
+    )
+    fun visibleSlots(userId: String, scheduleId: String): List<SupplementScheduleSlotsRoomEntity>
+
+    @Query(
+        "SELECT * FROM supplement_schedule_slots WHERE user_id=:userId AND schedule_id=:scheduleId " +
+            "AND slot_index=:slotIndex LIMIT 1"
+    )
+    fun slot(userId: String, scheduleId: String, slotIndex: Int): SupplementScheduleSlotsRoomEntity?
+
+    @Query(
+        "SELECT dose_index FROM supplement_intake_records WHERE user_id=:userId " +
+            "AND schedule_id=:scheduleId AND date=:date"
+    )
+    fun usedDoseIndexes(userId: String, scheduleId: String, date: String): List<Long>
+
+    @Query(
+        "SELECT * FROM supplement_intake_records WHERE user_id=:userId AND date BETWEEN :startDate AND :endDate " +
+            "ORDER BY date DESC,created_at DESC,dose_index DESC"
+    )
+    fun history(userId: String, startDate: String, endDate: String): List<SupplementIntakeRecordsRoomEntity>
+
+    @Query(
+        "SELECT id FROM supplement_intake_records WHERE user_id=:userId AND schedule_id=:scheduleId " +
+            "AND date=:date ORDER BY dose_index DESC LIMIT 1"
+    )
+    fun latestRecordId(userId: String, scheduleId: String, date: String): String?
+
+    @Query(
+        "SELECT id FROM supplement_effect_checkins WHERE user_id=:userId AND supplement_item_id=:itemId " +
+            "AND date=:date LIMIT 1"
+    )
+    fun effectCheckinId(userId: String, itemId: String, date: String): String?
+
+    @Query(
+        "SELECT * FROM supplement_effect_checkins WHERE user_id=:userId AND supplement_item_id=:itemId " +
+            "ORDER BY date DESC LIMIT 1"
+    )
+    fun latestEffectCheckin(userId: String, itemId: String): SupplementEffectCheckinsRoomEntity?
+
+    @Query("SELECT 1 FROM supplement_items WHERE id=:itemId AND user_id=:userId LIMIT 1")
+    fun ownedItem(itemId: String, userId: String): Int?
+
+    @Query(
+        "SELECT 1 FROM supplement_items i JOIN supplement_schedules s " +
+            "ON s.supplement_item_id=i.id AND s.user_id=i.user_id " +
+            "WHERE i.id=:itemId AND s.id=:scheduleId AND i.user_id=:userId " +
+            "AND i.is_active=1 AND i.deleted_at IS NULL AND s.is_active=1 " +
+            "AND s.deleted_at IS NULL LIMIT 1"
+    )
+    fun ownedActivePlan(itemId: String, scheduleId: String, userId: String): Int?
+
+    @Query("SELECT 1 FROM supplement_intake_records WHERE user_id=:userId AND schedule_id=:scheduleId AND date=:date LIMIT 1")
+    fun hasRecords(userId: String, scheduleId: String, date: String): Int?
+
+    @Query("SELECT COALESCE(MAX(revision),0) FROM supplement_schedules WHERE user_id=:userId AND supplement_item_id=:itemId")
+    fun maxRevision(userId: String, itemId: String): Long
+
+    @Query("UPDATE supplement_items SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimItems(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_schedules SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSchedules(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_schedule_slots SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimSlots(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_intake_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimIntakeRecords(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE supplement_effect_checkins SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimEffectCheckins(sourceUserId: String, nextUserId: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertItem(item: SupplementItemsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertSchedule(schedule: SupplementSchedulesRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertSlot(slot: SupplementScheduleSlotsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertIntakeRecord(record: SupplementIntakeRecordsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertEffectCheckin(checkin: SupplementEffectCheckinsRoomEntity)
+
+    @Query(
+        "UPDATE supplement_schedules SET is_active=0, effective_to=:effectiveTo, updated_at=:updatedAt " +
+            "WHERE id=:scheduleId AND user_id=:userId"
+    )
+    fun closeSchedule(scheduleId: String, userId: String, effectiveTo: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE supplement_items SET supplement_type_code=:typeCode, supplement_type_name=:typeName, " +
+            "brand_name=:brandName, product_form=:productForm, purpose_code=:purposeCode, " +
+            "is_active=1, deleted_at=NULL, updated_at=:updatedAt WHERE id=:itemId AND user_id=:userId"
+    )
+    fun refreshItem(
+        itemId: String, userId: String, typeCode: String, typeName: String, brandName: String,
+        productForm: String, purposeCode: String, updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE supplement_intake_records SET status=:status, taken_at=:takenAt, updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId"
+    )
+    fun updateRecordStatus(recordId: String, userId: String, status: String, takenAt: String?, updatedAt: String): Int
+
+    @Query("DELETE FROM supplement_intake_records WHERE id=:recordId AND user_id=:userId")
+    fun deleteRecord(recordId: String, userId: String): Int
+
+    @Query(
+        "UPDATE supplement_items SET is_active=0, updated_at=:updatedAt, deleted_at=:deletedAt " +
+            "WHERE id=:itemId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun archiveItem(itemId: String, userId: String, updatedAt: String, deletedAt: String): Int
+
+    @Query(
+        "UPDATE supplement_schedules SET is_active=0, effective_to=:effectiveTo, updated_at=:updatedAt " +
+            "WHERE supplement_item_id=:itemId AND user_id=:userId AND is_active=1 AND deleted_at IS NULL"
+    )
+    fun archiveSchedules(itemId: String, userId: String, effectiveTo: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE supplement_effect_checkins SET supplement_item_id=:itemId, date=:date, effect_score=:effectScore, " +
+            "adverse_effects=:adverseEffects, note=:note, updated_at=:updatedAt " +
+            "WHERE id=:checkinId AND user_id=:userId"
+    )
+    fun updateEffectCheckin(
+        checkinId: String, userId: String, itemId: String, date: String, effectScore: Int,
+        adverseEffects: String, note: String, updatedAt: String
+    ): Int
+}
+
+@Dao
+interface WorkoutRoomDao {
+    data class SummarySetCount(
+        @ColumnInfo(name = "ui_part") val uiPart: String?,
+        @ColumnInfo(name = "primary_sub_part_snapshot") val primarySubPart: String?,
+        @ColumnInfo(name = "set_count") val setCount: Int
+    )
+
+    @Query(
+        "SELECT id FROM workout_records WHERE source_app='fitness' AND user_id=:userId " +
+            "AND deleted_at IS NULL AND device_id='android-local' " +
+            "AND metadata LIKE '%\"status\":\"completed\"%'"
+    )
+    fun sharedSummaryRecordIds(userId: String): List<String>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE source_app='fitness' AND user_id=:userId " +
+            "AND metadata LIKE '%\"status\":\"completed\"%' " +
+            "ORDER BY date DESC, updated_at DESC, id ASC"
+    )
+    fun completedSummaryRecords(userId: String): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT we.ui_part AS ui_part, we.primary_sub_part_snapshot AS primary_sub_part_snapshot, " +
+            "COUNT(ws.id) AS set_count FROM workout_sets ws " +
+            "INNER JOIN workout_exercises we ON we.id=ws.workout_exercise_id " +
+            "WHERE we.record_id=:recordId AND we.user_id=:userId AND ws.user_id=:userId " +
+            "AND we.deleted_at IS NULL AND ws.deleted_at IS NULL AND ws.is_completed=1 " +
+            "GROUP BY we.ui_part, we.primary_sub_part_snapshot"
+    )
+    fun summarySetCounts(recordId: String, userId: String): List<SummarySetCount>
+
+    @Query(
+        "UPDATE workout_records SET category=:category, metadata=:metadata, scope=:scope, " +
+            "updated_at=:updatedAt WHERE id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL"
+    )
+    fun updateSharedSummary(
+        recordId: String,
+        userId: String,
+        category: String,
+        metadata: String,
+        scope: String,
+        updatedAt: String
+    ): Int
+
+    data class TransferSetRow(
+        val id: String,
+        @ColumnInfo(name = "volume_kg") val volumeKg: Double?,
+        @ColumnInfo(name = "weight_kg") val weightKg: Double?,
+        @ColumnInfo(name = "actual_reps") val actualReps: Long?,
+        @ColumnInfo(name = "added_weight_kg") val addedWeightKg: Double?,
+        @ColumnInfo(name = "assisted_weight_kg") val assistedWeightKg: Double?,
+        @ColumnInfo(name = "load_state") val loadState: String?,
+        @ColumnInfo(name = "record_id") val recordId: String,
+        @ColumnInfo(name = "exercise_id") val exerciseId: String,
+        @ColumnInfo(name = "exercise_name_snapshot") val exerciseNameSnapshot: String,
+        @ColumnInfo(name = "family_id") val familyId: String?,
+        @ColumnInfo(name = "preset_id") val presetId: String?,
+        @ColumnInfo(name = "canonical_variant_key") val canonicalVariantKey: String?,
+        @ColumnInfo(name = "visual_variant_key") val visualVariantKey: String?,
+        @ColumnInfo(name = "record_type") val recordType: String,
+        @ColumnInfo(name = "is_completed") val isCompleted: Long
+    )
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') ORDER BY date ASC, created_at ASC"
+    )
+    fun transferRecords(userId: String): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND source_app=:sourceApp"
+    )
+    fun recordsBySource(userId: String, sourceApp: String): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT ws.id, ws.volume_kg, ws.weight_kg, ws.actual_reps, " +
+            "ws.added_weight_kg, ws.assisted_weight_kg, ws.load_state, " +
+            "we.record_id, we.exercise_id, we.exercise_name_snapshot, we.family_id, " +
+            "we.preset_id, we.canonical_variant_key, we.visual_variant_key, " +
+            "we.record_type, ws.is_completed " +
+            "FROM workout_sets ws INNER JOIN workout_exercises we " +
+            "ON we.id=ws.workout_exercise_id AND we.user_id=ws.user_id " +
+            "WHERE ws.user_id=:userId AND ws.deleted_at IS NULL AND we.deleted_at IS NULL"
+    )
+    fun transferSetRows(userId: String): List<TransferSetRow>
+
+    @Query(
+        "UPDATE workout_sets SET volume_kg=:volumeKg, updated_at=:updatedAt " +
+            "WHERE id=:setId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateTransferSetVolume(
+        setId: String, userId: String, volumeKg: Double, updatedAt: String
+    ): Int
+
+    data class WeekProgress(
+        @ColumnInfo(name = "completed_sessions") val completedSessions: Int,
+        @ColumnInfo(name = "completed_days") val completedDays: Int
+    )
+
+    data class BodyPartSetCount(
+        @ColumnInfo(name = "ui_part") val uiPart: String?,
+        @ColumnInfo(name = "set_count") val setCount: Int
+    )
+
+    data class ExerciseHistoryCandidate(
+        @ColumnInfo(name = "record_id") val recordId: String,
+        val date: String,
+        @ColumnInfo(name = "exercise_name") val exerciseName: String
+    )
+
+    data class BestSetRow(
+        @ColumnInfo(name = "record_id") val recordId: String,
+        val date: String,
+        @ColumnInfo(name = "weight_kg") val weightKg: Double?,
+        @ColumnInfo(name = "actual_reps") val actualReps: Long?,
+        @ColumnInfo(name = "added_weight_kg") val addedWeightKg: Double?,
+        @ColumnInfo(name = "assisted_weight_kg") val assistedWeightKg: Double?,
+        @ColumnInfo(name = "load_state") val loadState: String?
+    )
+
+    @Query(
+        "SELECT * FROM workout_records WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL LIMIT 1"
+    )
+    fun visibleRecord(recordId: String, userId: String): WorkoutRecordsRoomEntity?
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND date=:date"
+    )
+    fun visibleRecordsForDate(userId: String, date: String): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') ORDER BY updated_at DESC LIMIT :limit"
+    )
+    fun recentVisibleRecords(userId: String, limit: Int): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND workout_type='strength' " +
+            "ORDER BY date DESC, updated_at DESC"
+    )
+    fun strengthRecords(userId: String): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND id != :currentRecordId " +
+            "ORDER BY date DESC, updated_at DESC LIMIT :limit"
+    )
+    fun recentRecordsExcept(userId: String, currentRecordId: String, limit: Int): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_exercises WHERE record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY order_index"
+    )
+    fun visibleExercises(recordId: String, userId: String): List<WorkoutExercisesRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_exercises WHERE id=:exerciseId AND user_id=:userId " +
+            "AND deleted_at IS NULL LIMIT 1"
+    )
+    fun visibleExercise(exerciseId: String, userId: String): WorkoutExercisesRoomEntity?
+
+    @Query(
+        "SELECT * FROM workout_sets WHERE workout_exercise_id=:exerciseId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY set_index"
+    )
+    fun visibleSets(exerciseId: String, userId: String): List<WorkoutSetsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_sets WHERE id=:setId AND user_id=:userId AND deleted_at IS NULL LIMIT 1"
+    )
+    fun visibleSet(setId: String, userId: String): WorkoutSetsRoomEntity?
+
+    @Query(
+        "SELECT we.record_id AS record_id, wr.date AS date, wr.exercise_name AS exercise_name " +
+            "FROM workout_exercises we INNER JOIN workout_records wr ON wr.id=we.record_id " +
+            "AND wr.deleted_at IS NULL WHERE wr.user_id=:userId AND we.user_id=:userId " +
+            "AND we.deleted_at IS NULL AND we.record_id != :currentRecordId " +
+            "AND wr.scope IN ('fitness','both') AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
+            "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName)) " +
+            "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 100"
+    )
+    fun exerciseHistoryCandidates(
+        userId: String, currentRecordId: String, exerciseId: String, exerciseName: String
+    ): List<ExerciseHistoryCandidate>
+
+    @Query(
+        "SELECT we.id AS record_id, wr.date AS date, wr.exercise_name AS exercise_name " +
+            "FROM workout_exercises we INNER JOIN workout_records wr ON wr.id=we.record_id " +
+            "AND wr.deleted_at IS NULL WHERE wr.user_id=:userId AND we.user_id=:userId " +
+            "AND we.deleted_at IS NULL AND we.record_id != :currentRecordId " +
+            "AND wr.scope IN ('fitness','both') AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
+            "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName)) " +
+            "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 1"
+    )
+    fun lastExerciseCandidate(
+        userId: String, currentRecordId: String, exerciseId: String, exerciseName: String
+    ): ExerciseHistoryCandidate?
+
+    @Query(
+        "SELECT we.record_id AS record_id, wr.date AS date, ws.weight_kg AS weight_kg, " +
+            "ws.actual_reps AS actual_reps, ws.added_weight_kg AS added_weight_kg, " +
+            "ws.assisted_weight_kg AS assisted_weight_kg, ws.load_state AS load_state " +
+            "FROM workout_sets ws INNER JOIN workout_exercises we ON we.id=ws.workout_exercise_id " +
+            "INNER JOIN workout_records wr ON wr.id=we.record_id WHERE wr.user_id=:userId " +
+            "AND we.user_id=:userId AND ws.user_id=:userId AND we.record_id != :currentRecordId " +
+            "AND we.deleted_at IS NULL AND ws.deleted_at IS NULL AND ws.is_completed=1 " +
+            "AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
+            "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName))"
+    )
+    fun bestSetRows(
+        userId: String, currentRecordId: String, exerciseId: String, exerciseName: String
+    ): List<BestSetRow>
+
+    @Query(
+        "SELECT ui_part FROM workout_exercises WHERE record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY order_index"
+    )
+    fun visibleUiParts(recordId: String, userId: String): List<String>
+
+    @Query(
+        "SELECT COALESCE(MAX(order_index),0)+1 FROM workout_exercises WHERE record_id=:recordId " +
+            "AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun nextExerciseOrder(recordId: String, userId: String): Int
+
+    @Query("SELECT 1 FROM workout_records WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL LIMIT 1")
+    fun ownsRecord(recordId: String, userId: String): Int?
+
+    @Query(
+        "SELECT 1 FROM workout_exercises WHERE id=:exerciseId AND record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL LIMIT 1"
+    )
+    fun ownsExercise(exerciseId: String, recordId: String, userId: String): Int?
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertRecord(record: WorkoutRecordsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertExercise(exercise: WorkoutExercisesRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertSet(set: WorkoutSetsRoomEntity)
+
+    @Update
+    fun updateRecord(record: WorkoutRecordsRoomEntity): Int
+
+    @Update
+    fun updateExercise(exercise: WorkoutExercisesRoomEntity): Int
+
+    @Update
+    fun updateSet(set: WorkoutSetsRoomEntity): Int
+
+    @Query(
+        "UPDATE workout_records SET duration_seconds=:durationSeconds, is_backfilled=1, " +
+            "backfilled_at=:backfilledAt, backfill_reason='manual_entry', metadata=:metadata " +
+            "WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateManualPastSession(
+        recordId: String, userId: String, durationSeconds: Int, backfilledAt: String, metadata: String
+    ): Int
+
+    @Query("UPDATE workout_records SET metadata=:metadata WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL")
+    fun updateRecordMetadata(recordId: String, userId: String, metadata: String): Int
+
+    @Query(
+        "UPDATE workout_sets SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE workout_exercise_id=:exerciseId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneSetsForExercise(exerciseId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_exercises SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneExercisesForRecord(recordId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_records SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneRecord(recordId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_sets SET target_reps=:targetReps, actual_reps=:actualReps, weight_kg=:weightKg, " +
+            "duration_seconds=:durationSeconds, distance_meters=:distanceMeters, rest_seconds=:restSeconds, " +
+            "assisted_weight_kg=:assistedWeightKg, added_weight_kg=:addedWeightKg, load_state=:loadState, " +
+            "input_load_value=:inputLoadValue, input_load_unit=:inputLoadUnit, is_completed=:isCompleted, " +
+            "volume_kg=:volumeKg, rir=:rir, updated_at=:updatedAt WHERE id=:setId AND user_id=:userId " +
+            "AND workout_exercise_id IN (SELECT id FROM workout_exercises WHERE record_id=:recordId AND user_id=:userId) " +
+            "AND deleted_at IS NULL"
+    )
+    fun updateSet(
+        setId: String, userId: String, recordId: String, targetReps: Int?, actualReps: Int?, weightKg: Double?,
+        durationSeconds: Int?, distanceMeters: Double?, restSeconds: Int?, assistedWeightKg: Double?,
+        addedWeightKg: Double?, loadState: String?, inputLoadValue: Double?, inputLoadUnit: String?,
+        isCompleted: Int, volumeKg: Double, rir: Int?, updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE workout_sets SET target_reps=NULL, actual_reps=NULL, weight_kg=NULL, volume_kg=0, " +
+            "duration_seconds=:durationSeconds, distance_meters=:distanceMeters, rest_seconds=NULL, " +
+            "assisted_weight_kg=NULL, added_weight_kg=NULL, input_load_value=NULL, input_load_unit=NULL, " +
+            "load_state=NULL, is_completed=1, rpe=NULL, rir=NULL, memo=NULL, updated_at=:updatedAt " +
+            "WHERE id=:setId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateCardioSet(
+        setId: String, userId: String, durationSeconds: Int, distanceMeters: Double, updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE workout_sets SET deleted_at=:deletedAt, updated_at=:updatedAt WHERE id=:setId AND user_id=:userId " +
+            "AND workout_exercise_id IN (SELECT id FROM workout_exercises WHERE record_id=:recordId AND user_id=:userId) " +
+            "AND deleted_at IS NULL"
+    )
+    fun tombstoneSet(setId: String, userId: String, recordId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_exercises SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE id=:exerciseId AND record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneExercise(exerciseId: String, recordId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_exercises SET exercise_id=:exerciseId, exercise_name_snapshot=:exerciseName, " +
+            "ui_part=:uiPart, primary_sub_part_snapshot=:primarySubPart, equipment_snapshot=:equipment, " +
+            "record_type=:recordType, family_id=:familyId, preset_id=:presetId, " +
+            "canonical_variant_key=:canonicalVariantKey, visual_variant_key=:visualVariantKey, updated_at=:updatedAt " +
+            "WHERE id=:oldExerciseId AND record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun replaceExercise(
+        oldExerciseId: String, recordId: String, userId: String, exerciseId: String, exerciseName: String,
+        uiPart: String, primarySubPart: String, equipment: String?, recordType: String, familyId: String?,
+        presetId: String?, canonicalVariantKey: String?, visualVariantKey: String?, updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE workout_records SET total_volume_kg=:totalVolumeKg, updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateRecordTotal(recordId: String, userId: String, totalVolumeKg: Double, updatedAt: String): Int
+
+    @Query(
+        "UPDATE workout_records SET metadata=:metadata, duration_seconds=:durationSeconds, " +
+            "total_volume_kg=:totalVolumeKg, updated_at=:updatedAt, category=:category, scope=:scope " +
+            "WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun completeRecord(
+        recordId: String, userId: String, metadata: String, durationSeconds: Int,
+        totalVolumeKg: Double, updatedAt: String, category: String, scope: String
+    ): Int
+
+    @Query(
+        "UPDATE workout_records SET metadata=:metadata, duration_seconds=:durationSeconds, " +
+            "total_volume_kg=0, average_heart_rate=:averageHeartRate, exercise_name=:exerciseName, " +
+            "category=:category, scope='both', updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId AND workout_type='cardio' AND deleted_at IS NULL"
+    )
+    fun completeCardioRecord(
+        recordId: String,
+        userId: String,
+        metadata: String,
+        durationSeconds: Int,
+        averageHeartRate: Double?,
+        exerciseName: String,
+        category: String,
+        updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE workout_records SET average_heart_rate=:averageHeartRate, metadata=:metadata, " +
+            "updated_at=:updatedAt WHERE id=:recordId AND user_id=:userId " +
+            "AND workout_type='cardio' AND deleted_at IS NULL"
+    )
+    fun updateCardioHeartRate(
+        recordId: String, userId: String, averageHeartRate: Double?, metadata: String, updatedAt: String
+    ): Int
+
+    @Query(
+        "SELECT COUNT(*) AS completed_sessions, COUNT(DISTINCT date) AS completed_days " +
+            "FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND date BETWEEN :startDate AND :endDate " +
+            "AND (source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')"
+    )
+    fun completedWeekProgress(userId: String, startDate: String, endDate: String): WeekProgress
+
+    @Query(
+        "SELECT we.ui_part AS ui_part, COUNT(ws.id) AS set_count FROM workout_sets ws " +
+            "INNER JOIN workout_exercises we ON we.id=ws.workout_exercise_id " +
+            "AND we.user_id=ws.user_id AND we.deleted_at IS NULL " +
+            "INNER JOIN workout_records wr ON wr.id=we.record_id " +
+            "AND wr.user_id=we.user_id AND wr.deleted_at IS NULL " +
+            "WHERE ws.user_id=:userId AND ws.deleted_at IS NULL AND ws.is_completed=1 " +
+            "AND wr.scope IN ('fitness','both') AND wr.source_app='fitness' " +
+            "AND wr.metadata LIKE '%\"status\":\"completed\"%' AND wr.workout_type='strength' " +
+            "AND wr.date BETWEEN :startDate AND :endDate GROUP BY we.ui_part"
+    )
+    fun recentStrengthSetsByBodyPart(
+        userId: String, startDate: String, endDate: String
+    ): List<BodyPartSetCount>
+
+    @Query(
+        "SELECT MAX(wr.date) FROM workout_sets ws " +
+            "INNER JOIN workout_exercises we ON we.id=ws.workout_exercise_id " +
+            "AND we.user_id=ws.user_id AND we.deleted_at IS NULL " +
+            "INNER JOIN workout_records wr ON wr.id=we.record_id " +
+            "AND wr.user_id=we.user_id AND wr.deleted_at IS NULL " +
+            "WHERE ws.user_id=:userId AND ws.deleted_at IS NULL AND ws.is_completed=1 " +
+            "AND wr.scope IN ('fitness','both') AND wr.source_app='fitness' " +
+            "AND wr.metadata LIKE '%\"status\":\"completed\"%' AND wr.workout_type='strength' " +
+            "AND wr.date <= :referenceDate AND lower(trim(we.ui_part)) IN (:bodyPartAliases)"
+    )
+    fun latestDetailedTrainingDateForBodyPart(
+        userId: String, referenceDate: String, bodyPartAliases: List<String>
+    ): String?
+
+    @Query(
+        "SELECT COUNT(DISTINCT date) FROM workout_records WHERE user_id=:userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness','both') " +
+            "AND date BETWEEN :startDate AND :endDate " +
+            "AND (source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')"
+    )
+    fun completedWorkoutRecordedDays(userId: String, startDate: String, endDate: String): Int
+
+    @Query(
+        "SELECT DISTINCT date FROM workout_records WHERE user_id=:userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness','both') " +
+            "AND date BETWEEN :startDate AND :endDate " +
+            "AND (source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%') ORDER BY date"
+    )
+    fun completedWorkoutDates(userId: String, startDate: String, endDate: String): List<String>
+
+    @Query(
+        "SELECT COUNT(*) FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND workout_type='strength' " +
+            "AND date BETWEEN :startDate AND :endDate " +
+            "AND (source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')"
+    )
+    fun completedResistanceSessions(userId: String, startDate: String, endDate: String): Int
+}
+
+@Dao
+interface CardioRoomDao {
+    data class SessionRow(
+        @ColumnInfo(name = "record_id") val recordId: String,
+        @ColumnInfo(name = "activity_type") val activityType: String,
+        val status: String,
+        @ColumnInfo(name = "started_at_epoch_ms") val startedAtEpochMs: Long,
+        @ColumnInfo(name = "last_resumed_at_epoch_ms") val lastResumedAtEpochMs: Long?,
+        @ColumnInfo(name = "active_duration_ms") val activeDurationMs: Long,
+        @ColumnInfo(name = "distance_meters") val distanceMeters: Double,
+        @ColumnInfo(name = "accepted_point_count") val acceptedPointCount: Long,
+        @ColumnInfo(name = "last_latitude") val lastLatitude: Double?,
+        @ColumnInfo(name = "last_longitude") val lastLongitude: Double?,
+        @ColumnInfo(name = "last_location_time_ms") val lastLocationTimeMs: Long?,
+        @ColumnInfo(name = "last_accuracy_meters") val lastAccuracyMeters: Double?,
+        @ColumnInfo(name = "gps_status") val gpsStatus: String,
+        @ColumnInfo(name = "average_heart_rate") val averageHeartRate: Double?
+    )
+
+    data class RoutePointRow(
+        @ColumnInfo(name = "captured_at_epoch_ms") val capturedAtEpochMs: Long,
+        val latitude: Double,
+        val longitude: Double
+    )
+
+    @Query(
+        "SELECT record_id FROM cardio_sessions WHERE user_id=:userId " +
+            "AND status IN ('tracking','paused') " +
+            "ORDER BY started_at_epoch_ms DESC LIMIT 1"
+    )
+    fun activeRecordId(userId: String): String?
+
+    @Query(
+        "SELECT cs.record_id AS record_id, cs.activity_type AS activity_type, " +
+            "cs.status AS status, cs.started_at_epoch_ms AS started_at_epoch_ms, " +
+            "cs.last_resumed_at_epoch_ms AS last_resumed_at_epoch_ms, " +
+            "cs.active_duration_ms AS active_duration_ms, cs.distance_meters AS distance_meters, " +
+            "cs.accepted_point_count AS accepted_point_count, " +
+            "cs.last_latitude AS last_latitude, cs.last_longitude AS last_longitude, " +
+            "cs.last_location_time_ms AS last_location_time_ms, " +
+            "cs.last_accuracy_meters AS last_accuracy_meters, cs.gps_status AS gps_status, " +
+            "wr.average_heart_rate AS average_heart_rate " +
+            "FROM cardio_sessions cs LEFT JOIN workout_records wr " +
+            "ON wr.id=cs.record_id AND wr.user_id=cs.user_id " +
+            "WHERE cs.record_id=:recordId AND cs.user_id=:userId LIMIT 1"
+    )
+    fun session(recordId: String, userId: String): SessionRow?
+
+    @Query("SELECT 1 FROM cardio_sessions WHERE record_id=:recordId AND user_id=:userId LIMIT 1")
+    fun ownsSession(recordId: String, userId: String): Int?
+
+    @Query("SELECT COUNT(*) FROM cardio_route_points WHERE record_id=:recordId AND user_id=:userId")
+    fun routePointCount(recordId: String, userId: String): Int
+
+    @Query(
+        "SELECT captured_at_epoch_ms AS captured_at_epoch_ms, latitude AS latitude, " +
+            "longitude AS longitude FROM cardio_route_points " +
+            "WHERE record_id=:recordId AND user_id=:userId " +
+            "ORDER BY captured_at_epoch_ms ASC, id ASC"
+    )
+    fun routePoints(recordId: String, userId: String): List<RoutePointRow>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertSession(session: CardioSessionsRoomEntity)
+
+    @Query(
+        "INSERT INTO cardio_route_points " +
+            "(record_id,user_id,captured_at_epoch_ms,latitude,longitude,accuracy_meters,speed_mps,segment_distance_meters) " +
+            "VALUES (:recordId,:userId,:capturedAtEpochMs,:latitude,:longitude,:accuracyMeters,:speedMps,:segmentDistanceMeters)"
+    )
+    fun insertRoutePoint(
+        recordId: String,
+        userId: String,
+        capturedAtEpochMs: Long,
+        latitude: Double,
+        longitude: Double,
+        accuracyMeters: Double,
+        speedMps: Double?,
+        segmentDistanceMeters: Double
+    )
+
+    @Query(
+        "UPDATE cardio_sessions SET status='paused', active_duration_ms=:activeDurationMs, " +
+            "last_resumed_at_epoch_ms=NULL, gps_status='stopped', updated_at_epoch_ms=:updatedAtEpochMs " +
+            "WHERE record_id=:recordId AND user_id=:userId AND status='tracking'"
+    )
+    fun pause(
+        recordId: String, userId: String, activeDurationMs: Long, updatedAtEpochMs: Long
+    ): Int
+
+    @Query(
+        "UPDATE cardio_sessions SET status='tracking', last_resumed_at_epoch_ms=:lastResumedAtEpochMs, " +
+            "last_latitude=NULL, last_longitude=NULL, last_location_time_ms=NULL, " +
+            "last_accuracy_meters=NULL, gps_status='searching', updated_at_epoch_ms=:updatedAtEpochMs " +
+            "WHERE record_id=:recordId AND user_id=:userId AND status='paused'"
+    )
+    fun resume(recordId: String, userId: String, lastResumedAtEpochMs: Long, updatedAtEpochMs: Long): Int
+
+    @Query(
+        "UPDATE cardio_sessions SET distance_meters=:distanceMeters, accepted_point_count=:acceptedPointCount, " +
+            "last_latitude=:lastLatitude, last_longitude=:lastLongitude, " +
+            "last_location_time_ms=:lastLocationTimeMs, last_accuracy_meters=:lastAccuracyMeters, " +
+            "gps_status='ready', updated_at_epoch_ms=:updatedAtEpochMs " +
+            "WHERE record_id=:recordId AND user_id=:userId AND status='tracking'"
+    )
+    fun acceptLocation(
+        recordId: String,
+        userId: String,
+        distanceMeters: Double,
+        acceptedPointCount: Long,
+        lastLatitude: Double,
+        lastLongitude: Double,
+        lastLocationTimeMs: Long,
+        lastAccuracyMeters: Double,
+        updatedAtEpochMs: Long
+    ): Int
+
+    @Query(
+        "UPDATE cardio_sessions SET gps_status=:gpsStatus, updated_at_epoch_ms=:updatedAtEpochMs " +
+            "WHERE record_id=:recordId AND user_id=:userId AND status IN ('tracking','paused')"
+    )
+    fun updateGpsStatus(recordId: String, userId: String, gpsStatus: String, updatedAtEpochMs: Long): Int
+
+    @Query(
+        "UPDATE cardio_sessions SET status='completed', active_duration_ms=:activeDurationMs, " +
+            "last_resumed_at_epoch_ms=NULL, gps_status='stopped', updated_at_epoch_ms=:updatedAtEpochMs " +
+            "WHERE record_id=:recordId AND user_id=:userId"
+    )
+    fun complete(recordId: String, userId: String, activeDurationMs: Long, updatedAtEpochMs: Long): Int
+
+    @Query("DELETE FROM cardio_route_points WHERE record_id=:recordId AND user_id=:userId")
+    fun deleteRoutePoints(recordId: String, userId: String): Int
+
+    @Query("DELETE FROM cardio_sessions WHERE record_id=:recordId AND user_id=:userId")
+    fun deleteSession(recordId: String, userId: String): Int
+}
+
+@Dao
+interface MealRoomDao {
+    data class MealReadRow(
+        val id: String,
+        val date: String,
+        val menu: String,
+        val calories: Long,
+        @ColumnInfo(name = "protein_grams") val proteinGrams: Double?,
+        @ColumnInfo(name = "carbs_grams") val carbsGrams: Double?,
+        @ColumnInfo(name = "fat_grams") val fatGrams: Double?,
+        val metadata: String,
+        @ColumnInfo(name = "created_at") val createdAt: String,
+        @ColumnInfo(name = "meal_kind") val mealKind: String,
+        @ColumnInfo(name = "fulfillment_mode") val fulfillmentMode: String?,
+        @ColumnInfo(name = "store_name") val storeName: String?,
+        @ColumnInfo(name = "branch_name") val branchName: String?,
+        @ColumnInfo(name = "menu_name") val menuName: String?,
+        @ColumnInfo(name = "first_food_name") val firstFoodName: String?,
+        @ColumnInfo(name = "composition_count") val compositionCount: Int,
+        @ColumnInfo(name = "device_id") val deviceId: String
+    )
+
+    @Query(
+        "SELECT COUNT(*) FROM meal_records WHERE deleted_at IS NULL " +
+            "AND user_id=:userId AND scope IN ('fitness','both') AND date=:date"
+    )
+    fun mealCountForDate(userId: String, date: String): Long
+
+    @Query(
+        "SELECT r.id, r.date, r.menu, r.calories, r.protein_grams, r.carbs_grams, " +
+            "r.fat_grams, r.metadata, r.created_at, r.meal_kind, r.fulfillment_mode, " +
+            "r.store_name, r.branch_name, r.menu_name, " +
+            "(SELECT i.food_name_snapshot FROM meal_record_items i " +
+            "WHERE i.meal_record_id=r.id AND i.user_id=r.user_id AND i.deleted_at IS NULL " +
+            "ORDER BY i.order_index, i.id LIMIT 1) AS first_food_name, " +
+            "(SELECT COUNT(*) FROM meal_record_items i " +
+            "WHERE i.meal_record_id=r.id AND i.user_id=r.user_id AND i.deleted_at IS NULL) " +
+            "AS composition_count, r.device_id FROM meal_records r " +
+            "WHERE r.user_id=:userId AND r.deleted_at IS NULL " +
+            "AND r.scope IN ('fitness','both') AND r.date=:date " +
+            "ORDER BY r.created_at, r.id"
+    )
+    fun visibleMealReadRows(userId: String, date: String): List<MealReadRow>
+
+    @Query(
+        "SELECT r.id, r.date, r.menu, r.calories, r.protein_grams, r.carbs_grams, " +
+            "r.fat_grams, r.metadata, r.created_at, r.meal_kind, r.fulfillment_mode, " +
+            "r.store_name, r.branch_name, r.menu_name, " +
+            "(SELECT i.food_name_snapshot FROM meal_record_items i " +
+            "WHERE i.meal_record_id=r.id AND i.user_id=r.user_id AND i.deleted_at IS NULL " +
+            "ORDER BY i.order_index, i.id LIMIT 1) AS first_food_name, " +
+            "(SELECT COUNT(*) FROM meal_record_items i " +
+            "WHERE i.meal_record_id=r.id AND i.user_id=r.user_id AND i.deleted_at IS NULL) " +
+            "AS composition_count, r.device_id FROM meal_records r " +
+            "WHERE r.user_id=:userId AND r.deleted_at IS NULL " +
+            "AND r.scope IN ('fitness','both') AND r.date BETWEEN :startDate AND :endDate " +
+            "ORDER BY r.created_at, r.id"
+    )
+    fun visibleMealReadRowsBetween(
+        userId: String,
+        startDate: String,
+        endDate: String
+    ): List<MealReadRow>
+
+    @Query(
+        "SELECT COUNT(DISTINCT date) FROM meal_records WHERE user_id=:userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness','both') " +
+            "AND date BETWEEN :startDate AND :endDate"
+    )
+    fun visibleMealRecordedDays(userId: String, startDate: String, endDate: String): Int
+
+    @Query(
+        "SELECT DISTINCT date FROM meal_records WHERE user_id=:userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness','both') " +
+            "AND date BETWEEN :startDate AND :endDate ORDER BY date"
+    )
+    fun visibleMealDates(userId: String, startDate: String, endDate: String): List<String>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertRecord(record: MealRecordsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertItem(item: MealRecordItemsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertNutrient(nutrient: MealRecordItemNutrientsRoomEntity)
+}
+
+@Dao
+interface DevelopmentRoomDao {
+    data class CheckInStats(
+        @ColumnInfo(name = "recorded_days") val recordedDays: Int,
+        @ColumnInfo(name = "low_energy_or_readiness_days") val lowEnergyOrReadinessDays: Int
+    )
+
+    data class CheckInSummary(
+        @ColumnInfo(name = "average_sleep_hours") val averageSleepHours: Double?,
+        @ColumnInfo(name = "sleep_recorded_days") val sleepRecordedDays: Int,
+        @ColumnInfo(name = "low_energy_or_readiness_days") val lowEnergyOrReadinessDays: Int
+    )
+
+    data class LatestCheckIn(
+        @ColumnInfo(name = "energy_score") val energyScore: Long?,
+        @ColumnInfo(name = "training_readiness_score") val trainingReadinessScore: Long?
+    )
+
+    @Query("SELECT * FROM development_goals WHERE user_id=:userId LIMIT 1")
+    fun goal(userId: String): DevelopmentGoalsRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun replaceGoal(goal: DevelopmentGoalsRoomEntity)
+
+    @Query("DELETE FROM development_goals WHERE user_id=:userId")
+    fun deleteGoal(userId: String): Int
+
+    @Query("SELECT * FROM nutrition_goals WHERE user_id=:userId LIMIT 1")
+    fun nutritionGoal(userId: String): NutritionGoalsRoomEntity?
+
+    @Query(
+        "SELECT COUNT(*) AS recorded_days, COALESCE(SUM(CASE " +
+            "WHEN ((energy_score IS NOT NULL AND energy_score <= 2) " +
+            "OR (training_readiness_score IS NOT NULL AND training_readiness_score <= 2)) " +
+            "THEN 1 ELSE 0 END), 0) AS low_energy_or_readiness_days " +
+            "FROM nutrition_daily_checkins WHERE user_id=:userId " +
+            "AND date BETWEEN :startDate AND :endDate"
+    )
+    fun recentCheckInStats(userId: String, startDate: String, endDate: String): CheckInStats
+
+    @Query(
+        "SELECT AVG(sleep_hours) AS average_sleep_hours, COUNT(sleep_hours) AS sleep_recorded_days, " +
+            "COALESCE(SUM(CASE WHEN ((energy_score IS NOT NULL AND energy_score <= 2) " +
+            "OR (training_readiness_score IS NOT NULL AND training_readiness_score <= 2)) " +
+            "THEN 1 ELSE 0 END), 0) AS low_energy_or_readiness_days " +
+            "FROM nutrition_daily_checkins WHERE user_id=:userId " +
+            "AND date BETWEEN :startDate AND :endDate"
+    )
+    fun recentCheckInSummary(userId: String, startDate: String, endDate: String): CheckInSummary
+
+    @Query(
+        "SELECT energy_score, training_readiness_score FROM nutrition_daily_checkins " +
+            "WHERE user_id=:userId AND date BETWEEN :startDate AND :endDate " +
+            "ORDER BY date DESC, updated_at DESC LIMIT 1"
+    )
+    fun latestCheckIn(userId: String, startDate: String, endDate: String): LatestCheckIn?
+
+    @Query(
+        "SELECT DISTINCT date FROM nutrition_daily_checkins WHERE user_id=:userId " +
+            "AND date BETWEEN :startDate AND :endDate ORDER BY date"
+    )
+    fun checkInDates(userId: String, startDate: String, endDate: String): List<String>
+}
+
+@Dao
+interface NutritionRoomDao {
+    data class ApprovedLinkClaimRow(
+        val sourceId: String,
+        @ColumnInfo(name = "source_updated_at") val sourceUpdatedAt: String,
+        val targetId: String,
+        @ColumnInfo(name = "target_updated_at") val targetUpdatedAt: String
+    )
+
+    data class SyncVersionRow(
+        val revision: Long?,
+        @ColumnInfo(name = "updated_at") val updatedAt: String?
+    )
+
+    data class VerifiedSeedFoodRow(
+        @ColumnInfo(name = "owner_id") val ownerId: String?,
+        @ColumnInfo(name = "source_type") val sourceType: String?,
+        @ColumnInfo(name = "source_reference") val sourceReference: String?,
+        @ColumnInfo(name = "created_at") val createdAt: String?
+    )
+
+    data class ProductLinkRow(
+        val id: String,
+        @ColumnInfo(name = "owner_id") val ownerId: String,
+        @ColumnInfo(name = "nutrition_food_id") val nutritionFoodId: String,
+        @ColumnInfo(name = "catalog_product_id") val catalogProductId: String,
+        @ColumnInfo(name = "standard_product_id") val standardProductId: String?,
+        val status: String,
+        @ColumnInfo(name = "source_type") val sourceType: String,
+        @ColumnInfo(name = "proposal_reference") val proposalReference: String?,
+        val revision: Long,
+        @ColumnInfo(name = "reviewed_at") val reviewedAt: String?,
+        @ColumnInfo(name = "catalog_product_revision") val catalogProductRevision: String?,
+        @ColumnInfo(name = "catalog_content_amount") val catalogContentAmount: Double?,
+        @ColumnInfo(name = "catalog_content_unit") val catalogContentUnit: String?,
+        @ColumnInfo(name = "catalog_package_count") val catalogPackageCount: Long?,
+        @ColumnInfo(name = "cache_standard_product_id") val cacheStandardProductId: String?,
+        @ColumnInfo(name = "product_name") val productName: String?,
+        @ColumnInfo(name = "brand_name") val brandName: String?,
+        @ColumnInfo(name = "manufacturer_name") val manufacturerName: String?,
+        @ColumnInfo(name = "sub_brand_name") val subBrandName: String?,
+        @ColumnInfo(name = "seller_name") val sellerName: String?,
+        @ColumnInfo(name = "latest_price_krw") val latestPriceKrw: Long?,
+        @ColumnInfo(name = "price_observed_at") val priceObservedAt: String?,
+        @ColumnInfo(name = "content_amount") val contentAmount: Double?,
+        @ColumnInfo(name = "content_unit") val contentUnit: String?,
+        @ColumnInfo(name = "package_count") val packageCount: Long?,
+        @ColumnInfo(name = "cache_catalog_product_revision") val cacheCatalogProductRevision: String?
+    )
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE deleted_at IS NULL " +
+            "AND (visibility='public' OR owner_id=:userId) " +
+            "AND COALESCE(source_type,'') <> :excludedSourceType " +
+            "AND (name LIKE :like COLLATE NOCASE OR brand LIKE :like COLLATE NOCASE) " +
+            "ORDER BY kind ASC, brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC LIMIT 100"
+    )
+    fun searchFoods(userId: String, excludedSourceType: String, like: String): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE id=:foodId AND deleted_at IS NULL " +
+            "AND (visibility='public' OR owner_id=:userId) LIMIT 1"
+    )
+    fun visibleFood(foodId: String, userId: String): NutritionFoodsRoomEntity?
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE deleted_at IS NULL " +
+            "AND (visibility='public' OR owner_id=:userId) " +
+            "ORDER BY updated_at DESC, id ASC"
+    )
+    fun visibleFoods(userId: String): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND deleted_at IS NULL " +
+            "AND kind=:kind AND source_type=:sourceType " +
+            "ORDER BY updated_at DESC, id ASC"
+    )
+    fun ownedFoodsByKindAndSource(
+        userId: String, kind: String, sourceType: String
+    ): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND deleted_at IS NULL " +
+            "AND kind=:kind ORDER BY updated_at DESC, id ASC"
+    )
+    fun ownedFoodsByKind(userId: String, kind: String): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND deleted_at IS NULL " +
+            "AND kind=:kind AND source_type IN (:sourceTypes) " +
+            "ORDER BY updated_at DESC, id ASC"
+    )
+    fun ownedFoodsByKindAndSources(
+        userId: String, kind: String, sourceTypes: List<String>
+    ): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id IS NULL AND visibility='public' " +
+            "AND kind=:kind AND id LIKE :idPattern " +
+            "AND ((source_type=:sourceType AND source_reference LIKE :sourceReferencePattern) " +
+            "OR (source_type=:riceSourceType AND source_reference=:riceSourceReference)) " +
+            "ORDER BY brand COLLATE NOCASE ASC, name COLLATE NOCASE ASC"
+    )
+    fun verifiedFoods(
+        kind: String,
+        idPattern: String,
+        sourceType: String,
+        sourceReferencePattern: String,
+        riceSourceType: String,
+        riceSourceReference: String
+    ): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT owner_id, source_type, source_reference, created_at FROM nutrition_foods " +
+            "WHERE id=:foodId LIMIT 1"
+    )
+    fun verifiedSeedFood(foodId: String): VerifiedSeedFoodRow?
+
+    @Query(
+        "UPDATE nutrition_foods SET updated_at=:updatedAt, deleted_at=:deletedAt " +
+            "WHERE id=:foodId AND owner_id IS NULL AND source_type=:sourceType " +
+            "AND source_reference=:sourceReference AND deleted_at IS NULL"
+    )
+    fun retireVerifiedSeedFood(
+        foodId: String,
+        sourceType: String,
+        sourceReference: String,
+        updatedAt: String,
+        deletedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE nutrition_food_nutrients SET updated_at=:updatedAt, deleted_at=:deletedAt " +
+            "WHERE food_id=:foodId AND owner_id IS NULL AND deleted_at IS NULL"
+    )
+    fun retireVerifiedSeedNutrients(foodId: String, updatedAt: String, deletedAt: String): Int
+
+    @Query(
+        "SELECT * FROM nutrition_food_nutrients WHERE deleted_at IS NULL " +
+            "AND amount IS NOT NULL AND food_id IN (:foodIds)"
+    )
+    fun nutrientsForFoods(foodIds: List<String>): List<NutritionFoodNutrientsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_food_components WHERE parent_food_id=:parentFoodId " +
+            "AND deleted_at IS NULL ORDER BY order_index ASC, created_at ASC"
+    )
+    fun componentsForFood(parentFoodId: String): List<NutritionFoodComponentsRoomEntity>
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE id IN (:foodIds) AND deleted_at IS NULL " +
+            "AND (visibility='public' OR owner_id=:userId)"
+    )
+    fun visibleFoodsByIds(foodIds: List<String>, userId: String): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT 1 FROM nutrition_foods WHERE id=:foodId AND owner_id=:userId " +
+            "AND kind=:kind AND deleted_at IS NULL LIMIT 1"
+    )
+    fun ownsActiveFood(foodId: String, userId: String, kind: String): Int?
+
+    @Query("SELECT * FROM nutrition_foods WHERE id=:foodId AND owner_id=:userId AND kind=:kind AND deleted_at IS NULL LIMIT 1")
+    fun ownedActiveFood(foodId: String, userId: String, kind: String): NutritionFoodsRoomEntity?
+
+    @Query("DELETE FROM nutrition_food_nutrients WHERE food_id=:foodId")
+    fun deleteNutrients(foodId: String): Int
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertFood(food: NutritionFoodsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertFood(food: NutritionFoodsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertNutrient(nutrient: NutritionFoodNutrientsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertComponent(component: NutritionFoodComponentsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertComponent(component: NutritionFoodComponentsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    fun insertComponentLink(link: DiningOutMenuComponentLinksRoomEntity)
+
+    @Query(
+        "SELECT component_food_id FROM dining_out_menu_component_links " +
+            "WHERE user_id=:userId AND menu_food_id=:menuFoodId AND deleted_at IS NULL " +
+            "AND (:groupType IS NULL OR group_type=:groupType) " +
+            "ORDER BY created_at ASC, id ASC"
+    )
+    fun componentIdsForMenu(userId: String, menuFoodId: String, groupType: String?): List<String>
+
+    @Query(
+        "UPDATE nutrition_foods SET visibility=:visibility, updated_at=:updatedAt " +
+            "WHERE id=:foodId AND owner_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateVisibility(foodId: String, userId: String, visibility: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE nutrition_foods SET source_reference=:sourceReference, updated_at=:updatedAt " +
+            "WHERE id=:foodId AND owner_id=:userId AND deleted_at IS NULL"
+    )
+    fun updateSourceReference(
+        foodId: String,
+        userId: String,
+        sourceReference: String,
+        updatedAt: String
+    ): Int
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND kind=:kind " +
+            "AND source_type IN (:sourceTypes) AND deleted_at IS NULL " +
+            "ORDER BY updated_at DESC, id ASC"
+    )
+    fun ownedFoodsByKindAndSourceTypes(
+        userId: String, kind: String, sourceTypes: List<String>
+    ): List<NutritionFoodsRoomEntity>
+
+    @Query("SELECT * FROM pricetrace_product_cache WHERE catalog_product_id=:catalogProductId LIMIT 1")
+    fun cachedProduct(catalogProductId: String): PricetraceProductCacheRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertProductCache(cache: PricetraceProductCacheRoomEntity)
+
+    @Query(
+        "SELECT l.id, l.owner_id, l.nutrition_food_id, l.catalog_product_id, l.standard_product_id, " +
+            "l.status, l.source_type, l.proposal_reference, l.revision, l.reviewed_at, " +
+            "l.catalog_product_revision, l.catalog_content_amount, l.catalog_content_unit, " +
+            "l.catalog_package_count, c.standard_product_id AS cache_standard_product_id, " +
+            "c.product_name, c.brand_name, c.manufacturer_name, c.sub_brand_name, c.seller_name, " +
+            "c.latest_price_krw, c.price_observed_at, c.content_amount, c.content_unit, " +
+            "c.package_count, c.catalog_product_revision AS cache_catalog_product_revision " +
+            "FROM product_nutrition_links l LEFT JOIN pricetrace_product_cache c " +
+            "ON c.catalog_product_id=l.catalog_product_id WHERE l.owner_id=:userId " +
+            "AND l.nutrition_food_id=:nutritionFoodId AND l.status=:status AND l.deleted_at IS NULL " +
+            "ORDER BY l.updated_at DESC, l.created_at DESC"
+    )
+    fun productLinks(userId: String, nutritionFoodId: String, status: String): List<ProductLinkRow>
+
+    @Query(
+        "SELECT * FROM product_nutrition_links WHERE id=:linkId AND owner_id=:userId " +
+            "AND status='suggested' AND deleted_at IS NULL LIMIT 1"
+    )
+    fun suggestedLink(linkId: String, userId: String): ProductNutritionLinksRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertProductLink(link: ProductNutritionLinksRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun upsertProductLink(link: ProductNutritionLinksRoomEntity)
+
+    @Query("SELECT revision, updated_at FROM nutrition_foods WHERE id=:id LIMIT 1")
+    fun foodSyncVersion(id: String): SyncVersionRow?
+
+    @Query("SELECT NULL AS revision, updated_at FROM nutrition_food_nutrients WHERE id=:id LIMIT 1")
+    fun nutrientSyncVersion(id: String): SyncVersionRow?
+
+    @Query("SELECT NULL AS revision, updated_at FROM nutrition_food_components WHERE id=:id LIMIT 1")
+    fun componentSyncVersion(id: String): SyncVersionRow?
+
+    @Query("SELECT revision, updated_at FROM product_nutrition_links WHERE id=:id LIMIT 1")
+    fun productLinkSyncVersion(id: String): SyncVersionRow?
+
+    @Query(
+        "SELECT updated_at FROM product_nutrition_links " +
+            "WHERE owner_id=:userId AND nutrition_food_id=:nutritionFoodId " +
+            "AND id != :exceptId AND status='approved' AND deleted_at IS NULL " +
+            "ORDER BY updated_at DESC LIMIT 1"
+    )
+    fun otherApprovedLinkUpdatedAt(
+        userId: String,
+        nutritionFoodId: String,
+        exceptId: String
+    ): String?
+
+    @Query(
+        "UPDATE product_nutrition_links SET deleted_at=:updatedAt, updated_at=:updatedAt, " +
+            "revision=revision+1 WHERE owner_id=:userId AND nutrition_food_id=:nutritionFoodId " +
+            "AND status='approved' AND deleted_at IS NULL AND (:exceptId IS NULL OR id != :exceptId)"
+    )
+    fun softDeleteApprovedLinks(
+        userId: String, nutritionFoodId: String, exceptId: String?, updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE product_nutrition_links SET status='approved', reviewed_at=:reviewedAt, " +
+            "catalog_product_revision=:catalogProductRevision, catalog_content_amount=:catalogContentAmount, " +
+            "catalog_content_unit=:catalogContentUnit, catalog_package_count=:catalogPackageCount, " +
+            "updated_at=:updatedAt, revision=revision+1 WHERE id=:linkId AND owner_id=:userId " +
+            "AND status='suggested' AND deleted_at IS NULL"
+    )
+    fun approveSuggestedLink(
+        linkId: String,
+        userId: String,
+        reviewedAt: String,
+        catalogProductRevision: String?,
+        catalogContentAmount: Double?,
+        catalogContentUnit: String?,
+        catalogPackageCount: Long?,
+        updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE product_nutrition_links SET status='rejected', reviewed_at=:reviewedAt, " +
+            "updated_at=:updatedAt, revision=revision+1 WHERE id=:linkId AND owner_id=:userId " +
+            "AND status='suggested' AND deleted_at IS NULL"
+    )
+    fun rejectSuggestedLink(linkId: String, userId: String, reviewedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE product_nutrition_links SET deleted_at=:updatedAt, updated_at=:updatedAt, " +
+            "revision=revision+1 WHERE owner_id=:userId AND nutrition_food_id=:nutritionFoodId " +
+            "AND status='approved' AND deleted_at IS NULL"
+    )
+    fun unlinkApprovedProduct(userId: String, nutritionFoodId: String, updatedAt: String): Int
+
+    @Query(
+        "SELECT source.id AS sourceId, source.updated_at AS source_updated_at, " +
+            "target.id AS targetId, target.updated_at AS target_updated_at " +
+            "FROM product_nutrition_links source " +
+            "INNER JOIN product_nutrition_links target " +
+            "ON target.nutrition_food_id = source.nutrition_food_id " +
+            "AND target.owner_id = :nextUserId AND target.status = 'approved' " +
+            "AND target.deleted_at IS NULL " +
+            "WHERE source.owner_id = :sourceUserId AND source.status = 'approved' " +
+            "AND source.deleted_at IS NULL"
+    )
+    fun approvedLinkClaimConflicts(
+        sourceUserId: String,
+        nextUserId: String
+    ): List<ApprovedLinkClaimRow>
+
+    @Query(
+        "UPDATE product_nutrition_links SET deleted_at=:updatedAt, updated_at=:updatedAt, " +
+            "revision=revision+1 WHERE id=:linkId AND deleted_at IS NULL"
+    )
+    fun retireClaimConflict(linkId: String, updatedAt: String): Int
+
+    @Query("UPDATE nutrition_foods SET owner_id=:nextUserId WHERE owner_id=:sourceUserId")
+    fun claimFoodRows(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE nutrition_food_nutrients SET owner_id=:nextUserId WHERE owner_id=:sourceUserId")
+    fun claimNutrientRows(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE nutrition_food_components SET owner_id=:nextUserId WHERE owner_id=:sourceUserId")
+    fun claimComponentRows(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE product_nutrition_links SET owner_id=:nextUserId WHERE owner_id=:sourceUserId")
+    fun claimProductLinkRows(sourceUserId: String, nextUserId: String): Int
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id=:ownerId AND visibility='private' " +
+            "AND lower(COALESCE(source_type, '')) IN " +
+            "('manual', 'manual_estimate', 'manual_option', 'manual_recipe', " +
+            "'pricetrace_manual', 'pricetrace_standard') " +
+            "AND (lower(COALESCE(source_type, '')) <> 'manual_estimate' " +
+            "OR COALESCE(source_reference, '') NOT LIKE '%fitness-nutrition-verified-import.v1%')"
+    )
+    fun syncFoods(ownerId: String): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT child.* FROM nutrition_food_nutrients child " +
+            "WHERE child.owner_id=:ownerId AND EXISTS (" +
+            "SELECT 1 FROM nutrition_foods parent " +
+            "WHERE parent.id=child.food_id AND parent.visibility='private')"
+    )
+    fun syncNutrients(ownerId: String): List<NutritionFoodNutrientsRoomEntity>
+
+    @Query(
+        "SELECT child.* FROM nutrition_food_components child " +
+            "WHERE child.owner_id=:ownerId AND EXISTS (" +
+            "SELECT 1 FROM nutrition_foods parent " +
+            "WHERE parent.id=child.parent_food_id AND parent.visibility='private')"
+    )
+    fun syncComponents(ownerId: String): List<NutritionFoodComponentsRoomEntity>
+
+    @Query(
+        "SELECT link.* FROM product_nutrition_links link " +
+            "WHERE link.owner_id=:ownerId AND EXISTS (" +
+            "SELECT 1 FROM nutrition_foods parent " +
+            "WHERE parent.id=link.nutrition_food_id AND parent.visibility='private')"
+    )
+    fun syncProductLinks(ownerId: String): List<ProductNutritionLinksRoomEntity>
 }
 
 @Database(
@@ -200,5 +1942,14 @@ interface RoutineRoomDao {
 )
 abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun bodyRoomDao(): BodyRoomDao
+    abstract fun deviceRoomDao(): DeviceRoomDao
+    abstract fun accountOwnershipRoomDao(): AccountOwnershipRoomDao
+    abstract fun legacyFitnessSyncRoomDao(): LegacyFitnessSyncRoomDao
     abstract fun routineRoomDao(): RoutineRoomDao
+    abstract fun supplementRoomDao(): SupplementRoomDao
+    abstract fun workoutRoomDao(): WorkoutRoomDao
+    abstract fun cardioRoomDao(): CardioRoomDao
+    abstract fun mealRoomDao(): MealRoomDao
+    abstract fun nutritionRoomDao(): NutritionRoomDao
+    abstract fun developmentRoomDao(): DevelopmentRoomDao
 }

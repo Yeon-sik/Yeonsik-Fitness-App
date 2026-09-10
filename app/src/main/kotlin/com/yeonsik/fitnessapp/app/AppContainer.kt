@@ -1,31 +1,38 @@
 package com.yeonsik.fitnessapp.app
 
 import android.content.Context
-import com.yeonsik.fitnessapp.cardio.CardioRepository
+import com.yeonsik.fitnessapp.feature.cardio.data.CardioRepository
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore
 import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore
 import com.yeonsik.fitnessapp.config.SupabaseConfig
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore
+import com.yeonsik.fitnessapp.config.MassUnitPreferences
+import com.yeonsik.fitnessapp.config.ThemeModePreferences
 import com.yeonsik.fitnessapp.core.account.AccountOwnershipService
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider
-import com.yeonsik.fitnessapp.data.BodyMetricsRepository
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository
-import com.yeonsik.fitnessapp.data.ProductReadV1Client
-import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client
-import com.yeonsik.fitnessapp.development.DevelopmentRepository
+import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
+import com.yeonsik.fitnessapp.core.database.backup.RoomBackupDatabaseStorage
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsRepository
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository
+import com.yeonsik.fitnessapp.integration.pricetrace.ProductReadV1Client
+import com.yeonsik.fitnessapp.integration.pricetrace.RestaurantMenuReadV1Client
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
 import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService
 import com.yeonsik.fitnessapp.feature.home.api.HomeRepositoryApi
+import com.yeonsik.fitnessapp.feature.home.data.FeatureHomeReadSources
 import com.yeonsik.fitnessapp.feature.home.data.HomeReadRepository
-import com.yeonsik.fitnessapp.feature.home.data.RoomHomeReadSources
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository
 import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService
-import com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentReadRepository
+import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService
+import com.yeonsik.fitnessapp.feature.development.application.DevelopmentReportService
 import com.yeonsik.fitnessapp.feature.exercise.api.ExerciseMasterRepositoryApi
 import com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository
+import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
@@ -35,15 +42,24 @@ import com.yeonsik.fitnessapp.feature.workout.application.CompleteWorkout
 import com.yeonsik.fitnessapp.feature.workout.application.InitializeWorkoutExercise
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation
-import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryStore
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutReadRepository
+import com.yeonsik.fitnessapp.feature.workout.api.WorkoutSummaryApi
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutSummaryRepository
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
-import com.yeonsik.fitnessapp.integration.workout.WorkoutInterchangeStore
-import com.yeonsik.fitnessapp.routine.RoutineRepository
-import com.yeonsik.fitnessapp.supplement.SupplementRepository
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutInterchangeRepository
+import com.yeonsik.fitnessapp.feature.routine.data.RoutineRepository
+import com.yeonsik.fitnessapp.feature.supplement.data.SupplementRepository
+import com.yeonsik.fitnessapp.feature.settings.application.SettingsSessionCoordinator
+import com.yeonsik.fitnessapp.feature.settings.ui.SettingsConnection
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
-import com.yeonsik.fitnessapp.sync.SupabaseSyncManager
+import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager
+import com.yeonsik.fitnessapp.integration.personalos.FitnessSummaryPublisher
+import com.yeonsik.fitnessapp.integration.personalos.LegacyFitnessSyncAdapter
+import androidx.savedstate.SavedStateRegistryOwner
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Activity-scoped dependency composition root for the single :app module.
@@ -51,8 +67,11 @@ import com.yeonsik.fitnessapp.sync.SupabaseSyncManager
  * Feature code receives the narrow API it needs from here. Activities coordinate lifecycle,
  * navigation and platform callbacks without constructing repositories or integration adapters.
  */
-class AppContainer(context: Context) {
+class AppContainer(context: Context) : SettingsSessionCoordinator {
     private val appContext = context.applicationContext
+    private val workoutWriteExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+    val massUnitPreferences = MassUnitPreferences(appContext)
+    val themeModePreferences = ThemeModePreferences(appContext)
 
     val configStore = SupabaseConfigStore(appContext)
     val nutritionConfigStore = NutritionSupabaseConfigStore(appContext)
@@ -69,34 +88,38 @@ class AppContainer(context: Context) {
         private set
 
     val roomDatabase: FitnessRoomDatabase = FitnessRoomDatabaseProvider.get(appContext)
-    val databaseConnection: FitnessDatabaseConnection =
-        FitnessDatabaseConnection.fromRoom(roomDatabase, appContext)
+    val roomTransactionRunner = RoomTransactionRunner(roomDatabase)
+    private val backupDatabaseStorage = RoomBackupDatabaseStorage(roomDatabase)
 
     private val accountOwnershipService = AccountOwnershipService(
-        databaseConnection,
+        roomDatabase,
+        roomTransactionRunner,
         supabaseConfig.effectiveUserId()
     )
-    private val fitnessSummaryStore = FitnessSummaryStore(databaseConnection)
-    private val workoutInterchangeStore = WorkoutInterchangeStore(databaseConnection, appContext)
+    private val fitnessSummaryStore: WorkoutSummaryApi = WorkoutSummaryRepository(roomDatabase)
+    private val workoutInterchangeStore = WorkoutInterchangeRepository(
+        roomDatabase,
+        appContext,
+        roomTransactionRunner
+    )
     private val bodyMetricsRepository = BodyMetricsRepository(
-        databaseConnection,
+        roomDatabase,
         supabaseConfig.effectiveUserId()
     )
     private val nutritionCatalogRepository = NutritionCatalogRepository(
         roomDatabase,
         appContext,
-        nutritionSupabaseConfig.effectiveUserId(),
-        nutritionSupabaseConfig
+        nutritionSupabaseConfig.effectiveUserId()
     )
     private val mealRecordRepository = MealRecordRepository(
-        databaseConnection,
+        roomDatabase,
         nutritionCatalogRepository,
         supabaseConfig.effectiveUserId()
     )
     private val cardioRepository = CardioRepository(
         roomDatabase,
         supabaseConfig.effectiveUserId(),
-        appContext
+        roomTransactionRunner
     )
     private val exerciseMasterRepository = ExerciseMasterRepository(appContext)
     private val routineRepository = RoutineRepository(
@@ -115,23 +138,46 @@ class AppContainer(context: Context) {
         appContext
     )
 
-    val workoutRepository: WorkoutRepositoryApi =
-        WorkoutRepositoryImplementation(roomDatabase, appContext)
+    private val workoutRepositoryImplementation = WorkoutRepositoryImplementation(
+        roomDatabase,
+        appContext,
+        roomTransactionRunner
+    )
+    private val workoutReadRepository = WorkoutReadRepository(roomDatabase, appContext)
+    private val mealReadRepository = MealReadRepository(roomDatabase)
+    private val bodyMetricsReadRepository = BodyMetricsReadRepository(roomDatabase)
+    private val developmentReadRepository = DevelopmentReadRepository(roomDatabase)
+
+    val workoutRepository: WorkoutRepositoryApi = workoutRepositoryImplementation
     val cardioRepositoryApi: CardioRepositoryApi = cardioRepository
     val exerciseMasterRepositoryApi: ExerciseMasterRepositoryApi = exerciseMasterRepository
-    val developmentRepositoryApi: DevelopmentRepositoryApi = developmentRepository
+    val developmentReportApi: DevelopmentReportApi = DevelopmentReportService(
+        workoutReadRepository,
+        mealReadRepository,
+        bodyMetricsReadRepository,
+        developmentReadRepository
+    )
     val supplementRepositoryApi: SupplementRepositoryApi = supplementRepository
     val mealRecordRepositoryApi: MealRecordRepositoryApi = mealRecordRepository
     val nutritionCatalogRepositoryApi: NutritionCatalogRepositoryApi = nutritionCatalogRepository
     val routineRepositoryApi: RoutineRepositoryApi = routineRepository
     val homeRepository: HomeRepositoryApi = HomeReadRepository(
-        RoomHomeReadSources(roomDatabase, appContext),
+        FeatureHomeReadSources(
+            workoutReadRepository,
+            mealReadRepository,
+            bodyMetricsReadRepository,
+            developmentReadRepository
+        ),
         routineRepositoryApi
     )
     val initializeWorkoutExercise = InitializeWorkoutExercise(workoutRepository)
     val completeWorkout = CompleteWorkout(workoutRepository)
 
-    private val syncManager = SupabaseSyncManager(roomDatabase, appContext)
+    private val syncManager = SupabaseSyncManager(
+        LegacyFitnessSyncAdapter(roomDatabase),
+        fitnessSummaryStore,
+        FitnessSummaryPublisher()
+    )
     private val productReadClient = ProductReadV1Client(priceTraceSupabaseConfig)
     private val restaurantMenuReadClient = RestaurantMenuReadV1Client(priceTraceSupabaseConfig)
 
@@ -146,18 +192,23 @@ class AppContainer(context: Context) {
     )
     val cardioSessionApplicationService = CardioSessionApplicationService(
         cardioRepository,
+        workoutRepository,
+        roomTransactionRunner,
         supabaseConfig.effectiveUserId()
     )
     val workoutSessionApplicationService = WorkoutSessionApplicationService(
         workoutRepository,
-        cardioSessionApplicationService
+        cardioSessionApplicationService,
+        roomTransactionRunner
     )
     val nutritionIntegrationService = NutritionIntegrationService(
+        nutritionCatalogRepository,
         nutritionCatalogRepository,
         productReadClient,
         restaurantMenuReadClient,
         nutritionAuthManager,
-        priceTraceAuthManager
+        priceTraceAuthManager,
+        nutritionSupabaseConfig
     )
     val syncApplicationService = SyncApplicationService(
         supabaseAuthManager,
@@ -165,7 +216,8 @@ class AppContainer(context: Context) {
         nutritionIntegrationService
     )
     val localDataTransferApplicationService = LocalDataTransferApplicationService(
-        databaseConnection,
+        backupDatabaseStorage,
+        nutritionCatalogRepository,
         workoutInterchangeStore,
         fitnessSummaryStore,
         exerciseMasterRepository
@@ -203,20 +255,54 @@ class AppContainer(context: Context) {
 
     fun applyNutritionSessionConfig(config: SupabaseConfig) {
         nutritionSupabaseConfig = config
+        nutritionIntegrationService.setNutritionConfig(config)
         nutritionCatalogRepository.setUserId(config.effectiveUserId())
-        nutritionCatalogRepository.setSupabaseConfig(config)
     }
 
     fun applyAuthenticatedNutritionConfig(config: SupabaseConfig) {
         nutritionSupabaseConfig = config
+        nutritionIntegrationService.setNutritionConfig(config)
         val ownerId = config.effectiveUserId()
         nutritionCatalogRepository.normalizeLocalUserId(ownerId)
-        nutritionCatalogRepository.setSupabaseConfig(config)
     }
 
     fun applyPriceTraceSessionConfig(config: SupabaseConfig) {
         priceTraceSupabaseConfig = config
         productReadClient.setConfig(config)
         restaurantMenuReadClient.setConfig(config)
+    }
+
+    fun getWorkoutWriteExecutor(): ExecutorService = workoutWriteExecutor
+
+    fun getViewModelFactory(owner: SavedStateRegistryOwner): AppViewModelFactory =
+        AppViewModelFactory(owner, this)
+
+    fun shutdownWorkoutWriteExecutor() {
+        workoutWriteExecutor.shutdownNow()
+    }
+
+    override fun apply(
+        connection: SettingsConnection,
+        config: SupabaseConfig,
+        authenticated: Boolean
+    ) {
+        when (connection) {
+            SettingsConnection.SHARED -> if (authenticated) {
+                applyAuthenticatedSharedConfig(config)
+            } else {
+                applySharedSessionConfig(config)
+            }
+            SettingsConnection.NUTRITION -> if (authenticated) {
+                applyAuthenticatedNutritionConfig(config)
+            } else {
+                applyNutritionSessionConfig(config)
+            }
+            SettingsConnection.PRICE_TRACE -> applyPriceTraceSessionConfig(config)
+        }
+    }
+
+    override fun applySync(result: SyncApplicationService.Result) {
+        applySharedSessionConfig(result.sharedConfig)
+        result.nutritionConfig?.let { applyNutritionSessionConfig(it) }
     }
 }

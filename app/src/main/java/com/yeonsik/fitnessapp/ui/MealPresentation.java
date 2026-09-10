@@ -8,7 +8,7 @@ public final class MealPresentation {
     private MealPresentation() {}
 
     public static String nutrientLabel(String key) {
-        return NutritionRow.displayLabel(key);
+        return com.yeonsik.fitnessapp.core.ui.NutritionRow.displayLabel(key);
     }
 
     public static String componentLabel(

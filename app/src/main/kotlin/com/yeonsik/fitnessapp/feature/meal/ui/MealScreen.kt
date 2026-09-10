@@ -19,7 +19,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.BuildConfig
-import com.yeonsik.fitnessapp.app.navigation.*
 import com.yeonsik.fitnessapp.cardio.*
 import com.yeonsik.fitnessapp.config.*
 import com.yeonsik.fitnessapp.core.account.*
@@ -30,8 +29,6 @@ import com.yeonsik.fitnessapp.feature.cardio.ui.*
 import com.yeonsik.fitnessapp.feature.development.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
-import com.yeonsik.fitnessapp.feature.meal.ui.*
-import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitnessapp.feature.workout.model.*
@@ -41,23 +38,57 @@ import com.yeonsik.fitnessapp.ui.*
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 
+interface MealScreenActions {
+    fun back()
+    fun startDraft()
+    fun closeDraft()
+    fun chooseFood()
+    fun chooseDiningOut()
+    fun searchFood(query: String)
+    fun selectFood(food: NutritionFood)
+    fun updateQuantity(value: String)
+    fun updateTime(value: String)
+    fun saveFood()
+    fun updateStore(value: String)
+    fun updateBranch(value: String)
+    fun updateMenu(value: String)
+    fun updateCalories(value: String)
+    fun updateCarbs(value: String)
+    fun updateProtein(value: String)
+    fun updateFat(value: String)
+    fun updateSodium(value: String)
+    fun updateSugars(value: String)
+    fun updateSaturatedFat(value: String)
+    fun updatePriceTraceQuery(value: String)
+    fun searchPriceTraceRestaurants()
+    fun loadPriceTraceRestaurant(restaurantId: String)
+    fun applyPriceTraceSelection(
+        restaurantId: String,
+        restaurantName: String,
+        locationId: String,
+        branchName: String,
+        menuId: String,
+        menuName: String,
+        catalogProductId: String
+    )
+    fun saveDiningOut()
+    fun showBodyMetric()
+}
+
 @Composable
-internal fun MealScreen(host: ScreenHost, ownerId: String, today: String, unit: MassUnit) {
-    val homeState by host.homeViewModel().uiState.observeAsState(HomeUiState.Idle)
-    val editorState by host.mealViewModel().uiState.observeAsState(MealUiState.Idle)
-    LaunchedEffect(ownerId, today) {
-        host.homeViewModel().enter(AccountScope(ownerId), today)
-        host.mealViewModel().enter(AccountScope(ownerId), today)
-    }
+internal fun MealScreen(
+    homeState: HomeUiState,
+    editorState: MealUiState,
+    priceTraceState: PriceTraceUiState,
+    ownerId: String,
+    today: String,
+    unit: MassUnit,
+    actions: MealScreenActions
+) {
     val ready = homeState as? HomeUiState.Ready
     val editor = editorState as? MealUiState.Ready
-    LaunchedEffect(editor?.notice) {
-        if (editor?.notice != null) {
-            host.homeViewModel().enter(AccountScope(ownerId), today)
-        }
-    }
 
-    AppHeader("식사", today, back = { host.back() })
+    AppHeader("식사", today, back = actions::back)
     if (ready == null || ready.snapshot.ownerId != ownerId) {
         Text("식사 기록을 불러오는 중입니다.")
         return
@@ -82,44 +113,44 @@ internal fun MealScreen(host: ScreenHost, ownerId: String, today: String, unit: 
         Text("식사 입력을 준비하는 중입니다.")
     } else if (!editor.editing) {
         editor.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-        AppButton(onClick = { host.mealViewModel().startDraft() }, Modifier.fillMaxWidth()) {
+        AppButton(onClick = actions::startDraft, Modifier.fillMaxWidth()) {
             Text("새 끼니 기록")
         }
     } else {
         Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
             AppOutlinedButton(
-                onClick = { host.mealViewModel().chooseFood() },
+                onClick = actions::chooseFood,
                 modifier = Modifier.weight(1f),
                 selected = !editor.diningOut
             ) { Text("식단") }
             AppOutlinedButton(
-                onClick = { host.mealViewModel().chooseDiningOut() },
+                onClick = actions::chooseDiningOut,
                 modifier = Modifier.weight(1f),
                 selected = editor.diningOut
             ) { Text("외식") }
         }
         if (editor.diningOut) {
-            DiningOutEditor(host, ownerId, editor)
+            DiningOutEditor(actions, editor, priceTraceState)
         } else {
-            FoodMealEditor(host, ownerId, editor)
+            FoodMealEditor(actions, editor)
         }
     }
 
-    AppOutlinedButton(onClick = { host.showBodyMetricDialog(today, null) }, Modifier.fillMaxWidth()) {
+    AppOutlinedButton(onClick = actions::showBodyMetric, Modifier.fillMaxWidth()) {
         Text("오늘 체중 · ${snapshot.todayWeight?.let { MassFormatter.withUnit(it.weightKg, unit) } ?: "미기록"}")
     }
 }
 
 @Composable
-private fun FoodMealEditor(host: ScreenHost, ownerId: String, editor: MealUiState.Ready) {
+private fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready) {
     AppTextField(
         editor.query,
-        { host.mealViewModel().search(it) },
+        actions::searchFood,
         Modifier.fillMaxWidth(),
         label = { Text("식품 검색") }
     )
     editor.searchResults.forEach { food ->
-        AppCard(Modifier.fillMaxWidth().clickable { host.mealViewModel().selectFood(food) }) {
+        AppCard(Modifier.fillMaxWidth().clickable { actions.selectFood(food) }) {
             Column(Modifier.padding(AppSpacing.card)) {
                 Text(food.displayName(), fontWeight = FontWeight.Bold)
                 Text("${food.basisLabel()} · ${food.extendedNutritionLabel()}")
@@ -135,7 +166,7 @@ private fun FoodMealEditor(host: ScreenHost, ownerId: String, editor: MealUiStat
         }
         AppTextField(
             editor.quantity,
-            { host.mealViewModel().updateQuantity(it) },
+            actions::updateQuantity,
             Modifier.fillMaxWidth(),
             label = { Text("섭취량 ${food.basisUnit}") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
@@ -143,19 +174,19 @@ private fun FoodMealEditor(host: ScreenHost, ownerId: String, editor: MealUiStat
     }
     AppTextField(
         editor.draft.time,
-        { host.mealViewModel().updateTime(it) },
+        actions::updateTime,
         Modifier.fillMaxWidth(),
         label = { Text("식사 시각 HH:mm") }
     )
     editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         AppOutlinedButton(
-            onClick = { host.mealViewModel().closeDraft() },
+            onClick = actions::closeDraft,
             modifier = Modifier.weight(1f),
             enabled = !editor.saving
         ) { Text("취소") }
         AppButton(
-            onClick = { host.mealViewModel().saveFood(AccountScope(ownerId)) { } },
+            onClick = actions::saveFood,
             modifier = Modifier.weight(1f),
             enabled = !editor.saving && editor.selectedFood != null
         ) { Text(if (editor.saving) "저장 중" else "끼니 기록하기") }
@@ -163,7 +194,11 @@ private fun FoodMealEditor(host: ScreenHost, ownerId: String, editor: MealUiStat
 }
 
 @Composable
-private fun DiningOutEditor(host: ScreenHost, ownerId: String, editor: MealUiState.Ready) {
+private fun DiningOutEditor(
+    actions: MealScreenActions,
+    editor: MealUiState.Ready,
+    priceTraceState: PriceTraceUiState
+) {
     val draft = editor.draft
     var showPriceTrace by rememberSaveable { mutableStateOf(false) }
     Text("외식 직접 등록", style = MaterialTheme.typography.titleMedium)
@@ -172,28 +207,28 @@ private fun DiningOutEditor(host: ScreenHost, ownerId: String, editor: MealUiSta
         modifier = Modifier.fillMaxWidth()
     ) { Text(if (showPriceTrace) "PriceTrace 선택 닫기" else "PriceTrace 식당·메뉴 선택") }
     if (showPriceTrace) {
-        PriceTraceDiningOutPicker(host, editor)
+        PriceTraceDiningOutPicker(actions, editor, priceTraceState)
     }
-    AppTextField(draft.store, { host.mealViewModel().updateStore(it) }, Modifier.fillMaxWidth(), { Text("상호명") })
-    AppTextField(draft.branch, { host.mealViewModel().updateBranch(it) }, Modifier.fillMaxWidth(), { Text("지점명 (선택)") })
-    AppTextField(draft.menu, { host.mealViewModel().updateMenu(it) }, Modifier.fillMaxWidth(), { Text("메뉴명") })
-    AppTextField(draft.time, { host.mealViewModel().updateTime(it) }, Modifier.fillMaxWidth(), { Text("식사 시각 HH:mm") })
-    AppTextField(draft.calories, { host.mealViewModel().updateCalories(it) }, Modifier.fillMaxWidth(), { Text("칼로리 kcal") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-    AppTextField(draft.carbs, { host.mealViewModel().updateCarbs(it) }, Modifier.fillMaxWidth(), { Text("탄수화물 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-    AppTextField(draft.protein, { host.mealViewModel().updateProtein(it) }, Modifier.fillMaxWidth(), { Text("단백질 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-    AppTextField(draft.fat, { host.mealViewModel().updateFat(it) }, Modifier.fillMaxWidth(), { Text("지방 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-    AppTextField(draft.sodium, { host.mealViewModel().updateSodium(it) }, Modifier.fillMaxWidth(), { Text("나트륨 mg") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-    AppTextField(draft.sugars, { host.mealViewModel().updateSugars(it) }, Modifier.fillMaxWidth(), { Text("당류 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-    AppTextField(draft.saturatedFat, { host.mealViewModel().updateSaturatedFat(it) }, Modifier.fillMaxWidth(), { Text("포화지방 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppTextField(draft.store, actions::updateStore, Modifier.fillMaxWidth(), { Text("상호명") })
+    AppTextField(draft.branch, actions::updateBranch, Modifier.fillMaxWidth(), { Text("지점명 (선택)") })
+    AppTextField(draft.menu, actions::updateMenu, Modifier.fillMaxWidth(), { Text("메뉴명") })
+    AppTextField(draft.time, actions::updateTime, Modifier.fillMaxWidth(), { Text("식사 시각 HH:mm") })
+    AppTextField(draft.calories, actions::updateCalories, Modifier.fillMaxWidth(), { Text("칼로리 kcal") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppTextField(draft.carbs, actions::updateCarbs, Modifier.fillMaxWidth(), { Text("탄수화물 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppTextField(draft.protein, actions::updateProtein, Modifier.fillMaxWidth(), { Text("단백질 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppTextField(draft.fat, actions::updateFat, Modifier.fillMaxWidth(), { Text("지방 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppTextField(draft.sodium, actions::updateSodium, Modifier.fillMaxWidth(), { Text("나트륨 mg") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppTextField(draft.sugars, actions::updateSugars, Modifier.fillMaxWidth(), { Text("당류 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppTextField(draft.saturatedFat, actions::updateSaturatedFat, Modifier.fillMaxWidth(), { Text("포화지방 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
     editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         AppOutlinedButton(
-            onClick = { host.mealViewModel().closeDraft() },
+            onClick = actions::closeDraft,
             modifier = Modifier.weight(1f),
             enabled = !editor.saving
         ) { Text("취소") }
         AppButton(
-            onClick = { host.mealViewModel().save(AccountScope(ownerId)) { } },
+            onClick = actions::saveDiningOut,
             modifier = Modifier.weight(1f),
             enabled = !editor.saving
         ) { Text(if (editor.saving) "저장 중" else "외식만 기록") }
@@ -201,53 +236,35 @@ private fun DiningOutEditor(host: ScreenHost, ownerId: String, editor: MealUiSta
 }
 
 @Composable
-private fun PriceTraceDiningOutPicker(host: ScreenHost, editor: MealUiState.Ready) {
-    var query by rememberSaveable { mutableStateOf("") }
-    var restaurants by remember { mutableStateOf<List<NutritionIntegrationService.RestaurantSummary>>(emptyList()) }
-    var detail by remember { mutableStateOf<NutritionIntegrationService.RestaurantDetail?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val mainHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+private fun PriceTraceDiningOutPicker(
+    actions: MealScreenActions,
+    editor: MealUiState.Ready,
+    priceTraceState: PriceTraceUiState
+) {
+    val state = priceTraceState as? PriceTraceUiState.Ready
+    val query = state?.query ?: editor.priceTraceQuery
 
-    AppTextField(query, { query = it }, Modifier.fillMaxWidth(), label = { Text("PriceTrace 식당 검색") })
+    AppTextField(query, actions::updatePriceTraceQuery, Modifier.fillMaxWidth(), label = { Text("PriceTrace 식당 검색") })
     AppButton(
-        onClick = {
-            host.searchPriceTraceRestaurants(query, object : ScreenHost.RestaurantSearchCallback {
-                override fun onComplete(value: List<NutritionIntegrationService.RestaurantSummary>) {
-                    mainHandler.post { restaurants = value; detail = null; error = null }
-                }
-
-                override fun onError(value: Exception) {
-                    mainHandler.post { error = value.message ?: "PriceTrace 식당을 찾지 못했습니다." }
-                }
-            })
-        },
+        onClick = actions::searchPriceTraceRestaurants,
         enabled = query.isNotBlank(),
         modifier = Modifier.fillMaxWidth()
     ) { Text("검색") }
-    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-    restaurants.forEach { restaurant ->
+    if (state?.loading == true) Text("PriceTrace 정보를 불러오는 중입니다.")
+    state?.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    state?.restaurants.orEmpty().forEach { restaurant ->
         AppOutlinedButton(
-            onClick = {
-                host.loadPriceTraceRestaurant(restaurant.restaurantId, object : ScreenHost.RestaurantLoadCallback {
-                    override fun onComplete(value: NutritionIntegrationService.RestaurantDetail) {
-                        mainHandler.post { detail = value; error = null }
-                    }
-
-                    override fun onError(value: Exception) {
-                        mainHandler.post { error = value.message ?: "PriceTrace 메뉴를 불러오지 못했습니다." }
-                    }
-                })
-            },
+            onClick = { actions.loadPriceTraceRestaurant(restaurant.restaurantId) },
             modifier = Modifier.fillMaxWidth()
         ) { Text(restaurant.restaurantName) }
     }
-    detail?.let { restaurant ->
+    state?.detail?.let { restaurant ->
         Text("${restaurant.restaurantName} 메뉴", fontWeight = FontWeight.Bold)
         restaurant.menus.forEach { menu ->
             restaurant.locations.forEach { location ->
                 AppOutlinedButton(
                     onClick = {
-                        host.mealViewModel().applyPriceTraceSelection(
+                        actions.applyPriceTraceSelection(
                             restaurant.restaurantId,
                             restaurant.restaurantName,
                             location.restaurantLocationId,

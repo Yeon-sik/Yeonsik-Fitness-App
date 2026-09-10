@@ -1,9 +1,10 @@
 package com.yeonsik.fitnessapp.feature.development.api
 
-import com.yeonsik.fitnessapp.development.DevelopmentReport
-import java.time.LocalDate
+import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitnessapp.development.DevelopmentGoal
 
-/** Read port for the development report projection. */
+/** Public write boundary for development-owned goals. */
 interface DevelopmentRepositoryApi {
-    fun buildReport(referenceDate: LocalDate): DevelopmentReport
+    fun developmentGoal(scope: AccountScope): DevelopmentGoal
+    fun saveDevelopmentGoal(scope: AccountScope, goal: DevelopmentGoal)
 }

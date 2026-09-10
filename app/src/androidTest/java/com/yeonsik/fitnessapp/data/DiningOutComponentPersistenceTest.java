@@ -1,5 +1,9 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
+
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.database.Cursor;
@@ -35,11 +39,12 @@ public final class DiningOutComponentPersistenceTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             NutritionFood menu = catalog.saveDiningOutMenu("식당", "대표 메뉴", 40d, 20d, 10d);
             List<NutritionFood> savedComponents = new ArrayList<>();
@@ -88,6 +93,7 @@ public final class DiningOutComponentPersistenceTest {
                     )
             );
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -100,11 +106,12 @@ public final class DiningOutComponentPersistenceTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
-                    USER_ID,
-                    SupabaseConfig.empty()
+                    room,
+                    context,
+                    USER_ID
             );
             NutritionFood menu = catalog.saveDiningOutMenu("식당", "치킨", 40d, 20d, 10d);
             NutritionProfile profile = NutritionProfile.builder()
@@ -173,6 +180,7 @@ public final class DiningOutComponentPersistenceTest {
                     "SELECT COUNT(*) FROM dining_out_menu_component_links " +
                             "WHERE group_type = 'review_event'"));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }

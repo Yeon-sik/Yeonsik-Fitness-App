@@ -2,7 +2,8 @@ package com.yeonsik.fitnessapp.feature.body.application;
 
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.data.BodyMetricEntry;
-import com.yeonsik.fitnessapp.data.BodyMetricsRepository;
+import com.yeonsik.fitnessapp.development.BodyProfile;
+import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsRepositoryApi;
 
 /**
  * Application boundary for body-metric editor use cases.
@@ -11,10 +12,10 @@ import com.yeonsik.fitnessapp.data.BodyMetricsRepository;
  * decision here prevents a screen host from becoming the body repository's transaction API.
  */
 public final class BodyMetricsApplicationService {
-    private final BodyMetricsRepository repository;
+    private final BodyMetricsRepositoryApi repository;
     private volatile String ownerId;
 
-    public BodyMetricsApplicationService(BodyMetricsRepository repository, String ownerId) {
+    public BodyMetricsApplicationService(BodyMetricsRepositoryApi repository, String ownerId) {
         if (repository == null) {
             throw new IllegalArgumentException("체중 저장소가 필요합니다.");
         }
@@ -54,6 +55,16 @@ public final class BodyMetricsApplicationService {
     public void delete(AccountScope scope, String recordId) {
         requireScope(scope);
         repository.deleteBodyMetric(recordId);
+    }
+
+    public BodyProfile loadProfile(AccountScope scope) {
+        requireScope(scope);
+        return repository.bodyProfile();
+    }
+
+    public void saveProfile(AccountScope scope, BodyProfile profile) {
+        requireScope(scope);
+        repository.saveBodyProfile(profile);
     }
 
     private void requireScope(AccountScope scope) {

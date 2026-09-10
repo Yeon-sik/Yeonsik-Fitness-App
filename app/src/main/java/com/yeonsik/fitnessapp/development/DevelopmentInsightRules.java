@@ -6,11 +6,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-final class DevelopmentInsightRules {
+public final class DevelopmentInsightRules {
     private DevelopmentInsightRules() {
     }
 
-    static List<DevelopmentInsight> build(Input input) {
+    public static List<DevelopmentInsight> build(Input input) {
         if (input == null) {
             return Collections.emptyList();
         }
@@ -110,7 +110,7 @@ final class DevelopmentInsightRules {
         return insights.size() <= 3 ? insights : insights.subList(0, 3);
     }
 
-    static final class Input {
+    public static final class Input {
         final LocalDate referenceDate;
         final LocalDate recentWindowStart;
         final LocalDate recentWindowEnd;
@@ -128,7 +128,7 @@ final class DevelopmentInsightRules {
         final int weightRecordedDays;
         final Double latestWeightKg;
 
-        Input(
+        public Input(
                 LocalDate referenceDate,
                 LocalDate recentWindowStart,
                 LocalDate recentWindowEnd,

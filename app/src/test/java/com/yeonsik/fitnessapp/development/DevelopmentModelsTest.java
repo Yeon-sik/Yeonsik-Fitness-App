@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.development;
 
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository;
+
 import org.junit.Test;
 
 import java.time.LocalDate;

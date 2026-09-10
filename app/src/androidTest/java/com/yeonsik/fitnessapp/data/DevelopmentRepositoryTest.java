@@ -8,10 +8,19 @@ import android.database.sqlite.SQLiteDatabase;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.development.DevelopmentReport;
-import com.yeonsik.fitnessapp.development.DevelopmentRepository;
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository;
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsRepository;
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository;
+import com.yeonsik.fitnessapp.feature.development.application.DevelopmentReportService;
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentReadRepository;
+import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository;
+import com.yeonsik.fitnessapp.feature.workout.data.WorkoutReadRepository;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -36,9 +45,11 @@ public final class DevelopmentRepositoryTest {
         try {
             helper = new FitnessDatabaseHelper(context);
             FitnessRepository fitness = new FitnessRepository(helper, USER_ID);
-            DevelopmentRepository development = new DevelopmentRepository(helper, USER_ID);
+            FitnessRoomDatabase roomDatabase = FitnessRoomDatabaseProvider.get(context);
+            DevelopmentRepository development = new DevelopmentRepository(roomDatabase, USER_ID);
+            BodyMetricsRepository bodyMetrics = new BodyMetricsRepository(roomDatabase, USER_ID);
 
-            development.saveBodyProfile(new BodyProfile(181, "", ""));
+            bodyMetrics.saveBodyProfile(new BodyProfile(181, "", ""));
             development.saveDevelopmentGoal(new DevelopmentGoal(
                     DevelopmentGoal.OBJECTIVE_STRENGTH,
                     1,
@@ -72,7 +83,12 @@ public final class DevelopmentRepositoryTest {
             String exerciseId = fitness.addExercise(recordId, "덤벨 컬", "이두", 1, "");
             fitness.addSet(recordId, exerciseId, 1, 12.5, 10, true);
 
-            DevelopmentReport report = development.buildReport(LocalDate.of(2026, 8, 10));
+            DevelopmentReport report = new DevelopmentReportService(
+                    new WorkoutReadRepository(roomDatabase, context),
+                    new MealReadRepository(roomDatabase),
+                    new BodyMetricsReadRepository(roomDatabase),
+                    new DevelopmentReadRepository(roomDatabase)
+            ).buildReport(new AccountScope(USER_ID), LocalDate.of(2026, 8, 10));
 
             assertEquals(LocalDate.of(2026, 7, 28), report.recentWindowStart);
             assertEquals(LocalDate.of(2026, 8, 10), report.recentWindowEnd);

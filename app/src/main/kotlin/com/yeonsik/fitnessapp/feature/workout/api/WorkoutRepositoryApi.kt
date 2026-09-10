@@ -24,6 +24,32 @@ interface WorkoutRepositoryApi {
                                             startedAt: String, endedAt: String): String = error("Past session creation is not supported by this repository.")
 
     fun deleteSession(scope: AccountScope, recordId: String): Boolean = false
+
+    /** Creates the shared workout record and its cardio exercise shell. */
+    fun createCardioSession(
+        scope: AccountScope,
+        date: String,
+        activityId: String,
+        activityLabel: String
+    ): String = error("Cardio session creation is not supported by this repository.")
+
+    /** Writes the shared workout record and cardio set completion summary. */
+    fun completeCardioSession(
+        scope: AccountScope,
+        recordId: String,
+        activityId: String,
+        activityLabel: String,
+        durationSeconds: Int,
+        distanceMeters: Double,
+        averageHeartRateBpm: Int?
+    ): Boolean = false
+
+    fun updateCardioAverageHeartRate(
+        scope: AccountScope,
+        recordId: String,
+        averageHeartRateBpm: Int?
+    ): Boolean = false
+
     fun loadSession(scope: AccountScope, recordId: String): WorkoutSessionSnapshot?
 
     fun loadExerciseDetail(

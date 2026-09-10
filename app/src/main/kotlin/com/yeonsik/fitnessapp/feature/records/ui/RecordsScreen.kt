@@ -8,7 +8,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,10 +18,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.BuildConfig
-import com.yeonsik.fitnessapp.app.navigation.*
 import com.yeonsik.fitnessapp.cardio.*
 import com.yeonsik.fitnessapp.config.*
-import com.yeonsik.fitnessapp.core.account.*
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.*
 import com.yeonsik.fitnessapp.feature.cardio.model.*
@@ -36,17 +33,26 @@ import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitnessapp.feature.workout.model.*
 import com.yeonsik.fitnessapp.feature.workout.ui.*
 import com.yeonsik.fitnessapp.state.FitnessScreen
-import com.yeonsik.fitnessapp.ui.*
 import kotlinx.coroutines.delay
 import java.time.LocalDate
 
+interface RecordsScreenActions {
+    fun selectDate(date: String)
+    fun openRecord(recordId: String)
+    fun deleteRecord(recordId: String)
+    fun showBodyMetric(date: String, recordId: String?)
+    fun openMeals(date: String)
+}
+
 @Composable
-internal fun RecordsScreen(host: ScreenHost, ownerId: String, today: String, unit: MassUnit) {
-    val state by host.homeViewModel().uiState.observeAsState(HomeUiState.Idle)
-    var selectedDate by rememberSaveable(ownerId) { mutableStateOf(today) }
-    LaunchedEffect(ownerId, selectedDate) {
-        host.homeViewModel().enter(AccountScope(ownerId), selectedDate)
-    }
+internal fun RecordsScreen(
+    state: HomeUiState,
+    ownerId: String,
+    today: String,
+    unit: MassUnit,
+    selectedDate: String,
+    actions: RecordsScreenActions
+) {
     val ready = state as? HomeUiState.Ready
     AppHeader("기록", selectedDate)
     if (ready == null || ready.snapshot.ownerId != ownerId) {
@@ -63,8 +69,9 @@ internal fun RecordsScreen(host: ScreenHost, ownerId: String, today: String, uni
     ) {
         AppOutlinedButton(
             onClick = {
-                selectedDate = runCatching { LocalDate.parse(date).minusDays(1).toString() }
+                val previous = runCatching { LocalDate.parse(date).minusDays(1).toString() }
                     .getOrDefault(date)
+                actions.selectDate(previous)
             },
             modifier = Modifier.weight(1f)
         ) { Text("이전 날짜") }
@@ -73,7 +80,7 @@ internal fun RecordsScreen(host: ScreenHost, ownerId: String, today: String, uni
             onClick = {
                 val next = runCatching { LocalDate.parse(date).plusDays(1).toString() }
                     .getOrDefault(date)
-                if (next <= today) selectedDate = next
+                if (next <= today) actions.selectDate(next)
             },
             enabled = date < today,
             modifier = Modifier.weight(1f)
@@ -86,7 +93,7 @@ internal fun RecordsScreen(host: ScreenHost, ownerId: String, today: String, uni
     if (snapshot.todaySessions.isNotEmpty()) {
         Text("운동 기록", fontWeight = FontWeight.Bold)
         snapshot.todaySessions.forEach { recordId ->
-            AppCard(Modifier.fillMaxWidth().clickable { host.openRecord(recordId) }) {
+            AppCard(Modifier.fillMaxWidth().clickable { actions.openRecord(recordId) }) {
                 Row(
                     Modifier.padding(AppSpacing.card),
                     horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
@@ -96,13 +103,15 @@ internal fun RecordsScreen(host: ScreenHost, ownerId: String, today: String, uni
                         Text("운동 기록", fontWeight = FontWeight.Bold)
                         Text(recordId.take(8), style = MaterialTheme.typography.bodySmall)
                     }
-                    AppOutlinedButton(onClick = { host.confirmDeleteSession(recordId) }) { Text("삭제") }
+                    AppOutlinedButton(onClick = { actions.deleteRecord(recordId) }) { Text("삭제") }
                 }
             }
         }
     }
     snapshot.todayBodyMetrics.forEach { metric ->
-        AppCard(Modifier.fillMaxWidth().clickable { host.showBodyMetricDialog(metric.date, metric.id) }) {
+        AppCard(Modifier.fillMaxWidth().clickable {
+            actions.showBodyMetric(metric.date, metric.id)
+        }) {
             Row(
                 Modifier.padding(AppSpacing.card),
                 horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
@@ -117,6 +126,9 @@ internal fun RecordsScreen(host: ScreenHost, ownerId: String, today: String, uni
         }
     }
     snapshot.todayMeals.forEach { AppDataRow(it.mealLabel, it.previewTitle) }
-    AppOutlinedButton(onClick = { host.showBodyMetricDialog(date, null) }, Modifier.fillMaxWidth()) { Text("체중 기록") }
-    AppOutlinedButton(onClick = { host.openMealManagement(date, FitnessScreen.RECORDS) }, Modifier.fillMaxWidth()) { Text("식사 기록") }
+    AppOutlinedButton(
+        onClick = { actions.showBodyMetric(date, null) },
+        modifier = Modifier.fillMaxWidth()
+    ) { Text("체중 기록") }
+    AppOutlinedButton(onClick = { actions.openMeals(date) }, Modifier.fillMaxWidth()) { Text("식사 기록") }
 }
