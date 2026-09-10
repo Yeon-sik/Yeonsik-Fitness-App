@@ -3,8 +3,8 @@ package com.yeonsik.fitnessapp.feature.development.application;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
-import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository;
 import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService;
+import com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi;
 
 /**
  * Coordinates the two records edited by the Development surface: body profile and today's
@@ -12,12 +12,12 @@ import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationSer
  * and navigation, not repository sequencing.
  */
 public final class DevelopmentApplicationService {
-    private final DevelopmentRepository developmentRepository;
+    private final DevelopmentRepositoryApi developmentRepository;
     private final BodyMetricsApplicationService bodyMetrics;
     private volatile String ownerId;
 
     public DevelopmentApplicationService(
-            DevelopmentRepository developmentRepository,
+            DevelopmentRepositoryApi developmentRepository,
             BodyMetricsApplicationService bodyMetrics,
             String ownerId
     ) {
@@ -63,12 +63,12 @@ public final class DevelopmentApplicationService {
 
     public DevelopmentGoal loadGoal(AccountScope scope) {
         requireScope(scope);
-        return developmentRepository.developmentGoal();
+        return developmentRepository.developmentGoal(scope);
     }
 
     public void saveGoal(AccountScope scope, DevelopmentGoal goal) {
         requireScope(scope);
-        developmentRepository.saveDevelopmentGoal(goal);
+        developmentRepository.saveDevelopmentGoal(scope, goal);
     }
 
     private void requireScope(AccountScope scope) {

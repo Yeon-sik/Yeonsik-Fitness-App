@@ -5,7 +5,6 @@ import com.yeonsik.fitnessapp.development.DevelopmentGoal
 import com.yeonsik.fitnessapp.development.DevelopmentInsightRules
 import com.yeonsik.fitnessapp.development.DevelopmentReport
 import com.yeonsik.fitnessapp.development.PaperAdviceAssessment
-import com.yeonsik.fitnessapp.feature.development.application.PaperAdviceSnapshotAssembler
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReadApi
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi

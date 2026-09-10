@@ -6,14 +6,16 @@ import com.yeonsik.fitnessapp.core.database.DevelopmentRoomDao;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
+import com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi;
 
 import java.time.OffsetDateTime;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
 
-public final class DevelopmentRepository {
+public final class DevelopmentRepository implements DevelopmentRepositoryApi {
     private final FitnessRoomDatabase roomDatabase;
     private final DevelopmentRoomDao developmentDao;
     private String userId;
@@ -64,6 +66,12 @@ public final class DevelopmentRepository {
         return DevelopmentGoal.empty();
     }
 
+    @Override
+    public DevelopmentGoal developmentGoal(AccountScope scope) {
+        requireScope(scope);
+        return developmentGoal();
+    }
+
     public void saveDevelopmentGoal(DevelopmentGoal goal) {
         if (goal == null) {
             throw new IllegalArgumentException("발전 목표가 필요합니다.");
@@ -83,6 +91,12 @@ public final class DevelopmentRepository {
                 existing == null ? now : existing.getCreatedAt(),
                 now
         ));
+    }
+
+    @Override
+    public void saveDevelopmentGoal(AccountScope scope, DevelopmentGoal goal) {
+        requireScope(scope);
+        saveDevelopmentGoal(goal);
     }
 
     private void claimDevelopmentGoal(String nextUserId) {
@@ -113,6 +127,12 @@ public final class DevelopmentRepository {
     private static String normalizeUserId(String value) {
         String trimmed = value == null ? "" : value.trim();
         return trimmed.isEmpty() ? SupabaseConfig.DEFAULT_USER_ID : trimmed;
+    }
+
+    private void requireScope(AccountScope scope) {
+        if (scope == null || !userId.equals(scope.getOwnerId())) {
+            throw new IllegalStateException("The account changed while the development operation was pending.");
+        }
     }
 
     /** Compatibility utility retained for stable development model tests. */
