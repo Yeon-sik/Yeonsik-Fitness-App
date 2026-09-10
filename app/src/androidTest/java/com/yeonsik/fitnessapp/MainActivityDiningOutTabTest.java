@@ -12,7 +12,7 @@ import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.data.FitnessRepository;
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.CompositionGroup;
 import com.yeonsik.fitnessapp.data.CompositionGroupType;
 import com.yeonsik.fitnessapp.data.CompositionMember;

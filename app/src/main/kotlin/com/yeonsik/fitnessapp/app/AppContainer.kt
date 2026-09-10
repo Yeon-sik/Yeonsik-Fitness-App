@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.app
 
 import android.content.Context
-import com.yeonsik.fitnessapp.cardio.CardioRepository
+import com.yeonsik.fitnessapp.feature.cardio.data.CardioRepository
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore
 import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore
 import com.yeonsik.fitnessapp.config.SupabaseConfig
@@ -11,11 +11,11 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
 import com.yeonsik.fitnessapp.core.database.backup.RoomBackupDatabaseStorage
-import com.yeonsik.fitnessapp.data.BodyMetricsRepository
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository
+import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsRepository
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository
 import com.yeonsik.fitnessapp.data.ProductReadV1Client
 import com.yeonsik.fitnessapp.data.RestaurantMenuReadV1Client
-import com.yeonsik.fitnessapp.development.DevelopmentRepository
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
 import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService
@@ -47,8 +47,8 @@ import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutInterchangeRepository
-import com.yeonsik.fitnessapp.routine.RoutineRepository
-import com.yeonsik.fitnessapp.supplement.SupplementRepository
+import com.yeonsik.fitnessapp.feature.routine.data.RoutineRepository
+import com.yeonsik.fitnessapp.feature.supplement.data.SupplementRepository
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
 import com.yeonsik.fitnessapp.sync.SupabaseSyncManager
 

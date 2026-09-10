@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.supplement;
+package com.yeonsik.fitnessapp.feature.supplement.data;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
@@ -11,6 +11,8 @@ import com.yeonsik.fitnessapp.core.database.SupplementRoomDao;
 import com.yeonsik.fitnessapp.core.database.SupplementScheduleSlotsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.SupplementSchedulesRoomEntity;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
+import com.yeonsik.fitnessapp.supplement.SupplementCatalog;
+import com.yeonsik.fitnessapp.supplement.SupplementPlan;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;

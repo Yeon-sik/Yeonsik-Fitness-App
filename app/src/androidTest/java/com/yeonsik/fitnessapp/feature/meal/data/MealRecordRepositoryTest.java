@@ -14,7 +14,7 @@ import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
-import com.yeonsik.fitnessapp.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionUnit;

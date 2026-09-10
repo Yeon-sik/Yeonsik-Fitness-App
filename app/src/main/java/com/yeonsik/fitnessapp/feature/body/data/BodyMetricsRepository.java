@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.data;
+package com.yeonsik.fitnessapp.feature.body.data;
 
 import androidx.annotation.NonNull;
 
@@ -8,6 +8,8 @@ import com.yeonsik.fitnessapp.core.database.BodyRoomDao;
 import com.yeonsik.fitnessapp.core.database.DevicesRoomEntity;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.WeightRecordEntity;
+import com.yeonsik.fitnessapp.data.BodyMetricEntry;
+import com.yeonsik.fitnessapp.data.TextValuePolicy;
 import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsRepositoryApi;
 

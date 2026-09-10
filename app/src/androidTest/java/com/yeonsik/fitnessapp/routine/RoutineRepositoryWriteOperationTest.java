@@ -16,6 +16,7 @@ import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
+import com.yeonsik.fitnessapp.feature.routine.data.RoutineRepository;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

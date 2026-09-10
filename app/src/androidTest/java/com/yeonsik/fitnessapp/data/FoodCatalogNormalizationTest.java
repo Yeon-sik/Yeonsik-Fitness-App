@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.ContextWrapper;

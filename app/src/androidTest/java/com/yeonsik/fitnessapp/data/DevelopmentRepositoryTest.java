@@ -14,7 +14,7 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.development.DevelopmentReport;
-import com.yeonsik.fitnessapp.development.DevelopmentRepository;
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository;
 import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository;
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentReportService;
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentReadRepository;

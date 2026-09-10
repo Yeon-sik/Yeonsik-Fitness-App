@@ -29,6 +29,7 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
+import com.yeonsik.fitnessapp.feature.cardio.data.CardioRepository;
 
 /** 화면이 꺼지거나 앱이 백그라운드로 이동해도 GPS 유산소를 계속 추적한다. */
 public final class CardioTrackingService extends Service {

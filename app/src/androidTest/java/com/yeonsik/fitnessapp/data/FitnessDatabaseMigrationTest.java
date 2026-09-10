@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
+
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.database.DatabaseErrorHandler;
@@ -11,7 +13,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
-import com.yeonsik.fitnessapp.development.DevelopmentRepository;
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;

@@ -3,7 +3,7 @@ package com.yeonsik.fitnessapp.feature.development.application;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.development.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
-import com.yeonsik.fitnessapp.development.DevelopmentRepository;
+import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository;
 import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService;
 
 /**

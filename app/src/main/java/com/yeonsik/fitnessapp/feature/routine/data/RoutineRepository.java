@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.routine;
+package com.yeonsik.fitnessapp.feature.routine.data;
 
 import android.content.Context;
 
@@ -16,6 +16,7 @@ import com.yeonsik.fitnessapp.exercise.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
+import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi;
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft;
 

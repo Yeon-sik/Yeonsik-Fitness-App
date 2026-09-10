@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.data;
+package com.yeonsik.fitnessapp.feature.nutrition.data;
 
 import android.content.Context;
 
@@ -14,6 +14,22 @@ import com.yeonsik.fitnessapp.core.database.PricetraceProductCacheRoomEntity;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.data.CompositionGroupType;
+import com.yeonsik.fitnessapp.data.CompositionTemplate;
+import com.yeonsik.fitnessapp.data.DiningOutComponent;
+import com.yeonsik.fitnessapp.data.DiningOutIdentity;
+import com.yeonsik.fitnessapp.data.DiningOutOption;
+import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
+import com.yeonsik.fitnessapp.data.MealCompositionItem;
+import com.yeonsik.fitnessapp.data.MealEntryPolicy;
+import com.yeonsik.fitnessapp.data.NutrientCode;
+import com.yeonsik.fitnessapp.data.NutritionCalculator;
+import com.yeonsik.fitnessapp.data.NutritionFood;
+import com.yeonsik.fitnessapp.data.NutritionProfile;
+import com.yeonsik.fitnessapp.data.NutritionUnit;
+import com.yeonsik.fitnessapp.data.ProductNutritionLink;
+import com.yeonsik.fitnessapp.data.ProductReadV1;
+import com.yeonsik.fitnessapp.data.VerifiedFoodCatalogSeed;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogSyncStore;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogBackupApi;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionCatalogSyncSnapshot;
@@ -51,7 +67,7 @@ public final class NutritionCatalogRepository implements
         NutritionCatalogSyncStore,
         NutritionCatalogBackupApi {
     /** 영양 전용 DB의 카탈로그 테이블. 공통 사용자 기록 테이블은 여기 들어올 수 없다. */
-    static final List<String> CATALOG_TABLES = java.util.Collections.unmodifiableList(
+    public static final List<String> CATALOG_TABLES = java.util.Collections.unmodifiableList(
             java.util.Arrays.asList(
                     "nutrition_foods",
                     "nutrition_food_nutrients",
@@ -72,7 +88,7 @@ public final class NutritionCatalogRepository implements
     private static final int PACKAGED_PRODUCT_RESULT_LIMIT_MAX = 50;
 
     /** Stable sync contract allowlist retained for codec and policy tests. */
-    static final String[] PRODUCT_LINK_SYNC_COLUMNS = {
+    public static final String[] PRODUCT_LINK_SYNC_COLUMNS = {
             "id", "owner_id", "nutrition_food_id", "catalog_product_id", "standard_product_id", "status",
             "source_type", "proposal_reference", "product_contract_version",
             "catalog_product_revision", "catalog_content_amount", "catalog_content_unit",
@@ -719,7 +735,7 @@ public final class NutritionCatalogRepository implements
     }
 
     /** Canonical identity used by the saved dining-out menu list and menu upsert. */
-    static String canonicalDiningOutMenuKey(
+    public static String canonicalDiningOutMenuKey(
             String storeName,
             String menuName,
             String sourceReference
@@ -731,7 +747,7 @@ public final class NutritionCatalogRepository implements
         ).key();
     }
 
-    static String canonicalDiningOutMenuKey(NutritionFood food) {
+    public static String canonicalDiningOutMenuKey(NutritionFood food) {
         if (food == null) {
             return "unresolved|menu";
         }
@@ -2465,7 +2481,7 @@ public final class NutritionCatalogRepository implements
      * Compatibility policy text used by the existing sync contract tests. Runtime reads use
      * the equivalent typed queries on NutritionRoomDao; this helper never executes SQL.
      */
-    static String publicationSafePushWhere(String table) {
+    public static String publicationSafePushWhere(String table) {
         if ("nutrition_foods".equals(table)) {
             return " WHERE owner_id = ? AND visibility = 'private'" +
                     " AND lower(COALESCE(source_type, '')) IN " +
@@ -2495,7 +2511,7 @@ public final class NutritionCatalogRepository implements
         return " WHERE owner_id = ?";
     }
 
-    static int compareVersions(String left, String right) {
+    public static int compareVersions(String left, String right) {
         if (left == null && right == null) {
             return 0;
         }

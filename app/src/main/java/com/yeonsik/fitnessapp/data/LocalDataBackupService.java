@@ -10,6 +10,7 @@ import com.yeonsik.fitnessapp.core.database.backup.BackupDatabaseStorage;
 import com.yeonsik.fitnessapp.core.database.backup.RoomBackupDatabaseStorage;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogBackupApi;
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
 
 import org.json.JSONArray;
 import org.json.JSONException;

@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThrows;
