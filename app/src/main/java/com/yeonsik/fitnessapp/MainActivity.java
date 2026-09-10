@@ -21,12 +21,6 @@ import android.view.WindowInsetsController;
 import android.view.WindowManager;
 import android.window.OnBackInvokedCallback;
 import android.window.OnBackInvokedDispatcher;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.FrameLayout;
-import android.widget.LinearLayout;
-import android.widget.ScrollView;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.ComponentActivity;
@@ -40,7 +34,6 @@ import com.yeonsik.fitnessapp.app.navigation.AppNavigationViewModel;
 import com.yeonsik.fitnessapp.app.navigation.AppViewModels;
 import com.yeonsik.fitnessapp.app.navigation.ComposeAppScreen;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
-import com.yeonsik.fitnessapp.cardio.CardioMetrics;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
 import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
@@ -52,16 +45,10 @@ import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.data.MassFormatter;
 import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
-import com.yeonsik.fitnessapp.development.BodyProfile;
-import com.yeonsik.fitnessapp.development.DevelopmentGoal;
-import com.yeonsik.fitnessapp.development.DevelopmentInsight;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
-import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService;
-import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsEditorUiState;
 import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel;
-import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService;
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService;
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
 import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService;
@@ -71,17 +58,9 @@ import com.yeonsik.fitnessapp.ui.AppUiActions;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
-import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutRestTimerState;
-import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionAction;
-import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionActionEvent;
-import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionActionOutcome;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
-import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionAction;
-import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionActionEvent;
-import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionActionOutcome;
-import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance;
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
@@ -89,8 +68,6 @@ import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
-import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentProfileEditorUiState;
-import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentGoalEditorUiState;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerUiState;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
@@ -328,21 +305,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         )
                 )
         ).get(BodyMetricsViewModel.class);
-        bodyMetricsViewModel.getEditorState().observe(this, state -> {
-            if (state instanceof BodyMetricsEditorUiState.Ready) {
-                BodyMetricsEditorUiState.Ready ready = (BodyMetricsEditorUiState.Ready) state;
-                if (ready.getOwnerId().equals(currentOwnerId())) {
-                    showBodyMetricDialogForm(ready.getOwnerId(), ready.getEditor());
-                }
-            } else if (state instanceof BodyMetricsEditorUiState.Saved
-                    || state instanceof BodyMetricsEditorUiState.Deleted) {
-            } else if (state instanceof BodyMetricsEditorUiState.Error) {
-                BodyMetricsEditorUiState.Error error = (BodyMetricsEditorUiState.Error) state;
-                if (error.getOwnerId().equals(currentOwnerId())) {
-                    toast(error.getMessage());
-                }
-            }
-        });
         workoutSessionViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -356,48 +318,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         )
                 )
         ).get(WorkoutSessionViewModel.class);
-        workoutSessionViewModel.getUiState().observe(this, state -> {
-            if (currentScreen() != FitnessScreen.WORKOUT_SESSION) {
-                return;
-            }
-            if (state instanceof WorkoutSessionUiState.Ready) {
-                WorkoutSessionUiState.Ready ready = (WorkoutSessionUiState.Ready) state;
-                if (ready.getOwnerId().equals(currentOwnerId())
-                        && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
-                }
-            } else if (state instanceof WorkoutSessionUiState.Missing) {
-                WorkoutSessionUiState.Missing missing = (WorkoutSessionUiState.Missing) state;
-                if (missing.getOwnerId().equals(currentOwnerId())
-                        && missing.getRecordId().equals(sessionState.activeRecordId())) {
-                    sessionState.clearIfMatches(missing.getRecordId());
-                    replace(FitnessScreen.STRENGTH);
-                }
-            } else if (state instanceof WorkoutSessionUiState.Completed) {
-                WorkoutSessionUiState.Completed completed = (WorkoutSessionUiState.Completed) state;
-                if (completed.getOwnerId().equals(currentOwnerId())
-                        && completed.getRecordId().equals(sessionState.activeRecordId())) {
-                    knownInProgressRecordId = null;
-                    toast("운동을 완료했습니다.");
-                    replace(FitnessScreen.WORKOUT_SUMMARY);
-                }
-            } else if (state instanceof WorkoutSessionUiState.DiscardedEmptySession) {
-                WorkoutSessionUiState.DiscardedEmptySession discarded =
-                        (WorkoutSessionUiState.DiscardedEmptySession) state;
-                if (discarded.getOwnerId().equals(currentOwnerId())
-                        && discarded.getRecordId().equals(sessionState.activeRecordId())) {
-                    knownInProgressRecordId = null;
-                    sessionState.clearIfMatches(discarded.getRecordId());
-                    toast("수행한 세트가 없어 운동을 저장하지 않았습니다.");
-                    replace(FitnessScreen.STRENGTH);
-                }
-            } else if (state instanceof WorkoutSessionUiState.Error) {
-                WorkoutSessionUiState.Error error = (WorkoutSessionUiState.Error) state;
-                if (error.getOwnerId().equals(currentOwnerId())) {
-                    toast(error.getMessage());
-                }
-            }
-        });
-        workoutSessionViewModel.getActionState().observe(this, this::handleWorkoutSessionAction);
         workoutExerciseDetailViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -453,7 +373,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                 }
             }
         });
-        cardioSessionViewModel.getActionState().observe(this, this::handleCardioSessionAction);
         routineEntryViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -525,42 +444,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         )
                 )
         ).get(DevelopmentViewModel.class);
-        developmentViewModel.getProfileEditorState().observe(this, state -> {
-            if (state instanceof DevelopmentProfileEditorUiState.Ready) {
-                DevelopmentProfileEditorUiState.Ready ready =
-                        (DevelopmentProfileEditorUiState.Ready) state;
-                if (ready.getOwnerId().equals(currentOwnerId())) {
-                    showDevelopmentBodyProfileDialogForm(
-                            ready.getOwnerId(),
-                            ready.getDate(),
-                            ready.getEditor()
-                    );
-                }
-            } else if (state instanceof DevelopmentProfileEditorUiState.Saved) {
-            } else if (state instanceof DevelopmentProfileEditorUiState.Error) {
-                DevelopmentProfileEditorUiState.Error error =
-                        (DevelopmentProfileEditorUiState.Error) state;
-                if (error.getOwnerId().equals(currentOwnerId())) {
-                    toast(error.getMessage());
-                }
-            }
-        });
-        developmentViewModel.getGoalEditorState().observe(this, state -> {
-            if (state instanceof DevelopmentGoalEditorUiState.Ready) {
-                DevelopmentGoalEditorUiState.Ready ready =
-                        (DevelopmentGoalEditorUiState.Ready) state;
-                if (ready.getOwnerId().equals(currentOwnerId())) {
-                    showDevelopmentGoalDialogForm(ready.getOwnerId(), ready.getGoal());
-                }
-            } else if (state instanceof DevelopmentGoalEditorUiState.Saved) {
-            } else if (state instanceof DevelopmentGoalEditorUiState.Error) {
-                DevelopmentGoalEditorUiState.Error error =
-                        (DevelopmentGoalEditorUiState.Error) state;
-                if (error.getOwnerId().equals(currentOwnerId())) {
-                    toast(error.getMessage());
-                }
-            }
-        });
         supplementViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -623,77 +506,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         )
                 )
         ).get(MealViewModel.class);
-    }
-
-    /**
-     * Applies one-shot workout action results. The ViewModel owns the database work; this
-     * Activity only performs platform navigation, confirmation feedback, and legacy chrome
-     * updates until U3 moves those concerns into the Compose root.
-     */
-    private void handleWorkoutSessionAction(WorkoutSessionActionEvent event) {
-        if (event == null
-                || !currentOwnerId().equals(event.getOwnerId())
-                || !event.consume()) {
-            return;
-        }
-        WorkoutSessionActionOutcome outcome = event.getOutcome();
-        if (outcome == WorkoutSessionActionOutcome.FAILURE
-                || outcome == WorkoutSessionActionOutcome.NONE) {
-            toast(event.getMessage() == null
-                    ? "운동 작업을 완료하지 못했습니다."
-                    : event.getMessage());
-            return;
-        }
-
-        String recordId = event.getRecordId();
-        if (recordId == null) {
-            toast("운동 기록을 찾지 못했습니다.");
-            return;
-        }
-
-        if (outcome == WorkoutSessionActionOutcome.OPEN_EXISTING) {
-            knownInProgressRecordId = recordId;
-            if (event.getMessage() != null) {
-                toast(event.getMessage());
-            }
-            if (event.getAction() == WorkoutSessionAction.OPEN_RECORD) {
-                if (event.getCardioSession()) {
-                    openCardioSummary(recordId);
-                } else {
-                    openWorkoutSession(recordId);
-                }
-            } else if (event.getCardioSession()) {
-                openCardioSession(recordId);
-            } else {
-                openWorkoutSession(recordId);
-            }
-            return;
-        }
-
-        if (outcome == WorkoutSessionActionOutcome.CREATED) {
-            knownInProgressRecordId = recordId;
-            if (event.getAction() == WorkoutSessionAction.START_ROUTINE) {
-                toast("루틴 운동을 시작했습니다.");
-            } else if (event.getAction() == WorkoutSessionAction.START_MANUAL_PAST) {
-                toast("세트와 횟수를 입력한 뒤 운동 완료를 누르세요.");
-            }
-            openWorkoutSession(recordId);
-            return;
-        }
-
-        if (outcome == WorkoutSessionActionOutcome.DELETED) {
-            if (recordId.equals(knownInProgressRecordId)) {
-                knownInProgressRecordId = null;
-            }
-            sessionState.clearIfMatches(recordId);
-            toast("운동 기록을 삭제했습니다.");
-            if (currentScreen() == FitnessScreen.RECORDS) {
-            } else {
-                replace(event.getCardioSession()
-                        ? FitnessScreen.CARDIO
-                        : FitnessScreen.STRENGTH);
-            }
-        }
     }
 
     private void handleSettingsEvent(SettingsEvent event) {
@@ -838,163 +650,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             );
         } catch (Exception error) {
             toast("백업 파일을 다시 읽지 못했습니다.");
-        }
-    }
-
-    /** Applies one-shot cardio results while keeping GPS permission/service work platform-owned. */
-    private void handleCardioSessionAction(CardioSessionActionEvent event) {
-        if (event == null
-                || !currentOwnerId().equals(event.getOwnerId())
-                || !event.consume()) {
-            return;
-        }
-        CardioSessionActionOutcome outcome = event.getOutcome();
-        if (outcome == CardioSessionActionOutcome.FAILURE
-                || outcome == CardioSessionActionOutcome.NOT_FOUND) {
-            toast(event.getMessage() == null
-                    ? "유산소 작업을 완료하지 못했습니다."
-                    : event.getMessage());
-            return;
-        }
-
-        String recordId = event.getRecordId();
-        CardioSessionSnapshot session = event.getSession();
-        switch (event.getAction()) {
-            case OPEN:
-                openCardioSessionLoaded(session);
-                if (pendingCardioFinishRequested) {
-                    pendingCardioFinishRequested = false;
-                    if (session != null
-                            && !CardioSessionSnapshot.STATUS_COMPLETED.equals(session.getStatus())) {
-                        finishCardioWorkout();
-                    }
-                }
-                return;
-            case START:
-                if (session == null || recordId == null) {
-                    toast("유산소 기록을 시작하지 못했습니다.");
-                    return;
-                }
-                knownInProgressRecordId = recordId;
-                sessionState.setActiveRecordId(recordId);
-                sessionState.setActiveExerciseId(null);
-                dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
-                toast(cardioActivityType(session).labelKo() + " 기록을 시작했습니다.");
-                navigate(FitnessScreen.CARDIO_SESSION);
-                return;
-            case PREPARE_RESUME:
-                if (session == null || recordId == null) {
-                    toast("재개할 유산소 기록을 찾지 못했습니다.");
-                    return;
-                }
-                pendingCardioActivityType = cardioActivityType(session);
-                pendingCardioResumeRecordId = recordId;
-                requestCardioPermissionsAndContinue();
-                return;
-            case RESUME:
-                if (recordId == null) {
-                    toast("재개할 유산소 기록을 찾지 못했습니다.");
-                    return;
-                }
-                knownInProgressRecordId = recordId;
-                sessionState.setActiveRecordId(recordId);
-                sessionState.setActiveExerciseId(null);
-                dispatchCardioService(CardioTrackingService.ACTION_RESUME, recordId, true);
-                toast("GPS 기록을 재개했습니다.");
-                navigate(FitnessScreen.CARDIO_SESSION);
-                return;
-            case PAUSE:
-                if (recordId == null) {
-                    toast("일시정지할 유산소 기록을 찾지 못했습니다.");
-                    return;
-                }
-                dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
-                toast("GPS 기록을 일시정지했습니다.");
-                cardioSessionViewModel.refresh(new AccountScope(currentOwnerId()), recordId);
-                return;
-            case PREPARE_FINISH:
-                if (outcome == CardioSessionActionOutcome.COMPLETED) {
-                    openCardioSessionLoaded(session);
-                    return;
-                }
-                if (recordId == null || session == null) {
-                    toast("완료할 유산소 기록을 찾지 못했습니다.");
-                    return;
-                }
-                if (event.getPausedByFinish()) {
-                    dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
-                }
-                showCardioHeartRateSheet(recordId, true, session);
-                return;
-            case FINISH:
-                if (recordId == null || session == null) {
-                    toast("평균 심박수를 저장하지 못했습니다.");
-                    return;
-                }
-                knownInProgressRecordId = null;
-                stopService(new Intent(this, CardioTrackingService.class));
-                toast("유산소 운동을 완료했습니다.");
-                sessionState.setActiveRecordId(recordId);
-                sessionState.setActiveExerciseId(null);
-                if (currentScreen() == FitnessScreen.CARDIO_SESSION) {
-                    replace(FitnessScreen.CARDIO_SUMMARY);
-                } else {
-                    navigate(FitnessScreen.CARDIO_SUMMARY);
-                }
-                return;
-            case PREPARE_HEART_RATE_EDIT:
-                if (recordId == null || session == null) {
-                    toast("수정할 유산소 기록을 찾지 못했습니다.");
-                    return;
-                }
-                showCardioHeartRateSheet(recordId, false, session);
-                return;
-            case UPDATE_HEART_RATE:
-                if (recordId == null || session == null) {
-                    toast("평균 심박수를 저장하지 못했습니다.");
-                    return;
-                }
-                toast("평균 심박수를 저장했습니다.");
-                cardioSessionViewModel.refresh(new AccountScope(currentOwnerId()), recordId);
-                return;
-            case PREPARE_CANCEL:
-                if (recordId == null || session == null) {
-                    toast("취소할 유산소 기록을 찾지 못했습니다.");
-                    return;
-                }
-                ui.confirmSheet(
-                        "유산소 기록 취소",
-                        "현재 " + CardioMetrics.formatDistanceKilometers(
-                                session.getDistanceMeters()
-                        ) + "km 기록을 저장하지 않습니다.",
-                        "이 기기에 저장된 GPS 좌표도 함께 삭제됩니다.",
-                        "기록 취소",
-                        () -> {
-                            stopService(new Intent(this, CardioTrackingService.class));
-                            cardioSessionViewModel.cancel(
-                                    new AccountScope(currentOwnerId()), recordId
-                            );
-                        }
-                );
-                return;
-            case CANCEL:
-                if (recordId == null) {
-                    toast("취소할 유산소 기록을 찾지 못했습니다.");
-                    return;
-                }
-                stopService(new Intent(this, CardioTrackingService.class));
-                if (recordId.equals(knownInProgressRecordId)) {
-                    knownInProgressRecordId = null;
-                }
-                sessionState.clearIfMatches(recordId);
-                toast("유산소 기록을 취소했습니다.");
-                replace(FitnessScreen.CARDIO);
-                return;
-            case LOAD_ROUTE:
-                // The route callback adapter is migrated in the next cardio UI boundary step.
-                return;
-            default:
-                return;
         }
     }
 
@@ -1327,6 +982,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                 navigationViewModel,
                 new AppViewModels(
                         workoutSessionViewModel,
+                        bodyMetricsViewModel,
                         workoutExerciseDetailViewModel,
                         cardioSessionViewModel,
                         routineEntryViewModel,
@@ -1493,15 +1149,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     @Override
-    public void refreshCardioSession() {
-        String recordId = sessionState.activeRecordId();
-        if (recordId != null) {
-            cardioSessionViewModel.refresh(new AccountScope(currentOwnerId()), recordId);
-        }
-    }
-
-
-    @Override
     public void toast(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
@@ -1605,6 +1252,18 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         if (knownInProgressRecordId != null) {
             return knownInProgressRecordId;
         }
+        if (workoutSessionViewModel != null) {
+            String savedRecordId = workoutSessionViewModel.activeRecordId();
+            if (savedRecordId != null) {
+                return savedRecordId;
+            }
+        }
+        if (cardioSessionViewModel != null) {
+            String savedRecordId = cardioSessionViewModel.activeRecordId();
+            if (savedRecordId != null) {
+                return savedRecordId;
+            }
+        }
         return homeViewModel == null ? null : homeViewModel.latestInProgressSessionId();
     }
 
@@ -1625,110 +1284,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     @Override
-    public void showPastWorkoutDialog() {
-        continueExistingWorkoutIfPresent(this::showPastWorkoutForm);
-    }
-
-    private void showPastWorkoutForm() {
-
-        RoutineEntryUiState routineState = routineEntryViewModel.getUiState().getValue();
-        String activeRoutineId = selectedRoutineId();
-        if (activeRoutineId == null && routineState instanceof RoutineEntryUiState.Ready) {
-            activeRoutineId = ((RoutineEntryUiState.Ready) routineState).getActiveRoutineId();
-        }
-        List<RoutineSummary> routines = homeViewModel.routines();
-        RoutineSummary[] selectedRoutine = {null};
-        for (RoutineSummary routine : routines) {
-            if (routine.id.equals(activeRoutineId)) {
-                selectedRoutine[0] = routine;
-                break;
-            }
-        }
-
-        LinearLayout form = ui.form();
-        EditText dateInput = ui.input("날짜 (YYYY-MM-DD)", LocalDate.now().minusDays(1).toString());
-        EditText startTimeInput = ui.input("시작 시각 (HH:mm)", "18:00");
-        EditText durationInput = ui.numberInput("운동 시간 (분)", "60");
-        Button routineButton = ui.button(manualWorkoutRoutineLabel(selectedRoutine[0]), false, null);
-        routineButton.setOnClickListener(v -> {
-            String[] labels = new String[routines.size() + 1];
-            labels[0] = "루틴 없이 운동";
-            int checked = 0;
-            for (int index = 0; index < routines.size(); index++) {
-                RoutineSummary routine = routines.get(index);
-                labels[index + 1] = manualWorkoutRoutineLabel(routine);
-                if (selectedRoutine[0] != null && routine.id.equals(selectedRoutine[0].id)) {
-                    checked = index + 1;
-                }
-            }
-            ui.choiceSheet("운동 루틴", Arrays.asList(labels), checked, which -> {
-                        selectedRoutine[0] = which == 0 ? null : routines.get(which - 1);
-                        routineButton.setText(manualWorkoutRoutineLabel(selectedRoutine[0]));
-                    });
-        });
-        ui.addAll(
-                form,
-                ui.labeledFieldColumn("운동 날짜", dateInput),
-                ui.labeledFieldColumn("시작 시각", startTimeInput),
-                ui.labeledFieldColumn("운동 시간", durationInput),
-                ui.labeledFieldColumn("운동 루틴", routineButton)
-        );
-
-        ui.validatedSheet("지난 운동 수동 등록", form, "세트 입력으로 이동", () -> {
-            try {
-                LocalDate selectedDate = LocalDate.parse(FitnessUi.inputText(dateInput).trim());
-                LocalTime selectedTime = LocalTime.parse(
-                        FitnessUi.inputText(startTimeInput).trim(),
-                        MANUAL_WORKOUT_TIME_FORMAT
-                );
-                Integer durationMinutes = FitnessUi.optionalInt(durationInput);
-                if (durationMinutes == null || durationMinutes <= 0 || durationMinutes > 1440) {
-                    throw new IllegalArgumentException("운동 시간은 1~1440분으로 입력하세요.");
-                }
-
-                OffsetDateTime startedAt = selectedDate.atTime(selectedTime).atOffset(KOREA_OFFSET);
-                OffsetDateTime endedAt = startedAt.plusMinutes(durationMinutes);
-                if (endedAt.isAfter(OffsetDateTime.now(KOREA_OFFSET))) {
-                    throw new IllegalArgumentException("종료 시각이 현재보다 늦을 수 없습니다.");
-                }
-
-                RoutineSummary routine = selectedRoutine[0];
-                List<RoutineExerciseInstance> exercises = routine == null
-                        ? java.util.Collections.emptyList()
-                        : homeViewModel.routineExercises(routine.id);
-                String ownerId = currentOwnerId();
-                String date = selectedDate.toString();
-                String title = routine == null ? "루틴 없이 운동" : routine.name;
-                String routineId = routine == null ? null : routine.id;
-                String started = startedAt.toString();
-                String ended = endedAt.toString();
-                workoutSessionViewModel.startManualPast(
-                        new AccountScope(ownerId),
-                        date,
-                        title,
-                        routineId,
-                        exercises,
-                        started,
-                        ended
-                );
-                return true;
-            } catch (DateTimeParseException error) {
-                toast("날짜는 YYYY-MM-DD, 시작 시각은 HH:mm 형식으로 입력하세요.");
-                return false;
-            } catch (IllegalArgumentException error) {
-                toast(error.getMessage());
-                return false;
-            }
-        });
-    }
-
-    private static String manualWorkoutRoutineLabel(RoutineSummary routine) {
-        return routine == null
-                ? "루틴 없이 운동"
-                : routine.name + " · " + routine.exerciseCount + "종목";
-    }
-
-    @Override
     public void startCardioWorkout(CardioActivityType activityType) {
         if (activityType == null) {
             toast("유산소 유형을 선택하세요.");
@@ -1740,14 +1295,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             pendingCardioResumeRecordId = null;
             requestCardioPermissionsAndContinue();
         });
-    }
-
-    @Override
-    public void openCardioSummary(String recordId) {
-        if (recordId == null) {
-            return;
-        }
-        cardioSessionViewModel.open(new AccountScope(currentOwnerId()), recordId);
     }
 
     private void registerBackCallback() {
@@ -1786,142 +1333,75 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     @Override
-    public void pauseCardioWorkout() {
-        String recordId = sessionState.activeRecordId();
+    public void startCardioTracking(String recordId) {
         if (recordId == null) {
-            toast("일시정지할 유산소 기록을 찾지 못했습니다.");
-            return;
-        }
-        cardioSessionViewModel.pause(new AccountScope(currentOwnerId()), recordId);
-    }
-
-    @Override
-    public void resumeCardioWorkout() {
-        String recordId = sessionState.activeRecordId();
-        if (recordId == null) {
-            toast("재개할 유산소 기록을 찾지 못했습니다.");
-            return;
-        }
-        cardioSessionViewModel.prepareResume(new AccountScope(currentOwnerId()), recordId);
-    }
-
-    @Override
-    public void finishCardioWorkout() {
-        String recordId = sessionState.activeRecordId();
-        if (recordId == null) {
-            toast("완료할 유산소 기록을 찾지 못했습니다.");
-            return;
-        }
-        cardioSessionViewModel.prepareFinish(new AccountScope(currentOwnerId()), recordId);
-    }
-
-    @Override
-    public void editCardioAverageHeartRate() {
-        String recordId = sessionState.activeRecordId();
-        if (recordId == null) {
-            toast("수정할 유산소 기록을 찾지 못했습니다.");
-            return;
-        }
-        cardioSessionViewModel.prepareAverageHeartRateEdit(
-                new AccountScope(currentOwnerId()), recordId
-        );
-    }
-
-    @Override
-    public void cancelCardioWorkout() {
-        String recordId = sessionState.activeRecordId();
-        if (recordId == null) {
-            toast("취소할 유산소 기록을 찾지 못했습니다.");
-            return;
-        }
-        cardioSessionViewModel.prepareCancel(new AccountScope(currentOwnerId()), recordId);
-    }
-
-    private void openCardioSession(String recordId) {
-        if (recordId == null) {
-            toast("GPS 유산소 상태를 찾지 못했습니다.");
-            return;
-        }
-        cardioSessionViewModel.open(new AccountScope(currentOwnerId()), recordId);
-    }
-
-    private void openCardioSessionLoaded(CardioSessionSnapshot snapshot) {
-        if (snapshot == null) {
-            toast("GPS 유산소 상태를 찾지 못했습니다.");
-            return;
-        }
-        String recordId = snapshot.getRecordId();
-        sessionState.setActiveRecordId(recordId);
-        sessionState.setActiveExerciseId(null);
-        if (CardioSessionSnapshot.STATUS_COMPLETED.equals(snapshot.getStatus())) {
-            navigate(FitnessScreen.CARDIO_SUMMARY);
             return;
         }
         knownInProgressRecordId = recordId;
-        if (CardioSessionSnapshot.STATUS_TRACKING.equals(snapshot.getStatus())) {
-            dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
-        }
-        navigate(FitnessScreen.CARDIO_SESSION);
+        sessionState.setActiveRecordId(recordId);
+        sessionState.setActiveExerciseId(null);
+        dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
     }
 
-    private void showCardioHeartRateSheet(
-            String recordId,
-            boolean finishAfterSave,
-            CardioSessionSnapshot snapshot
-    ) {
-        if (snapshot == null) {
-            toast("유산소 기록을 찾지 못했습니다.");
+    @Override
+    public void resumeCardioTracking(String recordId) {
+        if (recordId == null) {
             return;
         }
+        knownInProgressRecordId = recordId;
+        sessionState.setActiveRecordId(recordId);
+        sessionState.setActiveExerciseId(null);
+        dispatchCardioService(CardioTrackingService.ACTION_RESUME, recordId, true);
+    }
 
-        LinearLayout form = ui.form();
-        int elapsedSeconds = snapshot.elapsedSeconds(System.currentTimeMillis());
-        TextView summary = ui.text(
-                CardioMetrics.formatDistanceKilometers(snapshot.getDistanceMeters())
-                        + "km · " + CardioMetrics.formatElapsed(elapsedSeconds),
-                14,
-                FitnessUi.COLOR_MUTED,
-                false
-        );
-        EditText averageHeartRate = ui.numberInput(
-                "평균 심박수 bpm (선택)",
-                CardioMetrics.hasAverageHeartRate(snapshot.getAverageHeartRateBpm())
-                        ? CardioMetrics.formatAverageHeartRate(snapshot.getAverageHeartRateBpm())
-                        : ""
-        );
-        TextView hint = ui.text(
-                "시계·밴드 등에서 확인한 평균값을 직접 입력하세요. 측정값이 없으면 비워둘 수 있습니다.",
-                12,
-                FitnessUi.COLOR_MUTED,
-                false
-        );
-        ui.addAll(form, summary, averageHeartRate, hint);
+    @Override
+    public void pauseCardioTracking(String recordId) {
+        if (recordId != null) {
+            dispatchCardioService(CardioTrackingService.ACTION_PAUSE, recordId, false);
+        }
+    }
 
-        ui.validatedSheet(
-                finishAfterSave ? cardioActivityType(snapshot).labelKo() + " 완료" : "평균 심박수 수정",
-                form,
-                finishAfterSave ? "운동 완료" : "저장",
-                () -> {
-                    String rawValue = FitnessUi.inputText(averageHeartRate).trim();
-                    Integer averageHeartRateBpm = FitnessUi.optionalInt(averageHeartRate);
-                    if (!rawValue.isEmpty()
-                            && (averageHeartRateBpm == null
-                            || !CardioMetrics.isValidAverageHeartRate(averageHeartRateBpm))) {
-                        averageHeartRate.setError("평균 심박수는 0보다 큰 정수로 입력하세요.");
-                        return false;
-                    }
+    @Override
+    public void stopCardioTracking() {
+        stopService(new Intent(this, CardioTrackingService.class));
+    }
 
-                    AccountScope scope = new AccountScope(currentOwnerId());
-                    if (finishAfterSave) {
-                        cardioSessionViewModel.finish(scope, recordId, averageHeartRateBpm);
-                    } else {
-                        cardioSessionViewModel.updateAverageHeartRate(
-                                scope, recordId, averageHeartRateBpm
-                        );
-                    }
-                    return true;
-                }
-        );
+    @Override
+    public void requestCardioResume(CardioActivityType activityType, String recordId) {
+        if (activityType == null || recordId == null) {
+            toast("재개할 유산소 기록을 찾지 못했습니다.");
+            return;
+        }
+        pendingCardioActivityType = activityType;
+        pendingCardioResumeRecordId = recordId;
+        requestCardioPermissionsAndContinue();
+    }
+
+    @Override
+    public boolean consumePendingCardioFinishRequest() {
+        boolean requested = pendingCardioFinishRequested;
+        pendingCardioFinishRequested = false;
+        return requested;
+    }
+
+    @Override
+    public void clearActiveWorkout(String recordId) {
+        if (recordId == null) {
+            return;
+        }
+        workoutSessionViewModel.clearActiveRecordIfMatches(recordId);
+        cardioSessionViewModel.clearActiveRecordIfMatches(recordId);
+        sessionState.clearIfMatches(recordId);
+        if (recordId.equals(knownInProgressRecordId)) {
+            knownInProgressRecordId = null;
+        }
+    }
+
+    @Override
+    public void clearInProgressWorkout(String recordId) {
+        if (recordId != null && recordId.equals(knownInProgressRecordId)) {
+            knownInProgressRecordId = null;
+        }
     }
 
     private void continueExistingWorkoutIfPresent(Runnable ifNone) {
@@ -1942,7 +1422,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                     knownInProgressRecordId = activeRecordId;
                     toast("진행 중인 운동을 먼저 이어갑니다.");
                     if (cardioSession) {
-                        openCardioSession(activeRecordId);
+                        cardioSessionViewModel.open(scope, activeRecordId);
                     } else {
                         openWorkoutSession(activeRecordId);
                     }
@@ -2031,13 +1511,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         cardioSessionViewModel.open(new AccountScope(currentOwnerId()), recordId);
     }
 
-    private static CardioActivityType cardioActivityType(CardioSessionSnapshot snapshot) {
-        CardioActivityType activityType = snapshot == null
-                ? null
-                : CardioActivityType.fromId(snapshot.getActivityId());
-        return activityType == null ? CardioActivityType.WALKING : activityType;
-    }
-
     private boolean hasPreciseLocationPermission() {
         return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)
                 == PackageManager.PERMISSION_GRANTED;
@@ -2062,64 +1535,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     @Override
-    public void showBodyMetricDialog() {
-        showBodyMetricDialog(today(), null);
-    }
-
-    @Override
-    public void showBodyMetricDialog(String date, String recordId) {
-        bodyMetricsViewModel.open(new AccountScope(currentOwnerId()), date, recordId);
-    }
-
-    private void showBodyMetricDialogForm(
-            String ownerId,
-            BodyMetricsApplicationService.Editor existing
-    ) {
-        MassUnit inputUnit = preferredMassUnit();
-        LinearLayout form = ui.form();
-        EditText dateInput = ui.input("날짜 (YYYY-MM-DD)", existing.date);
-        EditText weight = ui.decimalInput(
-                "체중 " + inputUnit.symbol(),
-                existing.exists() ? MassFormatter.formatInput(existing.weightKg, inputUnit) : ""
-        );
-        EditText memo = ui.input("메모 (선택)", "");
-        if (existing.exists()) {
-            memo.setText(existing.memo);
-        }
-        ui.addAll(form, dateInput, weight, memo);
-        ui.validatedSheet(!existing.exists() ? "체중 기록" : "체중 수정", form,
-                "저장", () -> {
-                    try {
-                        String selectedDate = FitnessUi.inputText(dateInput);
-                        Double selectedWeight = FitnessUi.optionalDouble(weight);
-                        if (selectedWeight == null) {
-                            throw new IllegalArgumentException("체중을 입력하세요.");
-                        }
-                        double selectedWeightKg = MassUnit.toKg(selectedWeight, inputUnit);
-                        String selectedMemo = FitnessUi.inputText(memo);
-                        bodyMetricsViewModel.save(
-                                new AccountScope(ownerId),
-                                existing.recordId,
-                                selectedDate,
-                                selectedWeightKg,
-                                selectedMemo
-                        );
-                        return true;
-                    } catch (IllegalArgumentException error) {
-                        toast(error.getMessage());
-                        return false;
-                    }
-                },
-                !existing.exists() ? null : "이 기록 삭제",
-                !existing.exists() ? null : () -> {
-                    bodyMetricsViewModel.delete(
-                            new AccountScope(ownerId),
-                            existing.recordId
-                    );
-                });
-    }
-
-    @Override
     public void openMealManagement() {
         openMealManagement(today(), FitnessScreen.WORKOUT);
     }
@@ -2134,199 +1549,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         navigationViewModel.selectMealDate(date == null ? today() : date);
         mealReturnScreen = returnScreen == null ? FitnessScreen.WORKOUT : returnScreen;
         navigate(FitnessScreen.MEALS);
-    }
-
-    @Override
-    public void showDevelopmentBodyProfileDialog() {
-        developmentViewModel.openProfileEditor(
-                new AccountScope(currentOwnerId()),
-                today()
-        );
-    }
-
-    private void showDevelopmentBodyProfileDialogForm(
-            String ownerId,
-            String date,
-            DevelopmentApplicationService.ProfileEditor editor
-    ) {
-        BodyProfile currentProfile = editor.profile;
-        LinearLayout form = ui.form();
-        EditText heightInput = ui.numberInput(
-                "키 cm",
-                currentProfile.heightCm == null ? "" : String.valueOf(currentProfile.heightCm)
-        );
-        MassUnit inputUnit = preferredMassUnit();
-        EditText weightInput = ui.decimalInput(
-                "오늘 체중 " + inputUnit.symbol(),
-                editor.weightKg == null
-                        ? ""
-                        : MassFormatter.formatInput(editor.weightKg, inputUnit)
-        );
-        ui.addAll(form, heightInput, weightInput);
-        ui.validatedSheet("바디 정보 수정", form, "저장", () -> {
-            try {
-                String heightText = FitnessUi.inputText(heightInput).trim();
-                String weightText = FitnessUi.inputText(weightInput).trim();
-                if (heightText.isEmpty() && weightText.isEmpty()) {
-                    throw new IllegalArgumentException("키 또는 오늘 체중을 하나 이상 입력해 주세요.");
-                }
-                BodyProfile nextProfile = null;
-                Double nextWeightKg = null;
-                if (!heightText.isEmpty()) {
-                    int heightCm = Integer.parseInt(heightText);
-                    nextProfile = new BodyProfile(heightCm, "", "");
-                }
-                if (!weightText.isEmpty()) {
-                    double weightKg = MassUnit.toKg(
-                            Double.parseDouble(weightText),
-                            inputUnit
-                    );
-                    if (!Double.isFinite(weightKg) || weightKg < 20d || weightKg > 400d) {
-                        throw new IllegalArgumentException("체중은 20~400kg 범위로 입력해 주세요.");
-                    }
-                    nextWeightKg = weightKg;
-                }
-                BodyProfile savedProfile = nextProfile;
-                Double savedWeightKg = nextWeightKg;
-                String weightMemo = editor.weightMemo;
-                developmentViewModel.saveProfileAndWeight(
-                        new AccountScope(ownerId),
-                        savedProfile,
-                        editor.weightRecordId,
-                        date,
-                        savedWeightKg,
-                        weightMemo
-                );
-                return true;
-            } catch (NumberFormatException error) {
-                toast("숫자 형식이 올바르지 않습니다.");
-                return false;
-            } catch (IllegalArgumentException error) {
-                toast(error.getMessage());
-                return false;
-            }
-        });
-    }
-
-    @Override
-    public void showDevelopmentGoalDialog() {
-        developmentViewModel.openGoalEditor(new AccountScope(currentOwnerId()));
-    }
-
-    private void showDevelopmentGoalDialogForm(
-            String ownerId,
-            DevelopmentGoal currentGoal
-    ) {
-        String[] objectiveCodes = DevelopmentGoal.OBJECTIVES.toArray(new String[0]);
-        String[] objectiveLabels = new String[objectiveCodes.length];
-        for (int index = 0; index < objectiveCodes.length; index++) {
-            objectiveLabels[index] = DevelopmentGoal.objectiveLabelKo(objectiveCodes[index]);
-        }
-        String[] focusCodes = DevelopmentGoal.FOCUS_BODY_PARTS.toArray(new String[0]);
-        String[] focusLabels = new String[focusCodes.length];
-        for (int index = 0; index < focusCodes.length; index++) {
-            focusLabels[index] = DevelopmentGoal.bodyPartLabelKo(focusCodes[index]);
-        }
-
-        final String[] selectedObjective = {
-                currentGoal.isConfigured() ? currentGoal.objective : DevelopmentGoal.OBJECTIVE_MUSCLE_GAIN
-        };
-        final String[] selectedFocus = {
-                currentGoal.isConfigured() ? currentGoal.focusBodyPart : DevelopmentGoal.BODY_PART_CHEST
-        };
-        LinearLayout form = ui.form();
-        Button objectivePicker = ui.button(
-                "목표 · " + DevelopmentGoal.objectiveLabelKo(selectedObjective[0]),
-                false,
-                null
-        );
-        objectivePicker.setAllCaps(false);
-        objectivePicker.setOnClickListener(v -> ui.choiceSheet(
-                "발전 목표 선택",
-                Arrays.asList(objectiveLabels),
-                indexOf(objectiveCodes, selectedObjective[0]),
-                which -> {
-                            selectedObjective[0] = objectiveCodes[which];
-                            objectivePicker.setText("목표 · " + objectiveLabels[which]);
-                        }
-                ));
-        EditText weeklySessionsInput = ui.numberInput(
-                "주간 운동 목표 1~7회",
-                currentGoal.weeklySessionsTarget == null
-                        ? "3"
-                        : String.valueOf(currentGoal.weeklySessionsTarget)
-        );
-        Button focusPicker = ui.button(
-                "집중 부위 · " + DevelopmentGoal.bodyPartLabelKo(selectedFocus[0]),
-                false,
-                null
-        );
-        focusPicker.setAllCaps(false);
-        focusPicker.setOnClickListener(v -> ui.choiceSheet(
-                "집중 부위 선택",
-                Arrays.asList(focusLabels),
-                indexOf(focusCodes, selectedFocus[0]),
-                which -> {
-                            selectedFocus[0] = focusCodes[which];
-                            focusPicker.setText("집중 부위 · " + focusLabels[which]);
-                        }
-                ));
-        ui.addAll(form, objectivePicker, weeklySessionsInput, focusPicker);
-        ui.validatedSheet("발전 목표 수정", form, "저장", () -> {
-            try {
-                int weeklySessions = Integer.parseInt(FitnessUi.inputText(weeklySessionsInput).trim());
-                boolean unchanged = currentGoal.isConfigured()
-                        && currentGoal.objective.equals(selectedObjective[0])
-                        && currentGoal.weeklySessionsTarget == weeklySessions
-                        && currentGoal.focusBodyPart.equals(selectedFocus[0]);
-                String effectiveFrom = unchanged ? currentGoal.effectiveFrom : today();
-                DevelopmentGoal nextGoal = new DevelopmentGoal(
-                        selectedObjective[0],
-                        weeklySessions,
-                        selectedFocus[0],
-                        effectiveFrom,
-                        "",
-                        ""
-                );
-                developmentViewModel.saveGoal(new AccountScope(ownerId), nextGoal);
-                return true;
-            } catch (NumberFormatException error) {
-                toast("주간 세션은 숫자로 입력해 주세요.");
-                return false;
-            } catch (IllegalArgumentException error) {
-                toast(error.getMessage());
-                return false;
-            }
-        });
-    }
-
-    @Override
-    public void openDevelopmentInsightAction(DevelopmentInsight insight) {
-        if (insight == null) {
-            return;
-        }
-        if ("planning".equals(insight.category)) {
-            showDevelopmentGoalDialog();
-        } else if ("consistency".equals(insight.category) || "focus".equals(insight.category)) {
-            navigate(FitnessScreen.WORKOUT);
-        } else if ("recovery".equals(insight.category) || "nutrition_logging".equals(insight.category)) {
-            openMealManagement(today(), FitnessScreen.DEVELOPMENT);
-        } else if ("coverage".equals(insight.category) && insight.title.contains("체중")) {
-            showDevelopmentBodyProfileDialog();
-        } else if ("coverage".equals(insight.category)) {
-            navigate(FitnessScreen.RECORDS);
-        } else {
-            toast("연결된 다음 행동이 아직 없습니다.");
-        }
-    }
-
-    private static int indexOf(String[] values, String target) {
-        for (int index = 0; index < values.length; index++) {
-            if (values[index].equals(target)) {
-                return index;
-            }
-        }
-        return -1;
     }
 
     // ── 설정 / 동기화 ─────────────────────────────────────────────────

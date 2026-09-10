@@ -26,6 +26,12 @@ sealed interface WorkoutSessionUiState {
     data class Error(val ownerId: String, val message: String) : WorkoutSessionUiState
 }
 
+sealed interface ManualPastWorkoutUiState {
+    data object Idle : ManualPastWorkoutUiState
+    data class Ready(val ownerId: String) : ManualPastWorkoutUiState
+    data class Error(val ownerId: String, val message: String) : ManualPastWorkoutUiState
+}
+
 sealed interface WorkoutRestTimerState {
     data object Inactive : WorkoutRestTimerState
     data class Active(
@@ -50,6 +56,25 @@ enum class WorkoutSessionActionOutcome {
     DELETED,
     NONE,
     FAILURE
+}
+
+enum class WorkoutSessionTerminalOutcome {
+    MISSING,
+    COMPLETED,
+    DISCARDED_EMPTY,
+    FAILURE
+}
+
+class WorkoutSessionTerminalEvent(
+    val requestId: Long,
+    val ownerId: String,
+    val outcome: WorkoutSessionTerminalOutcome,
+    val recordId: String?,
+    val message: String?
+) {
+    private val consumed = AtomicBoolean(false)
+
+    fun consume(): Boolean = consumed.compareAndSet(false, true)
 }
 
 /**
@@ -84,6 +109,11 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     val uiState: LiveData<WorkoutSessionUiState> = mutableState
     private val mutableActionState = MutableLiveData<WorkoutSessionActionEvent>()
     val actionState: LiveData<WorkoutSessionActionEvent> = mutableActionState
+    private val mutableTerminalEvents = MutableLiveData<WorkoutSessionTerminalEvent>()
+    val terminalEvents: LiveData<WorkoutSessionTerminalEvent> = mutableTerminalEvents
+    private val mutableManualPastState =
+        MutableLiveData<ManualPastWorkoutUiState>(restoreManualPastState())
+    val manualPastState: LiveData<ManualPastWorkoutUiState> = mutableManualPastState
     private val mutableRestTimerState = MutableLiveData<WorkoutRestTimerState>(restoreRestTimerState())
     val restTimerState: LiveData<WorkoutRestTimerState> = mutableRestTimerState
     private var requestVersion = 0L
@@ -100,16 +130,39 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         executor.execute {
             try {
                 val session = repository.loadSession(scope, recordId)
-                publishIfCurrent(
-                    request,
-                    session?.let { WorkoutSessionUiState.Ready(scope.ownerId, it) }
-                        ?: WorkoutSessionUiState.Missing(scope.ownerId, recordId)
-                )
+                if (session == null) {
+                    publishIfCurrent(
+                        request,
+                        WorkoutSessionUiState.Missing(scope.ownerId, recordId)
+                    )
+                    publishTerminalIfCurrent(
+                        request,
+                        WorkoutSessionTerminalEvent(
+                            request,
+                            scope.ownerId,
+                            WorkoutSessionTerminalOutcome.MISSING,
+                            recordId,
+                            "운동 기록을 찾지 못했습니다."
+                        )
+                    )
+                } else {
+                    publishIfCurrent(request, WorkoutSessionUiState.Ready(scope.ownerId, session))
+                }
             } catch (error: Exception) {
                 publishIfCurrent(
                     request,
                     WorkoutSessionUiState.Error(
                         scope.ownerId,
+                        error.message ?: "운동 기록을 불러오지 못했습니다."
+                    )
+                )
+                publishTerminalIfCurrent(
+                    request,
+                    WorkoutSessionTerminalEvent(
+                        request,
+                        scope.ownerId,
+                        WorkoutSessionTerminalOutcome.FAILURE,
+                        recordId,
                         error.message ?: "운동 기록을 불러오지 못했습니다."
                     )
                 )
@@ -126,11 +179,31 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
                 val result = completeWorkout.execute(scope, recordId)
                 if (result == WorkoutCompletion.COMPLETED) {
                     publishIfCurrent(request, WorkoutSessionUiState.Completed(scope.ownerId, recordId))
+                    publishTerminalIfCurrent(
+                        request,
+                        WorkoutSessionTerminalEvent(
+                            request,
+                            scope.ownerId,
+                            WorkoutSessionTerminalOutcome.COMPLETED,
+                            recordId,
+                            null
+                        )
+                    )
                 } else {
                     completeWorkout.discardEmptySession(scope, recordId)
                     publishIfCurrent(
                         request,
                         WorkoutSessionUiState.DiscardedEmptySession(scope.ownerId, recordId)
+                    )
+                    publishTerminalIfCurrent(
+                        request,
+                        WorkoutSessionTerminalEvent(
+                            request,
+                            scope.ownerId,
+                            WorkoutSessionTerminalOutcome.DISCARDED_EMPTY,
+                            recordId,
+                            "수행한 세트가 없어 운동을 저장하지 않았습니다."
+                        )
                     )
                 }
             } catch (error: Exception) {
@@ -141,7 +214,30 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
                         error.message ?: "운동을 완료하지 못했습니다."
                     )
                 )
+                publishTerminalIfCurrent(
+                    request,
+                    WorkoutSessionTerminalEvent(
+                        request,
+                        scope.ownerId,
+                        WorkoutSessionTerminalOutcome.FAILURE,
+                        recordId,
+                        error.message ?: "운동을 완료하지 못했습니다."
+                    )
+                )
             }
+        }
+    }
+
+    /** Keeps the record selected by a one-shot action available after recreation. */
+    fun rememberActiveRecord(recordId: String) {
+        savedStateHandle[KEY_RECORD_ID] = recordId
+    }
+
+    fun activeRecordId(): String? = savedStateHandle[KEY_RECORD_ID]
+
+    fun clearActiveRecordIfMatches(recordId: String) {
+        if (activeRecordId() == recordId) {
+            savedStateHandle.remove<String>(KEY_RECORD_ID)
         }
     }
 
@@ -228,6 +324,49 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
             )
             ActionResult(WorkoutSessionActionOutcome.CREATED, recordId, false, null)
         }
+    }
+
+    fun openManualPastEditor(scope: AccountScope) {
+        val request = ++actionVersion
+        executor.execute {
+            try {
+                val service = requireSessionApplicationService()
+                val activeRecordId = service.latestInProgress(scope)
+                if (activeRecordId != null) {
+                    val cardio = service.isCardioSession(scope, activeRecordId)
+                    if (request == actionVersion) {
+                        mutableActionState.postValue(
+                            WorkoutSessionActionEvent(
+                                request,
+                                scope.ownerId,
+                                WorkoutSessionAction.CONTINUE,
+                                WorkoutSessionActionOutcome.OPEN_EXISTING,
+                                activeRecordId,
+                                cardio,
+                                "진행 중인 운동을 먼저 이어갑니다."
+                            )
+                        )
+                    }
+                } else if (request == actionVersion) {
+                    savedStateHandle[KEY_MANUAL_PAST_OWNER_ID] = scope.ownerId
+                    mutableManualPastState.postValue(ManualPastWorkoutUiState.Ready(scope.ownerId))
+                }
+            } catch (error: Exception) {
+                if (request == actionVersion) {
+                    mutableManualPastState.postValue(
+                        ManualPastWorkoutUiState.Error(
+                            scope.ownerId,
+                            error.message ?: "진행 중인 운동을 확인하지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun dismissManualPastEditor() {
+        savedStateHandle.remove<String>(KEY_MANUAL_PAST_OWNER_ID)
+        mutableManualPastState.value = ManualPastWorkoutUiState.Idle
     }
 
     fun delete(scope: AccountScope, recordId: String) {
@@ -331,6 +470,19 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         if (request == requestVersion) mutableState.postValue(state)
     }
 
+    private fun publishTerminalIfCurrent(request: Long, event: WorkoutSessionTerminalEvent) {
+        if (request == requestVersion) mutableTerminalEvents.postValue(event)
+    }
+
+    private fun restoreManualPastState(): ManualPastWorkoutUiState {
+        val ownerId: String? = savedStateHandle[KEY_MANUAL_PAST_OWNER_ID]
+        return if (ownerId.isNullOrBlank()) {
+            ManualPastWorkoutUiState.Idle
+        } else {
+            ManualPastWorkoutUiState.Ready(ownerId)
+        }
+    }
+
     override fun onCleared() {
         executor.shutdownNow()
     }
@@ -340,6 +492,7 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         const val KEY_REST_OWNER_ID = "workout_rest.owner_id"
         const val KEY_REST_ENDS_AT = "workout_rest.ends_at"
         const val KEY_REST_TOTAL_SECONDS = "workout_rest.total_seconds"
+        const val KEY_MANUAL_PAST_OWNER_ID = "workout_manual_past.owner_id"
         const val DEFAULT_REST_SECONDS = 90
     }
 }

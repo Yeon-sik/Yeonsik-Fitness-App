@@ -117,6 +117,10 @@ class BodyMetricsViewModel @JvmOverloads constructor(
         }
     }
 
+    fun dismissEditor() {
+        mutableEditorState.value = BodyMetricsEditorUiState.Idle
+    }
+
     private fun nextRequest(): Long {
         requestVersion += 1
         return requestVersion

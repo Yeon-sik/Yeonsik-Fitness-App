@@ -4,7 +4,6 @@ import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
-import com.yeonsik.fitnessapp.development.DevelopmentInsight;
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 
@@ -26,8 +25,6 @@ public interface AppUiActions {
 
     void refreshWorkoutExerciseDetail();
 
-    void refreshCardioSession();
-
     void navigate(FitnessScreen screen);
 
     /** Pops one screen entry. Dialog dismissal is owned by the system Back dispatcher. */
@@ -47,6 +44,25 @@ public interface AppUiActions {
     // ── 화면 간 공유 액션 ─────────────────────────────────────────────
 
     void openWorkoutSession(String recordId);
+
+    /** Platform bridge for the GPS service; lifecycle/permission work stays in the Activity. */
+    void startCardioTracking(String recordId);
+
+    void resumeCardioTracking(String recordId);
+
+    void pauseCardioTracking(String recordId);
+
+    void stopCardioTracking();
+
+    /** Requests the OS permission flow before the cardio ViewModel resumes a paused record. */
+    void requestCardioResume(CardioActivityType activityType, String recordId);
+
+    /** Consumes a finish request delivered by the tracking-service Intent exactly once. */
+    boolean consumePendingCardioFinishRequest();
+
+    void clearActiveWorkout(String recordId);
+
+    void clearInProgressWorkout(String recordId);
 
     /** Opens a stored record using its owning feature (strength or cardio). */
     default void openRecord(String recordId) {
@@ -70,37 +86,13 @@ public interface AppUiActions {
 
     void startEmptyWorkout();
 
-    void showPastWorkoutDialog();
-
     void startCardioWorkout(CardioActivityType activityType);
-
-    void openCardioSummary(String recordId);
-
-    void pauseCardioWorkout();
-
-    void resumeCardioWorkout();
-
-    void finishCardioWorkout();
-
-    void editCardioAverageHeartRate();
-
-    void cancelCardioWorkout();
-
-    void showBodyMetricDialog();
-
-    void showBodyMetricDialog(String date, String recordId);
 
     void openMealManagement();
 
     void openMealManagement(String date);
 
     void openMealManagement(String date, FitnessScreen returnScreen);
-
-    void showDevelopmentBodyProfileDialog();
-
-    void showDevelopmentGoalDialog();
-
-    void openDevelopmentInsightAction(DevelopmentInsight insight);
 
     /** 세트 완료 시 휴식 타이머를 시작한다. null 또는 0 이하이면 기본 90초. */
     void startRestTimer(Integer restSeconds);
@@ -137,4 +129,3 @@ public interface AppUiActions {
     void exportRecordsCsv();
 
 }
-

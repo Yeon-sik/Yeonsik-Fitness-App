@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.cardio.CardioActivityType
+import com.yeonsik.fitnessapp.cardio.CardioMetrics
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
 import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService
@@ -82,6 +83,27 @@ class CardioSessionActionEvent(
     fun consume(): Boolean = consumed.compareAndSet(false, true)
 }
 
+sealed interface CardioHeartRateEditorUiState {
+    data object Idle : CardioHeartRateEditorUiState
+    data class Ready(
+        val ownerId: String,
+        val recordId: String,
+        val finishAfterSave: Boolean,
+        val session: CardioSessionSnapshot,
+        val input: String,
+        val errorMessage: String? = null
+    ) : CardioHeartRateEditorUiState
+}
+
+sealed interface CardioCancelConfirmationUiState {
+    data object Idle : CardioCancelConfirmationUiState
+    data class Ready(
+        val ownerId: String,
+        val recordId: String,
+        val summary: String
+    ) : CardioCancelConfirmationUiState
+}
+
 /** Persists only the active cardio record id; GPS metrics are always re-read. */
 class CardioSessionViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
@@ -95,6 +117,13 @@ class CardioSessionViewModel @JvmOverloads constructor(
     val actionState: LiveData<CardioSessionActionEvent> = mutableActionState
     private val mutableRouteState = MutableLiveData<CardioRouteUiState>(CardioRouteUiState.Idle)
     val routeState: LiveData<CardioRouteUiState> = mutableRouteState
+    private val mutableHeartRateEditorState =
+        MutableLiveData<CardioHeartRateEditorUiState>(CardioHeartRateEditorUiState.Idle)
+    val heartRateEditorState: LiveData<CardioHeartRateEditorUiState> = mutableHeartRateEditorState
+    private val mutableCancelConfirmationState =
+        MutableLiveData<CardioCancelConfirmationUiState>(CardioCancelConfirmationUiState.Idle)
+    val cancelConfirmationState: LiveData<CardioCancelConfirmationUiState> =
+        mutableCancelConfirmationState
     @Volatile private var refreshPending = false
     private var requestVersion = 0L
     private var actionVersion = 0L
@@ -109,6 +138,19 @@ class CardioSessionViewModel @JvmOverloads constructor(
         val request = ++requestVersion
         mutableState.value = CardioSessionUiState.Loading
         load(scope, recordId, request)
+        restoreEditors(scope)
+    }
+
+    fun activeRecordId(): String? = savedStateHandle[KEY_RECORD_ID]
+
+    fun rememberActiveRecord(recordId: String?) {
+        savedStateHandle[KEY_RECORD_ID] = recordId
+    }
+
+    fun clearActiveRecordIfMatches(recordId: String?) {
+        if (recordId != null && recordId == activeRecordId()) {
+            savedStateHandle[KEY_RECORD_ID] = null
+        }
     }
 
     fun refresh(scope: AccountScope, recordId: String) {
@@ -249,6 +291,77 @@ class CardioSessionViewModel @JvmOverloads constructor(
         }
     }
 
+    fun openHeartRateEditor(
+        scope: AccountScope,
+        recordId: String,
+        finishAfterSave: Boolean,
+        session: CardioSessionSnapshot? = null
+    ) {
+        if (session != null) {
+            publishHeartRateEditor(scope, recordId, finishAfterSave, session)
+            return
+        }
+        executor.execute {
+            try {
+                val loaded = requireService().load(scope, recordId)
+                if (loaded == null) {
+                    mutableActionState.postValue(
+                        CardioSessionActionEvent(
+                            ++actionVersion,
+                            scope.ownerId,
+                            if (finishAfterSave) CardioSessionAction.PREPARE_FINISH
+                            else CardioSessionAction.PREPARE_HEART_RATE_EDIT,
+                            CardioSessionActionOutcome.NOT_FOUND,
+                            recordId,
+                            null,
+                            null,
+                            false,
+                            "유산소 기록을 찾지 못했습니다."
+                        )
+                    )
+                } else {
+                    publishHeartRateEditor(scope, recordId, finishAfterSave, loaded)
+                }
+            } catch (error: Exception) {
+                mutableHeartRateEditorState.postValue(CardioHeartRateEditorUiState.Idle)
+            }
+        }
+    }
+
+    fun updateHeartRateInput(value: String) {
+        val current = mutableHeartRateEditorState.value as? CardioHeartRateEditorUiState.Ready
+            ?: return
+        savedStateHandle[KEY_HEART_RATE_INPUT] = value
+        mutableHeartRateEditorState.value = current.copy(input = value, errorMessage = null)
+    }
+
+    fun submitHeartRate(scope: AccountScope, value: String) {
+        val current = mutableHeartRateEditorState.value as? CardioHeartRateEditorUiState.Ready
+            ?: return
+        if (current.ownerId != scope.ownerId) return
+        val trimmed = value.trim()
+        val bpm = if (trimmed.isEmpty()) null else trimmed.toIntOrNull()
+        if (trimmed.isNotEmpty() && (bpm == null || !CardioMetrics.isValidAverageHeartRate(bpm))) {
+            savedStateHandle[KEY_HEART_RATE_INPUT] = value
+            mutableHeartRateEditorState.value = current.copy(
+                input = value,
+                errorMessage = "평균 심박수는 0보다 큰 정수로 입력하세요."
+            )
+            return
+        }
+        savedStateHandle[KEY_HEART_RATE_INPUT] = value
+        if (current.finishAfterSave) {
+            finish(scope, current.recordId, bpm)
+        } else {
+            updateAverageHeartRate(scope, current.recordId, bpm)
+        }
+    }
+
+    fun dismissHeartRateEditor() {
+        clearHeartRateEditorKeys()
+        mutableHeartRateEditorState.value = CardioHeartRateEditorUiState.Idle
+    }
+
     fun updateAverageHeartRate(scope: AccountScope, recordId: String, averageHeartRateBpm: Int?) {
         executeAction(scope, CardioSessionAction.UPDATE_HEART_RATE) {
             val session = requireService().updateAverageHeartRate(scope, recordId, averageHeartRateBpm)
@@ -278,6 +391,39 @@ class CardioSessionViewModel @JvmOverloads constructor(
                 ActionResult(CardioSessionActionOutcome.CANCEL_READY, recordId, session, null, false, null)
             }
         }
+    }
+
+    fun openCancelConfirmation(
+        scope: AccountScope,
+        recordId: String,
+        session: CardioSessionSnapshot? = null
+    ) {
+        if (session != null) {
+            publishCancelConfirmation(scope, recordId, session)
+            return
+        }
+        executor.execute {
+            try {
+                val loaded = requireService().load(scope, recordId)
+                if (loaded != null) publishCancelConfirmation(scope, recordId, loaded)
+            } catch (_: Exception) {
+                mutableCancelConfirmationState.postValue(CardioCancelConfirmationUiState.Idle)
+            }
+        }
+    }
+
+    fun confirmCancel(scope: AccountScope) {
+        val current = mutableCancelConfirmationState.value
+            as? CardioCancelConfirmationUiState.Ready ?: return
+        if (current.ownerId != scope.ownerId) return
+        dismissCancelConfirmation()
+        cancel(scope, current.recordId)
+    }
+
+    fun dismissCancelConfirmation() {
+        savedStateHandle[KEY_CANCEL_OWNER_ID] = null
+        savedStateHandle[KEY_CANCEL_RECORD_ID] = null
+        mutableCancelConfirmationState.value = CardioCancelConfirmationUiState.Idle
     }
 
     fun loadRoute(scope: AccountScope, recordId: String) {
@@ -350,6 +496,79 @@ class CardioSessionViewModel @JvmOverloads constructor(
     private fun requireService(): CardioSessionApplicationService =
         sessionApplicationService ?: error("유산소 세션 작업 Service가 연결되지 않았습니다.")
 
+    private fun publishHeartRateEditor(
+        scope: AccountScope,
+        recordId: String,
+        finishAfterSave: Boolean,
+        session: CardioSessionSnapshot
+    ) {
+        val savedOwnerId: String? = savedStateHandle[KEY_EDITOR_OWNER_ID]
+        val savedRecordId: String? = savedStateHandle[KEY_EDITOR_RECORD_ID]
+        val savedFinish: Boolean? = savedStateHandle[KEY_EDITOR_FINISH]
+        val savedInput: String? = savedStateHandle[KEY_HEART_RATE_INPUT]
+        val input = if (savedOwnerId == scope.ownerId
+            && savedRecordId == recordId
+            && savedFinish == finishAfterSave
+            && savedInput != null
+        ) {
+            savedInput
+        } else if (CardioMetrics.hasAverageHeartRate(session.averageHeartRateBpm)) {
+            CardioMetrics.formatAverageHeartRate(session.averageHeartRateBpm)
+        } else {
+            ""
+        }
+        savedStateHandle[KEY_EDITOR_OWNER_ID] = scope.ownerId
+        savedStateHandle[KEY_EDITOR_RECORD_ID] = recordId
+        savedStateHandle[KEY_EDITOR_FINISH] = finishAfterSave
+        savedStateHandle[KEY_HEART_RATE_INPUT] = input
+        mutableHeartRateEditorState.value = CardioHeartRateEditorUiState.Ready(
+            scope.ownerId,
+            recordId,
+            finishAfterSave,
+            session,
+            input
+        )
+    }
+
+    private fun publishCancelConfirmation(
+        scope: AccountScope,
+        recordId: String,
+        session: CardioSessionSnapshot
+    ) {
+        savedStateHandle[KEY_CANCEL_OWNER_ID] = scope.ownerId
+        savedStateHandle[KEY_CANCEL_RECORD_ID] = recordId
+        mutableCancelConfirmationState.value = CardioCancelConfirmationUiState.Ready(
+            scope.ownerId,
+            recordId,
+            "현재 ${CardioMetrics.formatDistanceKilometers(session.distanceMeters)}km 기록을 저장하지 않습니다.\n"
+                + "이 기기에 저장된 GPS 좌표도 함께 삭제됩니다."
+        )
+    }
+
+    private fun restoreEditors(scope: AccountScope) {
+        val editorOwnerId: String? = savedStateHandle[KEY_EDITOR_OWNER_ID]
+        val editorRecordId: String? = savedStateHandle[KEY_EDITOR_RECORD_ID]
+        if (editorOwnerId == scope.ownerId && editorRecordId != null) {
+            openHeartRateEditor(
+                scope,
+                editorRecordId,
+                savedStateHandle[KEY_EDITOR_FINISH] ?: false
+            )
+        }
+        val cancelOwnerId: String? = savedStateHandle[KEY_CANCEL_OWNER_ID]
+        val cancelRecordId: String? = savedStateHandle[KEY_CANCEL_RECORD_ID]
+        if (cancelOwnerId == scope.ownerId && cancelRecordId != null) {
+            openCancelConfirmation(scope, cancelRecordId)
+        }
+    }
+
+    private fun clearHeartRateEditorKeys() {
+        savedStateHandle[KEY_EDITOR_OWNER_ID] = null
+        savedStateHandle[KEY_EDITOR_RECORD_ID] = null
+        savedStateHandle[KEY_EDITOR_FINISH] = null
+        savedStateHandle[KEY_HEART_RATE_INPUT] = null
+    }
+
     private data class ActionResult(
         val outcome: CardioSessionActionOutcome,
         val recordId: String?,
@@ -385,5 +604,11 @@ class CardioSessionViewModel @JvmOverloads constructor(
 
     private companion object {
         const val KEY_RECORD_ID = "cardio_session.record_id"
+        const val KEY_EDITOR_OWNER_ID = "cardio_heart_rate.owner_id"
+        const val KEY_EDITOR_RECORD_ID = "cardio_heart_rate.record_id"
+        const val KEY_EDITOR_FINISH = "cardio_heart_rate.finish"
+        const val KEY_HEART_RATE_INPUT = "cardio_heart_rate.input"
+        const val KEY_CANCEL_OWNER_ID = "cardio_cancel.owner_id"
+        const val KEY_CANCEL_RECORD_ID = "cardio_cancel.record_id"
     }
 }

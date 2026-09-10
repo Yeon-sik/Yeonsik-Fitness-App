@@ -213,6 +213,14 @@ class DevelopmentViewModel @JvmOverloads constructor(
         }
     }
 
+    fun dismissProfileEditor() {
+        mutableProfileEditorState.value = DevelopmentProfileEditorUiState.Idle
+    }
+
+    fun dismissGoalEditor() {
+        mutableGoalEditorState.value = DevelopmentGoalEditorUiState.Idle
+    }
+
     private fun nextEditorRequest(): Long {
         editorRequestVersion += 1
         return editorRequestVersion

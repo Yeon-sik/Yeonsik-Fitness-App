@@ -40,6 +40,7 @@ import com.yeonsik.fitnessapp.cardio.CardioActivityType
 import com.yeonsik.fitnessapp.data.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.AppUiActions
+import com.yeonsik.fitnessapp.feature.body.ui.*
 import com.yeonsik.fitnessapp.feature.cardio.ui.*
 import com.yeonsik.fitnessapp.feature.development.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
@@ -97,6 +98,24 @@ private fun AppRoot(
     }
     val restState by viewModels.getWorkoutSession().restTimerState
         .observeAsState(WorkoutRestTimerState.Inactive)
+    val workoutAction by viewModels.getWorkoutSession().actionState
+        .observeAsState()
+    val workoutTerminalEvent by viewModels.getWorkoutSession().terminalEvents
+        .observeAsState()
+    val cardioAction by viewModels.getCardioSession().actionState
+        .observeAsState()
+    val cardioHeartRateEditorState by viewModels.getCardioSession().heartRateEditorState
+        .observeAsState(CardioHeartRateEditorUiState.Idle)
+    val cardioCancelConfirmationState by viewModels.getCardioSession().cancelConfirmationState
+        .observeAsState(CardioCancelConfirmationUiState.Idle)
+    val manualPastState by viewModels.getWorkoutSession().manualPastState
+        .observeAsState(ManualPastWorkoutUiState.Idle)
+    val bodyEditorState by viewModels.getBodyMetrics().editorState
+        .observeAsState(BodyMetricsEditorUiState.Idle)
+    val profileEditorState by viewModels.getDevelopment().profileEditorState
+        .observeAsState(DevelopmentProfileEditorUiState.Idle)
+    val goalEditorState by viewModels.getDevelopment().goalEditorState
+        .observeAsState(DevelopmentGoalEditorUiState.Idle)
     val homeActions = object : HomeScreenActions {
         override fun continueWorkout() = host.continueWorkoutIfAvailable()
         override fun navigate(screen: FitnessScreen) = host.navigate(screen)
@@ -105,9 +124,348 @@ private fun AppRoot(
         override fun startRoutineWorkout(
             exercises: List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance>
         ) = host.startRoutineWorkout(exercises)
-        override fun showBodyMetric() = host.showBodyMetricDialog()
+        override fun showBodyMetric() = viewModels.getBodyMetrics().open(
+            AccountScope(ownerId), navigationState.today, null
+        )
         override fun openMealManagement(date: String, returnScreen: FitnessScreen) =
             host.openMealManagement(date, returnScreen)
+    }
+
+    LaunchedEffect(workoutAction) {
+        val event = workoutAction ?: return@LaunchedEffect
+        if (event.ownerId != host.currentOwnerId() || !event.consume()) {
+            return@LaunchedEffect
+        }
+        when (event.outcome) {
+            WorkoutSessionActionOutcome.FAILURE,
+            WorkoutSessionActionOutcome.NONE ->
+                host.toast(event.message ?: "운동 작업을 완료하지 못했습니다.")
+            WorkoutSessionActionOutcome.OPEN_EXISTING -> {
+                val recordId = event.recordId
+                if (recordId == null) {
+                    host.toast("운동 기록을 찾지 못했습니다.")
+                    return@LaunchedEffect
+                }
+                viewModels.getWorkoutSession().rememberActiveRecord(recordId)
+                event.message?.let(host::toast)
+                if (event.action == WorkoutSessionAction.OPEN_RECORD && event.cardioSession) {
+                    viewModels.getCardioSession().open(AccountScope(ownerId), recordId)
+                } else if (event.cardioSession) {
+                    viewModels.getCardioSession().open(AccountScope(ownerId), recordId)
+                } else {
+                    host.openWorkoutSession(recordId)
+                }
+            }
+            WorkoutSessionActionOutcome.CREATED -> {
+                val recordId = event.recordId
+                if (recordId == null) {
+                    host.toast("운동 기록을 찾지 못했습니다.")
+                    return@LaunchedEffect
+                }
+                viewModels.getWorkoutSession().rememberActiveRecord(recordId)
+                when (event.action) {
+                    WorkoutSessionAction.START_ROUTINE -> host.toast("루틴 운동을 시작했습니다.")
+                    WorkoutSessionAction.START_MANUAL_PAST ->
+                        host.toast("세트와 횟수를 입력한 뒤 운동 완료를 누르세요.")
+                    else -> Unit
+                }
+                viewModels.getWorkoutSession().dismissManualPastEditor()
+                host.openWorkoutSession(recordId)
+            }
+            WorkoutSessionActionOutcome.DELETED -> {
+                event.recordId?.let(host::clearActiveWorkout)
+                host.toast("운동 기록을 삭제했습니다.")
+                if (screen != FitnessScreen.RECORDS) {
+                    host.replace(
+                        if (event.cardioSession) FitnessScreen.CARDIO else FitnessScreen.STRENGTH
+                    )
+                }
+            }
+        }
+    }
+
+    LaunchedEffect(workoutTerminalEvent) {
+        val event = workoutTerminalEvent ?: return@LaunchedEffect
+        if (event.ownerId != host.currentOwnerId() || !event.consume()) {
+            return@LaunchedEffect
+        }
+        when (event.outcome) {
+            WorkoutSessionTerminalOutcome.MISSING -> {
+                event.recordId?.let(host::clearActiveWorkout)
+                host.toast(event.message ?: "운동 기록을 찾지 못했습니다.")
+                host.replace(FitnessScreen.STRENGTH)
+            }
+            WorkoutSessionTerminalOutcome.COMPLETED -> {
+                host.clearInProgressWorkout(event.recordId ?: "")
+                host.toast("운동을 완료했습니다.")
+                host.replace(FitnessScreen.WORKOUT_SUMMARY)
+            }
+            WorkoutSessionTerminalOutcome.DISCARDED_EMPTY -> {
+                event.recordId?.let(host::clearActiveWorkout)
+                host.toast(event.message ?: "수행한 세트가 없어 운동을 저장하지 않았습니다.")
+                host.replace(FitnessScreen.STRENGTH)
+            }
+            WorkoutSessionTerminalOutcome.FAILURE ->
+                host.toast(event.message ?: "운동을 완료하지 못했습니다.")
+        }
+    }
+
+    LaunchedEffect(cardioAction) {
+        val event = cardioAction ?: return@LaunchedEffect
+        if (event.ownerId != host.currentOwnerId() || !event.consume()) {
+            return@LaunchedEffect
+        }
+        val cardioViewModel = viewModels.getCardioSession()
+        val recordId = event.recordId
+        val session = event.session
+        if (event.outcome == CardioSessionActionOutcome.FAILURE
+            || event.outcome == CardioSessionActionOutcome.NOT_FOUND
+        ) {
+            host.toast(event.message ?: "유산소 작업을 완료하지 못했습니다.")
+            return@LaunchedEffect
+        }
+        when (event.action) {
+            CardioSessionAction.OPEN -> {
+                if (session == null || recordId == null) {
+                    host.toast("GPS 유산소 상태를 찾지 못했습니다.")
+                    return@LaunchedEffect
+                }
+                cardioViewModel.rememberActiveRecord(recordId)
+                if (session.status == com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot.STATUS_COMPLETED) {
+                    navigation.navigate(FitnessScreen.CARDIO_SUMMARY)
+                } else {
+                    if (session.status == com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot.STATUS_TRACKING) {
+                        host.startCardioTracking(recordId)
+                    }
+                    navigation.navigate(FitnessScreen.CARDIO_SESSION)
+                    if (host.consumePendingCardioFinishRequest()) {
+                        cardioViewModel.prepareFinish(AccountScope(ownerId), recordId)
+                    }
+                }
+            }
+            CardioSessionAction.START -> {
+                if (session == null || recordId == null) {
+                    host.toast("유산소 기록을 시작하지 못했습니다.")
+                    return@LaunchedEffect
+                }
+                cardioViewModel.rememberActiveRecord(recordId)
+                host.startCardioTracking(recordId)
+                host.toast("${session.activityLabel} 기록을 시작했습니다.")
+                navigation.navigate(FitnessScreen.CARDIO_SESSION)
+            }
+            CardioSessionAction.PREPARE_RESUME -> {
+                if (session == null || recordId == null) {
+                    host.toast("재개할 유산소 기록을 찾지 못했습니다.")
+                    return@LaunchedEffect
+                }
+                val activityType = runCatching {
+                    CardioActivityType.fromId(session.activityId)
+                }.getOrDefault(CardioActivityType.WALKING)
+                host.requestCardioResume(activityType, recordId)
+            }
+            CardioSessionAction.RESUME -> {
+                if (recordId == null) {
+                    host.toast("재개할 유산소 기록을 찾지 못했습니다.")
+                    return@LaunchedEffect
+                }
+                cardioViewModel.rememberActiveRecord(recordId)
+                host.resumeCardioTracking(recordId)
+                host.toast("GPS 기록을 재개했습니다.")
+                navigation.navigate(FitnessScreen.CARDIO_SESSION)
+            }
+            CardioSessionAction.PAUSE -> {
+                if (recordId == null) return@LaunchedEffect
+                host.pauseCardioTracking(recordId)
+                host.toast("GPS 기록을 일시정지했습니다.")
+                cardioViewModel.refresh(AccountScope(ownerId), recordId)
+            }
+            CardioSessionAction.PREPARE_FINISH -> {
+                if (event.outcome == CardioSessionActionOutcome.COMPLETED) {
+                    if (recordId != null) cardioViewModel.rememberActiveRecord(recordId)
+                    navigation.navigate(FitnessScreen.CARDIO_SUMMARY)
+                } else if (recordId != null && session != null) {
+                    if (event.pausedByFinish) host.pauseCardioTracking(recordId)
+                    cardioViewModel.openHeartRateEditor(
+                        AccountScope(ownerId), recordId, true, session
+                    )
+                }
+            }
+            CardioSessionAction.FINISH -> {
+                if (recordId == null || session == null) {
+                    host.toast("평균 심박수를 저장하지 못했습니다.")
+                    return@LaunchedEffect
+                }
+                cardioViewModel.rememberActiveRecord(recordId)
+                host.stopCardioTracking()
+                host.clearInProgressWorkout(recordId)
+                cardioViewModel.dismissHeartRateEditor()
+                host.toast("유산소 운동을 완료했습니다.")
+                if (screen == FitnessScreen.CARDIO_SESSION) {
+                    navigation.replace(FitnessScreen.CARDIO_SUMMARY)
+                } else {
+                    navigation.navigate(FitnessScreen.CARDIO_SUMMARY)
+                }
+            }
+            CardioSessionAction.PREPARE_HEART_RATE_EDIT -> {
+                if (recordId != null && session != null) {
+                    cardioViewModel.openHeartRateEditor(
+                        AccountScope(ownerId), recordId, false, session
+                    )
+                }
+            }
+            CardioSessionAction.UPDATE_HEART_RATE -> {
+                if (recordId != null) {
+                    cardioViewModel.dismissHeartRateEditor()
+                    host.toast("평균 심박수를 저장했습니다.")
+                    cardioViewModel.refresh(AccountScope(ownerId), recordId)
+                }
+            }
+            CardioSessionAction.PREPARE_CANCEL -> {
+                if (recordId != null && session != null) {
+                    cardioViewModel.openCancelConfirmation(
+                        AccountScope(ownerId), recordId, session
+                    )
+                }
+            }
+            CardioSessionAction.CANCEL -> {
+                if (recordId == null) {
+                    host.toast("취소할 유산소 기록을 찾지 못했습니다.")
+                    return@LaunchedEffect
+                }
+                host.stopCardioTracking()
+                host.clearActiveWorkout(recordId)
+                host.toast("유산소 기록을 취소했습니다.")
+                navigation.replace(FitnessScreen.CARDIO)
+            }
+            CardioSessionAction.LOAD_ROUTE -> Unit
+        }
+    }
+
+    LaunchedEffect(manualPastState) {
+        val state = manualPastState
+        if (state is ManualPastWorkoutUiState.Error && state.ownerId == ownerId) {
+            host.toast(state.message)
+            viewModels.getWorkoutSession().dismissManualPastEditor()
+        }
+    }
+
+    LaunchedEffect(cardioHeartRateEditorState) {
+        val state = cardioHeartRateEditorState
+        if (state is CardioHeartRateEditorUiState.Ready && state.ownerId != ownerId) {
+            viewModels.getCardioSession().dismissHeartRateEditor()
+        }
+    }
+
+    LaunchedEffect(cardioCancelConfirmationState) {
+        val state = cardioCancelConfirmationState
+        if (state is CardioCancelConfirmationUiState.Ready && state.ownerId != ownerId) {
+            viewModels.getCardioSession().dismissCancelConfirmation()
+        }
+    }
+
+    val homeSnapshot = (homeState as? HomeUiState.Ready)?.snapshot
+    val manualPastActions = object : ManualPastWorkoutActions {
+        override fun start(
+            date: String,
+            title: String,
+            routineId: String?,
+            exercises: List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance>,
+            startedAt: String,
+            endedAt: String
+        ) = viewModels.getWorkoutSession().startManualPast(
+            AccountScope(ownerId), date, title, routineId, exercises, startedAt, endedAt
+        )
+
+        override fun dismiss() = viewModels.getWorkoutSession().dismissManualPastEditor()
+        override fun notify(message: String) = host.toast(message)
+    }
+
+    val editorActions = object : BodyMetricsEditorActions, DevelopmentEditorActions {
+        override fun save(
+            recordId: String?,
+            date: String,
+            weightKg: Double,
+            memo: String
+        ) = viewModels.getBodyMetrics().save(
+            AccountScope(ownerId), recordId, date, weightKg, memo
+        )
+
+        override fun delete(recordId: String) = viewModels.getBodyMetrics().delete(
+            AccountScope(ownerId), recordId
+        )
+
+        override fun saveProfile(
+            profile: com.yeonsik.fitnessapp.development.BodyProfile?,
+            weightRecordId: String?,
+            date: String,
+            weightKg: Double?,
+            memo: String
+        ) = viewModels.getDevelopment().saveProfileAndWeight(
+            AccountScope(ownerId), profile, weightRecordId, date, weightKg, memo
+        )
+
+        override fun saveGoal(goal: com.yeonsik.fitnessapp.development.DevelopmentGoal) =
+            viewModels.getDevelopment().saveGoal(AccountScope(ownerId), goal)
+
+        override fun dismiss() {
+            viewModels.getBodyMetrics().dismissEditor()
+            viewModels.getDevelopment().dismissProfileEditor()
+            viewModels.getDevelopment().dismissGoalEditor()
+        }
+
+        override fun notify(message: String) = host.toast(message)
+    }
+
+    LaunchedEffect(bodyEditorState) {
+        when (val state = bodyEditorState) {
+            is BodyMetricsEditorUiState.Saved -> {
+                host.toast("체중 기록을 저장했습니다.")
+                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getBodyMetrics().dismissEditor()
+            }
+            is BodyMetricsEditorUiState.Deleted -> {
+                host.toast("체중 기록을 삭제했습니다.")
+                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getBodyMetrics().dismissEditor()
+            }
+            is BodyMetricsEditorUiState.Error -> {
+                if (state.ownerId == ownerId) host.toast(state.message)
+                viewModels.getBodyMetrics().dismissEditor()
+            }
+            else -> Unit
+        }
+    }
+
+    LaunchedEffect(profileEditorState) {
+        when (val state = profileEditorState) {
+            is DevelopmentProfileEditorUiState.Saved -> {
+                host.toast("바디 정보를 저장했습니다.")
+                viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getDevelopment().dismissProfileEditor()
+            }
+            is DevelopmentProfileEditorUiState.Error -> {
+                if (state.ownerId == ownerId) host.toast(state.message)
+                viewModels.getDevelopment().dismissProfileEditor()
+            }
+            else -> Unit
+        }
+    }
+
+    LaunchedEffect(goalEditorState) {
+        when (val state = goalEditorState) {
+            is DevelopmentGoalEditorUiState.Saved -> {
+                host.toast("발전 목표를 저장했습니다.")
+                viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getDevelopment().dismissGoalEditor()
+            }
+            is DevelopmentGoalEditorUiState.Error -> {
+                if (state.ownerId == ownerId) host.toast(state.message)
+                viewModels.getDevelopment().dismissGoalEditor()
+            }
+            else -> Unit
+        }
     }
 
     FitnessComposeTheme(dark) {
@@ -139,6 +497,42 @@ private fun AppRoot(
                 BottomNavigation(host, screen)
             }
         }
+        BodyMetricsEditorDialog(bodyEditorState, ownerId, unit, editorActions)
+        DevelopmentProfileEditorDialog(profileEditorState, ownerId, unit, editorActions)
+        DevelopmentGoalEditorDialog(
+            goalEditorState,
+            ownerId,
+            navigationState.today,
+            editorActions
+        )
+        ManualPastWorkoutDialog(
+            manualPastState,
+            ownerId,
+            homeSnapshot?.routines.orEmpty(),
+            homeSnapshot?.routineExercises.orEmpty(),
+            navigationState.selectedRoutineId,
+            manualPastActions
+        )
+        val cardioEditorActions = object : CardioHeartRateEditorActions {
+            override fun updateInput(value: String) =
+                viewModels.getCardioSession().updateHeartRateInput(value)
+
+            override fun save(value: String) = viewModels.getCardioSession().submitHeartRate(
+                AccountScope(ownerId), value
+            )
+
+            override fun dismiss() = viewModels.getCardioSession().dismissHeartRateEditor()
+        }
+        CardioHeartRateEditorDialog(cardioHeartRateEditorState, ownerId, cardioEditorActions)
+        val cardioCancelActions = object : CardioCancelConfirmationActions {
+            override fun confirm() = viewModels.getCardioSession().confirmCancel(AccountScope(ownerId))
+            override fun dismiss() = viewModels.getCardioSession().dismissCancelConfirmation()
+        }
+        CardioCancelConfirmationDialog(
+            cardioCancelConfirmationState,
+            ownerId,
+            cardioCancelActions
+        )
     }
 }
 
@@ -385,15 +779,43 @@ private fun AppDestination(
             viewModels.getHome().enter(AccountScope(ownerId), today)
         }
     }
+    val cardioRecordId = (cardioState as? CardioSessionUiState.Ready)?.session?.recordId
+        ?: viewModels.getCardioSession().activeRecordId()
     val cardioActions = object : CardioScreenActions {
         override fun start(activityType: CardioActivityType) = host.startCardioWorkout(activityType)
         override fun back() { host.back() }
-        override fun refresh() = host.refreshCardioSession()
-        override fun pause() = host.pauseCardioWorkout()
-        override fun resume() = host.resumeCardioWorkout()
-        override fun editAverageHeartRate() = host.editCardioAverageHeartRate()
-        override fun finish() = host.finishCardioWorkout()
-        override fun cancel() = host.cancelCardioWorkout()
+        override fun refresh() {
+            cardioRecordId?.let {
+            viewModels.getCardioSession().refresh(AccountScope(ownerId), it)
+            }
+        }
+        override fun pause() {
+            cardioRecordId?.let {
+            viewModels.getCardioSession().pause(AccountScope(ownerId), it)
+            }
+        }
+        override fun resume() {
+            cardioRecordId?.let {
+            viewModels.getCardioSession().prepareResume(AccountScope(ownerId), it)
+            }
+        }
+        override fun editAverageHeartRate() {
+            cardioRecordId?.let {
+                viewModels.getCardioSession().prepareAverageHeartRateEdit(
+                    AccountScope(ownerId), it
+                )
+            }
+        }
+        override fun finish() {
+            cardioRecordId?.let {
+                viewModels.getCardioSession().prepareFinish(AccountScope(ownerId), it)
+            }
+        }
+        override fun cancel() {
+            cardioRecordId?.let {
+                viewModels.getCardioSession().prepareCancel(AccountScope(ownerId), it)
+            }
+        }
         override fun loadRoute(recordId: String) {
             viewModels.getCardioSession().loadRoute(AccountScope(ownerId), recordId)
         }
@@ -445,7 +867,9 @@ private fun AppDestination(
             catalogProductId
         )
         override fun saveDiningOut() = viewModels.getMeal().save(AccountScope(ownerId)) { }
-        override fun showBodyMetric() = host.showBodyMetricDialog(today, null)
+        override fun showBodyMetric() = viewModels.getBodyMetrics().open(
+            AccountScope(ownerId), today, null
+        )
     }
     val settingsActions = object : SettingsScreenActions {
         override fun setPreferredMassUnit(unit: MassUnit) = host.setPreferredMassUnit(unit)
@@ -471,7 +895,7 @@ private fun AppDestination(
         override fun openRecord(recordId: String) = host.openRecord(recordId)
         override fun deleteRecord(recordId: String) = host.confirmDeleteSession(recordId)
         override fun showBodyMetric(date: String, recordId: String?) =
-            host.showBodyMetricDialog(date, recordId)
+            viewModels.getBodyMetrics().open(AccountScope(ownerId), date, recordId)
         override fun openMeals(date: String) =
             host.openMealManagement(date, FitnessScreen.RECORDS)
     }
@@ -515,7 +939,9 @@ private fun AppDestination(
                 object : WorkoutOverviewActions {
                     override fun continueWorkout() = host.continueWorkoutIfAvailable()
                     override fun navigate(screen: FitnessScreen) = host.navigate(screen)
-                    override fun showBodyMetric() = host.showBodyMetricDialog()
+                    override fun showBodyMetric() = viewModels.getBodyMetrics().open(
+                        AccountScope(ownerId), today, null
+                    )
                     override fun openMeals() = host.openMealManagement()
                 }
             )
@@ -529,7 +955,8 @@ private fun AppDestination(
                     }
 
                     override fun startEmptyWorkout() = host.startEmptyWorkout()
-                    override fun showPastWorkout() = host.showPastWorkoutDialog()
+                    override fun showPastWorkout() = viewModels.getWorkoutSession()
+                        .openManualPastEditor(AccountScope(ownerId))
                     override fun selectRoutine(routineId: String) = host.selectRoutine(routineId)
                     override fun navigate(screen: FitnessScreen) = host.navigate(screen)
                     override fun startRoutineWorkout(
@@ -551,10 +978,28 @@ private fun AppDestination(
                 ownerId,
                 unit,
                 object : DevelopmentScreenActions {
-                    override fun showBodyProfile() = host.showDevelopmentBodyProfileDialog()
-                    override fun showGoal() = host.showDevelopmentGoalDialog()
+                    override fun showBodyProfile() = viewModels.getDevelopment().openProfileEditor(
+                        AccountScope(ownerId), today
+                    )
+                    override fun showGoal() = viewModels.getDevelopment().openGoalEditor(
+                        AccountScope(ownerId)
+                    )
                     override fun openInsightAction(insight: com.yeonsik.fitnessapp.development.DevelopmentInsight) {
-                        host.openDevelopmentInsightAction(insight)
+                        when {
+                            insight.category == "planning" ->
+                                viewModels.getDevelopment().openGoalEditor(AccountScope(ownerId))
+                            insight.category == "consistency" || insight.category == "focus" ->
+                                host.navigate(FitnessScreen.WORKOUT)
+                            insight.category == "recovery" || insight.category == "nutrition_logging" ->
+                                host.openMealManagement(today, FitnessScreen.DEVELOPMENT)
+                            insight.category == "coverage" && insight.title.contains("체중") ->
+                                viewModels.getDevelopment().openProfileEditor(
+                                    AccountScope(ownerId), today
+                                )
+                            insight.category == "coverage" ->
+                                host.navigate(FitnessScreen.RECORDS)
+                            else -> host.toast("연결된 다음 행동이 아직 없습니다.")
+                        }
                     }
                 }
             )
