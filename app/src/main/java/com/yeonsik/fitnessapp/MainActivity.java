@@ -36,18 +36,14 @@ import com.yeonsik.fitnessapp.app.navigation.ComposeAppScreen;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
-import com.yeonsik.fitnessapp.config.NutritionSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.MassUnitPreferences;
-import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.config.SupabaseConfigStore;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.data.MassFormatter;
 import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
 import com.yeonsik.fitnessapp.state.WorkoutSessionState;
-import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.AppUiActions;
@@ -61,11 +57,9 @@ import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
 import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
-import com.yeonsik.fitnessapp.feature.settings.ui.SettingsConnection;
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsEvent;
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsUiState;
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsViewModel;
-import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService;
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService;
 
 import java.io.IOException;
@@ -145,16 +139,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private SupplementViewModel supplementViewModel;
     private ExercisePickerViewModel exercisePickerViewModel;
     private MealViewModel mealViewModel;
-    private SupabaseConfigStore configStore;
-    private NutritionSupabaseConfigStore nutritionConfigStore;
-    private PriceTraceSupabaseConfigStore priceTraceConfigStore;
     private MassUnitPreferences massUnitPreferences;
-    private SupabaseAuthManager authManager;
-    private SupabaseAuthManager nutritionAuthManager;
-    private SupabaseAuthManager priceTraceAuthManager;
-    private SupabaseConfig supabaseConfig;
-    private SupabaseConfig nutritionSupabaseConfig;
-    private SupabaseConfig priceTraceSupabaseConfig;
 
     private FitnessUi ui;
     private OnBackInvokedCallback backInvokedCallback;
@@ -180,15 +165,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         super.onCreate(savedInstanceState);
         massUnitPreferences = new MassUnitPreferences(this);
         appContainer = new AppContainer(this);
-        configStore = appContainer.getConfigStore();
-        nutritionConfigStore = appContainer.getNutritionConfigStore();
-        priceTraceConfigStore = appContainer.getPriceTraceConfigStore();
-        supabaseConfig = appContainer.getSupabaseConfig();
-        nutritionSupabaseConfig = appContainer.getNutritionSupabaseConfig();
-        priceTraceSupabaseConfig = appContainer.getPriceTraceSupabaseConfig();
-        authManager = appContainer.getSupabaseAuthManager();
-        nutritionAuthManager = appContainer.getNutritionAuthManager();
-        priceTraceAuthManager = appContainer.getPriceTraceAuthManager();
         themeMode = getSharedPreferences(UI_PREFS, MODE_PRIVATE)
                 .getString(KEY_THEME_MODE, THEME_LIGHT);
         String startupOwnerId = currentOwnerId();
@@ -265,7 +241,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                                 appContainer.getNutritionAuthManager(),
                                 appContainer.getPriceTraceAuthManager(),
                                 appContainer.getSyncApplicationService(),
-                                appContainer.getLocalDataTransferApplicationService()
+                                appContainer.getLocalDataTransferApplicationService(),
+                                appContainer
                         )
                 )
         ).get(SettingsViewModel.class);
@@ -396,48 +373,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         if (event == null || !event.consume()) {
             return;
         }
-        if (event instanceof SettingsEvent.ConfigSaved) {
-            SettingsEvent.ConfigSaved saved = (SettingsEvent.ConfigSaved) event;
-            applySettingsConfig(saved.getConnection(), saved.getConfig());
-            settingsViewModel.refresh();
-            toast(saved.getMessage());
-        } else if (event instanceof SettingsEvent.Authenticated) {
-            SettingsEvent.Authenticated authenticated = (SettingsEvent.Authenticated) event;
-            if (authenticated.getConfirmationRequired()) {
-                settingsViewModel.refresh();
-                toast(authenticated.getMessage());
-                return;
-            }
-            if (authenticated.getConnection() == SettingsConnection.SHARED) {
-                completeSharedAuthentication(
-                        authenticated.getConfig(),
-                        authenticated.getMessage()
-                );
-            } else if (authenticated.getConnection() == SettingsConnection.NUTRITION) {
-                completeNutritionAuthentication(
-                        authenticated.getConfig(),
-                        authenticated.getMessage()
-                );
-            } else {
-                applyPriceTraceSessionConfig(authenticated.getConfig());
-                settingsViewModel.refresh();
-                toast(authenticated.getMessage());
-            }
-        } else if (event instanceof SettingsEvent.SignedOut) {
-            SettingsEvent.SignedOut signedOut = (SettingsEvent.SignedOut) event;
-            applySettingsConfig(signedOut.getConnection(), signedOut.getConfig());
-            settingsViewModel.refresh();
-            toast(signedOut.getMessage());
-        } else if (event instanceof SettingsEvent.SyncCompleted) {
-            SettingsEvent.SyncCompleted completed = (SettingsEvent.SyncCompleted) event;
-            SyncApplicationService.Result result = completed.getResult();
-            applySharedSessionConfig(result.sharedConfig);
-            if (result.nutritionConfig != null) {
-                applyNutritionSessionConfig(result.nutritionConfig);
-            }
-            settingsViewModel.refresh();
-            toast("수동 동기화 결과를 반영했습니다.");
-        } else if (event instanceof SettingsEvent.BackupPreviewReady) {
+        if (event instanceof SettingsEvent.BackupPreviewReady) {
             SettingsEvent.BackupPreviewReady previewReady =
                     (SettingsEvent.BackupPreviewReady) event;
             LocalDataTransferApplicationService.BackupPreview preview = previewReady.getPreview();
@@ -458,65 +394,18 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         } else if (event instanceof SettingsEvent.Failure) {
             toast(((SettingsEvent.Failure) event).getMessage());
             settingsViewModel.refresh();
-        }
-    }
-
-    private void applySettingsConfig(SettingsConnection connection, SupabaseConfig config) {
-        if (connection == SettingsConnection.SHARED) {
-            applySharedSessionConfig(config);
-        } else if (connection == SettingsConnection.NUTRITION) {
-            applyNutritionSessionConfig(config);
-        } else {
-            applyPriceTraceSessionConfig(config);
-        }
-    }
-
-    private void applySharedSessionConfig(SupabaseConfig config) {
-        appContainer.applySharedSessionConfig(config);
-        supabaseConfig = appContainer.getSupabaseConfig();
-    }
-
-    private void applyAuthenticatedSharedConfig(SupabaseConfig config) {
-        appContainer.applyAuthenticatedSharedConfig(config);
-        supabaseConfig = appContainer.getSupabaseConfig();
-    }
-
-    private void applyNutritionSessionConfig(SupabaseConfig config) {
-        appContainer.applyNutritionSessionConfig(config);
-        nutritionSupabaseConfig = appContainer.getNutritionSupabaseConfig();
-    }
-
-    private void applyAuthenticatedNutritionConfig(SupabaseConfig config) {
-        appContainer.applyAuthenticatedNutritionConfig(config);
-        nutritionSupabaseConfig = appContainer.getNutritionSupabaseConfig();
-    }
-
-    private void applyPriceTraceSessionConfig(SupabaseConfig config) {
-        appContainer.applyPriceTraceSessionConfig(config);
-        priceTraceSupabaseConfig = appContainer.getPriceTraceSupabaseConfig();
-    }
-
-    private void completeSharedAuthentication(SupabaseConfig config, String successMessage) {
-        try {
-            applyAuthenticatedSharedConfig(config);
+        } else if (event instanceof SettingsEvent.ConfigSaved) {
+            toast(((SettingsEvent.ConfigSaved) event).getMessage());
             settingsViewModel.refresh();
-            toast(successMessage);
-        } catch (RuntimeException error) {
-            applySharedSessionConfig(configStore.clearSession());
+        } else if (event instanceof SettingsEvent.Authenticated) {
+            toast(((SettingsEvent.Authenticated) event).getMessage());
             settingsViewModel.refresh();
-            toast("로컬 기록을 안전하게 연결하지 못해 로그인을 취소했습니다.");
-        }
-    }
-
-    private void completeNutritionAuthentication(SupabaseConfig config, String successMessage) {
-        try {
-            applyAuthenticatedNutritionConfig(config);
+        } else if (event instanceof SettingsEvent.SignedOut) {
+            toast(((SettingsEvent.SignedOut) event).getMessage());
             settingsViewModel.refresh();
-            toast(successMessage);
-        } catch (RuntimeException error) {
-            applyNutritionSessionConfig(nutritionConfigStore.clearSession());
+        } else if (event instanceof SettingsEvent.SyncCompleted) {
+            toast("수동 동기화 결과를 반영했습니다.");
             settingsViewModel.refresh();
-            toast("영양 데이터를 안전하게 연결하지 못해 로그인을 취소했습니다.");
         }
     }
 
@@ -529,7 +418,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             pendingRestoreUri = null;
             settingsViewModel.restoreBackup(
                     currentOwnerId(),
-                    nutritionSupabaseConfig.effectiveUserId(),
+                    appContainer.getNutritionSupabaseConfig().effectiveUserId(),
                     input
             );
         } catch (Exception error) {
@@ -566,9 +455,9 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         String email = normalizeIntentExtra(intent, EXTRA_EMAIL);
         if (!accessToken.isEmpty()
                 && !refreshToken.isEmpty()
-                && canProvisionDebugSession(supabaseConfig, userId)) {
+                && canProvisionDebugSession(appContainer.getSupabaseConfig(), userId)) {
                 try {
-                    applyAuthenticatedSharedConfig(configStore.saveSession(
+                    appContainer.applyAuthenticatedSharedConfig(appContainer.getConfigStore().saveSession(
                             userId,
                             email,
                             accessToken,
@@ -587,9 +476,9 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         String nutritionEmail = normalizeIntentExtra(intent, EXTRA_NUTRITION_EMAIL);
         if (!nutritionAccessToken.isEmpty()
                 && !nutritionRefreshToken.isEmpty()
-                && canProvisionDebugSession(nutritionSupabaseConfig, nutritionUserId)) {
+                && canProvisionDebugSession(appContainer.getNutritionSupabaseConfig(), nutritionUserId)) {
                 try {
-                    applyAuthenticatedNutritionConfig(nutritionConfigStore.saveSession(
+                    appContainer.applyAuthenticatedNutritionConfig(appContainer.getNutritionConfigStore().saveSession(
                             nutritionUserId,
                             nutritionEmail,
                             nutritionAccessToken,
@@ -608,9 +497,9 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         String priceTraceEmail = normalizeIntentExtra(intent, EXTRA_PRICE_TRACE_EMAIL);
         if (!priceTraceAccessToken.isEmpty()
                 && !priceTraceRefreshToken.isEmpty()
-                && canProvisionDebugSession(priceTraceSupabaseConfig, priceTraceUserId)) {
+                && canProvisionDebugSession(appContainer.getPriceTraceSupabaseConfig(), priceTraceUserId)) {
             try {
-                applyPriceTraceSessionConfig(priceTraceConfigStore.saveSession(
+                appContainer.applyPriceTraceSessionConfig(appContainer.getPriceTraceConfigStore().saveSession(
                         priceTraceUserId,
                         priceTraceEmail,
                         priceTraceAccessToken,
@@ -726,7 +615,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             if (output == null) throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
             settingsViewModel.writeBackup(
                     currentOwnerId(),
-                    nutritionSupabaseConfig.effectiveUserId(),
+                    appContainer.getNutritionSupabaseConfig().effectiveUserId(),
                     output
             );
         } catch (Exception error) {
@@ -741,7 +630,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             if (input == null) throw new IOException("선택한 백업 파일을 읽을 수 없습니다.");
             settingsViewModel.previewBackup(
                     currentOwnerId(),
-                    nutritionSupabaseConfig.effectiveUserId(),
+                    appContainer.getNutritionSupabaseConfig().effectiveUserId(),
                     input
             );
         } catch (Exception error) {
@@ -755,7 +644,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             if (output == null) throw new IOException("선택한 위치에 파일을 만들 수 없습니다.");
             settingsViewModel.writeRecordsCsv(
                     currentOwnerId(),
-                    nutritionSupabaseConfig.effectiveUserId(),
+                    appContainer.getNutritionSupabaseConfig().effectiveUserId(),
                     output
             );
         } catch (Exception error) {
@@ -934,7 +823,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
     @Override
     public String currentOwnerId() {
-        return supabaseConfig.effectiveUserId();
+        return appContainer.getSupabaseConfig().effectiveUserId();
     }
 
     public String today() {

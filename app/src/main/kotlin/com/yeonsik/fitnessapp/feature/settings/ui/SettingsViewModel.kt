@@ -14,6 +14,7 @@ import com.yeonsik.fitnessapp.data.MassUnit
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
+import com.yeonsik.fitnessapp.feature.settings.application.SettingsSessionCoordinator
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
 import java.io.InputStream
 import java.io.OutputStream
@@ -91,6 +92,7 @@ class SettingsViewModel @JvmOverloads constructor(
     private val priceTraceAuth: SupabaseAuthManager,
     private val syncApplicationService: SyncApplicationService,
     private val localDataTransferApplicationService: LocalDataTransferApplicationService,
+    private val sessionCoordinator: SettingsSessionCoordinator,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : ViewModel() {
     private val mutableState = MutableLiveData<SettingsUiState>()
@@ -132,6 +134,7 @@ class SettingsViewModel @JvmOverloads constructor(
         executor.execute {
             try {
                 val config = store(connection).saveConnection(url, anonKey)
+                sessionCoordinator.apply(connection, config, false)
                 mutableEvents.postValue(
                     SettingsEvent.ConfigSaved(connection, config, connectionSavedMessage(connection))
                 )
@@ -153,6 +156,7 @@ class SettingsViewModel @JvmOverloads constructor(
         executor.execute {
             try {
                 val authenticated = auth(connection).signIn(config, email, password)
+                applyAuthenticatedConfig(connection, authenticated)
                 mutableEvents.postValue(
                     SettingsEvent.Authenticated(
                         connection,
@@ -179,6 +183,9 @@ class SettingsViewModel @JvmOverloads constructor(
         executor.execute {
             try {
                 val result = auth(connection).signUp(config, email, password)
+                if (!result.emailConfirmationRequired) {
+                    applyAuthenticatedConfig(connection, result.config)
+                }
                 mutableEvents.postValue(
                     SettingsEvent.Authenticated(
                         connection,
@@ -202,6 +209,7 @@ class SettingsViewModel @JvmOverloads constructor(
         executor.execute {
             try {
                 val config = store(connection).clearSession()
+                sessionCoordinator.apply(connection, config, false)
                 mutableEvents.postValue(
                     SettingsEvent.SignedOut(connection, config, signoutMessage(connection))
                 )
@@ -225,6 +233,7 @@ class SettingsViewModel @JvmOverloads constructor(
                     sharedConfig,
                     nutritionConfigStore.load()
                 )
+                sessionCoordinator.applySync(result)
                 savedStateHandle[KEY_LAST_SYNCED_AT] = result.sharedResult.syncedAt
                 val summaryFailed = !result.sharedResult.summaryPublicationSucceeded
                 val partial = result.nutritionFailed || summaryFailed
@@ -434,6 +443,17 @@ class SettingsViewModel @JvmOverloads constructor(
             error.message ?: authenticationFailureMessage(connection)
         )
         mutableEvents.postValue(SettingsEvent.Failure(authenticationFailureMessage(connection)))
+    }
+
+    private fun applyAuthenticatedConfig(connection: SettingsConnection, config: SupabaseConfig) {
+        try {
+            sessionCoordinator.apply(connection, config, true)
+        } catch (error: RuntimeException) {
+            runCatching {
+                sessionCoordinator.apply(connection, store(connection).clearSession(), false)
+            }
+            throw error
+        }
     }
 
     private fun fail(message: String) {

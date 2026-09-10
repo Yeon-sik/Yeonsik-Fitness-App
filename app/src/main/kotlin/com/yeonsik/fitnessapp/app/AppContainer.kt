@@ -49,6 +49,8 @@ import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationS
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutInterchangeRepository
 import com.yeonsik.fitnessapp.feature.routine.data.RoutineRepository
 import com.yeonsik.fitnessapp.feature.supplement.data.SupplementRepository
+import com.yeonsik.fitnessapp.feature.settings.application.SettingsSessionCoordinator
+import com.yeonsik.fitnessapp.feature.settings.ui.SettingsConnection
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
 import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager
 
@@ -58,7 +60,7 @@ import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager
  * Feature code receives the narrow API it needs from here. Activities coordinate lifecycle,
  * navigation and platform callbacks without constructing repositories or integration adapters.
  */
-class AppContainer(context: Context) {
+class AppContainer(context: Context) : SettingsSessionCoordinator {
     private val appContext = context.applicationContext
 
     val configStore = SupabaseConfigStore(appContext)
@@ -255,5 +257,30 @@ class AppContainer(context: Context) {
         priceTraceSupabaseConfig = config
         productReadClient.setConfig(config)
         restaurantMenuReadClient.setConfig(config)
+    }
+
+    override fun apply(
+        connection: SettingsConnection,
+        config: SupabaseConfig,
+        authenticated: Boolean
+    ) {
+        when (connection) {
+            SettingsConnection.SHARED -> if (authenticated) {
+                applyAuthenticatedSharedConfig(config)
+            } else {
+                applySharedSessionConfig(config)
+            }
+            SettingsConnection.NUTRITION -> if (authenticated) {
+                applyAuthenticatedNutritionConfig(config)
+            } else {
+                applyNutritionSessionConfig(config)
+            }
+            SettingsConnection.PRICE_TRACE -> applyPriceTraceSessionConfig(config)
+        }
+    }
+
+    override fun applySync(result: SyncApplicationService.Result) {
+        applySharedSessionConfig(result.sharedConfig)
+        result.nutritionConfig?.let { applyNutritionSessionConfig(it) }
     }
 }
