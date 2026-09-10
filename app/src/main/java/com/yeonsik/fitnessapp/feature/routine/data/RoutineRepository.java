@@ -6,10 +6,8 @@ import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.RoutineEntity;
 import com.yeonsik.fitnessapp.core.database.RoutineExerciseEntity;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.exercise.BodyPart;
 import com.yeonsik.fitnessapp.exercise.EquipmentType;
@@ -35,13 +33,6 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     private final ExerciseFamilyCatalog familyCatalog;
     private String userId;
     private String activeRoutineId;
-
-    /** Compatibility fixture constructor; it still uses the app's Room provider. */
-    @Deprecated
-    public RoutineRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        this(FitnessRoomDatabaseProvider.get(dbHelper.applicationContext()),
-                dbHelper.applicationContext(), userId);
-    }
 
     public RoutineRepository(FitnessRoomDatabase roomDatabase, Context context, String userId) {
         if (roomDatabase == null || context == null) {

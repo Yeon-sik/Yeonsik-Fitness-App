@@ -3,14 +3,12 @@ package com.yeonsik.fitnessapp.feature.supplement.data;
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.SupplementEffectCheckinsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.SupplementIntakeRecordsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.SupplementItemsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.SupplementRoomDao;
 import com.yeonsik.fitnessapp.core.database.SupplementScheduleSlotsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.SupplementSchedulesRoomEntity;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.supplement.SupplementCatalog;
 import com.yeonsik.fitnessapp.supplement.SupplementPlan;
 
@@ -42,12 +40,6 @@ public final class SupplementRepository implements com.yeonsik.fitnessapp.featur
     private final FitnessRoomDatabase roomDatabase;
     private final SupplementRoomDao supplementDao;
     private String userId;
-
-    /** Compatibility fixture constructor; runtime storage still goes through Room DAOs. */
-    @Deprecated
-    public SupplementRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        this(FitnessRoomDatabaseProvider.get(dbHelper.applicationContext()), userId, dbHelper.applicationContext());
-    }
 
     public SupplementRepository(FitnessRoomDatabase roomDatabase, String userId, android.content.Context context) {
         if (roomDatabase == null || context == null) {

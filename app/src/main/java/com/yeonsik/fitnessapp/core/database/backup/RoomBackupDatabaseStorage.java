@@ -6,12 +6,7 @@ import android.database.sqlite.SQLiteDatabase;
 
 import androidx.sqlite.db.SimpleSQLiteQuery;
 import androidx.sqlite.db.SupportSQLiteDatabase;
-import androidx.sqlite.db.SupportSQLiteOpenHelper;
-import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory;
-
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseContract;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 
 /** Room-owned implementation of the allowlisted backup database surface. */
 public final class RoomBackupDatabaseStorage implements BackupDatabaseStorage {
@@ -22,40 +17,6 @@ public final class RoomBackupDatabaseStorage implements BackupDatabaseStorage {
             throw new IllegalArgumentException("FitnessRoomDatabase is required.");
         }
         this.database = roomDatabase.getOpenHelper().getWritableDatabase();
-    }
-
-    /**
-     * Compatibility-only bridge for migration fixtures and old backup tests.
-     * Application composition uses the Room constructor above.
-     */
-    public RoomBackupDatabaseStorage(FitnessDatabaseHelper helper) {
-        if (helper == null) {
-            throw new IllegalArgumentException("FitnessDatabaseHelper is required.");
-        }
-        helper.getWritableDatabase();
-        SupportSQLiteOpenHelper openHelper = new FrameworkSQLiteOpenHelperFactory().create(
-                SupportSQLiteOpenHelper.Configuration.builder(helper.applicationContext())
-                        .name(FitnessDatabaseContract.NAME)
-                        .callback(new SupportSQLiteOpenHelper.Callback(
-                                FitnessDatabaseHelper.DATABASE_VERSION
-                        ) {
-                            @Override public void onConfigure(SupportSQLiteDatabase db) { }
-                            @Override public void onCreate(SupportSQLiteDatabase db) { }
-                            @Override public void onUpgrade(
-                                    SupportSQLiteDatabase db,
-                                    int oldVersion,
-                                    int newVersion
-                            ) { }
-                            @Override public void onDowngrade(
-                                    SupportSQLiteDatabase db,
-                                    int oldVersion,
-                                    int newVersion
-                            ) { }
-                            @Override public void onOpen(SupportSQLiteDatabase db) { }
-                        })
-                        .build()
-        );
-        this.database = openHelper.getWritableDatabase();
     }
 
     @Override
@@ -127,8 +88,4 @@ public final class RoomBackupDatabaseStorage implements BackupDatabaseStorage {
     @Override public void endTransaction() { database.endTransaction(); }
     @Override public int getVersion() { return database.getVersion(); }
 
-    /** Compatibility-only access used by the legacy catalog seed adapter. */
-    public SupportSQLiteDatabase supportDatabase() {
-        return database;
-    }
 }

@@ -8,9 +8,7 @@ import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.CardioRoomDao;
 import com.yeonsik.fitnessapp.core.database.CardioSessionsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi;
 import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
@@ -38,12 +36,6 @@ public final class CardioRepository implements CardioRepositoryApi {
     private final RoomTransactionRunner transactionRunner;
     private String userId;
 
-    /** Temporary source-compatible adapter for legacy callers; storage still uses Room. */
-    @Deprecated
-    public CardioRepository(FitnessDatabaseHelper dbHelper, String userId) {
-        this(FitnessRoomDatabaseProvider.get(dbHelper.applicationContext()), userId);
-    }
-
     public CardioRepository(FitnessRoomDatabase roomDatabase, String userId) {
         this(roomDatabase, userId, new RoomTransactionRunner(roomDatabase));
     }
@@ -56,13 +48,6 @@ public final class CardioRepository implements CardioRepositoryApi {
         this.cardioDao = roomDatabase.cardioRoomDao();
         this.transactionRunner = transactionRunner;
         this.userId = userId;
-    }
-
-    /** Temporary source-compatible overload for the foreground service. */
-    @Deprecated
-    public CardioRepository(FitnessRoomDatabase roomDatabase, String userId,
-                            android.content.Context ignoredContext) {
-        this(roomDatabase, userId);
     }
 
     /** Account boundary updates the owner after local rows have been claimed separately. */

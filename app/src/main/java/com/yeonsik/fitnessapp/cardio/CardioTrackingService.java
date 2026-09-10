@@ -110,7 +110,7 @@ public final class CardioTrackingService extends Service {
         super.onCreate();
         FitnessRoomDatabase roomDatabase = FitnessRoomDatabaseProvider.get(this);
         SupabaseConfig config = new SupabaseConfigStore(this).load();
-        cardioRepository = new CardioRepository(roomDatabase, config.effectiveUserId(), this);
+        cardioRepository = new CardioRepository(roomDatabase, config.effectiveUserId());
         locationClient = LocationServices.getFusedLocationProviderClient(this);
         createNotificationChannel();
     }

@@ -3,7 +3,6 @@ package com.yeonsik.fitnessapp.feature.nutrition.data;
 import android.content.Context;
 
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.NutritionFoodNutrientsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.NutritionFoodComponentsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.NutritionFoodsRoomEntity;
@@ -19,7 +18,6 @@ import com.yeonsik.fitnessapp.data.CompositionTemplate;
 import com.yeonsik.fitnessapp.data.DiningOutComponent;
 import com.yeonsik.fitnessapp.data.DiningOutIdentity;
 import com.yeonsik.fitnessapp.data.DiningOutOption;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.MealCompositionItem;
 import com.yeonsik.fitnessapp.data.MealEntryPolicy;
 import com.yeonsik.fitnessapp.data.NutrientCode;
@@ -100,19 +98,6 @@ public final class NutritionCatalogRepository implements
     private final NutritionRoomDao nutritionDao;
     private final Context applicationContext;
     private volatile String userId;
-
-    public NutritionCatalogRepository(
-            FitnessDatabaseHelper dbHelper,
-            String userId,
-            Object ignoredNetworkConfig
-    ) {
-        this(
-                FitnessRoomDatabaseProvider.get(dbHelper.applicationContext()),
-                userId,
-                ignoredNetworkConfig,
-                dbHelper.applicationContext()
-        );
-    }
 
     public NutritionCatalogRepository(
             FitnessRoomDatabase roomDatabase,

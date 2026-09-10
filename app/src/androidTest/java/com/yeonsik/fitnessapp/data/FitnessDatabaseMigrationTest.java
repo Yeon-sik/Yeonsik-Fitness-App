@@ -12,8 +12,10 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -48,6 +50,7 @@ public final class FitnessDatabaseMigrationTest {
         isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
 
         FitnessDatabaseHelper helper = null;
+        FitnessRoomDatabase room = null;
         try {
             SQLiteDatabase legacy = isolatedContext.openOrCreateDatabase(
                     FitnessDatabaseHelper.DATABASE_NAME,
@@ -60,6 +63,7 @@ public final class FitnessDatabaseMigrationTest {
 
             helper = new FitnessDatabaseHelper(isolatedContext);
             SQLiteDatabase upgraded = helper.getWritableDatabase();
+            room = FitnessRoomTestDatabase.open(isolatedContext);
 
             assertEquals(FitnessDatabaseHelper.DATABASE_VERSION, upgraded.getVersion());
             assertTrue(hasColumn(upgraded, "workout_sets", "load_state"));
@@ -182,7 +186,8 @@ public final class FitnessDatabaseMigrationTest {
                     "SELECT group_type FROM composition_groups LIMIT 1"
             ));
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
+                    room,
+                    isolatedContext,
                     "local-user",
                     SupabaseConfig.empty()
             );
@@ -190,6 +195,9 @@ public final class FitnessDatabaseMigrationTest {
             assertNotNull(legacyFood);
             assertEquals("감자튀김", legacyFood.name);
         } finally {
+            if (room != null) {
+                room.close();
+            }
             if (helper != null) {
                 helper.close();
             }
@@ -205,6 +213,7 @@ public final class FitnessDatabaseMigrationTest {
         );
         FitnessDatabaseHelper creator = null;
         FitnessDatabaseHelper helper = null;
+        FitnessRoomDatabase room = null;
         try {
             isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
             creator = new FitnessDatabaseHelper(isolatedContext);
@@ -266,6 +275,7 @@ public final class FitnessDatabaseMigrationTest {
             );
             FitnessDatabaseHelper helper = null;
             FitnessDatabaseHelper creator = null;
+            FitnessRoomDatabase room = null;
             String diningOutId = "preview-dining-menu-" + previewVersion;
             String packagedId = "preview-packaged-food-" + previewVersion;
             try {
@@ -287,6 +297,7 @@ public final class FitnessDatabaseMigrationTest {
 
                 helper = new FitnessDatabaseHelper(isolatedContext);
                 SQLiteDatabase upgraded = helper.getWritableDatabase();
+                room = FitnessRoomTestDatabase.open(isolatedContext);
                 assertEquals(FitnessDatabaseHelper.DATABASE_VERSION, upgraded.getVersion());
                 assertNutritionHierarchySchema(upgraded);
                 assertEquals("Preview Menu", scalar(
@@ -300,7 +311,8 @@ public final class FitnessDatabaseMigrationTest {
                 ));
 
                 NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                        helper,
+                        room,
+                        isolatedContext,
                         "preview-user",
                         SupabaseConfig.empty()
                 );
@@ -312,6 +324,8 @@ public final class FitnessDatabaseMigrationTest {
 
                 // Re-open the repaired shape through the same v48 -> v49 path. IF NOT EXISTS and
                 // addColumnIfMissing must make the repair safe when it is encountered again.
+                room.close();
+                room = null;
                 helper.close();
                 helper = null;
                 SQLiteDatabase idempotencyFixture = isolatedContext.openOrCreateDatabase(
@@ -336,6 +350,9 @@ public final class FitnessDatabaseMigrationTest {
                 if (helper != null) {
                     helper.close();
                 }
+                if (room != null) {
+                    room.close();
+                }
                 isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
             }
         }
@@ -349,9 +366,11 @@ public final class FitnessDatabaseMigrationTest {
         isolatedContext.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
 
         FitnessDatabaseHelper helper = null;
+        FitnessRoomDatabase room = null;
         try {
             helper = new FitnessDatabaseHelper(isolatedContext);
             SQLiteDatabase database = helper.getWritableDatabase();
+            room = FitnessRoomTestDatabase.open(isolatedContext);
             database.execSQL("INSERT INTO nutrition_goals (user_id, phase, calories_kcal, " +
                     "protein_grams, carbs_grams, fat_grams, fiber_grams, sodium_mg, water_ml, " +
                     "created_at, updated_at) VALUES " +
@@ -404,7 +423,8 @@ public final class FitnessDatabaseMigrationTest {
             FitnessRepository repository = new FitnessRepository(helper, "local-user");
             repository.normalizeLocalUserId(AUTH_USER_ID);
             NutritionCatalogRepository catalogRepository = new NutritionCatalogRepository(
-                    helper,
+                    room,
+                    isolatedContext,
                     "local-user",
                     SupabaseConfig.empty()
             );
@@ -450,6 +470,9 @@ public final class FitnessDatabaseMigrationTest {
             assertEquals("0", scalar(database,
                     "SELECT COUNT(*) FROM development_goals WHERE user_id = 'local-user'"));
         } finally {
+            if (room != null) {
+                room.close();
+            }
             if (helper != null) {
                 helper.close();
             }

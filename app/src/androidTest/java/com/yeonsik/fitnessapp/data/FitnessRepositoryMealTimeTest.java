@@ -1,6 +1,8 @@
 package com.yeonsik.fitnessapp.data;
 
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -426,10 +428,12 @@ public final class FitnessRepositoryMealTimeTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             FitnessRepository repository = new FitnessRepository(helper, USER_ID);
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
+                    room,
+                    context,
                     USER_ID,
                     com.yeonsik.fitnessapp.config.SupabaseConfig.empty()
             );
@@ -479,6 +483,7 @@ public final class FitnessRepositoryMealTimeTest {
             assertEquals(1, repository.mealItemsForRecord(recordId).size());
             assertEquals(1, repository.mealEntriesForDate(date).get(0).compositionCount);
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -491,10 +496,12 @@ public final class FitnessRepositoryMealTimeTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             FitnessRepository repository = new FitnessRepository(helper, USER_ID);
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
+                    room,
+                    context,
                     USER_ID,
                     com.yeonsik.fitnessapp.config.SupabaseConfig.empty()
             );
@@ -556,6 +563,7 @@ public final class FitnessRepositoryMealTimeTest {
             assertEquals(12d, totals.total(NutritionProfile.SUGARS_GRAMS).knownSum(), 0.001d);
             assertEquals(8d, totals.total(NutritionProfile.SATURATED_FAT_GRAMS).knownSum(), 0.001d);
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -643,6 +651,7 @@ public final class FitnessRepositoryMealTimeTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             FitnessRepository repository = new FitnessRepository(helper, USER_ID);
             List<MealCompositionItem> ingredients = Arrays.asList(
@@ -650,7 +659,8 @@ public final class FitnessRepositoryMealTimeTest {
                     MealCompositionItem.from(food("egg", "Egg", 143, 13, 0.7, 9.5), 150)
             );
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
+                    room,
+                    context,
                     USER_ID,
                     com.yeonsik.fitnessapp.config.SupabaseConfig.empty()
             );
@@ -695,6 +705,7 @@ public final class FitnessRepositoryMealTimeTest {
                     LocalDate.now().toString()
             ).get(0).previewTitle);
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }

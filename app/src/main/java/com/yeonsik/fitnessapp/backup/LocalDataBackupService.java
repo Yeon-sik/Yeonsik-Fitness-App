@@ -11,7 +11,6 @@ import com.yeonsik.fitnessapp.core.database.backup.RoomBackupDatabaseStorage;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.data.CompositionGroupType;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
-import com.yeonsik.fitnessapp.data.VerifiedFoodCatalogSeed;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogBackupApi;
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
 
@@ -56,31 +55,6 @@ public final class LocalDataBackupService {
     private final NutritionCatalogBackupApi nutritionCatalogBackupApi;
     private final String recordUserId;
     private final String nutritionOwnerId;
-
-    public LocalDataBackupService(
-            FitnessDatabaseHelper dbHelper,
-            String recordUserId,
-            String nutritionOwnerId
-    ) {
-        this(
-                legacyBackupDependencies(dbHelper),
-                recordUserId,
-                nutritionOwnerId
-        );
-    }
-
-    private LocalDataBackupService(
-            LegacyBackupDependencies dependencies,
-            String recordUserId,
-            String nutritionOwnerId
-    ) {
-        this(
-                dependencies.database,
-                dependencies.nutritionCatalogBackupApi,
-                recordUserId,
-                nutritionOwnerId
-        );
-    }
 
     public LocalDataBackupService(
             FitnessRoomDatabase roomDatabase,
@@ -485,21 +459,6 @@ public final class LocalDataBackupService {
         return resolved;
     }
 
-    private static LegacyBackupDependencies legacyBackupDependencies(
-            FitnessDatabaseHelper helper
-    ) {
-        FitnessDatabaseHelper requiredHelper = Objects.requireNonNull(helper, "dbHelper");
-        RoomBackupDatabaseStorage storage = new RoomBackupDatabaseStorage(requiredHelper);
-        Context context = requiredHelper.applicationContext();
-        NutritionCatalogBackupApi nutritionCatalogBackupApi = new NutritionCatalogBackupApi() {
-            @Override
-            public void reconcileVerifiedFoodCatalog() {
-                VerifiedFoodCatalogSeed.seedWithSupport(context, storage.supportDatabase());
-            }
-        };
-        return new LegacyBackupDependencies(storage, nutritionCatalogBackupApi);
-    }
-
     private static String requireIdentity(String value, String label) {
         String trimmed = value == null ? "" : value.trim();
         if (trimmed.isEmpty()) {
@@ -514,19 +473,6 @@ public final class LocalDataBackupService {
         public void reconcileVerifiedFoodCatalog() {
             // The storage-only constructor is retained for format/CSV callers. Production restore
             // always receives the Nutrition-owned API from AppContainer.
-        }
-    }
-
-    private static final class LegacyBackupDependencies {
-        private final BackupDatabaseStorage database;
-        private final NutritionCatalogBackupApi nutritionCatalogBackupApi;
-
-        private LegacyBackupDependencies(
-                BackupDatabaseStorage database,
-                NutritionCatalogBackupApi nutritionCatalogBackupApi
-        ) {
-            this.database = database;
-            this.nutritionCatalogBackupApi = nutritionCatalogBackupApi;
         }
     }
 

@@ -80,7 +80,7 @@ public final class SupabaseSyncManager {
     }
 
     /** Compatibility seam retained for existing legacy-sync instrumentation coverage. */
-    int applyRows(String table, JSONArray rows, String userId) throws JSONException {
+    public int applyRows(String table, JSONArray rows, String userId) throws JSONException {
         return legacyAdapter.applyRows(table, rows, userId);
     }
 

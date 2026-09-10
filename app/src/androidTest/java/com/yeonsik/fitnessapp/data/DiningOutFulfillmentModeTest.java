@@ -1,6 +1,8 @@
 package com.yeonsik.fitnessapp.data;
 
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -72,9 +74,11 @@ public final class DiningOutFulfillmentModeTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
+                    room,
+                    context,
                     USER_ID,
                     SupabaseConfig.empty()
             );
@@ -122,6 +126,7 @@ public final class DiningOutFulfillmentModeTest {
                 );
             }
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -134,9 +139,11 @@ public final class DiningOutFulfillmentModeTest {
         );
         context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = new NutritionCatalogRepository(
-                    helper,
+                    room,
+                    context,
                     USER_ID,
                     SupabaseConfig.empty()
             );
@@ -198,6 +205,7 @@ public final class DiningOutFulfillmentModeTest {
             assertEquals(DiningOutFulfillmentMode.TAKEOUT.value(), entries.get(1).fulfillmentMode);
             assertNull(entries.get(2).fulfillmentMode);
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }

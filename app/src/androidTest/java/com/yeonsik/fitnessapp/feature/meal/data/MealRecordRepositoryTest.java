@@ -13,11 +13,13 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
+import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionUnit;
+import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -38,8 +40,9 @@ public final class MealRecordRepositoryTest {
     public void foodMealWritesAnOwnerScopedImmutableSnapshot() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
-            NutritionCatalogRepository catalog = catalog(helper, OWNER);
+            NutritionCatalogRepository catalog = catalog(room, context, OWNER);
             NutritionFood food = catalog.saveFood(
                     "검증 식품",
                     NutritionFood.KIND_INGREDIENT,
@@ -85,6 +88,7 @@ public final class MealRecordRepositoryTest {
                 assertEquals(750d, item.getDouble(3), 0.001d);
             }
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
@@ -94,8 +98,9 @@ public final class MealRecordRepositoryTest {
     public void staleAccountScopeCannotWriteAfterAccountSwitch() {
         IsolatedDatabaseContext context = isolatedContext();
         FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
-            NutritionCatalogRepository catalog = catalog(helper, OWNER);
+            NutritionCatalogRepository catalog = catalog(room, context, OWNER);
             NutritionFood food = catalog.saveFood(
                     "격리 식품",
                     NutritionFood.KIND_INGREDIENT,
@@ -114,13 +119,18 @@ public final class MealRecordRepositoryTest {
             assertThrows(IllegalStateException.class, () -> repository.saveFoodMeal(
                     new AccountScope(OWNER), LocalDate.now().toString(), "18:00", food.id, 1d));
         } finally {
+            room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
     }
 
-    private static NutritionCatalogRepository catalog(FitnessDatabaseHelper helper, String owner) {
-        return new NutritionCatalogRepository(helper, owner, SupabaseConfig.empty());
+    private static NutritionCatalogRepository catalog(
+            FitnessRoomDatabase room,
+            Context context,
+            String owner
+    ) {
+        return new NutritionCatalogRepository(room, context, owner, SupabaseConfig.empty());
     }
 
     private static NutritionProfile requiredProfile() {
