@@ -88,8 +88,10 @@ private fun AppRoot(
         .observeAsState(ExercisePickerUiState.Idle)
     val screen = navigationState.screen
     val ownerId = host.currentOwnerId()
-    val unit = settingsState?.preferredMassUnit ?: host.preferredMassUnit()
-    val themeMode = settingsState?.themeMode ?: host.themeMode()
+    val unit = settingsState?.preferredMassUnit
+        ?: viewModels.getSettings().preferredMassUnit()
+    val themeMode = settingsState?.themeMode
+        ?: viewModels.getSettings().themeMode()
     val dark = themeMode == "dark" ||
         (themeMode == "system" &&
             androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
@@ -125,10 +127,10 @@ private fun AppRoot(
     val homeActions = object : HomeScreenActions {
         override fun continueWorkout() = viewModels.getWorkoutSession()
             .continueIfAvailable(AccountScope(ownerId))
-        override fun navigate(screen: FitnessScreen) = host.navigate(screen)
+        override fun navigate(screen: FitnessScreen) = navigation.navigate(screen)
         override fun startEmptyWorkout() = viewModels.getWorkoutSession()
             .startEmpty(AccountScope(ownerId), navigationState.today)
-        override fun selectRoutine(routineId: String) = host.selectRoutine(routineId)
+        override fun selectRoutine(routineId: String) = navigation.selectRoutine(routineId)
         override fun startRoutineWorkout(
             routineId: String?,
             title: String,
@@ -139,8 +141,10 @@ private fun AppRoot(
         override fun showBodyMetric() = viewModels.getBodyMetrics().open(
             AccountScope(ownerId), navigationState.today, null
         )
-        override fun openMealManagement(date: String, returnScreen: FitnessScreen) =
-            host.openMealManagement(date, returnScreen)
+        override fun openMealManagement(date: String, returnScreen: FitnessScreen) {
+            navigation.selectMealDate(date)
+            navigation.navigate(FitnessScreen.MEALS)
+        }
     }
 
     LaunchedEffect(routineState, screen, ownerId, navigationState.today) {
@@ -179,7 +183,7 @@ private fun AppRoot(
         if (state is CardioSessionUiState.Missing
             && state.ownerId == ownerId
             && screen == FitnessScreen.CARDIO_SESSION
-            && state.recordId == host.currentWorkoutRecordId()
+            && state.recordId == currentWorkoutRecordId(screen, viewModels, homeState)
         ) {
             navigation.replace(FitnessScreen.CARDIO)
         }
@@ -197,7 +201,7 @@ private fun AppRoot(
             viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
         } else {
             val recordId = viewModels.getExercisePicker().activeRecordId()
-                ?: host.currentWorkoutRecordId()
+                ?: currentWorkoutRecordId(screen, viewModels, homeState)
             if (recordId != null) {
                 viewModels.getWorkoutSession().enter(AccountScope(ownerId), recordId)
                 viewModels.getWorkoutExerciseDetail().enter(
@@ -207,7 +211,7 @@ private fun AppRoot(
                 )
             }
         }
-        host.back()
+        navigation.back()
     }
 
     LaunchedEffect(workoutAction) {
@@ -232,7 +236,7 @@ private fun AppRoot(
                 } else if (event.cardioSession) {
                     viewModels.getCardioSession().open(AccountScope(ownerId), recordId)
                 } else {
-                    host.openWorkoutSession(recordId)
+                    openWorkoutSession(navigation, viewModels, recordId)
                 }
             }
             WorkoutSessionActionOutcome.CREATED -> {
@@ -249,13 +253,13 @@ private fun AppRoot(
                     else -> Unit
                 }
                 viewModels.getWorkoutSession().dismissManualPastEditor()
-                host.openWorkoutSession(recordId)
+                openWorkoutSession(navigation, viewModels, recordId)
             }
             WorkoutSessionActionOutcome.DELETED -> {
-                event.recordId?.let(host::clearActiveWorkout)
+                event.recordId?.let { clearActiveWorkout(viewModels, it) }
                 host.toast("운동 기록을 삭제했습니다.")
                 if (screen != FitnessScreen.RECORDS) {
-                    host.replace(
+                    navigation.replace(
                         if (event.cardioSession) FitnessScreen.CARDIO else FitnessScreen.STRENGTH
                     )
                 }
@@ -270,19 +274,18 @@ private fun AppRoot(
         }
         when (event.outcome) {
             WorkoutSessionTerminalOutcome.MISSING -> {
-                event.recordId?.let(host::clearActiveWorkout)
+                event.recordId?.let { clearActiveWorkout(viewModels, it) }
                 host.toast(event.message ?: "운동 기록을 찾지 못했습니다.")
-                host.replace(FitnessScreen.STRENGTH)
+                navigation.replace(FitnessScreen.STRENGTH)
             }
             WorkoutSessionTerminalOutcome.COMPLETED -> {
-                host.clearInProgressWorkout(event.recordId ?: "")
                 host.toast("운동을 완료했습니다.")
-                host.replace(FitnessScreen.WORKOUT_SUMMARY)
+                navigation.replace(FitnessScreen.WORKOUT_SUMMARY)
             }
             WorkoutSessionTerminalOutcome.DISCARDED_EMPTY -> {
-                event.recordId?.let(host::clearActiveWorkout)
+                event.recordId?.let { clearActiveWorkout(viewModels, it) }
                 host.toast(event.message ?: "수행한 세트가 없어 운동을 저장하지 않았습니다.")
-                host.replace(FitnessScreen.STRENGTH)
+                navigation.replace(FitnessScreen.STRENGTH)
             }
             WorkoutSessionTerminalOutcome.FAILURE ->
                 host.toast(event.message ?: "운동을 완료하지 못했습니다.")
@@ -411,7 +414,6 @@ private fun AppRoot(
                 }
                 cardioViewModel.rememberActiveRecord(recordId)
                 host.stopCardioTracking()
-                host.clearInProgressWorkout(recordId)
                 cardioViewModel.dismissHeartRateEditor()
                 host.toast("유산소 운동을 완료했습니다.")
                 if (screen == FitnessScreen.CARDIO_SESSION) {
@@ -447,7 +449,7 @@ private fun AppRoot(
                     return@LaunchedEffect
                 }
                 host.stopCardioTracking()
-                host.clearActiveWorkout(recordId)
+                clearActiveWorkout(viewModels, recordId)
                 host.toast("유산소 기록을 취소했습니다.")
                 navigation.replace(FitnessScreen.CARDIO)
             }
@@ -598,7 +600,7 @@ private fun AppRoot(
             .imePadding()
         ) {
             if (screen == FitnessScreen.WORKOUT_SESSION) {
-                SessionTopBar(host, viewModels, navigation, ownerId)
+                SessionTopBar(navigation, viewModels, ownerId)
             }
             Column(
                 Modifier
@@ -613,9 +615,9 @@ private fun AppRoot(
                     AppDestination(host, viewModels, navigation, screen, ownerId, routeDate, unit)
                 }
             }
-            RestTimerBar(host, viewModels, screen, restState)
+            RestTimerBar(host, viewModels, screen, restState, ownerId)
             if (isBottomNavigationVisible(screen)) {
-                BottomNavigation(host, screen)
+                BottomNavigation(navigation, homeState, screen)
             }
         }
         BodyMetricsEditorDialog(bodyEditorState, ownerId, unit, editorActions)
@@ -668,11 +670,41 @@ private fun AppRoot(
     }
 }
 
+private fun currentWorkoutRecordId(
+    screen: FitnessScreen,
+    viewModels: AppViewModels,
+    homeState: HomeUiState
+): String? = when (screen) {
+    FitnessScreen.WORKOUT_SESSION,
+    FitnessScreen.WORKOUT_EXERCISE_DETAIL,
+    FitnessScreen.WORKOUT_EXERCISE_ADD,
+    FitnessScreen.WORKOUT_SUMMARY -> viewModels.getWorkoutSession().activeRecordId()
+    FitnessScreen.CARDIO_SESSION,
+    FitnessScreen.CARDIO_SUMMARY -> viewModels.getCardioSession().activeRecordId()
+    else -> (homeState as? HomeUiState.Ready)?.snapshot?.inProgressSessionId
+}
+
+private fun clearActiveWorkout(viewModels: AppViewModels, recordId: String) {
+    viewModels.getWorkoutSession().clearActiveRecordIfMatches(recordId)
+    viewModels.getCardioSession().clearActiveRecordIfMatches(recordId)
+    viewModels.getExercisePicker().clearActiveRecordIfMatches(recordId)
+    viewModels.getWorkoutExerciseDetail().clearActiveExercise()
+}
+
+private fun openWorkoutSession(
+    navigation: AppNavigationViewModel,
+    viewModels: AppViewModels,
+    recordId: String
+) {
+    viewModels.getWorkoutSession().rememberActiveRecord(recordId)
+    viewModels.getWorkoutExerciseDetail().clearActiveExercise()
+    navigation.navigate(FitnessScreen.WORKOUT_SESSION)
+}
+
 @Composable
 private fun SessionTopBar(
-    host: AppUiActions,
-    viewModels: AppViewModels,
     navigation: AppNavigationViewModel,
+    viewModels: AppViewModels,
     ownerId: String
 ) {
     val recordId = viewModels.getWorkoutSession().activeRecordId()
@@ -685,7 +717,7 @@ private fun SessionTopBar(
     ) {
         TextButton(
             onClick = {
-                if (!host.back()) host.replace(FitnessScreen.STRENGTH)
+                if (!navigation.back()) navigation.replace(FitnessScreen.STRENGTH)
             }
         ) { Text("←", style = MaterialTheme.typography.headlineSmall) }
         Text("운동 세션", style = MaterialTheme.typography.titleMedium)
@@ -709,11 +741,12 @@ private fun RestTimerBar(
     host: AppUiActions,
     viewModels: AppViewModels,
     screen: FitnessScreen,
-    state: WorkoutRestTimerState
+    state: WorkoutRestTimerState,
+    ownerId: String
 ) {
     val active = state as? WorkoutRestTimerState.Active
     val visible = active != null
-        && host.currentOwnerId() == active.ownerId
+        && ownerId == active.ownerId
         && (screen == FitnessScreen.WORKOUT_SESSION
             || screen == FitnessScreen.WORKOUT_EXERCISE_DETAIL)
     var now by remember(active?.endsAtMillis) {
@@ -759,7 +792,11 @@ private fun RestTimerBar(
 private data class NavigationItem(val label: String, val screen: FitnessScreen)
 
 @Composable
-private fun BottomNavigation(host: AppUiActions, screen: FitnessScreen) {
+private fun BottomNavigation(
+    navigation: AppNavigationViewModel,
+    homeState: HomeUiState,
+    screen: FitnessScreen
+) {
     val items = listOf(
         NavigationItem("메인", FitnessScreen.HOME),
         NavigationItem("피트니스", FitnessScreen.WORKOUT),
@@ -768,7 +805,7 @@ private fun BottomNavigation(host: AppUiActions, screen: FitnessScreen) {
         NavigationItem("설정", FitnessScreen.SETTINGS)
     )
     val active = navigationRoot(screen)
-    val workoutInProgress = host.currentWorkoutRecordId() != null
+    val workoutInProgress = (homeState as? HomeUiState.Ready)?.snapshot?.inProgressSessionId != null
     Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
         HorizontalDivider()
         Row(
@@ -783,7 +820,7 @@ private fun BottomNavigation(host: AppUiActions, screen: FitnessScreen) {
                     Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
-                        .clickable { host.replace(item.screen) }
+                        .clickable { navigation.replace(item.screen) }
                         .padding(vertical = FitnessSpacing.micro),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -879,7 +916,8 @@ private fun AppDestination(
     val exercisePickerState by viewModels.getExercisePicker().uiState
         .observeAsState(ExercisePickerUiState.Idle)
     val settingsState by viewModels.getSettings().uiState.observeAsState()
-    LaunchedEffect(screen, ownerId, today) {
+    val activeRecordId = currentWorkoutRecordId(screen, viewModels, homeState)
+    LaunchedEffect(screen, ownerId, today, activeRecordId) {
         when (screen) {
             FitnessScreen.HOME,
             FitnessScreen.STRENGTH -> {
@@ -902,27 +940,29 @@ private fun AppDestination(
             FitnessScreen.WORKOUT_SESSION,
             FitnessScreen.WORKOUT_SUMMARY ->
                 viewModels.getWorkoutSession().enter(
-                    AccountScope(ownerId), host.currentWorkoutRecordId()
+                    AccountScope(ownerId), activeRecordId
                 )
             FitnessScreen.WORKOUT_EXERCISE_DETAIL ->
-                host.currentWorkoutRecordId()?.let { recordId ->
+                activeRecordId?.let { recordId ->
                     viewModels.getWorkoutExerciseDetail().enter(
-                        AccountScope(ownerId), recordId, null
+                        AccountScope(ownerId),
+                        recordId,
+                        viewModels.getWorkoutExerciseDetail().activeExerciseId()
                     )
                 }
             FitnessScreen.CARDIO_SESSION,
             FitnessScreen.CARDIO_SUMMARY ->
                 viewModels.getCardioSession().enter(
-                    AccountScope(ownerId), host.currentWorkoutRecordId()
+                    AccountScope(ownerId), activeRecordId
                 )
             FitnessScreen.ROUTINE_ADD,
             FitnessScreen.WORKOUT_EXERCISE_ADD ->
                 viewModels.getExercisePicker().enter(
                     AccountScope(ownerId),
                     screen,
-                    host.currentWorkoutRecordId(),
-                    host.currentWorkoutReplacementExerciseId(),
-                    host.selectedRoutineId()
+                    activeRecordId,
+                    viewModels.getExercisePicker().activeReplacementId(),
+                    navigation.selectedRoutineId()
                 )
             else -> Unit
         }
@@ -938,7 +978,7 @@ private fun AppDestination(
     val cardioActions = object : CardioScreenActions {
         override fun start(activityType: CardioActivityType) = viewModels.getCardioSession()
             .prepareStart(AccountScope(ownerId), activityType, today)
-        override fun back() { host.back() }
+        override fun back() { navigation.back() }
         override fun refresh() {
             cardioRecordId?.let {
             viewModels.getCardioSession().refresh(AccountScope(ownerId), it)
@@ -976,7 +1016,7 @@ private fun AppDestination(
         }
     }
     val mealActions = object : MealScreenActions {
-        override fun back() { host.back() }
+        override fun back() { navigation.back() }
         override fun startDraft() = viewModels.getMeal().startDraft()
         override fun closeDraft() = viewModels.getMeal().closeDraft()
         override fun chooseFood() = viewModels.getMeal().chooseFood()
@@ -1027,8 +1067,8 @@ private fun AppDestination(
         )
     }
     val settingsActions = object : SettingsScreenActions {
-        override fun setPreferredMassUnit(unit: MassUnit) = host.setPreferredMassUnit(unit)
-        override fun setThemeMode(mode: String) = host.setThemeMode(mode)
+        override fun setPreferredMassUnit(unit: MassUnit) = viewModels.getSettings().setPreferredMassUnit(unit)
+        override fun setThemeMode(mode: String) = viewModels.getSettings().setThemeMode(mode)
         override fun runManualSync() = viewModels.getSettings().runManualSync()
         override fun openFleekDataImport() = host.openFleekDataImport()
         override fun openWorkoutTransferImport() = host.openWorkoutTransferImport()
@@ -1054,24 +1094,24 @@ private fun AppDestination(
         override fun showBodyMetric(date: String, recordId: String?) =
             viewModels.getBodyMetrics().open(AccountScope(ownerId), date, recordId)
         override fun openMeals(date: String) =
-            host.openMealManagement(date, FitnessScreen.RECORDS)
+            navigation.selectMealDate(date).also { navigation.navigate(FitnessScreen.MEALS) }
     }
     val supplementActions = object : SupplementScreenActions {
-        override fun back() { host.back() }
+        override fun back() { navigation.back() }
         override fun record(scheduleId: String, status: String) =
             viewModels.getSupplement().record(AccountScope(ownerId), today, scheduleId, status)
         override fun undo(scheduleId: String) =
             viewModels.getSupplement().undo(AccountScope(ownerId), today, scheduleId)
     }
     val routineActions = object : RoutineDetailActions {
-        override fun back() { host.back() }
+        override fun back() { navigation.back() }
         override fun rename(routineId: String, name: String) =
             viewModels.getRoutineEntry().renameRoutine(AccountScope(ownerId), routineId, name)
         override fun copy(routineId: String, name: String) =
             viewModels.getRoutineEntry().copyRoutine(AccountScope(ownerId), routineId, name)
         override fun delete(routineId: String) =
             viewModels.getRoutineEntry().deleteRoutine(AccountScope(ownerId), routineId)
-        override fun navigate(screen: FitnessScreen) = host.navigate(screen)
+        override fun navigate(screen: FitnessScreen) = navigation.navigate(screen)
         override fun startWorkout(
             routineId: String,
             title: String,
@@ -1081,7 +1121,7 @@ private fun AppDestination(
         )
     }
     val exercisePickerActions = object : ExercisePickerScreenActions {
-        override fun back() { host.back() }
+        override fun back() { navigation.back() }
         override fun search(query: String) = viewModels.getExercisePicker().search(query)
         override fun choose(preset: com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset) =
             viewModels.getExercisePicker().choose(preset)
@@ -1100,11 +1140,14 @@ private fun AppDestination(
                 object : WorkoutOverviewActions {
                     override fun continueWorkout() = viewModels.getWorkoutSession()
                         .continueIfAvailable(AccountScope(ownerId))
-                    override fun navigate(screen: FitnessScreen) = host.navigate(screen)
+                    override fun navigate(screen: FitnessScreen) = navigation.navigate(screen)
                     override fun showBodyMetric() = viewModels.getBodyMetrics().open(
                         AccountScope(ownerId), today, null
                     )
-                    override fun openMeals() = host.openMealManagement()
+                    override fun openMeals() {
+                        navigation.selectMealDate(today)
+                        navigation.navigate(FitnessScreen.MEALS)
+                    }
                 }
             )
             FitnessScreen.STRENGTH -> StrengthScreen(
@@ -1120,8 +1163,8 @@ private fun AppDestination(
                         .startEmpty(AccountScope(ownerId), today)
                     override fun showPastWorkout() = viewModels.getWorkoutSession()
                         .openManualPastEditor(AccountScope(ownerId))
-                    override fun selectRoutine(routineId: String) = host.selectRoutine(routineId)
-                    override fun navigate(screen: FitnessScreen) = host.navigate(screen)
+                    override fun selectRoutine(routineId: String) = navigation.selectRoutine(routineId)
+                    override fun navigate(screen: FitnessScreen) = navigation.navigate(screen)
                     override fun startRoutineWorkout(
                         routineId: String?,
                         title: String,
@@ -1156,15 +1199,17 @@ private fun AppDestination(
                             insight.category == "planning" ->
                                 viewModels.getDevelopment().openGoalEditor(AccountScope(ownerId))
                             insight.category == "consistency" || insight.category == "focus" ->
-                                host.navigate(FitnessScreen.WORKOUT)
+                                navigation.navigate(FitnessScreen.WORKOUT)
                             insight.category == "recovery" || insight.category == "nutrition_logging" ->
-                                host.openMealManagement(today, FitnessScreen.DEVELOPMENT)
+                                navigation.selectMealDate(today).also {
+                                    navigation.navigate(FitnessScreen.MEALS)
+                                }
                             insight.category == "coverage" && insight.title.contains("체중") ->
                                 viewModels.getDevelopment().openProfileEditor(
                                     AccountScope(ownerId), today
                                 )
                             insight.category == "coverage" ->
-                                host.navigate(FitnessScreen.RECORDS)
+                                navigation.navigate(FitnessScreen.RECORDS)
                             else -> host.toast("연결된 다음 행동이 아직 없습니다.")
                         }
                     }
@@ -1177,17 +1222,32 @@ private fun AppDestination(
                 workoutState,
                 ownerId,
                 unit,
-                host::openWorkoutExerciseDetail
+                { exerciseId ->
+                    viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
+                    navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+                }
             )
             FitnessScreen.WORKOUT_EXERCISE_DETAIL -> WorkoutDetailScreen(
                 workoutDetailState,
                 ownerId,
                 unit,
                 object : WorkoutDetailActions {
-                    override fun back() { host.back() }
-                    override fun refresh() = host.refreshWorkoutExerciseDetail()
+                    override fun back() {
+                        if (!navigation.back()) navigation.replace(FitnessScreen.STRENGTH)
+                    }
+                    override fun refresh() {
+                        activeRecordId?.let { recordId ->
+                            viewModels.getWorkoutSession().enter(AccountScope(ownerId), recordId)
+                            viewModels.getWorkoutExerciseDetail().enter(
+                                AccountScope(ownerId),
+                                recordId,
+                                viewModels.getWorkoutExerciseDetail().activeExerciseId()
+                            )
+                        }
+                    }
                     override fun replaceExercise(exerciseId: String) {
-                        host.openWorkoutExerciseReplacementPicker(exerciseId)
+                        viewModels.getExercisePicker().rememberReplacementExercise(exerciseId)
+                        navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
                     }
 
                     override fun addSet(
@@ -1235,7 +1295,7 @@ private fun AppDestination(
                 workoutState,
                 ownerId,
                 unit,
-                host::back
+                { navigation.back() }
             )
             FitnessScreen.CARDIO_SESSION -> CardioSessionScreen(cardioState, ownerId, cardioActions)
             FitnessScreen.CARDIO_SUMMARY -> CardioSummaryScreen(
@@ -1262,7 +1322,7 @@ private fun AppDestination(
             FitnessScreen.ROUTINE_DETAIL -> RoutineDetailScreen(
                 homeState,
                 ownerId,
-                host.selectedRoutineId(),
+                navigation.selectedRoutineId(),
                 routineActions
             )
             FitnessScreen.ROUTINE_ADD,

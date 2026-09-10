@@ -36,7 +36,8 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
     private val repository: WorkoutRepositoryApi,
     private val initializeWorkoutExercise: InitializeWorkoutExercise,
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor(),
+    private val shutdownExecutorOnCleared: Boolean = true
 ) : ViewModel() {
     private val mutableState = MutableLiveData<WorkoutExerciseDetailUiState>(WorkoutExerciseDetailUiState.Idle)
     val uiState: LiveData<WorkoutExerciseDetailUiState> = mutableState
@@ -88,6 +89,14 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
     /** Current detail target used by the app navigation root after picker writes. */
     fun activeExerciseId(): String? = savedStateHandle[KEY_EXERCISE_ID]
 
+    fun rememberActiveExercise(exerciseId: String?) {
+        savedStateHandle[KEY_EXERCISE_ID] = exerciseId
+    }
+
+    fun clearActiveExercise() {
+        savedStateHandle.remove<String>(KEY_EXERCISE_ID)
+    }
+
     fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: WorkoutSetInput,
                        callback: Consumer<Boolean>) = executeWrite(callback) {
         repository.updateTypedSet(scope, recordId, setId, input)
@@ -135,7 +144,7 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
     }
 
     override fun onCleared() {
-        executor.shutdownNow()
+        if (shutdownExecutorOnCleared) executor.shutdownNow()
     }
 
     private companion object {

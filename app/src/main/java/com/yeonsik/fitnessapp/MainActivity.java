@@ -43,7 +43,6 @@ import com.yeonsik.fitnessapp.data.MassFormatter;
 import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.state.FitnessScreen;
-import com.yeonsik.fitnessapp.state.WorkoutSessionState;
 import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.AppUiActions;
@@ -99,7 +98,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private static final String STATE_RECORD_ID = "runtime.record_id";
     private static final String STATE_EXERCISE_ID = "runtime.exercise_id";
     private static final String STATE_REPLACEMENT_ID = "runtime.replacement_id";
-    private static final String STATE_INPUT_UNIT = "runtime.input_unit";
     private static final String STATE_MEAL_DATE = "runtime.meal_date";
     private static final String STATE_RECORDS_DATE = "runtime.records_date";
     private static final String STATE_ROUTINE_ID = "runtime.routine_id";
@@ -122,10 +120,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     public static final String THEME_LIGHT = "light";
     public static final String THEME_DARK = "dark";
     public static final String THEME_SYSTEM = "system";
-
-    private final WorkoutSessionState sessionState = new WorkoutSessionState();
-    private String lastKnownDate = LocalDate.now().toString();
-    private FitnessScreen mealReturnScreen = FitnessScreen.WORKOUT;
 
     private AppContainer appContainer;
     private WorkoutSessionViewModel workoutSessionViewModel;
@@ -153,7 +147,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private String syncLabel = "local-only";
     private String syncDetail = "로컬 전용 모드";
     private String lastSyncedAt = "";
-    private String knownInProgressRecordId;
     private CardioActivityType pendingCardioActivityType;
     private String pendingCardioResumeRecordId;
     private boolean pendingCardioFinishRequested;
@@ -191,19 +184,17 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
     private void restoreNavigationState(Bundle state) {
         if (state == null) {
-            navigationViewModel.updateToday(lastKnownDate);
+            navigationViewModel.updateToday(today());
             return;
         }
         ArrayList<String> savedHistory = state.getStringArrayList(STATE_NAVIGATION_HISTORY);
-        sessionState.setActiveRecordId(state.getString(STATE_RECORD_ID));
-        sessionState.setActiveExerciseId(state.getString(STATE_EXERCISE_ID));
-        sessionState.setReplacementExerciseId(state.getString(STATE_REPLACEMENT_ID));
-        MassUnit inputUnit = MassUnit.parse(state.getString(STATE_INPUT_UNIT));
-        if (inputUnit != null) sessionState.setSessionInputMassUnit(inputUnit);
+        workoutSessionViewModel.rememberActiveRecord(state.getString(STATE_RECORD_ID));
+        workoutExerciseDetailViewModel.rememberActiveExercise(state.getString(STATE_EXERCISE_ID));
+        exercisePickerViewModel.rememberReplacementExercise(state.getString(STATE_REPLACEMENT_ID));
         navigationViewModel.restore(
                 state.getString(STATE_SCREEN, navigationViewModel.currentScreen().name()),
                 savedHistory,
-                lastKnownDate,
+                today(),
                 state.getString(STATE_MEAL_DATE, navigationViewModel.selectedMealDate()),
                 state.getString(STATE_RECORDS_DATE, navigationViewModel.selectedRecordsDate()),
                 state.getString(STATE_ROUTINE_ID, navigationViewModel.selectedRoutineId())
@@ -213,11 +204,9 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         outState.putString(STATE_SCREEN, navigationViewModel.currentScreen().name());
-        outState.putString(STATE_RECORD_ID, sessionState.activeRecordId());
-        outState.putString(STATE_EXERCISE_ID, sessionState.activeExerciseId());
-        outState.putString(STATE_REPLACEMENT_ID, sessionState.replacementExerciseId());
-        MassUnit inputUnit = sessionState.sessionInputMassUnit();
-        outState.putString(STATE_INPUT_UNIT, inputUnit == null ? null : inputUnit.id());
+        outState.putString(STATE_RECORD_ID, workoutSessionViewModel.activeRecordId());
+        outState.putString(STATE_EXERCISE_ID, workoutExerciseDetailViewModel.activeExerciseId());
+        outState.putString(STATE_REPLACEMENT_ID, exercisePickerViewModel.activeReplacementId());
         outState.putString(STATE_MEAL_DATE, navigationViewModel.selectedMealDate());
         outState.putString(STATE_RECORDS_DATE, navigationViewModel.selectedRecordsDate());
         outState.putString(STATE_ROUTINE_ID, navigationViewModel.selectedRoutineId());
@@ -268,7 +257,9 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                                 handle,
                                 appContainer.getWorkoutRepository(),
                                 appContainer.getCompleteWorkout(),
-                                appContainer.getWorkoutSessionApplicationService()
+                                appContainer.getWorkoutSessionApplicationService(),
+                                appContainer.getWorkoutWriteExecutor(),
+                                false
                         )
                 )
         ).get(WorkoutSessionViewModel.class);
@@ -280,7 +271,9 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         handle -> new WorkoutExerciseDetailViewModel(
                                 handle,
                                 appContainer.getWorkoutRepository(),
-                                appContainer.getInitializeWorkoutExercise()
+                                appContainer.getInitializeWorkoutExercise(),
+                                appContainer.getWorkoutWriteExecutor(),
+                                false
                         )
                 )
         ).get(WorkoutExerciseDetailViewModel.class);
@@ -531,9 +524,11 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     protected void onResume() {
         super.onResume();
         String currentDate = today();
-        if (!currentDate.equals(lastKnownDate)) {
-            lastKnownDate = currentDate;
-            if (navigationViewModel != null) {
+        if (navigationViewModel != null) {
+            String knownDate = navigationViewModel.getUiState().getValue() == null
+                    ? null
+                    : navigationViewModel.getUiState().getValue().getToday();
+            if (!currentDate.equals(knownDate)) {
                 navigationViewModel.updateToday(currentDate);
             }
         }
@@ -678,6 +673,9 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                 && backInvokedCallback != null) {
             getOnBackInvokedDispatcher().unregisterOnBackInvokedCallback(backInvokedCallback);
             backInvokedCallback = null;
+        }
+        if (!isChangingConfigurations() && appContainer != null) {
+            appContainer.shutdownWorkoutWriteExecutor();
         }
         super.onDestroy();
     }
@@ -899,24 +897,24 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
     @Override
     public void openWorkoutExerciseDetail(String exerciseId) {
-        sessionState.setActiveExerciseId(exerciseId);
+        workoutExerciseDetailViewModel.rememberActiveExercise(exerciseId);
         navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL);
     }
 
     @Override
     public void openWorkoutExerciseReplacementPicker(String exerciseId) {
-        sessionState.setReplacementExerciseId(exerciseId);
+        exercisePickerViewModel.rememberReplacementExercise(exerciseId);
         navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
     }
 
     @Override
     public void refreshWorkoutExerciseDetail() {
-        String recordId = sessionState.activeRecordId();
+        String recordId = workoutSessionViewModel.activeRecordId();
         if (recordId != null) {
             workoutExerciseDetailViewModel.enter(
                     new AccountScope(currentOwnerId()),
                     recordId,
-                    sessionState.activeExerciseId()
+                    workoutExerciseDetailViewModel.activeExerciseId()
             );
             workoutSessionViewModel.enter(new AccountScope(currentOwnerId()), recordId);
         }
@@ -934,13 +932,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
     @Override
     public void openWorkoutSession(String recordId) {
-        if (recordId == null
-                || !recordId.equals(sessionState.activeRecordId())
-                || sessionState.sessionInputMassUnit() == null) {
-            sessionState.startSession(preferredMassUnit());
-        }
-        sessionState.setActiveRecordId(recordId);
-        sessionState.setActiveExerciseId(null);
+        workoutSessionViewModel.rememberActiveRecord(recordId);
+        workoutExerciseDetailViewModel.clearActiveExercise();
         navigate(FitnessScreen.WORKOUT_SESSION);
     }
 
@@ -950,13 +943,13 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             toast("먼저 운동을 시작하세요.");
             return;
         }
-        sessionState.clearExerciseReplacement();
-        sessionState.setActiveRecordId(recordId);
+        exercisePickerViewModel.clearReplacementExercise();
+        workoutSessionViewModel.rememberActiveRecord(recordId);
         navigate(FitnessScreen.WORKOUT_EXERCISE_ADD);
     }
 
     public void finishActiveWorkout() {
-        String recordId = sessionState.activeRecordId();
+        String recordId = workoutSessionViewModel.activeRecordId();
         if (recordId == null) {
             toast("진행 중인 운동을 찾지 못했습니다.");
             return;
@@ -969,30 +962,22 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         FitnessScreen screen = currentScreen();
         boolean onSessionScreen = screen == FitnessScreen.WORKOUT_SESSION
                 || screen == FitnessScreen.WORKOUT_EXERCISE_DETAIL;
-        if (onSessionScreen && sessionState.activeRecordId() != null) {
-            return sessionState.activeRecordId();
+        if (onSessionScreen && workoutSessionViewModel != null) {
+            return workoutSessionViewModel.activeRecordId();
         }
-        if (knownInProgressRecordId != null) {
-            return knownInProgressRecordId;
+        if ((screen == FitnessScreen.CARDIO_SESSION || screen == FitnessScreen.CARDIO_SUMMARY)
+                && cardioSessionViewModel != null) {
+            return cardioSessionViewModel.activeRecordId();
         }
-        if (workoutSessionViewModel != null) {
-            String savedRecordId = workoutSessionViewModel.activeRecordId();
-            if (savedRecordId != null) {
-                return savedRecordId;
-            }
-        }
-        if (cardioSessionViewModel != null) {
-            String savedRecordId = cardioSessionViewModel.activeRecordId();
-            if (savedRecordId != null) {
-                return savedRecordId;
-            }
+        if (screen == FitnessScreen.WORKOUT_EXERCISE_ADD && workoutSessionViewModel != null) {
+            return workoutSessionViewModel.activeRecordId();
         }
         return homeViewModel == null ? null : homeViewModel.latestInProgressSessionId();
     }
 
     @Override
     public String currentWorkoutReplacementExerciseId() {
-        return sessionState.replacementExerciseId();
+        return exercisePickerViewModel.activeReplacementId();
     }
 
     public void confirmDeleteSession(String recordId) {
@@ -1046,9 +1031,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         if (recordId == null) {
             return;
         }
-        knownInProgressRecordId = recordId;
-        sessionState.setActiveRecordId(recordId);
-        sessionState.setActiveExerciseId(null);
+        cardioSessionViewModel.rememberActiveRecord(recordId);
         dispatchCardioService(CardioTrackingService.ACTION_START, recordId, true);
     }
 
@@ -1057,9 +1040,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         if (recordId == null) {
             return;
         }
-        knownInProgressRecordId = recordId;
-        sessionState.setActiveRecordId(recordId);
-        sessionState.setActiveExerciseId(null);
+        cardioSessionViewModel.rememberActiveRecord(recordId);
         dispatchCardioService(CardioTrackingService.ACTION_RESUME, recordId, true);
     }
 
@@ -1111,17 +1092,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         }
         workoutSessionViewModel.clearActiveRecordIfMatches(recordId);
         cardioSessionViewModel.clearActiveRecordIfMatches(recordId);
-        sessionState.clearIfMatches(recordId);
-        if (recordId.equals(knownInProgressRecordId)) {
-            knownInProgressRecordId = null;
-        }
-    }
-
-    @Override
-    public void clearInProgressWorkout(String recordId) {
-        if (recordId != null && recordId.equals(knownInProgressRecordId)) {
-            knownInProgressRecordId = null;
-        }
     }
 
     private void requestCardioPermissionsAndContinue() {
@@ -1238,7 +1208,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     @Override
     public void openMealManagement(String date, FitnessScreen returnScreen) {
         navigationViewModel.selectMealDate(date == null ? today() : date);
-        mealReturnScreen = returnScreen == null ? FitnessScreen.WORKOUT : returnScreen;
         navigate(FitnessScreen.MEALS);
     }
 

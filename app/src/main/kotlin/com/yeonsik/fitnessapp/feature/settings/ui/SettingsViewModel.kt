@@ -130,6 +130,10 @@ class SettingsViewModel @JvmOverloads constructor(
         mutableState.value = snapshot()
     }
 
+    fun themeMode(): String = savedStateHandle[KEY_THEME_MODE] ?: "light"
+
+    fun preferredMassUnit(): MassUnit = massUnitPreferences.preferredMassUnit()
+
     fun saveConnection(connection: SettingsConnection, url: String, anonKey: String) {
         executor.execute {
             try {

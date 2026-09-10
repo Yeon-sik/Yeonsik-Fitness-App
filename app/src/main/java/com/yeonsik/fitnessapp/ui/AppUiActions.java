@@ -57,8 +57,6 @@ public interface AppUiActions {
 
     void clearActiveWorkout(String recordId);
 
-    void clearInProgressWorkout(String recordId);
-
     String currentWorkoutRecordId();
 
     /** Exercise being replaced while the workout exercise picker is open. */

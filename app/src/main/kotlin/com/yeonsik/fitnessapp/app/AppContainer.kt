@@ -53,6 +53,8 @@ import com.yeonsik.fitnessapp.feature.settings.application.SettingsSessionCoordi
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsConnection
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
 import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
 
 /**
  * Activity-scoped dependency composition root for the single :app module.
@@ -62,6 +64,7 @@ import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager
  */
 class AppContainer(context: Context) : SettingsSessionCoordinator {
     private val appContext = context.applicationContext
+    private val workoutWriteExecutor: ExecutorService = Executors.newSingleThreadExecutor()
 
     val configStore = SupabaseConfigStore(appContext)
     val nutritionConfigStore = NutritionSupabaseConfigStore(appContext)
@@ -257,6 +260,12 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         priceTraceSupabaseConfig = config
         productReadClient.setConfig(config)
         restaurantMenuReadClient.setConfig(config)
+    }
+
+    fun getWorkoutWriteExecutor(): ExecutorService = workoutWriteExecutor
+
+    fun shutdownWorkoutWriteExecutor() {
+        workoutWriteExecutor.shutdownNow()
     }
 
     override fun apply(

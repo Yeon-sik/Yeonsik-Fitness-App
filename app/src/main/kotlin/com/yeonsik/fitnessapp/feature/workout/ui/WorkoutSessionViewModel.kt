@@ -109,7 +109,8 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     private val repository: WorkoutRepositoryApi,
     private val completeWorkout: CompleteWorkout,
     private val sessionApplicationService: WorkoutSessionApplicationService? = null,
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor(),
+    private val shutdownExecutorOnCleared: Boolean = true
 ) : ViewModel() {
     private val mutableState = MutableLiveData<WorkoutSessionUiState>(WorkoutSessionUiState.Idle)
     val uiState: LiveData<WorkoutSessionUiState> = mutableState
@@ -529,7 +530,7 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     }
 
     override fun onCleared() {
-        executor.shutdownNow()
+        if (shutdownExecutorOnCleared) executor.shutdownNow()
     }
 
     private companion object {
