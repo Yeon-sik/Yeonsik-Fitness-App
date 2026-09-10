@@ -11,11 +11,11 @@ import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.VerifiedFoodCatalogSeed;
 
 /**
- * Runtime SQL compatibility surface backed by the one Room-owned connection.
+ * Test-only SQL compatibility surface backed by the one Room-owned connection.
  *
  * <p>Repositories still use their established SQL and transaction boundaries while DAO migration
  * proceeds incrementally. The legacy constructor exists only for old tests and migration tooling;
- * application code must use {@link #fromRoom(FitnessRoomDatabase)}.</p>
+ * application code must use Room repositories and DAOs.</p>
  */
 public final class FitnessDatabaseConnection {
     private final SupportSQLiteDatabase database;

@@ -13,7 +13,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-/** Local CRUD boundary for reusable composition definitions. */
+/** Test-only compatibility fixture for reusable composition definitions. */
 public final class CompositionTemplateRepository {
     private static final String DEVICE_ID = "android-local";
 
