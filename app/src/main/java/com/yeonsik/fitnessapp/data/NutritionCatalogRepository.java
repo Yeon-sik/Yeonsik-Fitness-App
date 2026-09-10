@@ -1,11 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
-import android.content.ContentValues;
 import android.content.Context;
-import android.database.Cursor;
-import android.database.sqlite.SQLiteDatabase;
 
-import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.NutritionFoodNutrientsRoomEntity;
@@ -17,6 +13,7 @@ import com.yeonsik.fitnessapp.core.database.ProductNutritionLinksRoomEntity;
 import com.yeonsik.fitnessapp.core.database.PricetraceProductCacheRoomEntity;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
+import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogSyncStore;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogBackupApi;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionCatalogSyncSnapshot;
@@ -63,62 +60,6 @@ public final class NutritionCatalogRepository implements
             )
     );
 
-    private static final String[] FOOD_COLUMNS = {
-            "id",
-            "owner_id",
-            "name",
-            "brand",
-            "manufacturer_name",
-            "brand_name",
-            "sub_brand_name",
-            "product_name",
-            "package_amount",
-            "package_unit",
-            "package_count",
-            "kind",
-            "category",
-            "basis_amount",
-            "basis_unit",
-            "prep_state",
-            "cooking_method",
-            "calories_kcal",
-            "protein_grams",
-            "carbs_grams",
-            "fat_grams",
-            "sodium_mg",
-            "saturated_fat_grams",
-            "sugars_grams",
-            "fiber_grams",
-            "added_sugars_grams",
-            "trans_fat_grams",
-            "cholesterol_mg",
-            "source_type",
-            "source_reference",
-            "source_version",
-            "data_version",
-            "revision"
-    };
-
-    private static final String[] FOOD_SYNC_COLUMNS = syncColumns();
-
-    private static final String[] NUTRIENT_SYNC_COLUMNS = {
-            "id", "owner_id", "food_id", "nutrient_code", "amount", "unit",
-            "created_at", "updated_at", "deleted_at"
-    };
-
-    private static final String[] COMPONENT_SYNC_COLUMNS = {
-            "id", "owner_id", "parent_food_id", "child_food_id", "quantity", "unit",
-            "order_index", "created_at", "updated_at", "deleted_at"
-    };
-
-    static final String[] PRODUCT_LINK_SYNC_COLUMNS = {
-            "id", "owner_id", "nutrition_food_id", "catalog_product_id", "standard_product_id", "status",
-            "source_type", "proposal_reference", "product_contract_version",
-            "catalog_product_revision", "catalog_content_amount", "catalog_content_unit",
-            "catalog_package_count", "revision",
-            "reviewed_at", "created_at", "updated_at", "deleted_at"
-    };
-
     private static final int VERIFIED_FOOD_SEARCH_LIMIT_MAX = 50;
     private static final String VERIFIED_FOOD_ID_PREFIX =
             VerifiedFoodCatalogSeed.FOOD_ID_PREFIX + "%";
@@ -130,10 +71,17 @@ public final class NutritionCatalogRepository implements
     private static final int SAVED_DINING_OUT_OPTION_RESULT_LIMIT_MAX = 50;
     private static final int PACKAGED_PRODUCT_RESULT_LIMIT_MAX = 50;
 
+    /** Stable sync contract allowlist retained for codec and policy tests. */
+    static final String[] PRODUCT_LINK_SYNC_COLUMNS = {
+            "id", "owner_id", "nutrition_food_id", "catalog_product_id", "standard_product_id", "status",
+            "source_type", "proposal_reference", "product_contract_version",
+            "catalog_product_revision", "catalog_content_amount", "catalog_content_unit",
+            "catalog_package_count", "revision",
+            "reviewed_at", "created_at", "updated_at", "deleted_at"
+    };
+
     private final FitnessRoomDatabase roomDatabase;
     private final NutritionRoomDao nutritionDao;
-    /** Transitional account-claim adapter; local catalog CRUD uses nutritionDao. */
-    private final FitnessDatabaseConnection database;
     private final Context applicationContext;
     private volatile String userId;
 
@@ -144,7 +92,6 @@ public final class NutritionCatalogRepository implements
     ) {
         this(
                 FitnessRoomDatabaseProvider.get(dbHelper.applicationContext()),
-                FitnessDatabaseConnection.fromLegacy(dbHelper),
                 userId,
                 ignoredNetworkConfig,
                 dbHelper.applicationContext()
@@ -158,7 +105,6 @@ public final class NutritionCatalogRepository implements
     ) {
         this(
                 roomDatabase,
-                FitnessDatabaseConnection.fromRoom(roomDatabase),
                 userId,
                 ignoredNetworkConfig,
                 null
@@ -167,32 +113,14 @@ public final class NutritionCatalogRepository implements
 
     private NutritionCatalogRepository(
             FitnessRoomDatabase roomDatabase,
-            FitnessDatabaseConnection database,
             String userId,
             Object ignoredNetworkConfig,
             Context context
     ) {
         this.roomDatabase = roomDatabase;
         this.nutritionDao = roomDatabase.nutritionRoomDao();
-        this.database = database;
-        this.applicationContext = context == null
-                ? database.applicationContext()
-                : context.getApplicationContext();
+        this.applicationContext = context == null ? null : context.getApplicationContext();
         this.userId = normalizeUserId(userId);
-    }
-
-    public NutritionCatalogRepository(
-            FitnessDatabaseConnection database,
-            String userId,
-            Object ignoredNetworkConfig
-    ) {
-        this(
-                FitnessRoomDatabaseProvider.get(database.applicationContext()),
-                database,
-                userId,
-                ignoredNetworkConfig,
-                database.applicationContext()
-        );
     }
 
     public NutritionCatalogRepository(
@@ -203,7 +131,6 @@ public final class NutritionCatalogRepository implements
     ) {
         this(
                 roomDatabase,
-                FitnessDatabaseConnection.fromRoom(roomDatabase, context),
                 userId,
                 ignoredNetworkConfig,
                 context
@@ -262,63 +189,46 @@ public final class NutritionCatalogRepository implements
                 previousUserId,
                 normalizedNextUserId
         )) {
-            FitnessDatabaseConnection database = this.database;
-            database.beginTransaction();
-            try {
-                resolveApprovedLinkClaimConflicts(database, normalizedNextUserId);
-                ContentValues values = new ContentValues();
-                values.put("owner_id", normalizedNextUserId);
-                for (String table : CATALOG_TABLES) {
-                    database.update(
-                            table,
-                            values,
-                            "owner_id = ?",
-                    new String[]{"local-user"}
-                    );
-                }
-                database.setTransactionSuccessful();
-            } finally {
-                database.endTransaction();
-            }
+            roomDatabase.runInTransaction(() -> {
+                resolveApprovedLinkClaimConflicts(
+                        SupabaseConfig.DEFAULT_USER_ID,
+                        normalizedNextUserId
+                );
+                nutritionDao.claimFoodRows(SupabaseConfig.DEFAULT_USER_ID, normalizedNextUserId);
+                nutritionDao.claimNutrientRows(
+                        SupabaseConfig.DEFAULT_USER_ID,
+                        normalizedNextUserId
+                );
+                nutritionDao.claimComponentRows(
+                        SupabaseConfig.DEFAULT_USER_ID,
+                        normalizedNextUserId
+                );
+                nutritionDao.claimProductLinkRows(
+                        SupabaseConfig.DEFAULT_USER_ID,
+                        normalizedNextUserId
+                );
+            });
         }
         userId = normalizedNextUserId;
     }
 
     private void resolveApprovedLinkClaimConflicts(
-            FitnessDatabaseConnection database,
+            String sourceUserId,
             String nextUserId
     ) {
-        List<String[]> conflicts = new ArrayList<>();
-        try (Cursor cursor = database.rawQuery(
-                "SELECT source.id, source.updated_at, target.id, target.updated_at " +
-                        "FROM product_nutrition_links source " +
-                        "INNER JOIN product_nutrition_links target " +
-                        "ON target.nutrition_food_id = source.nutrition_food_id " +
-                        "AND target.owner_id = ? AND target.status = 'approved' " +
-                        "AND target.deleted_at IS NULL " +
-                        "WHERE source.owner_id = ? AND source.status = 'approved' " +
-                        "AND source.deleted_at IS NULL",
-                new String[]{nextUserId, "local-user"}
-        )) {
-            while (cursor.moveToNext()) {
-                conflicts.add(new String[]{
-                        cursor.getString(0),
-                        cursor.getString(1),
-                        cursor.getString(2),
-                        cursor.getString(3)
-                });
-            }
-        }
-
-        for (String[] conflict : conflicts) {
-            boolean localWins = compareVersions(conflict[1], conflict[3]) > 0;
-            String losingId = localWins ? conflict[2] : conflict[0];
-            String winningTimestamp = localWins ? conflict[1] : conflict[3];
-            database.execSQL(
-                    "UPDATE product_nutrition_links SET deleted_at = ?, updated_at = ?, " +
-                            "revision = revision + 1 WHERE id = ? AND deleted_at IS NULL",
-                    new Object[]{winningTimestamp, winningTimestamp, losingId}
-            );
+        for (NutritionRoomDao.ApprovedLinkClaimRow conflict
+                : nutritionDao.approvedLinkClaimConflicts(sourceUserId, nextUserId)) {
+            boolean localWins = compareVersions(
+                    conflict.getSourceUpdatedAt(),
+                    conflict.getTargetUpdatedAt()
+            ) > 0;
+            String losingId = localWins
+                    ? conflict.getTargetId()
+                    : conflict.getSourceId();
+            String winningTimestamp = localWins
+                    ? conflict.getSourceUpdatedAt()
+                    : conflict.getTargetUpdatedAt();
+            nutritionDao.retireClaimConflict(losingId, winningTimestamp);
         }
     }
 
@@ -2109,80 +2019,12 @@ public final class NutritionCatalogRepository implements
         }
     }
 
-    private void softDeleteApprovedLinks(
-            FitnessDatabaseConnection database,
-            String nutritionFoodId,
-            String exceptId,
-            String timestamp
-    ) {
-        String exceptClause = exceptId == null ? "" : " AND id <> ?";
-        List<Object> arguments = new ArrayList<>();
-        arguments.add(timestamp);
-        arguments.add(timestamp);
-        arguments.add(userId);
-        arguments.add(nutritionFoodId);
-        if (exceptId != null) {
-            arguments.add(exceptId);
-        }
-        database.execSQL(
-                "UPDATE product_nutrition_links SET deleted_at = ?, updated_at = ?, " +
-                        "revision = revision + 1 WHERE owner_id = ? AND nutrition_food_id = ? " +
-                        "AND status = 'approved' AND deleted_at IS NULL" + exceptClause,
-                arguments.toArray()
-        );
-    }
-
-    private void cachePriceTraceProduct(
-            FitnessDatabaseConnection database,
-            ProductReadV1 product,
-            String fetchedAt
-    ) {
-        ContentValues values = new ContentValues();
-        values.put("catalog_product_id", product.catalogProductId);
-        putNullable(values, "standard_product_id", product.standardProductId);
-        values.put("product_name", product.name);
-        putNullable(values, "brand_name", product.brand);
-        putNullable(values, "manufacturer_name", product.manufacturerName);
-        putNullable(values, "sub_brand_name", product.subBrandName);
-        putNullable(values, "seller_name", product.sellerName);
-        if (product.latestObservedPriceKrw == null) {
-            values.putNull("latest_price_krw");
-            values.putNull("price_observed_at");
-        } else {
-            values.put("latest_price_krw", product.latestObservedPriceKrw);
-            values.put("price_observed_at", product.observedAt);
-        }
-        putNullableDouble(values, "content_amount", product.contentAmount);
-        putNullable(values, "content_unit", product.contentUnit);
-        if (product.packageCount == null) {
-            values.putNull("package_count");
-        } else {
-            values.put("package_count", product.packageCount);
-        }
-        putNullable(values, "catalog_product_revision", product.revision);
-        values.put("contract_version", ProductReadV1.CONTRACT_VERSION);
-        values.put("fetched_at", fetchedAt);
-        database.insertWithOnConflict(
-                "pricetrace_product_cache",
-                null,
-                values,
-                SQLiteDatabase.CONFLICT_REPLACE
-        );
-    }
-
     private void requirePriceTraceCatalogMetadata(ProductReadV1 product) {
         if (!product.hasValidPriceTraceCatalogMetadata()) {
             throw new IllegalArgumentException(
                     "PriceTrace product-read.v1의 상품별 revision·규격값이 없거나 허용값이 아닙니다."
             );
         }
-    }
-
-    private void putPriceTraceCatalogMetadata(ContentValues values, ProductReadV1 product) {
-        values.put("catalog_product_revision", product.revision);
-        values.put("catalog_content_amount", product.contentAmount);
-        values.put("catalog_content_unit", product.contentUnit);
-        values.put("catalog_package_count", product.packageCount);
     }
 
     @Override
@@ -2198,139 +2040,110 @@ public final class NutritionCatalogRepository implements
 
     private List<NutritionFoodSyncRow> readFoodSyncRows(String ownerId) {
         List<NutritionFoodSyncRow> rows = new ArrayList<>();
-        try (Cursor cursor = database.rawQuery(
-                "SELECT " + String.join(", ", FOOD_SYNC_COLUMNS) +
-                        " FROM nutrition_foods" + publicationSafePushWhere("nutrition_foods"),
-                new String[]{ownerId}
-        )) {
-            while (cursor.moveToNext()) {
-                int index = 0;
-                rows.add(new NutritionFoodSyncRow(
-                        cursor.getString(index++),
-                        nullableString(cursor, index++),
-                        cursor.getString(index++),
-                        nullableString(cursor, index++),
-                        nullableString(cursor, index++),
-                        nullableString(cursor, index++),
-                        nullableString(cursor, index++),
-                        nullableString(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        nullableString(cursor, index++),
-                        nullableLong(cursor, index++),
-                        cursor.getString(index++),
-                        cursor.getString(index++),
-                        cursor.getDouble(index++),
-                        cursor.getString(index++),
-                        cursor.getString(index++),
-                        cursor.getString(index++),
-                        nullableDouble(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        nullableDouble(cursor, index++),
-                        cursor.getString(index++),
-                        nullableString(cursor, index++),
-                        nullableString(cursor, index++),
-                        cursor.getInt(index++),
-                        cursor.getInt(index++),
-                        cursor.getString(index++),
-                        cursor.getString(index++),
-                        cursor.getString(index++),
-                        nullableString(cursor, index++)
-                ));
-            }
+        for (NutritionFoodsRoomEntity row : nutritionDao.syncFoods(ownerId)) {
+            rows.add(new NutritionFoodSyncRow(
+                    row.getId(),
+                    row.getOwnerId(),
+                    row.getName(),
+                    row.getBrand(),
+                    row.getManufacturerName(),
+                    row.getBrandName(),
+                    row.getSubBrandName(),
+                    row.getProductName(),
+                    row.getPackageAmount(),
+                    row.getPackageUnit(),
+                    row.getPackageCount(),
+                    row.getKind(),
+                    row.getCategory(),
+                    row.getBasisAmount(),
+                    row.getBasisUnit(),
+                    row.getPrepState(),
+                    row.getCookingMethod(),
+                    row.getCaloriesKcal(),
+                    row.getProteinGrams(),
+                    row.getCarbsGrams(),
+                    row.getFatGrams(),
+                    row.getSodiumMg(),
+                    row.getSaturatedFatGrams(),
+                    row.getSugarsGrams(),
+                    row.getFiberGrams(),
+                    row.getAddedSugarsGrams(),
+                    row.getTransFatGrams(),
+                    row.getCholesterolMg(),
+                    row.getSourceType(),
+                    row.getSourceReference(),
+                    row.getSourceVersion(),
+                    (int) row.getDataVersion(),
+                    (int) row.getRevision(),
+                    row.getVisibility(),
+                    row.getCreatedAt(),
+                    row.getUpdatedAt(),
+                    row.getDeletedAt()
+            ));
         }
         return rows;
     }
 
     private List<NutritionNutrientSyncRow> readNutrientSyncRows(String ownerId) {
         List<NutritionNutrientSyncRow> rows = new ArrayList<>();
-        try (Cursor cursor = database.rawQuery(
-                "SELECT id, owner_id, food_id, nutrient_code, amount, unit, created_at, " +
-                        "updated_at, deleted_at FROM nutrition_food_nutrients" +
-                        publicationSafePushWhere("nutrition_food_nutrients"),
-                new String[]{ownerId}
-        )) {
-            while (cursor.moveToNext()) {
-                rows.add(new NutritionNutrientSyncRow(
-                        cursor.getString(0),
-                        nullableString(cursor, 1),
-                        cursor.getString(2),
-                        cursor.getString(3),
-                        nullableDouble(cursor, 4),
-                        cursor.getString(5),
-                        cursor.getString(6),
-                        cursor.getString(7),
-                        nullableString(cursor, 8)
-                ));
-            }
+        for (NutritionFoodNutrientsRoomEntity row : nutritionDao.syncNutrients(ownerId)) {
+            rows.add(new NutritionNutrientSyncRow(
+                    row.getId(),
+                    row.getOwnerId(),
+                    row.getFoodId(),
+                    row.getNutrientCode(),
+                    row.getAmount(),
+                    row.getUnit(),
+                    row.getCreatedAt(),
+                    row.getUpdatedAt(),
+                    row.getDeletedAt()
+            ));
         }
         return rows;
     }
 
     private List<NutritionComponentSyncRow> readComponentSyncRows(String ownerId) {
         List<NutritionComponentSyncRow> rows = new ArrayList<>();
-        try (Cursor cursor = database.rawQuery(
-                "SELECT id, owner_id, parent_food_id, child_food_id, quantity, unit, " +
-                        "order_index, created_at, updated_at, deleted_at " +
-                        "FROM nutrition_food_components" +
-                        publicationSafePushWhere("nutrition_food_components"),
-                new String[]{ownerId}
-        )) {
-            while (cursor.moveToNext()) {
-                rows.add(new NutritionComponentSyncRow(
-                        cursor.getString(0),
-                        nullableString(cursor, 1),
-                        cursor.getString(2),
-                        cursor.getString(3),
-                        cursor.getDouble(4),
-                        cursor.getString(5),
-                        cursor.getLong(6),
-                        cursor.getString(7),
-                        cursor.getString(8),
-                        nullableString(cursor, 9)
-                ));
-            }
+        for (NutritionFoodComponentsRoomEntity row : nutritionDao.syncComponents(ownerId)) {
+            rows.add(new NutritionComponentSyncRow(
+                    row.getId(),
+                    row.getOwnerId(),
+                    row.getParentFoodId(),
+                    row.getChildFoodId(),
+                    row.getQuantity(),
+                    row.getUnit(),
+                    row.getOrderIndex(),
+                    row.getCreatedAt(),
+                    row.getUpdatedAt(),
+                    row.getDeletedAt()
+            ));
         }
         return rows;
     }
 
     private List<NutritionProductLinkSyncRow> readProductLinkSyncRows(String ownerId) {
         List<NutritionProductLinkSyncRow> rows = new ArrayList<>();
-        try (Cursor cursor = database.rawQuery(
-                "SELECT " + String.join(", ", PRODUCT_LINK_SYNC_COLUMNS) +
-                        " FROM product_nutrition_links" +
-                        publicationSafePushWhere("product_nutrition_links"),
-                new String[]{ownerId}
-        )) {
-            while (cursor.moveToNext()) {
-                rows.add(new NutritionProductLinkSyncRow(
-                        cursor.getString(0),
-                        cursor.getString(1),
-                        cursor.getString(2),
-                        cursor.getString(3),
-                        nullableString(cursor, 4),
-                        cursor.getString(5),
-                        cursor.getString(6),
-                        nullableString(cursor, 7),
-                        nullableString(cursor, 8),
-                        nullableString(cursor, 9),
-                        nullableDouble(cursor, 10),
-                        nullableString(cursor, 11),
-                        nullableLong(cursor, 12),
-                        cursor.getInt(13),
-                        nullableString(cursor, 14),
-                        cursor.getString(15),
-                        cursor.getString(16),
-                        nullableString(cursor, 17)
-                ));
-            }
+        for (ProductNutritionLinksRoomEntity row : nutritionDao.syncProductLinks(ownerId)) {
+            rows.add(new NutritionProductLinkSyncRow(
+                    row.getId(),
+                    row.getOwnerId(),
+                    row.getNutritionFoodId(),
+                    row.getCatalogProductId(),
+                    row.getStandardProductId(),
+                    row.getStatus(),
+                    row.getSourceType(),
+                    row.getProposalReference(),
+                    row.getProductContractVersion(),
+                    row.getCatalogProductRevision(),
+                    row.getCatalogContentAmount(),
+                    row.getCatalogContentUnit(),
+                    row.getCatalogPackageCount(),
+                    (int) row.getRevision(),
+                    row.getReviewedAt(),
+                    row.getCreatedAt(),
+                    row.getUpdatedAt(),
+                    row.getDeletedAt()
+            ));
         }
         return rows;
     }
@@ -2648,16 +2461,10 @@ public final class NutritionCatalogRepository implements
         return safeProfile;
     }
 
-    private static String[] syncColumns() {
-        List<String> columns = new ArrayList<>(java.util.Arrays.asList(FOOD_COLUMNS));
-        columns.add("visibility");
-        columns.add("created_at");
-        columns.add("updated_at");
-        columns.add("deleted_at");
-        return columns.toArray(new String[0]);
-    }
-
-    /** Public rows are immutable through ordinary sync; publication RPCs own that transition. */
+    /**
+     * Compatibility policy text used by the existing sync contract tests. Runtime reads use
+     * the equivalent typed queries on NutritionRoomDao; this helper never executes SQL.
+     */
     static String publicationSafePushWhere(String table) {
         if ("nutrition_foods".equals(table)) {
             return " WHERE owner_id = ? AND visibility = 'private'" +
@@ -2723,18 +2530,6 @@ public final class NutritionCatalogRepository implements
 
     private static String nullableString(JSONObject object, String key) {
         return !object.has(key) || object.isNull(key) ? null : object.optString(key, null);
-    }
-
-    private static String nullableString(Cursor cursor, int index) {
-        return cursor.isNull(index) ? null : cursor.getString(index);
-    }
-
-    private static Double nullableDouble(Cursor cursor, int index) {
-        return cursor.isNull(index) ? null : cursor.getDouble(index);
-    }
-
-    private static Long nullableLong(Cursor cursor, int index) {
-        return cursor.isNull(index) ? null : cursor.getLong(index);
     }
 
     private static String requireName(String value) {
@@ -2871,22 +2666,6 @@ public final class NutritionCatalogRepository implements
     private static boolean isKnownLinkSource(String value) {
         return ProductNutritionLink.SOURCE_MANUAL.equals(value)
                 || ProductNutritionLink.SOURCE_PRICETRACE.equals(value);
-    }
-
-    private static void putNullable(ContentValues values, String key, String value) {
-        if (value == null) {
-            values.putNull(key);
-        } else {
-            values.put(key, value);
-        }
-    }
-
-    private static void putNullableDouble(ContentValues values, String key, Double value) {
-        if (value == null) {
-            values.putNull(key);
-        } else {
-            values.put(key, value);
-        }
     }
 
     private static String now() {

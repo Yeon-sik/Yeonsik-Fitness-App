@@ -1512,6 +1512,13 @@ interface DevelopmentRoomDao {
 
 @Dao
 interface NutritionRoomDao {
+    data class ApprovedLinkClaimRow(
+        val sourceId: String,
+        @ColumnInfo(name = "source_updated_at") val sourceUpdatedAt: String,
+        val targetId: String,
+        @ColumnInfo(name = "target_updated_at") val targetUpdatedAt: String
+    )
+
     data class SyncVersionRow(
         val revision: Long?,
         @ColumnInfo(name = "updated_at") val updatedAt: String?
@@ -1819,6 +1826,74 @@ interface NutritionRoomDao {
             "AND status='approved' AND deleted_at IS NULL"
     )
     fun unlinkApprovedProduct(userId: String, nutritionFoodId: String, updatedAt: String): Int
+
+    @Query(
+        "SELECT source.id AS sourceId, source.updated_at AS source_updated_at, " +
+            "target.id AS targetId, target.updated_at AS target_updated_at " +
+            "FROM product_nutrition_links source " +
+            "INNER JOIN product_nutrition_links target " +
+            "ON target.nutrition_food_id = source.nutrition_food_id " +
+            "AND target.owner_id = :nextUserId AND target.status = 'approved' " +
+            "AND target.deleted_at IS NULL " +
+            "WHERE source.owner_id = :sourceUserId AND source.status = 'approved' " +
+            "AND source.deleted_at IS NULL"
+    )
+    fun approvedLinkClaimConflicts(
+        sourceUserId: String,
+        nextUserId: String
+    ): List<ApprovedLinkClaimRow>
+
+    @Query(
+        "UPDATE product_nutrition_links SET deleted_at=:updatedAt, updated_at=:updatedAt, " +
+            "revision=revision+1 WHERE id=:linkId AND deleted_at IS NULL"
+    )
+    fun retireClaimConflict(linkId: String, updatedAt: String): Int
+
+    @Query("UPDATE nutrition_foods SET owner_id=:nextUserId WHERE owner_id=:sourceUserId")
+    fun claimFoodRows(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE nutrition_food_nutrients SET owner_id=:nextUserId WHERE owner_id=:sourceUserId")
+    fun claimNutrientRows(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE nutrition_food_components SET owner_id=:nextUserId WHERE owner_id=:sourceUserId")
+    fun claimComponentRows(sourceUserId: String, nextUserId: String): Int
+
+    @Query("UPDATE product_nutrition_links SET owner_id=:nextUserId WHERE owner_id=:sourceUserId")
+    fun claimProductLinkRows(sourceUserId: String, nextUserId: String): Int
+
+    @Query(
+        "SELECT * FROM nutrition_foods WHERE owner_id=:ownerId AND visibility='private' " +
+            "AND lower(COALESCE(source_type, '')) IN " +
+            "('manual', 'manual_estimate', 'manual_option', 'manual_recipe', " +
+            "'pricetrace_manual', 'pricetrace_standard') " +
+            "AND (lower(COALESCE(source_type, '')) <> 'manual_estimate' " +
+            "OR COALESCE(source_reference, '') NOT LIKE '%fitness-nutrition-verified-import.v1%')"
+    )
+    fun syncFoods(ownerId: String): List<NutritionFoodsRoomEntity>
+
+    @Query(
+        "SELECT child.* FROM nutrition_food_nutrients child " +
+            "WHERE child.owner_id=:ownerId AND EXISTS (" +
+            "SELECT 1 FROM nutrition_foods parent " +
+            "WHERE parent.id=child.food_id AND parent.visibility='private')"
+    )
+    fun syncNutrients(ownerId: String): List<NutritionFoodNutrientsRoomEntity>
+
+    @Query(
+        "SELECT child.* FROM nutrition_food_components child " +
+            "WHERE child.owner_id=:ownerId AND EXISTS (" +
+            "SELECT 1 FROM nutrition_foods parent " +
+            "WHERE parent.id=child.parent_food_id AND parent.visibility='private')"
+    )
+    fun syncComponents(ownerId: String): List<NutritionFoodComponentsRoomEntity>
+
+    @Query(
+        "SELECT link.* FROM product_nutrition_links link " +
+            "WHERE link.owner_id=:ownerId AND EXISTS (" +
+            "SELECT 1 FROM nutrition_foods parent " +
+            "WHERE parent.id=link.nutrition_food_id AND parent.visibility='private')"
+    )
+    fun syncProductLinks(ownerId: String): List<ProductNutritionLinksRoomEntity>
 }
 
 @Database(
