@@ -29,7 +29,6 @@ import androidx.compose.ui.platform.ViewCompositionStrategy;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.yeonsik.fitnessapp.app.AppContainer;
-import com.yeonsik.fitnessapp.app.SavedStateViewModelFactory;
 import com.yeonsik.fitnessapp.app.navigation.AppNavigationViewModel;
 import com.yeonsik.fitnessapp.app.navigation.AppViewModels;
 import com.yeonsik.fitnessapp.app.navigation.ComposeAppScreen;
@@ -51,10 +50,7 @@ import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
 import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
-import com.yeonsik.fitnessapp.feature.settings.ui.SettingsEvent;
-import com.yeonsik.fitnessapp.feature.settings.ui.SettingsUiState;
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsViewModel;
-import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -116,7 +112,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private SupplementViewModel supplementViewModel;
     private ExercisePickerViewModel exercisePickerViewModel;
     private MealViewModel mealViewModel;
-    private FitnessUi ui;
     private OnBackInvokedCallback backInvokedCallback;
     private AppNavigationViewModel navigationViewModel;
 
@@ -131,17 +126,13 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         super.onCreate(savedInstanceState);
         appContainer = new AppContainer(this);
         String startupOwnerId = currentOwnerId();
-        initializeFeatureViewModels();
-        navigationViewModel = new ViewModelProvider(
+        ViewModelProvider provider = new ViewModelProvider(
                 this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new AppNavigationViewModel(handle)
-                )
-        ).get(AppNavigationViewModel.class);
+                appContainer.getViewModelFactory(this)
+        );
+        navigationViewModel = provider.get(AppNavigationViewModel.class);
+        initializeFeatureViewModels(provider);
         settingsViewModel.reconcileSharedWorkoutSummaries(startupOwnerId);
-        ui = new FitnessUi(this, this::isDarkTheme);
         registerBackCallback();
         restoreNavigationState(savedInstanceState);
 
@@ -184,192 +175,18 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         super.onSaveInstanceState(outState);
     }
 
-    private void initializeFeatureViewModels() {
-        settingsViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new SettingsViewModel(
-                                handle,
-                                appContainer.getMassUnitPreferences(),
-                                appContainer.getThemeModePreferences(),
-                                appContainer.getConfigStore(),
-                                appContainer.getNutritionConfigStore(),
-                                appContainer.getPriceTraceConfigStore(),
-                                appContainer.getSupabaseAuthManager(),
-                                appContainer.getNutritionAuthManager(),
-                                appContainer.getPriceTraceAuthManager(),
-                                appContainer.getSyncApplicationService(),
-                                appContainer.getLocalDataTransferApplicationService(),
-                                appContainer
-                        )
-                )
-        ).get(SettingsViewModel.class);
-        settingsViewModel.getEvents().observe(this, this::handleSettingsEvent);
-        bodyMetricsViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new BodyMetricsViewModel(
-                                handle,
-                                appContainer.getBodyMetricsApplicationService()
-                        )
-                )
-        ).get(BodyMetricsViewModel.class);
-        workoutSessionViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new WorkoutSessionViewModel(
-                                handle,
-                                appContainer.getWorkoutRepository(),
-                                appContainer.getCompleteWorkout(),
-                                appContainer.getWorkoutSessionApplicationService(),
-                                appContainer.getWorkoutWriteExecutor(),
-                                false
-                        )
-                )
-        ).get(WorkoutSessionViewModel.class);
-        workoutExerciseDetailViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new WorkoutExerciseDetailViewModel(
-                                handle,
-                                appContainer.getWorkoutRepository(),
-                                appContainer.getInitializeWorkoutExercise(),
-                                appContainer.getWorkoutWriteExecutor(),
-                                false
-                        )
-                )
-        ).get(WorkoutExerciseDetailViewModel.class);
-        cardioSessionViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new CardioSessionViewModel(
-                                handle,
-                                appContainer.getCardioRepositoryApi(),
-                                appContainer.getCardioSessionApplicationService()
-                        )
-                )
-        ).get(CardioSessionViewModel.class);
-        routineEntryViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new RoutineEntryViewModel(
-                                handle,
-                                appContainer.getRoutineRepositoryApi()
-                        )
-                )
-        ).get(RoutineEntryViewModel.class);
-        homeViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new HomeViewModel(
-                                handle,
-                                appContainer.getHomeRepository()
-                        )
-                )
-        ).get(HomeViewModel.class);
-        developmentViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new DevelopmentViewModel(
-                                handle,
-                                appContainer.getDevelopmentReportApi(),
-                                appContainer.getDevelopmentApplicationService()
-                        )
-                )
-        ).get(DevelopmentViewModel.class);
-        supplementViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new SupplementViewModel(
-                                handle,
-                                appContainer.getSupplementRepositoryApi()
-                        )
-                )
-        ).get(SupplementViewModel.class);
-        exercisePickerViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new ExercisePickerViewModel(
-                                handle,
-                                appContainer.getExerciseMasterRepositoryApi(),
-                                appContainer.getRoutineRepositoryApi(),
-                                appContainer.getWorkoutRepository()
-                        )
-                )
-        ).get(ExercisePickerViewModel.class);
-        mealViewModel = new ViewModelProvider(
-                this,
-                new SavedStateViewModelFactory<>(
-                        this,
-                        null,
-                        handle -> new MealViewModel(
-                                handle,
-                                appContainer.getMealRecordRepositoryApi(),
-                                appContainer.getNutritionCatalogRepositoryApi(),
-                                appContainer.getNutritionIntegrationService()
-                        )
-                )
-        ).get(MealViewModel.class);
-    }
-
-    private void handleSettingsEvent(SettingsEvent event) {
-        if (event == null || !event.consume()) {
-            return;
-        }
-        if (event instanceof SettingsEvent.BackupPreviewReady) {
-            SettingsEvent.BackupPreviewReady previewReady =
-                    (SettingsEvent.BackupPreviewReady) event;
-            LocalDataTransferApplicationService.BackupPreview preview = previewReady.getPreview();
-            if (pendingRestoreUri != null) {
-                Uri restoreUri = pendingRestoreUri;
-                ui.confirmSheet(
-                        "백업 복원",
-                        preview.totalRows + "개 항목을 현재 기록에 합칩니다. "
-                                + "기존 기록은 유지하고 같은 항목은 건너뜁니다.",
-                        null,
-                        "병합 복원",
-                        () -> startRestoreBackup(restoreUri)
-                );
-            }
-        } else if (event instanceof SettingsEvent.Notice) {
-            toast(((SettingsEvent.Notice) event).getMessage());
-            settingsViewModel.refresh();
-        } else if (event instanceof SettingsEvent.Failure) {
-            toast(((SettingsEvent.Failure) event).getMessage());
-            settingsViewModel.refresh();
-        } else if (event instanceof SettingsEvent.ConfigSaved) {
-            toast(((SettingsEvent.ConfigSaved) event).getMessage());
-            settingsViewModel.refresh();
-        } else if (event instanceof SettingsEvent.Authenticated) {
-            toast(((SettingsEvent.Authenticated) event).getMessage());
-            settingsViewModel.refresh();
-        } else if (event instanceof SettingsEvent.SignedOut) {
-            toast(((SettingsEvent.SignedOut) event).getMessage());
-            settingsViewModel.refresh();
-        } else if (event instanceof SettingsEvent.SyncCompleted) {
-            toast("수동 동기화 결과를 반영했습니다.");
-            settingsViewModel.refresh();
-        }
+    private void initializeFeatureViewModels(ViewModelProvider provider) {
+        settingsViewModel = provider.get(SettingsViewModel.class);
+        bodyMetricsViewModel = provider.get(BodyMetricsViewModel.class);
+        workoutSessionViewModel = provider.get(WorkoutSessionViewModel.class);
+        workoutExerciseDetailViewModel = provider.get(WorkoutExerciseDetailViewModel.class);
+        cardioSessionViewModel = provider.get(CardioSessionViewModel.class);
+        routineEntryViewModel = provider.get(RoutineEntryViewModel.class);
+        homeViewModel = provider.get(HomeViewModel.class);
+        developmentViewModel = provider.get(DevelopmentViewModel.class);
+        supplementViewModel = provider.get(SupplementViewModel.class);
+        exercisePickerViewModel = provider.get(ExercisePickerViewModel.class);
+        mealViewModel = provider.get(MealViewModel.class);
     }
 
     private void startRestoreBackup(Uri uri) {
@@ -671,17 +488,22 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     // ── 창 / 루트 뷰 ──────────────────────────────────────────────────
 
     private void configureWindow() {
-        applySystemBarAppearance(isDarkTheme(), ui.pageBg(), ui.pageBg());
+        int pageBackground = pageBackgroundColor();
+        applySystemBarAppearance(isDarkTheme(), pageBackground, pageBackground);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && rootView != null) {
             // Apply again after the decor view is attached. This keeps the
             // launch theme authoritative for the preview while ensuring that
             // runtime appearance uses WindowInsetsController.
             rootView.post(() -> applySystemBarAppearance(
                     isDarkTheme(),
-                    ui.pageBg(),
-                    ui.pageBg()
+                    pageBackgroundColor(),
+                    pageBackgroundColor()
             ));
         }
+    }
+
+    private int pageBackgroundColor() {
+        return isDarkTheme() ? FitnessUi.COLOR_D_BACKGROUND : FitnessUi.COLOR_BACKGROUND;
     }
 
     private View buildRootView() {
@@ -841,10 +663,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     private void dispatchBack() {
-        // Only system Back dismisses an app dialog before consulting screen history.
-        if (ui != null && ui.dismissActiveDialog()) {
-            return;
-        }
         if (back()) {
             return;
         }
@@ -1019,6 +837,19 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     @Override
+    public void confirmPendingBackupRestore() {
+        Uri restoreUri = pendingRestoreUri;
+        if (restoreUri != null) {
+            startRestoreBackup(restoreUri);
+        }
+    }
+
+    @Override
+    public void cancelPendingBackupRestore() {
+        pendingRestoreUri = null;
+    }
+
+    @Override
     public void exportRecordsCsv() {
         dataTransferCoordinator.exportRecordsCsv();
     }
@@ -1033,38 +864,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         dataTransferCoordinator.exportWorkoutTransfer();
     }
 
-    private boolean isDataTransferInProgress() {
-        SettingsUiState state = settingsState();
-        return state != null && state.isDataTransferInProgress();
-    }
-
-    private String dataTransferDetail() {
-        SettingsUiState state = settingsState();
-        return state == null ? "" : state.getDataTransferDetail();
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     @Override
     public void openFleekDataImport() {
         dataTransferCoordinator.openFleekDataImport();
@@ -1072,18 +871,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
 
 
-    private boolean isDataImporting() {
-        SettingsUiState state = settingsState();
-        return state != null && state.isDataImporting();
-    }
-
-    private String dataImportDetail() {
-        SettingsUiState state = settingsState();
-        return state == null ? "" : state.getDataImportDetail();
-    }
-
-    private SettingsUiState settingsState() {
-        return settingsViewModel == null ? null : settingsViewModel.getUiState().getValue();
+    private boolean canStartDataFileOperation() {
+        return settingsViewModel == null || settingsViewModel.canStartDataFileOperation();
     }
 
     /**
@@ -1092,7 +881,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
      */
     private final class DataTransferCoordinator {
         private void createLocalBackup() {
-            if (isDataTransferInProgress() || isDataImporting()) {
+            if (!canStartDataFileOperation()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -1104,7 +893,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         }
 
         private void restoreLocalBackup() {
-            if (isDataTransferInProgress() || isDataImporting()) {
+            if (!canStartDataFileOperation()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -1120,7 +909,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         }
 
         private void exportRecordsCsv() {
-            if (isDataTransferInProgress() || isDataImporting()) {
+            if (!canStartDataFileOperation()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -1132,7 +921,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         }
 
         private void openWorkoutTransferImport() {
-            if (isDataTransferInProgress() || isDataImporting()) {
+            if (!canStartDataFileOperation()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -1148,7 +937,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         }
 
         private void exportWorkoutTransfer() {
-            if (isDataTransferInProgress() || isDataImporting()) {
+            if (!canStartDataFileOperation()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }
@@ -1173,7 +962,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         }
 
         private void openFleekDataImport() {
-            if (isDataImporting() || isDataTransferInProgress()) {
+            if (!canStartDataFileOperation()) {
                 toast("다른 데이터 작업이 끝난 뒤 다시 시도하세요.");
                 return;
             }

@@ -137,6 +137,12 @@ class SettingsViewModel @JvmOverloads constructor(
 
     fun preferredMassUnit(): MassUnit = massUnitPreferences.preferredMassUnit()
 
+    /** Platform file pickers use this guard without owning transfer progress state. */
+    fun canStartDataFileOperation(): Boolean {
+        val state = mutableState.value ?: return true
+        return !state.isDataImporting && !state.isDataTransferInProgress
+    }
+
     fun saveConnection(connection: SettingsConnection, url: String, anonKey: String) {
         executor.execute {
             try {

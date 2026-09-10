@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -52,6 +53,7 @@ import com.yeonsik.fitnessapp.feature.settings.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitnessapp.feature.workout.ui.*
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import java.util.Locale
@@ -79,6 +81,7 @@ private fun AppRoot(
 ) {
     val navigationState by navigation.uiState.observeAsState(AppNavigationState())
     val settingsState by viewModels.getSettings().uiState.observeAsState()
+    val settingsEvent by viewModels.getSettings().events.observeAsState()
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
     val routineState by viewModels.getRoutineEntry().uiState
         .observeAsState(RoutineEntryUiState.Idle)
@@ -124,6 +127,41 @@ private fun AppRoot(
         .observeAsState(DevelopmentProfileEditorUiState.Idle)
     val goalEditorState by viewModels.getDevelopment().goalEditorState
         .observeAsState(DevelopmentGoalEditorUiState.Idle)
+    var backupPreview by remember {
+        mutableStateOf<LocalDataTransferApplicationService.BackupPreview?>(null)
+    }
+
+    LaunchedEffect(settingsEvent) {
+        val event = settingsEvent ?: return@LaunchedEffect
+        if (!event.consume()) return@LaunchedEffect
+        when (event) {
+            is SettingsEvent.BackupPreviewReady -> backupPreview = event.preview
+            is SettingsEvent.Notice -> {
+                host.toast(event.message)
+                viewModels.getSettings().refresh()
+            }
+            is SettingsEvent.Failure -> {
+                host.toast(event.message)
+                viewModels.getSettings().refresh()
+            }
+            is SettingsEvent.ConfigSaved -> {
+                host.toast(event.message)
+                viewModels.getSettings().refresh()
+            }
+            is SettingsEvent.Authenticated -> {
+                host.toast(event.message)
+                viewModels.getSettings().refresh()
+            }
+            is SettingsEvent.SignedOut -> {
+                host.toast(event.message)
+                viewModels.getSettings().refresh()
+            }
+            is SettingsEvent.SyncCompleted -> {
+                host.toast("수동 동기화 결과를 반영했습니다.")
+                viewModels.getSettings().refresh()
+            }
+        }
+    }
     val homeActions = object : HomeScreenActions {
         override fun continueWorkout() = viewModels.getWorkoutSession()
             .continueIfAvailable(AccountScope(ownerId))
@@ -667,6 +705,33 @@ private fun AppRoot(
             ownerId,
             workoutDeleteActions
         )
+        backupPreview?.let { preview ->
+            AlertDialog(
+                onDismissRequest = {
+                    backupPreview = null
+                    host.cancelPendingBackupRestore()
+                },
+                title = { Text("백업 복원") },
+                text = {
+                    Text(
+                        "${preview.totalRows}개 항목을 현재 기록에 합칩니다. " +
+                            "기존 기록은 유지하고 같은 항목은 건너뜁니다."
+                    )
+                },
+                confirmButton = {
+                    TextButton(onClick = {
+                        backupPreview = null
+                        host.confirmPendingBackupRestore()
+                    }) { Text("병합 복원") }
+                },
+                dismissButton = {
+                    TextButton(onClick = {
+                        backupPreview = null
+                        host.cancelPendingBackupRestore()
+                    }) { Text("취소") }
+                }
+            )
+        }
     }
 }
 

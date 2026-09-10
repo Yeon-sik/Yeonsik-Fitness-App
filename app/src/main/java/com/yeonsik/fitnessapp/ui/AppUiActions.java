@@ -41,6 +41,14 @@ public interface AppUiActions {
 
     void restoreLocalBackup();
 
+    /** Confirms the previewed platform-selected backup and starts its restore stream. */
+    default void confirmPendingBackupRestore() {
+    }
+
+    /** Drops a platform-selected backup when the Compose confirmation is dismissed. */
+    default void cancelPendingBackupRestore() {
+    }
+
     void exportRecordsCsv();
 
 }

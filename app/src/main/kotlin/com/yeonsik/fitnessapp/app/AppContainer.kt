@@ -55,6 +55,7 @@ import com.yeonsik.fitnessapp.feature.settings.application.SettingsSessionCoordi
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsConnection
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
 import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager
+import androidx.savedstate.SavedStateRegistryOwner
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -267,6 +268,9 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     }
 
     fun getWorkoutWriteExecutor(): ExecutorService = workoutWriteExecutor
+
+    fun getViewModelFactory(owner: SavedStateRegistryOwner): AppViewModelFactory =
+        AppViewModelFactory(owner, this)
 
     fun shutdownWorkoutWriteExecutor() {
         workoutWriteExecutor.shutdownNow()
