@@ -71,6 +71,9 @@ public final class WorkoutSessionApplicationService {
                 throw new IllegalStateException("GPS 유산소 데이터를 삭제하지 못했습니다.");
             }
             deleted[0] = workoutRepository.deleteSession(scope, recordId);
+            if (cardioSession && !deleted[0]) {
+                throw new IllegalStateException("공통 유산소 기록을 삭제하지 못했습니다.");
+            }
         });
         return new DeleteResult(cardioSession, deleted[0]);
     }
