@@ -355,7 +355,7 @@ private fun AppRoot(
                         host.startCardioTracking(recordId)
                     }
                     navigation.navigate(FitnessScreen.CARDIO_SESSION)
-                    if (host.consumePendingCardioFinishRequest()) {
+                    if (cardioViewModel.consumePendingFinishRequest()) {
                         cardioViewModel.prepareFinish(AccountScope(ownerId), recordId)
                     }
                 }

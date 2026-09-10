@@ -147,9 +147,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private String syncLabel = "local-only";
     private String syncDetail = "로컬 전용 모드";
     private String lastSyncedAt = "";
-    private CardioActivityType pendingCardioActivityType;
-    private String pendingCardioResumeRecordId;
-    private boolean pendingCardioFinishRequested;
     private boolean waitingForLocationSettings;
     private final DataTransferCoordinator dataTransferCoordinator = new DataTransferCoordinator();
 
@@ -549,8 +546,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             if (hasPreciseLocationPermission()) {
                 continuePendingCardioAction();
             } else {
-                if (pendingCardioResumeRecordId == null && cardioSessionViewModel != null) {
-                    cardioSessionViewModel.clearPendingStart();
+                if (cardioSessionViewModel != null) {
+                    cardioSessionViewModel.clearPendingPermissionAction();
                 }
                 clearPendingCardioAction();
                 toast("GPS 거리 측정에는 정확한 위치 권한이 필요합니다.");
@@ -1062,8 +1059,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             toast("유산소 유형을 선택하세요.");
             return;
         }
-        pendingCardioActivityType = activityType;
-        pendingCardioResumeRecordId = null;
         requestCardioPermissionsAndContinue();
     }
 
@@ -1073,16 +1068,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             toast("재개할 유산소 기록을 찾지 못했습니다.");
             return;
         }
-        pendingCardioActivityType = activityType;
-        pendingCardioResumeRecordId = recordId;
         requestCardioPermissionsAndContinue();
-    }
-
-    @Override
-    public boolean consumePendingCardioFinishRequest() {
-        boolean requested = pendingCardioFinishRequested;
-        pendingCardioFinishRequested = false;
-        return requested;
     }
 
     @Override
@@ -1109,7 +1095,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     private void continuePendingCardioAction() {
-        if (pendingCardioActivityType == null) {
+        if (cardioSessionViewModel == null
+                || !cardioSessionViewModel.hasPendingPermissionAction()) {
             return;
         }
         if (!locationServicesEnabled()) {
@@ -1131,18 +1118,12 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     private void continuePendingCardioActionAfterNotificationPermission() {
-        CardioActivityType activityType = pendingCardioActivityType;
-        String resumeRecordId = pendingCardioResumeRecordId;
         clearPendingCardioAction();
-        if (activityType == null || !hasPreciseLocationPermission()) {
+        if (!hasPreciseLocationPermission()) {
             return;
         }
         AccountScope scope = new AccountScope(currentOwnerId());
-        if (resumeRecordId != null) {
-            cardioSessionViewModel.resume(scope, resumeRecordId);
-        } else {
-            cardioSessionViewModel.startAfterPermissions(scope);
-        }
+        cardioSessionViewModel.continueAfterPermissions(scope);
     }
 
     private void dispatchCardioService(String action, String recordId, boolean foregroundStart) {
@@ -1168,7 +1149,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                 CardioTrackingService.EXTRA_FINISH_REQUESTED, false);
         intent.removeExtra(CardioTrackingService.EXTRA_RECORD_ID);
         intent.removeExtra(CardioTrackingService.EXTRA_FINISH_REQUESTED);
-        pendingCardioFinishRequested = finishRequested;
+        cardioSessionViewModel.rememberPendingFinishRequest(finishRequested);
         cardioSessionViewModel.open(new AccountScope(currentOwnerId()), recordId);
     }
 
@@ -1190,8 +1171,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     private void clearPendingCardioAction() {
-        pendingCardioActivityType = null;
-        pendingCardioResumeRecordId = null;
         waitingForLocationSettings = false;
     }
 

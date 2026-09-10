@@ -52,9 +52,6 @@ public interface AppUiActions {
     /** Requests the OS permission flow before the cardio ViewModel resumes a paused record. */
     void requestCardioResume(CardioActivityType activityType, String recordId);
 
-    /** Consumes a finish request delivered by the tracking-service Intent exactly once. */
-    boolean consumePendingCardioFinishRequest();
-
     void clearActiveWorkout(String recordId);
 
     String currentWorkoutRecordId();

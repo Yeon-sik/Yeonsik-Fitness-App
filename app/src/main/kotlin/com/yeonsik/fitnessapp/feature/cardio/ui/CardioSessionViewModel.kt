@@ -214,6 +214,41 @@ class CardioSessionViewModel @JvmOverloads constructor(
         savedStateHandle.remove<String>(KEY_PENDING_START_DATE)
     }
 
+    fun rememberPendingResume(recordId: String) {
+        savedStateHandle[KEY_PENDING_RESUME_RECORD_ID] = recordId
+    }
+
+    private fun pendingResumeRecordId(): String? =
+        savedStateHandle[KEY_PENDING_RESUME_RECORD_ID]
+
+    fun hasPendingPermissionAction(): Boolean =
+        pendingStartActivityType() != null || pendingResumeRecordId() != null
+
+    fun clearPendingPermissionAction() {
+        clearPendingStart()
+        savedStateHandle.remove<String>(KEY_PENDING_RESUME_RECORD_ID)
+    }
+
+    fun continueAfterPermissions(scope: AccountScope) {
+        val resumeRecordId = pendingResumeRecordId()
+        if (resumeRecordId != null) {
+            clearPendingPermissionAction()
+            resume(scope, resumeRecordId)
+        } else {
+            startAfterPermissions(scope)
+        }
+    }
+
+    fun rememberPendingFinishRequest(requested: Boolean) {
+        savedStateHandle[KEY_PENDING_FINISH_REQUEST] = requested
+    }
+
+    fun consumePendingFinishRequest(): Boolean {
+        val requested: Boolean = savedStateHandle[KEY_PENDING_FINISH_REQUEST] ?: false
+        savedStateHandle[KEY_PENDING_FINISH_REQUEST] = false
+        return requested
+    }
+
     fun open(scope: AccountScope, recordId: String) {
         executeAction(scope, CardioSessionAction.OPEN) {
             val session = requireService().load(scope, recordId)
@@ -242,9 +277,11 @@ class CardioSessionViewModel @JvmOverloads constructor(
         executeAction(scope, CardioSessionAction.PREPARE_RESUME) {
             val session = requireService().load(scope, recordId)
             if (session == null || session.status != CardioSessionSnapshot.STATUS_PAUSED) {
+                savedStateHandle.remove<String>(KEY_PENDING_RESUME_RECORD_ID)
                 ActionResult(CardioSessionActionOutcome.NOT_FOUND, recordId, null, null, false,
                     "재개할 유산소 기록을 찾지 못했습니다.")
             } else {
+                rememberPendingResume(recordId)
                 ActionResult(CardioSessionActionOutcome.RESUME_READY, recordId, session, null, false, null)
             }
         }
@@ -669,5 +706,7 @@ class CardioSessionViewModel @JvmOverloads constructor(
         const val KEY_CANCEL_RECORD_ID = "cardio_cancel.record_id"
         const val KEY_PENDING_START_TYPE = "cardio_pending_start.activity_type"
         const val KEY_PENDING_START_DATE = "cardio_pending_start.date"
+        const val KEY_PENDING_RESUME_RECORD_ID = "cardio_pending_resume.record_id"
+        const val KEY_PENDING_FINISH_REQUEST = "cardio_pending_finish.requested"
     }
 }
