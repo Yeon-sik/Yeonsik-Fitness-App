@@ -51,18 +51,13 @@ import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
 import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel;
 import com.yeonsik.fitnessapp.ui.FitnessUi;
 import com.yeonsik.fitnessapp.ui.AppUiActions;
-import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutRestTimerState;
-import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionUiState;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
-import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryUiState;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
-import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
-import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerUiState;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
 import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
@@ -312,18 +307,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         )
                 )
         ).get(WorkoutExerciseDetailViewModel.class);
-        workoutExerciseDetailViewModel.getUiState().observe(this, state -> {
-            if (state instanceof WorkoutExerciseDetailUiState.Ready) {
-                WorkoutExerciseDetailUiState.Ready ready =
-                        (WorkoutExerciseDetailUiState.Ready) state;
-                if (currentScreen() == FitnessScreen.WORKOUT_EXERCISE_DETAIL
-                        && ready.getOwnerId().equals(currentOwnerId())
-                        && ready.getDetail().getRecordId().equals(sessionState.activeRecordId())) {
-                    sessionState.setActiveExerciseId(ready.getDetail().getActiveExercise().id);
-                    // Compose observes UiState. Replacing its View here discards unsaved inputs.
-                }
-            }
-        });
         cardioSessionViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -336,25 +319,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         )
                 )
         ).get(CardioSessionViewModel.class);
-        cardioSessionViewModel.getUiState().observe(this, state -> {
-            if (state instanceof CardioSessionUiState.Ready) {
-                CardioSessionUiState.Ready ready = (CardioSessionUiState.Ready) state;
-                if ((currentScreen() == FitnessScreen.CARDIO_SESSION
-                        || currentScreen() == FitnessScreen.CARDIO_SUMMARY)
-                        && ready.getOwnerId().equals(currentOwnerId())
-                        && ready.getSession().getRecordId().equals(sessionState.activeRecordId())) {
-                    if (currentScreen() == FitnessScreen.CARDIO_SUMMARY) {
-                    }
-                }
-            } else if (state instanceof CardioSessionUiState.Missing) {
-                CardioSessionUiState.Missing missing = (CardioSessionUiState.Missing) state;
-                if (currentScreen() == FitnessScreen.CARDIO_SESSION
-                        && missing.getOwnerId().equals(currentOwnerId())
-                        && missing.getRecordId().equals(sessionState.activeRecordId())) {
-                    replace(FitnessScreen.CARDIO);
-                }
-            }
-        });
         routineEntryViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -366,25 +330,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         )
                 )
         ).get(RoutineEntryViewModel.class);
-        routineEntryViewModel.getUiState().observe(this, state -> {
-            if (state instanceof RoutineEntryUiState.Ready) {
-                RoutineEntryUiState.Ready ready = (RoutineEntryUiState.Ready) state;
-                if ((currentScreen() == FitnessScreen.STRENGTH || currentScreen() == FitnessScreen.HOME)
-                        && ready.getOwnerId().equals(currentOwnerId())) {
-                    if (ready.getNotice() != null) {
-                        homeViewModel.enter(new AccountScope(currentOwnerId()), today());
-                    }
-                    if (currentScreen() != FitnessScreen.HOME) {
-                    }
-                }
-            } else if (state instanceof RoutineEntryUiState.Error) {
-                RoutineEntryUiState.Error error = (RoutineEntryUiState.Error) state;
-                if ((currentScreen() == FitnessScreen.STRENGTH || currentScreen() == FitnessScreen.HOME)
-                        && error.getOwnerId().equals(currentOwnerId())) {
-                    toast(error.getMessage());
-                }
-            }
-        });
         homeViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -396,24 +341,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         )
                 )
         ).get(HomeViewModel.class);
-        homeViewModel.getUiState().observe(this, state -> {
-            if (state instanceof HomeUiState.Ready) {
-                HomeUiState.Ready ready = (HomeUiState.Ready) state;
-                if (currentScreen() == FitnessScreen.HOME
-                        && ready.getSnapshot().getOwnerId().equals(currentOwnerId())
-                        && ready.getSnapshot().getToday().equals(today())) {
-                    // Compose observes this state itself. Rebuilding the whole
-                    // view tree here would interrupt any pending accessibility
-                    // focus without adding a new side effect.
-                }
-            } else if (state instanceof HomeUiState.Error) {
-                HomeUiState.Error error = (HomeUiState.Error) state;
-                if (currentScreen() == FitnessScreen.HOME
-                        && error.getOwnerId().equals(currentOwnerId())) {
-                    toast(error.getMessage());
-                }
-            }
-        });
         developmentViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -450,31 +377,6 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         )
                 )
         ).get(ExercisePickerViewModel.class);
-        exercisePickerViewModel.getUiState().observe(this, state -> {
-            if (!(state instanceof ExercisePickerUiState.Saved)) {
-                return;
-            }
-            ExercisePickerUiState.Saved saved = (ExercisePickerUiState.Saved) state;
-            // LiveData replays Saved after recreation. Only the picker may consume its navigation result.
-            if (!saved.getOwnerId().equals(currentOwnerId()) || currentScreen() != saved.getMode()) {
-                return;
-            }
-            if (saved.getMode() == FitnessScreen.ROUTINE_ADD) {
-                homeViewModel.enter(new AccountScope(currentOwnerId()), today());
-            } else {
-                String recordId = sessionState.activeRecordId();
-                if (recordId != null) {
-                    workoutSessionViewModel.enter(new AccountScope(currentOwnerId()), recordId);
-                    workoutExerciseDetailViewModel.enter(
-                            new AccountScope(currentOwnerId()),
-                            recordId,
-                            sessionState.activeExerciseId()
-                    );
-                }
-                sessionState.clearExerciseReplacement();
-            }
-            back();
-        });
         mealViewModel = new ViewModelProvider(
                 this,
                 new SavedStateViewModelFactory<>(
@@ -1197,6 +1099,11 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
             }
         }
         return homeViewModel == null ? null : homeViewModel.latestInProgressSessionId();
+    }
+
+    @Override
+    public String currentWorkoutReplacementExerciseId() {
+        return sessionState.replacementExerciseId();
     }
 
     public void confirmDeleteSession(String recordId) {

@@ -61,6 +61,11 @@ public interface AppUiActions {
 
     String currentWorkoutRecordId();
 
+    /** Exercise being replaced while the workout exercise picker is open. */
+    default String currentWorkoutReplacementExerciseId() {
+        return null;
+    }
+
     /** Platform-only permission bridge after CardioSessionViewModel has approved a start. */
     void requestCardioStart(CardioActivityType activityType);
 

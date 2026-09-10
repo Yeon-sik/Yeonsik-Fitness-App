@@ -67,6 +67,7 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
                 if (detail == null) {
                     publishIfCurrent(request, WorkoutExerciseDetailUiState.Missing(scope.ownerId, recordId))
                 } else {
+                    savedStateHandle[KEY_EXERCISE_ID] = detail.activeExercise.id
                     publishIfCurrent(
                         request,
                         WorkoutExerciseDetailUiState.Ready(scope.ownerId, detail, initialized)
@@ -83,6 +84,9 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
             }
         }
     }
+
+    /** Current detail target used by the app navigation root after picker writes. */
+    fun activeExerciseId(): String? = savedStateHandle[KEY_EXERCISE_ID]
 
     fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: WorkoutSetInput,
                        callback: Consumer<Boolean>) = executeWrite(callback) {

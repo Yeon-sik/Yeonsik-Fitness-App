@@ -82,6 +82,10 @@ private fun AppRoot(
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
     val routineState by viewModels.getRoutineEntry().uiState
         .observeAsState(RoutineEntryUiState.Idle)
+    val cardioState by viewModels.getCardioSession().uiState
+        .observeAsState(CardioSessionUiState.Idle)
+    val exercisePickerState by viewModels.getExercisePicker().uiState
+        .observeAsState(ExercisePickerUiState.Idle)
     val screen = navigationState.screen
     val ownerId = host.currentOwnerId()
     val unit = settingsState?.preferredMassUnit ?: host.preferredMassUnit()
@@ -137,6 +141,73 @@ private fun AppRoot(
         )
         override fun openMealManagement(date: String, returnScreen: FitnessScreen) =
             host.openMealManagement(date, returnScreen)
+    }
+
+    LaunchedEffect(routineState, screen, ownerId, navigationState.today) {
+        when (val state = routineState) {
+            is RoutineEntryUiState.Ready -> {
+                if (state.ownerId == ownerId
+                    && (screen == FitnessScreen.HOME || screen == FitnessScreen.STRENGTH)
+                    && state.notice != null
+                ) {
+                    viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+                }
+            }
+            is RoutineEntryUiState.Error -> {
+                if (state.ownerId == ownerId
+                    && (screen == FitnessScreen.HOME || screen == FitnessScreen.STRENGTH)
+                ) {
+                    host.toast(state.message)
+                }
+            }
+            else -> Unit
+        }
+    }
+
+    LaunchedEffect(homeState, screen, ownerId) {
+        val state = homeState
+        if (state is HomeUiState.Error
+            && state.ownerId == ownerId
+            && screen == FitnessScreen.HOME
+        ) {
+            host.toast(state.message)
+        }
+    }
+
+    LaunchedEffect(cardioState, screen, ownerId) {
+        val state = cardioState
+        if (state is CardioSessionUiState.Missing
+            && state.ownerId == ownerId
+            && screen == FitnessScreen.CARDIO_SESSION
+            && state.recordId == host.currentWorkoutRecordId()
+        ) {
+            navigation.replace(FitnessScreen.CARDIO)
+        }
+    }
+
+    LaunchedEffect(exercisePickerState, screen, ownerId, navigationState.today) {
+        val state = exercisePickerState
+        if (state !is ExercisePickerUiState.Saved
+            || state.ownerId != ownerId
+            || screen != state.mode
+        ) {
+            return@LaunchedEffect
+        }
+        if (state.mode == FitnessScreen.ROUTINE_ADD) {
+            viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+        } else {
+            val recordId = viewModels.getExercisePicker().activeRecordId()
+                ?: host.currentWorkoutRecordId()
+            if (recordId != null) {
+                viewModels.getWorkoutSession().enter(AccountScope(ownerId), recordId)
+                viewModels.getWorkoutExerciseDetail().enter(
+                    AccountScope(ownerId),
+                    recordId,
+                    viewModels.getWorkoutExerciseDetail().activeExerciseId()
+                )
+            }
+        }
+        host.back()
     }
 
     LaunchedEffect(workoutAction) {
@@ -847,7 +918,11 @@ private fun AppDestination(
             FitnessScreen.ROUTINE_ADD,
             FitnessScreen.WORKOUT_EXERCISE_ADD ->
                 viewModels.getExercisePicker().enter(
-                    AccountScope(ownerId), screen, host.currentWorkoutRecordId(), null, host.selectedRoutineId()
+                    AccountScope(ownerId),
+                    screen,
+                    host.currentWorkoutRecordId(),
+                    host.currentWorkoutReplacementExerciseId(),
+                    host.selectedRoutineId()
                 )
             else -> Unit
         }

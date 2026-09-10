@@ -74,6 +74,12 @@ class ExercisePickerViewModel @JvmOverloads constructor(
         publish(query)
     }
 
+    /** Restored target used by the navigation root after a successful save. */
+    fun activeRecordId(): String? = recordId ?: savedStateHandle[KEY_RECORD_ID]
+
+    /** Restored exercise being replaced, if this picker was opened in replacement mode. */
+    fun activeReplacementId(): String? = replacementId ?: savedStateHandle[KEY_REPLACEMENT_ID]
+
     fun choose(preset: RuntimeExercisePreset) {
         val capturedScope = scope ?: return
         val capturedMode = mode
