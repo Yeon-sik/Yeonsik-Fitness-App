@@ -1,10 +1,23 @@
 # Nutrition canonical import integration test
 
 `canonical-import.integration.mjs` exercises the real Nutrition Supabase project
-through Auth, PostgREST, and the `import_canonical_nutrition_v2` RPC. It verifies
-owner-scoped RLS, anonymous rejection, the label and estimate contracts, seven
-provenance rows, replay/collision behavior, v1/v2 idempotency namespace separation,
-malformed payload rejection, and the direct `nutrition_foods` write boundary.
+through Auth, PostgREST, and the canonical import RPCs. It verifies owner-scoped
+RLS, anonymous rejection, the v1/v2 evidence contracts, the authoritative v3
+endpoint with the existing `nutrition-label.v1` and `food-estimate.v1` input
+semantics, all four explicit packaged-product hierarchy fields, seven
+provenance rows, replay/collision behavior including changed hierarchy,
+v1/v2 idempotency namespace separation, exact product↔Nutrition links,
+restaurant hierarchy rejection and null read round-trip, strict `p_brand` /
+`p_brand_name` alias handling, malformed payload rejection, and the direct
+`nutrition_foods` write boundary.
+
+The v3 endpoint does not accept `nutrition-label.v3`, `food-estimate.v3`, or a
+`p_category_hierarchy` array. Packaged-product callers send
+`p_manufacturer_name`, `p_brand_name`, `p_sub_brand_name`, and `p_product_name`
+as explicit nullable scalar parameters. Restaurant estimate callers send those
+four fields as `null`; no packaged hierarchy is inferred from restaurant data.
+See [`docs/nutrition-canonical-provenance.v3.md`](../../../docs/nutrition-canonical-provenance.v3.md)
+for the exact named-parameter and response contract.
 
 The test is intentionally opt-in because it creates real rows. Use a dedicated
 integration project or dedicated test users. It requires a service-role key for
