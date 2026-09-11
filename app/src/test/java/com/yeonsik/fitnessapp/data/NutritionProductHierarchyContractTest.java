@@ -7,6 +7,7 @@ import java.nio.file.Paths;
 
 import org.junit.Test;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -32,6 +33,43 @@ public final class NutritionProductHierarchyContractTest {
         assertTrue(sql.contains("to authenticated"));
         assertFalse(sql.contains("insert into public.meal_records"));
         assertFalse(sql.contains("alter table public.meal_record_items"));
+    }
+
+    @Test
+    public void pinsExistingNutrientContractAndExplicitV3ParameterOrder() throws Exception {
+        String sql = readV3Migration();
+        assertEquals(
+                "create or replace function public.import_canonical_nutrition_v3(" +
+                        " p_idempotency_key text, p_input_contract text, " +
+                        "p_source_document_ref text, p_food_name text, p_brand text, " +
+                        "p_category text, p_basis_amount numeric, p_basis_unit text, " +
+                        "p_required_nutrients jsonb, p_nutrient_provenance jsonb, " +
+                        "p_optional_nutrients jsonb default '{}'::jsonb, " +
+                        "p_provenance jsonb default '{}'::jsonb, " +
+                        "p_user_verified boolean default false, " +
+                        "p_pricetrace_identity jsonb default null, " +
+                        "p_estimation_evidence jsonb default null, " +
+                        "p_manufacturer_name text default null, " +
+                        "p_brand_name text default null, " +
+                        "p_sub_brand_name text default null, " +
+                        "p_product_name text default null )",
+                normalizeSql(slice(sql,
+                        "create or replace function public.import_canonical_nutrition_v3(",
+                        "returns table"))
+        );
+        assertTrue(sql.contains("v_contract not in ('nutrition-label.v1', 'food-estimate.v1')"));
+        assertFalse(sql.contains("nutrition-label.v3"));
+        assertFalse(sql.contains("food-estimate.v3"));
+        assertFalse(sql.contains("p_category_hierarchy"));
+        assertEquals(
+                "returns table ( canonical_import_id uuid, idempotent_replay boolean, " +
+                        "nutrition_food_id text, input_contract text, projection_source_type text, " +
+                        "projection_import_id uuid, catalog_product_id uuid, estimation_evidence_id uuid, " +
+                        "visibility text, manufacturer_name text, brand_name text, " +
+                        "sub_brand_name text, product_name text )",
+                normalizeSql(slice(sql, "returns table (", "language plpgsql",
+                        sql.indexOf("create or replace function public.import_canonical_nutrition_v3(")))
+        );
     }
 
     @Test
@@ -113,6 +151,26 @@ public final class NutritionProductHierarchyContractTest {
 
     private static String readV3Migration() throws Exception {
         return readMigration("20260910130534_nutrition_product_hierarchy_import_v3.sql");
+    }
+
+    private static String slice(String value, String start, String end) {
+        return slice(value, start, end, 0);
+    }
+
+    private static String slice(String value, String start, String end, int fromIndex) {
+        int startIndex = value.indexOf(start, fromIndex);
+        if (startIndex < 0) {
+            throw new AssertionError("Missing contract section: " + start);
+        }
+        int endIndex = value.indexOf(end, startIndex);
+        if (endIndex < 0) {
+            throw new AssertionError("Missing contract section terminator: " + end);
+        }
+        return value.substring(startIndex, endIndex).trim();
+    }
+
+    private static String normalizeSql(String value) {
+        return value.replaceAll("\\s+", " ").trim();
     }
 
     private static String readMigration(String fileName) throws Exception {

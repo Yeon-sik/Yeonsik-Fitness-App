@@ -19,6 +19,13 @@ const REQUIRED_NUTRIENTS = [
   'sodium_mg'
 ];
 
+const EXPLICIT_HIERARCHY_FIELDS = [
+  'p_manufacturer_name',
+  'p_brand_name',
+  'p_sub_brand_name',
+  'p_product_name'
+];
+
 const baseUrl = firstEnv(
   'NUTRITION_DB_URL',
   'NUTRITION_SUPABASE_URL',
@@ -215,6 +222,7 @@ async function callCanonical(owner, payload) {
 }
 
 async function callCanonicalV3(owner, payload) {
+  assertAuthoritativeV3RequestShape(payload);
   const body = await expectOk(
     `canonical v3 import ${payload.p_idempotency_key}`,
     '/rest/v1/rpc/import_canonical_nutrition_v3',
@@ -226,6 +234,29 @@ async function callCanonicalV3(owner, payload) {
   );
   assert(Array.isArray(body) && body.length === 1, 'canonical v3 import must return exactly one row');
   return body[0];
+}
+
+function assertAuthoritativeV3RequestShape(payload) {
+  assert(
+    !Object.prototype.hasOwnProperty.call(payload, 'p_category_hierarchy'),
+    'v3 request must not use p_category_hierarchy'
+  );
+  assert(
+    payload.p_input_contract === 'nutrition-label.v1' || payload.p_input_contract === 'food-estimate.v1',
+    'v3 endpoint must retain the existing nutrient input contracts'
+  );
+  for (const field of EXPLICIT_HIERARCHY_FIELDS) {
+    assert(
+      Object.prototype.hasOwnProperty.call(payload, field),
+      `v3 request must include explicit nullable field ${field}`
+    );
+  }
+}
+
+function hierarchyFingerprint(values) {
+  return crypto.createHash('sha256')
+    .update(JSON.stringify(values), 'utf8')
+    .digest('hex');
 }
 
 async function callNutritionReadV3(owner, query) {
@@ -368,6 +399,16 @@ function estimatePayload(idempotencyKey, name, documentRef = idempotencyKey) {
   };
 }
 
+function estimateV3Payload(idempotencyKey, name, documentRef = idempotencyKey) {
+  return {
+    ...estimatePayload(idempotencyKey, name, documentRef),
+    p_manufacturer_name: null,
+    p_brand_name: null,
+    p_sub_brand_name: null,
+    p_product_name: null
+  };
+}
+
 function legacyLabelPayload(idempotencyKey, name) {
   const values = requiredValues(125);
   return {
@@ -462,7 +503,16 @@ async function verifyV3Hierarchy(owner, result, expected, readQuery) {
   assertEqual(imports[0].request_payload.brand_name, expected.brand_name, 'audited brand');
   assertEqual(imports[0].request_payload.sub_brand_name, expected.sub_brand_name, 'audited sub-brand');
   assertEqual(imports[0].request_payload.product_name, expected.product_name, 'audited product');
-  assert(imports[0].request_payload.hierarchy_fingerprint, 'audited hierarchy fingerprint');
+  assertEqual(
+    imports[0].request_payload.hierarchy_fingerprint,
+    hierarchyFingerprint([
+      expected.manufacturer_name,
+      expected.brand_name,
+      expected.sub_brand_name,
+      expected.product_name
+    ]),
+    'audited ordered hierarchy fingerprint'
+  );
 
   const foods = await getRows(
     owner,
@@ -500,7 +550,7 @@ async function verifyV3Hierarchy(owner, result, expected, readQuery) {
   console.log('PASS v3 hierarchy storage, read round-trip, and product link');
 }
 
-async function verifyV3NullHierarchy(owner, result, expectedLegacyBrand) {
+async function verifyV3NullHierarchy(owner, result, expectedLegacyBrand, readQuery) {
   const imports = await getRows(
     owner,
     'nutrition_canonical_imports',
@@ -512,6 +562,11 @@ async function verifyV3NullHierarchy(owner, result, expectedLegacyBrand) {
   assertEqual(imports[0].request_payload.brand_name, null, 'audited null brand');
   assertEqual(imports[0].request_payload.sub_brand_name, null, 'audited null sub-brand');
   assertEqual(imports[0].request_payload.product_name, null, 'audited null product');
+  assertEqual(
+    imports[0].request_payload.hierarchy_fingerprint,
+    hierarchyFingerprint([null, null, null, null]),
+    'audited all-null hierarchy fingerprint'
+  );
 
   const foods = await getRows(
     owner,
@@ -529,6 +584,12 @@ async function verifyV3NullHierarchy(owner, result, expectedLegacyBrand) {
   assertEqual(result.brand_name, null, 'partial result brand');
   assertEqual(result.sub_brand_name, null, 'partial result sub-brand');
   assertEqual(result.product_name, null, 'partial result product');
+  const read = await callNutritionReadV3(owner, readQuery);
+  assertEqual(read.nutrition_food_id, result.nutrition_food_id, 'null hierarchy read food id');
+  assertEqual(read.manufacturer_name, null, 'null hierarchy read manufacturer');
+  assertEqual(read.brand_name, null, 'null hierarchy read brand');
+  assertEqual(read.sub_brand_name, null, 'null hierarchy read sub-brand');
+  assertEqual(read.product_name, null, 'null hierarchy read product');
   console.log('PASS v3 partial hierarchy blank-to-null behavior');
 }
 
@@ -705,7 +766,7 @@ async function run() {
     'Integration Hierarchy Display'
   );
   const hierarchyResult = await callCanonicalV3(ownerA, hierarchy);
-  await verifyCanonicalResult(ownerA, hierarchyResult, 'nutrition-label.v1 v3', 'product_label_ocr');
+  await verifyCanonicalResult(ownerA, hierarchyResult, 'nutrition-label.v1', 'product_label_ocr');
   await verifyV3Hierarchy(
     ownerA,
     hierarchyResult,
@@ -734,22 +795,39 @@ async function run() {
   await verifyCanonicalResult(
     ownerA,
     partialHierarchyResult,
-    'nutrition-label.v1 v3 partial',
+    'nutrition-label.v1',
     'product_label_ocr'
   );
-  await verifyV3NullHierarchy(ownerA, partialHierarchyResult, partialHierarchy.p_brand);
+  await verifyV3NullHierarchy(
+    ownerA,
+    partialHierarchyResult,
+    partialHierarchy.p_brand,
+    partialHierarchy.p_food_name
+  );
 
-  const estimateV3 = estimatePayload(uniqueId('estimate-v3'), 'Integration Estimated Menu v3');
+  const estimateV3 = estimateV3Payload(uniqueId('estimate-v3'), 'Integration Estimated Menu v3');
   const estimateV3Result = await callCanonicalV3(ownerA, estimateV3);
-  await verifyCanonicalResult(ownerA, estimateV3Result, 'food-estimate.v1 v3', 'food_image_estimate');
-  await verifyV3NullHierarchy(ownerA, estimateV3Result, estimateV3.p_brand);
+  await verifyCanonicalResult(ownerA, estimateV3Result, 'food-estimate.v1', 'food_image_estimate');
+  await verifyV3NullHierarchy(ownerA, estimateV3Result, estimateV3.p_brand, estimateV3.p_food_name);
   const invalidRestaurantHierarchy = {
-    ...estimatePayload(uniqueId('estimate-v3-hierarchy-rejected'), 'Integration Invalid Restaurant Hierarchy'),
+    ...estimateV3Payload(uniqueId('estimate-v3-hierarchy-rejected'), 'Integration Invalid Restaurant Hierarchy'),
     p_sub_brand_name: 'Must not be applied to restaurant nutrition'
   };
   await assertFunctionRejected(
     'v3 restaurant packaged hierarchy rejection',
     () => callCanonicalV3(ownerA, invalidRestaurantHierarchy)
+  );
+  const aliasConflict = {
+    ...packagedHierarchyLabelPayload(
+      uniqueId('v3-brand-alias-conflict'),
+      'Integration Conflicting Brand Alias'
+    ),
+    p_brand: 'Integration Legacy Alias',
+    p_brand_name: 'Integration Explicit Brand'
+  };
+  await assertFunctionRejected(
+    'v3 legacy p_brand and explicit p_brand_name conflict',
+    () => callCanonicalV3(ownerA, aliasConflict)
   );
   const unverifiedV3 = packagedHierarchyLabelPayload(
     uniqueId('unverified-v3'),

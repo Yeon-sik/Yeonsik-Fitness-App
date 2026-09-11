@@ -373,13 +373,14 @@ begin
     v_sub_brand_name := nullif(btrim(coalesce(p_sub_brand_name, '')), '');
     v_product_name := nullif(btrim(coalesce(p_product_name, '')), '');
 
+    if v_input_brand is not null
+       and v_brand_name is not null
+       and v_input_brand <> v_brand_name then
+        raise exception 'p_brand must match p_brand_name when both are supplied.'
+            using errcode = '23514';
+    end if;
+
     if v_contract = 'nutrition-label.v1' then
-        if v_input_brand is not null
-           and v_brand_name is not null
-           and v_input_brand <> v_brand_name then
-            raise exception 'p_brand must match p_brand_name when both are supplied.'
-                using errcode = '23514';
-        end if;
         v_legacy_brand := coalesce(v_brand_name, v_input_brand);
     else
         if v_manufacturer_name is not null
