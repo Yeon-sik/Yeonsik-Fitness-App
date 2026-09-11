@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +74,9 @@ object ComposeAppScreen {
     }
 }
 
+internal fun destinationScrollStateKey(screen: FitnessScreen): String =
+    "fitness-destination:${screen.name}"
+
 @Composable
 private fun AppRoot(
     host: AppUiActions,
@@ -87,6 +91,8 @@ private fun AppRoot(
         .observeAsState(RoutineEntryUiState.Idle)
     val cardioState by viewModels.getCardioSession().uiState
         .observeAsState(CardioSessionUiState.Idle)
+    val workoutState by viewModels.getWorkoutSession().uiState
+        .observeAsState(WorkoutSessionUiState.Idle)
     val exercisePickerState by viewModels.getExercisePicker().uiState
         .observeAsState(ExercisePickerUiState.Idle)
     val screen = navigationState.screen
@@ -107,6 +113,11 @@ private fun AppRoot(
     }
     val restState by viewModels.getWorkoutSession().restTimerState
         .observeAsState(WorkoutRestTimerState.Inactive)
+    val mealState by viewModels.getMeal().uiState.observeAsState(MealUiState.Idle)
+    val workoutReadOnly = (workoutState as? WorkoutSessionUiState.Ready)?.let {
+        it.session.status == "completed"
+    } == true
+    val destinationStateHolder = rememberSaveableStateHolder()
     val workoutAction by viewModels.getWorkoutSession().actionState
         .observeAsState()
     val workoutTerminalEvent by viewModels.getWorkoutSession().terminalEvents
@@ -245,7 +256,8 @@ private fun AppRoot(
                 viewModels.getWorkoutExerciseDetail().enter(
                     AccountScope(ownerId),
                     recordId,
-                    viewModels.getWorkoutExerciseDetail().activeExerciseId()
+                    viewModels.getWorkoutExerciseDetail().activeExerciseId(),
+                    readOnly = workoutReadOnly
                 )
             }
         }
@@ -638,19 +650,22 @@ private fun AppRoot(
             .imePadding()
         ) {
             if (screen == FitnessScreen.WORKOUT_SESSION) {
-                SessionTopBar(navigation, viewModels, ownerId)
+                SessionTopBar(navigation, viewModels, ownerId, workoutState)
             }
-            Column(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                .padding(horizontal = FitnessSpacing.page, vertical = FitnessSpacing.gap)
-            ) {
-                if (screen == FitnessScreen.HOME) {
-                    HomeDestination(homeState, routineState, ownerId, routeDate, unit, homeActions)
-                } else {
-                    AppDestination(host, viewModels, navigation, screen, ownerId, routeDate, unit)
+            destinationStateHolder.SaveableStateProvider(destinationScrollStateKey(screen)) {
+                val contentScrollState = rememberScrollState()
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(contentScrollState)
+                        .padding(horizontal = FitnessSpacing.page, vertical = FitnessSpacing.gap)
+                ) {
+                    if (screen == FitnessScreen.HOME) {
+                        HomeDestination(homeState, routineState, ownerId, routeDate, unit, homeActions)
+                    } else {
+                        AppDestination(host, viewModels, navigation, screen, ownerId, routeDate, unit)
+                    }
                 }
             }
             RestTimerBar(host, viewModels, screen, restState, ownerId)
@@ -770,9 +785,11 @@ private fun openWorkoutSession(
 private fun SessionTopBar(
     navigation: AppNavigationViewModel,
     viewModels: AppViewModels,
-    ownerId: String
+    ownerId: String,
+    state: WorkoutSessionUiState
 ) {
     val recordId = viewModels.getWorkoutSession().activeRecordId()
+    val canEdit = (state as? WorkoutSessionUiState.Ready)?.let { ready -> ready.ownerId == ownerId && ready.session.status != "completed" } == true
     Row(
         Modifier
             .fillMaxWidth()
@@ -787,17 +804,19 @@ private fun SessionTopBar(
         ) { Text("←", style = MaterialTheme.typography.headlineSmall) }
         Text("운동 세션", style = MaterialTheme.typography.titleMedium)
         androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
-        TextButton(onClick = {
-            navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
-        }) { Text("종목 추가") }
-        TextButton(
-            onClick = {
-                recordId?.let {
-                    viewModels.getWorkoutSession().finish(AccountScope(ownerId), it)
-                }
-            },
-            enabled = recordId != null
-        ) { Text("완료") }
+        if (canEdit) {
+            TextButton(onClick = {
+                navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
+            }) { Text("종목 추가") }
+            TextButton(
+                onClick = {
+                    recordId?.let {
+                        viewModels.getWorkoutSession().finish(AccountScope(ownerId), it)
+                    }
+                },
+                enabled = recordId != null
+            ) { Text("완료") }
+        }
     }
 }
 
@@ -982,7 +1001,10 @@ private fun AppDestination(
         .observeAsState(ExercisePickerUiState.Idle)
     val settingsState by viewModels.getSettings().uiState.observeAsState()
     val activeRecordId = currentWorkoutRecordId(screen, viewModels, homeState)
-    LaunchedEffect(screen, ownerId, today, activeRecordId) {
+    val workoutReadOnly = (workoutState as? WorkoutSessionUiState.Ready)?.let {
+        it.session.status == "completed"
+    } == true
+    LaunchedEffect(screen, ownerId, today, activeRecordId, workoutReadOnly) {
         when (screen) {
             FitnessScreen.HOME,
             FitnessScreen.STRENGTH -> {
@@ -1012,7 +1034,8 @@ private fun AppDestination(
                     viewModels.getWorkoutExerciseDetail().enter(
                         AccountScope(ownerId),
                         recordId,
-                        viewModels.getWorkoutExerciseDetail().activeExerciseId()
+                        viewModels.getWorkoutExerciseDetail().activeExerciseId(),
+                        readOnly = workoutReadOnly
                     )
                 }
             FitnessScreen.CARDIO_SESSION,
@@ -1090,6 +1113,11 @@ private fun AppDestination(
         override fun selectFood(food: com.yeonsik.fitnessapp.data.NutritionFood) {
             viewModels.getMeal().selectFood(food)
         }
+        override fun useDiningOutFood(food: com.yeonsik.fitnessapp.data.NutritionFood) {
+            viewModels.getMeal().useDiningOutFood(food)
+        }
+        override fun saveReusableDiningOutMenu() =
+            viewModels.getMeal().saveReusableDiningOutMenu(AccountScope(ownerId)) { }
         override fun updateQuantity(value: String) = viewModels.getMeal().updateQuantity(value)
         override fun updateTime(value: String) = viewModels.getMeal().updateTime(value)
         override fun saveFood() = viewModels.getMeal().saveFood(AccountScope(ownerId)) { }
@@ -1306,7 +1334,8 @@ private fun AppDestination(
                             viewModels.getWorkoutExerciseDetail().enter(
                                 AccountScope(ownerId),
                                 recordId,
-                                viewModels.getWorkoutExerciseDetail().activeExerciseId()
+                                viewModels.getWorkoutExerciseDetail().activeExerciseId(),
+                                readOnly = workoutReadOnly
                             )
                         }
                     }
@@ -1360,7 +1389,11 @@ private fun AppDestination(
                 workoutState,
                 ownerId,
                 unit,
-                { navigation.back() }
+                { navigation.back() },
+                { exerciseId ->
+                    viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
+                    navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+                }
             )
             FitnessScreen.CARDIO_SESSION -> CardioSessionScreen(cardioState, ownerId, cardioActions)
             FitnessScreen.CARDIO_SUMMARY -> CardioSummaryScreen(

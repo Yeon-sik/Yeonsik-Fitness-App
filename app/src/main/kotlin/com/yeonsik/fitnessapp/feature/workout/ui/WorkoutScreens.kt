@@ -25,6 +25,7 @@ import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.feature.workout.model.*
 import com.yeonsik.fitnessapp.state.FitnessScreen
+import com.yeonsik.fitnessapp.ui.WorkoutSetPresentation
 
 @Composable
 internal fun WorkoutOverview(
@@ -144,6 +145,10 @@ internal fun WorkoutDetailScreen(
         return
     }
     val detail = ready.detail
+    if (ready.readOnly) {
+        WorkoutReadOnlyDetail(detail, unit)
+        return
+    }
     detail.sets.forEach { set ->
         drafts.SaveableStateProvider("$ownerId:${detail.recordId}:${set.id}") {
             WorkoutSetEditor(
@@ -167,6 +172,45 @@ internal fun WorkoutDetailScreen(
         ) { ok -> if (ok) actions.refresh() else actions.toast("세트를 추가하지 못했습니다.") }
     }, Modifier.fillMaxWidth()) { Text("세트 추가") }
     AppOutlinedButton(onClick = { actions.replaceExercise(detail.activeExercise.id) }, Modifier.fillMaxWidth()) { Text("종목 교체") }
+}
+
+@Composable
+private fun WorkoutReadOnlyDetail(
+    detail: WorkoutExerciseDetail,
+    unit: MassUnit
+) {
+    val completedSets = detail.sets.filter { it.isCompleted }
+    Text("완료 세트", style = MaterialTheme.typography.titleMedium)
+    if (completedSets.isEmpty()) {
+        AppCard(Modifier.fillMaxWidth()) {
+            Text("완료된 세트가 없습니다.", Modifier.padding(AppSpacing.card))
+        }
+    } else {
+        completedSets.forEach { set ->
+            AppCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(AppSpacing.card)) {
+                    Text("${set.setIndex}세트", fontWeight = FontWeight.Bold)
+                    Text(
+                        WorkoutSetPresentation.completedSetSummary(
+                            detail.activeExercise.recordType,
+                            set.weightKg,
+                            set.actualReps,
+                            set.durationSeconds,
+                            set.assistedWeightKg,
+                            set.addedWeightKg,
+                            set.loadState,
+                            unit
+                        ),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    detail.volumeBySetId[set.id]?.takeIf { it.isFinite() }?.let { volume ->
+                        Text("볼륨 ${MassFormatter.withUnit(volume, unit)}")
+                    }
+            }
+        }
+    }
+}
+
 }
 
 @Composable
@@ -281,7 +325,8 @@ internal fun WorkoutSummaryScreen(
     state: WorkoutSessionUiState,
     ownerId: String,
     unit: MassUnit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onExercise: (String) -> Unit
 ) {
     val ready = state as? WorkoutSessionUiState.Ready
     AppHeader("운동 요약", back = onBack)
@@ -295,7 +340,14 @@ internal fun WorkoutSummaryScreen(
         second = { FitnessFactCard("총 볼륨", MassFormatter.withUnit(ready.session.totalVolumeKg, unit), "완료 기록") }
     )
     FitnessSection("운동 종목") {
-        ready.session.exercises.forEach { AppDataRow(it.name, "${it.completedSetCount}/${it.totalSetCount} 세트") }
+        ready.session.exercises.forEach { exercise ->
+            AppCard(Modifier.fillMaxWidth().clickable { onExercise(exercise.id) }) {
+                Column(Modifier.padding(AppSpacing.card)) {
+                    Text(exercise.name, style = MaterialTheme.typography.titleMedium)
+                    Text("${exercise.completedSetCount}/${exercise.totalSetCount} 세트")
+                }
+            }
+        }
     }
 }
 

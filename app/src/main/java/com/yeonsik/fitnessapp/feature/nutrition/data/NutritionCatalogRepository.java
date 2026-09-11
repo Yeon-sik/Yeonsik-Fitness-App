@@ -230,6 +230,7 @@ public final class NutritionCatalogRepository implements
      * Searches reusable packaged-food products, returning one representative package per
      * canonical product. Package rows remain available through packagedFoodVariants().
      */
+    @Override
     public List<NutritionFood> searchPackagedFoods(String query, int limit) {
         int safeLimit = Math.max(1, Math.min(limit, PACKAGED_PRODUCT_RESULT_LIMIT_MAX));
         String term = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
@@ -683,6 +684,7 @@ public final class NutritionCatalogRepository implements
         return normalized;
     }
     /** Private dining-out menus saved by the current Nutrition owner for reuse in meal entry. */
+    @Override
     public List<NutritionFood> savedDiningOutMenus() {
         List<NutritionFood> candidates = new ArrayList<>();
         for (NutritionFoodsRoomEntity entity : nutritionDao.ownedFoodsByKindAndSourceTypes(
@@ -1319,6 +1321,7 @@ public final class NutritionCatalogRepository implements
     }
 
     /** Saves a complete menu estimate with an explicitly selected PriceTrace identity. */
+    @Override
     public NutritionFood saveDiningOutMenuWithNutrition(
             String storeName,
             String menuName,

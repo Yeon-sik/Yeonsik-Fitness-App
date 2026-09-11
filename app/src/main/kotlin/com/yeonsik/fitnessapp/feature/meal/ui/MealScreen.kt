@@ -1,9 +1,12 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -35,7 +38,6 @@ import com.yeonsik.fitnessapp.feature.workout.model.*
 import com.yeonsik.fitnessapp.feature.workout.ui.*
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.*
-import kotlinx.coroutines.delay
 import java.time.LocalDate
 
 interface MealScreenActions {
@@ -46,6 +48,8 @@ interface MealScreenActions {
     fun chooseDiningOut()
     fun searchFood(query: String)
     fun selectFood(food: NutritionFood)
+    fun useDiningOutFood(food: NutritionFood)
+    fun saveReusableDiningOutMenu()
     fun updateQuantity(value: String)
     fun updateTime(value: String)
     fun saveFood()
@@ -75,7 +79,19 @@ interface MealScreenActions {
     fun showBodyMetric()
 }
 
+internal data class MealEditorScrollTarget(
+    val editing: Boolean,
+    val diningOut: Boolean
+)
+
+internal fun mealEditorScrollTarget(
+    editor: MealUiState.Ready?
+): MealEditorScrollTarget? = editor?.let {
+    MealEditorScrollTarget(editing = it.editing, diningOut = it.diningOut)
+}
+
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 internal fun MealScreen(
     homeState: HomeUiState,
     editorState: MealUiState,
@@ -87,6 +103,19 @@ internal fun MealScreen(
 ) {
     val ready = homeState as? HomeUiState.Ready
     val editor = editorState as? MealUiState.Ready
+    val editorScrollTarget = mealEditorScrollTarget(editor)
+    val editorStartRequester = remember { BringIntoViewRequester() }
+    var previousEditorScrollTarget by remember {
+        mutableStateOf<MealEditorScrollTarget?>(null)
+    }
+    LaunchedEffect(editorScrollTarget) {
+        val targetChanged = previousEditorScrollTarget != null &&
+            previousEditorScrollTarget != editorScrollTarget
+        previousEditorScrollTarget = editorScrollTarget
+        if (targetChanged && editorScrollTarget?.editing == true) {
+            editorStartRequester.bringIntoView()
+        }
+    }
 
     AppHeader("식사", today, back = actions::back)
     if (ready == null || ready.snapshot.ownerId != ownerId) {
@@ -117,7 +146,12 @@ internal fun MealScreen(
             Text("새 끼니 기록")
         }
     } else {
-        Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .bringIntoViewRequester(editorStartRequester),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)
+        ) {
             AppOutlinedButton(
                 onClick = actions::chooseFood,
                 modifier = Modifier.weight(1f),
@@ -142,7 +176,12 @@ internal fun MealScreen(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready) {
+    val selectedFoodRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(editor.selectedFood?.id) {
+        if (editor.selectedFood != null) selectedFoodRequester.bringIntoView()
+    }
     AppTextField(
         editor.query,
         actions::searchFood,
@@ -152,13 +191,15 @@ private fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready
     editor.searchResults.forEach { food ->
         AppCard(Modifier.fillMaxWidth().clickable { actions.selectFood(food) }) {
             Column(Modifier.padding(AppSpacing.card)) {
-                Text(food.displayName(), fontWeight = FontWeight.Bold)
-                Text("${food.basisLabel()} · ${food.extendedNutritionLabel()}")
+                val displayName = if (food.isPackagedFood()) food.packagedProductLabel() else food.displayName()
+                val variantLabel = if (food.isPackagedFood()) food.packagedVariantLabel() else food.basisLabel()
+                Text(displayName, fontWeight = FontWeight.Bold)
+                Text("${NutritionFood.kindLabel(food.kind)} · $variantLabel · ${food.extendedNutritionLabel()}")
             }
         }
     }
     editor.selectedFood?.let { food ->
-        AppCard(Modifier.fillMaxWidth()) {
+        AppCard(Modifier.fillMaxWidth().bringIntoViewRequester(selectedFoodRequester)) {
             Column(Modifier.padding(AppSpacing.card)) {
                 Text("선택 · ${food.displayName()}", fontWeight = FontWeight.Bold)
                 Text(food.basisLabel())
@@ -194,6 +235,7 @@ private fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun DiningOutEditor(
     actions: MealScreenActions,
     editor: MealUiState.Ready,
@@ -201,7 +243,12 @@ private fun DiningOutEditor(
 ) {
     val draft = editor.draft
     var showPriceTrace by rememberSaveable { mutableStateOf(false) }
+    val selectedMenuRequester = remember { BringIntoViewRequester() }
+    LaunchedEffect(editor.selectedFood?.id) {
+        if (editor.selectedFood != null) selectedMenuRequester.bringIntoView()
+    }
     Text("외식 직접 등록", style = MaterialTheme.typography.titleMedium)
+    SavedDiningOutMenuPicker(actions, editor, selectedMenuRequester)
     AppOutlinedButton(
         onClick = { showPriceTrace = !showPriceTrace },
         modifier = Modifier.fillMaxWidth()
@@ -217,9 +264,9 @@ private fun DiningOutEditor(
     AppTextField(draft.carbs, actions::updateCarbs, Modifier.fillMaxWidth(), { Text("탄수화물 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
     AppTextField(draft.protein, actions::updateProtein, Modifier.fillMaxWidth(), { Text("단백질 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
     AppTextField(draft.fat, actions::updateFat, Modifier.fillMaxWidth(), { Text("지방 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-    AppTextField(draft.sodium, actions::updateSodium, Modifier.fillMaxWidth(), { Text("나트륨 mg") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-    AppTextField(draft.sugars, actions::updateSugars, Modifier.fillMaxWidth(), { Text("당류 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-    AppTextField(draft.saturatedFat, actions::updateSaturatedFat, Modifier.fillMaxWidth(), { Text("포화지방 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppTextField(draft.sodium, actions::updateSodium, Modifier.fillMaxWidth(), { Text("나트륨 mg (선택)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppTextField(draft.sugars, actions::updateSugars, Modifier.fillMaxWidth(), { Text("당류 g (선택)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppTextField(draft.saturatedFat, actions::updateSaturatedFat, Modifier.fillMaxWidth(), { Text("포화지방 g (선택)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
     editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         AppOutlinedButton(
@@ -233,6 +280,43 @@ private fun DiningOutEditor(
             enabled = !editor.saving
         ) { Text(if (editor.saving) "저장 중" else "외식만 기록") }
     }
+}
+
+@Composable
+@OptIn(ExperimentalFoundationApi::class)
+private fun SavedDiningOutMenuPicker(
+    actions: MealScreenActions,
+    editor: MealUiState.Ready,
+    requester: BringIntoViewRequester
+) {
+    Text("저장된 외식 메뉴 재사용", style = MaterialTheme.typography.titleMedium)
+    AppTextField(
+        editor.query,
+        actions::searchFood,
+        Modifier.fillMaxWidth(),
+        label = { Text("저장된 외식 메뉴 검색") }
+    )
+    editor.searchResults.forEach { food ->
+        AppCard(Modifier.fillMaxWidth().clickable { actions.useDiningOutFood(food) }) {
+            Column(Modifier.padding(AppSpacing.card)) {
+                Text(food.displayName(), fontWeight = FontWeight.Bold)
+                Text(food.extendedNutritionLabel())
+            }
+        }
+    }
+    editor.selectedFood?.let { food ->
+        AppCard(Modifier.fillMaxWidth().bringIntoViewRequester(requester)) {
+            Column(Modifier.padding(AppSpacing.card)) {
+                Text("재사용 · ${food.displayName()}", fontWeight = FontWeight.Bold)
+                Text(food.extendedNutritionLabel())
+            }
+        }
+    }
+    AppOutlinedButton(
+        onClick = actions::saveReusableDiningOutMenu,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !editor.saving
+    ) { Text("Nutrition 재사용 메뉴로 저장") }
 }
 
 @Composable
