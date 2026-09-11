@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -73,6 +74,9 @@ object ComposeAppScreen {
     }
 }
 
+internal fun destinationScrollStateKey(screen: FitnessScreen): String =
+    "fitness-destination:${screen.name}"
+
 @Composable
 private fun AppRoot(
     host: AppUiActions,
@@ -110,20 +114,10 @@ private fun AppRoot(
     val restState by viewModels.getWorkoutSession().restTimerState
         .observeAsState(WorkoutRestTimerState.Inactive)
     val mealState by viewModels.getMeal().uiState.observeAsState(MealUiState.Idle)
-    val mealModeKey = (mealState as? MealUiState.Ready)?.let {
-        when {
-            !it.editing -> "idle"
-            it.diningOut -> "dining_out"
-            else -> "food"
-        }
-    } ?: "idle"
     val workoutReadOnly = (workoutState as? WorkoutSessionUiState.Ready)?.let {
         it.session.status == "completed"
     } == true
-    val contentScrollState = rememberScrollState()
-    LaunchedEffect(screen, ownerId, routeDate, mealModeKey) {
-        contentScrollState.scrollTo(0)
-    }
+    val destinationStateHolder = rememberSaveableStateHolder()
     val workoutAction by viewModels.getWorkoutSession().actionState
         .observeAsState()
     val workoutTerminalEvent by viewModels.getWorkoutSession().terminalEvents
@@ -658,17 +652,20 @@ private fun AppRoot(
             if (screen == FitnessScreen.WORKOUT_SESSION) {
                 SessionTopBar(navigation, viewModels, ownerId, workoutState)
             }
-            Column(
-                Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-                    .verticalScroll(contentScrollState)
-                .padding(horizontal = FitnessSpacing.page, vertical = FitnessSpacing.gap)
-            ) {
-                if (screen == FitnessScreen.HOME) {
-                    HomeDestination(homeState, routineState, ownerId, routeDate, unit, homeActions)
-                } else {
-                    AppDestination(host, viewModels, navigation, screen, ownerId, routeDate, unit)
+            destinationStateHolder.SaveableStateProvider(destinationScrollStateKey(screen)) {
+                val contentScrollState = rememberScrollState()
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .verticalScroll(contentScrollState)
+                        .padding(horizontal = FitnessSpacing.page, vertical = FitnessSpacing.gap)
+                ) {
+                    if (screen == FitnessScreen.HOME) {
+                        HomeDestination(homeState, routineState, ownerId, routeDate, unit, homeActions)
+                    } else {
+                        AppDestination(host, viewModels, navigation, screen, ownerId, routeDate, unit)
+                    }
                 }
             }
             RestTimerBar(host, viewModels, screen, restState, ownerId)

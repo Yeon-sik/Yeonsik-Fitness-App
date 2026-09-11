@@ -38,7 +38,6 @@ import com.yeonsik.fitnessapp.feature.workout.model.*
 import com.yeonsik.fitnessapp.feature.workout.ui.*
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.*
-import kotlinx.coroutines.delay
 import java.time.LocalDate
 
 interface MealScreenActions {
@@ -80,7 +79,19 @@ interface MealScreenActions {
     fun showBodyMetric()
 }
 
+internal data class MealEditorScrollTarget(
+    val editing: Boolean,
+    val diningOut: Boolean
+)
+
+internal fun mealEditorScrollTarget(
+    editor: MealUiState.Ready?
+): MealEditorScrollTarget? = editor?.let {
+    MealEditorScrollTarget(editing = it.editing, diningOut = it.diningOut)
+}
+
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 internal fun MealScreen(
     homeState: HomeUiState,
     editorState: MealUiState,
@@ -92,6 +103,19 @@ internal fun MealScreen(
 ) {
     val ready = homeState as? HomeUiState.Ready
     val editor = editorState as? MealUiState.Ready
+    val editorScrollTarget = mealEditorScrollTarget(editor)
+    val editorStartRequester = remember { BringIntoViewRequester() }
+    var previousEditorScrollTarget by remember {
+        mutableStateOf<MealEditorScrollTarget?>(null)
+    }
+    LaunchedEffect(editorScrollTarget) {
+        val targetChanged = previousEditorScrollTarget != null &&
+            previousEditorScrollTarget != editorScrollTarget
+        previousEditorScrollTarget = editorScrollTarget
+        if (targetChanged && editorScrollTarget?.editing == true) {
+            editorStartRequester.bringIntoView()
+        }
+    }
 
     AppHeader("식사", today, back = actions::back)
     if (ready == null || ready.snapshot.ownerId != ownerId) {
@@ -122,7 +146,12 @@ internal fun MealScreen(
             Text("새 끼니 기록")
         }
     } else {
-        Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .bringIntoViewRequester(editorStartRequester),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)
+        ) {
             AppOutlinedButton(
                 onClick = actions::chooseFood,
                 modifier = Modifier.weight(1f),
