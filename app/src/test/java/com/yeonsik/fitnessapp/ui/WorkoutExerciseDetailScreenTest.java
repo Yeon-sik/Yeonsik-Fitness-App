@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
+import com.yeonsik.fitnessapp.data.MassUnit;
 import com.yeonsik.fitnessapp.exercise.LoadState;
 
 import org.junit.Test;
@@ -175,6 +176,39 @@ public final class WorkoutExerciseDetailScreenTest {
                 WorkoutSetPresentation.primaryColumnHeaderLabel(
                         FitnessRecordContract.ASSISTED_WEIGHT_REPS,
                         LoadState.ASSISTED
+                )
+        );
+    }
+    @Test
+    public void completedWeightedSetUsesStoredLoadAndReps() {
+        assertEquals(
+                "20kg × 8회",
+                WorkoutSetPresentation.completedSetSummary(
+                        FitnessRecordContract.WEIGHT_REPS,
+                        20d,
+                        8,
+                        0,
+                        0d,
+                        0d,
+                        LoadState.EXTERNAL_LOAD,
+                        MassUnit.KG
+                )
+        );
+    }
+
+    @Test
+    public void completedAddedWeightSetKeepsBodyweightMeaning() {
+        assertEquals(
+                "체중 + 10kg × 8회",
+                WorkoutSetPresentation.completedSetSummary(
+                        FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS,
+                        0d,
+                        8,
+                        0,
+                        0d,
+                        10d,
+                        LoadState.ADDED_WEIGHT,
+                        MassUnit.KG
                 )
         );
     }
