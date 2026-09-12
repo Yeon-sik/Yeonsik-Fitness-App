@@ -47,6 +47,14 @@ object FitnessRoomMigrations {
     ) {
         override fun migrate(db: SupportSQLiteDatabase) {
             FitnessDatabaseContract.requireV50Schema(db)
+            // The legacy v50 helper created this index with an extra user_id/deleted_at
+            // suffix. CREATE INDEX IF NOT EXISTS cannot repair an existing index with the
+            // same name, so replace it explicitly before Room validates the v51 schema.
+            db.execSQL("DROP INDEX IF EXISTS meal_record_item_components_meal_idx")
+            db.execSQL(
+                "CREATE INDEX meal_record_item_components_meal_idx " +
+                    "ON meal_record_item_components(meal_record_id, meal_record_item_id)"
+            )
             db.execSQL(
                 "CREATE TABLE IF NOT EXISTS dining_out_menu_add_on_links (" +
                     "id TEXT NOT NULL PRIMARY KEY, user_id TEXT NOT NULL, menu_food_id TEXT NOT NULL, " +
