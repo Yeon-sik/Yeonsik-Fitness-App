@@ -77,6 +77,18 @@ object ComposeAppScreen {
 internal fun destinationScrollStateKey(screen: FitnessScreen): String =
     "fitness-destination:${screen.name}"
 
+internal data class HomeEntryEffectKey(
+    val screen: FitnessScreen,
+    val ownerId: String,
+    val today: String
+)
+
+internal fun homeEntryEffectKey(
+    screen: FitnessScreen,
+    ownerId: String,
+    today: String
+): HomeEntryEffectKey = HomeEntryEffectKey(screen, ownerId, today)
+
 @Composable
 private fun AppRoot(
     host: AppUiActions,
@@ -193,6 +205,23 @@ private fun AppRoot(
         override fun openMealManagement(date: String, returnScreen: FitnessScreen) {
             navigation.selectMealDate(date)
             navigation.navigate(FitnessScreen.MEALS)
+        }
+    }
+
+    val homeEntryKey = homeEntryEffectKey(screen, ownerId, navigationState.today)
+    LaunchedEffect(homeEntryKey) {
+        when (screen) {
+            FitnessScreen.HOME,
+            FitnessScreen.STRENGTH -> {
+                viewModels.getRoutineEntry().enter(AccountScope(ownerId))
+                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+            }
+            FitnessScreen.WORKOUT,
+            FitnessScreen.RECORDS,
+            FitnessScreen.ROUTINE_DETAIL,
+            FitnessScreen.MEALS ->
+                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+            else -> Unit
         }
     }
 
@@ -1004,26 +1033,21 @@ private fun AppDestination(
     val workoutReadOnly = (workoutState as? WorkoutSessionUiState.Ready)?.let {
         it.session.status == "completed"
     } == true
-    LaunchedEffect(screen, ownerId, today, activeRecordId, workoutReadOnly) {
+    LaunchedEffect(screen, ownerId, today) {
         when (screen) {
-            FitnessScreen.HOME,
-            FitnessScreen.STRENGTH -> {
-                viewModels.getRoutineEntry().enter(AccountScope(ownerId))
-                viewModels.getHome().enter(AccountScope(ownerId), today)
-            }
-            FitnessScreen.WORKOUT,
-            FitnessScreen.RECORDS,
-            FitnessScreen.ROUTINE_DETAIL ->
-                viewModels.getHome().enter(AccountScope(ownerId), today)
             FitnessScreen.DEVELOPMENT ->
                 viewModels.getDevelopment().enter(AccountScope(ownerId), today)
-            FitnessScreen.MEALS -> {
-                viewModels.getHome().enter(AccountScope(ownerId), today)
+            FitnessScreen.MEALS ->
                 viewModels.getMeal().enter(AccountScope(ownerId), today)
-            }
             FitnessScreen.SETTINGS -> viewModels.getSettings().enter()
             FitnessScreen.SUPPLEMENTS ->
                 viewModels.getSupplement().enter(AccountScope(ownerId), today)
+            else -> Unit
+        }
+    }
+
+    LaunchedEffect(screen, ownerId, activeRecordId, workoutReadOnly) {
+        when (screen) {
             FitnessScreen.WORKOUT_SESSION,
             FitnessScreen.WORKOUT_SUMMARY ->
                 viewModels.getWorkoutSession().enter(
