@@ -108,7 +108,8 @@ class WorkoutRepositoryImplementation(
                 FitnessRecordContract.displayRecordTypeKo(exercise.recordType),
                 exercise.familyIdentity,
                 sets.count { it.isCompleted },
-                sets.size
+                sets.size,
+                sets.filter { it.isCompleted }.map { it.toFeatureModel() }
             )
         }
         val metrics = storage.metrics(scope, recordId)

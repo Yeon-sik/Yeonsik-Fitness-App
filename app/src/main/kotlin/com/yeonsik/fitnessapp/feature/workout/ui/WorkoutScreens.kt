@@ -368,15 +368,42 @@ private fun AppWorkoutSessionContent(
         }
         session.exercises.forEach { exercise ->
             AppCard(Modifier.fillMaxWidth().clickable { onExercise(exercise.id) }) {
-                Row(Modifier.padding(AppSpacing.card), horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(exercise.name, style = MaterialTheme.typography.titleMedium)
-                        Text(exercise.recordTypeLabel, style = MaterialTheme.typography.bodySmall)
+                Column(Modifier.padding(AppSpacing.card)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(exercise.name, style = MaterialTheme.typography.titleMedium)
+                            Text(exercise.recordTypeLabel, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(
+                            "${exercise.completedSetCount}/${exercise.totalSetCount}",
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
-                    Text("${exercise.completedSetCount}/${exercise.totalSetCount}", fontWeight = FontWeight.SemiBold)
+                    completedSetSummaryLines(exercise, unit).forEach { summary ->
+                        Text(summary, style = MaterialTheme.typography.bodyMedium)
+                    }
                 }
             }
         }
     }
+}
+
+internal fun completedSetSummaryLines(
+    exercise: WorkoutSessionExercise,
+    unit: MassUnit
+): List<String> = exercise.completedSets.map { set ->
+    "${set.setIndex}세트 " + WorkoutSetPresentation.completedSetSummary(
+        exercise.recordType,
+        set.weightKg,
+        set.actualReps,
+        set.durationSeconds,
+        set.assistedWeightKg,
+        set.addedWeightKg,
+        set.loadState,
+        unit
+    )
 }
