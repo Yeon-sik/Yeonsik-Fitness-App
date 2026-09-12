@@ -71,7 +71,8 @@ data class WorkoutSessionExercise(
     val recordTypeLabel: String,
     val familyIdentity: ExerciseFamilyIdentity?,
     val completedSetCount: Int,
-    val totalSetCount: Int
+    val totalSetCount: Int,
+    val completedSets: List<WorkoutSet> = emptyList()
 )
 
 data class WorkoutVolumePoint(
