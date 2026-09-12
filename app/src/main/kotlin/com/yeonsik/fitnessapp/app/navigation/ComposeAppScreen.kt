@@ -77,6 +77,18 @@ object ComposeAppScreen {
 internal fun destinationScrollStateKey(screen: FitnessScreen): String =
     "fitness-destination:${screen.name}"
 
+internal data class HomeEntryEffectKey(
+    val screen: FitnessScreen,
+    val ownerId: String,
+    val today: String
+)
+
+internal fun homeEntryEffectKey(
+    screen: FitnessScreen,
+    ownerId: String,
+    today: String
+): HomeEntryEffectKey = HomeEntryEffectKey(screen, ownerId, today)
+
 @Composable
 private fun AppRoot(
     host: AppUiActions,
@@ -196,7 +208,8 @@ private fun AppRoot(
         }
     }
 
-    LaunchedEffect(screen, ownerId, navigationState.today) {
+    val homeEntryKey = homeEntryEffectKey(screen, ownerId, navigationState.today)
+    LaunchedEffect(homeEntryKey) {
         when (screen) {
             FitnessScreen.HOME,
             FitnessScreen.STRENGTH -> {

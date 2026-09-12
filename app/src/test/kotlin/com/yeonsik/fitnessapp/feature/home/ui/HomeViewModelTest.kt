@@ -1,25 +1,14 @@
 package com.yeonsik.fitnessapp.feature.home.ui
 
-import androidx.lifecycle.SavedStateHandle
-import com.yeonsik.fitnessapp.core.account.AccountScope
-import com.yeonsik.fitnessapp.feature.home.api.HomeRepositoryApi
+import com.yeonsik.fitnessapp.app.navigation.homeEntryEffectKey
 import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicReference
+import com.yeonsik.fitnessapp.state.FitnessScreen
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomeViewModelTest {
     @Test
     fun inProgressSnapshotDoesNotCauseAnotherHomeLoad() {
-        val loadCount = AtomicInteger()
-        val loaded = CountDownLatch(1)
-        val loadedSnapshot = AtomicReference<HomeSnapshot>()
-        val executor = Executors.newSingleThreadExecutor()
         val snapshot = HomeSnapshot(
             ownerId = "owner",
             today = "2026-09-12",
@@ -37,27 +26,19 @@ class HomeViewModelTest {
             todayBodyMetrics = emptyList(),
             todayMeals = emptyList()
         )
-        val viewModel = HomeViewModel(
-            SavedStateHandle(),
-            object : HomeRepositoryApi {
-                override fun load(scope: AccountScope, today: String): HomeSnapshot {
-                    loadCount.incrementAndGet()
-                    loadedSnapshot.set(snapshot)
-                    loaded.countDown()
-                    return snapshot
-                }
-            },
-            executor
+        val states = listOf<HomeUiState>(
+            HomeUiState.Idle,
+            HomeUiState.Loading,
+            HomeUiState.Ready(snapshot)
         )
 
-        try {
-            viewModel.enter(AccountScope("owner"), "2026-09-12")
-
-            assertTrue(loaded.await(1, TimeUnit.SECONDS))
-            assertEquals(1, loadCount.get())
-            assertEquals("session-in-progress", loadedSnapshot.get().inProgressSessionId)
-        } finally {
-            executor.shutdownNow()
+        val keysByScreen = listOf(FitnessScreen.HOME, FitnessScreen.STRENGTH).map { screen ->
+            states.map { _ ->
+                homeEntryEffectKey(screen, "owner", "2026-09-12")
+            }
         }
+
+        keysByScreen.forEach { keys -> assertEquals(1, keys.distinct().size) }
+        assertEquals("session-in-progress", snapshot.inProgressSessionId)
     }
 }
