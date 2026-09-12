@@ -35,7 +35,6 @@ class HomeViewModel @JvmOverloads constructor(
 
     fun enter(scope: AccountScope, today: String) {
         val request = ++requestVersion
-        mutableState.value = HomeUiState.Loading
         executor.execute {
             try {
                 val snapshot = repository.load(scope, today)

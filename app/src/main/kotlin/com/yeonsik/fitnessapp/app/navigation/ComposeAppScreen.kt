@@ -196,6 +196,22 @@ private fun AppRoot(
         }
     }
 
+    LaunchedEffect(screen, ownerId, navigationState.today) {
+        when (screen) {
+            FitnessScreen.HOME,
+            FitnessScreen.STRENGTH -> {
+                viewModels.getRoutineEntry().enter(AccountScope(ownerId))
+                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+            }
+            FitnessScreen.WORKOUT,
+            FitnessScreen.RECORDS,
+            FitnessScreen.ROUTINE_DETAIL,
+            FitnessScreen.MEALS ->
+                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+            else -> Unit
+        }
+    }
+
     LaunchedEffect(routineState, screen, ownerId, navigationState.today) {
         when (val state = routineState) {
             is RoutineEntryUiState.Ready -> {
@@ -1004,26 +1020,21 @@ private fun AppDestination(
     val workoutReadOnly = (workoutState as? WorkoutSessionUiState.Ready)?.let {
         it.session.status == "completed"
     } == true
-    LaunchedEffect(screen, ownerId, today, activeRecordId, workoutReadOnly) {
+    LaunchedEffect(screen, ownerId, today) {
         when (screen) {
-            FitnessScreen.HOME,
-            FitnessScreen.STRENGTH -> {
-                viewModels.getRoutineEntry().enter(AccountScope(ownerId))
-                viewModels.getHome().enter(AccountScope(ownerId), today)
-            }
-            FitnessScreen.WORKOUT,
-            FitnessScreen.RECORDS,
-            FitnessScreen.ROUTINE_DETAIL ->
-                viewModels.getHome().enter(AccountScope(ownerId), today)
             FitnessScreen.DEVELOPMENT ->
                 viewModels.getDevelopment().enter(AccountScope(ownerId), today)
-            FitnessScreen.MEALS -> {
-                viewModels.getHome().enter(AccountScope(ownerId), today)
+            FitnessScreen.MEALS ->
                 viewModels.getMeal().enter(AccountScope(ownerId), today)
-            }
             FitnessScreen.SETTINGS -> viewModels.getSettings().enter()
             FitnessScreen.SUPPLEMENTS ->
                 viewModels.getSupplement().enter(AccountScope(ownerId), today)
+            else -> Unit
+        }
+    }
+
+    LaunchedEffect(screen, ownerId, activeRecordId, workoutReadOnly) {
+        when (screen) {
             FitnessScreen.WORKOUT_SESSION,
             FitnessScreen.WORKOUT_SUMMARY ->
                 viewModels.getWorkoutSession().enter(
