@@ -120,6 +120,10 @@ public final class FitnessRoomHandoffMigrationTest {
                     "SELECT source_version_snapshot FROM meal_record_items WHERE id = 'item-v50'"));
             assertNull(nullableScalar(database,
                     "SELECT sodium_mg FROM meal_record_items WHERE id = 'item-v50'"));
+            assertEquals("meal_record_id,meal_record_item_id", indexColumns(
+                    database,
+                    "meal_record_item_components_meal_idx"
+            ));
             assertAllPrimaryKeysAreNotNull(database);
             assertTrue(tableExists(database, "sync_state"));
             assertTrue(tableExists(database, "meal_record_items"));
@@ -317,6 +321,22 @@ public final class FitnessRoomHandoffMigrationTest {
             assertTrue(cursor.moveToFirst());
             return cursor.isNull(0) ? null : cursor.getString(0);
         }
+    }
+
+    private static String indexColumns(SupportSQLiteDatabase database, String indexName) {
+        StringBuilder columns = new StringBuilder();
+        try (Cursor cursor = database.query(
+                "SELECT seqno, name FROM pragma_index_info(?) ORDER BY seqno",
+                new Object[]{indexName}
+        )) {
+            while (cursor.moveToNext()) {
+                if (columns.length() > 0) {
+                    columns.append(',');
+                }
+                columns.append(cursor.getString(1));
+            }
+        }
+        return columns.toString();
     }
 
     private static final class IsolatedDatabaseContext extends ContextWrapper {
