@@ -20,8 +20,29 @@ import java.util.concurrent.Executors
 sealed interface HomeUiState {
     data object Idle : HomeUiState
     data object Loading : HomeUiState
-    data class Ready(val snapshot: HomeSnapshot) : HomeUiState
-    data class Error(val ownerId: String, val message: String) : HomeUiState
+    data class Ready(
+        val snapshot: HomeSnapshot,
+        val requestIdentity: HomeRequestIdentity = HomeRequestIdentity(snapshot.ownerId, snapshot.today)
+    ) : HomeUiState
+    data class Error(val ownerId: String, val message: String, val date: String? = null) : HomeUiState
+}
+
+data class HomeRequestIdentity(val ownerId: String, val date: String)
+
+/** Monotonic token plus owner/date identity prevents an old read from being published. */
+internal class HomeRequestGate {
+    private var nextToken = 0L
+    @Volatile private var active: Pair<Long, HomeRequestIdentity>? = null
+
+    @Synchronized
+    fun begin(identity: HomeRequestIdentity): Long {
+        val token = ++nextToken
+        active = token to identity
+        return token
+    }
+
+    fun accepts(token: Long, identity: HomeRequestIdentity): Boolean =
+        active == (token to identity)
 }
 
 class HomeViewModel @JvmOverloads constructor(
@@ -31,18 +52,24 @@ class HomeViewModel @JvmOverloads constructor(
 ) : ViewModel() {
     private val mutableState = MutableLiveData<HomeUiState>(HomeUiState.Idle)
     val uiState: LiveData<HomeUiState> = mutableState
-    @Volatile private var requestVersion = 0L
+    private val requestGate = HomeRequestGate()
 
     fun enter(scope: AccountScope, today: String) {
-        val request = ++requestVersion
+        val requestedDate = today.trim()
+        val identity = HomeRequestIdentity(scope.ownerId, requestedDate)
+        val request = requestGate.begin(identity)
         mutableState.value = HomeUiState.Loading
         executor.execute {
             try {
-                val snapshot = repository.load(scope, today)
-                if (request == requestVersion) mutableState.postValue(HomeUiState.Ready(snapshot))
+                val snapshot = repository.load(scope, requestedDate)
+                if (requestGate.accepts(request, identity) &&
+                    snapshot.ownerId == identity.ownerId && snapshot.today == identity.date
+                ) {
+                    mutableState.postValue(HomeUiState.Ready(snapshot, identity))
+                }
             } catch (error: Exception) {
-                if (request == requestVersion) mutableState.postValue(
-                    HomeUiState.Error(scope.ownerId, error.message ?: "홈을 불러오지 못했습니다.")
+                if (requestGate.accepts(request, identity)) mutableState.postValue(
+                    HomeUiState.Error(scope.ownerId, error.message ?: "홈을 불러오지 못했습니다.", identity.date)
                 )
             }
         }

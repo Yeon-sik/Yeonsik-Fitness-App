@@ -13,7 +13,9 @@ class HomeReadRepository(
     private val routines: RoutineRepositoryApi
 ) : HomeRepositoryApi {
     override fun load(scope: AccountScope, today: String): HomeSnapshot {
-        val todayDate = LocalDate.parse(today)
+        require(scope.ownerId.isNotBlank()) { "Home owner is required." }
+        val requestedDate = today.trim()
+        val todayDate = LocalDate.parse(requestedDate)
         val currentWeek = todayDate.with(DayOfWeek.MONDAY)
         val dates = (0..13).map { currentWeek.minusWeeks(1).plusDays(it.toLong()) }
         val dayMetrics = dates.associate { date -> date.toString() to reads.dayMetrics(scope, date.toString()) }
@@ -28,8 +30,8 @@ class HomeReadRepository(
         }
         return HomeSnapshot(
             scope.ownerId,
-            today,
-            reads.sessionsForDate(scope, today),
+            requestedDate,
+            reads.sessionsForDate(scope, requestedDate),
             routines.activeRoutineId(scope),
             routineRows,
             routineExercises,
@@ -39,9 +41,9 @@ class HomeReadRepository(
             mealCounts,
             nutritionTotals,
             reads.nutritionGoal(scope),
-            reads.bodyMetric(scope, today),
-            reads.bodyMetrics(scope, today),
-            reads.meals(scope, today)
+            reads.bodyMetric(scope, requestedDate),
+            reads.bodyMetrics(scope, requestedDate),
+            reads.meals(scope, requestedDate)
         )
     }
 

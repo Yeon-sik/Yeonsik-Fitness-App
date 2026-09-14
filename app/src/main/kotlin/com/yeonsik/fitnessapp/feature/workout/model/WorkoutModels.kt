@@ -18,6 +18,17 @@ data class WorkoutExercise(
     @JvmField val familyIdentity: ExerciseFamilyIdentity? = null
 )
 
+/** Workout-owned facts consumed by downstream presentation features. */
+data class WorkoutWeekProgress(
+    val completedSessions: Int,
+    val completedDays: Int
+)
+
+data class WorkoutBodyPartSets(
+    val uiPart: String?,
+    val setCount: Int
+)
+
 data class WorkoutSet(
     @JvmField val id: String,
     @JvmField val setIndex: Int,
@@ -41,7 +52,7 @@ data class WorkoutExerciseDetail(
     val exercises: List<WorkoutExercise>,
     val sets: List<WorkoutSet>,
     val lastHistory: WorkoutExerciseHistory? = null,
-    val bests: WorkoutExerciseBests? = null,
+    val bests: List<WorkoutExerciseBests> = emptyList(),
     val recentVolumes: List<WorkoutVolumePoint> = emptyList(),
     val allowedLoadStates: Map<String, List<LoadState>> = emptyMap(),
     val volumeFormula: String = "",
