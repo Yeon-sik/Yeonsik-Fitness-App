@@ -44,23 +44,42 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
     val uiState: LiveData<WorkoutExerciseDetailUiState> = mutableState
     private val mainHandler = Handler(Looper.getMainLooper())
     private var requestVersion = 0L
+    @Volatile private var activeRequest: DetailRequest? = null
+
+    private data class DetailRequest(
+        val token: Long,
+        val ownerId: String,
+        val recordId: String,
+        val activeExerciseId: String?,
+        val readOnly: Boolean
+    )
 
     fun enter(scope: AccountScope, recordId: String, activeExerciseId: String?, readOnly: Boolean = false) {
+        val restoredOwnerId: String? = savedStateHandle[KEY_OWNER_ID]
         val restoredRecordId: String? = savedStateHandle[KEY_RECORD_ID]
         val restoredExerciseId: String? = savedStateHandle[KEY_EXERCISE_ID]
         val restoredReadOnly: Boolean = savedStateHandle[KEY_READ_ONLY] ?: false
-        if (restoredRecordId == recordId && restoredExerciseId == activeExerciseId
+        if (restoredOwnerId == scope.ownerId && restoredRecordId == recordId && restoredExerciseId == activeExerciseId
             && restoredReadOnly == readOnly
             && mutableState.value is WorkoutExerciseDetailUiState.Loading) return
 
+        savedStateHandle[KEY_OWNER_ID] = scope.ownerId
         savedStateHandle[KEY_RECORD_ID] = recordId
         savedStateHandle[KEY_EXERCISE_ID] = activeExerciseId
         savedStateHandle[KEY_READ_ONLY] = readOnly
-        val request = ++requestVersion
+        val request = DetailRequest(
+            ++requestVersion,
+            scope.ownerId,
+            recordId,
+            activeExerciseId,
+            readOnly
+        )
+        activeRequest = request
         mutableState.value = WorkoutExerciseDetailUiState.Loading
         executor.execute {
             try {
                 var detail = repository.loadExerciseDetail(scope, recordId, activeExerciseId)
+                    ?.takeIf { it.recordId == recordId }
                 if (detail == null) {
                     publishIfCurrent(request, WorkoutExerciseDetailUiState.Missing(scope.ownerId, recordId))
                     return@execute
@@ -68,7 +87,10 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
                 val initialized = if (!readOnly && detail.sets.isEmpty()) {
                     initializeWorkoutExercise.execute(scope, recordId, detail.activeExercise.id)
                 } else false
-                if (initialized) detail = repository.loadExerciseDetail(scope, recordId, detail.activeExercise.id)
+                if (initialized) {
+                    detail = repository.loadExerciseDetail(scope, recordId, detail.activeExercise.id)
+                        ?.takeIf { it.recordId == recordId }
+                }
                 if (detail == null) {
                     publishIfCurrent(request, WorkoutExerciseDetailUiState.Missing(scope.ownerId, recordId))
                 } else {
@@ -143,8 +165,8 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
         }
     }
 
-    private fun publishIfCurrent(request: Long, state: WorkoutExerciseDetailUiState) {
-        if (request == requestVersion) mutableState.postValue(state)
+    private fun publishIfCurrent(request: DetailRequest, state: WorkoutExerciseDetailUiState) {
+        if (activeRequest == request && request.token == requestVersion) mutableState.postValue(state)
     }
 
     override fun onCleared() {
@@ -153,6 +175,7 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
 
     private companion object {
         const val KEY_RECORD_ID = "workout_detail.record_id"
+        const val KEY_OWNER_ID = "workout_detail.owner_id"
         const val KEY_EXERCISE_ID = "workout_detail.exercise_id"
         const val KEY_READ_ONLY = "workout_detail.read_only"
     }

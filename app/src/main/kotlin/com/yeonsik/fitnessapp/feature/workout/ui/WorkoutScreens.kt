@@ -156,7 +156,7 @@ internal fun WorkoutDetailScreen(
                 ownerId,
                 detail.recordId,
                 detail.activeExercise.recordType,
-                detail.allowedLoadStates[detail.activeExercise.recordType].orEmpty(),
+                detail.allowedLoadStates[detail.activeExercise.id].orEmpty(),
                 set,
                 unit
             )

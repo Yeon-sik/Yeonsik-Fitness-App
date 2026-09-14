@@ -130,6 +130,13 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     val restTimerState: LiveData<WorkoutRestTimerState> = mutableRestTimerState
     private var requestVersion = 0L
     private var actionVersion = 0L
+    @Volatile private var activeReadRequest: SessionReadRequest? = null
+
+    private data class SessionReadRequest(
+        val token: Long,
+        val ownerId: String,
+        val recordId: String
+    )
 
     fun enter(scope: AccountScope, recordId: String?) {
         savedStateHandle[KEY_RECORD_ID] = recordId
@@ -138,6 +145,7 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
             return
         }
         val request = ++requestVersion
+        activeReadRequest = SessionReadRequest(request, scope.ownerId, recordId)
         mutableState.value = WorkoutSessionUiState.Loading
         executor.execute {
             try {
@@ -185,6 +193,7 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     fun finish(scope: AccountScope, recordId: String) {
         if (mutableState.value is WorkoutSessionUiState.Completing) return
         val request = ++requestVersion
+        activeReadRequest = SessionReadRequest(request, scope.ownerId, recordId)
         mutableState.value = WorkoutSessionUiState.Completing(scope.ownerId, recordId)
         executor.execute {
             try {
@@ -513,11 +522,31 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     )
 
     private fun publishIfCurrent(request: Long, state: WorkoutSessionUiState) {
-        if (request == requestVersion) mutableState.postValue(state)
+        val active = activeReadRequest
+        val identityMatches = when (state) {
+            is WorkoutSessionUiState.Ready ->
+                active?.ownerId == state.ownerId && active.recordId == state.session.recordId
+            is WorkoutSessionUiState.Missing ->
+                active?.ownerId == state.ownerId && active.recordId == state.recordId
+            is WorkoutSessionUiState.Completing ->
+                active?.ownerId == state.ownerId && active.recordId == state.recordId
+            is WorkoutSessionUiState.Completed ->
+                active?.ownerId == state.ownerId && active.recordId == state.recordId
+            is WorkoutSessionUiState.DiscardedEmptySession ->
+                active?.ownerId == state.ownerId && active.recordId == state.recordId
+            is WorkoutSessionUiState.Error -> active?.ownerId == state.ownerId
+            else -> false
+        }
+        if (request == requestVersion && active?.token == request && identityMatches) {
+            mutableState.postValue(state)
+        }
     }
 
     private fun publishTerminalIfCurrent(request: Long, event: WorkoutSessionTerminalEvent) {
-        if (request == requestVersion) mutableTerminalEvents.postValue(event)
+        val active = activeReadRequest
+        if (request == requestVersion && active?.token == request &&
+            active.ownerId == event.ownerId && active.recordId == event.recordId
+        ) mutableTerminalEvents.postValue(event)
     }
 
     private fun restoreManualPastState(): ManualPastWorkoutUiState {
