@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
@@ -131,6 +133,7 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     private var requestVersion = 0L
     private var actionVersion = 0L
     @Volatile private var activeReadRequest: SessionReadRequest? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     private data class SessionReadRequest(
         val token: Long,
@@ -140,11 +143,12 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
 
     fun enter(scope: AccountScope, recordId: String?) {
         savedStateHandle[KEY_RECORD_ID] = recordId
+        val request = ++requestVersion
+        activeReadRequest = null
         if (recordId == null) {
             mutableState.value = WorkoutSessionUiState.Idle
             return
         }
-        val request = ++requestVersion
         activeReadRequest = SessionReadRequest(request, scope.ownerId, recordId)
         mutableState.value = WorkoutSessionUiState.Loading
         executor.execute {
@@ -522,6 +526,20 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     )
 
     private fun publishIfCurrent(request: Long, state: WorkoutSessionUiState) {
+        if (!isCurrent(request, state)) return
+        mainHandler.post {
+            if (isCurrent(request, state)) mutableState.value = state
+        }
+    }
+
+    private fun publishTerminalIfCurrent(request: Long, event: WorkoutSessionTerminalEvent) {
+        if (!isCurrent(request, event)) return
+        mainHandler.post {
+            if (isCurrent(request, event)) mutableTerminalEvents.value = event
+        }
+    }
+
+    private fun isCurrent(request: Long, state: WorkoutSessionUiState): Boolean {
         val active = activeReadRequest
         val identityMatches = when (state) {
             is WorkoutSessionUiState.Ready ->
@@ -537,16 +555,13 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
             is WorkoutSessionUiState.Error -> active?.ownerId == state.ownerId
             else -> false
         }
-        if (request == requestVersion && active?.token == request && identityMatches) {
-            mutableState.postValue(state)
-        }
+        return request == requestVersion && active?.token == request && identityMatches
     }
 
-    private fun publishTerminalIfCurrent(request: Long, event: WorkoutSessionTerminalEvent) {
+    private fun isCurrent(request: Long, event: WorkoutSessionTerminalEvent): Boolean {
         val active = activeReadRequest
-        if (request == requestVersion && active?.token == request &&
+        return request == requestVersion && active?.token == request &&
             active.ownerId == event.ownerId && active.recordId == event.recordId
-        ) mutableTerminalEvents.postValue(event)
     }
 
     private fun restoreManualPastState(): ManualPastWorkoutUiState {

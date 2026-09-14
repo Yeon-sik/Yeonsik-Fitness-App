@@ -149,7 +149,7 @@ class WorkoutRepositoryImplementation(
                     history.sets.map { it.toFeatureModel() }
                 )
             },
-            bests = storage.bests(scope, active, recordId).toFeatureModel(),
+            bests = storage.bests(scope, active, recordId).map { it.toFeatureModel() },
             recentVolumes = storage.recentExerciseVolumes(scope, active, recordId, 8).map {
                 WorkoutVolumePoint(it.date, it.label, it.volumeKg)
             },

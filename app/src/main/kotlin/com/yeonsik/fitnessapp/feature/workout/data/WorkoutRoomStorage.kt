@@ -82,9 +82,10 @@ class WorkoutRoomStorage(
     data class Metrics(val totalVolumeKg: Double, val setCount: Int, val totalDistanceMeters: Double)
     data class VolumePoint(val date: String, val label: String, val volumeKg: Double)
     data class History(val date: String, val totalVolumeKg: Double, val sets: List<SetRow>)
+    /** One exact family + canonical variant + LoadState performance bucket. */
     data class Bests(
         val performanceKey: String,
-        val loadState: LoadState?,
+        val loadState: LoadState,
         val maxWeightKg: Double,
         val repsAtMaxWeight: Int,
         val maxWeightDate: String,
@@ -94,6 +95,16 @@ class WorkoutRoomStorage(
         val bestVolumeDate: String,
         val sessionCount: Int
     )
+
+    private class BestAccumulator(val loadState: LoadState) {
+        var maxWeightKg = 0.0
+        var repsAtMaxWeight = 0
+        var maxWeightDate = ""
+        var bestE1rmKg = 0.0
+        var bestE1rmDate = ""
+        val sessionVolumes = linkedMapOf<String, Double>()
+        val sessionDates = linkedMapOf<String, String>()
+    }
 
     data class DayMetrics(
         val sessionCount: Int,
@@ -610,17 +621,18 @@ class WorkoutRoomStorage(
             exercise.exerciseId,
             exercise.name,
             exercise.familyIdentity?.familyId,
-            exercise.familyIdentity?.canonicalVariantKey
+            exercise.familyIdentity?.canonicalVariantKey,
+            legacyExerciseIds(exercise)
         )) {
             if (points.size >= limit) break
-                val recordId = candidate.recordId
-                val matchingExercise = exercises(scope, recordId).firstOrNull {
-                    sameExerciseIdentity(it, exercise)
-                } ?: continue
-                val volume = sets(scope, matchingExercise.id)
-                    .filter { it.isCompleted }
-                    .sumOf { volumeForSet(matchingExercise, it) }
-                points[recordId] = VolumePoint(candidate.date, candidate.exerciseName, volume)
+            val recordId = candidate.recordId
+            val matchingExercise = exercises(scope, recordId).firstOrNull {
+                sameExerciseIdentity(it, exercise)
+            } ?: continue
+            val completedSets = sets(scope, matchingExercise.id).filter { it.isCompleted }
+            if (completedSets.isEmpty()) continue
+            val volume = completedSets.sumOf { volumeForSet(matchingExercise, it) }
+            points[recordId] = VolumePoint(candidate.date, candidate.exerciseName, volume)
         }
         return points.values.toList().asReversed()
     }
@@ -632,78 +644,84 @@ class WorkoutRoomStorage(
             exercise.exerciseId,
             exercise.name,
             exercise.familyIdentity?.familyId,
-            exercise.familyIdentity?.canonicalVariantKey
+            exercise.familyIdentity?.canonicalVariantKey,
+            legacyExerciseIds(exercise)
         ) ?: return null
         val sets = sets(scope, row.recordId).filter { it.isCompleted }
         if (sets.isEmpty()) return null
         return History(row.date, sets.sumOf { volumeForSet(exercise, it) }, sets)
     }
 
-    fun bests(scope: AccountScope, exercise: ExerciseRow, currentRecordId: String): Bests {
-        var maxWeight = 0.0
-        var repsAtMax = 0
-        var maxDate = ""
-        var bestVolume = 0.0
-        var bestVolumeDate = ""
-        var bestE1rm = 0.0
-        var bestE1rmDate = ""
-        var bestE1rmLoadState: LoadState? = null
-        val sessionVolumes = linkedMapOf<String, Double>()
-        val sessionDates = linkedMapOf<String, String>()
+    fun bests(scope: AccountScope, exercise: ExerciseRow, currentRecordId: String): List<Bests> {
+        val accumulators = linkedMapOf<LoadState, BestAccumulator>()
         for (row in workoutDao.bestSetRows(
             scope.ownerId,
             currentRecordId,
             exercise.exerciseId,
             exercise.name,
             exercise.familyIdentity?.familyId,
-            exercise.familyIdentity?.canonicalVariantKey
+            exercise.familyIdentity?.canonicalVariantKey,
+            legacyExerciseIds(exercise)
         )) {
-                val recordId = row.recordId
-                val date = row.date
-                val weight = row.weightKg ?: 0.0
-                val reps = row.actualReps?.toInt() ?: 0
-                val set = SetRow("", 0, weight, reps, null, null, true, 0, 0.0,
-                    row.assistedWeightKg ?: 0.0, row.addedWeightKg ?: 0.0, 0.0,
-                    loadStateForRead(exercise.recordType, exercise.familyIdentity,
-                        row.loadState, row.addedWeightKg ?: 0.0),
-                    null, null)
-                val setVolume = volumeForSet(exercise, set)
-                sessionVolumes[recordId] = (sessionVolumes[recordId] ?: 0.0) + setVolume
-                sessionDates[recordId] = date
-                val comparableLoad = if (set.loadState == LoadState.ADDED_WEIGHT) set.addedWeightKg else set.weightKg
-                if (comparableLoad > maxWeight) {
-                    maxWeight = comparableLoad
-                    repsAtMax = reps
-                    maxDate = date
-                }
-                val e1rm = WorkoutPerformanceCalculator.epleyE1rm(comparableLoad, reps)
-                if (e1rm > bestE1rm) {
-                    bestE1rm = e1rm
-                    bestE1rmDate = date
-                    bestE1rmLoadState = set.loadState
-                }
-        }
-        sessionVolumes.forEach { (recordId, value) ->
-            if (value > bestVolume) {
-                bestVolume = value
-                bestVolumeDate = sessionDates[recordId].orEmpty()
+            val recordId = row.recordId
+            val date = row.date
+            val weight = row.weightKg ?: 0.0
+            val reps = row.actualReps?.toInt() ?: 0
+            val set = SetRow("", 0, weight, reps, null, null, true, 0, 0.0,
+                row.assistedWeightKg ?: 0.0, row.addedWeightKg ?: 0.0, 0.0,
+                loadStateForRead(exercise.recordType, exercise.familyIdentity,
+                    row.loadState, row.addedWeightKg ?: 0.0),
+                null, null)
+            val loadState = set.loadState ?: continue
+            val accumulator = accumulators.getOrPut(loadState) { BestAccumulator(loadState) }
+            val setVolume = volumeForSet(exercise, set)
+            accumulator.sessionVolumes[recordId] =
+                (accumulator.sessionVolumes[recordId] ?: 0.0) + setVolume
+            accumulator.sessionDates[recordId] = date
+            val comparableLoad = performanceLoad(set)
+            if (comparableLoad > accumulator.maxWeightKg ||
+                (comparableLoad == accumulator.maxWeightKg &&
+                    reps > accumulator.repsAtMaxWeight)
+            ) {
+                accumulator.maxWeightKg = comparableLoad
+                accumulator.repsAtMaxWeight = reps
+                accumulator.maxWeightDate = date
+            }
+            val e1rm = WorkoutPerformanceCalculator.epleyE1rm(comparableLoad, reps)
+            if (e1rm > accumulator.bestE1rmKg) {
+                accumulator.bestE1rmKg = e1rm
+                accumulator.bestE1rmDate = date
             }
         }
-        val performanceLoadState = bestE1rmLoadState ?: exercise.familyIdentity?.defaultLoadStateValue()
-        val performanceKey = exercise.familyIdentity?.performanceKey(performanceLoadState)?.stableValue()
-            ?: "${exercise.exerciseId}:${FitnessRecordContract.normalizeRecordType(exercise.recordType)}:${performanceLoadState?.id() ?: "unknown"}"
-        return Bests(
-            performanceKey,
-            performanceLoadState,
-            maxWeight,
-            repsAtMax,
-            maxDate,
-            bestE1rm,
-            bestE1rmDate,
-            bestVolume,
-            bestVolumeDate,
-            sessionVolumes.size
-        )
+        return accumulators.values
+            .sortedBy { it.loadState.ordinal }
+            .map { accumulator ->
+                var bestVolume = 0.0
+                var bestVolumeDate = ""
+                accumulator.sessionVolumes.forEach { (recordId, value) ->
+                    if (value > bestVolume) {
+                        bestVolume = value
+                        bestVolumeDate = accumulator.sessionDates[recordId].orEmpty()
+                    }
+                }
+                val performanceKey = exercise.familyIdentity?.performanceKey(accumulator.loadState)
+                    ?.stableValue()
+                    ?: exercise.exerciseId + ":" +
+                        FitnessRecordContract.normalizeRecordType(exercise.recordType) + ":" +
+                        accumulator.loadState.id()
+                Bests(
+                    performanceKey,
+                    accumulator.loadState,
+                    accumulator.maxWeightKg,
+                    accumulator.repsAtMaxWeight,
+                    accumulator.maxWeightDate,
+                    accumulator.bestE1rmKg,
+                    accumulator.bestE1rmDate,
+                    bestVolume,
+                    bestVolumeDate,
+                    accumulator.sessionVolumes.size
+                )
+            }
     }
 
     fun allowedLoadStates(exercise: ExerciseRow): List<LoadState> {
@@ -981,6 +999,9 @@ class WorkoutRoomStorage(
         }
     }
 
+    private fun legacyExerciseIds(exercise: ExerciseRow): List<String> =
+        familyCatalog.legacyIdsForVariant(exercise.familyIdentity)
+
     private fun sameExerciseIdentity(left: ExerciseRow, right: ExerciseRow): Boolean {
         val rightIdentity = right.familyIdentity
         val leftIdentity = left.familyIdentity
@@ -1002,6 +1023,13 @@ class WorkoutRoomStorage(
             FitnessRecordContract.WEIGHT_REPS -> LoadState.EXTERNAL_LOAD
             else -> null
         }
+
+    private fun performanceLoad(set: SetRow): Double = when (set.loadState) {
+        LoadState.ADDED_WEIGHT -> set.addedWeightKg
+        LoadState.ASSISTED, LoadState.BAND_ASSISTED -> set.assistedWeightKg
+        LoadState.EXTERNAL_LOAD, LoadState.BAND_RESISTED -> set.weightKg
+        LoadState.BODYWEIGHT, null -> 0.0
+    }
 
     private fun canonicalName(name: String?, identity: ExerciseFamilyIdentity?): String = identity?.displayName()?.takeIf { it.isNotBlank() } ?: name.orEmpty()
 

@@ -961,15 +961,21 @@ interface WorkoutRoomDao {
             "AND we.deleted_at IS NULL AND we.record_id != :currentRecordId " +
             "AND wr.scope IN ('fitness','both') " +
             "AND (wr.source_app='os' OR wr.metadata LIKE '%\"status\":\"completed\"%') " +
-            "AND ((:familyId IS NOT NULL AND we.family_id=:familyId " +
+            "AND EXISTS (SELECT 1 FROM workout_sets ws WHERE ws.workout_exercise_id=we.id " +
+            "AND ws.user_id=:userId AND ws.deleted_at IS NULL AND ws.is_completed=1) " +
+            "AND ((:familyId IS NOT NULL AND " +
+            "((we.family_id=:familyId " +
             "AND (:canonicalVariantKey IS NULL OR we.canonical_variant_key=:canonicalVariantKey)) " +
+            "OR (we.family_id IS NULL AND we.preset_id IS NULL " +
+            "AND we.canonical_variant_key IS NULL AND we.visual_variant_key IS NULL " +
+            "AND we.exercise_id IN (:legacyExerciseIds)))) " +
             "OR (:familyId IS NULL AND :canonicalVariantKey IS NULL AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
             "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName)))) " +
             "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 100"
     )
     fun exerciseHistoryCandidates(
         userId: String, currentRecordId: String, exerciseId: String, exerciseName: String,
-        familyId: String?, canonicalVariantKey: String?
+        familyId: String?, canonicalVariantKey: String?, legacyExerciseIds: List<String>
     ): List<ExerciseHistoryCandidate>
 
     @Query(
@@ -979,15 +985,21 @@ interface WorkoutRoomDao {
             "AND we.deleted_at IS NULL AND we.record_id != :currentRecordId " +
             "AND wr.scope IN ('fitness','both') " +
             "AND (wr.source_app='os' OR wr.metadata LIKE '%\"status\":\"completed\"%') " +
-            "AND ((:familyId IS NOT NULL AND we.family_id=:familyId " +
+            "AND EXISTS (SELECT 1 FROM workout_sets ws WHERE ws.workout_exercise_id=we.id " +
+            "AND ws.user_id=:userId AND ws.deleted_at IS NULL AND ws.is_completed=1) " +
+            "AND ((:familyId IS NOT NULL AND " +
+            "((we.family_id=:familyId " +
             "AND (:canonicalVariantKey IS NULL OR we.canonical_variant_key=:canonicalVariantKey)) " +
+            "OR (we.family_id IS NULL AND we.preset_id IS NULL " +
+            "AND we.canonical_variant_key IS NULL AND we.visual_variant_key IS NULL " +
+            "AND we.exercise_id IN (:legacyExerciseIds)))) " +
             "OR (:familyId IS NULL AND :canonicalVariantKey IS NULL AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
             "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName)))) " +
             "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 1"
     )
     fun lastExerciseCandidate(
         userId: String, currentRecordId: String, exerciseId: String, exerciseName: String,
-        familyId: String?, canonicalVariantKey: String?
+        familyId: String?, canonicalVariantKey: String?, legacyExerciseIds: List<String>
     ): ExerciseHistoryCandidate?
 
     @Query(
@@ -1000,14 +1012,18 @@ interface WorkoutRoomDao {
             "AND wr.deleted_at IS NULL AND we.deleted_at IS NULL AND ws.deleted_at IS NULL " +
             "AND wr.scope IN ('fitness','both') AND (wr.source_app='os' OR wr.metadata LIKE '%\"status\":\"completed\"%') " +
             "AND ws.is_completed=1 " +
-            "AND ((:familyId IS NOT NULL AND we.family_id=:familyId " +
+            "AND ((:familyId IS NOT NULL AND " +
+            "((we.family_id=:familyId " +
             "AND (:canonicalVariantKey IS NULL OR we.canonical_variant_key=:canonicalVariantKey)) " +
+            "OR (we.family_id IS NULL AND we.preset_id IS NULL " +
+            "AND we.canonical_variant_key IS NULL AND we.visual_variant_key IS NULL " +
+            "AND we.exercise_id IN (:legacyExerciseIds)))) " +
             "OR (:familyId IS NULL AND :canonicalVariantKey IS NULL AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
             "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName))))"
     )
     fun bestSetRows(
         userId: String, currentRecordId: String, exerciseId: String, exerciseName: String,
-        familyId: String?, canonicalVariantKey: String?
+        familyId: String?, canonicalVariantKey: String?, legacyExerciseIds: List<String>
     ): List<BestSetRow>
 
     @Query(

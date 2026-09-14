@@ -52,7 +52,7 @@ data class WorkoutExerciseDetail(
     val exercises: List<WorkoutExercise>,
     val sets: List<WorkoutSet>,
     val lastHistory: WorkoutExerciseHistory? = null,
-    val bests: WorkoutExerciseBests? = null,
+    val bests: List<WorkoutExerciseBests> = emptyList(),
     val recentVolumes: List<WorkoutVolumePoint> = emptyList(),
     val allowedLoadStates: Map<String, List<LoadState>> = emptyMap(),
     val volumeFormula: String = "",
