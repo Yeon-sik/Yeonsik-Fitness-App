@@ -5,11 +5,14 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitnessapp.data.AthleteDailyCheckIn
+import com.yeonsik.fitnessapp.data.AthleteNutritionGoal
 import com.yeonsik.fitnessapp.development.BodyProfile
 import com.yeonsik.fitnessapp.development.DevelopmentGoal
 import com.yeonsik.fitnessapp.development.DevelopmentReport
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi
+import com.yeonsik.fitnessapp.feature.recovery.api.RecoveryRepositoryApi
 import java.time.LocalDate
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -50,10 +53,50 @@ sealed interface DevelopmentGoalEditorUiState {
     data class Error(val requestId: Long, val ownerId: String, val message: String) : DevelopmentGoalEditorUiState
 }
 
+enum class RecoveryEditorKind {
+    NUTRITION_GOAL,
+    CHECK_IN
+}
+
+sealed interface RecoveryEditorUiState {
+    data object Idle : RecoveryEditorUiState
+    data class Loading(val requestId: Long, val ownerId: String, val date: String) : RecoveryEditorUiState
+    data class Ready(
+        val requestId: Long,
+        val ownerId: String,
+        val date: String,
+        val nutritionGoal: AthleteNutritionGoal?,
+        val checkIn: AthleteDailyCheckIn,
+        val editor: RecoveryEditorKind? = null
+    ) : RecoveryEditorUiState
+
+    data class Saving(
+        val requestId: Long,
+        val ownerId: String,
+        val date: String,
+        val editor: RecoveryEditorKind
+    ) : RecoveryEditorUiState
+
+    data class Saved(
+        val requestId: Long,
+        val ownerId: String,
+        val date: String,
+        val editor: RecoveryEditorKind
+    ) : RecoveryEditorUiState
+
+    data class Error(
+        val requestId: Long,
+        val ownerId: String,
+        val date: String,
+        val message: String
+    ) : RecoveryEditorUiState
+}
+
 class DevelopmentViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
     private val repository: DevelopmentReportApi,
     private val applicationService: DevelopmentApplicationService,
+    private val recoveryRepository: RecoveryRepositoryApi,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : ViewModel() {
     private val mutableState = MutableLiveData<DevelopmentUiState>(DevelopmentUiState.Idle)
@@ -64,8 +107,12 @@ class DevelopmentViewModel @JvmOverloads constructor(
     private val mutableGoalEditorState =
         MutableLiveData<DevelopmentGoalEditorUiState>(DevelopmentGoalEditorUiState.Idle)
     val goalEditorState: LiveData<DevelopmentGoalEditorUiState> = mutableGoalEditorState
+    private val mutableRecoveryEditorState =
+        MutableLiveData<RecoveryEditorUiState>(RecoveryEditorUiState.Idle)
+    val recoveryEditorState: LiveData<RecoveryEditorUiState> = mutableRecoveryEditorState
     private var reportRequestVersion = 0L
     private var editorRequestVersion = 0L
+    private var recoveryRequestVersion = 0L
 
     fun enter(scope: AccountScope, date: String) {
         savedStateHandle[KEY_DATE] = date
@@ -213,12 +260,133 @@ class DevelopmentViewModel @JvmOverloads constructor(
         }
     }
 
+    fun enterRecovery(scope: AccountScope, date: String) {
+        val requestId = ++recoveryRequestVersion
+        mutableRecoveryEditorState.value =
+            RecoveryEditorUiState.Loading(requestId, scope.ownerId, date)
+        executor.execute {
+            try {
+                val goal = recoveryRepository.nutritionGoal(scope)
+                val checkIn = recoveryRepository.checkIn(scope, date)
+                if (requestId == recoveryRequestVersion) {
+                    mutableRecoveryEditorState.postValue(
+                        RecoveryEditorUiState.Ready(
+                            requestId,
+                            scope.ownerId,
+                            checkIn.date,
+                            goal,
+                            checkIn
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                if (requestId == recoveryRequestVersion) {
+                    mutableRecoveryEditorState.postValue(
+                        RecoveryEditorUiState.Error(
+                            requestId,
+                            scope.ownerId,
+                            date,
+                            error.message ?: "영양·회복 정보를 불러오지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun openNutritionGoalEditor(scope: AccountScope) {
+        val state = mutableRecoveryEditorState.value as? RecoveryEditorUiState.Ready ?: return
+        if (state.ownerId == scope.ownerId) {
+            mutableRecoveryEditorState.value =
+                state.copy(editor = RecoveryEditorKind.NUTRITION_GOAL)
+        }
+    }
+
+    fun openCheckInEditor(scope: AccountScope) {
+        val state = mutableRecoveryEditorState.value as? RecoveryEditorUiState.Ready ?: return
+        if (state.ownerId == scope.ownerId) {
+            mutableRecoveryEditorState.value = state.copy(editor = RecoveryEditorKind.CHECK_IN)
+        }
+    }
+
+    fun saveNutritionGoal(scope: AccountScope, goal: AthleteNutritionGoal) {
+        val state = mutableRecoveryEditorState.value as? RecoveryEditorUiState.Ready ?: return
+        if (state.ownerId != scope.ownerId || state.editor != RecoveryEditorKind.NUTRITION_GOAL) return
+        val requestId = ++recoveryRequestVersion
+        mutableRecoveryEditorState.value = RecoveryEditorUiState.Saving(
+            requestId, scope.ownerId, state.date, RecoveryEditorKind.NUTRITION_GOAL
+        )
+        executor.execute {
+            try {
+                recoveryRepository.saveNutritionGoal(scope, goal)
+                if (requestId == recoveryRequestVersion) {
+                    mutableRecoveryEditorState.postValue(
+                        RecoveryEditorUiState.Saved(
+                            requestId, scope.ownerId, state.date, RecoveryEditorKind.NUTRITION_GOAL
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                if (requestId == recoveryRequestVersion) {
+                    mutableRecoveryEditorState.postValue(
+                        RecoveryEditorUiState.Error(
+                            requestId,
+                            scope.ownerId,
+                            state.date,
+                            error.message ?: "영양 목표를 저장하지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun saveCheckIn(scope: AccountScope, checkIn: AthleteDailyCheckIn) {
+        val state = mutableRecoveryEditorState.value as? RecoveryEditorUiState.Ready ?: return
+        if (state.ownerId != scope.ownerId || state.editor != RecoveryEditorKind.CHECK_IN) return
+        val requestId = ++recoveryRequestVersion
+        mutableRecoveryEditorState.value = RecoveryEditorUiState.Saving(
+            requestId, scope.ownerId, state.date, RecoveryEditorKind.CHECK_IN
+        )
+        executor.execute {
+            try {
+                recoveryRepository.saveCheckIn(scope, checkIn)
+                if (requestId == recoveryRequestVersion) {
+                    mutableRecoveryEditorState.postValue(
+                        RecoveryEditorUiState.Saved(
+                            requestId, scope.ownerId, state.date, RecoveryEditorKind.CHECK_IN
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                if (requestId == recoveryRequestVersion) {
+                    mutableRecoveryEditorState.postValue(
+                        RecoveryEditorUiState.Error(
+                            requestId,
+                            scope.ownerId,
+                            state.date,
+                            error.message ?: "회복 체크인을 저장하지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
+
     fun dismissProfileEditor() {
         mutableProfileEditorState.value = DevelopmentProfileEditorUiState.Idle
     }
 
     fun dismissGoalEditor() {
         mutableGoalEditorState.value = DevelopmentGoalEditorUiState.Idle
+    }
+
+    fun dismissRecoveryEditor() {
+        val state = mutableRecoveryEditorState.value
+        mutableRecoveryEditorState.value = when (state) {
+            is RecoveryEditorUiState.Ready -> state.copy(editor = null)
+            else -> RecoveryEditorUiState.Idle
+        }
     }
 
     private fun nextEditorRequest(): Long {

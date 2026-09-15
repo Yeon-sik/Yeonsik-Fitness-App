@@ -277,7 +277,7 @@ private fun WeeklyNutritionCard(
             if (goal == null) {
                 Text("영양소별 목표를 설정하면 7일 달성률이 표시됩니다.")
                 FitnessButton(onClick = {
-                    actions.openMealManagement(snapshot.today, FitnessScreen.HOME)
+                    actions.navigate(FitnessScreen.DEVELOPMENT)
                 }) { Text("영양 목표 설정") }
             } else {
                 dates.forEachIndexed { index, date ->

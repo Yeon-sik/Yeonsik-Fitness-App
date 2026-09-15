@@ -1619,6 +1619,28 @@ interface DevelopmentRoomDao {
     fun checkInDates(userId: String, startDate: String, endDate: String): List<String>
 }
 
+/** Recovery-owned write/read boundary for nutrition targets and daily check-in facts. */
+@Dao
+interface RecoveryRoomDao {
+    @Query("SELECT * FROM nutrition_goals WHERE user_id=:userId LIMIT 1")
+    fun nutritionGoal(userId: String): NutritionGoalsRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun replaceNutritionGoal(goal: NutritionGoalsRoomEntity)
+
+    @Query(
+        "SELECT * FROM nutrition_daily_checkins " +
+            "WHERE user_id=:userId AND date=:date LIMIT 1"
+    )
+    fun checkIn(userId: String, date: String): NutritionDailyCheckinsRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun replaceCheckIn(checkIn: NutritionDailyCheckinsRoomEntity)
+
+    @Query("DELETE FROM nutrition_daily_checkins WHERE user_id=:userId AND date=:date")
+    fun deleteCheckIn(userId: String, date: String): Int
+}
+
 @Dao
 interface NutritionRoomDao {
     data class ApprovedLinkClaimRow(
@@ -2061,4 +2083,5 @@ abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun mealRoomDao(): MealRoomDao
     abstract fun nutritionRoomDao(): NutritionRoomDao
     abstract fun developmentRoomDao(): DevelopmentRoomDao
+    abstract fun recoveryRoomDao(): RecoveryRoomDao
 }

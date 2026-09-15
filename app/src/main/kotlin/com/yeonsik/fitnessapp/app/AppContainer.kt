@@ -18,6 +18,7 @@ import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository
 import com.yeonsik.fitnessapp.integration.pricetrace.ProductReadV1Client
 import com.yeonsik.fitnessapp.integration.pricetrace.RestaurantMenuReadV1Client
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository
+import com.yeonsik.fitnessapp.feature.recovery.data.RecoveryRepository
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
 import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService
@@ -35,6 +36,7 @@ import com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository
 import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
+import com.yeonsik.fitnessapp.feature.recovery.api.RecoveryRepositoryApi
 import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
 import com.yeonsik.fitnessapp.feature.supplement.api.SupplementRepositoryApi
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
@@ -132,6 +134,10 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         appContext,
         supabaseConfig.effectiveUserId()
     )
+    private val recoveryRepository = RecoveryRepository(
+        roomDatabase,
+        supabaseConfig.effectiveUserId()
+    )
     private val supplementRepository = SupplementRepository(
         roomDatabase,
         supabaseConfig.effectiveUserId(),
@@ -160,6 +166,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     val supplementRepositoryApi: SupplementRepositoryApi = supplementRepository
     val mealRecordRepositoryApi: MealRecordRepositoryApi = mealRecordRepository
     val nutritionCatalogRepositoryApi: NutritionCatalogRepositoryApi = nutritionCatalogRepository
+    val recoveryRepositoryApi: RecoveryRepositoryApi = recoveryRepository
     val routineRepositoryApi: RoutineRepositoryApi = routineRepository
     val homeRepository: HomeRepositoryApi = HomeReadRepository(
         FeatureHomeReadSources(
@@ -234,6 +241,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         cardioRepository.setUserId(ownerId)
         routineRepository.setUserId(ownerId)
         developmentRepository.normalizeLocalUserId(ownerId)
+        recoveryRepository.setUserId(ownerId)
         supplementRepository.normalizeLocalUserId(ownerId)
         mealRecordRepository.setUserId(ownerId)
     }
@@ -249,6 +257,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         cardioRepository.setUserId(ownerId)
         routineRepository.setUserId(ownerId)
         developmentRepository.setUserId(ownerId)
+        recoveryRepository.setUserId(ownerId)
         supplementRepository.setUserId(ownerId)
         mealRecordRepository.setUserId(ownerId)
     }
