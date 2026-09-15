@@ -4,6 +4,7 @@ import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotals
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadSummary
 import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary
+import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotRead
 
 /** Read-only meal port used by cross-feature read models. */
 interface MealReadApi {
@@ -13,4 +14,7 @@ interface MealReadApi {
     fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int
     fun dates(scope: AccountScope, startDate: String, endDate: String): List<String>
     fun nutritionSummary(scope: AccountScope, startDate: String, endDate: String): MealNutritionReadSummary
+
+    /** Reads historical meal structure from Meal-owned snapshots, never from mutable catalog rows. */
+    fun mealSnapshot(scope: AccountScope, recordId: String): MealSnapshotRead? = null
 }

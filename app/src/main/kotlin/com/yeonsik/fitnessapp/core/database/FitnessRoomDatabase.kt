@@ -1527,6 +1527,55 @@ interface MealRoomDao {
     ): EditableMealRecord?
 
     @Query(
+        "SELECT * FROM meal_records WHERE id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL LIMIT 1"
+    )
+    fun visibleMealRecord(recordId: String, userId: String): MealRecordsRoomEntity?
+
+    @Query(
+        "SELECT * FROM meal_record_items WHERE meal_record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC"
+    )
+    fun visibleMealItems(recordId: String, userId: String): List<MealRecordItemsRoomEntity>
+
+    @Query(
+        "SELECT * FROM meal_record_item_nutrients WHERE meal_record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY meal_record_item_id ASC, nutrient_code ASC"
+    )
+    fun visibleMealItemNutrients(
+        recordId: String,
+        userId: String
+    ): List<MealRecordItemNutrientsRoomEntity>
+
+    @Query(
+        "SELECT * FROM meal_record_item_components WHERE meal_record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY meal_record_item_id ASC, order_index ASC, id ASC"
+    )
+    fun visibleMealComponents(
+        recordId: String,
+        userId: String
+    ): List<MealRecordItemComponentsRoomEntity>
+
+    @Query(
+        "SELECT * FROM meal_record_item_component_nutrients " +
+            "WHERE meal_record_id=:recordId AND user_id=:userId AND deleted_at IS NULL " +
+            "ORDER BY meal_record_item_component_id ASC, nutrient_code ASC"
+    )
+    fun visibleMealComponentNutrients(
+        recordId: String,
+        userId: String
+    ): List<MealRecordItemComponentNutrientsRoomEntity>
+
+    @Query(
+        "SELECT * FROM meal_record_item_consumptions WHERE meal_record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY meal_record_item_id ASC, id ASC"
+    )
+    fun visibleMealConsumptions(
+        recordId: String,
+        userId: String
+    ): List<MealRecordItemConsumptionsRoomEntity>
+
+    @Query(
         "UPDATE meal_records SET metadata=:metadata, updated_at=:updatedAt " +
             "WHERE id=:recordId AND user_id=:userId AND device_id=:deviceId " +
             "AND deleted_at IS NULL"
@@ -1607,6 +1656,21 @@ interface MealRoomDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertNutrient(nutrient: MealRecordItemNutrientsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertComponent(component: MealRecordItemComponentsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertComponentNutrient(nutrient: MealRecordItemComponentNutrientsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertConsumption(consumption: MealRecordItemConsumptionsRoomEntity)
+
+    @Query(
+        "SELECT id FROM meal_record_items WHERE meal_record_id=:recordId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC LIMIT 1 OFFSET :orderIndex"
+    )
+    fun itemIdAtOrder(recordId: String, userId: String, orderIndex: Int): String?
 }
 
 @Dao

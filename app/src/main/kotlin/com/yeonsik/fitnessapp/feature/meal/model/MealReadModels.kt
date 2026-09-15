@@ -43,3 +43,89 @@ data class MealNutritionReadSummary(
     val mealCount: Int,
     val estimatedMealCount: Int
 )
+
+/** Immutable read projection rebuilt only from Meal-owned intake snapshot rows. */
+data class MealSnapshotRead(
+    val id: String,
+    val date: String,
+    val mealKind: String,
+    val metadata: String,
+    val items: List<MealSnapshotItemRead>
+)
+
+data class MealSnapshotItemRead(
+    val id: String,
+    val foodId: String?,
+    val foodName: String,
+    val brand: String?,
+    val manufacturerName: String?,
+    val brandName: String?,
+    val subBrandName: String?,
+    val productName: String?,
+    val packageAmount: Double?,
+    val packageUnit: String?,
+    val packageCount: Long?,
+    val foodKind: String?,
+    val quantity: Double,
+    val unit: String,
+    val basisAmount: Double?,
+    val basisUnit: String?,
+    val prepState: String?,
+    val sourceType: String?,
+    val sourceReference: String?,
+    val sourceVersion: String?,
+    val foodDataVersion: Long?,
+    val templateId: String?,
+    val templateRevision: Long?,
+    val portionBasis: String?,
+    val nominalServings: Double?,
+    val nutrition: MealSnapshotNutritionRead,
+    val components: List<MealSnapshotComponentRead>,
+    val consumption: MealSnapshotConsumptionRead?
+)
+
+data class MealSnapshotComponentRead(
+    val id: String,
+    val foodId: String?,
+    val foodName: String,
+    val brand: String?,
+    val foodKind: String?,
+    val quantity: Double,
+    val unit: String,
+    val basisAmount: Double?,
+    val basisUnit: String?,
+    val prepState: String?,
+    val groupKey: String?,
+    val groupType: String?,
+    val provisionType: String?,
+    val role: String?,
+    val memberId: String?,
+    val consumedFraction: Double?,
+    val sourceType: String?,
+    val sourceReference: String?,
+    val sourceVersion: String?,
+    val foodDataVersion: Long?,
+    val nutrition: MealSnapshotNutritionRead
+)
+
+data class MealSnapshotConsumptionRead(
+    val dinerCount: Long,
+    val consumedFraction: Double,
+    val shareMethod: String,
+    val confidence: String
+)
+
+data class MealSnapshotNutritionRead(
+    val calories: Double?,
+    val proteinGrams: Double?,
+    val carbsGrams: Double?,
+    val fatGrams: Double?,
+    val sodiumMg: Double?,
+    val saturatedFatGrams: Double?,
+    val sugarsGrams: Double?,
+    val fiberGrams: Double?,
+    val addedSugarsGrams: Double?,
+    val transFatGrams: Double?,
+    val cholesterolMg: Double?,
+    val micronutrients: Map<String, Double>
+)

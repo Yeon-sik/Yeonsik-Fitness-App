@@ -10,6 +10,11 @@ import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotal
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotals
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadSummary
 import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary
+import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotComponentRead
+import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotConsumptionRead
+import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotItemRead
+import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotNutritionRead
+import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotRead
 import org.json.JSONObject
 
 /** Meal-owned read adapter for the Home projection. */
@@ -67,6 +72,130 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
         }
         return MealNutritionReadSummary(protein, recordedDays, rows.size, estimatedMealCount)
     }
+
+    override fun mealSnapshot(scope: AccountScope, recordId: String): MealSnapshotRead? {
+        val normalizedId = recordId.trim()
+        if (normalizedId.isEmpty()) return null
+        val record = mealDao.visibleMealRecord(normalizedId, scope.ownerId) ?: return null
+        val items = mealDao.visibleMealItems(normalizedId, scope.ownerId)
+        val itemNutrients = mealDao.visibleMealItemNutrients(normalizedId, scope.ownerId)
+            .groupBy { it.mealRecordItemId }
+        val components = mealDao.visibleMealComponents(normalizedId, scope.ownerId)
+            .groupBy { it.mealRecordItemId }
+        val componentNutrients = mealDao.visibleMealComponentNutrients(normalizedId, scope.ownerId)
+            .groupBy { it.mealRecordItemComponentId }
+        val consumptions = mealDao.visibleMealConsumptions(normalizedId, scope.ownerId)
+            .groupBy { it.mealRecordItemId }
+
+        return MealSnapshotRead(
+            record.id,
+            record.date,
+            record.mealKind,
+            record.metadata,
+            items.map { item ->
+                MealSnapshotItemRead(
+                    id = item.id,
+                    foodId = item.foodId,
+                    foodName = item.foodNameSnapshot,
+                    brand = item.brandSnapshot,
+                    manufacturerName = item.manufacturerNameSnapshot,
+                    brandName = item.brandNameSnapshot,
+                    subBrandName = item.subBrandNameSnapshot,
+                    productName = item.productNameSnapshot,
+                    packageAmount = item.packageAmountSnapshot,
+                    packageUnit = item.packageUnitSnapshot,
+                    packageCount = item.packageCountSnapshot,
+                    foodKind = item.foodKindSnapshot,
+                    quantity = item.quantity,
+                    unit = item.unit,
+                    basisAmount = item.basisAmountSnapshot,
+                    basisUnit = item.basisUnitSnapshot,
+                    prepState = item.prepStateSnapshot,
+                    sourceType = item.sourceTypeSnapshot,
+                    sourceReference = item.sourceReferenceSnapshot,
+                    sourceVersion = item.sourceVersionSnapshot,
+                    foodDataVersion = item.foodDataVersionSnapshot,
+                    templateId = item.compositionTemplateId,
+                    templateRevision = item.compositionTemplateRevisionSnapshot,
+                    portionBasis = item.portionBasisSnapshot,
+                    nominalServings = item.nominalServingsSnapshot,
+                    nutrition = itemNutrition(item, itemNutrients[item.id].orEmpty()),
+                    components = components[item.id].orEmpty().map { component ->
+                        MealSnapshotComponentRead(
+                            id = component.id,
+                            foodId = component.foodId,
+                            foodName = component.foodNameSnapshot,
+                            brand = component.brandSnapshot,
+                            foodKind = component.foodKindSnapshot,
+                            quantity = component.quantity,
+                            unit = component.unit,
+                            basisAmount = component.basisAmountSnapshot,
+                            basisUnit = component.basisUnitSnapshot,
+                            prepState = component.prepStateSnapshot,
+                            groupKey = component.compositionGroupKeySnapshot,
+                            groupType = component.compositionGroupTypeSnapshot,
+                            provisionType = component.provisionTypeSnapshot,
+                            role = component.compositionRoleSnapshot,
+                            memberId = component.compositionMemberIdSnapshot,
+                            consumedFraction = component.consumedFraction,
+                            sourceType = component.sourceTypeSnapshot,
+                            sourceReference = component.sourceReferenceSnapshot,
+                            sourceVersion = component.sourceVersionSnapshot,
+                            foodDataVersion = component.foodDataVersionSnapshot,
+                            nutrition = componentNutrition(
+                                component,
+                                componentNutrients[component.id].orEmpty()
+                            )
+                        )
+                    },
+                    consumption = consumptions[item.id].orEmpty().firstOrNull()?.let { consumption ->
+                        MealSnapshotConsumptionRead(
+                            dinerCount = consumption.dinerCount,
+                            consumedFraction = consumption.consumedFraction,
+                            shareMethod = consumption.shareMethod,
+                            confidence = consumption.confidence
+                        )
+                    }
+                )
+            }
+        )
+    }
+
+    private fun itemNutrition(
+        item: com.yeonsik.fitnessapp.core.database.MealRecordItemsRoomEntity,
+        nutrients: List<com.yeonsik.fitnessapp.core.database.MealRecordItemNutrientsRoomEntity>
+    ): MealSnapshotNutritionRead = MealSnapshotNutritionRead(
+        calories = item.calories,
+        proteinGrams = item.proteinGrams,
+        carbsGrams = item.carbsGrams,
+        fatGrams = item.fatGrams,
+        sodiumMg = item.sodiumMg,
+        saturatedFatGrams = item.saturatedFatGrams,
+        sugarsGrams = item.sugarsGrams,
+        fiberGrams = item.fiberGrams,
+        addedSugarsGrams = item.addedSugarsGrams,
+        transFatGrams = item.transFatGrams,
+        cholesterolMg = item.cholesterolMg,
+        micronutrients = nutrients.associate { it.nutrientCode to it.amount }
+    )
+
+    private fun componentNutrition(
+        component: com.yeonsik.fitnessapp.core.database.MealRecordItemComponentsRoomEntity,
+        nutrients: List<com.yeonsik.fitnessapp.core.database.MealRecordItemComponentNutrientsRoomEntity>
+    ): MealSnapshotNutritionRead = MealSnapshotNutritionRead(
+        calories = component.calories,
+        proteinGrams = component.proteinGrams,
+        carbsGrams = component.carbsGrams,
+        fatGrams = component.fatGrams,
+        sodiumMg = component.sodiumMg,
+        saturatedFatGrams = component.saturatedFatGrams,
+        sugarsGrams = component.sugarsGrams,
+        fiberGrams = component.fiberGrams,
+        addedSugarsGrams = component.addedSugarsGrams,
+        transFatGrams = component.transFatGrams,
+        cholesterolMg = component.cholesterolMg,
+        micronutrients = nutrients.associate { it.nutrientCode to it.amount }
+    )
 
     private fun MealRoomDao.MealReadRow.toReadSummary(index: Int): MealReadSummary {
         val mealKind = MealRecordKind.normalize(firstNonBlank(mealKind, metadataValue(metadata, "meal_kind")))

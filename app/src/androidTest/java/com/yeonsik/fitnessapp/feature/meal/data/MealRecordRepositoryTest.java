@@ -15,6 +15,11 @@ import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
+import com.yeonsik.fitnessapp.data.DiningOutConsumption;
+import com.yeonsik.fitnessapp.data.DiningOutFulfillmentMode;
+import com.yeonsik.fitnessapp.data.DiningOutOption;
+import com.yeonsik.fitnessapp.data.MealCompositionItem;
+import com.yeonsik.fitnessapp.data.MealMenuSelection;
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
@@ -26,6 +31,7 @@ import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.util.Collections;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -119,6 +125,132 @@ public final class MealRecordRepositoryTest {
 
             assertThrows(IllegalStateException.class, () -> repository.saveFoodMeal(
                     new AccountScope(OWNER), LocalDate.now().toString(), "18:00", food.id, 1d));
+        } finally {
+            room.close();
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void complexDiningOutMealCopiesMenusComponentsServingAndConsumptionSnapshot() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
+        try {
+            NutritionCatalogRepository catalog = catalog(room, context, OWNER);
+            NutritionFood menu = catalog.saveFood(
+                    "세트 메뉴",
+                    NutritionFood.KIND_INGREDIENT,
+                    1d,
+                    NutritionUnit.SERVING,
+                    NutritionFood.PREP_AS_SERVED,
+                    requiredProfile(),
+                    "test",
+                    "catalog://set",
+                    "v1"
+            );
+            MealMenuSelection selection = MealMenuSelection.diningOut(
+                    MealCompositionItem.from(menu, 1d),
+                    OWNER,
+                    "테스트 식당",
+                    Collections.singletonList(DiningOutOption.grouped(
+                            "사이드",
+                            NutritionProfile.ofMacros(50d, 2d, 5d, 1d),
+                            null,
+                            "{\"composition_template_id\":\"template-test\","
+                                    + "\"composition_template_revision\":3}",
+                            "side",
+                            "side",
+                            "사이드",
+                            "optional",
+                            "member-side",
+                            "paid",
+                            0.5d
+                    ))
+            );
+            MealRecordRepository repository = new MealRecordRepository(
+                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER
+            );
+            String recordId = repository.saveComplexDiningOutMeal(
+                    new AccountScope(OWNER),
+                    LocalDate.now().minusDays(1).toString(),
+                    "12:30",
+                    "테스트 식당",
+                    "강남점",
+                    null,
+                    DiningOutFulfillmentMode.DINE_IN.value(),
+                    Collections.singletonList(selection),
+                    2d,
+                    DiningOutConsumption.manual(2, 0.5d)
+            );
+
+            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromLegacy(helper);
+            try (Cursor record = database.rawQuery(
+                    "SELECT composition_template_id, composition_template_revision, "
+                            + "fulfillment_mode, metadata FROM meal_records WHERE id = ?",
+                    new String[]{recordId}
+            )) {
+                assertTrue(record.moveToFirst());
+                assertEquals("template-test", record.getString(0));
+                assertEquals(3, record.getInt(1));
+                assertEquals("dine_in", record.getString(2));
+                assertTrue(record.getString(3).contains("\"consumed_fraction\":0.5"));
+            }
+            try (Cursor item = database.rawQuery(
+                    "SELECT portion_basis_snapshot, nominal_servings_snapshot, food_name_snapshot "
+                            + "FROM meal_record_items WHERE meal_record_id = ?",
+                    new String[]{recordId}
+            )) {
+                assertTrue(item.moveToFirst());
+                assertEquals("whole_menu", item.getString(0));
+                assertEquals(2d, item.getDouble(1), 0.001d);
+                assertEquals("세트 메뉴", item.getString(2));
+            }
+            try (Cursor component = database.rawQuery(
+                    "SELECT composition_group_key_snapshot, provision_type_snapshot, "
+                            + "consumed_fraction, sodium_mg FROM meal_record_item_components "
+                            + "WHERE meal_record_id = ?",
+                    new String[]{recordId}
+            )) {
+                assertTrue(component.moveToFirst());
+                assertEquals("side", component.getString(0));
+                assertEquals("paid", component.getString(1));
+                assertEquals(0.5d, component.getDouble(2), 0.001d);
+                assertTrue(component.isNull(3));
+            }
+            try (Cursor consumption = database.rawQuery(
+                    "SELECT diner_count, consumed_fraction, share_method FROM "
+                            + "meal_record_item_consumptions WHERE meal_record_id = ?",
+                    new String[]{recordId}
+            )) {
+                assertTrue(consumption.moveToFirst());
+                assertEquals(2, consumption.getInt(0));
+                assertEquals(0.5d, consumption.getDouble(1), 0.001d);
+                assertEquals("manual", consumption.getString(2));
+            }
+
+            database.execSQL(
+                    "UPDATE nutrition_foods SET name = '변경된 카탈로그', calories_kcal = 9999 "
+                            + "WHERE id = ?",
+                    new Object[]{menu.id}
+            );
+            com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotRead reloaded =
+                    new MealReadRepository(FitnessRoomDatabaseProvider.get(context))
+                            .mealSnapshot(new AccountScope(OWNER), recordId);
+            assertNotNull(reloaded);
+            assertEquals("세트 메뉴", reloaded.getItems().get(0).getFoodName());
+            assertEquals("사이드", reloaded.getItems().get(0).getComponents().get(0).getFoodName());
+            assertEquals(0.5d, reloaded.getItems().get(0).getConsumption().getConsumedFraction(), 0.001d);
+            try (Cursor snapshot = database.rawQuery(
+                    "SELECT food_name_snapshot, calories FROM meal_record_items "
+                            + "WHERE meal_record_id = ?",
+                    new String[]{recordId}
+            )) {
+                assertTrue(snapshot.moveToFirst());
+                assertEquals("세트 메뉴", snapshot.getString(0));
+                assertEquals(200d, snapshot.getDouble(1), 0.001d);
+            }
         } finally {
             room.close();
             helper.close();
