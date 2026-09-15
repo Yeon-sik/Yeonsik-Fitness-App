@@ -70,9 +70,9 @@ data class NutritionAnalysisMetric(
     }
 
     fun provenanceLabel(): String = when {
-        knownCount == 0 -> "값 없음"
         dataQuality == NutritionDataQuality.UNKNOWN && unknownProvenanceCount > 0 ->
             "출처 미상 ${unknownProvenanceCount}건"
+        knownCount == 0 -> "값 없음"
         dataQuality == NutritionDataQuality.MIXED ->
             "기록 ${recordedCount}건 · 추정 ${estimatedCount}건 · 출처 미상 ${unknownProvenanceCount}건"
         dataQuality == NutritionDataQuality.ESTIMATED -> "추정 ${estimatedCount}건"

@@ -1,12 +1,21 @@
 package com.yeonsik.fitnessapp.feature.nutrition.analysis.application
 
 import com.yeonsik.fitnessapp.data.NutritionProfile
+import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitnessapp.data.AthleteDailyCheckIn
+import com.yeonsik.fitnessapp.data.AthleteNutritionGoal
+import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
+import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary
+import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotals
+import com.yeonsik.fitnessapp.feature.meal.model.MealReadSummary
+import com.yeonsik.fitnessapp.feature.recovery.api.RecoveryRepositoryApi
 import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotComponentRead
 import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotConsumptionRead
 import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotItemRead
 import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotNutritionRead
 import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotRead
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionAnalysisTarget
+import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionDataQuality
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionTargetStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -96,6 +105,141 @@ class NutritionAnalysisServiceTest {
         assertFalse(report.proteinDistribution.isComplete)
     }
 
+    @Test
+    fun detailedNutrientsKeepMixedProvenanceExplicit() {
+        val recorded = snapshot(
+            id = "recorded-detail",
+            date = "2026-09-14",
+            metadata = "{\"nutrition_status\":\"recorded\"}",
+            item = item(
+                id = "recorded-detail-item",
+                name = "recorded meal",
+                nutrition = nutrition(
+                    calories = 100.0,
+                    protein = 10.0,
+                    carbs = 5.0,
+                    fat = 2.0,
+                    micronutrients = mapOf("iron" to 1.5)
+                )
+            )
+        )
+        val estimated = snapshot(
+            id = "estimated-detail",
+            date = "2026-09-15",
+            metadata = "{\"estimated\":true}",
+            item = item(
+                id = "estimated-detail-item",
+                name = "estimated meal",
+                nutrition = nutrition(
+                    calories = 200.0,
+                    protein = 20.0,
+                    carbs = 10.0,
+                    fat = 4.0,
+                    micronutrients = mapOf("iron" to 2.5)
+                )
+            )
+        )
+
+        val report = NutritionAnalysisCalculator.calculate(
+            java.time.LocalDate.parse("2026-09-14"),
+            java.time.LocalDate.parse("2026-09-15"),
+            listOf(recorded, estimated),
+            null
+        )
+
+        val calories = report.metric(NutritionProfile.CALORIES_KCAL)
+        assertEquals(NutritionDataQuality.MIXED, calories?.dataQuality)
+        assertEquals(1, calories?.recordedCount)
+        assertEquals(1, calories?.estimatedCount)
+        val iron = report.metric("iron")
+        assertEquals(4.0, iron?.knownSum ?: -1.0, 0.001)
+        assertEquals(2, iron?.knownCount)
+        assertEquals(0, iron?.missingCount)
+        assertEquals("mg", iron?.unit)
+        assertEquals(NutritionDataQuality.MIXED, iron?.dataQuality)
+        assertEquals(1, report.estimatedMealCount)
+    }
+
+    @Test
+    fun unknownMetadataNeverBecomesZeroAndMalformedMetadataDoesNotCrash() {
+        val unknown = snapshot(
+            id = "unknown",
+            date = "2026-09-14",
+            metadata = "{\"nutrition_status\":\"unknown\"}",
+            item = item(
+                id = "unknown-item",
+                name = "unknown meal",
+                nutrition = nutrition(100.0, 10.0, 5.0, 2.0)
+            )
+        )
+        val malformed = snapshot(
+            id = "malformed",
+            date = "2026-09-15",
+            metadata = "{not-json",
+            item = item(
+                id = "malformed-item",
+                name = "malformed meal",
+                nutrition = nutrition(50.0, 5.0, 2.0, 1.0, sodium = 20.0)
+            )
+        )
+
+        val report = NutritionAnalysisCalculator.calculate(
+            java.time.LocalDate.parse("2026-09-14"),
+            java.time.LocalDate.parse("2026-09-15"),
+            listOf(unknown, malformed),
+            null
+        )
+
+        assertEquals(NutritionDataQuality.UNKNOWN, report.meals[0].dataQuality)
+        assertEquals(NutritionDataQuality.RECORDED, report.meals[1].dataQuality)
+        val sodium = report.metric(NutritionProfile.SODIUM_MG)
+        assertEquals(20.0, sodium?.knownSum ?: -1.0, 0.001)
+        assertEquals(1, sodium?.missingCount)
+        assertEquals(1, sodium?.unknownProvenanceCount)
+        assertFalse(sodium?.isComplete == true)
+        assertEquals(NutritionDataQuality.MIXED, sodium?.dataQuality)
+        assertEquals(150.0, report.metric(NutritionProfile.CALORIES_KCAL)?.knownSum ?: -1.0, 0.001)
+    }
+    @Test
+    fun serviceForwardsAccountScopeAndScalesTargetsAcrossPeriod() {
+        val scope = AccountScope("owner-a")
+        val mealApi = RecordingMealReadApi(
+            listOf(
+                snapshot(
+                    id = "period-meal",
+                    date = "2026-09-14",
+                    metadata = "",
+                    item = item(
+                        id = "period-meal-item",
+                        name = "period meal",
+                        nutrition = nutrition(400.0, 40.0, 20.0, 10.0, sodium = 100.0)
+                    )
+                )
+            )
+        )
+        val recoveryApi = RecordingRecoveryApi(
+            AthleteNutritionGoal("maintenance", 100.0, 10.0, 20.0, 5.0, 1.0, 50.0, 2000)
+        )
+
+        val report = NutritionAnalysisService(mealApi, recoveryApi).analyze(
+            scope,
+            " 2026-09-14 ",
+            "2026-09-15"
+        )
+
+        assertEquals(scope, mealApi.requestedScope)
+        assertEquals("2026-09-14", mealApi.requestedStartDate)
+        assertEquals("2026-09-15", mealApi.requestedEndDate)
+        assertEquals(scope, recoveryApi.requestedScope)
+        assertEquals(2, report.calendarDayCount)
+        assertEquals(1, report.recordedDays)
+        val calories = report.comparison(NutritionProfile.CALORIES_KCAL)
+        assertEquals(200.0, calories?.targetValue ?: -1.0, 0.001)
+        assertEquals(2, calories?.targetDays)
+        assertEquals(2.0, calories?.ratio ?: -1.0, 0.001)
+        assertEquals(200.0, calories?.delta ?: 0.0, 0.001)
+        assertEquals(NutritionTargetStatus.ABOVE_TARGET, calories?.status)
+    }
     private fun snapshot(
         id: String,
         date: String,
@@ -180,7 +324,8 @@ class NutritionAnalysisServiceTest {
         protein: Double?,
         carbs: Double?,
         fat: Double?,
-        sodium: Double? = null
+        sodium: Double? = null,
+        micronutrients: Map<String, Double> = Collections.emptyMap()
     ) = MealSnapshotNutritionRead(
         calories = calories,
         proteinGrams = protein,
@@ -193,6 +338,66 @@ class NutritionAnalysisServiceTest {
         addedSugarsGrams = null,
         transFatGrams = null,
         cholesterolMg = null,
-        micronutrients = Collections.emptyMap()
+        micronutrients = micronutrients
     )
+    private class RecordingMealReadApi(
+        private val values: List<MealSnapshotRead>
+    ) : MealReadApi {
+        var requestedScope: AccountScope? = null
+        var requestedStartDate: String? = null
+        var requestedEndDate: String? = null
+
+        override fun mealCount(scope: AccountScope, date: String): Int = error("unused")
+
+        override fun mealTotals(scope: AccountScope, date: String): MealReadNutritionTotals =
+            error("unused")
+
+        override fun meals(scope: AccountScope, date: String): List<MealReadSummary> =
+            error("unused")
+
+        override fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int =
+            error("unused")
+
+        override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> =
+            error("unused")
+
+        override fun nutritionSummary(
+            scope: AccountScope,
+            startDate: String,
+            endDate: String
+        ): MealNutritionReadSummary = error("unused")
+
+        override fun mealSnapshots(
+            scope: AccountScope,
+            startDate: String,
+            endDate: String
+        ): List<MealSnapshotRead> {
+            requestedScope = scope
+            requestedStartDate = startDate
+            requestedEndDate = endDate
+            return values
+        }
+    }
+
+    private class RecordingRecoveryApi(
+        private val value: AthleteNutritionGoal?
+    ) : RecoveryRepositoryApi {
+        var requestedScope: AccountScope? = null
+
+        override fun nutritionGoal(scope: AccountScope): AthleteNutritionGoal? {
+            requestedScope = scope
+            return value
+        }
+
+        override fun saveNutritionGoal(scope: AccountScope, goal: AthleteNutritionGoal) {
+            error("unused")
+        }
+
+        override fun checkIn(scope: AccountScope, date: String): AthleteDailyCheckIn =
+            error("unused")
+
+        override fun saveCheckIn(scope: AccountScope, checkIn: AthleteDailyCheckIn) {
+            error("unused")
+        }
+    }
 }

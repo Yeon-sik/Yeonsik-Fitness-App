@@ -278,22 +278,41 @@ internal object NutritionAnalysisCalculator {
     }
 
     private fun nutritionStatus(metadata: String): String =
-        runCatching { JSONObject(metadata.ifBlank { "{}" }).optString("nutrition_status", "") }
-            .getOrDefault("")
+        metadataString(metadata, "nutrition_status")
+            .orEmpty()
             .trim()
             .lowercase(Locale.US)
 
     private fun isEstimated(metadata: String): Boolean {
-        val json = runCatching { JSONObject(metadata.ifBlank { "{}" }) }.getOrNull()
-            ?: return false
-        if (json.optString("nutrition_status", "").equals("estimated", ignoreCase = true)) {
+        if (nutritionStatus(metadata) == "estimated") {
             return true
         }
-        return when (val value = json.opt("estimated")) {
-            is Boolean -> value
-            is String -> value.equals("true", ignoreCase = true)
-            else -> false
+        return metadataBoolean(metadata, "estimated") == true
+    }
+
+    private fun metadataString(metadata: String, key: String): String? {
+        val parsed = runCatching {
+            JSONObject(metadata.ifBlank { "{}" }).optString(key, "")
+        }.getOrNull()?.trim()?.takeIf { it.isNotEmpty() }
+        if (parsed != null) return parsed
+        val pattern = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\"([^\"]*)\"")
+        return pattern.find(metadata)?.groupValues?.getOrNull(1)?.trim()
+            ?.takeIf { it.isNotEmpty() }
+    }
+
+    private fun metadataBoolean(metadata: String, key: String): Boolean? {
+        val parsed = runCatching {
+            JSONObject(metadata.ifBlank { "{}" }).opt(key)
+        }.getOrNull()
+        when (parsed) {
+            is Boolean -> return parsed
+            is String -> parsed.trim().toBooleanStrictOrNull()?.let { return it }
         }
+        val pattern = Regex(
+            "\"${Regex.escape(key)}\"\\s*:\\s*(true|false)",
+            RegexOption.IGNORE_CASE
+        )
+        return pattern.find(metadata)?.groupValues?.getOrNull(1)?.toBooleanStrictOrNull()
     }
 
     private fun emptyMetric(key: String): NutritionAnalysisMetric = NutritionAnalysisMetric(
