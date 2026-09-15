@@ -69,7 +69,7 @@ Compose UI / specialized View interop
 
 ### Specialized renderer interop
 
-`ExerciseIllustrationPreview`, `ExerciseMuscleModelRenderer`, `CardioRouteMap`은 현재도 재사용 가능한 specialized renderer다. 이미지/근육/경로 기능을 복구할 때 Compose 전체 renderer 재작성이나 legacy full-screen rollback 대신 AndroidView/Compose interop과 adapter를 우선한다. 제품 asset source는 `model_image/exercise-images/scenes/*.scene.json` 및 manifest가 참조하는 `final/` PNG다.
+`ExerciseIllustrationPreview`, `ExerciseMuscleModelRenderer`, `CardioRouteMap`은 현재도 재사용 가능한 specialized renderer다. 이미지/근육/경로 기능을 복구할 때 Compose 전체 renderer 재작성이나 legacy full-screen rollback 대신 AndroidView/Compose interop과 adapter를 우선한다. 이미지 pipeline의 제품 source는 `Fitness-Image-Pipeline/exercise-images/scenes/*.scene.json` 및 manifest가 참조하는 `final/` PNG이며, 앱 입력은 export에서 `generated/exercise-images/`로 동기화된다.
 
 ### External contracts
 

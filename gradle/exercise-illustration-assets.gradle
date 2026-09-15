@@ -65,9 +65,11 @@ class ExerciseIllustrationColorBox {
     }
 }
 
-def exerciseIllustrationSourceDir = rootProject.file("model_image/exercise-images")
-def exerciseIllustrationScenesDir = new File(exerciseIllustrationSourceDir, "scenes")
-def exerciseIllustrationIdentityFile = rootProject.file("model_image/data/exercise-image-identity-v1.json")
+def exerciseIllustrationInputDir = rootProject.file("generated/exercise-images")
+def exerciseIllustrationManifestFile = new File(exerciseIllustrationInputDir, "manifest.json")
+def exerciseIllustrationFallbackInputDir = rootProject.file("app/src/main/assets-fallback/exercise-images")
+def exerciseIllustrationFallbackManifestFile = new File(exerciseIllustrationFallbackInputDir, "manifest.json")
+def exerciseIllustrationSyncScript = rootProject.file("scripts/sync-exercise-images.mjs")
 def exerciseIllustrationGeneratedResDir = file("$buildDir/generated/exercise-illustration/res")
 def exerciseIllustrationGeneratedJavaDir = file("$buildDir/generated/exercise-illustration/src/main/java")
 def exerciseIllustrationGeneratedPackageDir = new File(
@@ -250,123 +252,181 @@ def downscaleExerciseIllustration = { File inputFile, File outputFile, int maxDi
     }
 }
 
-tasks.register("generateExerciseIllustrationAssets") {
-    inputs.files(fileTree(exerciseIllustrationScenesDir) { include("*.scene.json") })
-    inputs.file(exerciseIllustrationIdentityFile)
-    inputs.dir(exerciseIllustrationSourceDir)
-    outputs.dir(exerciseIllustrationGeneratedResDir)
-    outputs.dir(exerciseIllustrationGeneratedJavaDir)
+tasks.register("syncExerciseIllustrations") {
+    inputs.file(exerciseIllustrationSyncScript).optional()
+    outputs.dir(exerciseIllustrationInputDir)
+    outputs.upToDateWhen { false }
 
     doLast {
-        List<File> sceneFiles = fileTree(exerciseIllustrationScenesDir)
-                .matching { include("*.scene.json") }
-                .files
-                .sort { it.name }
-        if (sceneFiles.isEmpty()) {
-            throw new GradleException("No exercise scene manifests found in ${exerciseIllustrationScenesDir}")
+        String nodeExecutable = System.getenv("NODE_BINARY") ?: "node"
+        List<String> syncCommand = [nodeExecutable, exerciseIllustrationSyncScript.absolutePath]
+        String configuredPipelineDirectory = System.getenv("FITNESS_IMAGE_PIPELINE_DIR")
+        if (configuredPipelineDirectory != null && !configuredPipelineDirectory.isBlank()) {
+            syncCommand.add("--pipeline-dir")
+            syncCommand.add(configuredPipelineDirectory)
         }
+        try {
+            def process = new ProcessBuilder(syncCommand)
+                    .directory(rootProject.projectDir)
+                    .redirectErrorStream(true)
+                    .start()
+            process.inputStream.eachLine { String line -> logger.lifecycle(line) }
+            int exitValue = process.waitFor()
+            if (exitValue != 0) {
+                throw new GradleException(
+                        "Exercise image export validation failed; see syncExerciseIllustrations output."
+                )
+            }
+        } catch (GradleException error) {
+            throw error
+        } catch (Exception error) {
+            project.delete(exerciseIllustrationInputDir)
+            logger.warn(
+                    "[exercise-images] Node.js is unavailable; using the app runtime fallback. "
+                            + (error.message ?: "")
+            )
+        }
+    }
+}
+tasks.register("generateExerciseIllustrationAssets") {
+    outputs.dir(exerciseIllustrationGeneratedResDir)
+    outputs.dir(exerciseIllustrationGeneratedJavaDir)
+    outputs.upToDateWhen { false }
+    dependsOn("syncExerciseIllustrations")
 
+    doLast {
         project.delete(exerciseIllustrationGeneratedResDir, exerciseIllustrationGeneratedJavaDir)
         exerciseIllustrationGeneratedResDir.mkdirs()
         exerciseIllustrationGeneratedPackageDir.mkdirs()
 
-        Set<String> exerciseIds = [] as Set
-        Set<String> constantNames = [] as Set
-        Set<String> resourceNames = [] as Set
         List<Map> scenes = []
-        Map imageIdentity = (Map) new JsonSlurper().parse(exerciseIllustrationIdentityFile)
-        Map<String, Set<String>> illustrationKeysByScene = [:].withDefault { [] as Set<String> }
-        List<Map> imageIdentityEntries = []
-        imageIdentityEntries.addAll((imageIdentity.imageVariants ?: []) as List<Map>)
-        imageIdentityEntries.addAll((imageIdentity.familyDefaults ?: []) as List<Map>)
-        imageIdentityEntries.each { Map identity ->
-            if (identity.sceneFile && identity.illustrationKey) {
-                File identityScene = new File(exerciseIllustrationIdentityFile.parentFile, identity.sceneFile as String).canonicalFile
-                illustrationKeysByScene[identityScene.path] << identity.illustrationKey as String
-            }
+        Set<String> resourceNames = [] as Set
+        File assetInputDirectory = exerciseIllustrationInputDir
+        File assetManifestFile = exerciseIllustrationManifestFile
+        if (!assetManifestFile.isFile()) {
+            assetInputDirectory = exerciseIllustrationFallbackInputDir
+            assetManifestFile = exerciseIllustrationFallbackManifestFile
+            logger.warn(
+                    "[exercise-images] No synced export manifest; using the app-owned fallback."
+            )
         }
 
-        sceneFiles.each { File sceneFile ->
-            Map scene = (Map) new JsonSlurper().parse(sceneFile)
-            String exerciseId = scene.exerciseId as String
-            if (!exerciseId || !exerciseIds.add(exerciseId)) {
-                throw new GradleException("Missing or duplicate exerciseId in ${sceneFile.name}: ${exerciseId}")
+        if (assetManifestFile.isFile()) {
+            Map manifest
+            try {
+                manifest = (Map) new JsonSlurper().parse(assetManifestFile)
+            } catch (Exception error) {
+                throw new GradleException(
+                        "Unable to parse exercise image manifest: ${assetManifestFile}",
+                        error
+                )
             }
-            if (scene.schemaVersion != 1) {
-                throw new GradleException("Unsupported scene schemaVersion in ${sceneFile.name}: ${scene.schemaVersion}")
-            }
-            List<String> requiredFrameIds = ["A", "B"]
-            if (!(scene.frames instanceof List) || scene.frames.size() != requiredFrameIds.size()) {
-                throw new GradleException("Scene must contain exactly A and B image slots: ${sceneFile.name}")
-            }
-
-            String sceneBaseName = sceneFile.name.replaceFirst(/\.scene\.json$/, "")
-            String resourceBaseName = toExerciseResourceName(sceneBaseName)
-            String constantName = toExerciseIdConstantName(sceneBaseName)
-            if (!constantNames.add(constantName)) {
-                throw new GradleException("Exercise IDs produce the same Java constant: ${constantName}")
+            if (manifest.contractType != "fitness-exercise-image-export.v1"
+                    || manifest.schemaVersion != 1
+                    || !(manifest.exercises instanceof Map)) {
+                throw new GradleException(
+                        "Invalid exercise image export contract: ${assetManifestFile}"
+                )
             }
 
-            List<Map> frames = []
-            Set<String> frameIds = [] as Set
-            scene.frames.eachWithIndex { Map frame, int index ->
-                String frameId = frame.id as String
-                String relativeFile = frame.file as String
-                String expectedFrameId = requiredFrameIds[index]
-                if (!expectedFrameId.equals(frameId)) {
+            Set<String> constantNames = [] as Set
+            Set<String> slugs = [] as Set
+            manifest.exercises.entrySet().toList().sort { left, right ->
+                left.key.toString() <=> right.key.toString()
+            }.each { Map.Entry exportEntry ->
+                String exerciseId = exportEntry.key as String
+                Map entry = exportEntry.value as Map
+                if (!exerciseId || entry == null || entry.isEmpty()) {
+                    throw new GradleException("Missing export entry for exerciseId: ${exerciseId}")
+                }
+                if (entry.exerciseId != null && (entry.exerciseId as String) != exerciseId) {
                     throw new GradleException(
-                            "Scene frames must be ordered A then B in ${sceneFile.name}: ${frameId}")
+                            "Export exerciseId does not match its key: ${exerciseId}"
+                    )
                 }
-                if (!frameId || !frameIds.add(frameId)) {
-                    throw new GradleException("Missing or duplicate frame id in ${sceneFile.name}: ${frameId}")
+                String slug = entry.slug as String
+                if (!slug || !(slug ==~ /[a-z0-9]+(?:-[a-z0-9]+)*/)) {
+                    throw new GradleException("Invalid export slug for ${exerciseId}: ${slug}")
                 }
-                if (!relativeFile) {
-                    throw new GradleException("Missing frame file in ${sceneFile.name}: ${frameId}")
+                if (!slugs.add(slug)) {
+                    throw new GradleException("Duplicate export slug: ${slug}")
                 }
-                if (!(frame.durationMs instanceof Number) || frame.durationMs <= 0) {
-                    throw new GradleException("Invalid durationMs in ${sceneFile.name}: ${frameId}")
+                String resourceBaseName = toExerciseResourceName(slug)
+                String constantName = toExerciseIdConstantName(slug)
+                if (!constantNames.add(constantName)) {
+                    throw new GradleException("Exercise IDs produce the same Java constant: ${constantName}")
+                }
+                List<Map> exportFrames = entry.frames instanceof List ? entry.frames as List : []
+                if (exportFrames.size() != 2) {
+                    throw new GradleException("Export entry must contain exactly A and B frames: ${exerciseId}")
                 }
 
-                File sourceFile = new File(sceneFile.parentFile, relativeFile).canonicalFile
-                if (!sourceFile.isFile()
-                        || !sourceFile.path.startsWith(exerciseIllustrationSourceDir.canonicalPath + File.separator)) {
-                    throw new GradleException("Frame file is outside the exercise asset directory or missing: ${sourceFile}")
+                List<Map> frames = []
+                exportFrames.eachWithIndex { Map frame, int index ->
+                    String expectedFrameId = index == 0 ? "A" : "B"
+                    if (frame == null || frame.id as String != expectedFrameId) {
+                        throw new GradleException("Export frames must be ordered A then B: ${exerciseId}")
+                    }
+                    if (!(frame.durationMs instanceof Number) || frame.durationMs <= 0) {
+                        throw new GradleException("Invalid durationMs in export entry: ${exerciseId}:${expectedFrameId}")
+                    }
+                    String relativeFile = frame.file as String
+                    if (!relativeFile || new File(relativeFile).isAbsolute()) {
+                        throw new GradleException("Invalid frame file in export entry: ${exerciseId}:${expectedFrameId}")
+                    }
+                    File sourceFile = new File(assetInputDirectory, relativeFile).canonicalFile
+                    String inputRoot = assetInputDirectory.canonicalFile.path
+                    if (!sourceFile.isFile()
+                            || !(sourceFile.path == inputRoot
+                            || sourceFile.path.startsWith(inputRoot + File.separator))) {
+                        throw new GradleException(
+                                "Missing or out-of-bound exercise frame: ${sourceFile}"
+                        )
+                    }
+                    String resourceName = "${resourceBaseName}_${expectedFrameId.toLowerCase(Locale.ROOT)}"
+                    if (!resourceNames.add(resourceName)) {
+                        throw new GradleException("Duplicate generated drawable resource: ${resourceName}")
+                    }
+                    frames << [
+                            id: expectedFrameId,
+                            sourceFile: sourceFile,
+                            resourceName: resourceName,
+                            durationMs: frame.durationMs as int
+                    ]
                 }
 
-                String resourceName = "${resourceBaseName}_${frameId.toLowerCase(Locale.ROOT)}"
-                if (!resourceNames.add(resourceName)) {
-                    throw new GradleException("Duplicate generated drawable resource: ${resourceName}")
+                int preferredHeightDp = entry.preferredHeightDp instanceof Number
+                        ? entry.preferredHeightDp as int
+                        : 280
+                if (preferredHeightDp <= 0) {
+                    throw new GradleException("preferredHeightDp must be positive in export entry: ${exerciseId}")
                 }
-                frames << [
-                        id: frameId,
-                        sourceFile: sourceFile,
-                        resourceName: resourceName,
-                        durationMs: frame.durationMs as int
+                Set<String> lookupKeys = [] as Set<String>
+                lookupKeys << slug
+                if (entry.lookupKeys != null) {
+                    if (!(entry.lookupKeys instanceof List)) {
+                        throw new GradleException("lookupKeys must be an array in export entry: ${exerciseId}")
+                    }
+                    entry.lookupKeys.each { Object key ->
+                        if (!(key instanceof String) || !key.trim()) {
+                            throw new GradleException("lookupKeys must contain non-empty strings: ${exerciseId}")
+                        }
+                        lookupKeys << key.trim()
+                    }
+                }
+                scenes << [
+                        exerciseId: exerciseId,
+                        constantName: constantName,
+                        lookupKeys: lookupKeys.toList().sort(),
+                        preferredHeightDp: preferredHeightDp,
+                        frames: frames
                 ]
             }
-
-            int preferredHeightDp = scene.preferredHeightDp instanceof Number
-                    ? scene.preferredHeightDp as int
-                    : 280
-            if (preferredHeightDp <= 0) {
-                throw new GradleException("preferredHeightDp must be positive in ${sceneFile.name}")
-            }
-
-            Set<String> illustrationKeys = [] as Set<String>
-            illustrationKeys.addAll(illustrationKeysByScene[sceneFile.canonicalFile.path] ?: [])
-            if (scene.imageIdentity?.illustrationKey) {
-                illustrationKeys << scene.imageIdentity.illustrationKey as String
-            }
-
-            scenes << [
-                    exerciseId: exerciseId,
-                    constantName: constantName,
-                    illustrationKeys: illustrationKeys.toList().sort(),
-                    preferredHeightDp: preferredHeightDp,
-                    frames: frames
-            ]
+        } else {
+            logger.warn(
+                    "[exercise-images] No synced export or app-owned fallback manifest; using placeholder lookup."
+            )
         }
-
         scenes.each { Map scene ->
             scene.frames.each { Map frame ->
                 File outputFile = new File(
@@ -382,21 +442,23 @@ tasks.register("generateExerciseIllustrationAssets") {
                 if (generated == null
                         || generated.width > exerciseIllustrationMaxDimension
                         || generated.height > exerciseIllustrationMaxDimension) {
-                    throw new GradleException("Generated drawable exceeds ${exerciseIllustrationMaxDimension}px: ${outputFile}")
+                    throw new GradleException(
+                            "Generated drawable exceeds ${exerciseIllustrationMaxDimension}px: ${outputFile}"
+                    )
                 }
             }
         }
 
         def lookupCondition = { Map scene ->
             List<String> lookupKeys = [scene.constantName as String]
-            lookupKeys.addAll((scene.illustrationKeys as List<String>).collect { javaStringLiteral(it) })
+            lookupKeys.addAll((scene.lookupKeys as List<String>).collect { javaStringLiteral(it) })
             lookupKeys.collect { String key -> "${key}.equals(exerciseId)" }.join(" || ")
         }
 
         StringBuilder javaSource = new StringBuilder()
         javaSource.append("package com.yeonsik.fitnessapp.exercise;\n\n")
         javaSource.append("import com.yeonsik.fitnessapp.R;\n\n")
-        javaSource.append("/** Generated from model_image/exercise-images/scenes/*.scene.json. Do not edit. */\n")
+        javaSource.append("/** Generated from generated/exercise-images/manifest.json. Do not edit. */\n")
         javaSource.append("public final class ExerciseIllustrationCatalog {\n")
         scenes.each { Map scene ->
             javaSource.append("    public static final String ${scene.constantName} = ${javaStringLiteral(scene.exerciseId as String)};\n")
@@ -456,7 +518,6 @@ tasks.register("generateExerciseIllustrationAssets") {
         )
     }
 }
-
 android {
     sourceSets {
         main {
