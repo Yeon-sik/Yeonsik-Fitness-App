@@ -218,7 +218,7 @@ function warning(logger, message) {
 
 export async function syncExerciseImages({
   rootDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), ".."),
-  pipelineDirectory = path.join(rootDirectory, "Fitness-Image-Pipeline"),
+  pipelineDirectory = path.join(rootDirectory, "Fitness-Image"),
   exportDirectory = path.join(pipelineDirectory, "export"),
   outputDirectory = path.join(rootDirectory, "generated", "exercise-images"),
   fallbackDirectory = path.join(rootDirectory, "app", "src", "main", "assets-fallback", "exercise-images"),

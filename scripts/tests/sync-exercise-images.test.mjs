@@ -44,7 +44,7 @@ async function writeManifest(exportDirectory, fileName = "images/example-a.png")
 test("syncs a valid export into generated exercise images", async (t) => {
   const rootDirectory = await temporaryRoot();
   t.after(() => fs.rm(rootDirectory, { recursive: true, force: true }));
-  const exportDirectory = path.join(rootDirectory, "Fitness-Image-Pipeline", "export");
+  const exportDirectory = path.join(rootDirectory, "Fitness-Image", "export");
   const outputDirectory = path.join(rootDirectory, "generated", "exercise-images");
   await writeManifest(exportDirectory);
 
@@ -73,7 +73,7 @@ test("clears stale generated output when the pipeline is missing", async (t) => 
 test("does not publish a partially referenced export", async (t) => {
   const rootDirectory = await temporaryRoot();
   t.after(() => fs.rm(rootDirectory, { recursive: true, force: true }));
-  const exportDirectory = path.join(rootDirectory, "Fitness-Image-Pipeline", "export");
+  const exportDirectory = path.join(rootDirectory, "Fitness-Image", "export");
   const outputDirectory = path.join(rootDirectory, "generated", "exercise-images");
   await writeManifest(exportDirectory, "images/missing-a.png");
   await fs.rm(path.join(exportDirectory, "images", "missing-a.png"));
@@ -101,7 +101,7 @@ async function writeManifestDocument(directory, manifest, files) {
 test("rejects a structurally invalid export manifest", async (t) => {
   const rootDirectory = await temporaryRoot();
   t.after(() => fs.rm(rootDirectory, { recursive: true, force: true }));
-  const exportDirectory = path.join(rootDirectory, "Fitness-Image-Pipeline", "export");
+  const exportDirectory = path.join(rootDirectory, "Fitness-Image", "export");
   await fs.mkdir(exportDirectory, { recursive: true });
   await fs.writeFile(path.join(exportDirectory, "manifest.json"), "{\"schemaVersion\": 99}\n", "utf8");
 
@@ -114,7 +114,7 @@ test("rejects a structurally invalid export manifest", async (t) => {
 test("uses export images for healthy exercises and fallback only for affected exercises", async (t) => {
   const rootDirectory = await temporaryRoot();
   t.after(() => fs.rm(rootDirectory, { recursive: true, force: true }));
-  const exportDirectory = path.join(rootDirectory, "Fitness-Image-Pipeline", "export");
+  const exportDirectory = path.join(rootDirectory, "Fitness-Image", "export");
   const fallbackDirectory = path.join(rootDirectory, "app", "src", "main", "assets-fallback", "exercise-images");
   const outputDirectory = path.join(rootDirectory, "generated", "exercise-images");
   const makeEntry = (slug) => ({
