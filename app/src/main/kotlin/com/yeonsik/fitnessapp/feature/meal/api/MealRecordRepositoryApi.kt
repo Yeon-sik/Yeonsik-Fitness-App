@@ -1,6 +1,9 @@
 package com.yeonsik.fitnessapp.feature.meal.api
 
 import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitnessapp.data.DiningOutConsumption
+import com.yeonsik.fitnessapp.data.DiningOutIdentity
+import com.yeonsik.fitnessapp.data.MealMenuSelection
 
 /** Meal write port used by the meal application layer. */
 interface MealRecordRepositoryApi {
@@ -39,4 +42,23 @@ interface MealRecordRepositoryApi {
 
     /** Tombstones the meal and its owned snapshot rows without changing another date. */
     fun deleteMeal(scope: AccountScope, recordId: String): Boolean
+
+    /**
+     * Records multiple menus as one Meal-owned intake snapshot.
+     *
+     * Catalog/template values are resolved by the caller and copied by the repository; this
+     * boundary never makes historical reads depend on mutable catalog rows.
+     */
+    fun saveComplexDiningOutMeal(
+        scope: AccountScope,
+        date: String,
+        mealTime: String,
+        storeName: String,
+        branchName: String?,
+        identity: DiningOutIdentity?,
+        fulfillmentMode: String?,
+        menuSelections: List<MealMenuSelection>,
+        nominalServings: Double,
+        consumption: DiningOutConsumption
+    ): String
 }
