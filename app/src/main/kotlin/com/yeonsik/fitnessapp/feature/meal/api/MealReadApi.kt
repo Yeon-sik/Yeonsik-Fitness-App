@@ -15,6 +15,13 @@ interface MealReadApi {
     fun dates(scope: AccountScope, startDate: String, endDate: String): List<String>
     fun nutritionSummary(scope: AccountScope, startDate: String, endDate: String): MealNutritionReadSummary
 
+    /** Returns immutable Meal-owned snapshots for a date range. */
+    fun mealSnapshots(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<MealSnapshotRead> = emptyList()
+
     /** Reads historical meal structure from Meal-owned snapshots, never from mutable catalog rows. */
     fun mealSnapshot(scope: AccountScope, recordId: String): MealSnapshotRead? = null
 }

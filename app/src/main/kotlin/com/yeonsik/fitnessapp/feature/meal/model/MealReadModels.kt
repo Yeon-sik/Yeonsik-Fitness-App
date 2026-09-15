@@ -50,7 +50,22 @@ data class MealSnapshotRead(
     val date: String,
     val mealKind: String,
     val metadata: String,
-    val items: List<MealSnapshotItemRead>
+    val items: List<MealSnapshotItemRead>,
+    /** Record-level fallback for legacy rows without item snapshots. */
+    val nutrition: MealSnapshotNutritionRead = MealSnapshotNutritionRead(
+        calories = null,
+        proteinGrams = null,
+        carbsGrams = null,
+        fatGrams = null,
+        sodiumMg = null,
+        saturatedFatGrams = null,
+        sugarsGrams = null,
+        fiberGrams = null,
+        addedSugarsGrams = null,
+        transFatGrams = null,
+        cholesterolMg = null,
+        micronutrients = emptyMap()
+    )
 )
 
 data class MealSnapshotItemRead(
