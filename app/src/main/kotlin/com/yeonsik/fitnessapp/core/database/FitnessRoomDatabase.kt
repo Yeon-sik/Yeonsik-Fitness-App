@@ -347,6 +347,60 @@ interface AccountOwnershipRoomDao {
 }
 
 @Dao
+interface CompositionTemplateRoomDao {
+    @Query(
+        "SELECT * FROM composition_templates WHERE id=:templateId AND user_id=:userId " +
+            "AND deleted_at IS NULL LIMIT 1"
+    )
+    fun visibleTemplate(templateId: String, userId: String): CompositionTemplatesRoomEntity?
+
+    @Query(
+        "SELECT * FROM composition_templates WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND (:kind IS NULL OR template_kind=:kind) ORDER BY updated_at DESC, id ASC"
+    )
+    fun visibleTemplates(userId: String, kind: String?): List<CompositionTemplatesRoomEntity>
+
+    @Query(
+        "SELECT * FROM composition_groups WHERE template_id=:templateId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC"
+    )
+    fun visibleGroups(templateId: String, userId: String): List<CompositionGroupsRoomEntity>
+
+    @Query(
+        "SELECT * FROM composition_members WHERE group_id=:groupId AND user_id=:userId " +
+            "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC"
+    )
+    fun visibleMembers(groupId: String, userId: String): List<CompositionMembersRoomEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun replaceTemplate(template: CompositionTemplatesRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun replaceGroup(group: CompositionGroupsRoomEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun replaceMember(member: CompositionMembersRoomEntity)
+
+    @Query(
+        "UPDATE composition_templates SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE id=:templateId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneTemplate(templateId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE composition_groups SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE template_id=:templateId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneGroups(templateId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE composition_members SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE template_id=:templateId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneMembers(templateId: String, userId: String, deletedAt: String, updatedAt: String): Int
+}
+
+@Dao
 interface LegacyFitnessSyncRoomDao {
     @Query("SELECT * FROM devices WHERE user_id=:userId AND id=:deviceId LIMIT 1")
     fun device(userId: String, deviceId: String): DevicesRoomEntity?
@@ -2084,4 +2138,5 @@ abstract class FitnessRoomDatabase : RoomDatabase() {
     abstract fun nutritionRoomDao(): NutritionRoomDao
     abstract fun developmentRoomDao(): DevelopmentRoomDao
     abstract fun recoveryRoomDao(): RecoveryRoomDao
+    abstract fun compositionTemplateRoomDao(): CompositionTemplateRoomDao
 }

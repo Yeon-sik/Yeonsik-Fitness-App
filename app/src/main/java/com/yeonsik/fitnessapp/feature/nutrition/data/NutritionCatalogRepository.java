@@ -34,6 +34,7 @@ import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionComponentSyncRow;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodSyncRow;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionNutrientSyncRow;
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionProductLinkSyncRow;
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRecipeComponent;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -277,6 +278,7 @@ public final class NutritionCatalogRepository implements
      * rows for the same package are represented by their newest row because readFoods is ordered
      * by updated_at descending.
      */
+    @Override
     public List<NutritionFood> packagedFoodVariants(NutritionFood product) {
         if (product == null || !product.isPackagedFood()) {
             return new ArrayList<>();
@@ -304,6 +306,7 @@ public final class NutritionCatalogRepository implements
     }
 
     /** Canonical product identity; package amount/count are deliberately excluded. */
+    @Override
     public String canonicalPackagedProductKey(NutritionFood food) {
         if (food == null) {
             return "unresolved|product";
@@ -375,6 +378,7 @@ public final class NutritionCatalogRepository implements
                 .get(normalizedId));
     }
 
+    @Override
     public List<NutritionFood> searchVerifiedFoods(String query, int limit) {
         int safeLimit = Math.max(1, Math.min(limit, VERIFIED_FOOD_SEARCH_LIMIT_MAX));
         String term = query == null ? "" : query.trim();
@@ -786,6 +790,7 @@ public final class NutritionCatalogRepository implements
     }
 
     /** Saved recipes for the menu browser. */
+    @Override
     public List<NutritionFood> savedRecipes() {
         List<NutritionFood> recipes = new ArrayList<>();
         for (NutritionFoodsRoomEntity entity : nutritionDao.visibleFoods(userId)) {
@@ -824,6 +829,20 @@ public final class NutritionCatalogRepository implements
             }
         }
         return components;
+    }
+
+    /** Public API projection that keeps callers independent from this repository class. */
+    @Override
+    public List<NutritionRecipeComponent> recipeComponentModels(String recipeId) {
+        List<NutritionRecipeComponent> models = new ArrayList<>();
+        for (RecipeComponent component : recipeComponents(recipeId)) {
+            models.add(new NutritionRecipeComponent(
+                    component.food,
+                    component.quantity,
+                    component.unit
+            ));
+        }
+        return models;
     }
 
     private List<NutritionFood> buildFoods(List<NutritionFoodsRoomEntity> entities) {
@@ -1812,6 +1831,7 @@ public final class NutritionCatalogRepository implements
     }
 
     /** Active user-approved PriceTrace link, enriched only from the local read cache. */
+    @Override
     public ProductNutritionLink approvedProductLink(String nutritionFoodId) {
         List<ProductNutritionLink> links = readProductLinks(
                 nutritionFoodId,
@@ -1830,6 +1850,7 @@ public final class NutritionCatalogRepository implements
     }
 
     /** Pending owner-specific suggestions written by a trusted PriceTrace integration. */
+    @Override
     public List<ProductNutritionLink> pendingProductLinkSuggestions(String nutritionFoodId) {
         return readProductLinks(nutritionFoodId, ProductNutritionLink.STATUS_SUGGESTED);
     }
@@ -1855,6 +1876,7 @@ public final class NutritionCatalogRepository implements
      * Creates an immediately approved manual link only after the caller selected an exact ID.
      * No name-based match is accepted here.
      */
+    @Override
     public ProductNutritionLink linkProduct(String nutritionFoodId, ProductReadV1 product) {
         if (product == null) {
             throw new IllegalArgumentException("연결할 표준상품을 선택하세요.");
@@ -1896,6 +1918,7 @@ public final class NutritionCatalogRepository implements
     }
 
     /** Approves only the catalogProductId carried by the selected suggestion row. */
+    @Override
     public ProductNutritionLink approveProductSuggestion(
             String suggestionId,
             ProductReadV1 exactProduct
@@ -1932,12 +1955,14 @@ public final class NutritionCatalogRepository implements
         return approvedProductLink(nutritionFoodId);
     }
 
+    @Override
     public boolean rejectProductSuggestion(String suggestionId) {
         String timestamp = now();
         return nutritionDao.rejectSuggestedLink(suggestionId, userId, timestamp, timestamp) > 0;
     }
 
     /** Soft-unlinks without deleting either the Nutrition entry or any meal snapshot. */
+    @Override
     public boolean unlinkProduct(String nutritionFoodId) {
         ProductNutritionLink existing = approvedProductLink(nutritionFoodId);
         if (existing == null) {
