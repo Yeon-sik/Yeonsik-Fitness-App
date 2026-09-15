@@ -1,6 +1,8 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseHistory
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitnessapp.state.FitnessScreen
@@ -35,7 +37,16 @@ internal interface StrengthActions {
 internal interface WorkoutDetailActions {
     fun back()
     fun refresh()
+    fun openExercise(exerciseId: String)
     fun replaceExercise(exerciseId: String)
+    fun deleteExercise(recordId: String, exerciseId: String, onResult: (Boolean) -> Unit)
+    fun applyPreviousHistory(
+        recordId: String,
+        exerciseId: String,
+        currentSets: List<WorkoutSet>,
+        history: WorkoutExerciseHistory,
+        onResult: (Boolean) -> Unit
+    )
     fun addSet(
         recordId: String,
         exerciseId: String,

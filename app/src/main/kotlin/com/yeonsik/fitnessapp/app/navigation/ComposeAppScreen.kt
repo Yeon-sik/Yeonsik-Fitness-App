@@ -54,6 +54,8 @@ import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitnessapp.feature.settings.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitnessapp.feature.workout.ui.*
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseHistory
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
 import kotlinx.coroutines.delay
@@ -1396,9 +1398,37 @@ private fun AppDestination(
                             )
                         }
                     }
+                    override fun openExercise(exerciseId: String) {
+                        viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
+                        navigation.replace(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+                    }
                     override fun replaceExercise(exerciseId: String) {
                         viewModels.getExercisePicker().rememberReplacementExercise(exerciseId)
                         navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
+                    }
+
+                    override fun deleteExercise(
+                        recordId: String,
+                        exerciseId: String,
+                        onResult: (Boolean) -> Unit
+                    ) {
+                        viewModels.getWorkoutExerciseDetail().deleteExercise(
+                            AccountScope(ownerId), recordId, exerciseId,
+                            java.util.function.Consumer { result -> onResult(result) }
+                        )
+                    }
+
+                    override fun applyPreviousHistory(
+                        recordId: String,
+                        exerciseId: String,
+                        currentSets: List<WorkoutSet>,
+                        history: WorkoutExerciseHistory,
+                        onResult: (Boolean) -> Unit
+                    ) {
+                        viewModels.getWorkoutExerciseDetail().applyPreviousHistory(
+                            AccountScope(ownerId), recordId, exerciseId, currentSets, history,
+                            java.util.function.Consumer { result -> onResult(result) }
+                        )
                     }
 
                     override fun addSet(
