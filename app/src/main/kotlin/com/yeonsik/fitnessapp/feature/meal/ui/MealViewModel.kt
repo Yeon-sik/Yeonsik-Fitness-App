@@ -11,6 +11,7 @@ import org.json.JSONObject
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
+import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ExecutorService
@@ -36,6 +37,13 @@ data class DiningOutDraft(
     val sourceLocationCode: String = ""
 )
 
+data class MealRecordEditor(
+    val recordId: String,
+    val date: String,
+    val title: String,
+    val time: String
+)
+
 sealed interface MealUiState {
     data object Idle : MealUiState
     data class Ready(
@@ -51,7 +59,9 @@ sealed interface MealUiState {
         val notice: String? = null,
         val selectedFood: NutritionFood? = null,
         val quantity: String = "",
-        val priceTraceQuery: String = ""
+        val priceTraceQuery: String = "",
+        val recordEditor: MealRecordEditor? = null,
+        val recordActionSaving: Boolean = false
     ) : MealUiState
 }
 
@@ -86,11 +96,23 @@ class MealViewModel @JvmOverloads constructor(
     private var selectedFood: NutritionFood? = null
 
     fun enter(scope: AccountScope, date: String) {
+        val dateChanged = ownerId != scope.ownerId || this.date != date
         ownerId = scope.ownerId
         this.date = date
         mealRepository.setUserId(scope.ownerId)
         val request = ++requestVersion
-        mutableState.value = ready().copy(ownerId = scope.ownerId, date = date)
+        if (dateChanged) {
+            selectedFood = null
+            clearDraftStorage()
+        }
+        mutableState.value = ready().copy(
+            ownerId = scope.ownerId,
+            date = date,
+            recordEditor = null,
+            recordActionSaving = false,
+            error = null,
+            notice = null
+        )
         mutablePriceTraceState.value = PriceTraceUiState.Ready(
             ownerId = scope.ownerId,
             query = savedStateHandle[KEY_PRICE_TRACE_QUERY] ?: ""
@@ -161,6 +183,100 @@ class MealViewModel @JvmOverloads constructor(
     fun updateSugars(value: String) = draft(KEY_SUGARS, value)
     fun updateSaturatedFat(value: String) = draft(KEY_SATURATED_FAT, value)
     fun updateTime(value: String) = draft(KEY_TIME, value)
+
+    fun openRecordEditor(meal: HomeMealSummary) {
+        if (meal.id.isBlank() || meal.date != date) return
+        ++requestVersion
+        mutableState.value = ready().copy(
+            recordEditor = MealRecordEditor(
+                recordId = meal.id,
+                date = meal.date,
+                title = meal.previewTitle,
+                time = meal.mealTime.takeUnless { it == "시간 미기록" }.orEmpty()
+            ),
+            error = null,
+            notice = null
+        )
+    }
+
+    fun closeRecordEditor() {
+        ++requestVersion
+        update { it.copy(recordEditor = null, recordActionSaving = false, error = null) }
+    }
+
+    fun saveMealTime(scope: AccountScope, recordId: String, mealTime: String) {
+        val state = ready()
+        if (scope.ownerId != ownerId || state.recordEditor?.recordId != recordId || state.recordActionSaving) {
+            return
+        }
+        val request = ++requestVersion
+        mutableState.value = state.copy(
+            recordActionSaving = true,
+            error = null,
+            notice = null
+        )
+        executor.execute {
+            try {
+                if (!mealRepository.updateMealTime(scope, recordId, mealTime)) {
+                    throw IllegalStateException("이 식사 시간을 수정할 수 없습니다.")
+                }
+                if (request == requestVersion && ownerId == scope.ownerId) {
+                    mutableState.postValue(
+                        ready().copy(
+                            recordEditor = null,
+                            recordActionSaving = false,
+                            notice = "식사 시간을 수정했습니다."
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                if (request == requestVersion && ownerId == scope.ownerId) {
+                    mutableState.postValue(
+                        ready().copy(
+                            recordActionSaving = false,
+                            error = error.message ?: "식사 시간을 수정하지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun deleteMeal(scope: AccountScope, recordId: String) {
+        val state = ready()
+        if (scope.ownerId != ownerId || state.recordActionSaving) return
+        val request = ++requestVersion
+        mutableState.value = state.copy(
+            recordActionSaving = true,
+            error = null,
+            notice = null
+        )
+        executor.execute {
+            try {
+                if (!mealRepository.deleteMeal(scope, recordId)) {
+                    throw IllegalStateException("이 식사를 삭제할 수 없습니다.")
+                }
+                if (request == requestVersion && ownerId == scope.ownerId) {
+                    mutableState.postValue(
+                        ready().copy(
+                            recordEditor = null,
+                            recordActionSaving = false,
+                            notice = "식사 기록을 삭제했습니다."
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                if (request == requestVersion && ownerId == scope.ownerId) {
+                    mutableState.postValue(
+                        ready().copy(
+                            recordActionSaving = false,
+                            error = error.message ?: "식사 기록을 삭제하지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
 
     fun updatePriceTraceQuery(value: String) {
         savedStateHandle[KEY_PRICE_TRACE_QUERY] = value
@@ -527,6 +643,10 @@ class MealViewModel @JvmOverloads constructor(
     )
 
     private fun resetSavedDraft() {
+        clearDraftStorage()
+    }
+
+    private fun clearDraftStorage() {
         listOf(KEY_STORE, KEY_BRANCH, KEY_MENU, KEY_CALORIES, KEY_CARBS, KEY_PROTEIN,
             KEY_FAT, KEY_SODIUM, KEY_SUGARS, KEY_SATURATED_FAT, KEY_TIME, KEY_QUERY,
             KEY_FOOD_ID, KEY_QUANTITY, KEY_RESTAURANT_ID, KEY_RESTAURANT_LOCATION_ID,

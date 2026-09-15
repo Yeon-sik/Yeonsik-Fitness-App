@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
+import static org.junit.Assert.assertTrue;
 
 @RunWith(AndroidJUnit4.class)
 public final class MealRecordRepositoryTest {
@@ -118,6 +119,72 @@ public final class MealRecordRepositoryTest {
 
             assertThrows(IllegalStateException.class, () -> repository.saveFoodMeal(
                     new AccountScope(OWNER), LocalDate.now().toString(), "18:00", food.id, 1d));
+        } finally {
+            room.close();
+            helper.close();
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void historicalMealCanBeRetimedAndDeletedWithoutChangingAnotherDate() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
+        try {
+            NutritionCatalogRepository catalog = catalog(room, context, OWNER);
+            NutritionFood food = catalog.saveFood(
+                    "기간 검증 식품",
+                    NutritionFood.KIND_INGREDIENT,
+                    1d,
+                    NutritionUnit.SERVING,
+                    NutritionFood.PREP_AS_SERVED,
+                    requiredProfile(),
+                    "test",
+                    null,
+                    "v1"
+            );
+            MealRecordRepository repository = new MealRecordRepository(
+                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER);
+            MealReadRepository readRepository = new MealReadRepository(
+                    FitnessRoomDatabaseProvider.get(context));
+            AccountScope scope = new AccountScope(OWNER);
+            String today = LocalDate.now().toString();
+            String yesterday = LocalDate.now().minusDays(1).toString();
+
+            String yesterdayId = repository.saveFoodMeal(
+                    scope, yesterday, "08:00", food.id, 1d);
+            String todayId = repository.saveFoodMeal(
+                    scope, today, "12:00", food.id, 1d);
+
+            assertEquals(1, readRepository.mealCount(scope, yesterday));
+            assertEquals(1, readRepository.mealCount(scope, today));
+            assertTrue(repository.updateMealTime(scope, yesterdayId, "18:40"));
+            assertEquals("18:40", readRepository.meals(scope, yesterday).get(0).getMealTime());
+            assertEquals("12:00", readRepository.meals(scope, today).get(0).getMealTime());
+
+            assertThrows(IllegalStateException.class, () ->
+                    repository.deleteMeal(new AccountScope("another-owner"), yesterdayId));
+            assertTrue(repository.deleteMeal(scope, yesterdayId));
+            assertEquals(0, readRepository.mealCount(scope, yesterday));
+            assertEquals(1, readRepository.mealCount(scope, today));
+
+            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromLegacy(helper);
+            try (Cursor record = database.rawQuery(
+                    "SELECT deleted_at FROM meal_records WHERE id = ?",
+                    new String[]{yesterdayId}
+            )) {
+                assertTrue(record.moveToFirst());
+                assertNotNull(record.getString(0));
+            }
+            try (Cursor item = database.rawQuery(
+                    "SELECT deleted_at FROM meal_record_items WHERE meal_record_id = ?",
+                    new String[]{yesterdayId}
+            )) {
+                assertTrue(item.moveToFirst());
+                assertNotNull(item.getString(0));
+            }
+            assertNotNull(todayId);
         } finally {
             room.close();
             helper.close();

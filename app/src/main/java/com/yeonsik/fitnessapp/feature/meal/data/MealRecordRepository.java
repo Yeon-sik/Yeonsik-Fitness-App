@@ -337,6 +337,65 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         }
     }
 
+    @Override
+    public boolean updateMealTime(AccountScope scope, String recordId, String mealTime) {
+        String ownerId = requireActiveOwner(scope);
+        String normalizedId = optional(recordId);
+        if (normalizedId == null) {
+            return false;
+        }
+        MealRoomDao.EditableMealRecord existing = mealDao.editableMealRecord(
+                normalizedId,
+                ownerId,
+                DEVICE_ID
+        );
+        if (existing == null) {
+            return false;
+        }
+        LocalDate recordDate = MealEntryPolicy.requireRecordDate(existing.getDate(), LocalDate.now());
+        String eatenAt = MealEntryPolicy.eatenAt(recordDate, mealTime, ZoneId.systemDefault());
+        String metadata = metadataWithEatenAt(existing.getMetadata(), eatenAt);
+        return mealDao.updateMealMetadata(
+                normalizedId,
+                ownerId,
+                DEVICE_ID,
+                metadata,
+                now()
+        ) > 0;
+    }
+
+    @Override
+    public boolean deleteMeal(AccountScope scope, String recordId) {
+        String ownerId = requireActiveOwner(scope);
+        String normalizedId = optional(recordId);
+        if (normalizedId == null) {
+            return false;
+        }
+        String timestamp = now();
+        final int[] deleted = new int[]{0};
+        roomDatabase.runInTransaction(() -> {
+            deleted[0] = mealDao.tombstoneMealRecord(
+                    normalizedId, ownerId, timestamp, timestamp
+            );
+            mealDao.tombstoneMealItems(normalizedId, ownerId, timestamp, timestamp);
+            mealDao.tombstoneMealNutrients(normalizedId, ownerId, timestamp, timestamp);
+            mealDao.tombstoneMealComponents(normalizedId, ownerId, timestamp, timestamp);
+            mealDao.tombstoneMealConsumptions(normalizedId, ownerId, timestamp, timestamp);
+            mealDao.tombstoneMealComponentNutrients(normalizedId, ownerId, timestamp, timestamp);
+        });
+        return deleted[0] > 0;
+    }
+
+    private static String metadataWithEatenAt(String metadata, String eatenAt) {
+        try {
+            JSONObject values = new JSONObject(metadata == null ? "{}" : metadata);
+            values.put("eaten_at", eatenAt);
+            return values.toString();
+        } catch (Exception error) {
+            throw new IllegalStateException("끼니 메타데이터를 수정하지 못했습니다.", error);
+        }
+    }
+
     private String foodMetadata(String mealLabel, String eatenAt) {
         try {
             JSONObject metadata = new JSONObject();

@@ -32,6 +32,7 @@ import com.yeonsik.fitnessapp.feature.cardio.ui.*
 import com.yeonsik.fitnessapp.feature.development.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
+import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
 import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitnessapp.feature.workout.model.*
@@ -42,6 +43,7 @@ import java.time.LocalDate
 
 interface MealScreenActions {
     fun back()
+    fun selectDate(date: String)
     fun startDraft()
     fun closeDraft()
     fun chooseFood()
@@ -77,6 +79,10 @@ interface MealScreenActions {
     )
     fun saveDiningOut()
     fun showBodyMetric()
+    fun editMeal(meal: HomeMealSummary)
+    fun deleteMeal(recordId: String)
+    fun saveMealTime(recordId: String, mealTime: String)
+    fun cancelMealEdit()
 }
 
 internal data class MealEditorScrollTarget(
@@ -103,6 +109,7 @@ internal fun MealScreen(
 ) {
     val ready = homeState as? HomeUiState.Ready
     val editor = editorState as? MealUiState.Ready
+    var deleteTargetId by rememberSaveable { mutableStateOf<String?>(null) }
     val editorScrollTarget = mealEditorScrollTarget(editor)
     val editorStartRequester = remember { BringIntoViewRequester() }
     var previousEditorScrollTarget by remember {
@@ -118,12 +125,36 @@ internal fun MealScreen(
     }
 
     AppHeader("식사", today, back = actions::back)
-    if (ready == null || ready.snapshot.ownerId != ownerId) {
+    if (ready == null || ready.snapshot.ownerId != ownerId || ready.snapshot.today != today) {
         Text("식사 기록을 불러오는 중입니다.")
         return
     }
     val snapshot = ready.snapshot
     val totals = snapshot.mealNutritionTotals[today]
+    val selectedDate = runCatching { LocalDate.parse(today) }.getOrNull()
+    if (selectedDate != null) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            AppOutlinedButton(
+                onClick = { actions.selectDate(selectedDate.minusDays(1).toString()) },
+                modifier = Modifier.weight(1f)
+            ) { Text("‹ 이전") }
+            Text(today, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            AppOutlinedButton(
+                onClick = { actions.selectDate(selectedDate.plusDays(1).toString()) },
+                modifier = Modifier.weight(1f),
+                enabled = selectedDate.isBefore(LocalDate.now())
+            ) { Text("다음 ›") }
+        }
+        AppOutlinedButton(
+            onClick = { actions.selectDate(LocalDate.now().toString()) },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !selectedDate.isEqual(LocalDate.now())
+        ) { Text("오늘로 이동") }
+    }
     FitnessFactRow(
         first = { FitnessFactCard("식사", "${snapshot.todayMeals.size}끼", today) },
         second = { FitnessFactCard("열량", totals?.total("calories_kcal")?.describedValue() ?: "?", "kcal") }
@@ -134,6 +165,21 @@ internal fun MealScreen(
                 Text(meal.previewTitle, fontWeight = FontWeight.Bold)
                 Text(meal.previewSubtitle())
                 Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams}g")
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)
+                ) {
+                    AppOutlinedButton(
+                        onClick = { actions.editMeal(meal) },
+                        modifier = Modifier.weight(1f),
+                        enabled = meal.timeEditable
+                    ) { Text("수정") }
+                    AppOutlinedButton(
+                        onClick = { deleteTargetId = meal.id },
+                        modifier = Modifier.weight(1f),
+                        destructive = true
+                    ) { Text("삭제") }
+                }
             }
         }
     }
@@ -172,6 +218,58 @@ internal fun MealScreen(
 
     AppOutlinedButton(onClick = actions::showBodyMetric, Modifier.fillMaxWidth()) {
         Text("오늘 체중 · ${snapshot.todayWeight?.let { MassFormatter.withUnit(it.weightKg, unit) } ?: "미기록"}")
+    }
+
+    val deleteTarget = deleteTargetId?.let { id -> snapshot.todayMeals.firstOrNull { it.id == id } }
+    if (deleteTarget != null) {
+        AlertDialog(
+            onDismissRequest = { deleteTargetId = null },
+            title = { Text("식사 기록 삭제") },
+            text = { Text("${deleteTarget.previewTitle} 기록을 삭제할까요?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        deleteTargetId = null
+                        actions.deleteMeal(deleteTarget.id)
+                    },
+                    enabled = editor?.recordActionSaving != true
+                ) { Text("삭제") }
+            },
+            dismissButton = {
+                TextButton(onClick = { deleteTargetId = null }) { Text("취소") }
+            }
+        )
+    }
+
+    val recordEditor = editor?.recordEditor
+    if (recordEditor != null) {
+        var editTime by rememberSaveable(recordEditor.recordId) {
+            mutableStateOf(recordEditor.time)
+        }
+        AlertDialog(
+            onDismissRequest = actions::cancelMealEdit,
+            title = { Text("식사 수정") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                    Text(recordEditor.title, fontWeight = FontWeight.Bold)
+                    AppTextField(
+                        value = editTime,
+                        onValueChange = { editTime = it },
+                        label = { Text("식사 시각 HH:mm") }
+                    )
+                    editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = { actions.saveMealTime(recordEditor.recordId, editTime) },
+                    enabled = !editor.recordActionSaving
+                ) { Text(if (editor.recordActionSaving) "저장 중" else "저장") }
+            },
+            dismissButton = {
+                TextButton(onClick = actions::cancelMealEdit) { Text("취소") }
+            }
+        )
     }
 }
 

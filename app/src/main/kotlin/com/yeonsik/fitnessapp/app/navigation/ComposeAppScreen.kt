@@ -1150,6 +1150,7 @@ private fun AppDestination(
     }
     val mealActions = object : MealScreenActions {
         override fun back() { navigation.back() }
+        override fun selectDate(date: String) = navigation.selectMealDate(date)
         override fun startDraft() = viewModels.getMeal().startDraft()
         override fun closeDraft() = viewModels.getMeal().closeDraft()
         override fun chooseFood() = viewModels.getMeal().chooseFood()
@@ -1203,6 +1204,13 @@ private fun AppDestination(
         override fun showBodyMetric() = viewModels.getBodyMetrics().open(
             AccountScope(ownerId), today, null
         )
+        override fun editMeal(meal: com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary) =
+            viewModels.getMeal().openRecordEditor(meal)
+        override fun deleteMeal(recordId: String) =
+            viewModels.getMeal().deleteMeal(AccountScope(ownerId), recordId)
+        override fun saveMealTime(recordId: String, mealTime: String) =
+            viewModels.getMeal().saveMealTime(AccountScope(ownerId), recordId, mealTime)
+        override fun cancelMealEdit() = viewModels.getMeal().closeRecordEditor()
     }
     val settingsActions = object : SettingsScreenActions {
         override fun setPreferredMassUnit(unit: MassUnit) = viewModels.getSettings().setPreferredMassUnit(unit)
