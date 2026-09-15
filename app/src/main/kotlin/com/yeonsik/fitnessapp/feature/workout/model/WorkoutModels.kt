@@ -68,7 +68,17 @@ data class WorkoutSessionSnapshot(
     val totalVolumeKg: Double,
     val completedSetCount: Int,
     val exercises: List<WorkoutSessionExercise>,
-    val recentVolumes: List<WorkoutVolumePoint>
+    val recentVolumes: List<WorkoutVolumePoint>,
+    /** Stable routine identity captured in the workout record metadata, when available. */
+    val routineId: String? = null,
+    /** Read-only comparison facts from the previous completed session of the same routine. */
+    val previousRoutine: WorkoutRoutineComparison? = null
+)
+
+data class WorkoutRoutineComparison(
+    val date: String,
+    val totalVolumeKg: Double,
+    val completedSetCount: Int
 )
 
 data class WorkoutSessionExercise(
@@ -83,7 +93,8 @@ data class WorkoutSessionExercise(
     val familyIdentity: ExerciseFamilyIdentity?,
     val completedSetCount: Int,
     val totalSetCount: Int,
-    val completedSets: List<WorkoutSet> = emptyList()
+    val completedSets: List<WorkoutSet> = emptyList(),
+    val primarySubPart: String? = null
 )
 
 data class WorkoutVolumePoint(

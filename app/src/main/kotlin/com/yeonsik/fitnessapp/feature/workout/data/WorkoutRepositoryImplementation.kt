@@ -112,7 +112,8 @@ class WorkoutRepositoryImplementation(
                 exercise.familyIdentity,
                 sets.count { it.isCompleted },
                 sets.size,
-                sets.filter { it.isCompleted }.map { it.toFeatureModel() }
+                sets.filter { it.isCompleted }.map { it.toFeatureModel() },
+                exercise.primarySubPart
             )
         }
         val metrics = storage.metrics(scope, recordId)
@@ -127,7 +128,9 @@ class WorkoutRepositoryImplementation(
             mappedExercises,
             storage.recentSessionVolumes(scope, recordId, 4).map {
                 WorkoutVolumePoint(it.date, it.label, it.volumeKg)
-            }
+            },
+            routineId = info.routineId,
+            previousRoutine = storage.previousCompletedRoutine(scope, recordId, info.routineId)
         )
     }
 

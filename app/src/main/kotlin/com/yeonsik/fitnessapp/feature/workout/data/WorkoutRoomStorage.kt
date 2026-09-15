@@ -20,6 +20,7 @@ import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutPerformanceCalculator
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutRoutineComparison
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
 import org.json.JSONArray
 import org.json.JSONObject
@@ -47,7 +48,8 @@ class WorkoutRoomStorage(
         val startedAt: String,
         val status: String,
         val durationSeconds: Int,
-        val workoutType: String
+        val workoutType: String,
+        val routineId: String? = null
     )
 
     data class ExerciseRow(
@@ -58,7 +60,8 @@ class WorkoutRoomStorage(
         val uiPart: String,
         val equipment: String,
         val recordType: String,
-        val familyIdentity: ExerciseFamilyIdentity?
+        val familyIdentity: ExerciseFamilyIdentity?,
+        val primarySubPart: String? = null
     )
 
     data class SetRow(
@@ -454,7 +457,8 @@ class WorkoutRoomStorage(
                     record.durationSeconds?.toInt(),
                     metadata
                 ),
-                record.workoutType
+                record.workoutType,
+                metadataValue(metadata, "routine_id").trim().takeIf { it.isNotEmpty() }
             )
     }
 
@@ -478,7 +482,8 @@ class WorkoutRoomStorage(
                     row.uiPart,
                     row.equipmentSnapshot.orEmpty(),
                     FitnessRecordContract.normalizeRecordType(row.recordType),
-                    identity
+                    identity,
+                    row.primarySubPartSnapshot
                 )
         }
         return result
@@ -584,6 +589,29 @@ class WorkoutRoomStorage(
                 (metadataValue(metadata, "routine_id") == routineId ||
                     metadataValue(metadata, "routine_name") == routineName)
         }?.date
+    }
+
+    /**
+     * Returns the previous completed workout for the exact persisted routine identity.
+     * Display names are deliberately not used as a fallback because they are mutable.
+     */
+    fun previousCompletedRoutine(
+        scope: AccountScope,
+        currentRecordId: String,
+        routineId: String?
+    ): WorkoutRoutineComparison? {
+        val stableRoutineId = routineId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+        val previous = workoutDao.strengthRecords(scope.ownerId).firstOrNull { record ->
+            record.id != currentRecordId &&
+                WorkoutReadSemantics.isCompleted(record.sourceApp, record.metadata) &&
+                metadataValue(record.metadata, "routine_id") == stableRoutineId
+        } ?: return null
+        val metrics = metrics(scope, previous.id)
+        return WorkoutRoutineComparison(
+            date = previous.date,
+            totalVolumeKg = metrics.totalVolumeKg,
+            completedSetCount = metrics.setCount
+        )
     }
 
     fun weekProgress(scope: AccountScope, startDate: String, endDate: String): WorkoutWeekProgress {
