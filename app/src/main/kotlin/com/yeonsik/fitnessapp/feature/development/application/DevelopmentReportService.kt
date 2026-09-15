@@ -8,6 +8,7 @@ import com.yeonsik.fitnessapp.development.PaperAdviceAssessment
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReadApi
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi
+import com.yeonsik.fitnessapp.feature.development.model.DevelopmentWeekProgress
 import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutReadApi
 import java.time.DayOfWeek
@@ -34,7 +35,11 @@ class DevelopmentReportService(
         val profile = body.bodyProfile(scope)
         val goal = development.developmentGoal(scope)
         val latestWeight = body.latestBodyMetricOnOrBefore(scope, safeReferenceDate.toString())?.weightKg
-        val weekProgress = workouts.weekProgress(scope, weekStart.toString(), safeReferenceDate.toString())
+        val workoutProgress = workouts.weekProgress(scope, weekStart.toString(), safeReferenceDate.toString())
+        val weekProgress = DevelopmentWeekProgress(
+            workoutProgress.completedSessions,
+            workoutProgress.completedDays
+        )
         val setsByBodyPart = emptyBodyPartCounts()
         workouts.strengthSetsByBodyPart(scope, recentWindowStart.toString(), recentWindowEnd.toString())
             .forEach { row ->

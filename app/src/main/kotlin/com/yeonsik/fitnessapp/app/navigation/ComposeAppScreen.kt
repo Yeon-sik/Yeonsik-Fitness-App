@@ -80,14 +80,14 @@ internal fun destinationScrollStateKey(screen: FitnessScreen): String =
 internal data class HomeEntryEffectKey(
     val screen: FitnessScreen,
     val ownerId: String,
-    val today: String
+    val date: String
 )
 
 internal fun homeEntryEffectKey(
     screen: FitnessScreen,
     ownerId: String,
-    today: String
-): HomeEntryEffectKey = HomeEntryEffectKey(screen, ownerId, today)
+    date: String
+): HomeEntryEffectKey = HomeEntryEffectKey(screen, ownerId, date)
 
 @Composable
 private fun AppRoot(
@@ -208,7 +208,7 @@ private fun AppRoot(
         }
     }
 
-    val homeEntryKey = homeEntryEffectKey(screen, ownerId, navigationState.today)
+    val homeEntryKey = homeEntryEffectKey(screen, ownerId, routeDate)
     LaunchedEffect(homeEntryKey) {
         when (screen) {
             FitnessScreen.HOME,
@@ -220,7 +220,7 @@ private fun AppRoot(
             FitnessScreen.RECORDS,
             FitnessScreen.ROUTINE_DETAIL,
             FitnessScreen.MEALS ->
-                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getHome().enter(AccountScope(ownerId), routeDate)
             else -> Unit
         }
     }
@@ -232,7 +232,7 @@ private fun AppRoot(
                     && (screen == FitnessScreen.HOME || screen == FitnessScreen.STRENGTH)
                     && state.notice != null
                 ) {
-                    viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+                    viewModels.getHome().enter(AccountScope(ownerId), routeDate)
                 }
             }
             is RoutineEntryUiState.Error -> {
@@ -276,7 +276,7 @@ private fun AppRoot(
             return@LaunchedEffect
         }
         if (state.mode == FitnessScreen.ROUTINE_ADD) {
-            viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+            viewModels.getHome().enter(AccountScope(ownerId), routeDate)
         } else {
             val recordId = viewModels.getExercisePicker().activeRecordId()
                 ?: currentWorkoutRecordId(screen, viewModels, homeState)
@@ -622,13 +622,13 @@ private fun AppRoot(
         when (val state = bodyEditorState) {
             is BodyMetricsEditorUiState.Saved -> {
                 host.toast("체중 기록을 저장했습니다.")
-                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getHome().enter(AccountScope(ownerId), routeDate)
                 viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
                 viewModels.getBodyMetrics().dismissEditor()
             }
             is BodyMetricsEditorUiState.Deleted -> {
                 host.toast("체중 기록을 삭제했습니다.")
-                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getHome().enter(AccountScope(ownerId), routeDate)
                 viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
                 viewModels.getBodyMetrics().dismissEditor()
             }

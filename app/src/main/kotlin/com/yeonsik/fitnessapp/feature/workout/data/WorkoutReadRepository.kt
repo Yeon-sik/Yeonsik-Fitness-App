@@ -3,10 +3,10 @@ package com.yeonsik.fitnessapp.feature.workout.data
 import android.content.Context
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
-import com.yeonsik.fitnessapp.feature.development.model.DevelopmentBodyPartSets
-import com.yeonsik.fitnessapp.feature.development.model.DevelopmentWeekProgress
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutReadApi
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadDayMetrics
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
 
 /** Adapter exposing workout-owned read calculations without exposing storage rows. */
 class WorkoutReadRepository(
@@ -41,13 +41,13 @@ class WorkoutReadRepository(
         scope: AccountScope,
         startDate: String,
         endDate: String
-    ): DevelopmentWeekProgress = storage.weekProgress(scope, startDate, endDate)
+    ): WorkoutWeekProgress = storage.weekProgress(scope, startDate, endDate)
 
     override fun strengthSetsByBodyPart(
         scope: AccountScope,
         startDate: String,
         endDate: String
-    ): List<DevelopmentBodyPartSets> = storage.strengthSetsByBodyPart(scope, startDate, endDate)
+    ): List<WorkoutBodyPartSets> = storage.strengthSetsByBodyPart(scope, startDate, endDate)
 
     override fun latestDetailedTrainingDate(
         scope: AccountScope,

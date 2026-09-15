@@ -9,7 +9,7 @@ import com.yeonsik.fitnessapp.feature.development.model.DevelopmentCheckInSummar
 import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi;
 import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary;
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutReadApi;
-import com.yeonsik.fitnessapp.feature.development.model.DevelopmentBodyPartSets;
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.development.PaperAdvice;
 import com.yeonsik.fitnessapp.development.PaperAdviceAssessment;
@@ -153,7 +153,7 @@ public final class PaperAdviceSnapshotAssembler {
             String endDate
     ) {
         Map<String, Double> result = new LinkedHashMap<>();
-        for (DevelopmentBodyPartSets row : workouts.strengthSetsByBodyPart(scope, startDate, endDate)) {
+        for (WorkoutBodyPartSets row : workouts.strengthSetsByBodyPart(scope, startDate, endDate)) {
             String bodyPart = row.getUiPart();
             if (bodyPart == null || bodyPart.trim().isEmpty()) continue;
             String normalized = bodyPart.trim().toLowerCase(Locale.US);

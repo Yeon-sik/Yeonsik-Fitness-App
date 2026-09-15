@@ -4,9 +4,28 @@ import com.yeonsik.fitnessapp.app.navigation.homeEntryEffectKey
 import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomeViewModelTest {
+    @Test
+    fun staleDateOrAccountRequestIsRejectedByIdentityGate() {
+        val gate = HomeRequestGate()
+        val today = HomeRequestIdentity("owner-a", "2026-09-14")
+        val past = HomeRequestIdentity("owner-a", "2026-09-13")
+        val todayToken = gate.begin(today)
+        val pastToken = gate.begin(past)
+
+        assertFalse(gate.accepts(todayToken, today))
+        assertTrue(gate.accepts(pastToken, past))
+
+        val otherAccount = HomeRequestIdentity("owner-b", "2026-09-13")
+        val otherToken = gate.begin(otherAccount)
+        assertFalse(gate.accepts(pastToken, past))
+        assertTrue(gate.accepts(otherToken, otherAccount))
+    }
+
     @Test
     fun inProgressSnapshotDoesNotCauseAnotherHomeLoad() {
         val snapshot = HomeSnapshot(
