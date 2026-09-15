@@ -46,6 +46,8 @@ import java.time.LocalDate
 interface DevelopmentScreenActions {
     fun showBodyProfile()
     fun showGoal()
+    fun showNutritionGoal()
+    fun showRecoveryCheckIn()
     fun openInsightAction(insight: DevelopmentInsight)
 }
 
@@ -84,6 +86,17 @@ internal fun DevelopmentScreen(
     AppOutlinedButton(onClick = actions::showGoal, Modifier.fillMaxWidth()) {
         Text("발전 목표 수정")
     }
+    Text("영양·회복", fontWeight = FontWeight.Bold)
+    AppDataRow(
+        "사용자 입력 기준",
+        "영양 목표와 날짜별 회복 체크인을 같은 계정으로 저장합니다."
+    )
+    AppOutlinedButton(onClick = actions::showNutritionGoal, Modifier.fillMaxWidth()) {
+        Text("영양 목표 설정")
+    }
+    AppOutlinedButton(onClick = actions::showRecoveryCheckIn, Modifier.fillMaxWidth()) {
+        Text("오늘 회복 체크인")
+    }
     Text("우선 행동", fontWeight = FontWeight.Bold)
     if (report.insights.isEmpty()) Text("현재 기록에서 추가로 경고할 우선 행동이 없습니다.")
     report.insights.forEach { insight ->
@@ -118,7 +131,10 @@ interface DevelopmentEditorActions {
     )
 
     fun saveGoal(goal: DevelopmentGoal)
+    fun saveNutritionGoal(goal: AthleteNutritionGoal)
+    fun saveRecoveryCheckIn(checkIn: AthleteDailyCheckIn)
     fun dismiss()
+    fun dismissRecovery()
     fun notify(message: String)
 }
 

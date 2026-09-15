@@ -157,6 +157,8 @@ private fun AppRoot(
         .observeAsState(DevelopmentProfileEditorUiState.Idle)
     val goalEditorState by viewModels.getDevelopment().goalEditorState
         .observeAsState(DevelopmentGoalEditorUiState.Idle)
+    val recoveryEditorState by viewModels.getDevelopment().recoveryEditorState
+        .observeAsState(RecoveryEditorUiState.Idle)
     var backupPreview by remember {
         mutableStateOf<LocalDataTransferApplicationService.BackupPreview?>(null)
     }
@@ -619,11 +621,19 @@ private fun AppRoot(
         override fun saveGoal(goal: com.yeonsik.fitnessapp.development.DevelopmentGoal) =
             viewModels.getDevelopment().saveGoal(AccountScope(ownerId), goal)
 
+        override fun saveNutritionGoal(goal: com.yeonsik.fitnessapp.data.AthleteNutritionGoal) =
+            viewModels.getDevelopment().saveNutritionGoal(AccountScope(ownerId), goal)
+
+        override fun saveRecoveryCheckIn(checkIn: com.yeonsik.fitnessapp.data.AthleteDailyCheckIn) =
+            viewModels.getDevelopment().saveCheckIn(AccountScope(ownerId), checkIn)
+
         override fun dismiss() {
             viewModels.getBodyMetrics().dismissEditor()
             viewModels.getDevelopment().dismissProfileEditor()
             viewModels.getDevelopment().dismissGoalEditor()
         }
+
+        override fun dismissRecovery() = viewModels.getDevelopment().dismissRecoveryEditor()
 
         override fun notify(message: String) = host.toast(message)
     }
@@ -679,6 +689,28 @@ private fun AppRoot(
             else -> Unit
         }
     }
+    LaunchedEffect(recoveryEditorState) {
+        when (val state = recoveryEditorState) {
+            is RecoveryEditorUiState.Saved -> {
+                host.toast(
+                    if (state.editor == RecoveryEditorKind.NUTRITION_GOAL) {
+                        "영양 목표를 저장했습니다."
+                    } else {
+                        "회복 체크인을 저장했습니다."
+                    }
+                )
+                viewModels.getDevelopment().dismissRecoveryEditor()
+                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getDevelopment().enterRecovery(AccountScope(ownerId), navigationState.today)
+            }
+            is RecoveryEditorUiState.Error -> {
+                if (state.ownerId == ownerId) host.toast(state.message)
+                viewModels.getDevelopment().dismissRecoveryEditor()
+            }
+            else -> Unit
+        }
+    }
 
     FitnessComposeTheme(dark) {
         Column(
@@ -726,6 +758,8 @@ private fun AppRoot(
             navigationState.today,
             editorActions
         )
+        RecoveryNutritionGoalEditorDialog(recoveryEditorState, ownerId, editorActions)
+        RecoveryCheckInEditorDialog(recoveryEditorState, ownerId, editorActions)
         ManualPastWorkoutDialog(
             manualPastState,
             ownerId,
@@ -1052,7 +1086,10 @@ private fun AppDestination(
     LaunchedEffect(screen, ownerId, today) {
         when (screen) {
             FitnessScreen.DEVELOPMENT ->
-                viewModels.getDevelopment().enter(AccountScope(ownerId), today)
+                viewModels.getDevelopment().also { development ->
+                    development.enter(AccountScope(ownerId), today)
+                    development.enterRecovery(AccountScope(ownerId), today)
+                }
             FitnessScreen.MEALS ->
                 viewModels.getMeal().enter(AccountScope(ownerId), today)
             FitnessScreen.SETTINGS -> viewModels.getSettings().enter()
@@ -1355,6 +1392,10 @@ private fun AppDestination(
                     override fun showGoal() = viewModels.getDevelopment().openGoalEditor(
                         AccountScope(ownerId)
                     )
+                    override fun showNutritionGoal() = viewModels.getDevelopment()
+                        .openNutritionGoalEditor(AccountScope(ownerId))
+                    override fun showRecoveryCheckIn() = viewModels.getDevelopment()
+                        .openCheckInEditor(AccountScope(ownerId))
                     override fun openInsightAction(insight: com.yeonsik.fitnessapp.development.DevelopmentInsight) {
                         when {
                             insight.category == "planning" ->

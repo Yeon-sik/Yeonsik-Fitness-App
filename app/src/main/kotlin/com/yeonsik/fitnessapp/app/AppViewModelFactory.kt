@@ -86,6 +86,7 @@ class AppViewModelFactory(
                     handle,
                     container.developmentReportApi,
                     container.developmentApplicationService,
+                    container.recoveryRepositoryApi,
                 )
             modelClass.isAssignableFrom(SupplementViewModel::class.java) ->
                 SupplementViewModel(handle, container.supplementRepositoryApi)
