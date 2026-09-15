@@ -554,6 +554,29 @@ class WorkoutRoomStorage(
             .firstOrNull { metadataValue(it.metadata, "status") == "in_progress" }?.id
     }
 
+    /**
+     * Derives picker recency from the Workout owner's completed records. The canonical preset key
+     * deliberately matches RuntimeExercisePreset.identityId(); legacy exercise rows are resolved
+     * through the existing family catalog without copying master data into Workout storage.
+     */
+    fun lastPerformedAtByCanonicalPreset(scope: AccountScope): Map<String, String> {
+        val result = linkedMapOf<String, String>()
+        for (record in workoutDao.strengthRecords(scope.ownerId)) {
+            if (!WorkoutReadSemantics.isCompleted(record.sourceApp, record.metadata)) continue
+            for (exercise in exercises(scope, record.id)) {
+                val identity = exercise.familyIdentity ?: continue
+                val canonicalPresetId = identity.canonicalPresetId
+                    ?.trim()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: identity.presetId?.trim()?.takeIf { it.isNotEmpty() }
+                if (canonicalPresetId != null && !result.containsKey(canonicalPresetId)) {
+                    result[canonicalPresetId] = record.date
+                }
+            }
+        }
+        return result.toMap()
+    }
+
     fun latestCompletedForRoutine(scope: AccountScope, routineId: String, routineName: String): String? {
         return workoutDao.strengthRecords(scope.ownerId).firstOrNull { record ->
             val metadata = record.metadata

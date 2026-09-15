@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
@@ -76,6 +77,9 @@ object ComposeAppScreen {
 
 internal fun destinationScrollStateKey(screen: FitnessScreen): String =
     "fitness-destination:${screen.name}"
+
+internal fun isExercisePickerDestination(screen: FitnessScreen): Boolean =
+    screen == FitnessScreen.ROUTINE_ADD || screen == FitnessScreen.WORKOUT_EXERCISE_ADD
 
 internal data class HomeEntryEffectKey(
     val screen: FitnessScreen,
@@ -288,6 +292,9 @@ private fun AppRoot(
                     viewModels.getWorkoutExerciseDetail().activeExerciseId(),
                     readOnly = workoutReadOnly
                 )
+            }
+            if (state.selectionMode == com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerSelectionMode.WORKOUT_REPLACE) {
+                viewModels.getExercisePicker().clearReplacementExercise()
             }
         }
         navigation.back()
@@ -687,7 +694,13 @@ private fun AppRoot(
                     Modifier
                         .weight(1f)
                         .fillMaxWidth()
-                        .verticalScroll(contentScrollState)
+                        .then(
+                            if (isExercisePickerDestination(screen)) {
+                                Modifier
+                            } else {
+                                Modifier.verticalScroll(contentScrollState)
+                            }
+                        )
                         .padding(horizontal = FitnessSpacing.page, vertical = FitnessSpacing.gap)
                 ) {
                     if (screen == FitnessScreen.HOME) {
@@ -1069,13 +1082,18 @@ private fun AppDestination(
                 )
             FitnessScreen.ROUTINE_ADD,
             FitnessScreen.WORKOUT_EXERCISE_ADD ->
-                viewModels.getExercisePicker().enter(
-                    AccountScope(ownerId),
-                    screen,
-                    activeRecordId,
-                    viewModels.getExercisePicker().activeReplacementId(),
-                    navigation.selectedRoutineId()
-                )
+                viewModels.getExercisePicker().let { picker ->
+                    val replacementId = picker.activeReplacementId()
+                    picker.enter(
+                        AccountScope(ownerId),
+                        screen,
+                        activeRecordId,
+                        replacementId,
+                        navigation.selectedRoutineId(),
+                        com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerSelectionMode
+                            .forTarget(screen, replacementId)
+                    )
+                }
             else -> Unit
         }
     }
@@ -1240,11 +1258,26 @@ private fun AppDestination(
     val exercisePickerActions = object : ExercisePickerScreenActions {
         override fun back() { navigation.back() }
         override fun search(query: String) = viewModels.getExercisePicker().search(query)
+        override fun setBodyPart(bodyPart: com.yeonsik.fitnessapp.exercise.BodyPart?) =
+            viewModels.getExercisePicker().setBodyPart(bodyPart)
+        override fun setPrimarySubPart(primarySubPart: String?) =
+            viewModels.getExercisePicker().setPrimarySubPart(primarySubPart)
+        override fun setEquipmentCategory(category: com.yeonsik.fitnessapp.exercise.UiEquipmentCategory?) =
+            viewModels.getExercisePicker().setEquipmentCategory(category)
+        override fun setSortOrder(order: com.yeonsik.fitnessapp.exercise.RuntimeExercisePicker.SortOrder) =
+            viewModels.getExercisePicker().setSortOrder(order)
+        override fun resetFilters() = viewModels.getExercisePicker().resetFilters()
+        override fun selectFamily(familyId: String) =
+            viewModels.getExercisePicker().selectFamily(familyId)
+        override fun selectPreset(familyId: String, presetId: String) =
+            viewModels.getExercisePicker().selectPreset(familyId, presetId)
         override fun choose(preset: com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset) =
             viewModels.getExercisePicker().choose(preset)
     }
     Column(
-        Modifier.fillMaxWidth(),
+        Modifier.fillMaxWidth().then(
+            if (isExercisePickerDestination(screen)) Modifier.fillMaxHeight() else Modifier
+        ),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)
     ) {
         when (screen) {
