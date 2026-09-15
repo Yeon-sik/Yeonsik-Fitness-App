@@ -33,4 +33,10 @@ interface MealRecordRepositoryApi {
         restaurantMenuId: String?,
         catalogProductId: String?
     ): String
+
+    /** Updates only the local meal time and preserves the consumed snapshot. */
+    fun updateMealTime(scope: AccountScope, recordId: String, mealTime: String): Boolean
+
+    /** Tombstones the meal and its owned snapshot rows without changing another date. */
+    fun deleteMeal(scope: AccountScope, recordId: String): Boolean
 }

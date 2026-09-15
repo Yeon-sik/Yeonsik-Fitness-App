@@ -1392,6 +1392,13 @@ interface CardioRoomDao {
 
 @Dao
 interface MealRoomDao {
+    data class EditableMealRecord(
+        val id: String,
+        val date: String,
+        val metadata: String,
+        @ColumnInfo(name = "device_id") val deviceId: String
+    )
+
     data class MealReadRow(
         val id: String,
         val date: String,
@@ -1453,6 +1460,76 @@ interface MealRoomDao {
         startDate: String,
         endDate: String
     ): List<MealReadRow>
+
+    @Query(
+        "SELECT id, date, metadata, device_id FROM meal_records " +
+            "WHERE id=:recordId AND user_id=:userId AND device_id=:deviceId " +
+            "AND deleted_at IS NULL LIMIT 1"
+    )
+    fun editableMealRecord(
+        recordId: String,
+        userId: String,
+        deviceId: String
+    ): EditableMealRecord?
+
+    @Query(
+        "UPDATE meal_records SET metadata=:metadata, updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId AND device_id=:deviceId " +
+            "AND deleted_at IS NULL"
+    )
+    fun updateMealMetadata(
+        recordId: String,
+        userId: String,
+        deviceId: String,
+        metadata: String,
+        updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE meal_records SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneMealRecord(
+        recordId: String,
+        userId: String,
+        deletedAt: String,
+        updatedAt: String
+    ): Int
+
+    @Query(
+        "UPDATE meal_record_items SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE meal_record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneMealItems(recordId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE meal_record_item_nutrients SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE meal_record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneMealNutrients(recordId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE meal_record_item_components SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE meal_record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneMealComponents(recordId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE meal_record_item_consumptions SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE meal_record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneMealConsumptions(recordId: String, userId: String, deletedAt: String, updatedAt: String): Int
+
+    @Query(
+        "UPDATE meal_record_item_component_nutrients SET deleted_at=:deletedAt, updated_at=:updatedAt " +
+            "WHERE meal_record_id=:recordId AND user_id=:userId AND deleted_at IS NULL"
+    )
+    fun tombstoneMealComponentNutrients(
+        recordId: String,
+        userId: String,
+        deletedAt: String,
+        updatedAt: String
+    ): Int
 
     @Query(
         "SELECT COUNT(DISTINCT date) FROM meal_records WHERE user_id=:userId " +
