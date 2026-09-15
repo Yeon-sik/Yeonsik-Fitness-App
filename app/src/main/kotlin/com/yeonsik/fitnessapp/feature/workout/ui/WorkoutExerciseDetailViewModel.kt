@@ -10,7 +10,9 @@ import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitnessapp.feature.workout.application.InitializeWorkoutExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseHistory
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -154,6 +156,32 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
         repository.replaceExercise(scope, recordId, exerciseId, replacement)
     }
 
+    /**
+     * Copies the last persisted exercise facts into the current set slots. Existing set ids are
+     * updated in place; only missing slots are appended. The operation is explicit user input,
+     * never a render-time side effect, and the history model remains immutable.
+     */
+    fun applyPreviousHistory(
+        scope: AccountScope,
+        recordId: String,
+        exerciseId: String,
+        currentSets: List<WorkoutSet>,
+        history: WorkoutExerciseHistory,
+        callback: Consumer<Boolean>
+    ) = executeWrite(callback) {
+        val orderedCurrent = currentSets.sortedWith(compareBy<WorkoutSet> { it.setIndex }.thenBy { it.id })
+        val orderedHistory = history.sets.sortedWith(compareBy<WorkoutSet> { it.setIndex }.thenBy { it.id })
+        orderedHistory.allIndexed { index, previous ->
+            val input = previous.toInput()
+            val current = orderedCurrent.getOrNull(index)
+            if (current != null) {
+                repository.updateTypedSet(scope, recordId, current.id, input)
+            } else {
+                repository.addTypedSet(scope, recordId, exerciseId, previous.setIndex, input)
+            }
+        }
+    }
+
     private fun executeWrite(callback: Consumer<Boolean>, work: () -> Boolean) {
         executor.execute {
             try {
@@ -163,6 +191,28 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
                 mainHandler.post { callback.accept(false) }
             }
         }
+    }
+
+    private fun WorkoutSet.toInput(): WorkoutSetInput = WorkoutSetInput(
+        weightKg = weightKg.takeIf { it.isFinite() && it > 0.0 },
+        reps = actualReps.takeIf { it > 0 },
+        durationSeconds = durationSeconds.takeIf { it > 0 },
+        distanceMeters = distanceMeters.takeIf { it.isFinite() && it > 0.0 },
+        assistedWeightKg = assistedWeightKg.takeIf { it.isFinite() && it > 0.0 },
+        addedWeightKg = addedWeightKg.takeIf { it.isFinite() && it > 0.0 },
+        rir = rir,
+        restSeconds = restSeconds,
+        completed = isCompleted,
+        loadState = loadState,
+        inputLoadValue = inputLoadValue,
+        inputLoadUnit = inputLoadUnit
+    )
+
+    private inline fun <T> Iterable<T>.allIndexed(predicate: (Int, T) -> Boolean): Boolean {
+        forEachIndexed { index, value ->
+            if (!predicate(index, value)) return false
+        }
+        return true
     }
 
     private fun publishIfCurrent(request: DetailRequest, state: WorkoutExerciseDetailUiState) {
