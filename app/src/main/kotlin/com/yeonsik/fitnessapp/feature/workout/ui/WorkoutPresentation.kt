@@ -7,9 +7,11 @@ import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.MassUnit
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionExercise
+import com.yeonsik.fitnessapp.ui.WorkoutSummaryAnalytics
 import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
+import java.util.LinkedHashMap
 import kotlin.math.max
 
 /** Stable presentation order; the persisted exercise id is only a deterministic tie-breaker. */
@@ -58,6 +60,47 @@ internal fun workoutExerciseProgress(
     exercise.totalSetCount,
     emptyLabel = "세트 없음"
 )
+
+internal data class WorkoutSummaryMuscleDistribution(
+    val label: String,
+    val completedSetCount: Int,
+    val fraction: Float
+)
+
+/**
+ * Creates a presentation-only distribution from the exercise snapshot. The workout owner has
+ * already persisted the exercise focus and completed sets; this helper does not infer anatomy or
+ * recalculate volume.
+ */
+internal fun workoutSummaryMuscleDistribution(
+    exercises: List<WorkoutSessionExercise>
+): List<WorkoutSummaryMuscleDistribution> {
+    val counts = LinkedHashMap<String, Int>()
+    stableWorkoutSessionExercises(exercises).forEach { exercise ->
+        val completed = exercise.completedSets.count { it.isCompleted }
+        if (completed <= 0) return@forEach
+        val label = exercise.primarySubPart
+            ?.trim()
+            ?.takeIf { it.isNotEmpty() && it != "세부 부위 없음" }
+            ?: exercise.uiPart.trim().takeIf { it.isNotEmpty() }
+            ?: "기타"
+        counts[label] = (counts[label] ?: 0) + completed
+    }
+    val total = counts.values.sum()
+    if (total <= 0) return emptyList()
+    return counts.entries
+        .sortedWith(compareByDescending<Map.Entry<String, Int>> { it.value }.thenBy { it.key })
+        .map { (label, count) ->
+            WorkoutSummaryMuscleDistribution(label, count, count.toFloat() / total.toFloat())
+        }
+}
+
+internal fun workoutSummaryChangeLabel(
+    previousVolumeKg: Double?,
+    currentVolumeKg: Double
+): String = previousVolumeKg?.let {
+    WorkoutSummaryAnalytics.formatChangePercent(it, currentVolumeKg)
+} ?: "비교할 이전 기록 없음"
 
 internal fun formatWorkoutElapsedSeconds(seconds: Int): String {
     val safeSeconds = seconds.coerceAtLeast(0)

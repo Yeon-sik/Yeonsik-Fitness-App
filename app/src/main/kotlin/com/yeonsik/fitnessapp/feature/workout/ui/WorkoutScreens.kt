@@ -661,7 +661,9 @@ internal fun WorkoutSummaryScreen(
     ownerId: String,
     unit: MassUnit,
     onBack: () -> Unit,
-    onExercise: (String) -> Unit
+    onExercise: (String) -> Unit,
+    onRecords: () -> Unit = {},
+    onSaveAsRoutine: (String, List<WorkoutSessionExercise>) -> Unit = { _, _ -> }
 ) {
     val ready = state as? WorkoutSessionUiState.Ready
     AppHeader("운동 요약", back = onBack)
@@ -669,20 +671,197 @@ internal fun WorkoutSummaryScreen(
         Text("요약을 불러오는 중입니다.")
         return
     }
-    Text(ready.session.title, fontWeight = FontWeight.Bold)
-    FitnessFactRow(
-        first = { FitnessFactCard("완료 세트", ready.session.completedSetCount.toString(), "완료 기록") },
-        second = { FitnessFactCard("총 볼륨", MassFormatter.withUnit(ready.session.totalVolumeKg, unit), "완료 기록") }
+
+    val session = ready.session
+    if (session.status != "completed") {
+        FitnessStatusMessage(
+            status = FitnessSemanticStatus.WARNING,
+            title = "완료된 운동만 요약할 수 있습니다",
+            message = "진행 중이거나 상태를 확인할 수 없는 기록은 저장된 완료 요약으로 표시하지 않습니다."
+        )
+        return
+    }
+
+    val orderedExercises = stableWorkoutSessionExercises(session.exercises)
+    val activity = LocalContext.current as? Activity
+    var routineName by rememberSaveable(session.recordId) {
+        mutableStateOf("${session.title} 루틴")
+    }
+
+    Text(session.title, fontWeight = FontWeight.Bold)
+    FitnessStatusBadge(
+        status = FitnessSemanticStatus.SUCCESS,
+        label = "완료된 운동 요약",
+        modifier = Modifier.fillMaxWidth()
     )
+    FitnessFactRow(
+        first = { FitnessFactCard("완료 세트", session.completedSetCount.toString(), "저장된 세트") },
+        second = { FitnessFactCard("총 볼륨", MassFormatter.withUnit(session.totalVolumeKg, unit), "저장된 완료 기록") }
+    )
+
+    FitnessFactRow(
+        first = { FitnessFactCard("운동 종목", orderedExercises.size.toString(), "저장된 snapshot") },
+        second = { FitnessFactCard("운동 시간", formatWorkoutElapsedSeconds(session.durationSeconds), "완료 시각 기준") }
+    )
+
+    FitnessSection("근육/부위 분포") {
+        val distribution = workoutSummaryMuscleDistribution(orderedExercises)
+        if (distribution.isEmpty()) {
+            FitnessStatusMessage(
+                status = FitnessSemanticStatus.UNKNOWN,
+                title = "분포 데이터 없음",
+                message = "완료된 세트에 연결된 운동 부위 정보가 없습니다."
+            )
+        } else {
+            distribution.forEach { group ->
+                FitnessProgressBar(
+                    fitnessProgressPresentation(
+                        ratio = group.fraction.toDouble(),
+                        label = "${group.completedSetCount}세트"
+                    ),
+                    title = group.label
+                )
+            }
+        }
+    }
+
     FitnessSection("운동 종목") {
-        ready.session.exercises.forEach { exercise ->
-            AppCard(Modifier.fillMaxWidth().clickable { onExercise(exercise.id) }) {
-                Column(Modifier.padding(AppSpacing.card)) {
-                    Text(exercise.name, style = MaterialTheme.typography.titleMedium)
-                    Text("${exercise.completedSetCount}/${exercise.totalSetCount} 세트")
+        if (orderedExercises.isEmpty()) {
+            FitnessStatusMessage(
+                status = FitnessSemanticStatus.UNKNOWN,
+                title = "운동 종목 없음",
+                message = "저장된 운동 snapshot에 종목이 없습니다."
+            )
+        } else {
+            orderedExercises.forEach { exercise ->
+                AppCard(Modifier.fillMaxWidth().clickable { onExercise(exercise.id) }) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(AppSpacing.card),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        if (activity != null) {
+                            val identity = exercise.familyIdentity
+                            if (identity != null) {
+                                FitnessExerciseIllustration(
+                                    activity = activity,
+                                    identity = identity,
+                                    exactVariant = true,
+                                    modifier = Modifier.size(72.dp),
+                                    contentDescription = exercise.name,
+                                    fallback = { Text("이미지 없음") }
+                                )
+                            } else {
+                                FitnessExerciseIllustration(
+                                    activity = activity,
+                                    exerciseId = exercise.exerciseId,
+                                    modifier = Modifier.size(72.dp),
+                                    contentDescription = exercise.name,
+                                    fallback = { Text("이미지 없음") }
+                                )
+                            }
+                        }
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                            Text(exercise.name, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                listOfNotNull(
+                                    exercise.uiPart.takeIf { it.isNotBlank() },
+                                    exercise.primarySubPart?.takeIf { it.isNotBlank() },
+                                    exercise.equipment.takeIf { it.isNotBlank() },
+                                    exercise.recordTypeLabel.takeIf { it.isNotBlank() }
+                                ).joinToString(" · "),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                            FitnessStatusBadge(
+                                status = FitnessSemanticStatus.SUCCESS,
+                                label = "완료 세트 ${exercise.completedSetCount}/${exercise.totalSetCount}",
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            completedSetSummaryLines(exercise, unit).forEach { summary ->
+                                Text(summary, style = MaterialTheme.typography.bodyMedium)
+                            }
+                        }
+                    }
                 }
             }
         }
+    }
+
+    FitnessSection("같은 루틴 비교") {
+        when {
+            session.routineId.isNullOrBlank() -> FitnessStatusMessage(
+                status = FitnessSemanticStatus.UNKNOWN,
+                title = "루틴 식별 정보 없음",
+                message = "이 기록에는 이름이 아닌 stable routine ID가 없어 동일 루틴 비교를 표시하지 않습니다."
+            )
+            session.previousRoutine == null -> FitnessStatusMessage(
+                status = FitnessSemanticStatus.INFO,
+                title = "비교할 이전 기록 없음",
+                message = "같은 routine_id로 저장된 이전 완료 기록이 없습니다."
+            )
+            else -> {
+                val previous = session.previousRoutine
+                FitnessFactRow(
+                    first = {
+                        FitnessFactCard(
+                            "이전 볼륨",
+                            MassFormatter.withUnit(previous.totalVolumeKg, unit),
+                            previous.date
+                        )
+                    },
+                    second = {
+                        FitnessFactCard(
+                            "볼륨 변화",
+                            workoutSummaryChangeLabel(previous.totalVolumeKg, session.totalVolumeKg),
+                            "현재 대비"
+                        )
+                    }
+                )
+                Text("이전 완료 세트 ${previous.completedSetCount}세트", style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+
+    FitnessSection("볼륨 추세") {
+        val trendPoints = session.recentVolumes.map {
+            FitnessTrendPoint(
+                label = it.label.ifBlank { it.date },
+                value = MassUnit.fromKg(it.volumeKg, unit)
+            )
+        } + FitnessTrendPoint(
+            label = session.title.ifBlank { "현재" },
+            value = MassUnit.fromKg(session.totalVolumeKg, unit)
+        )
+        FitnessTrendChart(
+            model = fitnessTrendPresentation(trendPoints, minimumPoints = 2),
+            unit = unit.symbol(),
+            emptyLabel = "완료 운동 볼륨이 없습니다.",
+            insufficientLabel = "비교할 완료 운동 볼륨 기록이 부족합니다."
+        )
+    }
+
+    FitnessStatusMessage(
+        status = FitnessSemanticStatus.INFO,
+        title = "저장된 운동 snapshot",
+        message = "이 요약은 완료 시 저장된 종목·세트·볼륨 snapshot으로 재구성됩니다. 이후 운동 마스터 변경은 과거 요약에 반영되지 않습니다."
+    )
+
+    FitnessSection("루틴으로 저장") {
+        FitnessTextField(
+            value = routineName,
+            onValueChange = { routineName = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("새 루틴 이름") }
+        )
+        FitnessButton(
+            onClick = { onSaveAsRoutine(routineName, orderedExercises) },
+            enabled = routineName.isNotBlank() && orderedExercises.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth()
+        ) { Text("이 운동을 루틴으로 저장") }
+    }
+
+    FitnessOutlinedButton(onClick = onRecords, modifier = Modifier.fillMaxWidth()) {
+        Text("기록에서 보기")
     }
 }
 

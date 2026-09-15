@@ -3,6 +3,7 @@ package com.yeonsik.fitnessapp.feature.workout.ui
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.data.MassUnit
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionExercise
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test
@@ -63,6 +64,27 @@ class WorkoutPresentationTest {
         assertSame(MassUnit.LB, editableMassUnit(MassUnit.LB, MassUnit.KG))
     }
 
+    @Test
+    fun summaryDistributionUsesOnlyCompletedSnapshotSetsAndStableTieOrder() {
+        val distribution = workoutSummaryMuscleDistribution(
+            listOf(
+                sessionExerciseWithSets("z", order = 2, primary = "back", completed = 1),
+                sessionExerciseWithSets("b", order = 1, primary = "chest", completed = 2),
+                sessionExerciseWithSets("a", order = 1, primary = "back", completed = 1)
+            )
+        )
+
+        assertEquals(listOf("back", "chest"), distribution.map { it.label })
+        assertEquals(listOf(2, 2), distribution.map { it.completedSetCount })
+        assertEquals(0.5f, distribution[0].fraction)
+    }
+
+    @Test
+    fun summaryComparisonDoesNotInventChangeWhenPreviousSnapshotIsMissing() {
+        assertEquals("비교할 이전 기록 없음", workoutSummaryChangeLabel(null, 100.0))
+        assertEquals("+25%", workoutSummaryChangeLabel(80.0, 100.0))
+    }
+
     private fun sessionExercise(
         id: String,
         order: Int,
@@ -81,5 +103,32 @@ class WorkoutPresentationTest {
         completedSetCount = completed,
         totalSetCount = total,
         completedSets = emptyList()
+    )
+
+    private fun sessionExerciseWithSets(
+        id: String,
+        order: Int,
+        primary: String,
+        completed: Int
+    ) = sessionExercise(id, order, completed, completed).copy(
+        completedSets = (1..completed).map { index ->
+            WorkoutSet(
+                id = "$id-set-$index",
+                setIndex = index,
+                weightKg = 0.0,
+                actualReps = 0,
+                rir = null,
+                restSeconds = null,
+                isCompleted = true,
+                durationSeconds = 0,
+                distanceMeters = 0.0,
+                assistedWeightKg = 0.0,
+                addedWeightKg = 0.0,
+                loadState = null,
+                inputLoadValue = null,
+                inputLoadUnit = null
+            )
+        },
+        primarySubPart = primary
     )
 }

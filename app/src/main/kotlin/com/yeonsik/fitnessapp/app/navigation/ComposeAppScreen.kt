@@ -57,6 +57,7 @@ import com.yeonsik.fitnessapp.feature.workout.ui.*
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseHistory
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -1480,6 +1481,29 @@ private fun AppDestination(
                 { exerciseId ->
                     viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
                     navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+                },
+                onRecords = { navigation.navigate(FitnessScreen.RECORDS) },
+                onSaveAsRoutine = { name, exercises ->
+                    viewModels.getRoutineEntry().saveWorkoutAsRoutine(
+                        AccountScope(ownerId),
+                        name,
+                        exercises.map { exercise ->
+                            RoutineExerciseDraft(
+                                exerciseId = exercise.exerciseId,
+                                nameKo = exercise.name,
+                                nameEn = exercise.familyIdentity?.presetNameEn.orEmpty(),
+                                bodyPartId = exercise.familyIdentity?.defaultUiPart
+                                    ?.trim()
+                                    ?.takeIf { it.isNotEmpty() },
+                                equipmentVariantId = null,
+                                primarySubPart = exercise.primarySubPart
+                                    ?.trim()
+                                    ?.takeIf { it.isNotEmpty() },
+                                recordType = exercise.recordType,
+                                familyIdentity = exercise.familyIdentity
+                            )
+                        }
+                    )
                 }
             )
             FitnessScreen.CARDIO_SESSION -> CardioSessionScreen(cardioState, ownerId, cardioActions)

@@ -6,6 +6,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
+import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -51,6 +52,20 @@ class RoutineEntryViewModel @JvmOverloads constructor(
 
     fun createRoutine(scope: AccountScope, name: String) {
         mutate(scope, "루틴을 생성했습니다.") { repository.createRoutine(scope, name) != null }
+    }
+
+    /** Saves only the completed workout's persisted exercise snapshot as a new owned routine. */
+    fun saveWorkoutAsRoutine(
+        scope: AccountScope,
+        name: String,
+        exercises: List<RoutineExerciseDraft>
+    ) {
+        val normalizedName = name.trim()
+        mutate(scope, "운동을 루틴으로 저장했습니다.") {
+            if (normalizedName.isEmpty() || exercises.isEmpty()) return@mutate false
+            val routineId = repository.createRoutine(scope, normalizedName) ?: return@mutate false
+            exercises.all { exercise -> repository.addExercise(scope, routineId, exercise) }
+        }
     }
 
     fun renameRoutine(scope: AccountScope, routineId: String, name: String) {
