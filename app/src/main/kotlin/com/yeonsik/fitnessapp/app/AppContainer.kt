@@ -15,6 +15,7 @@ import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
 import com.yeonsik.fitnessapp.core.database.backup.RoomBackupDatabaseStorage
 import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsRepository
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository
+import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionTemplateRepository
 import com.yeonsik.fitnessapp.integration.pricetrace.ProductReadV1Client
 import com.yeonsik.fitnessapp.integration.pricetrace.RestaurantMenuReadV1Client
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository
@@ -36,6 +37,7 @@ import com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository
 import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
+import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionTemplateRepositoryApi
 import com.yeonsik.fitnessapp.feature.recovery.api.RecoveryRepositoryApi
 import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
 import com.yeonsik.fitnessapp.feature.supplement.api.SupplementRepositoryApi
@@ -113,6 +115,11 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         appContext,
         nutritionSupabaseConfig.effectiveUserId()
     )
+    private val nutritionTemplateRepository = NutritionTemplateRepository(
+        roomDatabase,
+        nutritionCatalogRepository,
+        nutritionSupabaseConfig.effectiveUserId()
+    )
     private val mealRecordRepository = MealRecordRepository(
         roomDatabase,
         nutritionCatalogRepository,
@@ -166,6 +173,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     val supplementRepositoryApi: SupplementRepositoryApi = supplementRepository
     val mealRecordRepositoryApi: MealRecordRepositoryApi = mealRecordRepository
     val nutritionCatalogRepositoryApi: NutritionCatalogRepositoryApi = nutritionCatalogRepository
+    val nutritionTemplateRepositoryApi: NutritionTemplateRepositoryApi = nutritionTemplateRepository
     val recoveryRepositoryApi: RecoveryRepositoryApi = recoveryRepository
     val routineRepositoryApi: RoutineRepositoryApi = routineRepository
     val homeRepository: HomeRepositoryApi = HomeReadRepository(
@@ -266,6 +274,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         nutritionSupabaseConfig = config
         nutritionIntegrationService.setNutritionConfig(config)
         nutritionCatalogRepository.setUserId(config.effectiveUserId())
+        nutritionTemplateRepository.setUserId(config.effectiveUserId())
     }
 
     fun applyAuthenticatedNutritionConfig(config: SupabaseConfig) {
@@ -273,6 +282,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         nutritionIntegrationService.setNutritionConfig(config)
         val ownerId = config.effectiveUserId()
         nutritionCatalogRepository.normalizeLocalUserId(ownerId)
+        nutritionTemplateRepository.setUserId(ownerId)
     }
 
     fun applyPriceTraceSessionConfig(config: SupabaseConfig) {
