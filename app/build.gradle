@@ -119,31 +119,23 @@ def priceTraceSupabaseAnonKey = localProperties.getProperty("PRICETRACE_SUPABASE
 
 def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")
 def exerciseMuscleAssetsDir = file("$buildDir/generated/exercise-muscle-assets")
+def exerciseRuntimeFallbackAssetsDir = file("$projectDir/src/main/assets-fallback")
 
 tasks.register("copyExerciseMasterAssets", Copy) {
     from(rootProject.file("Fitness_Index.json"))
     from(rootProject.file("Fitness_Weight.json"))
-    from(rootProject.file("model_image/family/data/exercise-family-mapping-v1.json")) {
+    from(new File(exerciseRuntimeFallbackAssetsDir, "exercise_family_mapping_v1.json")) {
         rename { "exercise_family_mapping_v1.json" }
     }
     into(exerciseMasterAssetsDir)
 }
 
 tasks.register("copyExerciseMuscleAssets", Copy) {
-    from(rootProject.file("model_image/style-4/source")) {
-        include("front-master.png", "back-master.png")
-        into("exercise_muscle/source")
-    }
-    from(rootProject.file("model_image/style-4/layers")) {
-        include("front/*.png", "back/*.png")
-        into("exercise_muscle/layers")
-    }
-    from(rootProject.file("model_image/style-4/muscle-layers.json")) {
+    from(new File(exerciseRuntimeFallbackAssetsDir, "exercise_muscle")) {
         into("exercise_muscle")
     }
     into(exerciseMuscleAssetsDir)
 }
-
 android {
     namespace "com.yeonsik.fitnessapp"
     compileSdk 36
