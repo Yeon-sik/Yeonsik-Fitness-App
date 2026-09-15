@@ -35,6 +35,9 @@ class WorkoutRepositoryImplementation(
 
     override fun latestInProgressSession(scope: AccountScope): String? = storage.latestInProgress(scope)
 
+    override fun lastPerformedAtByCanonicalPreset(scope: AccountScope): Map<String, String> =
+        storage.lastPerformedAtByCanonicalPreset(scope)
+
     override fun createEmptySession(scope: AccountScope, date: String): String =
         storage.createSession(scope, date, "루틴 없이 운동", "strength", "", storage.nowValue(), "")
 

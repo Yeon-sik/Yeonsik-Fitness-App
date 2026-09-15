@@ -14,6 +14,14 @@ import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
 interface WorkoutRepositoryApi {
     fun latestInProgressSession(scope: AccountScope): String? = null
 
+    /**
+     * Read-only recent-use projection for exercise pickers.
+     *
+     * The map is derived from completed workout records and keyed by the same canonical preset
+     * identity used by the runtime exercise catalog. No separate recent-use state is persisted.
+     */
+    fun lastPerformedAtByCanonicalPreset(scope: AccountScope): Map<String, String> = emptyMap()
+
     fun createEmptySession(scope: AccountScope, date: String): String = error("Session creation is not supported by this repository.")
 
     fun createSessionFromRoutine(scope: AccountScope, date: String, title: String,
