@@ -50,6 +50,7 @@ import com.yeonsik.fitnessapp.feature.exercise.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.meal.ui.*
 import com.yeonsik.fitnessapp.feature.records.ui.*
+import com.yeonsik.fitnessapp.feature.statistics.ui.*
 import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitnessapp.feature.settings.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.ui.*
@@ -988,6 +989,7 @@ private fun BottomNavigation(
         NavigationItem("메인", FitnessScreen.HOME),
         NavigationItem("피트니스", FitnessScreen.WORKOUT),
         NavigationItem("기록", FitnessScreen.RECORDS),
+        NavigationItem("통계", FitnessScreen.STATISTICS),
         NavigationItem("발전", FitnessScreen.DEVELOPMENT),
         NavigationItem("설정", FitnessScreen.SETTINGS)
     )
@@ -1046,6 +1048,7 @@ private fun BottomNavigation(
 private fun navigationRoot(screen: FitnessScreen): FitnessScreen = when (screen) {
     FitnessScreen.HOME -> FitnessScreen.HOME
     FitnessScreen.RECORDS -> FitnessScreen.RECORDS
+    FitnessScreen.STATISTICS -> FitnessScreen.STATISTICS
     FitnessScreen.DEVELOPMENT -> FitnessScreen.DEVELOPMENT
     FitnessScreen.SETTINGS -> FitnessScreen.SETTINGS
     FitnessScreen.MEALS,
@@ -1086,6 +1089,8 @@ private fun AppDestination(
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
     val recordsState by viewModels.getRecords().uiState
         .observeAsState(RecordsUiState.Idle)
+    val statisticsState by viewModels.getStatistics().uiState
+        .observeAsState(StatisticsUiState.Idle)
     val routineState by viewModels.getRoutineEntry().uiState.observeAsState(RoutineEntryUiState.Idle)
     val workoutState by viewModels.getWorkoutSession().uiState
         .observeAsState(WorkoutSessionUiState.Idle)
@@ -1118,6 +1123,7 @@ private fun AppDestination(
                 }
             FitnessScreen.MEALS ->
                 viewModels.getMeal().enter(AccountScope(ownerId), today)
+            FitnessScreen.STATISTICS -> viewModels.getStatistics().enter(AccountScope(ownerId), today)
             FitnessScreen.SETTINGS -> viewModels.getSettings().enter()
             FitnessScreen.SUPPLEMENTS ->
                 viewModels.getSupplement().enter(AccountScope(ownerId), today)
@@ -1438,6 +1444,15 @@ private fun AppDestination(
                 unit,
                 navigation.uiState.value?.selectedRecordsDate ?: today,
                 recordsActions
+            )
+            FitnessScreen.STATISTICS -> StatisticsScreen(
+                statisticsState,
+                ownerId,
+                unit,
+                object : StatisticsScreenActions {
+                    override fun selectPeriod(period: com.yeonsik.fitnessapp.feature.statistics.model.StatisticsPeriod) =
+                        viewModels.getStatistics().selectPeriod(AccountScope(ownerId), today, period)
+                }
             )
             FitnessScreen.DEVELOPMENT -> DevelopmentScreen(
                 developmentState,

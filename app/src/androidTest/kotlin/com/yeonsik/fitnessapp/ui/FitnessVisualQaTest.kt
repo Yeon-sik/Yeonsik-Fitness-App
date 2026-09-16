@@ -145,7 +145,7 @@ class FitnessVisualQaTest {
     fun destinationsUseBothThemes() {
         ActivityScenario.launch(MainActivity::class.java).use { scenario ->
             val screens = listOf(FitnessScreen.HOME, FitnessScreen.WORKOUT, FitnessScreen.STRENGTH,
-                FitnessScreen.RECORDS, FitnessScreen.DEVELOPMENT, FitnessScreen.SETTINGS,
+                FitnessScreen.RECORDS, FitnessScreen.STATISTICS, FitnessScreen.DEVELOPMENT, FitnessScreen.SETTINGS,
                 FitnessScreen.MEALS, FitnessScreen.SUPPLEMENTS, FitnessScreen.ROUTINE_DETAIL, FitnessScreen.CARDIO)
             for (mode in listOf("light", "dark")) {
                 for (screen in screens) {

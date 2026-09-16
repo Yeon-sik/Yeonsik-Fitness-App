@@ -49,6 +49,12 @@ class WorkoutReadRepository(
         endDate: String
     ) = storage.completedSessionSummaries(scope, startDate, endDate)
 
+    override fun exercisePerformance(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ) = storage.exercisePerformance(scope, startDate, endDate)
+
     override fun strengthSetsByBodyPart(
         scope: AccountScope,
         startDate: String,

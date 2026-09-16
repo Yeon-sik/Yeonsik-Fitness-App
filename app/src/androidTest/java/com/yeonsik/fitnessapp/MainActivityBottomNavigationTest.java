@@ -38,6 +38,12 @@ public final class MainActivityBottomNavigationTest {
                 assertEquals(View.INVISIBLE, workoutMarker.getVisibility());
                 assertTrue(recordsTab.isSelected());
                 assertEquals(View.VISIBLE, activeMarker(recordsTab).getVisibility());
+
+                View statisticsTab = clickBottomTab(root, "통계");
+                assertFalse(recordsTab.isSelected());
+                assertEquals(View.INVISIBLE, activeMarker(recordsTab).getVisibility());
+                assertTrue(statisticsTab.isSelected());
+                assertEquals(View.VISIBLE, activeMarker(statisticsTab).getVisibility());
             });
         }
     }

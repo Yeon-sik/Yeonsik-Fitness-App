@@ -48,6 +48,7 @@ import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
 import com.yeonsik.fitnessapp.feature.records.ui.RecordsViewModel;
 import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
+import com.yeonsik.fitnessapp.feature.statistics.ui.StatisticsViewModel;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
 import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
@@ -108,6 +109,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private RoutineEntryViewModel routineEntryViewModel;
     private HomeViewModel homeViewModel;
     private RecordsViewModel recordsViewModel;
+    private StatisticsViewModel statisticsViewModel;
     private DevelopmentViewModel developmentViewModel;
     private BodyMetricsViewModel bodyMetricsViewModel;
     private SettingsViewModel settingsViewModel;
@@ -186,6 +188,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         routineEntryViewModel = provider.get(RoutineEntryViewModel.class);
         homeViewModel = provider.get(HomeViewModel.class);
         recordsViewModel = provider.get(RecordsViewModel.class);
+        statisticsViewModel = provider.get(StatisticsViewModel.class);
         developmentViewModel = provider.get(DevelopmentViewModel.class);
         supplementViewModel = provider.get(SupplementViewModel.class);
         exercisePickerViewModel = provider.get(ExercisePickerViewModel.class);
@@ -527,6 +530,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         routineEntryViewModel,
                         homeViewModel,
                         recordsViewModel,
+                        statisticsViewModel,
                         developmentViewModel,
                         supplementViewModel,
                         exercisePickerViewModel,
