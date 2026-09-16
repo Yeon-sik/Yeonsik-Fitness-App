@@ -668,7 +668,7 @@ interface SupplementRoomDao {
             "FROM supplement_schedules s INNER JOIN supplement_items i " +
             "ON i.id=s.supplement_item_id AND i.user_id=s.user_id " +
             "LEFT JOIN supplement_intake_records r ON r.schedule_id=s.id " +
-            "AND r.user_id=s.user_id AND r.date=:date " +
+            "AND r.user_id=s.user_id AND r.date=:date AND r.deleted_at IS NULL " +
             "WHERE s.user_id=:userId AND s.deleted_at IS NULL AND s.effective_from<=:date " +
             "AND (s.effective_to IS NULL OR s.effective_to>=:date) " +
             "GROUP BY i.id,s.id ORDER BY s.created_at ASC"
@@ -701,37 +701,37 @@ interface SupplementRoomDao {
 
     @Query(
         "SELECT * FROM supplement_schedule_slots WHERE user_id=:userId AND schedule_id=:scheduleId " +
-            "AND slot_index=:slotIndex LIMIT 1"
+            "AND deleted_at IS NULL AND slot_index=:slotIndex LIMIT 1"
     )
     fun slot(userId: String, scheduleId: String, slotIndex: Int): SupplementScheduleSlotsRoomEntity?
 
     @Query(
         "SELECT dose_index FROM supplement_intake_records WHERE user_id=:userId " +
-            "AND schedule_id=:scheduleId AND date=:date"
+            "AND schedule_id=:scheduleId AND date=:date AND deleted_at IS NULL"
     )
     fun usedDoseIndexes(userId: String, scheduleId: String, date: String): List<Long>
 
     @Query(
         "SELECT * FROM supplement_intake_records WHERE user_id=:userId AND date BETWEEN :startDate AND :endDate " +
-            "ORDER BY date DESC,created_at DESC,dose_index DESC"
+            "AND deleted_at IS NULL ORDER BY date DESC,created_at DESC,dose_index DESC"
     )
     fun history(userId: String, startDate: String, endDate: String): List<SupplementIntakeRecordsRoomEntity>
 
     @Query(
         "SELECT id FROM supplement_intake_records WHERE user_id=:userId AND schedule_id=:scheduleId " +
-            "AND date=:date ORDER BY dose_index DESC LIMIT 1"
+            "AND date=:date AND deleted_at IS NULL ORDER BY dose_index DESC LIMIT 1"
     )
     fun latestRecordId(userId: String, scheduleId: String, date: String): String?
 
     @Query(
         "SELECT id FROM supplement_effect_checkins WHERE user_id=:userId AND supplement_item_id=:itemId " +
-            "AND date=:date LIMIT 1"
+            "AND date=:date AND deleted_at IS NULL LIMIT 1"
     )
     fun effectCheckinId(userId: String, itemId: String, date: String): String?
 
     @Query(
         "SELECT * FROM supplement_effect_checkins WHERE user_id=:userId AND supplement_item_id=:itemId " +
-            "ORDER BY date DESC LIMIT 1"
+            "AND deleted_at IS NULL ORDER BY date DESC LIMIT 1"
     )
     fun latestEffectCheckin(userId: String, itemId: String): SupplementEffectCheckinsRoomEntity?
 
@@ -747,7 +747,7 @@ interface SupplementRoomDao {
     )
     fun ownedActivePlan(itemId: String, scheduleId: String, userId: String): Int?
 
-    @Query("SELECT 1 FROM supplement_intake_records WHERE user_id=:userId AND schedule_id=:scheduleId AND date=:date LIMIT 1")
+    @Query("SELECT 1 FROM supplement_intake_records WHERE user_id=:userId AND schedule_id=:scheduleId AND date=:date AND deleted_at IS NULL LIMIT 1")
     fun hasRecords(userId: String, scheduleId: String, date: String): Int?
 
     @Query("SELECT COALESCE(MAX(revision),0) FROM supplement_schedules WHERE user_id=:userId AND supplement_item_id=:itemId")
