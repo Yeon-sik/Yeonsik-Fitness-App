@@ -22,7 +22,7 @@ class DevelopmentReportService(
     private val body: BodyMetricsReadApi,
     private val development: DevelopmentReadApi
 ) : DevelopmentReportApi {
-    fun buildPaperAdviceAssessment(scope: AccountScope, referenceDate: LocalDate): PaperAdviceAssessment =
+    override fun buildPaperAdviceAssessment(scope: AccountScope, referenceDate: LocalDate): PaperAdviceAssessment =
         PaperAdviceSnapshotAssembler(workouts, meals, body, development, scope.ownerId)
             .assess(referenceDate)
 
