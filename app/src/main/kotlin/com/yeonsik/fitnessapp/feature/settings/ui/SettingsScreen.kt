@@ -59,24 +59,30 @@ interface SettingsScreenActions {
 @OptIn(ExperimentalLayoutApi::class)
 internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActions) {
     var advancedConnectionsVisible by rememberSaveable { mutableStateOf(false) }
-    AppHeader("설정")
-    Text("표시 단위")
+    AppHeader("설정", "계정·동기화·데이터 안전·표시 환경")
+    Text("상태", fontWeight = FontWeight.Bold)
+    SettingsAccountStatusCard(state.sharedConfig)
+    SettingsSyncStatusCard(state)
+    Text("단위")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
         MassUnit.values().forEach { unit ->
             AppOutlinedButton(onClick = { actions.setPreferredMassUnit(unit) }, selected = state.preferredMassUnit == unit) { Text(unit.labelKo()) }
         }
     }
+    Text("표시·입력 단위 설정은 로컬 기록을 kg 기준으로 보존합니다.")
     Text("테마")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
         listOf("light", "dark", "system").forEach { mode ->
-            AppOutlinedButton(onClick = { actions.setThemeMode(mode) }, selected = state.themeMode == mode) { Text(mode) }
+            AppOutlinedButton(onClick = { actions.setThemeMode(mode) }, selected = state.themeMode == mode) { Text(themeModeLabel(mode)) }
         }
     }
+    Text("데이터 안전", fontWeight = FontWeight.Bold)
     AppButton(onClick = actions::runManualSync, enabled = !state.isManualSyncing,
-        modifier = Modifier.fillMaxWidth()) { Text(state.syncLabel) }
-    Text(state.syncDetail)
+        modifier = Modifier.fillMaxWidth()) { Text(if (state.isManualSyncing) "동기화 중" else "지금 동기화") }
+    Text(syncDetailForDisplay(state))
+    Text("가져오기·내보내기", fontWeight = FontWeight.Bold)
     AppOutlinedButton(onClick = actions::openFleekDataImport, enabled = !state.isDataImporting,
         modifier = Modifier.fillMaxWidth()) { Text("FLEEK 가져오기") }
     AppOutlinedButton(onClick = actions::openWorkoutTransferImport, enabled = !state.isDataTransferInProgress,
@@ -86,6 +92,14 @@ internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActio
     AppOutlinedButton(onClick = actions::createLocalBackup, Modifier.fillMaxWidth()) { Text("로컬 백업") }
     AppOutlinedButton(onClick = actions::restoreLocalBackup, Modifier.fillMaxWidth()) { Text("백업 복원") }
     AppOutlinedButton(onClick = actions::exportRecordsCsv, Modifier.fillMaxWidth()) { Text("CSV 내보내기") }
+    if (state.isDataImporting && state.dataImportDetail.isNotBlank()) {
+        Text("가져오기 상태 · " + state.dataImportDetail)
+    }
+    if (state.isDataTransferInProgress && state.dataTransferDetail.isNotBlank()) {
+        Text("전송 상태 · " + state.dataTransferDetail)
+    }
+    SettingsPrivacyCard()
+    SettingsAppInfoCard()
     if (state.developerSurfaceAllowed) {
         AppOutlinedButton(
             onClick = { advancedConnectionsVisible = !advancedConnectionsVisible },
