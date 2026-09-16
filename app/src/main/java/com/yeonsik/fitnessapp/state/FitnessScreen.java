@@ -19,6 +19,7 @@ public enum FitnessScreen {
     MEALS,
     SUPPLEMENTS,
     RECORDS,
+    STATISTICS,
     DEVELOPMENT,
     SETTINGS
 }

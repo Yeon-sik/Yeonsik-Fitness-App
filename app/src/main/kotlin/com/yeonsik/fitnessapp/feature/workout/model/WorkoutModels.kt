@@ -41,6 +41,15 @@ data class WorkoutReadSessionSummary(
     val muscleLabels: List<String>
 )
 
+/** Workout-owned completed-set facts for cross-feature performance trends. */
+data class WorkoutExercisePerformancePoint(
+    val performanceKey: String,
+    val exerciseName: String,
+    val date: String,
+    val estimatedOneRepMaxKg: Double?,
+    val volumeKg: Double?
+)
+
 data class WorkoutSet(
     @JvmField val id: String,
     @JvmField val setIndex: Int,

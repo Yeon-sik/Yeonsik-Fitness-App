@@ -5,6 +5,7 @@ import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadDayMetrics
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadSessionSummary
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercisePerformancePoint
 
 /** Read-only workout port used by cross-feature read models. */
 interface WorkoutReadApi {
@@ -35,5 +36,12 @@ interface WorkoutReadApi {
         startDate: String,
         endDate: String
     ): List<WorkoutReadSessionSummary> = emptyList()
+
+    fun exercisePerformance(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<WorkoutExercisePerformancePoint> = emptyList()
+
     fun completedResistanceSessions(scope: AccountScope, startDate: String, endDate: String): Int
 }

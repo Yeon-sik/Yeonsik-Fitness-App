@@ -15,6 +15,7 @@ import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsViewModel
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel
 import com.yeonsik.fitnessapp.feature.records.ui.RecordsViewModel
+import com.yeonsik.fitnessapp.feature.statistics.ui.StatisticsViewModel
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel
 
@@ -84,6 +85,8 @@ class AppViewModelFactory(
                 HomeViewModel(handle, container.homeRepository)
             modelClass.isAssignableFrom(RecordsViewModel::class.java) ->
                 RecordsViewModel(handle, container.recordsRepository)
+            modelClass.isAssignableFrom(StatisticsViewModel::class.java) ->
+                StatisticsViewModel(handle, container.statisticsRepository)
             modelClass.isAssignableFrom(DevelopmentViewModel::class.java) ->
                 DevelopmentViewModel(
                     handle,

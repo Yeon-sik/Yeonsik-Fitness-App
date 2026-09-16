@@ -23,6 +23,7 @@ import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutPerformanceCalculator
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutRoutineComparison
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercisePerformancePoint
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadSessionSummary
 import org.json.JSONArray
 import org.json.JSONObject
@@ -678,6 +679,53 @@ class WorkoutRoomStorage(
                     muscleLabels = muscleLabels
                 )
             }
+
+    /**
+     * Returns completed-set performance facts without changing Workout ownership. Each point is
+     * grouped by the existing exercise/load-state identity so unlike-name or unlike-load rows are
+     * not silently compared. Missing comparable load remains null rather than becoming zero.
+     */
+    fun exercisePerformance(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<WorkoutExercisePerformancePoint> {
+        val result = mutableListOf<WorkoutExercisePerformancePoint>()
+        for (record in workoutDao.visibleCompletedRecordsBetween(scope.ownerId, startDate, endDate)) {
+            for (exercise in exercises(scope, record.id)) {
+                val completedSets = sets(scope, exercise.id).filter { it.isCompleted }
+                if (completedSets.isEmpty()) continue
+                val grouped = completedSets.groupBy { set ->
+                    set.loadState?.id() ?: "unknown"
+                }
+                for ((loadStateId, sets) in grouped) {
+                    val e1rm = sets.map { set ->
+                        WorkoutPerformanceCalculator.epleyE1rm(
+                            performanceLoad(set), set.actualReps
+                        )
+                    }.filter { it.isFinite() && it > 0.0 }.maxOrNull()
+                    val volumes = sets.map { set -> volumeForSet(exercise, set) }
+                        .filter { it.isFinite() }
+                    val key = exercise.familyIdentity?.let { identity ->
+                        identity.familyId.orEmpty() + "|" +
+                            identity.canonicalVariantKey.orEmpty() + "|" + loadStateId
+                    } ?: exercise.exerciseId + "|" +
+                        FitnessRecordContract.normalizeRecordType(exercise.recordType) + "|" +
+                        loadStateId + "|" + exercise.name
+                    result += WorkoutExercisePerformancePoint(
+                        performanceKey = key,
+                        exerciseName = exercise.name.ifBlank { "운동" },
+                        date = record.date,
+                        estimatedOneRepMaxKg = e1rm,
+                        volumeKg = volumes.takeIf { it.isNotEmpty() }?.sum()
+                            ?.takeIf { it.isFinite() },
+                    )
+                }
+            }
+        }
+        return result
+    }
+
     fun completedResistanceSessions(scope: AccountScope, startDate: String, endDate: String): Int =
         workoutDao.completedResistanceSessions(scope.ownerId, startDate, endDate)
 
