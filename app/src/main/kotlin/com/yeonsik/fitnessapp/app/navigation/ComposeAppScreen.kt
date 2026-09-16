@@ -53,6 +53,8 @@ import com.yeonsik.fitnessapp.feature.records.ui.*
 import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitnessapp.feature.settings.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.ui.*
+import com.yeonsik.fitnessapp.feature.supplement.model.SupplementPlanDraft
+import com.yeonsik.fitnessapp.supplement.SupplementPlan
 import com.yeonsik.fitnessapp.feature.workout.ui.*
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseHistory
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
@@ -1323,10 +1325,24 @@ private fun AppDestination(
     }
     val supplementActions = object : SupplementScreenActions {
         override fun back() { navigation.back() }
-        override fun record(scheduleId: String, status: String) =
-            viewModels.getSupplement().record(AccountScope(ownerId), today, scheduleId, status)
-        override fun undo(scheduleId: String) =
-            viewModels.getSupplement().undo(AccountScope(ownerId), today, scheduleId)
+        override fun selectDate(date: String) =
+            viewModels.getSupplement().selectDate(AccountScope(ownerId), today, date)
+        override fun record(date: String, scheduleId: String, status: String) =
+            viewModels.getSupplement().record(AccountScope(ownerId), today, date, scheduleId, status)
+        override fun undo(date: String, scheduleId: String) =
+            viewModels.getSupplement().undo(AccountScope(ownerId), today, date, scheduleId)
+        override fun savePlan(existing: SupplementPlan?, draft: SupplementPlanDraft) =
+            viewModels.getSupplement().savePlan(AccountScope(ownerId), today, existing, draft)
+        override fun archive(itemId: String) =
+            viewModels.getSupplement().archive(AccountScope(ownerId), today, itemId)
+        override fun updateHistory(recordId: String, status: String) =
+            viewModels.getSupplement().updateHistory(AccountScope(ownerId), today, recordId, status)
+        override fun deleteHistory(recordId: String) =
+            viewModels.getSupplement().deleteHistory(AccountScope(ownerId), today, recordId)
+        override fun saveEffect(itemId: String, score: Int, adverseEffects: String, note: String) =
+            viewModels.getSupplement().saveEffectCheckin(
+                AccountScope(ownerId), today, itemId, score, adverseEffects, note
+            )
     }
     val routineActions = object : RoutineDetailActions {
         override fun back() { navigation.back() }

@@ -11,6 +11,10 @@ import com.yeonsik.fitnessapp.core.database.SupplementScheduleSlotsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.SupplementSchedulesRoomEntity;
 import com.yeonsik.fitnessapp.supplement.SupplementCatalog;
 import com.yeonsik.fitnessapp.supplement.SupplementPlan;
+import com.yeonsik.fitnessapp.feature.supplement.model.SupplementEffectCheckin;
+import com.yeonsik.fitnessapp.feature.supplement.model.SupplementHistoryEntry;
+import com.yeonsik.fitnessapp.feature.supplement.model.SupplementPlanDraft;
+import com.yeonsik.fitnessapp.feature.supplement.model.SupplementPlanSaveResult;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -128,6 +132,43 @@ public final class SupplementRepository implements com.yeonsik.fitnessapp.featur
                 value.planned, value.taken, value.skipped);
     }
 
+    @Override
+    public List<SupplementHistoryEntry> loadHistory(LocalDate endDate, int days) {
+        List<SupplementHistoryEntry> result = new ArrayList<>();
+        for (HistoryEntry entry : history(endDate, days)) {
+            result.add(new SupplementHistoryEntry(
+                    entry.id, entry.date, entry.status, entry.typeName, entry.brandName,
+                    entry.doseAmount, entry.doseUnit, entry.timingLabel, entry.doseIndex,
+                    entry.takenAt, entry.recordSource, entry.createdAt,
+                    entry.activeIngredientAmount, entry.activeIngredientUnit,
+                    entry.ingredientDetails
+            ));
+        }
+        return result;
+    }
+
+    @Override
+    public SupplementPlanSaveResult savePlanDraft(
+            SupplementPlan existing, SupplementPlanDraft draft) {
+        if (draft == null) throw new IllegalArgumentException("복용 계획 입력이 필요합니다.");
+        PlanSaveResult result = savePlan(
+                existing,
+                draft.getTypeCode(),
+                draft.getBrandName(),
+                draft.getProductForm(),
+                draft.getPurposeCode(),
+                draft.getServingAmount(),
+                draft.getServingUnit(),
+                draft.getActiveIngredientAmount(),
+                draft.getActiveIngredientUnit(),
+                draft.getIngredientDetails(),
+                draft.getTimingLabels(),
+                draft.getInstructions()
+        );
+        return new SupplementPlanSaveResult(
+                result.itemId, result.scheduleId, result.effectiveFrom, result.startsTomorrow);
+    }
+
     /** Compatibility overload for existing callers and v30 records. */
     public String savePlan(SupplementPlan existing, String typeCode, String brandName,
                            double doseAmount, String doseUnit, int timesPerDay,
@@ -242,6 +283,7 @@ public final class SupplementRepository implements com.yeonsik.fitnessapp.featur
         deleteRecord(id);
     }
 
+    @Override
     public void updateRecordStatus(String recordId, String status) {
         if (!STATUS_TAKEN.equals(status) && !STATUS_SKIPPED.equals(status)) {
             throw new IllegalArgumentException("지원하지 않는 복용 상태입니다.");
@@ -253,12 +295,14 @@ public final class SupplementRepository implements com.yeonsik.fitnessapp.featur
         }
     }
 
+    @Override
     public void deleteRecord(String recordId) {
         if (supplementDao.deleteRecord(recordId, userId) == 0) {
             throw new IllegalArgumentException("복용 기록을 찾을 수 없습니다.");
         }
     }
 
+    @Override
     public void archivePlan(String itemId) {
         String now = now();
         String today = LocalDate.now().toString();
@@ -289,6 +333,7 @@ public final class SupplementRepository implements com.yeonsik.fitnessapp.featur
         return result;
     }
 
+    @Override
     public void saveEffectCheckin(String itemId, String date, int effectScore,
                                   String adverseEffects, String note) {
         requireDate(date);
@@ -312,6 +357,13 @@ public final class SupplementRepository implements com.yeonsik.fitnessapp.featur
         SupplementEffectCheckinsRoomEntity row = supplementDao.latestEffectCheckin(userId, itemId);
         return row == null ? null : new EffectCheckin(
                 row.getDate(), (int) row.getEffectScore(), row.getAdverseEffects(), row.getNote());
+    }
+
+    @Override
+    public SupplementEffectCheckin loadLatestEffectCheckin(String itemId) {
+        EffectCheckin value = latestEffectCheckin(itemId);
+        return value == null ? null : new SupplementEffectCheckin(
+                value.date, value.effectScore, value.adverseEffects, value.note);
     }
 
     private PlanSnapshot requireSnapshot(String scheduleId, String date) {

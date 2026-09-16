@@ -22,8 +22,8 @@ public final class MainActivitySupplementTest {
                 clickText(root, "피트니스");
                 clickText(root, "영양제");
 
-                assertNotNull(findText(root, "매일 복용 기록"));
-                assertNotNull(findText(root, "복용 날짜"));
+                assertNotNull(findText(root, "보충제"));
+                assertNotNull(findText(root, "복용 계획 추가"));
                 assertNotNull(findText(root, "복용 계획"));
                 assertNotNull(findText(root, "최근 7일 기록"));
             });
