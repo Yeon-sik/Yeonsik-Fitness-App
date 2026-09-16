@@ -1,43 +1,51 @@
 package com.yeonsik.fitnessapp.feature.records.ui
 
-import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
-import com.yeonsik.fitnessapp.BuildConfig
-import com.yeonsik.fitnessapp.cardio.*
-import com.yeonsik.fitnessapp.config.*
-import com.yeonsik.fitnessapp.core.ui.*
-import com.yeonsik.fitnessapp.data.*
-import com.yeonsik.fitnessapp.feature.cardio.model.*
-import com.yeonsik.fitnessapp.feature.cardio.ui.*
-import com.yeonsik.fitnessapp.feature.development.ui.*
-import com.yeonsik.fitnessapp.feature.exercise.ui.*
-import com.yeonsik.fitnessapp.feature.home.ui.*
-import com.yeonsik.fitnessapp.feature.meal.ui.*
-import com.yeonsik.fitnessapp.feature.routine.ui.*
-import com.yeonsik.fitnessapp.feature.supplement.ui.*
-import com.yeonsik.fitnessapp.feature.workout.model.*
-import com.yeonsik.fitnessapp.feature.workout.ui.*
-import com.yeonsik.fitnessapp.state.FitnessScreen
-import kotlinx.coroutines.delay
+import com.yeonsik.fitnessapp.core.ui.AppCard
+import com.yeonsik.fitnessapp.core.ui.AppDataRow
+import com.yeonsik.fitnessapp.core.ui.AppHeader
+import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
+import com.yeonsik.fitnessapp.core.ui.AppSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessCalendarDayCell
+import com.yeonsik.fitnessapp.core.ui.FitnessCalendarMarker
+import com.yeonsik.fitnessapp.core.ui.FitnessMonthHeader
+import com.yeonsik.fitnessapp.core.ui.FitnessTrendChart
+import com.yeonsik.fitnessapp.core.ui.FitnessTrendPoint
+import com.yeonsik.fitnessapp.core.ui.fitnessCalendarDayPresentation
+import com.yeonsik.fitnessapp.core.ui.fitnessTrendPresentation
+import com.yeonsik.fitnessapp.core.ui.fitnessWeekdayLabels
+import com.yeonsik.fitnessapp.data.MassFormatter
+import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitnessapp.feature.records.model.RecordsCalendarDay
+import com.yeonsik.fitnessapp.feature.records.model.RecordsDayDetail
+import com.yeonsik.fitnessapp.feature.records.model.RecordsWeightPoint
+import com.yeonsik.fitnessapp.feature.records.model.RecordsWorkoutSummary
 import java.time.LocalDate
+import java.time.YearMonth
+import java.util.Locale
 
 interface RecordsScreenActions {
     fun selectDate(date: String)
+    fun previousMonth()
+    fun nextMonth()
+    fun today()
     fun openRecord(recordId: String)
     fun deleteRecord(recordId: String)
     fun showBodyMetric(date: String, recordId: String?)
@@ -46,89 +54,250 @@ interface RecordsScreenActions {
 
 @Composable
 internal fun RecordsScreen(
-    state: HomeUiState,
+    state: RecordsUiState,
     ownerId: String,
     today: String,
     unit: MassUnit,
     selectedDate: String,
     actions: RecordsScreenActions
 ) {
-    val ready = state as? HomeUiState.Ready
-    AppHeader("기록", selectedDate)
-    if (ready == null || ready.snapshot.ownerId != ownerId) {
-        Text("기록을 불러오는 중입니다.")
+    val ready = state as? RecordsUiState.Ready
+    val snapshot = ready?.snapshot?.takeIf { it.ownerId == ownerId }
+    AppHeader("기록", snapshot?.selectedDate ?: selectedDate)
+    if (state is RecordsUiState.Error) {
+        AppCard(Modifier.fillMaxWidth()) {
+            Text(state.message, Modifier.padding(AppSpacing.card))
+        }
         return
     }
-    val snapshot = ready.snapshot
-    val date = snapshot.today
-    val metrics = snapshot.dayMetrics[date]
+    if (snapshot == null) {
+        Text(
+            if (state is RecordsUiState.Loading) "기록을 불러오는 중입니다."
+            else "기록을 준비하고 있습니다."
+        )
+        return
+    }
+
+    val displayedMonth = runCatching { YearMonth.parse(snapshot.displayedMonth) }
+        .getOrElse { YearMonth.from(LocalDate.parse(snapshot.selectedDate)) }
+    val selected = runCatching { LocalDate.parse(snapshot.selectedDate) }.getOrNull()
+    val currentDay = runCatching { LocalDate.parse(snapshot.today) }
+        .getOrElse { LocalDate.parse(today) }
+
+    FitnessMonthHeader(
+        month = displayedMonth,
+        onPrevious = actions::previousMonth,
+        onNext = actions::nextMonth
+    )
+    AppOutlinedButton(
+        onClick = actions::today,
+        enabled = snapshot.selectedDate != snapshot.today,
+        modifier = Modifier.fillMaxWidth()
+    ) { Text("오늘로 이동") }
+    RecordsCalendarLegend()
+    RecordsCalendar(displayedMonth, selected, currentDay, snapshot.calendarDays, actions)
+    Spacer(Modifier.height(AppSpacing.small))
+    RecordsDayDetailSection(snapshot.selectedDay, unit, actions)
+    Spacer(Modifier.height(AppSpacing.small))
+    RecordsWeightTrend(snapshot.weightTrend, unit)
+}
+
+@Composable
+private fun RecordsCalendar(
+    displayedMonth: YearMonth,
+    selectedDate: LocalDate?,
+    today: LocalDate,
+    calendarDays: List<RecordsCalendarDay>,
+    actions: RecordsScreenActions
+) {
+    val colors = mapOf(
+        "workout" to MaterialTheme.colorScheme.primary,
+        "body" to MaterialTheme.colorScheme.tertiary,
+        "meal" to MaterialTheme.colorScheme.secondary
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
+        Row(Modifier.fillMaxWidth()) {
+            fitnessWeekdayLabels(Locale.KOREA).forEach { label ->
+                Text(
+                    label,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        calendarDays.chunked(7).forEach { week ->
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+            ) {
+                week.forEach { day ->
+                    val date = LocalDate.parse(day.date)
+                    FitnessCalendarDayCell(
+                        day = fitnessCalendarDayPresentation(
+                            date = date,
+                            displayedMonth = displayedMonth,
+                            selectedDate = selectedDate,
+                            today = today,
+                            markers = day.markers()
+                        ),
+                        markerColors = colors,
+                        modifier = Modifier.weight(1f),
+                        onClick = { actions.selectDate(day.date) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun RecordsCalendarLegend() {
+    val entries = listOf(
+        "운동" to MaterialTheme.colorScheme.primary,
+        "체중" to MaterialTheme.colorScheme.tertiary,
+        "식사" to MaterialTheme.colorScheme.secondary
+    )
     Row(
         Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        AppOutlinedButton(
-            onClick = {
-                val previous = runCatching { LocalDate.parse(date).minusDays(1).toString() }
-                    .getOrDefault(date)
-                actions.selectDate(previous)
-            },
-            modifier = Modifier.weight(1f)
-        ) { Text("이전 날짜") }
-        Text(date, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
-        AppOutlinedButton(
-            onClick = {
-                val next = runCatching { LocalDate.parse(date).plusDays(1).toString() }
-                    .getOrDefault(date)
-                if (next <= today) actions.selectDate(next)
-            },
-            enabled = date < today,
-            modifier = Modifier.weight(1f)
-        ) { Text("다음 날짜") }
+        entries.forEach { (label, color) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(
+                    Modifier
+                        .size(8.dp)
+                        .background(color)
+                )
+                Text(label, Modifier.padding(start = FitnessSpacing.micro))
+            }
+        }
     }
-    FitnessFactRow(
-        first = { FitnessFactCard("운동", "${snapshot.todaySessions.size}회", "완료 기록") },
-        second = { FitnessFactCard("볼륨", MassFormatter.withUnit(metrics?.totalVolumeKg ?: 0.0, unit), "완료 세트") }
-    )
-    if (snapshot.todaySessions.isNotEmpty()) {
+}
+
+@Composable
+private fun RecordsDayDetailSection(
+    detail: RecordsDayDetail,
+    unit: MassUnit,
+    actions: RecordsScreenActions
+) {
+    Text("${detail.date} 상세", style = MaterialTheme.typography.titleMedium)
+    if (!detail.hasAnyRecord) {
+        AppCard(Modifier.fillMaxWidth()) {
+            Text("선택한 날짜에 저장된 기록이 없습니다.", Modifier.padding(AppSpacing.card))
+        }
+    }
+    if (detail.workouts.isNotEmpty()) {
         Text("운동 기록", fontWeight = FontWeight.Bold)
-        snapshot.todaySessions.forEach { recordId ->
-            AppCard(Modifier.fillMaxWidth().clickable { actions.openRecord(recordId) }) {
+        detail.workouts.forEach { workout ->
+            AppCard(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.padding(AppSpacing.card),
+                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .clickable { actions.openRecord(workout.id) }
+                    ) {
+                        Text(workout.title.ifBlank { "운동 기록" }, fontWeight = FontWeight.Bold)
+                        Text(
+                            recordsWorkoutDetail(workout, unit),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        if (workout.muscleLabels.isNotEmpty()) {
+                            Text(
+                                "부위: ${workout.muscleLabels.joinToString(", ")}",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                    }
+                    AppOutlinedButton(
+                        onClick = { actions.deleteRecord(workout.id) },
+                        destructive = true
+                    ) { Text("삭제") }
+                }
+            }
+        }
+    }
+    if (detail.bodyMetrics.isNotEmpty()) {
+        Text("체중 기록", fontWeight = FontWeight.Bold)
+        detail.bodyMetrics.forEach { metric ->
+            AppCard(Modifier.fillMaxWidth().clickable {
+                actions.showBodyMetric(metric.date, metric.id)
+            }) {
                 Row(
                     Modifier.padding(AppSpacing.card),
                     horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column(Modifier.weight(1f)) {
-                        Text("운동 기록", fontWeight = FontWeight.Bold)
-                        Text(recordId.take(8), style = MaterialTheme.typography.bodySmall)
+                        Text(MassFormatter.withUnit(metric.weightKg, unit), fontWeight = FontWeight.Bold)
+                        if (metric.memo.isNotBlank()) Text(metric.memo)
                     }
-                    AppOutlinedButton(onClick = { actions.deleteRecord(recordId) }) { Text("삭제") }
+                    Text("수정", style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
     }
-    snapshot.todayBodyMetrics.forEach { metric ->
-        AppCard(Modifier.fillMaxWidth().clickable {
-            actions.showBodyMetric(metric.date, metric.id)
-        }) {
-            Row(
-                Modifier.padding(AppSpacing.card),
-                horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text("체중", fontWeight = FontWeight.Bold)
-                    Text(MassFormatter.withUnit(metric.weightKg, unit))
-                }
-                Text("수정", style = MaterialTheme.typography.bodySmall)
-            }
+    if (detail.meals.isNotEmpty()) {
+        Text("식사 기록", fontWeight = FontWeight.Bold)
+        detail.meals.forEach { meal ->
+            AppDataRow(meal.mealLabel, meal.previewTitle)
         }
     }
-    snapshot.todayMeals.forEach { AppDataRow(it.mealLabel, it.previewTitle) }
     AppOutlinedButton(
-        onClick = { actions.showBodyMetric(date, null) },
+        onClick = { actions.showBodyMetric(detail.date, null) },
         modifier = Modifier.fillMaxWidth()
     ) { Text("체중 기록") }
-    AppOutlinedButton(onClick = { actions.openMeals(date) }, Modifier.fillMaxWidth()) { Text("식사 기록") }
+    AppOutlinedButton(
+        onClick = { actions.openMeals(detail.date) },
+        modifier = Modifier.fillMaxWidth()
+    ) { Text("식사 기록 관리") }
+}
+
+@Composable
+private fun RecordsWeightTrend(points: List<RecordsWeightPoint>, unit: MassUnit) {
+    val presentation = fitnessTrendPresentation(
+        points.map { point ->
+            FitnessTrendPoint(
+                label = point.date,
+                value = MassUnit.fromKg(point.averageKg, unit)
+            )
+        },
+        minimumPoints = 3
+    )
+    AppCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(AppSpacing.card)) {
+            Text("체중 추이", style = MaterialTheme.typography.titleMedium)
+            FitnessTrendChart(
+                model = presentation,
+                modifier = Modifier.fillMaxWidth(),
+                unit = unit.symbol()
+            )
+        }
+    }
+}
+
+private fun RecordsCalendarDay.markers(): List<FitnessCalendarMarker> = buildList {
+    if (hasWorkout) add(FitnessCalendarMarker("workout", "운동"))
+    if (hasBodyMetric) add(FitnessCalendarMarker("body", "체중"))
+    if (hasMeal) add(FitnessCalendarMarker("meal", "식사"))
+}
+
+private fun recordsWorkoutDetail(workout: RecordsWorkoutSummary, unit: MassUnit): String {
+    val duration = if (workout.durationSeconds > 0) {
+        "${workout.durationSeconds / 60}분"
+    } else {
+        "시간 미기록"
+    }
+    val type = when (workout.workoutType) {
+        "strength" -> "근력"
+        "cardio" -> "유산소"
+        else -> workout.workoutType.ifBlank { "운동" }
+    }
+    return "$type · $duration · 세트 ${workout.completedSetCount}개 · 볼륨 " +
+        MassFormatter.withUnit(workout.totalVolumeKg, unit)
 }

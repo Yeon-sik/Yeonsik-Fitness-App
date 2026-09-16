@@ -9,6 +9,7 @@ import com.yeonsik.fitnessapp.feature.meal.ui.MealViewModel;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.settings.ui.SettingsViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
+import com.yeonsik.fitnessapp.feature.records.ui.RecordsViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 
@@ -25,6 +26,7 @@ public final class AppViewModels {
     private final CardioSessionViewModel cardioSession;
     private final RoutineEntryViewModel routineEntry;
     private final HomeViewModel home;
+    private final RecordsViewModel records;
     private final DevelopmentViewModel development;
     private final SupplementViewModel supplement;
     private final ExercisePickerViewModel exercisePicker;
@@ -38,6 +40,7 @@ public final class AppViewModels {
             CardioSessionViewModel cardioSession,
             RoutineEntryViewModel routineEntry,
             HomeViewModel home,
+            RecordsViewModel records,
             DevelopmentViewModel development,
             SupplementViewModel supplement,
             ExercisePickerViewModel exercisePicker,
@@ -50,6 +53,7 @@ public final class AppViewModels {
         this.cardioSession = cardioSession;
         this.routineEntry = routineEntry;
         this.home = home;
+        this.records = records;
         this.development = development;
         this.supplement = supplement;
         this.exercisePicker = exercisePicker;
@@ -79,6 +83,10 @@ public final class AppViewModels {
 
     public HomeViewModel getHome() {
         return home;
+    }
+
+    public RecordsViewModel getRecords() {
+        return records;
     }
 
     public DevelopmentViewModel getDevelopment() {

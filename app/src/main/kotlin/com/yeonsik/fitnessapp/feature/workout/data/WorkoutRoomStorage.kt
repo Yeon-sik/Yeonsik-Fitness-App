@@ -13,6 +13,7 @@ import com.yeonsik.fitnessapp.data.MassUnit
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity
 import com.yeonsik.fitnessapp.exercise.ExerciseVolumeCalculator
+import com.yeonsik.fitnessapp.exercise.ExercisePrimaryMuscleLabel
 import com.yeonsik.fitnessapp.exercise.LoadState
 import com.yeonsik.fitnessapp.exercise.RoutineExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
@@ -22,6 +23,7 @@ import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutPerformanceCalculator
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutRoutineComparison
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadSessionSummary
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Duration
@@ -641,6 +643,41 @@ class WorkoutRoomStorage(
     fun completedDates(scope: AccountScope, startDate: String, endDate: String): List<String> =
         workoutDao.completedWorkoutDates(scope.ownerId, startDate, endDate)
 
+
+    /**
+     * Completed session facts for a calendar/detail read model. The DAO query and
+     * WorkoutReadSemantics keep active and deleted rows out of the projection.
+     */
+    fun completedSessionSummaries(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<WorkoutReadSessionSummary> =
+        workoutDao.visibleCompletedRecordsBetween(scope.ownerId, startDate, endDate)
+            .mapNotNull { record ->
+                val info = sessionInfo(scope, record.id) ?: return@mapNotNull null
+                val exerciseRows = exercises(scope, record.id)
+                val summary = metrics(scope, record.id)
+                val muscleLabels = exerciseRows.asSequence()
+                    .map { exercise ->
+                        ExercisePrimaryMuscleLabel.forPrimarySubPart(
+                            exercise.primarySubPart, exercise.uiPart
+                        )
+                    }
+                    .filter { it.isNotBlank() }
+                    .distinct()
+                    .toList()
+                WorkoutReadSessionSummary(
+                    id = record.id,
+                    date = record.date,
+                    title = info.title,
+                    workoutType = record.workoutType,
+                    durationSeconds = info.durationSeconds,
+                    totalVolumeKg = summary.totalVolumeKg,
+                    completedSetCount = summary.setCount,
+                    muscleLabels = muscleLabels
+                )
+            }
     fun completedResistanceSessions(scope: AccountScope, startDate: String, endDate: String): Int =
         workoutDao.completedResistanceSessions(scope.ownerId, startDate, endDate)
 

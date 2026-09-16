@@ -3,6 +3,7 @@ package com.yeonsik.fitnessapp.feature.workout.api
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadDayMetrics
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadSessionSummary
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
 
 /** Read-only workout port used by cross-feature read models. */
@@ -24,5 +25,15 @@ interface WorkoutReadApi {
     ): String?
     fun completedRecordedDays(scope: AccountScope, startDate: String, endDate: String): Int
     fun completedDates(scope: AccountScope, startDate: String, endDate: String): List<String>
+
+    /**
+     * Completed session facts for read-only cross-feature compositions such as Records.
+     * Implementations must keep the source account and completed-record policy unchanged.
+     */
+    fun completedSessionSummaries(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<WorkoutReadSessionSummary> = emptyList()
     fun completedResistanceSessions(scope: AccountScope, startDate: String, endDate: String): Int
 }
