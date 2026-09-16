@@ -54,6 +54,7 @@ interface DevelopmentScreenActions {
 @Composable
 internal fun DevelopmentScreen(
     state: DevelopmentUiState,
+    paperAdviceState: PaperAdviceUiState,
     ownerId: String,
     unit: MassUnit,
     actions: DevelopmentScreenActions
@@ -113,7 +114,7 @@ internal fun DevelopmentScreen(
     Text("영양·회복 근거", fontWeight = FontWeight.Bold)
     Text("식사 ${report.mealRecordedDays}일 · 체크인 ${report.checkInRecordedDays}일")
     Text("논문 기반 점검", fontWeight = FontWeight.Bold)
-    Text("적용 준비도")
+    PaperAdviceSection(paperAdviceState, ownerId)
     Text("판단 근거 범위", fontWeight = FontWeight.Bold)
     Text(
         "${report.dataCoverage.windowDays}일 중 기록 ${report.dataCoverage.daysWithAnyData}일 · " +

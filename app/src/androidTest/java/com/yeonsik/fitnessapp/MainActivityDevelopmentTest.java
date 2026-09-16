@@ -32,7 +32,10 @@ public final class MainActivityDevelopmentTest {
                 assertNotNull(findText(root, "훈련 부위 근거"));
                 assertNotNull(findText(root, "영양·회복 근거"));
                 assertNotNull(findText(root, "논문 기반 점검"));
-                assertNotNull(findText(root, "적용 준비도"));
+                assertTrue(
+                        findText(root, "Readiness · 검토 후보") != null
+                                || findText(root, "논문 기반 점검을 불러오는 중입니다.") != null
+                );
                 assertNotNull(findText(root, "판단 근거 범위"));
             });
         }

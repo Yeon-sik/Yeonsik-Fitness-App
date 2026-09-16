@@ -1102,6 +1102,8 @@ private fun AppDestination(
         .observeAsState(CardioRouteUiState.Idle)
     val developmentState by viewModels.getDevelopment().uiState
         .observeAsState(DevelopmentUiState.Idle)
+    val paperAdviceState by viewModels.getDevelopment().paperAdviceState
+        .observeAsState(PaperAdviceUiState.Idle)
     val mealState by viewModels.getMeal().uiState.observeAsState(MealUiState.Idle)
     val mealPriceTraceState by viewModels.getMeal().priceTraceState
         .observeAsState(PriceTraceUiState.Idle)
@@ -1456,6 +1458,7 @@ private fun AppDestination(
             )
             FitnessScreen.DEVELOPMENT -> DevelopmentScreen(
                 developmentState,
+                paperAdviceState,
                 ownerId,
                 unit,
                 object : DevelopmentScreenActions {

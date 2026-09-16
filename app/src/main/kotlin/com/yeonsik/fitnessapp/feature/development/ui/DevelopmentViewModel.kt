@@ -10,6 +10,7 @@ import com.yeonsik.fitnessapp.data.AthleteNutritionGoal
 import com.yeonsik.fitnessapp.development.BodyProfile
 import com.yeonsik.fitnessapp.development.DevelopmentGoal
 import com.yeonsik.fitnessapp.development.DevelopmentReport
+import com.yeonsik.fitnessapp.development.PaperAdviceAssessment
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi
 import com.yeonsik.fitnessapp.feature.recovery.api.RecoveryRepositoryApi
@@ -22,6 +23,13 @@ sealed interface DevelopmentUiState {
     data object Loading : DevelopmentUiState
     data class Ready(val ownerId: String, val report: DevelopmentReport) : DevelopmentUiState
     data class Error(val ownerId: String, val message: String) : DevelopmentUiState
+}
+
+sealed interface PaperAdviceUiState {
+    data object Idle : PaperAdviceUiState
+    data class Loading(val ownerId: String) : PaperAdviceUiState
+    data class Ready(val ownerId: String, val assessment: PaperAdviceAssessment) : PaperAdviceUiState
+    data class Error(val ownerId: String, val message: String) : PaperAdviceUiState
 }
 
 sealed interface DevelopmentProfileEditorUiState {
@@ -101,6 +109,8 @@ class DevelopmentViewModel @JvmOverloads constructor(
 ) : ViewModel() {
     private val mutableState = MutableLiveData<DevelopmentUiState>(DevelopmentUiState.Idle)
     val uiState: LiveData<DevelopmentUiState> = mutableState
+    private val mutablePaperAdviceState = MutableLiveData<PaperAdviceUiState>(PaperAdviceUiState.Idle)
+    val paperAdviceState: LiveData<PaperAdviceUiState> = mutablePaperAdviceState
     private val mutableProfileEditorState =
         MutableLiveData<DevelopmentProfileEditorUiState>(DevelopmentProfileEditorUiState.Idle)
     val profileEditorState: LiveData<DevelopmentProfileEditorUiState> = mutableProfileEditorState
@@ -118,6 +128,7 @@ class DevelopmentViewModel @JvmOverloads constructor(
         savedStateHandle[KEY_DATE] = date
         val request = ++reportRequestVersion
         mutableState.value = DevelopmentUiState.Loading
+        mutablePaperAdviceState.value = PaperAdviceUiState.Loading(scope.ownerId)
         executor.execute {
             try {
                 val report = repository.buildReport(scope, LocalDate.parse(date))
@@ -131,6 +142,7 @@ class DevelopmentViewModel @JvmOverloads constructor(
                 )
             }
         }
+        loadPaperAdvice(scope, date, request)
     }
 
     fun openProfileEditor(scope: AccountScope, date: String) {
@@ -386,6 +398,32 @@ class DevelopmentViewModel @JvmOverloads constructor(
         mutableRecoveryEditorState.value = when (state) {
             is RecoveryEditorUiState.Ready -> state.copy(editor = null)
             else -> RecoveryEditorUiState.Idle
+        }
+    }
+
+    private fun loadPaperAdvice(scope: AccountScope, date: String, request: Long) {
+        executor.execute {
+            try {
+                val referenceDate = LocalDate.parse(date)
+                val assessment = repository.buildPaperAdviceAssessment(scope, referenceDate)
+                require(assessment.input.referenceDate == referenceDate) {
+                    "PaperAdvice 기준일이 요청과 다릅니다."
+                }
+                if (request == reportRequestVersion) {
+                    mutablePaperAdviceState.postValue(
+                        PaperAdviceUiState.Ready(scope.ownerId, assessment)
+                    )
+                }
+            } catch (error: Exception) {
+                if (request == reportRequestVersion) {
+                    mutablePaperAdviceState.postValue(
+                        PaperAdviceUiState.Error(
+                            scope.ownerId,
+                            error.message ?: "논문 기반 점검을 불러오지 못했습니다."
+                        )
+                    )
+                }
+            }
         }
     }
 
