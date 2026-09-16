@@ -13,4 +13,7 @@ interface BodyMetricsReadApi {
     fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int
     fun dates(scope: AccountScope, startDate: String, endDate: String): List<String>
     fun weightWindow(scope: AccountScope, startDate: String, endDate: String): BodyWeightWindow
+
+    /** Raw owner-scoped weight facts for read-only trend compositions. */
+    fun weightEntries(scope: AccountScope, startDate: String, endDate: String): List<BodyReadEntry> = emptyList()
 }

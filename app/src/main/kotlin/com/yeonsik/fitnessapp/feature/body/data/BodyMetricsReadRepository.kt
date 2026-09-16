@@ -50,4 +50,12 @@ class BodyMetricsReadRepository(roomDatabase: FitnessRoomDatabase) : BodyMetrics
             record.weightKg,
             try { JSONObject(record.metadata).optString("memo", "") } catch (_: Exception) { "" }
         )
+
+    override fun weightEntries(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<BodyReadEntry> = bodyDao.visibleWeightsBetween(
+        scope.ownerId, startDate, endDate
+    ).map(::toReadEntry)
 }

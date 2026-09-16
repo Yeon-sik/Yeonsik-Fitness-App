@@ -46,6 +46,7 @@ import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
+import com.yeonsik.fitnessapp.feature.records.ui.RecordsViewModel;
 import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel;
 import com.yeonsik.fitnessapp.feature.supplement.ui.SupplementViewModel;
@@ -106,6 +107,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private CardioSessionViewModel cardioSessionViewModel;
     private RoutineEntryViewModel routineEntryViewModel;
     private HomeViewModel homeViewModel;
+    private RecordsViewModel recordsViewModel;
     private DevelopmentViewModel developmentViewModel;
     private BodyMetricsViewModel bodyMetricsViewModel;
     private SettingsViewModel settingsViewModel;
@@ -183,6 +185,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         cardioSessionViewModel = provider.get(CardioSessionViewModel.class);
         routineEntryViewModel = provider.get(RoutineEntryViewModel.class);
         homeViewModel = provider.get(HomeViewModel.class);
+        recordsViewModel = provider.get(RecordsViewModel.class);
         developmentViewModel = provider.get(DevelopmentViewModel.class);
         supplementViewModel = provider.get(SupplementViewModel.class);
         exercisePickerViewModel = provider.get(ExercisePickerViewModel.class);
@@ -523,6 +526,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         cardioSessionViewModel,
                         routineEntryViewModel,
                         homeViewModel,
+                        recordsViewModel,
                         developmentViewModel,
                         supplementViewModel,
                         exercisePickerViewModel,

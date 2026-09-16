@@ -967,6 +967,16 @@ interface WorkoutRoomDao {
 
     @Query(
         "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
+            "AND scope IN ('fitness','both') AND date BETWEEN :startDate AND :endDate " +
+            "AND (source_app='os' OR metadata LIKE '%\"status\":\"completed\"%') " +
+            "ORDER BY date, updated_at DESC, id ASC"
+    )
+    fun visibleCompletedRecordsBetween(
+        userId: String, startDate: String, endDate: String
+    ): List<WorkoutRecordsRoomEntity>
+
+    @Query(
+        "SELECT * FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
             "AND scope IN ('fitness','both') ORDER BY updated_at DESC LIMIT :limit"
     )
     fun recentVisibleRecords(userId: String, limit: Int): List<WorkoutRecordsRoomEntity>

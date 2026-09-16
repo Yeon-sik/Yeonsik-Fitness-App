@@ -226,11 +226,33 @@ private fun AppRoot(
                 viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
             }
             FitnessScreen.WORKOUT,
-            FitnessScreen.RECORDS,
             FitnessScreen.ROUTINE_DETAIL,
             FitnessScreen.MEALS ->
                 viewModels.getHome().enter(AccountScope(ownerId), routeDate)
+            FitnessScreen.RECORDS ->
+                viewModels.getRecords().enter(
+                    AccountScope(ownerId),
+                    navigationState.today,
+                    navigationState.selectedRecordsDate
+                )
             else -> Unit
+        }
+    }
+
+    LaunchedEffect(
+        screen,
+        ownerId,
+        workoutAction,
+        workoutTerminalEvent,
+        bodyEditorState,
+        mealState
+    ) {
+        if (screen == FitnessScreen.RECORDS) {
+            viewModels.getRecords().refresh(
+                AccountScope(ownerId),
+                navigationState.today,
+                navigationState.selectedRecordsDate
+            )
         }
     }
 
@@ -1060,6 +1082,8 @@ private fun AppDestination(
     unit: MassUnit
 ) {
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
+    val recordsState by viewModels.getRecords().uiState
+        .observeAsState(RecordsUiState.Idle)
     val routineState by viewModels.getRoutineEntry().uiState.observeAsState(RoutineEntryUiState.Idle)
     val workoutState by viewModels.getWorkoutSession().uiState
         .observeAsState(WorkoutSessionUiState.Idle)
@@ -1268,8 +1292,26 @@ private fun AppDestination(
         override fun signOut(connection: SettingsConnection) =
             viewModels.getSettings().signOut(connection)
     }
+    val recordsToday = navigation.uiState.value?.today ?: today
+    val recordsSelectedDate = navigation.uiState.value?.selectedRecordsDate ?: today
     val recordsActions = object : RecordsScreenActions {
-        override fun selectDate(date: String) = navigation.selectRecordsDate(date)
+        override fun selectDate(date: String) {
+            val scope = AccountScope(ownerId)
+            viewModels.getRecords().rememberSelectedDate(scope, date)
+            navigation.selectRecordsDate(date)
+        }
+        override fun previousMonth() = viewModels.getRecords().previousMonth(
+            AccountScope(ownerId), recordsToday, recordsSelectedDate
+        )
+        override fun nextMonth() = viewModels.getRecords().nextMonth(
+            AccountScope(ownerId), recordsToday, recordsSelectedDate
+        )
+        override fun today() {
+            val scope = AccountScope(ownerId)
+            viewModels.getRecords().rememberSelectedDate(scope, recordsToday)
+            viewModels.getRecords().showToday(scope, recordsToday)
+            navigation.selectRecordsDate(recordsToday)
+        }
         override fun openRecord(recordId: String) = viewModels.getWorkoutSession()
             .openRecord(AccountScope(ownerId), recordId)
         override fun deleteRecord(recordId: String) = viewModels.getWorkoutSession()
@@ -1374,7 +1416,7 @@ private fun AppDestination(
             )
             FitnessScreen.CARDIO -> CardioStartScreen(cardioActions)
             FitnessScreen.RECORDS -> RecordsScreen(
-                homeState,
+                recordsState,
                 ownerId,
                 navigation.uiState.value?.today ?: today,
                 unit,

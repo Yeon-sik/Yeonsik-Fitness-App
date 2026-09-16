@@ -29,6 +29,18 @@ data class WorkoutBodyPartSets(
     val setCount: Int
 )
 
+/** Compact completed-workout facts exposed to cross-feature read compositions. */
+data class WorkoutReadSessionSummary(
+    val id: String,
+    val date: String,
+    val title: String,
+    val workoutType: String,
+    val durationSeconds: Int,
+    val totalVolumeKg: Double,
+    val completedSetCount: Int,
+    val muscleLabels: List<String>
+)
+
 data class WorkoutSet(
     @JvmField val id: String,
     @JvmField val setIndex: Int,
