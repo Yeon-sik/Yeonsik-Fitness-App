@@ -73,6 +73,14 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
         return MealNutritionReadSummary(protein, recordedDays, rows.size, estimatedMealCount)
     }
 
+    override fun mealSnapshots(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<MealSnapshotRead> = mealDao.visibleMealReadRowsBetween(
+        scope.ownerId, startDate, endDate
+    ).mapNotNull { row -> mealSnapshot(scope, row.id) }
+
     override fun mealSnapshot(scope: AccountScope, recordId: String): MealSnapshotRead? {
         val normalizedId = recordId.trim()
         if (normalizedId.isEmpty()) return null
@@ -88,11 +96,11 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
             .groupBy { it.mealRecordItemId }
 
         return MealSnapshotRead(
-            record.id,
-            record.date,
-            record.mealKind,
-            record.metadata,
-            items.map { item ->
+            id = record.id,
+            date = record.date,
+            mealKind = record.mealKind,
+            metadata = record.metadata,
+            items = items.map { item ->
                 MealSnapshotItemRead(
                     id = item.id,
                     foodId = item.foodId,
@@ -157,7 +165,21 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
                         )
                     }
                 )
-            }
+            },
+            nutrition = MealSnapshotNutritionRead(
+                calories = record.calories.toDouble(),
+                proteinGrams = record.proteinGrams,
+                carbsGrams = record.carbsGrams,
+                fatGrams = record.fatGrams,
+                sodiumMg = null,
+                saturatedFatGrams = null,
+                sugarsGrams = null,
+                fiberGrams = null,
+                addedSugarsGrams = null,
+                transFatGrams = null,
+                cholesterolMg = null,
+                micronutrients = emptyMap()
+            )
         )
     }
 

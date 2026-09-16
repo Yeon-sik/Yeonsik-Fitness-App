@@ -12,6 +12,8 @@ import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
+import com.yeonsik.fitnessapp.feature.nutrition.analysis.api.NutritionAnalysisApi
+import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionAnalysisReport
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ExecutorService
@@ -61,7 +63,10 @@ sealed interface MealUiState {
         val quantity: String = "",
         val priceTraceQuery: String = "",
         val recordEditor: MealRecordEditor? = null,
-        val recordActionSaving: Boolean = false
+        val recordActionSaving: Boolean = false,
+        val nutritionAnalysis: NutritionAnalysisReport? = null,
+        val nutritionAnalysisLoading: Boolean = false,
+        val nutritionAnalysisError: String? = null
     ) : MealUiState
 }
 
@@ -83,6 +88,7 @@ class MealViewModel @JvmOverloads constructor(
     private val mealRepository: MealRecordRepositoryApi,
     private val nutritionCatalog: NutritionCatalogRepositoryApi,
     private val nutritionIntegration: NutritionIntegrationService,
+    private val nutritionAnalysisApi: NutritionAnalysisApi? = null,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : ViewModel() {
     private val mutableState = MutableLiveData<MealUiState>(MealUiState.Idle)
@@ -93,6 +99,7 @@ class MealViewModel @JvmOverloads constructor(
     private var date = ""
     private var requestVersion = 0L
     private var priceTraceRequestVersion = 0L
+    private var nutritionAnalysisRequestVersion = 0L
     private var selectedFood: NutritionFood? = null
 
     fun enter(scope: AccountScope, date: String) {
@@ -111,8 +118,12 @@ class MealViewModel @JvmOverloads constructor(
             recordEditor = null,
             recordActionSaving = false,
             error = null,
-            notice = null
+            notice = null,
+            nutritionAnalysis = null,
+            nutritionAnalysisLoading = nutritionAnalysisApi != null,
+            nutritionAnalysisError = null
         )
+        loadNutritionAnalysis(scope, date)
         mutablePriceTraceState.value = PriceTraceUiState.Ready(
             ownerId = scope.ownerId,
             query = savedStateHandle[KEY_PRICE_TRACE_QUERY] ?: ""
@@ -228,6 +239,7 @@ class MealViewModel @JvmOverloads constructor(
                             notice = "식사 시간을 수정했습니다."
                         )
                     )
+                    loadNutritionAnalysis(scope, date)
                 }
             } catch (error: Exception) {
                 if (request == requestVersion && ownerId == scope.ownerId) {
@@ -264,6 +276,7 @@ class MealViewModel @JvmOverloads constructor(
                             notice = "식사 기록을 삭제했습니다."
                         )
                     )
+                    loadNutritionAnalysis(scope, date)
                 }
             } catch (error: Exception) {
                 if (request == requestVersion && ownerId == scope.ownerId) {
@@ -450,6 +463,7 @@ class MealViewModel @JvmOverloads constructor(
                     saving = false,
                     notice = "식단 기록을 저장했습니다."
                 ))
+                loadNutritionAnalysis(scope, date)
                 onSaved(true)
             } catch (error: Exception) {
                 mutableState.postValue(ready().copy(saving = false, error = error.message ?: "식단 기록을 저장하지 못했습니다."))
@@ -562,6 +576,7 @@ class MealViewModel @JvmOverloads constructor(
                     saving = false,
                     notice = "외식 기록을 저장했습니다."
                 ))
+                loadNutritionAnalysis(scope, date)
                 onSaved(true)
             } catch (error: Exception) {
                 mutableState.postValue(ready().copy(saving = false, error = error.message ?: "외식 기록을 저장하지 못했습니다."))
@@ -608,6 +623,42 @@ class MealViewModel @JvmOverloads constructor(
 
     private fun update(block: (MealUiState.Ready) -> MealUiState.Ready) {
         mutableState.value = block(ready())
+    }
+
+    private fun loadNutritionAnalysis(scope: AccountScope, requestedDate: String) {
+        val api = nutritionAnalysisApi ?: return
+        val request = ++nutritionAnalysisRequestVersion
+        mutableState.postValue(
+            ready().copy(
+                nutritionAnalysis = null,
+                nutritionAnalysisLoading = true,
+                nutritionAnalysisError = null
+            )
+        )
+        executor.execute {
+            try {
+                val report = api.analyzeDay(scope, requestedDate)
+                if (request == nutritionAnalysisRequestVersion && ownerId == scope.ownerId && date == requestedDate) {
+                    mutableState.postValue(
+                        ready().copy(
+                            nutritionAnalysis = report,
+                            nutritionAnalysisLoading = false,
+                            nutritionAnalysisError = null
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                if (request == nutritionAnalysisRequestVersion && ownerId == scope.ownerId && date == requestedDate) {
+                    mutableState.postValue(
+                        ready().copy(
+                            nutritionAnalysis = null,
+                            nutritionAnalysisLoading = false,
+                            nutritionAnalysisError = error.message ?: "영양 분석을 불러오지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
     }
 
     private fun ready(): MealUiState.Ready = (mutableState.value as? MealUiState.Ready) ?: MealUiState.Ready(

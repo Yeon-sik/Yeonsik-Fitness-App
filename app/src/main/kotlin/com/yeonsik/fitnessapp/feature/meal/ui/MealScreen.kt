@@ -33,6 +33,7 @@ import com.yeonsik.fitnessapp.feature.development.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
+import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionAnalysisReport
 import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitnessapp.feature.workout.model.*
@@ -184,6 +185,14 @@ internal fun MealScreen(
         }
     }
 
+    editor?.takeIf { it.ownerId == ownerId && it.date == today }?.let { mealEditor ->
+        NutritionAnalysisSection(
+            report = mealEditor.nutritionAnalysis,
+            loading = mealEditor.nutritionAnalysisLoading,
+            error = mealEditor.nutritionAnalysisError
+        )
+    }
+
     if (editor == null || editor.ownerId != ownerId || editor.date != today) {
         Text("식사 입력을 준비하는 중입니다.")
     } else if (!editor.editing) {
@@ -269,6 +278,80 @@ internal fun MealScreen(
             dismissButton = {
                 TextButton(onClick = actions::cancelMealEdit) { Text("취소") }
             }
+        )
+    }
+}
+
+@Composable
+private fun NutritionAnalysisSection(
+    report: NutritionAnalysisReport?,
+    loading: Boolean,
+    error: String?
+) {
+    AppCard(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier.padding(AppSpacing.card),
+            verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+        ) {
+            Text("영양 분석", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            when {
+                loading -> Text("영양 분석을 계산하는 중입니다.")
+                error != null -> Text(error, color = MaterialTheme.colorScheme.error)
+                report == null -> Text("영양 분석 데이터가 없습니다.")
+                else -> {
+                    Text(
+                        "${report.recordedMealCount}끼 · ${report.recordedDays}일 기록 · ${report.calendarDayCount}일 범위",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    report.target?.phase?.let { phase ->
+                        Text("목표 단계 · ${AthleteNutritionGoal.phaseLabel(phase)}")
+                    } ?: Text("영양 목표 미설정")
+                    NutritionAnalysisMetricRows(report)
+                    Text("단백질 분포", fontWeight = FontWeight.Bold)
+                    if (report.proteinDistribution.entries.isEmpty()) {
+                        Text("기록된 식사가 없습니다.")
+                    } else {
+                        report.proteinDistribution.entries.forEach { entry ->
+                            val share = entry.shareOfKnownTotalPercent?.let {
+                                " · ${NutritionCalculator.trim(it)}%"
+                            }.orEmpty()
+                            Text(
+                                "${entry.title} · ${entry.protein.displayValue()}g$share · " +
+                                    entry.protein.provenanceLabel()
+                            )
+                        }
+                    }
+                    val detailedKeys = report.metrics.keys.filterNot {
+                        NutritionProfile.PRIMARY_DISPLAY_ORDER.contains(it)
+                    }
+                    if (detailedKeys.isNotEmpty()) {
+                        Text("상세 영양소", fontWeight = FontWeight.Bold)
+                        detailedKeys.forEach { key ->
+                            val metric = report.metrics.getValue(key)
+                            Text(
+                                "${NutritionProfile.labelOf(key).ifBlank { key }} · " +
+                                    "${metric.displayValue()} ${NutritionProfile.unitOf(key)} · " +
+                                    metric.provenanceLabel()
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NutritionAnalysisMetricRows(report: NutritionAnalysisReport) {
+    NutritionProfile.PRIMARY_DISPLAY_ORDER.forEach { key ->
+        val metric = report.metrics[key] ?: return@forEach
+        val comparison = report.comparison(key)
+        val target = comparison?.targetValue?.let { value ->
+            " · 목표 ${NutritionCalculator.trim(value)} ${metric.unit} · ${comparison.status.label()}"
+        }.orEmpty()
+        Text(
+            "${NutritionProfile.labelOf(key)} · ${metric.displayValue()} ${metric.unit}$target · " +
+                metric.provenanceLabel()
         )
     }
 }

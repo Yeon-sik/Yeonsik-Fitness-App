@@ -38,6 +38,8 @@ import com.yeonsik.fitnessapp.feature.meal.data.MealReadRepository
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionTemplateRepositoryApi
+import com.yeonsik.fitnessapp.feature.nutrition.analysis.api.NutritionAnalysisApi
+import com.yeonsik.fitnessapp.feature.nutrition.analysis.application.NutritionAnalysisService
 import com.yeonsik.fitnessapp.feature.recovery.api.RecoveryRepositoryApi
 import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
 import com.yeonsik.fitnessapp.feature.supplement.api.SupplementRepositoryApi
@@ -160,6 +162,10 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     private val mealReadRepository = MealReadRepository(roomDatabase)
     private val bodyMetricsReadRepository = BodyMetricsReadRepository(roomDatabase)
     private val developmentReadRepository = DevelopmentReadRepository(roomDatabase)
+    private val nutritionAnalysisService = NutritionAnalysisService(
+        mealReadRepository,
+        recoveryRepository
+    )
 
     val workoutRepository: WorkoutRepositoryApi = workoutRepositoryImplementation
     val cardioRepositoryApi: CardioRepositoryApi = cardioRepository
@@ -174,6 +180,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
     val mealRecordRepositoryApi: MealRecordRepositoryApi = mealRecordRepository
     val nutritionCatalogRepositoryApi: NutritionCatalogRepositoryApi = nutritionCatalogRepository
     val nutritionTemplateRepositoryApi: NutritionTemplateRepositoryApi = nutritionTemplateRepository
+    val nutritionAnalysisApi: NutritionAnalysisApi = nutritionAnalysisService
     val recoveryRepositoryApi: RecoveryRepositoryApi = recoveryRepository
     val routineRepositoryApi: RoutineRepositoryApi = routineRepository
     val homeRepository: HomeRepositoryApi = HomeReadRepository(
