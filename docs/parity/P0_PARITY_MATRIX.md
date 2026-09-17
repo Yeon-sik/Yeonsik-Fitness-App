@@ -74,3 +74,9 @@
 - Body/Meal basic lifecycle (`P4A`) precedes Recovery/goal writes (`P4B`), Nutrition catalog (`P5A`), complex consumed snapshots (`P5B`), and nutrition analysis (`P5C`).
 - Records (`P6`) consumes stable read composition after date/account correctness; Statistics (`P8`) consumes fact APIs and never calls Development; Development (`P9`) consumes recorded facts and its own PaperAdvice engine.
 - Global hot spots requiring serial merge include `ComposeAppScreen`, `AppNavigationViewModel`, `FitnessScreen`, `AppContainer`, `FitnessRoomDatabase`, Home snapshot/read composition, Workout shared models/storage, shared Compose theme/components, and Meal/Nutrition integration.
+
+## P11 재검증 원장
+
+이 문서의 표는 P0 시점의 기준선이다. P1A부터 P10까지 병합된 production path를 반영한 최신 분류는 docs/parity/P11_FINAL_STATUS.md에 별도 원장으로 기록한다. 기존 P0 판정과 후속 phase 판정을 섞지 않기 위해 위 표의 역사적 문구는 보존한다.
+
+P11 재검증 기준일은 2026-09-17 (Asia/Seoul)이며, 코드 근거의 immutable source boundary는 P10 병합 커밋 b2f488f00a9a83783ecb44ae01f44ff8c729ab92다. P11 원장은 production API/Repository/runtime 연결, 자동화 검증, 실기기·원격 검증의 부재를 서로 다른 증거 계층으로 구분한다.
