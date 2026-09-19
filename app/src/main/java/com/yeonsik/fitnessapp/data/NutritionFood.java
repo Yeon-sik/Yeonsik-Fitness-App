@@ -27,6 +27,8 @@ public final class NutritionFood {
 
     /** OCR meal components are Fitness-owned estimated menu foods without a menu identity. */
     public static final String SOURCE_MEAL_COMPONENT_ESTIMATE = "meal_component_estimate";
+    /** Public packaged-product Nutrition reference; never treated as OCR or dining-out evidence. */
+    public static final String SOURCE_EXTERNAL_REFERENCE = "external_reference";
 
     private static final String[] CATEGORY_OPTIONS = {
             CATEGORY_MEAT,

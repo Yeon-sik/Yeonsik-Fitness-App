@@ -150,3 +150,20 @@ Existing `import_verified_nutrition_v1`, `import_canonical_nutrition_v2`,
 `nutrition-label.v1`, and `food-estimate.v1` callers remain unchanged. In
 particular, this contract does not accept `nutrition-label.v3`,
 `food-estimate.v3`, or `p_category_hierarchy`.
+
+## `external-reference.v1`
+
+The latest v3 canonical RPC also accepts `external-reference.v1` for the same
+packaged-product hierarchy when all seven required values were directly
+observed in a manufacturer, official distributor, or other trusted public
+reference for that product. Every nutrient must use `value_status=observed`,
+`source_type=external_reference`, and one or more preserved public `http` or
+`https` URLs in `evidence_refs`. Estimation evidence is absent, and OCR,
+image-estimate, manual, and menu provenance is rejected.
+
+The projection keeps `nutrition_foods.source_type=external_reference` and each
+row in `nutrition_food_nutrient_provenance` keeps the same source type. The
+existing `p_user_verified=true` import boundary remains the authority; the
+external producer or URL is evidence, not a verification authority. The four
+packaged-product hierarchy fields follow the v3 rules above and remain
+nullable without inference.
