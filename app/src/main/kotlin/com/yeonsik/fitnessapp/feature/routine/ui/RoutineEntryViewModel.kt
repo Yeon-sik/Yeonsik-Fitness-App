@@ -4,10 +4,10 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import com.yeonsik.fitnessapp.core.account.AccountScope
-import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary
+import com.yeonsik.fitness.shared.core.account.AccountScope
+import com.yeonsik.fitness.shared.feature.routine.api.RoutineRepositoryApi
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseDraft
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineSummary
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 

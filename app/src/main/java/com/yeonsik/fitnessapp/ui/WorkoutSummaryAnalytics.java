@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.ui;
 
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise;
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercise;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;
 

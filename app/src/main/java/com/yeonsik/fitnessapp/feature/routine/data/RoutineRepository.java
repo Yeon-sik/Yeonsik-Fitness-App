@@ -4,7 +4,7 @@ import android.content.Context;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.RoutineEntity;
 import com.yeonsik.fitnessapp.core.database.RoutineExerciseEntity;
@@ -15,8 +15,8 @@ import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
 import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.routine.RoutineExerciseInstance;
-import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi;
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft;
+import com.yeonsik.fitness.shared.feature.routine.api.RoutineRepositoryApi;
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseDraft;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -117,25 +117,25 @@ public final class RoutineRepository implements RoutineRepositoryApi {
     }
 
     @Override
-    public List<com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary> routines(
+    public List<com.yeonsik.fitness.shared.feature.routine.model.RoutineSummary> routines(
             AccountScope scope
     ) {
         requireScope(scope);
-        List<com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary> result = new ArrayList<>();
+        List<com.yeonsik.fitness.shared.feature.routine.model.RoutineSummary> result = new ArrayList<>();
         for (RoutineSummary row : routines()) {
-            result.add(new com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary(
+            result.add(new com.yeonsik.fitness.shared.feature.routine.model.RoutineSummary(
                     row.id, row.name, row.exerciseCount));
         }
         return result;
     }
 
     @Override
-    public List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> routineExercises(
+    public List<com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance> routineExercises(
             AccountScope scope, String routineId
     ) {
         requireScope(scope);
         if (!ownsRoutine(routineId)) return new ArrayList<>();
-        List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance> result = new ArrayList<>();
+        List<com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance> result = new ArrayList<>();
         for (RoutineExerciseInstance row : routineExercises(routineId)) result.add(row.toFeatureModel());
         return result;
     }

@@ -10,7 +10,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;

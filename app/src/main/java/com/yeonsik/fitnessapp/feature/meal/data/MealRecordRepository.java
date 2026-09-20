@@ -2,7 +2,7 @@ package com.yeonsik.fitnessapp.feature.meal.data;
 
 import androidx.annotation.Nullable;
 
-import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.MealRecordItemNutrientsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.MealRecordItemComponentsRoomEntity;

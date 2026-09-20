@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.core.account
+package com.yeonsik.fitness.shared.core.account
 
 /**
  * Captures the owner boundary at the beginning of a user action.  Long-running

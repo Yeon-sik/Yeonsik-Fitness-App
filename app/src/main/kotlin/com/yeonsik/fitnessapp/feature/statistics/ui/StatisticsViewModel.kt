@@ -4,7 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.statistics.api.StatisticsReadApi
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsPeriod
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsSnapshot

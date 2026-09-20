@@ -8,7 +8,7 @@ import android.database.sqlite.SQLiteDatabase;
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
-import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner;
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog;
@@ -16,11 +16,11 @@ import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity;
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState;
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation;
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRoomStorage;
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseBests;
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail;
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseHistory;
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement;
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseBests;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput;
 import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import org.junit.Test;

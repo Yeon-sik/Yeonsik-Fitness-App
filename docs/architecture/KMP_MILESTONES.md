@@ -8,7 +8,7 @@
 | M1 | Shared pipeline 증명 | `WorkoutPerformanceCalculator`를 `commonMain`/`commonTest`로 이동하고 Android 회귀 없음 | ✅ 완료 |
 | M2 | Pure leaf model 추출 | `CardioSessionSnapshot`, `BodyReadEntry` 등 공통화 | ✅ 완료 |
 | M3 | Core type closure | Java/JVM 의존 핵심 타입을 common Kotlin으로 변환 | ✅ 완료 |
-| M4 | Domain/API 추출 | Repository API, UseCase, business rule 공통화 | 대기 |
+| M4 | Domain/API 추출 | Repository API, UseCase, business rule 공통화 | ✅ 완료 |
 | M5 | 기능별 shared 확대 | Workout → Cardio → Body → Meal/Nutrition → Statistics 등 | 대기 |
 | M6 | iOS 연결/Adapter | SwiftUI에서 shared 호출, iOS persistence/network/platform adapter 연결 | 대기 |
 | M7 | 양 플랫폼 기능 확장 | Android/iOS가 동일 shared contract/business logic 사용 | 대기 |
@@ -24,6 +24,6 @@
 
 ## 현재 위치
 
-`M3 ✅ → M4`
+`M4 ✅ → M5`
 
 M1 성공 기준은 “실제 production 코드가 처음으로 commonMain에 들어가고 Android가 그대로 동작한다”는 것을 증명하는 것이다.

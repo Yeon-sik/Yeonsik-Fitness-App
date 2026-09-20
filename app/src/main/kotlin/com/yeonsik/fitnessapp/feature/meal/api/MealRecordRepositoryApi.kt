@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.meal.api
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.DiningOutConsumption
 import com.yeonsik.fitnessapp.data.DiningOutIdentity
 import com.yeonsik.fitnessapp.data.MealMenuSelection

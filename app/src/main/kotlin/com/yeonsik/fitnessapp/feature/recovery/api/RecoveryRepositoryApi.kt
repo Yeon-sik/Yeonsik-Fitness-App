@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.recovery.api
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.AthleteDailyCheckIn
 import com.yeonsik.fitnessapp.data.AthleteNutritionGoal
 

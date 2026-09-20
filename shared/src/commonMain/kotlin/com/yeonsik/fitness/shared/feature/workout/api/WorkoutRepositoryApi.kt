@@ -1,11 +1,11 @@
-package com.yeonsik.fitnessapp.feature.workout.api
+package com.yeonsik.fitness.shared.feature.workout.api
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.core.account.AccountScope
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
 
 /**
  * Public workout boundary for new Kotlin application code.  It deliberately

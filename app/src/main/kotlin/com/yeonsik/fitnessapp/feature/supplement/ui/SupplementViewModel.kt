@@ -4,7 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.supplement.api.SupplementRepositoryApi
 import com.yeonsik.fitnessapp.feature.supplement.model.SupplementAdherence
 import com.yeonsik.fitnessapp.feature.supplement.model.SupplementEffectCheckin

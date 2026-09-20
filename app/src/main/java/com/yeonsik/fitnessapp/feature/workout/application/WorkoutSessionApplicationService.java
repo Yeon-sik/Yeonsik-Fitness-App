@@ -1,10 +1,10 @@
 package com.yeonsik.fitnessapp.feature.workout.application;
 
-import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner;
 import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService;
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance;
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi;
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance;
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi;
 
 import java.util.List;
 

@@ -26,7 +26,7 @@ import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
-import com.yeonsik.fitnessapp.feature.workout.model.*
+import com.yeonsik.fitness.shared.feature.workout.model.*
 import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.WorkoutSetPresentation
@@ -513,9 +513,9 @@ private fun WorkoutSetEditor(
     AppCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(AppSpacing.card), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
             Text("${set.setIndex}세트", fontWeight = FontWeight.Bold)
-            if (set.inputLoadUnit != null) {
+            set.inputLoadUnit?.let { inputLoadUnit ->
                 Text(
-                    "저장 당시 입력 단위: ${set.inputLoadUnit.symbol()}",
+                    "저장 당시 입력 단위: ${inputLoadUnit.symbol()}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -787,6 +787,7 @@ internal fun WorkoutSummaryScreen(
         }
     }
 
+    val previousRoutine = session.previousRoutine
     FitnessSection("같은 루틴 비교") {
         when {
             session.routineId.isNullOrBlank() -> FitnessStatusMessage(
@@ -794,13 +795,13 @@ internal fun WorkoutSummaryScreen(
                 title = "루틴 식별 정보 없음",
                 message = "이 기록에는 이름이 아닌 stable routine ID가 없어 동일 루틴 비교를 표시하지 않습니다."
             )
-            session.previousRoutine == null -> FitnessStatusMessage(
+            previousRoutine == null -> FitnessStatusMessage(
                 status = FitnessSemanticStatus.INFO,
                 title = "비교할 이전 기록 없음",
                 message = "같은 routine_id로 저장된 이전 완료 기록이 없습니다."
             )
             else -> {
-                val previous = session.previousRoutine
+                val previous = previousRoutine
                 FitnessFactRow(
                     first = {
                         FitnessFactCard(
@@ -867,7 +868,7 @@ internal fun WorkoutSummaryScreen(
 
 @Composable
 private fun AppWorkoutSessionContent(
-    session: com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot,
+    session: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot,
     unit: MassUnit,
     onExercise: (String) -> Unit
 ) {

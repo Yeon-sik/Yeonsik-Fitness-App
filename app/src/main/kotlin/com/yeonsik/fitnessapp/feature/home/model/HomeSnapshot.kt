@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.feature.home.model
 
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineSummary
 
 data class HomeSnapshot(
     val ownerId: String,

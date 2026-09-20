@@ -21,8 +21,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineSummary
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.OffsetDateTime

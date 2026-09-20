@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.records.data
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi
 import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
 import com.yeonsik.fitnessapp.feature.records.api.RecordsReadApi
@@ -9,7 +9,7 @@ import com.yeonsik.fitnessapp.feature.records.model.RecordsDayDetail
 import com.yeonsik.fitnessapp.feature.records.model.RecordsSnapshot
 import com.yeonsik.fitnessapp.feature.records.model.RecordsWeightPoint
 import com.yeonsik.fitnessapp.feature.records.model.RecordsWorkoutSummary
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutReadApi
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi
 import java.time.LocalDate
 import java.time.YearMonth
 

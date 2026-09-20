@@ -1,10 +1,10 @@
 package com.yeonsik.fitnessapp.feature.home.data
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.home.model.HomeDayWorkoutMetrics
 import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotals
-import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
+import com.yeonsik.fitness.shared.feature.routine.api.RoutineRepositoryApi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

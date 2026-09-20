@@ -4,7 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.records.api.RecordsReadApi
 import com.yeonsik.fitnessapp.feature.records.model.RecordsSnapshot
 import java.time.LocalDate
@@ -165,7 +165,7 @@ class RecordsViewModel @JvmOverloads constructor(
                             identity.displayedMonth,
                             identity.selectedDate,
                             identity.today,
-                            error.message ?: "±â·ÏÀ» ºÒ·¯¿ÀÁö ¸øÇß½À´Ï´Ù."
+                            error.message ?: "ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½Ò·ï¿½ï¿½ï¿½ï¿½ï¿½ ï¿½ï¿½ï¿½ß½ï¿½ï¿½Ï´ï¿½."
                         )
                     )
                 }

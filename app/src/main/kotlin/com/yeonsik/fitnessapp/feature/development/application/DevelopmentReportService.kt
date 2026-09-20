@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.development.application
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.development.DevelopmentGoal
 import com.yeonsik.fitnessapp.development.DevelopmentInsightRules
 import com.yeonsik.fitnessapp.development.DevelopmentReport
@@ -10,7 +10,7 @@ import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReadApi
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi
 import com.yeonsik.fitnessapp.feature.development.model.DevelopmentWeekProgress
 import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutReadApi
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.util.LinkedHashMap

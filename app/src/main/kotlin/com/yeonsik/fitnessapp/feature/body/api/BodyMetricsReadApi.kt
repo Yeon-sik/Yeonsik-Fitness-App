@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.body.api
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.development.BodyProfile
 import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry
 import com.yeonsik.fitness.shared.feature.body.model.BodyWeightWindow

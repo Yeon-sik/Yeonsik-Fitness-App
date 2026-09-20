@@ -2,8 +2,8 @@ package com.yeonsik.fitnessapp.exercise;
 
 import com.yeonsik.fitness.shared.feature.exercise.model.*;
 
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement;
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement;
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseDraft;
 
 public final class ExerciseMasterAdapter {
     private ExerciseMasterAdapter() {

@@ -1,10 +1,10 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseHistory
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitnessapp.state.FitnessScreen
 
 /**

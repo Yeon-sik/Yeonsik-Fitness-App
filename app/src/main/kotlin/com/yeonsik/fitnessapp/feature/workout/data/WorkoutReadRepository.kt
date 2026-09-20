@@ -1,12 +1,12 @@
 package com.yeonsik.fitnessapp.feature.workout.data
 
 import android.content.Context
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutReadApi
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadDayMetrics
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutBodyPartSets
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadDayMetrics
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutWeekProgress
 
 /** Adapter exposing workout-owned read calculations without exposing storage rows. */
 class WorkoutReadRepository(

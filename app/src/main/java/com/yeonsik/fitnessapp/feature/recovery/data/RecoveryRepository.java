@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.feature.recovery.data;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.NutritionDailyCheckinsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.NutritionGoalsRoomEntity;

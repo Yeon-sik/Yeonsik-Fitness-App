@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.nutrition.analysis.api
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionAnalysisReport
 
 /** Read-only nutrition analysis port; it never writes catalog, meal, or recovery facts. */

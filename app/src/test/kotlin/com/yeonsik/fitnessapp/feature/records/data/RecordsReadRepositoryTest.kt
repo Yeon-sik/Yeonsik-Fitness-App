@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.records.data
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.development.BodyProfile
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi
 import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry
@@ -10,11 +10,11 @@ import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotals
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadSummary
 import com.yeonsik.fitnessapp.feature.records.model.RecordsSnapshot
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutReadApi
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadDayMetrics
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadSessionSummary
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutBodyPartSets
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadDayMetrics
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadSessionSummary
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutWeekProgress
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -4,7 +4,7 @@ import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitnessapp.cardio.CardioDistanceFilter;
 import com.yeonsik.fitnessapp.cardio.CardioLocationSample;
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
-import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.CardioRoomDao;
 import com.yeonsik.fitnessapp.core.database.CardioSessionsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;

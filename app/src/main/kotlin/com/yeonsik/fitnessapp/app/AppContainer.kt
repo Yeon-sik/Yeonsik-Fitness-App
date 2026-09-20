@@ -45,11 +45,11 @@ import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionTemplateRepositoryA
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.api.NutritionAnalysisApi
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.application.NutritionAnalysisService
 import com.yeonsik.fitnessapp.feature.recovery.api.RecoveryRepositoryApi
-import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
+import com.yeonsik.fitness.shared.feature.routine.api.RoutineRepositoryApi
 import com.yeonsik.fitnessapp.feature.supplement.api.SupplementRepositoryApi
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
-import com.yeonsik.fitnessapp.feature.workout.application.CompleteWorkout
-import com.yeonsik.fitnessapp.feature.workout.application.InitializeWorkoutExercise
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
+import com.yeonsik.fitness.shared.feature.workout.application.CompleteWorkout
+import com.yeonsik.fitness.shared.feature.workout.application.InitializeWorkoutExercise
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutReadRepository

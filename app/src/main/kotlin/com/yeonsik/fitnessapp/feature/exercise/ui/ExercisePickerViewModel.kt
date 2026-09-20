@@ -5,7 +5,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog
@@ -13,8 +13,8 @@ import com.yeonsik.fitnessapp.exercise.RuntimeExercisePicker
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset
 import com.yeonsik.fitnessapp.exercise.UiEquipmentCategory
 import com.yeonsik.fitnessapp.feature.exercise.api.ExerciseMasterRepositoryApi
-import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
+import com.yeonsik.fitness.shared.feature.routine.api.RoutineRepositoryApi
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors

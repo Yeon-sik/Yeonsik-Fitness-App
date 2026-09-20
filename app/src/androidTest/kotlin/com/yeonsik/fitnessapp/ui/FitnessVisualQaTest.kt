@@ -9,7 +9,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitnessapp.MainActivity
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerUiState
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailUiState
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionUiState

@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.statistics.data
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi
 import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
 import com.yeonsik.fitnessapp.feature.statistics.api.StatisticsReadApi
@@ -13,9 +13,9 @@ import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsSnapshot
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsTrendPoint
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsValueKind
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsDataSufficiency
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutReadApi
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercisePerformancePoint
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadSessionSummary
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercisePerformancePoint
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadSessionSummary
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter

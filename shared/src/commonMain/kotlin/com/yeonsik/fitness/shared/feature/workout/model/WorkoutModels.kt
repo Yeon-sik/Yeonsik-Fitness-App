@@ -1,10 +1,11 @@
-package com.yeonsik.fitnessapp.feature.workout.model
+package com.yeonsik.fitness.shared.feature.workout.model
 
 import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
+import kotlin.jvm.JvmField
 
 /** Android- and storage-independent values consumed by the workout feature. */
 data class WorkoutExercise(

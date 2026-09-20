@@ -59,8 +59,8 @@ public final class RoutineExerciseInstance {
     }
 
     /** Converts the storage-era routine row to the feature boundary model. */
-    public com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance toFeatureModel() {
-        return new com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance(
+    public com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance toFeatureModel() {
+        return new com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance(
                 id,
                 exerciseId,
                 nameKo,
