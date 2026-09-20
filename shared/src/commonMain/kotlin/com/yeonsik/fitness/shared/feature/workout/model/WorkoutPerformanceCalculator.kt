@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.feature.workout.model
+package com.yeonsik.fitness.shared.feature.workout.model
 
 /** Workout-owned performance facts.  The Epley estimate is only defined for positive load/reps. */
 object WorkoutPerformanceCalculator {

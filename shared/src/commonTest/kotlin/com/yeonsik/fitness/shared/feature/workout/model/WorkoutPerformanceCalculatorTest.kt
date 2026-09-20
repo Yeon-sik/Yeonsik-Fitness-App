@@ -1,8 +1,8 @@
-package com.yeonsik.fitnessapp.feature.workout.model
+package com.yeonsik.fitness.shared.feature.workout.model
 
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
-import org.junit.Test
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class WorkoutPerformanceCalculatorTest {
     @Test

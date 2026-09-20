@@ -20,7 +20,7 @@ import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutPerformanceCalculator
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutPerformanceCalculator
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutRoutineComparison
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercisePerformancePoint
