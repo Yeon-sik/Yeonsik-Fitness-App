@@ -1,10 +1,10 @@
-package com.yeonsik.fitnessapp.feature.meal.api
+package com.yeonsik.fitness.shared.feature.meal.api
 
 import com.yeonsik.fitness.shared.core.account.AccountScope
-import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotals
-import com.yeonsik.fitnessapp.feature.meal.model.MealReadSummary
-import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary
-import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotRead
+import com.yeonsik.fitness.shared.feature.meal.model.MealReadNutritionTotals
+import com.yeonsik.fitness.shared.feature.meal.model.MealReadSummary
+import com.yeonsik.fitness.shared.feature.meal.model.MealNutritionReadSummary
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
 
 /** Read-only meal port used by cross-feature read models. */
 interface MealReadApi {

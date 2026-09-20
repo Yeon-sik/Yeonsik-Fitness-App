@@ -10,7 +10,7 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.WeightRecordEntity;
 import com.yeonsik.fitnessapp.data.BodyMetricEntry;
 import com.yeonsik.fitnessapp.data.TextValuePolicy;
-import com.yeonsik.fitnessapp.development.BodyProfile;
+import com.yeonsik.fitness.shared.feature.body.model.BodyProfile;
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsRepositoryApi;
 
 import org.json.JSONObject;

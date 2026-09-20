@@ -5,16 +5,16 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.MealRoomDao
 import com.yeonsik.fitnessapp.data.MealEntryPolicy
 import com.yeonsik.fitnessapp.data.MealRecordKind
-import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
-import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotal
-import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotals
-import com.yeonsik.fitnessapp.feature.meal.model.MealReadSummary
-import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary
-import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotComponentRead
-import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotConsumptionRead
-import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotItemRead
-import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotNutritionRead
-import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotRead
+import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
+import com.yeonsik.fitness.shared.feature.meal.model.MealReadNutritionTotal
+import com.yeonsik.fitness.shared.feature.meal.model.MealReadNutritionTotals
+import com.yeonsik.fitness.shared.feature.meal.model.MealReadSummary
+import com.yeonsik.fitness.shared.feature.meal.model.MealNutritionReadSummary
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotComponentRead
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotConsumptionRead
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotItemRead
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotNutritionRead
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
 import org.json.JSONObject
 
 /** Meal-owned read adapter for the Home projection. */

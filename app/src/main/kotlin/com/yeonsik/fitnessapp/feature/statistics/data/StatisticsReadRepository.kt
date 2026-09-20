@@ -1,8 +1,8 @@
 package com.yeonsik.fitnessapp.feature.statistics.data
 
 import com.yeonsik.fitness.shared.core.account.AccountScope
-import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi
-import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
+import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsReadApi
+import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
 import com.yeonsik.fitnessapp.feature.statistics.api.StatisticsReadApi
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsComparisonMetric
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsPerformanceMetric

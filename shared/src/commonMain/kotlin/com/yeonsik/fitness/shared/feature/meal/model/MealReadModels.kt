@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.feature.meal.model
+package com.yeonsik.fitness.shared.feature.meal.model
 
 data class MealReadNutritionTotal(
     val sum: Double,

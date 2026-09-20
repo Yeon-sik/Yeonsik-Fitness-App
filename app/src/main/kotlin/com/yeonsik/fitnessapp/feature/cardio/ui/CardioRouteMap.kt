@@ -19,7 +19,7 @@ import com.google.android.gms.maps.MapView
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.PolylineOptions
-import com.yeonsik.fitnessapp.cardio.CardioRouteProjection
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioRouteProjection
 
 /** The one platform renderer retained by the cardio Compose destination. */
 @Composable

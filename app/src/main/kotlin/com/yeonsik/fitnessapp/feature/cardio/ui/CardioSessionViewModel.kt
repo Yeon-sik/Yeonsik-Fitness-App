@@ -5,10 +5,10 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitness.shared.core.account.AccountScope
-import com.yeonsik.fitnessapp.cardio.CardioActivityType
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
 import com.yeonsik.fitnessapp.cardio.CardioMetrics
-import com.yeonsik.fitnessapp.cardio.CardioRouteProjection
-import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioRouteProjection
+import com.yeonsik.fitness.shared.feature.cardio.api.CardioRepositoryApi
 import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 import java.util.concurrent.ExecutorService

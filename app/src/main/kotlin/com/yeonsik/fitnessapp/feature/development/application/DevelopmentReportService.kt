@@ -5,11 +5,11 @@ import com.yeonsik.fitnessapp.development.DevelopmentGoal
 import com.yeonsik.fitnessapp.development.DevelopmentInsightRules
 import com.yeonsik.fitnessapp.development.DevelopmentReport
 import com.yeonsik.fitnessapp.development.PaperAdviceAssessment
-import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi
+import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsReadApi
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReadApi
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi
 import com.yeonsik.fitnessapp.feature.development.model.DevelopmentWeekProgress
-import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
+import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi
 import java.time.DayOfWeek
 import java.time.LocalDate

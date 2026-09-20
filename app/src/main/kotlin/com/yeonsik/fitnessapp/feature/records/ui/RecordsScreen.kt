@@ -30,9 +30,9 @@ import com.yeonsik.fitnessapp.core.ui.fitnessCalendarDayPresentation
 import com.yeonsik.fitnessapp.core.ui.fitnessWeekdayLabels
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
-import com.yeonsik.fitnessapp.feature.records.model.RecordsCalendarDay
-import com.yeonsik.fitnessapp.feature.records.model.RecordsDayDetail
-import com.yeonsik.fitnessapp.feature.records.model.RecordsWorkoutSummary
+import com.yeonsik.fitness.shared.feature.records.model.RecordsCalendarDay
+import com.yeonsik.fitness.shared.feature.records.model.RecordsDayDetail
+import com.yeonsik.fitness.shared.feature.records.model.RecordsWorkoutSummary
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.Locale

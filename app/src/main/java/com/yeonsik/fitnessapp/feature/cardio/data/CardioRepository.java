@@ -1,16 +1,16 @@
 package com.yeonsik.fitnessapp.feature.cardio.data;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.cardio.CardioDistanceFilter;
-import com.yeonsik.fitnessapp.cardio.CardioLocationSample;
-import com.yeonsik.fitnessapp.cardio.CardioRouteProjection;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioDistanceFilter;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioLocationSample;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioRouteProjection;
 import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.CardioRoomDao;
 import com.yeonsik.fitnessapp.core.database.CardioSessionsRoomEntity;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner;
-import com.yeonsik.fitnessapp.cardio.CardioActivityType;
-import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType;
+import com.yeonsik.fitness.shared.feature.cardio.api.CardioRepositoryApi;
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot;
 
 import java.time.OffsetDateTime;
@@ -278,17 +278,17 @@ public final class CardioRepository implements CardioRepositoryApi {
         }
 
         if (candidate != null
-                && candidate.capturedAtMillis != null
+                && candidate.getCapturedAtMillis() != null
                 && state.getLastResumedAtEpochMs() != null
-                && candidate.capturedAtMillis < state.getLastResumedAtEpochMs()) {
+                && candidate.getCapturedAtMillis() < state.getLastResumedAtEpochMs()) {
             return CardioDistanceFilter.Result.rejected(CardioDistanceFilter.Reason.STALE);
         }
 
         CardioDistanceFilter.Result result = CardioDistanceFilter.evaluate(
                 CardioActivityType.fromId(state.getActivityType()), previous, candidate);
-        if (!result.accepted) {
-            if (result.reason == CardioDistanceFilter.Reason.INACCURATE
-                    || result.reason == CardioDistanceFilter.Reason.TOO_FAST) {
+        if (!result.getAccepted()) {
+            if (result.getReason() == CardioDistanceFilter.Reason.INACCURATE
+                    || result.getReason() == CardioDistanceFilter.Reason.TOO_FAST) {
                 updateGpsStatus(recordId, GPS_WEAK);
             }
             return result;
@@ -297,24 +297,24 @@ public final class CardioRepository implements CardioRepositoryApi {
         cardioDao.insertRoutePoint(
                 recordId,
                 userId(),
-                candidate.capturedAtMillis,
-                candidate.latitude,
-                candidate.longitude,
-                candidate.accuracyMeters,
-                candidate.reportedSpeedMetersPerSecond == null
+                candidate.getCapturedAtMillis(),
+                candidate.getLatitude(),
+                candidate.getLongitude(),
+                candidate.getAccuracyMeters(),
+                candidate.getReportedSpeedMetersPerSecond() == null
                         ? null
-                        : candidate.reportedSpeedMetersPerSecond.doubleValue(),
-                result.segmentDistanceMeters
+                        : candidate.getReportedSpeedMetersPerSecond().doubleValue(),
+                result.getSegmentDistanceMeters()
         );
         cardioDao.acceptLocation(
                 recordId,
                 userId(),
-                state.getDistanceMeters() + result.segmentDistanceMeters,
+                state.getDistanceMeters() + result.getSegmentDistanceMeters(),
                 state.getAcceptedPointCount() + 1L,
-                candidate.latitude,
-                candidate.longitude,
-                candidate.capturedAtMillis,
-                candidate.accuracyMeters,
+                candidate.getLatitude(),
+                candidate.getLongitude(),
+                candidate.getCapturedAtMillis(),
+                candidate.getAccuracyMeters(),
                 System.currentTimeMillis()
         );
         return result;

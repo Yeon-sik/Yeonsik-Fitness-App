@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.development;
 
+import com.yeonsik.fitness.shared.feature.body.model.BodyProfile;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
