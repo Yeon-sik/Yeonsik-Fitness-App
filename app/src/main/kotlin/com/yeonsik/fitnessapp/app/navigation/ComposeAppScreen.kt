@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.app.navigation
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.core.account.AccountScope
@@ -109,8 +112,8 @@ private fun AppRoot(
     val settingsState by viewModels.getSettings().uiState.observeAsState()
     val settingsEvent by viewModels.getSettings().events.observeAsState()
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
-    val routineState by viewModels.getRoutineEntry().uiState
-        .observeAsState(RoutineEntryUiState.Idle)
+    val routineState by viewModels.getRoutineEntry().uiState.observeAsState(RoutineEntryUiState.Idle)
+
     val cardioState by viewModels.getCardioSession().uiState
         .observeAsState(CardioSessionUiState.Idle)
     val workoutState by viewModels.getWorkoutSession().uiState
@@ -118,6 +121,12 @@ private fun AppRoot(
     val exercisePickerState by viewModels.getExercisePicker().uiState
         .observeAsState(ExercisePickerUiState.Idle)
     val screen = navigationState.screen
+    val recordsHubTab = navigationState.recordsHubTab
+    val destinationScreen = if (screen == FitnessScreen.RECORDS) {
+        recordsHubTab.screen
+    } else {
+        screen
+    }
     val ownerId = host.currentOwnerId()
     val unit = settingsState?.preferredMassUnit
         ?: viewModels.getSettings().preferredMassUnit()
@@ -128,7 +137,7 @@ private fun AppRoot(
             androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
                 android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
                 android.content.res.Configuration.UI_MODE_NIGHT_YES)
-    val routeDate = when (screen) {
+    val routeDate = when (destinationScreen) {
         FitnessScreen.MEALS -> navigationState.selectedMealDate
         FitnessScreen.RECORDS -> navigationState.selectedRecordsDate
         else -> navigationState.today
@@ -140,6 +149,8 @@ private fun AppRoot(
         it.session.status == "completed"
     } == true
     val destinationStateHolder = rememberSaveableStateHolder()
+    val topLevelSwipeEnabled = navigation.canSwipeTopLevel()
+    val topLevelSwipeThreshold = with(LocalDensity.current) { 56.dp.toPx() }
     val workoutAction by viewModels.getWorkoutSession().actionState
         .observeAsState()
     val workoutTerminalEvent by viewModels.getWorkoutSession().terminalEvents
@@ -201,16 +212,7 @@ private fun AppRoot(
         override fun continueWorkout() = viewModels.getWorkoutSession()
             .continueIfAvailable(AccountScope(ownerId))
         override fun navigate(screen: FitnessScreen) = navigation.navigate(screen)
-        override fun startEmptyWorkout() = viewModels.getWorkoutSession()
-            .startEmpty(AccountScope(ownerId), navigationState.today)
-        override fun selectRoutine(routineId: String) = navigation.selectRoutine(routineId)
-        override fun startRoutineWorkout(
-            routineId: String?,
-            title: String,
-            exercises: List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance>
-        ) = viewModels.getWorkoutSession().startRoutine(
-            AccountScope(ownerId), navigationState.today, title, routineId, exercises
-        )
+
         override fun showBodyMetric() = viewModels.getBodyMetrics().open(
             AccountScope(ownerId), navigationState.today, null
         )
@@ -220,9 +222,9 @@ private fun AppRoot(
         }
     }
 
-    val homeEntryKey = homeEntryEffectKey(screen, ownerId, routeDate)
+    val homeEntryKey = homeEntryEffectKey(destinationScreen, ownerId, routeDate)
     LaunchedEffect(homeEntryKey) {
-        when (screen) {
+        when (destinationScreen) {
             FitnessScreen.HOME,
             FitnessScreen.STRENGTH -> {
                 viewModels.getRoutineEntry().enter(AccountScope(ownerId))
@@ -243,14 +245,14 @@ private fun AppRoot(
     }
 
     LaunchedEffect(
-        screen,
+        destinationScreen,
         ownerId,
         workoutAction,
         workoutTerminalEvent,
         bodyEditorState,
         mealState
     ) {
-        if (screen == FitnessScreen.RECORDS) {
+        if (destinationScreen == FitnessScreen.RECORDS) {
             viewModels.getRecords().refresh(
                 AccountScope(ownerId),
                 navigationState.today,
@@ -748,7 +750,16 @@ private fun AppRoot(
             if (screen == FitnessScreen.WORKOUT_SESSION) {
                 SessionTopBar(navigation, viewModels, ownerId, workoutState)
             }
-            destinationStateHolder.SaveableStateProvider(destinationScrollStateKey(screen)) {
+            if (screen == FitnessScreen.RECORDS) {
+                RecordsHubTabs(
+                    selected = recordsHubTab,
+                    onSelected = navigation::selectRecordsHubTab
+                )
+            }
+            destinationStateHolder.SaveableStateProvider(
+                destinationScrollStateKey(screen) +
+                    if (screen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
+            ) {
                 val contentScrollState = rememberScrollState()
                 Column(
                     Modifier
@@ -761,12 +772,44 @@ private fun AppRoot(
                                 Modifier.verticalScroll(contentScrollState)
                             }
                         )
+                        .then(
+                            if (topLevelSwipeEnabled) {
+                                Modifier.pointerInput(screen, topLevelSwipeThreshold) {
+                                    var totalDrag = 0f
+                                    detectHorizontalDragGestures(
+                                        onHorizontalDrag = { _, dragAmount ->
+                                            totalDrag += dragAmount
+                                        },
+                                        onDragEnd = {
+                                            when {
+                                                totalDrag <= -topLevelSwipeThreshold ->
+                                                    navigation.swipeTopLevel(forward = true)
+                                                totalDrag >= topLevelSwipeThreshold ->
+                                                    navigation.swipeTopLevel(forward = false)
+                                            }
+                                            totalDrag = 0f
+                                        },
+                                        onDragCancel = { totalDrag = 0f }
+                                    )
+                                }
+                            } else {
+                                Modifier
+                            }
+                        )
                         .padding(horizontal = FitnessSpacing.page, vertical = FitnessSpacing.gap)
                 ) {
-                    if (screen == FitnessScreen.HOME) {
-                        HomeDestination(homeState, routineState, ownerId, routeDate, unit, homeActions)
+                    if (destinationScreen == FitnessScreen.HOME) {
+                        HomeDestination(homeState, ownerId, routeDate, homeActions)
                     } else {
-                        AppDestination(host, viewModels, navigation, screen, ownerId, routeDate, unit)
+                        AppDestination(
+                            host,
+                            viewModels,
+                            navigation,
+                            destinationScreen,
+                            ownerId,
+                            routeDate,
+                            unit
+                        )
                     }
                 }
             }
@@ -980,6 +1023,55 @@ private fun RestTimerBar(
 private data class NavigationItem(val label: String, val screen: FitnessScreen)
 
 @Composable
+private fun RecordsHubTabs(
+    selected: RecordsHubTab,
+    onSelected: (RecordsHubTab) -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        HorizontalDivider()
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = FitnessSpacing.small, vertical = FitnessSpacing.micro),
+            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+        ) {
+            RecordsHubTab.entries.forEach { tab ->
+                val isSelected = tab == selected
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(12.dp))
+                        .clickable { onSelected(tab) }
+                        .padding(vertical = FitnessSpacing.micro),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Box(
+                        Modifier
+                            .width(24.dp)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(
+                                if (isSelected) MaterialTheme.colorScheme.primary
+                                else Color.Transparent
+                            )
+                    )
+                    Text(
+                        tab.label,
+                        color = if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun BottomNavigation(
     navigation: AppNavigationViewModel,
     homeState: HomeUiState,
@@ -989,8 +1081,6 @@ private fun BottomNavigation(
         NavigationItem("메인", FitnessScreen.HOME),
         NavigationItem("피트니스", FitnessScreen.WORKOUT),
         NavigationItem("기록", FitnessScreen.RECORDS),
-        NavigationItem("통계", FitnessScreen.STATISTICS),
-        NavigationItem("발전", FitnessScreen.DEVELOPMENT),
         NavigationItem("설정", FitnessScreen.SETTINGS)
     )
     val active = navigationRoot(screen)
@@ -1009,7 +1099,7 @@ private fun BottomNavigation(
                     Modifier
                         .weight(1f)
                         .clip(RoundedCornerShape(12.dp))
-                        .clickable { navigation.replace(item.screen) }
+                        .clickable { navigation.selectTopLevel(item.screen) }
                         .padding(vertical = FitnessSpacing.micro),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -1047,9 +1137,9 @@ private fun BottomNavigation(
 
 private fun navigationRoot(screen: FitnessScreen): FitnessScreen = when (screen) {
     FitnessScreen.HOME -> FitnessScreen.HOME
-    FitnessScreen.RECORDS -> FitnessScreen.RECORDS
-    FitnessScreen.STATISTICS -> FitnessScreen.STATISTICS
-    FitnessScreen.DEVELOPMENT -> FitnessScreen.DEVELOPMENT
+    FitnessScreen.RECORDS,
+    FitnessScreen.STATISTICS,
+    FitnessScreen.DEVELOPMENT -> FitnessScreen.RECORDS
     FitnessScreen.SETTINGS -> FitnessScreen.SETTINGS
     FitnessScreen.MEALS,
     FitnessScreen.WORKOUT,
@@ -1067,12 +1157,13 @@ private fun navigationRoot(screen: FitnessScreen): FitnessScreen = when (screen)
 }
 
 private fun isBottomNavigationVisible(screen: FitnessScreen): Boolean = when (screen) {
+    FitnessScreen.ROUTINE_ADD,
     FitnessScreen.WORKOUT_SESSION,
     FitnessScreen.WORKOUT_EXERCISE_DETAIL,
+    FitnessScreen.WORKOUT_EXERCISE_ADD,
     FitnessScreen.WORKOUT_SUMMARY,
     FitnessScreen.CARDIO_SESSION,
     FitnessScreen.CARDIO_SUMMARY -> false
-    FitnessScreen.WORKOUT_EXERCISE_ADD -> true
     else -> true
 }
 

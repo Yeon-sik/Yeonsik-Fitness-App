@@ -20,6 +20,10 @@ public final class MainActivityDevelopmentTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
                 View root = activity.getWindow().getDecorView();
+                TextView recordsTab = findTextWithClickableParent(root, "기록");
+                assertNotNull(recordsTab);
+                ((View) recordsTab.getParent()).performClick();
+
                 TextView developmentTab = findTextWithClickableParent(root, "발전");
                 assertNotNull(developmentTab);
                 assertTrue(((View) developmentTab.getParent()).isClickable());

@@ -17,6 +17,7 @@ import org.junit.runner.RunWith;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 @RunWith(AndroidJUnit4.class)
@@ -26,6 +27,8 @@ public final class MainActivityBottomNavigationTest {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
                 View root = activity.getWindow().getDecorView();
+                assertNull(findTextWithClickableParent(root, "통계"));
+                assertNull(findTextWithClickableParent(root, "발전"));
 
                 View workoutTab = clickBottomTab(root, "피트니스");
                 assertTrue(workoutTab.isSelected());
@@ -39,11 +42,32 @@ public final class MainActivityBottomNavigationTest {
                 assertTrue(recordsTab.isSelected());
                 assertEquals(View.VISIBLE, activeMarker(recordsTab).getVisibility());
 
-                View statisticsTab = clickBottomTab(root, "통계");
+                View settingsTab = clickBottomTab(root, "설정");
                 assertFalse(recordsTab.isSelected());
                 assertEquals(View.INVISIBLE, activeMarker(recordsTab).getVisibility());
-                assertTrue(statisticsTab.isSelected());
-                assertEquals(View.VISIBLE, activeMarker(statisticsTab).getVisibility());
+                assertTrue(settingsTab.isSelected());
+                assertEquals(View.VISIBLE, activeMarker(settingsTab).getVisibility());
+            });
+        }
+    }
+
+    @Test
+    public void recordsHubExposesDevelopmentAndStatisticsAsInnerTabs() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                View root = activity.getWindow().getDecorView();
+                clickBottomTab(root, "기록");
+
+                TextView developmentTab = findTextWithClickableParent(root, "발전");
+                assertNotNull(developmentTab);
+
+                ((View) developmentTab.getParent()).performClick();
+                assertNotNull(findText(root, "발전 목표"));
+
+                TextView statisticsTab = findTextWithClickableParent(root, "통계");
+                assertNotNull(statisticsTab);
+                ((View) statisticsTab.getParent()).performClick();
+                assertNotNull(findText(root, "운동 볼륨 추이"));
             });
         }
     }
@@ -130,6 +154,25 @@ public final class MainActivityBottomNavigationTest {
             ViewGroup group = (ViewGroup) view;
             for (int index = 0; index < group.getChildCount(); index++) {
                 TextView match = findTextWithClickableParent(group.getChildAt(index), text);
+                if (match != null) {
+                    return match;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static TextView findText(View view, String text) {
+        if (view instanceof TextView) {
+            TextView textView = (TextView) view;
+            if (text.contentEquals(textView.getText())) {
+                return textView;
+            }
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int index = 0; index < group.getChildCount(); index++) {
+                TextView match = findText(group.getChildAt(index), text);
                 if (match != null) {
                     return match;
                 }

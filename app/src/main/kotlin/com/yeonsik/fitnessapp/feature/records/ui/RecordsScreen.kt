@@ -26,16 +26,12 @@ import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarDayCell
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarMarker
 import com.yeonsik.fitnessapp.core.ui.FitnessMonthHeader
-import com.yeonsik.fitnessapp.core.ui.FitnessTrendChart
-import com.yeonsik.fitnessapp.core.ui.FitnessTrendPoint
 import com.yeonsik.fitnessapp.core.ui.fitnessCalendarDayPresentation
-import com.yeonsik.fitnessapp.core.ui.fitnessTrendPresentation
 import com.yeonsik.fitnessapp.core.ui.fitnessWeekdayLabels
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.MassUnit
 import com.yeonsik.fitnessapp.feature.records.model.RecordsCalendarDay
 import com.yeonsik.fitnessapp.feature.records.model.RecordsDayDetail
-import com.yeonsik.fitnessapp.feature.records.model.RecordsWeightPoint
 import com.yeonsik.fitnessapp.feature.records.model.RecordsWorkoutSummary
 import java.time.LocalDate
 import java.time.YearMonth
@@ -98,8 +94,6 @@ internal fun RecordsScreen(
     RecordsCalendar(displayedMonth, selected, currentDay, snapshot.calendarDays, actions)
     Spacer(Modifier.height(AppSpacing.small))
     RecordsDayDetailSection(snapshot.selectedDay, unit, actions)
-    Spacer(Modifier.height(AppSpacing.small))
-    RecordsWeightTrend(snapshot.weightTrend, unit)
 }
 
 @Composable
@@ -256,29 +250,6 @@ private fun RecordsDayDetailSection(
         onClick = { actions.openMeals(detail.date) },
         modifier = Modifier.fillMaxWidth()
     ) { Text("식사 기록 관리") }
-}
-
-@Composable
-private fun RecordsWeightTrend(points: List<RecordsWeightPoint>, unit: MassUnit) {
-    val presentation = fitnessTrendPresentation(
-        points.map { point ->
-            FitnessTrendPoint(
-                label = point.date,
-                value = MassUnit.fromKg(point.averageKg, unit)
-            )
-        },
-        minimumPoints = 3
-    )
-    AppCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(AppSpacing.card)) {
-            Text("체중 추이", style = MaterialTheme.typography.titleMedium)
-            FitnessTrendChart(
-                model = presentation,
-                modifier = Modifier.fillMaxWidth(),
-                unit = unit.symbol()
-            )
-        }
-    }
 }
 
 private fun RecordsCalendarDay.markers(): List<FitnessCalendarMarker> = buildList {
