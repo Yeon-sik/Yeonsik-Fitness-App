@@ -1,11 +1,11 @@
-package com.yeonsik.fitnessapp.feature.workout.api
+package com.yeonsik.fitness.shared.feature.workout.api
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadDayMetrics
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadSessionSummary
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercisePerformancePoint
+import com.yeonsik.fitness.shared.core.account.AccountScope
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutBodyPartSets
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercisePerformancePoint
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadDayMetrics
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadSessionSummary
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutWeekProgress
 
 /** Read-only workout port used by cross-feature read models. */
 interface WorkoutReadApi {

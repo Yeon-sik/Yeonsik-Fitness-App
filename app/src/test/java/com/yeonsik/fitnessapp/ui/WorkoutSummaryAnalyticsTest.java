@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet;
 
 import org.junit.Test;
 

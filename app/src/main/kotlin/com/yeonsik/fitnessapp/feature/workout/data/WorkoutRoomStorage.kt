@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.feature.workout.data
 
 import android.content.Context
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
 import com.yeonsik.fitnessapp.core.database.WorkoutExercisesRoomEntity
@@ -16,15 +16,15 @@ import com.yeonsik.fitnessapp.exercise.ExerciseVolumeCalculator
 import com.yeonsik.fitnessapp.exercise.ExercisePrimaryMuscleLabel
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
 import com.yeonsik.fitnessapp.exercise.RoutineExercise
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutBodyPartSets
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutBodyPartSets
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutPerformanceCalculator
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutRoutineComparison
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutWeekProgress
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercisePerformancePoint
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutReadSessionSummary
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutRoutineComparison
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutWeekProgress
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercisePerformancePoint
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadSessionSummary
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Duration

@@ -33,7 +33,7 @@ import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.meal.ui.*
 import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.ui.*
-import com.yeonsik.fitnessapp.feature.workout.model.*
+import com.yeonsik.fitness.shared.feature.workout.model.*
 import com.yeonsik.fitnessapp.feature.workout.ui.*
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.*

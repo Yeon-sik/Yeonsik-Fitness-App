@@ -41,7 +41,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.cardio.CardioActivityType
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
@@ -60,10 +60,10 @@ import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.model.SupplementPlanDraft
 import com.yeonsik.fitnessapp.supplement.SupplementPlan
 import com.yeonsik.fitnessapp.feature.workout.ui.*
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseHistory
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseDraft
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
@@ -610,7 +610,7 @@ private fun AppRoot(
             date: String,
             title: String,
             routineId: String?,
-            exercises: List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance>,
+            exercises: List<com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance>,
             startedAt: String,
             endedAt: String
         ) = viewModels.getWorkoutSession().startManualPast(
@@ -1455,7 +1455,7 @@ private fun AppDestination(
         override fun startWorkout(
             routineId: String,
             title: String,
-            exercises: List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance>
+            exercises: List<com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance>
         ) = viewModels.getWorkoutSession().startRoutine(
             AccountScope(ownerId), today, title, routineId, exercises
         )
@@ -1523,7 +1523,7 @@ private fun AppDestination(
                     override fun startRoutineWorkout(
                         routineId: String?,
                         title: String,
-                        exercises: List<com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance>
+                        exercises: List<com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance>
                     ) = viewModels.getWorkoutSession().startRoutine(
                         AccountScope(ownerId), today, title, routineId, exercises
                     )

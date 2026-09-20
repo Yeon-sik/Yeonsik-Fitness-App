@@ -4,7 +4,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.home.api.HomeRepositoryApi
 import com.yeonsik.fitnessapp.feature.home.model.HomeBodyMetric
 import com.yeonsik.fitnessapp.feature.home.model.HomeDayWorkoutMetrics
@@ -12,8 +12,8 @@ import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionGoal
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotals
 import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineSummary
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 

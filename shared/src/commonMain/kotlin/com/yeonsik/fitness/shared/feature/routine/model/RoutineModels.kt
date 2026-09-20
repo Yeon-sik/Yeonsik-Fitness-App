@@ -1,6 +1,7 @@
-package com.yeonsik.fitnessapp.feature.routine.model
+package com.yeonsik.fitness.shared.feature.routine.model
 
 import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
+import kotlin.jvm.JvmField
 
 /** Values owned by the routine feature, independent of the legacy repository. */
 data class RoutineSummary(

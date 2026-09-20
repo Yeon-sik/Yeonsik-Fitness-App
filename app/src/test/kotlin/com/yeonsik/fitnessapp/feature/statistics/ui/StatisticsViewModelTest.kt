@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.statistics.ui
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsPeriod
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -1,10 +1,10 @@
 package com.yeonsik.fitnessapp.feature.cardio.application;
 
-import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner;
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi;
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot;
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi;
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi;
 
 /**
  * Coordinates the two halves of a cardio completion without making either

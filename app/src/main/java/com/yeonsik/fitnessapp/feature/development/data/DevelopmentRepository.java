@@ -6,7 +6,7 @@ import com.yeonsik.fitnessapp.core.database.DevelopmentRoomDao;
 
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
-import com.yeonsik.fitnessapp.core.account.AccountScope;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi;
 

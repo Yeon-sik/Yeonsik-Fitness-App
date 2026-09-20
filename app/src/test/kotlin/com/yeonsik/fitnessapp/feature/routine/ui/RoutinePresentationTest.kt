@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.feature.routine.ui
 
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

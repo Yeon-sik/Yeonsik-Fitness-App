@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.feature.workout.model
+package com.yeonsik.fitness.shared.feature.workout.model
 
 data class WorkoutReadDayMetrics(
     val sessionCount: Int,

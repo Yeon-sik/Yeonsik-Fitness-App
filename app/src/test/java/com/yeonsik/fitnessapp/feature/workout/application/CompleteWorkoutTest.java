@@ -3,13 +3,14 @@ package com.yeonsik.fitnessapp.feature.workout.application;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.yeonsik.fitnessapp.core.account.AccountScope;
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutCompletion;
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi;
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail;
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement;
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot;
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutCompletion;
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi;
+import com.yeonsik.fitness.shared.feature.workout.application.CompleteWorkout;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput;
 
 import org.junit.Test;
 

@@ -1,9 +1,9 @@
-package com.yeonsik.fitnessapp.feature.routine.api
+package com.yeonsik.fitness.shared.feature.routine.api
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseDraft
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineSummary
+import com.yeonsik.fitness.shared.core.account.AccountScope
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseDraft
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineSummary
 
 /** Feature boundary for account-scoped routine reads and writes. */
 interface RoutineRepositoryApi {

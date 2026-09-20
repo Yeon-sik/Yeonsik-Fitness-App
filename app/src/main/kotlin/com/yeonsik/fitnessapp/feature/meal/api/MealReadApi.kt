@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.meal.api
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotals
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadSummary
 import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary

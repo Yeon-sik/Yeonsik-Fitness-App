@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.body.data
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.core.database.BodyRoomDao
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.development.BodyProfile

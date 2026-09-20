@@ -1,23 +1,23 @@
 package com.yeonsik.fitnessapp.feature.workout.data
 
 import android.content.Context
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutCompletion
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseBests
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseDetail
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseHistory
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionExercise
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionSnapshot
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
-import com.yeonsik.fitnessapp.feature.workout.model.WorkoutVolumePoint
-import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutCompletion
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercise
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseBests
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionExercise
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutVolumePoint
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 
 /** Room-backed workout repository. Legacy Java DTOs do not cross this boundary. */
 class WorkoutRepositoryImplementation(

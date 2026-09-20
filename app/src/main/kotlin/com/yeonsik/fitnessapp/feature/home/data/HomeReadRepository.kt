@@ -1,9 +1,9 @@
 package com.yeonsik.fitnessapp.feature.home.data
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.home.api.HomeRepositoryApi
 import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
-import com.yeonsik.fitnessapp.feature.routine.api.RoutineRepositoryApi
+import com.yeonsik.fitness.shared.feature.routine.api.RoutineRepositoryApi
 import java.time.DayOfWeek
 import java.time.LocalDate
 

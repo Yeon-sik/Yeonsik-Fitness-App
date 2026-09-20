@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.meal.data
 
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.MealRoomDao
 import com.yeonsik.fitnessapp.data.MealEntryPolicy

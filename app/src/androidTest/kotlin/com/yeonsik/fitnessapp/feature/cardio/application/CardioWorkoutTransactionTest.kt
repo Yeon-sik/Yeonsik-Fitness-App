@@ -5,14 +5,14 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.yeonsik.fitnessapp.cardio.CardioActivityType
-import com.yeonsik.fitnessapp.core.account.AccountScope
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.core.database.CardioRoomDao
 import com.yeonsik.fitnessapp.core.database.CardioSessionsRoomEntity
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
-import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRoomStorage
