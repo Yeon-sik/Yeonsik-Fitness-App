@@ -5,8 +5,8 @@ import com.yeonsik.fitnessapp.core.database.BodyRoomDao
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.development.BodyProfile
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi
-import com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry
-import com.yeonsik.fitnessapp.feature.body.model.BodyWeightWindow
+import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry
+import com.yeonsik.fitness.shared.feature.body.model.BodyWeightWindow
 import org.json.JSONObject
 
 /** Body-owned read adapter for the Home projection. */

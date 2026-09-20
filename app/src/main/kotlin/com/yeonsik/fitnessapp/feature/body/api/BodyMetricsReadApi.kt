@@ -2,8 +2,8 @@ package com.yeonsik.fitnessapp.feature.body.api
 
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.development.BodyProfile
-import com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry
-import com.yeonsik.fitnessapp.feature.body.model.BodyWeightWindow
+import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry
+import com.yeonsik.fitness.shared.feature.body.model.BodyWeightWindow
 
 /** Read-only body port used by cross-feature read models. */
 interface BodyMetricsReadApi {

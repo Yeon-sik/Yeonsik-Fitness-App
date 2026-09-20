@@ -11,7 +11,7 @@ import com.yeonsik.fitnessapp.core.database.CardioSessionsRoomEntity
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
-import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 import com.yeonsik.fitnessapp.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService
 import com.yeonsik.fitnessapp.feature.workout.data.WorkoutRepositoryImplementation

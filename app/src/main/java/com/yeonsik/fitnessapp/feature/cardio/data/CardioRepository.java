@@ -11,7 +11,7 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner;
 import com.yeonsik.fitnessapp.cardio.CardioActivityType;
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi;
-import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;

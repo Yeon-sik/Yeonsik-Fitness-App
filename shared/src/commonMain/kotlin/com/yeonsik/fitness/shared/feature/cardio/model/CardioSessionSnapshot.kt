@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.feature.cardio.model
+package com.yeonsik.fitness.shared.feature.cardio.model
 
 data class CardioSessionSnapshot(
     val recordId: String,

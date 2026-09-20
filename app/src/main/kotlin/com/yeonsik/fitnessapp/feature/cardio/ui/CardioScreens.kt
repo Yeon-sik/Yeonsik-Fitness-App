@@ -14,7 +14,7 @@ import com.yeonsik.fitnessapp.BuildConfig
 import com.yeonsik.fitnessapp.cardio.CardioActivityType
 import com.yeonsik.fitnessapp.cardio.CardioMetrics
 import com.yeonsik.fitnessapp.core.ui.*
-import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 import kotlinx.coroutines.delay
 
 @Composable

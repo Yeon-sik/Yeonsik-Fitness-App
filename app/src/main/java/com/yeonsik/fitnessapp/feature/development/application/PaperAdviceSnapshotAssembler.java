@@ -2,8 +2,8 @@ package com.yeonsik.fitnessapp.feature.development.application;
 
 import com.yeonsik.fitnessapp.core.account.AccountScope;
 import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi;
-import com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry;
-import com.yeonsik.fitnessapp.feature.body.model.BodyWeightWindow;
+import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry;
+import com.yeonsik.fitness.shared.feature.body.model.BodyWeightWindow;
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReadApi;
 import com.yeonsik.fitnessapp.feature.development.model.DevelopmentCheckInSummary;
 import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi;

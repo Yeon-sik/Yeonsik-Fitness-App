@@ -132,7 +132,7 @@ class StatisticsReadRepository(
     }
 
     private fun weightTrend(
-        entries: List<com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry>
+        entries: List<com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry>
     ): List<StatisticsTrendPoint> {
         val formatter = DateTimeFormatter.ofPattern("M/d", Locale.KOREA)
         return entries
@@ -202,8 +202,8 @@ class StatisticsReadRepository(
     private fun comparison(
         currentSessions: List<WorkoutReadSessionSummary>,
         previousSessions: List<WorkoutReadSessionSummary>,
-        currentWeights: List<com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry>,
-        previousWeights: List<com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry>,
+        currentWeights: List<com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry>,
+        previousWeights: List<com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry>,
         currentMealDays: Int,
         previousMealDays: Int
     ): List<StatisticsComparisonMetric> = listOf(
@@ -241,7 +241,7 @@ class StatisticsReadRepository(
 
     private fun observedPatterns(
         sessions: List<WorkoutReadSessionSummary>,
-        weights: List<com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry>,
+        weights: List<com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry>,
         mealDays: Int,
         periodDays: Int
     ): List<String> = buildList {
@@ -256,7 +256,7 @@ class StatisticsReadRepository(
         values.filter { it.isFinite() }.takeIf { it.isNotEmpty() }?.sum()
 
     private fun averageWeight(
-        entries: List<com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry>
+        entries: List<com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry>
     ): Double? {
         val daily = entries.mapNotNull { entry ->
             entry.date.toLocalDateOrNull()?.let { it to entry.weightKg }
