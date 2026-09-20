@@ -82,6 +82,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private static final String STATE_MEAL_DATE = "runtime.meal_date";
     private static final String STATE_RECORDS_DATE = "runtime.records_date";
     private static final String STATE_ROUTINE_ID = "runtime.routine_id";
+    private static final String STATE_RECORDS_HUB_TAB = "runtime.records_hub_tab";
     private static final String STATE_NAVIGATION_HISTORY = "runtime.navigation_history";
 
     public static final String DEBUG_PROVISION_SESSION_ACTION =
@@ -162,7 +163,11 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                 today(),
                 state.getString(STATE_MEAL_DATE, navigationViewModel.selectedMealDate()),
                 state.getString(STATE_RECORDS_DATE, navigationViewModel.selectedRecordsDate()),
-                state.getString(STATE_ROUTINE_ID, navigationViewModel.selectedRoutineId())
+                state.getString(STATE_ROUTINE_ID, navigationViewModel.selectedRoutineId()),
+                state.getString(
+                        STATE_RECORDS_HUB_TAB,
+                        navigationViewModel.recordsHubTab().name()
+                )
         );
     }
 
@@ -175,6 +180,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         outState.putString(STATE_MEAL_DATE, navigationViewModel.selectedMealDate());
         outState.putString(STATE_RECORDS_DATE, navigationViewModel.selectedRecordsDate());
         outState.putString(STATE_ROUTINE_ID, navigationViewModel.selectedRoutineId());
+        outState.putString(STATE_RECORDS_HUB_TAB, navigationViewModel.recordsHubTab().name());
         outState.putStringArrayList(STATE_NAVIGATION_HISTORY, navigationViewModel.savedScreenNames());
         super.onSaveInstanceState(outState);
     }
