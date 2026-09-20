@@ -5,7 +5,7 @@
 | 단계 | 목표 | 통과 조건 | 상태 |
 |---|---|---|---|
 | M0 | KMP 기반 구성 | `:shared`, Android/iOS target, 추출 계획, 단방향 의존 | ✅ 완료 |
-| M1 | Shared pipeline 증명 | `WorkoutPerformanceCalculator`를 `commonMain`/`commonTest`로 이동하고 Android 회귀 없음 | 진행 예정 |
+| M1 | Shared pipeline 증명 | `WorkoutPerformanceCalculator`를 `commonMain`/`commonTest`로 이동하고 Android 회귀 없음 | ✅ 완료 |
 | M2 | Pure leaf model 추출 | `CardioSessionSnapshot`, `BodyReadEntry` 등 공통화 | 대기 |
 | M3 | Core type closure | Java/JVM 의존 핵심 타입을 common Kotlin으로 변환 | 대기 |
 | M4 | Domain/API 추출 | Repository API, UseCase, business rule 공통화 | 대기 |
@@ -24,6 +24,6 @@
 
 ## 현재 위치
 
-`M0 ✅ → M1`
+`M1 ✅ → M2`
 
 M1 성공 기준은 “실제 production 코드가 처음으로 commonMain에 들어가고 Android가 그대로 동작한다”는 것을 증명하는 것이다.
