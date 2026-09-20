@@ -1,0 +1,179 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A11A00010000000000000001 /* YeonsikIosProofApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000001 /* YeonsikIosProofApp.swift */; };
+		A11A00010000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000002 /* ContentView.swift */; };
+		A11A00010000000000000003 /* YeonsikShared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000003 /* YeonsikShared.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A11A00020000000000000001 /* YeonsikIosProofApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YeonsikIosProofApp.swift; sourceTree = "<group>"; };
+		A11A00020000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A11A00020000000000000003 /* YeonsikShared.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = YeonsikShared.framework; path = YeonsikShared.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		A11A00020000000000000004 /* YeonsikIosProof.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YeonsikIosProof.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A11A00030000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A11A00010000000000000003 /* YeonsikShared.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A11A00040000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A11A00040000000000000002 /* iosApp */,
+				A11A00040000000000000003 /* Frameworks */,
+				A11A00040000000000000004 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A11A00040000000000000002 /* iosApp */ = {
+			isa = PBXGroup;
+			children = (
+				A11A00020000000000000001 /* YeonsikIosProofApp.swift */,
+				A11A00020000000000000002 /* ContentView.swift */,
+			);
+			path = iosApp;
+			sourceTree = "<group>";
+		};
+		A11A00040000000000000003 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				A11A00020000000000000003 /* YeonsikShared.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		A11A00040000000000000004 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A11A00020000000000000004 /* YeonsikIosProof.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A11A00050000000000000001 /* YeonsikIosProof */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A11A00060000000000000001 /* Build configuration list for PBXNativeTarget "YeonsikIosProof" */;
+			buildPhases = (
+				A11A00070000000000000002 /* Build YeonsikShared framework */,
+				A11A00070000000000000001 /* Sources */,
+				A11A00030000000000000001 /* Frameworks */,
+			);
+			buildRules = ();
+			dependencies = ();
+			name = YeonsikIosProof;
+			productName = YeonsikIosProof;
+			productReference = A11A00020000000000000004 /* YeonsikIosProof.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A11A00080000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = { LastUpgradeCheck = 1600; TargetAttributes = { A11A00050000000000000001 = { CreatedOnToolsVersion = 16.0; }; }; };
+			buildConfigurationList = A11A00060000000000000002 /* Build configuration list for PBXProject "iosApp" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (en, Base, ko,);
+			mainGroup = A11A00040000000000000001;
+			productRefGroup = A11A00040000000000000004 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (A11A00050000000000000001 /* YeonsikIosProof */,);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		A11A00070000000000000002 /* Build YeonsikShared framework */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = ();
+			inputPaths = ();
+			name = "Build YeonsikShared framework";
+			outputPaths = ();
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -eu\ncd \"$SRCROOT/..\"\n./gradlew :shared:embedAndSignAppleFrameworkForXcode\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A11A00070000000000000001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A11A00010000000000000001 /* YeonsikIosProofApp.swift in Sources */,
+				A11A00010000000000000002 /* ContentView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A11A00090000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { CLANG_CXX_LANGUAGE_STANDARD = "gnu++20"; CLANG_ENABLE_MODULES = YES; }; name = Debug; };
+		A11A00090000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { CLANG_CXX_LANGUAGE_STANDARD = "gnu++20"; CLANG_ENABLE_MODULES = YES; }; name = Release; };
+		A11A00090000000000000003 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)");
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yeonsik.fitness.iosproof;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A11A00090000000000000004 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
+				FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(SRCROOT)/../shared/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)");
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.yeonsik.fitness.iosproof;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A11A00060000000000000001 /* Build configuration list for PBXNativeTarget "YeonsikIosProof" */ = {isa = XCConfigurationList; buildConfigurations = (A11A00090000000000000003 /* Debug */, A11A00090000000000000004 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+		A11A00060000000000000002 /* Build configuration list for PBXProject "iosApp" */ = {isa = XCConfigurationList; buildConfigurations = (A11A00090000000000000001 /* Debug */, A11A00090000000000000002 /* Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+/* End XCConfigurationList section */
+	};
+	rootObject = A11A00080000000000000001 /* Project object */;
+}
