@@ -3,7 +3,7 @@ package com.yeonsik.fitnessapp.config;
 import android.content.Context;
 import android.content.SharedPreferences;
 
-import com.yeonsik.fitnessapp.data.MassUnit;
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
 
 /** Persists the preferred display/input unit while keeping the local data contract in kg. */
 public final class MassUnitPreferences {

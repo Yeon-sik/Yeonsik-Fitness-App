@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
+
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.ContextWrapper;
@@ -11,7 +13,7 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter;
-import com.yeonsik.fitnessapp.exercise.LoadState;
+import com.yeonsik.fitness.shared.feature.exercise.model.LoadState;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseFamily;
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset;

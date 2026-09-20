@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.exercise;
 
+import com.yeonsik.fitness.shared.feature.exercise.model.*;
+
 public final class RoutineExercise {
     public final String masterExerciseId;
     public final String nameKo;

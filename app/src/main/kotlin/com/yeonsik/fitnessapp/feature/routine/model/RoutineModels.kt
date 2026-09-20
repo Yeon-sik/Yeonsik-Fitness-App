@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.routine.model
 
-import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity
+import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 
 /** Values owned by the routine feature, independent of the legacy repository. */
 data class RoutineSummary(

@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.state;
 
-import com.yeonsik.fitnessapp.data.MassUnit;
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
 
 import org.junit.Test;
 

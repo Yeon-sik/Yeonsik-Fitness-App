@@ -34,7 +34,7 @@ import com.yeonsik.fitnessapp.core.ui.FitnessStatusMessage
 import com.yeonsik.fitnessapp.core.ui.FitnessTextField
 import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
-import com.yeonsik.fitnessapp.exercise.BodyPart
+import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePicker
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset

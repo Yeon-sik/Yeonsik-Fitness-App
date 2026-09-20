@@ -11,7 +11,7 @@ import com.yeonsik.fitnessapp.config.PriceTraceSupabaseConfigStore
 import com.yeonsik.fitnessapp.config.SupabaseConfig
 import com.yeonsik.fitnessapp.config.SupabaseConfigStore
 import com.yeonsik.fitnessapp.config.ThemeModePreferences
-import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
 import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService

@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
+
 import java.util.Locale;
 
 /** Small locale-stable formatter for user-facing mass values. */

@@ -2,8 +2,8 @@ package com.yeonsik.fitnessapp.ui;
 
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.data.MassFormatter;
-import com.yeonsik.fitnessapp.data.MassUnit;
-import com.yeonsik.fitnessapp.exercise.LoadState;
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
+import com.yeonsik.fitness.shared.feature.exercise.model.LoadState;
 import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens;
 
 import java.util.List;

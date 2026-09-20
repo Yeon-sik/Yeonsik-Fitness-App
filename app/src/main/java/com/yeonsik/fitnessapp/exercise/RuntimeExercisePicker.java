@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.exercise;
 
+import com.yeonsik.fitness.shared.feature.exercise.model.*;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashSet;

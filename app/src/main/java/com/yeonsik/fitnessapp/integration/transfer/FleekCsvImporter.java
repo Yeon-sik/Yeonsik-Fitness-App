@@ -1,8 +1,8 @@
 package com.yeonsik.fitnessapp.integration.transfer;
 
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
-import com.yeonsik.fitnessapp.exercise.BodyPart;
-import com.yeonsik.fitnessapp.exercise.EquipmentType;
+import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart;
+import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.WeightExercise;
 
 import java.io.IOException;

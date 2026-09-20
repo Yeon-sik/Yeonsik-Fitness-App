@@ -9,12 +9,12 @@ import com.yeonsik.fitnessapp.core.database.WorkoutRecordsRoomEntity
 import com.yeonsik.fitnessapp.core.database.WorkoutRoomDao
 import com.yeonsik.fitnessapp.core.database.WorkoutSetsRoomEntity
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
-import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog
-import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity
+import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 import com.yeonsik.fitnessapp.exercise.ExerciseVolumeCalculator
 import com.yeonsik.fitnessapp.exercise.ExercisePrimaryMuscleLabel
-import com.yeonsik.fitnessapp.exercise.LoadState
+import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
 import com.yeonsik.fitnessapp.exercise.RoutineExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSetInput
@@ -1127,9 +1127,9 @@ class WorkoutRoomStorage(
     private fun identityForRow(exerciseId: String, name: String?, familyId: String?, presetId: String?, canonical: String?, visual: String?): ExerciseFamilyIdentity? {
         val resolved = familyCatalog.identityForStorageExerciseId(exerciseId)
             ?: if (!familyId.isNullOrBlank()) familyCatalog.identityForStorageExerciseId(presetId.orEmpty()) else null
-        if (resolved == null) return null
-        if (familyId.isNullOrBlank() && canonical.isNullOrBlank()) return resolved
-        return resolved.takeIf {
+        val resolvedIdentity = resolved ?: return null
+        if (familyId.isNullOrBlank() && canonical.isNullOrBlank()) return resolvedIdentity
+        return resolvedIdentity.takeIf {
             it.familyId == familyId &&
                 (canonical.isNullOrBlank() || it.canonicalVariantKey == canonical)
         }
@@ -1143,7 +1143,7 @@ class WorkoutRoomStorage(
         val leftIdentity = left.familyIdentity
         if (rightIdentity?.hasVariantIdentity() == true) {
             return leftIdentity?.familyId == rightIdentity.familyId &&
-                leftIdentity.canonicalVariantKey == rightIdentity.canonicalVariantKey &&
+                leftIdentity?.canonicalVariantKey == rightIdentity.canonicalVariantKey &&
                 FitnessRecordContract.normalizeRecordType(left.recordType) ==
                 FitnessRecordContract.normalizeRecordType(right.recordType)
         }

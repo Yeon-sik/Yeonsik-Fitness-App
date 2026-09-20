@@ -4,7 +4,7 @@ import com.yeonsik.fitnessapp.core.ui.FitnessProgressPresentation
 import com.yeonsik.fitnessapp.core.ui.fitnessProgressPresentation
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.data.MassFormatter
-import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSessionExercise
 import com.yeonsik.fitnessapp.ui.WorkoutSummaryAnalytics

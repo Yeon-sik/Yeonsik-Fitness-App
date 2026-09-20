@@ -1,10 +1,10 @@
 package com.yeonsik.fitnessapp.feature.workout.model
 
-import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity
-import com.yeonsik.fitnessapp.exercise.BodyPart
-import com.yeonsik.fitnessapp.exercise.EquipmentType
-import com.yeonsik.fitnessapp.exercise.LoadState
-import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
+import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
+import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType
+import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 
 /** Android- and storage-independent values consumed by the workout feature. */
 data class WorkoutExercise(

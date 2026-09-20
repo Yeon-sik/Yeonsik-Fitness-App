@@ -29,7 +29,7 @@ import com.yeonsik.fitnessapp.core.ui.FitnessMonthHeader
 import com.yeonsik.fitnessapp.core.ui.fitnessCalendarDayPresentation
 import com.yeonsik.fitnessapp.core.ui.fitnessWeekdayLabels
 import com.yeonsik.fitnessapp.data.MassFormatter
-import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.feature.records.model.RecordsCalendarDay
 import com.yeonsik.fitnessapp.feature.records.model.RecordsDayDetail
 import com.yeonsik.fitnessapp.feature.records.model.RecordsWorkoutSummary

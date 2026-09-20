@@ -1,8 +1,8 @@
 package com.yeonsik.fitnessapp.data;
 
-import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
-import com.yeonsik.fitnessapp.exercise.ExercisePerformanceKey;
-import com.yeonsik.fitnessapp.exercise.LoadState;
+import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity;
+import com.yeonsik.fitness.shared.feature.exercise.model.ExercisePerformanceKey;
+import com.yeonsik.fitness.shared.feature.exercise.model.LoadState;
 
 import org.junit.Test;
 

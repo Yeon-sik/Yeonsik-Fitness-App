@@ -20,7 +20,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
 import com.yeonsik.fitnessapp.data.MassFormatter
-import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 
 interface BodyMetricsEditorActions {
     fun save(recordId: String?, date: String, weightKg: Double, memo: String)
