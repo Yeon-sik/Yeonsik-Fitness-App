@@ -12,7 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.viewinterop.AndroidView
-import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity
+import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 import com.yeonsik.fitnessapp.ui.ExerciseIllustrationPreview
 import com.yeonsik.fitnessapp.ui.ExerciseMuscleModelRenderer
 import com.yeonsik.fitnessapp.ui.FitnessUi

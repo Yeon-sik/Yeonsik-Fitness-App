@@ -20,7 +20,7 @@ import com.yeonsik.fitnessapp.core.ui.FitnessTrendPoint
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.fitnessTrendPresentation
 import com.yeonsik.fitnessapp.data.MassFormatter
-import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsComparisonMetric
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsPerformanceMetric
 import com.yeonsik.fitnessapp.feature.statistics.model.StatisticsPerformanceTrend

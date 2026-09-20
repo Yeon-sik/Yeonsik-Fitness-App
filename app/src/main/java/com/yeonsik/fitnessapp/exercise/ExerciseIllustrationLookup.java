@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.exercise;
 
+import com.yeonsik.fitness.shared.feature.exercise.model.*;
+
 import android.content.Context;
 
 /**

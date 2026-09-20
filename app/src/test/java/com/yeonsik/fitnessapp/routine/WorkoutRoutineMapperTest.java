@@ -3,8 +3,8 @@ package com.yeonsik.fitnessapp.routine;
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExercise;
 import com.yeonsik.fitnessapp.feature.workout.model.WorkoutSet;
-import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
-import com.yeonsik.fitnessapp.exercise.LoadState;
+import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity;
+import com.yeonsik.fitness.shared.feature.exercise.model.LoadState;
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog;
 import com.yeonsik.fitnessapp.exercise.RoutineExercise;
 

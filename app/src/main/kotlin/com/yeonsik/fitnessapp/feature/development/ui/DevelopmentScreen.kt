@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.data.MassFormatter
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.development.BodyProfile
 import com.yeonsik.fitnessapp.development.DevelopmentGoal
 import com.yeonsik.fitnessapp.BuildConfig

@@ -9,7 +9,7 @@ import android.util.LruCache;
 import android.widget.ImageView;
 
 import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup;
-import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
+import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity;
 
 /**
  * 운동 목록용 정적 대표 이미지 생성기.

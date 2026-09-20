@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.feature.settings.ui
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig
-import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

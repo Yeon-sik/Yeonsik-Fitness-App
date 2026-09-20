@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
-import com.yeonsik.fitnessapp.exercise.LoadState;
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
+import com.yeonsik.fitness.shared.feature.exercise.model.LoadState;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;

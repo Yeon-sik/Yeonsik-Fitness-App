@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.exercise;
 
+import com.yeonsik.fitness.shared.feature.exercise.model.*;
+
 import java.util.Locale;
 
 /** Resolves the compact representative muscle label used by exercise pickers. */

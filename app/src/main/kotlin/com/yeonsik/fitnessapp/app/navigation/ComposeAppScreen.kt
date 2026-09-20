@@ -43,7 +43,7 @@ import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.core.account.AccountScope
 import com.yeonsik.fitnessapp.cardio.CardioActivityType
-import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.AppUiActions
 import com.yeonsik.fitnessapp.feature.body.ui.*
@@ -1463,7 +1463,7 @@ private fun AppDestination(
     val exercisePickerActions = object : ExercisePickerScreenActions {
         override fun back() { navigation.back() }
         override fun search(query: String) = viewModels.getExercisePicker().search(query)
-        override fun setBodyPart(bodyPart: com.yeonsik.fitnessapp.exercise.BodyPart?) =
+        override fun setBodyPart(bodyPart: com.yeonsik.fitness.shared.feature.exercise.model.BodyPart?) =
             viewModels.getExercisePicker().setBodyPart(bodyPart)
         override fun setPrimarySubPart(primarySubPart: String?) =
             viewModels.getExercisePicker().setPrimarySubPart(primarySubPart)

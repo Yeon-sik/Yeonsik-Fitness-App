@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.integration.transfer;
 
-import com.yeonsik.fitnessapp.exercise.LoadState;
-import com.yeonsik.fitnessapp.data.MassUnit;
+import com.yeonsik.fitness.shared.feature.exercise.model.LoadState;
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
 
 import org.json.JSONArray;
 import org.json.JSONObject;

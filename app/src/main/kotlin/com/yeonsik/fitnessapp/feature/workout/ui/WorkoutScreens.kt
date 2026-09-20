@@ -23,11 +23,11 @@ import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.routine.ui.*
-import com.yeonsik.fitnessapp.data.MassUnit
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.feature.workout.model.*
-import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity
+import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.WorkoutSetPresentation
 import kotlinx.coroutines.delay
@@ -473,7 +473,7 @@ private fun WorkoutSetEditor(
     ownerId: String,
     recordId: String,
     rawRecordType: String,
-    allowedLoadStates: List<com.yeonsik.fitnessapp.exercise.LoadState>,
+    allowedLoadStates: List<com.yeonsik.fitness.shared.feature.exercise.model.LoadState>,
     set: WorkoutSet,
     unit: MassUnit
 ) {
@@ -503,11 +503,11 @@ private fun WorkoutSetEditor(
     val nextAction = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Next) })
     val showMassInput = recordType != FitnessRecordContract.REPS_ONLY &&
         recordType != FitnessRecordContract.TIME &&
-        loadState != com.yeonsik.fitnessapp.exercise.LoadState.BODYWEIGHT
+        loadState != com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BODYWEIGHT
     val massLabel = when {
-        loadState == com.yeonsik.fitnessapp.exercise.LoadState.ADDED_WEIGHT -> "추가 중량 ${inputUnit.symbol()}"
-        loadState == com.yeonsik.fitnessapp.exercise.LoadState.ASSISTED ||
-            loadState == com.yeonsik.fitnessapp.exercise.LoadState.BAND_ASSISTED -> "보조 중량 ${inputUnit.symbol()}"
+        loadState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ADDED_WEIGHT -> "추가 중량 ${inputUnit.symbol()}"
+        loadState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ASSISTED ||
+            loadState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BAND_ASSISTED -> "보조 중량 ${inputUnit.symbol()}"
         else -> "중량 ${inputUnit.symbol()}"
     }
     AppCard(Modifier.fillMaxWidth()) {
@@ -575,32 +575,32 @@ private fun WorkoutSetEditor(
                     val enteredAdded = added.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
                     val selectedState = loadState
                     val enteredLoad = when {
-                        selectedState == com.yeonsik.fitnessapp.exercise.LoadState.ADDED_WEIGHT ||
+                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ADDED_WEIGHT ||
                             (recordType == FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS && selectedState == null) -> enteredAdded
-                        selectedState == com.yeonsik.fitnessapp.exercise.LoadState.ASSISTED ||
-                            selectedState == com.yeonsik.fitnessapp.exercise.LoadState.BAND_ASSISTED ||
+                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ASSISTED ||
+                            selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BAND_ASSISTED ||
                             recordType == FitnessRecordContract.ASSISTED_WEIGHT_REPS -> enteredAssisted
-                        selectedState == com.yeonsik.fitnessapp.exercise.LoadState.EXTERNAL_LOAD ||
-                            selectedState == com.yeonsik.fitnessapp.exercise.LoadState.BAND_RESISTED ||
+                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.EXTERNAL_LOAD ||
+                            selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BAND_RESISTED ||
                             recordType == FitnessRecordContract.WEIGHT_REPS ||
                             recordType == FitnessRecordContract.WEIGHT_TIME -> enteredWeight
                         else -> null
                     }
                     val canonicalWeight = when {
-                        selectedState == com.yeonsik.fitnessapp.exercise.LoadState.EXTERNAL_LOAD ||
-                            selectedState == com.yeonsik.fitnessapp.exercise.LoadState.BAND_RESISTED ||
+                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.EXTERNAL_LOAD ||
+                            selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BAND_RESISTED ||
                             recordType == FitnessRecordContract.WEIGHT_REPS ||
                             recordType == FitnessRecordContract.WEIGHT_TIME -> enteredWeight?.let { MassUnit.toKg(it, inputUnit) }
                         else -> null
                     }
                     val canonicalAssisted = when {
-                        selectedState == com.yeonsik.fitnessapp.exercise.LoadState.ASSISTED ||
-                            selectedState == com.yeonsik.fitnessapp.exercise.LoadState.BAND_ASSISTED ||
+                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ASSISTED ||
+                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BAND_ASSISTED ||
                             recordType == FitnessRecordContract.ASSISTED_WEIGHT_REPS -> enteredAssisted?.let { MassUnit.toKg(it, inputUnit) }
                         else -> null
                     }
                     val canonicalAdded = when {
-                        selectedState == com.yeonsik.fitnessapp.exercise.LoadState.ADDED_WEIGHT ||
+                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ADDED_WEIGHT ||
                             recordType == FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS -> enteredAdded?.let { MassUnit.toKg(it, inputUnit) }
                         else -> null
                     }

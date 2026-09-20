@@ -33,7 +33,7 @@ import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessStatusMessage
 import com.yeonsik.fitnessapp.core.ui.FitnessTextField
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
-import com.yeonsik.fitnessapp.exercise.BodyPart
+import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState
 import com.yeonsik.fitnessapp.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitnessapp.state.FitnessScreen

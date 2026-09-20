@@ -1,8 +1,8 @@
 package com.yeonsik.fitnessapp.ui;
 
 import com.yeonsik.fitnessapp.data.FitnessRecordContract;
-import com.yeonsik.fitnessapp.data.MassUnit;
-import com.yeonsik.fitnessapp.exercise.LoadState;
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
+import com.yeonsik.fitness.shared.feature.exercise.model.LoadState;
 
 import org.junit.Test;
 

@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.state;
 
-import com.yeonsik.fitnessapp.data.MassUnit;
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
 
 /** Recoverable identifiers and input-unit context shared across workout destinations. */
 public final class WorkoutSessionState {

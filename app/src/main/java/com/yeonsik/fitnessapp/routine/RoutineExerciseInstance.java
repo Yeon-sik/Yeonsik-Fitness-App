@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.routine;
 
-import com.yeonsik.fitnessapp.exercise.ExerciseFamilyIdentity;
+import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity;
 
 public final class RoutineExerciseInstance {
     public final String id;

@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
-import com.yeonsik.fitnessapp.exercise.BodyPart;
-import com.yeonsik.fitnessapp.exercise.EquipmentType;
+import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart;
+import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType;
 import com.yeonsik.fitnessapp.exercise.WeightExercise;
 import com.yeonsik.fitnessapp.integration.transfer.FleekCsvImporter;
 

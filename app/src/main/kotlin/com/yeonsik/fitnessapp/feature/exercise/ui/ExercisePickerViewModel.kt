@@ -6,7 +6,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitnessapp.core.account.AccountScope
-import com.yeonsik.fitnessapp.exercise.BodyPart
+import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePicker
