@@ -10,7 +10,7 @@ import com.yeonsik.fitnessapp.cardio.CardioMetrics
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection
 import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
 import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService
-import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean

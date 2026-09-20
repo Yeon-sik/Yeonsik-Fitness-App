@@ -3,7 +3,7 @@ package com.yeonsik.fitnessapp.feature.cardio.api
 import com.yeonsik.fitnessapp.cardio.CardioActivityType
 import com.yeonsik.fitnessapp.cardio.CardioRouteProjection
 import com.yeonsik.fitnessapp.core.account.AccountScope
-import com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 
 interface CardioRepositoryApi {
     fun loadSession(scope: AccountScope, recordId: String): CardioSessionSnapshot?

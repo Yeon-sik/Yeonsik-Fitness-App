@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.records.model
 
-import com.yeonsik.fitnessapp.feature.body.model.BodyReadEntry
+import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry
 import com.yeonsik.fitnessapp.feature.meal.model.MealReadSummary
 
 /** A single date in the Records calendar. All flags are derived from owner-scoped source reads. */

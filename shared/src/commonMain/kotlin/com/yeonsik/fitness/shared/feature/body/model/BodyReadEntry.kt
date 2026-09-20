@@ -1,4 +1,4 @@
-package com.yeonsik.fitnessapp.feature.body.model
+package com.yeonsik.fitness.shared.feature.body.model
 
 data class BodyReadEntry(
     val id: String,

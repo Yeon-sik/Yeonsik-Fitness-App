@@ -442,11 +442,11 @@ private fun AppRoot(
                         } else if (event.existingCardioSession && event.session != null) {
                             cardioViewModel.rememberActiveRecord(existingId)
                             event.message?.let(host::toast)
-                            if (event.session.status == com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot.STATUS_TRACKING) {
+                            if (event.session.status == com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot.STATUS_TRACKING) {
                                 host.startCardioTracking(existingId)
                             }
                             navigation.navigate(
-                                if (event.session.status == com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot.STATUS_COMPLETED) {
+                                if (event.session.status == com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot.STATUS_COMPLETED) {
                                     FitnessScreen.CARDIO_SUMMARY
                                 } else {
                                     FitnessScreen.CARDIO_SESSION
@@ -466,10 +466,10 @@ private fun AppRoot(
                     return@LaunchedEffect
                 }
                 cardioViewModel.rememberActiveRecord(recordId)
-                if (session.status == com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot.STATUS_COMPLETED) {
+                if (session.status == com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot.STATUS_COMPLETED) {
                     navigation.navigate(FitnessScreen.CARDIO_SUMMARY)
                 } else {
-                    if (session.status == com.yeonsik.fitnessapp.feature.cardio.model.CardioSessionSnapshot.STATUS_TRACKING) {
+                    if (session.status == com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot.STATUS_TRACKING) {
                         host.startCardioTracking(recordId)
                     }
                     navigation.navigate(FitnessScreen.CARDIO_SESSION)

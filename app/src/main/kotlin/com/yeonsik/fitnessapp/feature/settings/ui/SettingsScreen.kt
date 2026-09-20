@@ -24,7 +24,7 @@ import com.yeonsik.fitnessapp.config.*
 import com.yeonsik.fitnessapp.core.account.*
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.*
-import com.yeonsik.fitnessapp.feature.cardio.model.*
+import com.yeonsik.fitness.shared.feature.cardio.model.*
 import com.yeonsik.fitnessapp.feature.cardio.ui.*
 import com.yeonsik.fitnessapp.feature.development.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
