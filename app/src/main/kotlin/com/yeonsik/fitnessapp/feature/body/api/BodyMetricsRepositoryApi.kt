@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.feature.body.api
 
 import com.yeonsik.fitnessapp.data.BodyMetricEntry
-import com.yeonsik.fitnessapp.development.BodyProfile
+import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
 
 /** Public body boundary. Storage entities and database handles do not cross this interface. */
 interface BodyMetricsRepositoryApi {

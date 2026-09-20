@@ -12,7 +12,7 @@ import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 
-import com.yeonsik.fitnessapp.cardio.CardioActivityType;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType;
 import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsRepository;
 import com.yeonsik.fitnessapp.config.AccountOwnerPolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;

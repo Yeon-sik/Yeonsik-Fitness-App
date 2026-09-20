@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.feature.development.application;
 
 import com.yeonsik.fitness.shared.core.account.AccountScope;
-import com.yeonsik.fitnessapp.development.BodyProfile;
+import com.yeonsik.fitness.shared.feature.body.model.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
 import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService;
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi;

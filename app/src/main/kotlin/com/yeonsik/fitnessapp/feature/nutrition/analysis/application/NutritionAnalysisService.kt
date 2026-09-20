@@ -3,10 +3,10 @@ package com.yeonsik.fitnessapp.feature.nutrition.analysis.application
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.AthleteNutritionGoal
 import com.yeonsik.fitnessapp.data.NutritionProfile
-import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
-import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotItemRead
-import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotNutritionRead
-import com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotRead
+import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotItemRead
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotNutritionRead
+import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.api.NutritionAnalysisApi
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionAnalysisMeal
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionAnalysisMetric

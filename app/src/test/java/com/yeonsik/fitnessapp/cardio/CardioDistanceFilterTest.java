@@ -1,6 +1,9 @@
 package com.yeonsik.fitnessapp.cardio;
 
 import org.junit.Test;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioDistanceFilter;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioLocationSample;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -15,8 +18,8 @@ public final class CardioDistanceFilterTest {
                 sample(37.5665, 126.9780, 5f, 1_000L)
         );
 
-        assertTrue(result.accepted);
-        assertEquals(0d, result.segmentDistanceMeters, 0.001d);
+        assertTrue(result.getAccepted());
+        assertEquals(0d, result.getSegmentDistanceMeters(), 0.001d);
     }
 
     @Test
@@ -34,10 +37,10 @@ public final class CardioDistanceFilterTest {
                 sample(37.566505, 126.9780, 8f, 11_000L)
         );
 
-        assertFalse(inaccurate.accepted);
-        assertEquals(CardioDistanceFilter.Reason.INACCURATE, inaccurate.reason);
-        assertFalse(jitter.accepted);
-        assertEquals(CardioDistanceFilter.Reason.JITTER, jitter.reason);
+        assertFalse(inaccurate.getAccepted());
+        assertEquals(CardioDistanceFilter.Reason.INACCURATE, inaccurate.getReason());
+        assertFalse(jitter.getAccepted());
+        assertEquals(CardioDistanceFilter.Reason.JITTER, jitter.getReason());
     }
 
     @Test
@@ -55,10 +58,10 @@ public final class CardioDistanceFilterTest {
                 sample(37.5675, 126.9780, 5f, 2_000L)
         );
 
-        assertTrue(walking.accepted);
-        assertTrue(walking.segmentDistanceMeters > 10d);
-        assertFalse(teleport.accepted);
-        assertEquals(CardioDistanceFilter.Reason.TOO_FAST, teleport.reason);
+        assertTrue(walking.getAccepted());
+        assertTrue(walking.getSegmentDistanceMeters() > 10d);
+        assertFalse(teleport.getAccepted());
+        assertEquals(CardioDistanceFilter.Reason.TOO_FAST, teleport.getReason());
     }
 
     private static CardioLocationSample sample(

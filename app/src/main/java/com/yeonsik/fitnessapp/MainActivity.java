@@ -32,7 +32,7 @@ import com.yeonsik.fitnessapp.app.AppContainer;
 import com.yeonsik.fitnessapp.app.navigation.AppNavigationViewModel;
 import com.yeonsik.fitnessapp.app.navigation.AppViewModels;
 import com.yeonsik.fitnessapp.app.navigation.ComposeAppScreen;
-import com.yeonsik.fitnessapp.cardio.CardioActivityType;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType;
 import com.yeonsik.fitnessapp.cardio.CardioTrackingService;
 import com.yeonsik.fitnessapp.config.AppSurfacePolicy;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;

@@ -235,7 +235,7 @@ public final class MealRecordRepositoryTest {
                             + "WHERE id = ?",
                     new Object[]{menu.id}
             );
-            com.yeonsik.fitnessapp.feature.meal.model.MealSnapshotRead reloaded =
+            com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead reloaded =
                     new MealReadRepository(FitnessRoomDatabaseProvider.get(context))
                             .mealSnapshot(new AccountScope(OWNER), recordId);
             assertNotNull(reloaded);

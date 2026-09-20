@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.app.navigation
 
+import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -42,7 +44,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitness.shared.core.account.AccountScope
-import com.yeonsik.fitnessapp.cardio.CardioActivityType
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.AppUiActions
@@ -636,7 +638,7 @@ private fun AppRoot(
         )
 
         override fun saveProfile(
-            profile: com.yeonsik.fitnessapp.development.BodyProfile?,
+            profile: BodyProfile?,
             weightRecordId: String?,
             date: String,
             weightKg: Double?,

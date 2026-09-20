@@ -7,7 +7,7 @@ import androidx.lifecycle.ViewModel
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.AthleteDailyCheckIn
 import com.yeonsik.fitnessapp.data.AthleteNutritionGoal
-import com.yeonsik.fitnessapp.development.BodyProfile
+import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
 import com.yeonsik.fitnessapp.development.DevelopmentGoal
 import com.yeonsik.fitnessapp.development.DevelopmentReport
 import com.yeonsik.fitnessapp.development.PaperAdviceAssessment

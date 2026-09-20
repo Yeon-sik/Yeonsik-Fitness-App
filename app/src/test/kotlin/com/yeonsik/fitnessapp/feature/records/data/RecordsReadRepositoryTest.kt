@@ -1,15 +1,15 @@
 package com.yeonsik.fitnessapp.feature.records.data
 
 import com.yeonsik.fitness.shared.core.account.AccountScope
-import com.yeonsik.fitnessapp.development.BodyProfile
-import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi
+import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
+import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsReadApi
 import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry
 import com.yeonsik.fitness.shared.feature.body.model.BodyWeightWindow
-import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
-import com.yeonsik.fitnessapp.feature.meal.model.MealNutritionReadSummary
-import com.yeonsik.fitnessapp.feature.meal.model.MealReadNutritionTotals
-import com.yeonsik.fitnessapp.feature.meal.model.MealReadSummary
-import com.yeonsik.fitnessapp.feature.records.model.RecordsSnapshot
+import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
+import com.yeonsik.fitness.shared.feature.meal.model.MealNutritionReadSummary
+import com.yeonsik.fitness.shared.feature.meal.model.MealReadNutritionTotals
+import com.yeonsik.fitness.shared.feature.meal.model.MealReadSummary
+import com.yeonsik.fitness.shared.feature.records.model.RecordsSnapshot
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutBodyPartSets
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadDayMetrics

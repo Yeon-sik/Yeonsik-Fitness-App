@@ -1,7 +1,7 @@
 package com.yeonsik.fitnessapp.feature.home.data
 
 import com.yeonsik.fitness.shared.core.account.AccountScope
-import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsReadApi
+import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsReadApi
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReadApi
 import com.yeonsik.fitnessapp.feature.home.model.HomeBodyMetric
 import com.yeonsik.fitnessapp.feature.home.model.HomeDayWorkoutMetrics
@@ -9,7 +9,7 @@ import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionGoal
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotal
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotals
-import com.yeonsik.fitnessapp.feature.meal.api.MealReadApi
+import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi
 
 /** Read-only ports used by the home application read model. */

@@ -21,13 +21,13 @@ import com.yeonsik.fitnessapp.integration.pricetrace.RestaurantMenuReadV1Client
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository
 import com.yeonsik.fitnessapp.feature.recovery.data.RecoveryRepository
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterRepository
-import com.yeonsik.fitnessapp.feature.cardio.api.CardioRepositoryApi
+import com.yeonsik.fitness.shared.feature.cardio.api.CardioRepositoryApi
 import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicationService
 import com.yeonsik.fitnessapp.feature.home.api.HomeRepositoryApi
 import com.yeonsik.fitnessapp.feature.home.data.FeatureHomeReadSources
 import com.yeonsik.fitnessapp.feature.home.data.HomeReadRepository
 import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository
-import com.yeonsik.fitnessapp.feature.records.api.RecordsReadApi
+import com.yeonsik.fitness.shared.feature.records.api.RecordsReadApi
 import com.yeonsik.fitnessapp.feature.records.data.RecordsReadRepository
 import com.yeonsik.fitnessapp.feature.statistics.api.StatisticsReadApi
 import com.yeonsik.fitnessapp.feature.statistics.data.StatisticsReadRepository

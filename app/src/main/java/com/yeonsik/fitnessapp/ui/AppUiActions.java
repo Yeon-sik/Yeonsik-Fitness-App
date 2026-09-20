@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.ui;
 
-import com.yeonsik.fitnessapp.cardio.CardioActivityType;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType;
 
 /**
  * 화면 렌더러가 MainActivity에 접근하는 유일한 통로.

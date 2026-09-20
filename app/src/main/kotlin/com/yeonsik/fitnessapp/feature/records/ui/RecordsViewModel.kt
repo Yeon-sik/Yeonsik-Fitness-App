@@ -5,8 +5,8 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitness.shared.core.account.AccountScope
-import com.yeonsik.fitnessapp.feature.records.api.RecordsReadApi
-import com.yeonsik.fitnessapp.feature.records.model.RecordsSnapshot
+import com.yeonsik.fitness.shared.feature.records.api.RecordsReadApi
+import com.yeonsik.fitness.shared.feature.records.model.RecordsSnapshot
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.concurrent.ExecutorService

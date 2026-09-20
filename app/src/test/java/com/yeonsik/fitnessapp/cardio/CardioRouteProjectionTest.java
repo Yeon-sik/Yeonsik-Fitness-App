@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.cardio;
 
 import org.junit.Test;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioRouteProjection;
 
 import java.util.List;
 
@@ -22,8 +23,8 @@ public final class CardioRouteProjectionTest {
         assertEquals(4, projection.displayPointCount());
         List<CardioRouteProjection.RoutePoint> segment =
                 projection.segments().get(0);
-        assertEquals(37.0, segment.get(0).latitude, 0.0);
-        assertEquals(46.0, segment.get(segment.size() - 1).latitude, 0.0);
+        assertEquals(37.0, segment.get(0).getLatitude(), 0.0);
+        assertEquals(46.0, segment.get(segment.size() - 1).getLatitude(), 0.0);
     }
 
     @Test

@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.development;
 
+import com.yeonsik.fitness.shared.feature.body.model.BodyProfile;
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentRepository;
 
 import org.junit.Test;

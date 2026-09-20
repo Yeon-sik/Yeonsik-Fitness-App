@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.cardio.ui
 
-import com.yeonsik.fitnessapp.cardio.CardioActivityType
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
 
 /** Platform and route actions supplied to cardio composables by app navigation. */
 internal interface CardioScreenActions {

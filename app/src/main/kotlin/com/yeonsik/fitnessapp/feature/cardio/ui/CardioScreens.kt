@@ -11,7 +11,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import com.yeonsik.fitnessapp.BuildConfig
-import com.yeonsik.fitnessapp.cardio.CardioActivityType
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
 import com.yeonsik.fitnessapp.cardio.CardioMetrics
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
