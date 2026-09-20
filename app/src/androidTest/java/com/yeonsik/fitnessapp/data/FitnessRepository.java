@@ -5422,19 +5422,19 @@ public final class FitnessRepository {
     }
 
     private static BodyMetricEntry toLegacyBodyMetricEntry(
-            com.yeonsik.fitnessapp.data.BodyMetricEntry entry
+            com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry entry
     ) {
         if (entry == null) {
             return null;
         }
-        return new BodyMetricEntry(entry.id, entry.date, entry.weightKg, entry.memo);
+        return new BodyMetricEntry(entry.getId(), entry.getDate(), entry.getWeightKg(), entry.getMemo());
     }
 
     private static List<BodyMetricEntry> toLegacyBodyMetricEntries(
-            List<com.yeonsik.fitnessapp.data.BodyMetricEntry> entries
+            List<com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry> entries
     ) {
         List<BodyMetricEntry> converted = new ArrayList<>();
-        for (com.yeonsik.fitnessapp.data.BodyMetricEntry entry : entries) {
+        for (com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry entry : entries) {
             converted.add(toLegacyBodyMetricEntry(entry));
         }
         return converted;

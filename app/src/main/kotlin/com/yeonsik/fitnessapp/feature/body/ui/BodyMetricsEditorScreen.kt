@@ -93,7 +93,7 @@ fun BodyMetricsEditorDialog(
         dismissButton = {
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (editor.exists()) {
-                    OutlinedButton(onClick = { actions.delete(editor.recordId) }) {
+                    OutlinedButton(onClick = { editor.recordId?.let(actions::delete) }) {
                         Text("이 기록 삭제")
                     }
                 }

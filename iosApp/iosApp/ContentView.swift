@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 import YeonsikShared
 
-/// M6 integration proof only. Persistence and platform adapters intentionally do not exist here.
+/// M6/M7 integration proof only. Production persistence and platform SDK adapters intentionally do not exist here.
 struct ContentView: View {
     private let scope = AccountScope(ownerId: "ios-proof-owner")
     private let estimatedOneRepMaxKg = WorkoutPerformanceCalculator.shared.epleyE1rm(
@@ -23,8 +23,14 @@ struct ContentView: View {
                     LabeledContent("Cardio activity", value: String(describing: activity))
                 }
 
+                Section("Body vertical slice") {
+                    NavigationLink("Open Body") {
+                        BodyView()
+                    }
+                }
+
                 Section("Adapter boundary") {
-                    Text("SwiftUI → shared Domain/API → future iOS adapter")
+                    Text("SwiftUI → shared Body API → in-memory iOS adapter")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }

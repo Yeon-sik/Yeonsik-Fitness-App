@@ -8,10 +8,13 @@ import com.yeonsik.fitnessapp.core.database.BodyRoomDao;
 import com.yeonsik.fitnessapp.core.database.DevicesRoomEntity;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.WeightRecordEntity;
-import com.yeonsik.fitnessapp.data.BodyMetricEntry;
+import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry;
 import com.yeonsik.fitnessapp.data.TextValuePolicy;
+import com.yeonsik.fitness.shared.core.account.AccountScope;
+import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsReadApi;
+import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsRepositoryApi;
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile;
-import com.yeonsik.fitnessapp.feature.body.api.BodyMetricsRepositoryApi;
+import com.yeonsik.fitness.shared.feature.body.model.BodyWeightWindow;
 
 import org.json.JSONObject;
 
@@ -28,27 +31,33 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
 
     private final FitnessRoomDatabase roomDatabase;
     private final BodyRoomDao bodyDao;
+    private final BodyMetricsReadApi readApi;
     private String userId;
 
     public BodyMetricsRepository(@NonNull FitnessRoomDatabase roomDatabase, String userId) {
         this.roomDatabase = roomDatabase;
         this.bodyDao = roomDatabase.bodyRoomDao();
+        this.readApi = new BodyMetricsReadRepository(roomDatabase);
         this.userId = normalizeUserId(userId);
     }
 
     @Override
+    public String addBodyMetric(AccountScope scope, String date, double weightKg, String memo) {
+        requireScope(scope);
+        return addBodyMetric(date, weightKg, memo);
+    }
+
     public void setUserId(String userId) {
         this.userId = normalizeUserId(userId);
     }
 
-    @Override
     public String addBodyMetric(String date, double weightKg, String memo) {
         String recordDate = requireRecordDate(date);
         double validatedWeight = requireBodyWeight(weightKg);
-        BodyMetricEntry existing = bodyMetricForDate(recordDate);
+        BodyReadEntry existing = bodyMetricForDate(recordDate);
         if (existing != null) {
-            updateBodyMetric(existing.id, recordDate, validatedWeight, memo);
-            return existing.id;
+            updateBodyMetric(existing.getId(), recordDate, validatedWeight, memo);
+            return existing.getId();
         }
 
         String id = newId();
@@ -63,23 +72,38 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     }
 
     @Override
-    public BodyMetricEntry bodyMetricForDate(String date) {
-        List<BodyMetricEntry> entries = bodyMetricEntriesForDate(date);
+    public BodyReadEntry bodyMetricForDate(AccountScope scope, String date) {
+        requireScope(scope);
+        return bodyMetricForDate(date);
+    }
+
+    public BodyReadEntry bodyMetricForDate(String date) {
+        List<BodyReadEntry> entries = bodyMetricEntriesForDate(date);
         return entries.isEmpty() ? null : entries.get(0);
     }
 
     @Override
-    public BodyMetricEntry bodyMetricEntryById(String id) {
+    public BodyReadEntry bodyMetricEntryById(AccountScope scope, String id) {
+        requireScope(scope);
+        return bodyMetricEntryById(id);
+    }
+
+    public BodyReadEntry bodyMetricEntryById(String id) {
         String normalized = emptyToNull(id);
         return normalized == null ? null : toEntry(bodyDao.visibleWeight(normalized, userId));
     }
 
     @Override
-    public List<BodyMetricEntry> bodyMetricEntriesForDate(String date) {
+    public List<BodyReadEntry> bodyMetricEntriesForDate(AccountScope scope, String date) {
+        requireScope(scope);
+        return bodyMetricEntriesForDate(date);
+    }
+
+    public List<BodyReadEntry> bodyMetricEntriesForDate(String date) {
         List<WeightRecordEntity> records = date == null
                 ? bodyDao.visibleWeights(userId, 20)
                 : bodyDao.visibleWeightsForDate(userId, emptyToToday(date));
-        List<BodyMetricEntry> entries = new ArrayList<>();
+        List<BodyReadEntry> entries = new ArrayList<>();
         for (WeightRecordEntity record : records) {
             entries.add(toEntry(record));
         }
@@ -87,6 +111,13 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     }
 
     @Override
+    public void updateBodyMetric(
+            AccountScope scope, String id, String date, double weightKg, String memo
+    ) {
+        requireScope(scope);
+        updateBodyMetric(id, date, weightKg, memo);
+    }
+
     public void updateBodyMetric(String id, String date, double weightKg, String memo) {
         if (emptyToNull(id) == null) {
             return;
@@ -102,6 +133,11 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     }
 
     @Override
+    public void deleteBodyMetric(AccountScope scope, String id) {
+        requireScope(scope);
+        deleteBodyMetric(id);
+    }
+
     public void deleteBodyMetric(String id) {
         if (emptyToNull(id) == null) {
             return;
@@ -110,26 +146,68 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
         bodyDao.tombstoneVisibleWeight(id, userId, now, now);
     }
 
-    /** Returns the newest visible entry on or before the requested date. */
     @Override
-    public BodyMetricEntry latestBodyMetricOnOrBefore(String date) {
+    public BodyReadEntry latestBodyMetricOnOrBefore(AccountScope scope, String date) {
+        requireScope(scope);
+        return latestBodyMetricOnOrBefore(date);
+    }
+
+    /** Returns the newest visible entry on or before the requested date. */
+    public BodyReadEntry latestBodyMetricOnOrBefore(String date) {
         return toEntry(bodyDao.latestVisibleWeightOnOrBefore(userId, emptyToToday(date)));
+    }
+    @Override
+    public List<BodyReadEntry> bodyMetrics(AccountScope scope, String date) {
+        requireScope(scope);
+        return readApi.bodyMetrics(scope, date);
+    }
+
+    @Override
+    public int recordedDays(AccountScope scope, String startDate, String endDate) {
+        requireScope(scope);
+        return readApi.recordedDays(scope, startDate, endDate);
+    }
+
+    @Override
+    public List<String> dates(AccountScope scope, String startDate, String endDate) {
+        requireScope(scope);
+        return readApi.dates(scope, startDate, endDate);
+    }
+
+    @Override
+    public BodyWeightWindow weightWindow(
+            AccountScope scope, String startDate, String endDate
+    ) {
+        requireScope(scope);
+        return readApi.weightWindow(scope, startDate, endDate);
+    }
+
+    @Override
+    public List<BodyReadEntry> weightEntries(
+            AccountScope scope, String startDate, String endDate
+    ) {
+        requireScope(scope);
+        return readApi.weightEntries(scope, startDate, endDate);
     }
 
     public List<String> bodyMetrics() {
         return bodyMetricsForDate(null);
     }
 
-    @Override
     public List<String> bodyMetricsForDate(String date) {
         List<String> rows = new ArrayList<>();
-        for (BodyMetricEntry entry : bodyMetricEntriesForDate(date)) {
-            rows.add(formatDate(entry.date) + "  " + trimDouble(entry.weightKg) + "kg");
+        for (BodyReadEntry entry : bodyMetricEntriesForDate(date)) {
+            rows.add(formatDate(entry.getDate()) + "  " + trimDouble(entry.getWeightKg()) + "kg");
         }
         return rows;
     }
 
     @Override
+    public BodyProfile bodyProfile(AccountScope scope) {
+        requireScope(scope);
+        return bodyProfile();
+    }
+
     public BodyProfile bodyProfile() {
         BodyProfileEntity entity = bodyDao.bodyProfile(userId);
         return entity == null
@@ -138,6 +216,11 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     }
 
     @Override
+    public void saveBodyProfile(AccountScope scope, BodyProfile profile) {
+        requireScope(scope);
+        saveBodyProfile(profile);
+    }
+
     public void saveBodyProfile(BodyProfile profile) {
         if (profile == null) {
             throw new IllegalArgumentException("신체 프로필이 필요합니다.");
@@ -156,8 +239,8 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
         ));
     }
 
-    private BodyMetricEntry toEntry(WeightRecordEntity record) {
-        return record == null ? null : new BodyMetricEntry(
+    private BodyReadEntry toEntry(WeightRecordEntity record) {
+        return record == null ? null : new BodyReadEntry(
                 record.getId(),
                 record.getDate(),
                 record.getWeightKg(),
@@ -176,6 +259,7 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     }
 
     private static String metadataValue(String metadata, String key, String fallback) {
+
         if (metadata == null || metadata.trim().isEmpty()) return fallback;
         try {
             Object value = new JSONObject(metadata).opt(key);
@@ -252,4 +336,10 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     private static String trimDouble(double value) {
         return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
     }
+    private void requireScope(AccountScope scope) {
+        if (scope == null || !userId.equals(scope.getOwnerId())) {
+            throw new IllegalStateException("계정이 변경된 뒤 체중 작업이 도착했습니다.");
+        }
+    }
+
 }

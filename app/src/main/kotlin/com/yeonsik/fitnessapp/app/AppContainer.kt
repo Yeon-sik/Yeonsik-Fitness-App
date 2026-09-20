@@ -31,7 +31,7 @@ import com.yeonsik.fitness.shared.feature.records.api.RecordsReadApi
 import com.yeonsik.fitnessapp.feature.records.data.RecordsReadRepository
 import com.yeonsik.fitnessapp.feature.statistics.api.StatisticsReadApi
 import com.yeonsik.fitnessapp.feature.statistics.data.StatisticsReadRepository
-import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService
+import com.yeonsik.fitness.shared.feature.body.application.BodyMetricsApplicationService
 import com.yeonsik.fitnessapp.feature.development.data.DevelopmentReadRepository
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentReportApi
 import com.yeonsik.fitnessapp.feature.development.application.DevelopmentApplicationService

@@ -1,6 +1,6 @@
 # FitnessApp KMP 마일스톤
 
-기준선: `main@ea465a2` — PR #73 병합 완료
+기준선: `main@715360bad8e313fb89895e6a10f902728c82ecf7`
 
 | 단계 | 목표 | 통과 조건 | 상태 |
 |---|---|---|---|
@@ -11,7 +11,7 @@
 | M4 | Domain/API 추출 | Repository API, UseCase, business rule 공통화 | ✅ 완료 |
 | M5 | 기능별 shared 확대 | Workout → Cardio → Body → Meal/Nutrition → Statistics 등 | ✅ 완료 |
 | M6 | iOS shared integration proof | SwiftUI에서 shared framework import·domain/business logic 호출, Apple host 검증 기록 | ⚠ HOST-UNVERIFIED |
-| M7 | 양 플랫폼 기능 확장 | Android/iOS가 동일 shared contract/business logic 사용 | 대기 |
+| M7 | Body cross-platform vertical slice | Android Room adapter와 iOS in-memory adapter가 동일 shared Body contract/application logic 사용 | ⚠ CODE COMPLETE / HOST-UNVERIFIED |
 | M8 | QA/상용화 준비 | 실기기, migration, sync, security, parity 검증 | 대기 |
 
 ## 공통 원칙
@@ -24,6 +24,6 @@
 
 ## 현재 위치
 
-`M6 → M7`
+`M7 → M8`
 
 M1 성공 기준은 “실제 production 코드가 처음으로 commonMain에 들어가고 Android가 그대로 동작한다”는 것을 증명하는 것이다.
