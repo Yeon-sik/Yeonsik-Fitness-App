@@ -8,12 +8,14 @@
 /* Begin PBXBuildFile section */
 		A11A00010000000000000001 /* YeonsikIosProofApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000001 /* YeonsikIosProofApp.swift */; };
 		A11A00010000000000000002 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000002 /* ContentView.swift */; };
+		A11A00010000000000000004 /* BodyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000005 /* BodyView.swift */; };
 		A11A00010000000000000003 /* YeonsikShared.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A11A00020000000000000003 /* YeonsikShared.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		A11A00020000000000000001 /* YeonsikIosProofApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YeonsikIosProofApp.swift; sourceTree = "<group>"; };
 		A11A00020000000000000002 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A11A00020000000000000005 /* BodyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BodyView.swift; sourceTree = "<group>"; };
 		A11A00020000000000000003 /* YeonsikShared.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = YeonsikShared.framework; path = YeonsikShared.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		A11A00020000000000000004 /* YeonsikIosProof.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = YeonsikIosProof.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -42,6 +44,7 @@
 		A11A00040000000000000002 /* iosApp */ = {
 			isa = PBXGroup;
 			children = (
+				A11A00020000000000000005 /* BodyView.swift */,
 				A11A00020000000000000001 /* YeonsikIosProofApp.swift */,
 				A11A00020000000000000002 /* ContentView.swift */,
 			);
@@ -120,6 +123,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A11A00010000000000000004 /* BodyView.swift in Sources */,
 				A11A00010000000000000001 /* YeonsikIosProofApp.swift in Sources */,
 				A11A00010000000000000002 /* ContentView.swift in Sources */,
 			);

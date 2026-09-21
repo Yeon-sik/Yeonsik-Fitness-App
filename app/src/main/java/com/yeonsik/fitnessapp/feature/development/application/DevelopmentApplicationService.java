@@ -3,7 +3,7 @@ package com.yeonsik.fitnessapp.feature.development.application;
 import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile;
 import com.yeonsik.fitnessapp.development.DevelopmentGoal;
-import com.yeonsik.fitnessapp.feature.body.application.BodyMetricsApplicationService;
+import com.yeonsik.fitness.shared.feature.body.application.BodyMetricsApplicationService;
 import com.yeonsik.fitnessapp.feature.development.api.DevelopmentRepositoryApi;
 
 /**
@@ -38,9 +38,9 @@ public final class DevelopmentApplicationService {
         BodyMetricsApplicationService.Editor weight = bodyMetrics.load(scope, date, null);
         return new ProfileEditor(
                 bodyMetrics.loadProfile(scope),
-                weight.exists() ? weight.recordId : null,
-                weight.exists() ? weight.weightKg : null,
-                weight.exists() ? weight.memo : ""
+                weight.exists() ? weight.getRecordId() : null,
+                weight.exists() ? weight.getWeightKg() : null,
+                weight.exists() ? weight.getMemo() : ""
         );
     }
 
