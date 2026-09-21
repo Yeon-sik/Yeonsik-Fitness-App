@@ -2,11 +2,16 @@ package com.yeonsik.fitnessapp.app.navigation
 
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,11 +19,15 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -38,9 +47,12 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitness.shared.core.account.AccountScope
@@ -817,7 +829,7 @@ private fun AppRoot(
             }
             RestTimerBar(host, viewModels, screen, restState, ownerId)
             if (isBottomNavigationVisible(screen)) {
-                BottomNavigation(navigation, homeState, screen)
+                BottomNavigation(navigation, homeState, screen, dark)
             }
         }
         BodyMetricsEditorDialog(bodyEditorState, ownerId, unit, editorActions)
@@ -1077,7 +1089,8 @@ private fun RecordsHubTabs(
 private fun BottomNavigation(
     navigation: AppNavigationViewModel,
     homeState: HomeUiState,
-    screen: FitnessScreen
+    screen: FitnessScreen,
+    dark: Boolean
 ) {
     val items = listOf(
         NavigationItem("메인", FitnessScreen.HOME),
@@ -1087,50 +1100,112 @@ private fun BottomNavigation(
     )
     val active = navigationRoot(screen)
     val workoutInProgress = (homeState as? HomeUiState.Ready)?.snapshot?.inProgressSessionId != null
-    Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)) {
-        HorizontalDivider()
-        Row(
+    val selectedIndex = items.indexOfFirst { it.screen == active }.coerceAtLeast(0)
+    val activeTint = LocalFitnessColors.current.action
+    val glassSurface = if (dark) {
+        Color(0xD91B2731)
+    } else {
+        Color.White.copy(alpha = 0.56f)
+    }
+    val glassBorder = if (dark) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.76f)
+    val glassShadow = Color.Black.copy(alpha = if (dark) 0.26f else 0.10f)
+    val selectedContent = if (dark) activeTint else MaterialTheme.colorScheme.primary
+    val unselectedContent = MaterialTheme.colorScheme.onSurfaceVariant
+    val slabShape = RoundedCornerShape(28.dp)
+    val indicatorShape = RoundedCornerShape(20.dp)
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.small)
+    ) {
+        Box(
             Modifier
                 .fillMaxWidth()
-                .padding(horizontal = FitnessSpacing.small, vertical = FitnessSpacing.micro),
-            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+                .shadow(
+                    elevation = 10.dp,
+                    shape = slabShape,
+                    clip = false,
+                    ambientColor = glassShadow,
+                    spotColor = glassShadow
+                )
+                .clip(slabShape)
+                .background(glassSurface)
+                .border(1.dp, glassBorder, slabShape)
+                .padding(4.dp)
         ) {
-            items.forEach { item ->
-                val selected = item.screen == active
-                Column(
+            BoxWithConstraints(
+                Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+            ) {
+                val tabWidth = maxWidth / items.size
+                val indicatorOffset by animateDpAsState(
+                    targetValue = tabWidth * selectedIndex,
+                    animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                    label = "bottom-navigation-indicator"
+                )
+                Box(
                     Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { navigation.selectTopLevel(item.screen) }
-                        .padding(vertical = FitnessSpacing.micro),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        Modifier
-                            .width(24.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(
-                                if (selected) MaterialTheme.colorScheme.primary
-                                else Color.Transparent
-                            )
-                    )
-                    Box(
-                        Modifier
-                            .size(8.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(
-                                if (item.screen == FitnessScreen.WORKOUT && workoutInProgress)
-                                    MaterialTheme.colorScheme.primary
-                                else Color.Transparent
-                            )
-                    )
-                    Text(
-                        item.label,
-                        color = if (selected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium
-                    )
+                        .offset(x = indicatorOffset)
+                        .width(tabWidth)
+                        .height(56.dp)
+                        .padding(4.dp)
+                        .clip(indicatorShape)
+                        .background(activeTint.copy(alpha = if (dark) 0.24f else 0.34f))
+                        .border(
+                            width = 1.dp,
+                            color = if (dark) {
+                                activeTint.copy(alpha = 0.42f)
+                            } else {
+                                Color.White.copy(alpha = 0.46f)
+                            },
+                            shape = indicatorShape
+                        )
+                )
+                Row(Modifier.fillMaxSize().selectableGroup()) {
+                    items.forEach { item ->
+                        val selected = item.screen == active
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clip(indicatorShape)
+                                .selectable(
+                                    selected = selected,
+                                    role = Role.Tab,
+                                    onClick = { navigation.selectTopLevel(item.screen) }
+                                ),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+                            ) {
+                                Text(
+                                    item.label,
+                                    color = if (selected) selectedContent else unselectedContent,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                                if (item.screen == FitnessScreen.WORKOUT && workoutInProgress) {
+                                    Box(
+                                        Modifier
+                                            .size(6.dp)
+                                            .clip(CircleShape)
+                                            .background(activeTint)
+                                            .border(
+                                                1.dp,
+                                                Color.White.copy(alpha = if (dark) 0.34f else 0.72f),
+                                                CircleShape
+                                            )
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
