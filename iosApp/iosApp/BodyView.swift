@@ -109,7 +109,11 @@ struct BodyView: View {
         if height.isEmpty {
             profile = BodyProfile(heightCm: nil, createdAt: "", updatedAt: "")
         } else if let value = Int32(height) {
-            profile = BodyProfile(heightCm: value, createdAt: "", updatedAt: "")
+            profile = BodyProfile(
+                heightCm: KotlinInt(value: value),
+                createdAt: "",
+                updatedAt: ""
+            )
         } else {
             status = "키를 숫자로 입력하세요."
             return
