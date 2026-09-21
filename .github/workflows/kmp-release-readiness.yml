@@ -31,7 +31,9 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
       - name: Reject tracked credentials and signing material
         shell: bash
@@ -75,7 +77,9 @@ jobs:
           cache: gradle
 
       - name: Set up Android SDK for shared common tests
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
 
       - name: List available simulator devices
         run: xcrun simctl list devices available
