@@ -8,7 +8,7 @@ The intended boundary is:
 SwiftUI → shared BodyMetricsApplicationService → shared BodyMetricsRepositoryApi → M7 iOS in-memory adapter
 ```
 
-The Body screen supports shared-service-backed lookup, add, edit, delete, and profile save. The iOS adapter is explicitly in-memory for M7 functional-parity proof; it is not production persistence and must be replaceable by a durable adapter before M8.
+The Body screen supports shared-service-backed lookup, add, edit, delete, and profile save. The iOS adapter is explicitly in-memory for M7 functional-parity proof; it is not production persistence and must be replaceable by a durable adapter before a commercial iOS release.
 
 It intentionally contains no Room, Android context, GPS/Maps, Supabase, HealthKit, CoreLocation, MapKit, or production persistence/network adapter.
 

@@ -2,7 +2,7 @@
 
 Local-first Android fitness logger for detailed workouts, cardio, meals, supplements, and progress review. The app owns detailed records locally and shares only completed workout summaries with Personal OS through Fitness Record Contract v1.
 
-Current documentation is based on `main` at `89672f52cf4cd5219e6e1cd5df71bcefb3792885` (2026-09-05).
+KMP M8 verification evidence is based on `feat/kmp-m8-hardening-release-gate` from `main@c922c24727521b375cec1c9a4cf25dd7173810ed` (2026-09-21).
 
 ## What the app owns
 
@@ -18,15 +18,19 @@ Detailed scope and boundaries are in [docs/Project_Intro.md](docs/Project_Intro.
 
 ## Current verification
 
-Executed locally against the source above on 2026-09-05:
+M8 local verification executed on Windows on 2026-09-21:
 
-- `testDebugUnitTest` — passed.
-- `assembleDebug` — passed.
-- `assembleDebugAndroidTest` — passed; test APK compilation/packaging only.
-- `lintDebug` — failed with 4 API 27 resource errors and 54 warnings.
-- Four ADB endpoints/emulators were observed with `adb devices -l`; instrumentation was not executed.
+```powershell
+.\gradlew.bat --no-daemon :shared:testAndroid :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
+.\gradlew.bat --no-daemon :shared:compileKotlinIosSimulatorArm64 :shared:compileTestKotlinIosSimulatorArm64
+```
 
-A successful APK build is not proof of physical-device behavior, release signing, Supabase/RLS behavior, or cross-app synchronization.
+- Shared common/Android host tests, Android unit tests, `assembleDebug`, `assembleDebugAndroidTest`, and `lintDebug` passed.
+- `assembleDebugAndroidTest` proves test APK compilation/packaging only; real-device instrumentation was not run because the installed app has an incompatible signing certificate and its data was preserved.
+- iOS Simulator Kotlin main and test source compilation passed. Framework linking, generated Swift symbol compilation, and SwiftUI host compilation require macOS.
+- [KMP release readiness CI](.github/workflows/kmp-release-readiness.yml) enforces the same Android gates and adds macOS `iosSimulatorArm64Test`, framework linking, and `xcodebuild` for the SwiftUI host. Its per-commit GitHub Actions result is the source of truth for macOS host verification.
+
+A successful local build is not proof of physical-device behavior, interactive iOS Simulator behavior, release signing, Supabase/RLS behavior, or cross-app synchronization.
 
 ## Build and run
 
