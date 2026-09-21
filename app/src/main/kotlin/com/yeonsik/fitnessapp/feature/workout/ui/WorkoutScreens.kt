@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
 import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
@@ -13,7 +14,6 @@ import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
@@ -411,7 +411,7 @@ private fun WorkoutExerciseImage(
     contentDescription: String,
     modifier: Modifier = Modifier
 ) {
-    val activity = LocalContext.current as? Activity
+    val activity = LocalActivity.current
     if (activity == null) {
         FitnessStatusBadge(
             status = FitnessSemanticStatus.UNKNOWN,
@@ -683,7 +683,7 @@ internal fun WorkoutSummaryScreen(
     }
 
     val orderedExercises = stableWorkoutSessionExercises(session.exercises)
-    val activity = LocalContext.current as? Activity
+    val activity = LocalActivity.current
     var routineName by rememberSaveable(session.recordId) {
         mutableStateOf("${session.title} 루틴")
     }

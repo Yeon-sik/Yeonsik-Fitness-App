@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.feature.exercise.ui
 
-import androidx.arch.core.executor.ArchTaskExecutor
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
@@ -72,6 +73,7 @@ class ExercisePickerViewModel @JvmOverloads constructor(
     private val mutableState = MutableLiveData<ExercisePickerUiState>(ExercisePickerUiState.Idle)
     val uiState: LiveData<ExercisePickerUiState> = mutableState
 
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val lock = Any()
     private val requestGate = ExercisePickerRequestGate()
     private var currentKey: ExercisePickerRequestKey? = null
@@ -441,8 +443,8 @@ class ExercisePickerViewModel @JvmOverloads constructor(
     }
 
     private fun postReadyIfCurrent(token: Long, key: ExercisePickerRequestKey) {
-        ArchTaskExecutor.getInstance().postToMainThread {
-            if (!requestGate.accepts(token, key)) return@postToMainThread
+        mainHandler.post {
+            if (!requestGate.accepts(token, key)) return@post
             val next = synchronized(lock) {
                 if (!loaded || currentKey != key || currentToken != token) null else readyStateLocked()
             }
@@ -455,8 +457,8 @@ class ExercisePickerViewModel @JvmOverloads constructor(
         key: ExercisePickerRequestKey,
         message: String
     ) {
-        ArchTaskExecutor.getInstance().postToMainThread {
-            if (!requestGate.accepts(token, key)) return@postToMainThread
+        mainHandler.post {
+            if (!requestGate.accepts(token, key)) return@post
             val next = synchronized(lock) {
                 if (currentKey != key || currentToken != token || currentScope == null) {
                     null
@@ -474,8 +476,8 @@ class ExercisePickerViewModel @JvmOverloads constructor(
     }
 
     private fun postSavedIfCurrent(choice: PickerChoice) {
-        ArchTaskExecutor.getInstance().postToMainThread {
-            if (!requestGate.accepts(choice.token, choice.key)) return@postToMainThread
+        mainHandler.post {
+            if (!requestGate.accepts(choice.token, choice.key)) return@post
             mutableState.value = ExercisePickerUiState.Saved(
                 choice.scope.ownerId,
                 choice.key.screen,
@@ -488,8 +490,8 @@ class ExercisePickerViewModel @JvmOverloads constructor(
     }
 
     private fun postErrorIfCurrent(choice: PickerChoice, message: String) {
-        ArchTaskExecutor.getInstance().postToMainThread {
-            if (!requestGate.accepts(choice.token, choice.key)) return@postToMainThread
+        mainHandler.post {
+            if (!requestGate.accepts(choice.token, choice.key)) return@post
             mutableState.value = ExercisePickerUiState.Error(
                 choice.scope.ownerId,
                 choice.key.screen,

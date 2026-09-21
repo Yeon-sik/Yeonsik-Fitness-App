@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.feature.routine.ui
 
 import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,7 +19,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -208,7 +208,7 @@ private fun RoutineWorkoutActions(
 
 @Composable
 private fun RoutineExerciseRow(displayOrder: Int, exercise: RoutineExerciseInstance) {
-    val activity = LocalContext.current as? Activity
+    val activity = LocalActivity.current
     FitnessCard(Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(FitnessSpacing.card),

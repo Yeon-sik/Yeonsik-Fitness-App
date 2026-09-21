@@ -10,7 +10,7 @@ import com.yeonsik.fitness.shared.feature.body.model.BodyWeightWindow
  * M7 functional-parity adapter for iOS.
  *
  * This is deliberately in-memory and is not production persistence.  The owner-scoped API is
- * the replacement boundary for a durable adapter before M8.
+ * the replacement boundary for a durable adapter before a commercial iOS release.
  */
 class IosBodyMetricsRepository : BodyMetricsRepositoryApi {
     private val entriesByOwner = mutableMapOf<String, MutableList<BodyReadEntry>>()

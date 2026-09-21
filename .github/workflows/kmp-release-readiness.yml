@@ -1,0 +1,106 @@
+name: KMP release readiness
+
+on:
+  pull_request:
+  push:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kmp-release-readiness-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android-kmp:
+    name: Android and shared gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - name: Reject tracked credentials and signing material
+        shell: bash
+        run: |
+          set -euo pipefail
+          blocked_files="$(git ls-files | grep -E '(^|/)(local\.properties|\.env($|\.))|(\.(jks|keystore|p12|pfx|pem|key))$' | grep -Ev '(^|/)\.env\.example$' || true)"
+          if [[ -n "$blocked_files" ]]; then
+            echo "::error::Tracked local credentials or signing material are forbidden:"
+            printf '%s\n' "$blocked_files"
+            exit 1
+          fi
+          if git grep -nI -E -- 'AKIA[0-9A-Z]{16}|-----BEGIN( [A-Z0-9]+)* PRIVATE KEY-----|gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk_(live|test)_[A-Za-z0-9]+'; then
+            echo "::error::Potential credential literal found in a tracked text file."
+            exit 1
+          fi
+
+      - name: Run shared and Android verification gates
+        run: >-
+          ./gradlew --no-daemon
+          :shared:testAndroid
+          :app:testDebugUnitTest
+          :app:assembleDebug
+          :app:assembleDebugAndroidTest
+          :app:lintDebug
+
+  ios-host:
+    name: iOS framework and Swift host gates
+    runs-on: macos-14
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK for shared common tests
+        uses: android-actions/setup-android@v4
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
+
+      - name: List available simulator devices
+        run: xcrun simctl list devices available
+
+      - name: Compile and test shared iOS simulator code
+        run: >-
+          ./gradlew --no-daemon
+          :shared:testAndroid
+          :shared:compileKotlinIosSimulatorArm64
+          :shared:compileTestKotlinIosSimulatorArm64
+          :shared:iosSimulatorArm64Test
+          :shared:linkDebugFrameworkIosSimulatorArm64
+
+      - name: Verify Xcode project and build the SwiftUI host
+        run: |
+          xcodebuild -list -project iosApp/iosApp.xcodeproj
+          xcodebuild \
+            -project iosApp/iosApp.xcodeproj \
+            -scheme YeonsikIosProof \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build

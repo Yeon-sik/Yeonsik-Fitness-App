@@ -1,44 +1,47 @@
 # M7 iOS Body host verification
 
-Status: `⚠ CODE COMPLETE / HOST-UNVERIFIED` on the current Windows host.
+Status: **HOST COMPILE VERIFIED / DEVICE UNVERIFIED.** GitHub Actions [run 35553619632](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/35553619632) for `be1a8651e57b8b16c65aa223205cb06e24d1850c` passed `IosBodyMetricsRepositoryTest` through `iosSimulatorArm64Test`, linked `YeonsikShared`, and compiled `BodyView.swift` in the `YeonsikIosProof` host build. This remains compile/test evidence, not interactive runtime evidence.
 
-The repository now contains the M7 integration path:
+## Integration path
 
 ```text
 SwiftUI BodyView
   → shared BodyMetricsApplicationService
   → shared BodyMetricsRepositoryApi
-  → IosBodyMetricsRepository (M7 in-memory adapter)
+  → IosBodyMetricsRepository (in-memory iOS adapter)
 ```
 
-`IosBodyMetricsRepository` is an owner-scoped, in-memory adapter for functional-parity verification. It is not production persistence. The adapter is intentionally replaceable before M8 without changing the SwiftUI or shared application boundary.
+`IosBodyMetricsRepository` is owner-scoped and intentionally in-memory for functional-parity verification. It is not production persistence. Its replaceable repository API boundary must remain intact until a separately approved durable iOS adapter is supplied.
 
-## Completed on Windows
+## Verified on Windows (2026-09-21)
 
-- Shared Android host tests passed, including Body CRUD/use-case and owner-scope coverage.
-- Android instrumentation source compilation passed; no Android device is attached for instrumentation runtime verification.
-- Android shared/common and iOS Kotlin target compilation completed.
-- The Xcode project contains the `BodyView.swift` source and keeps the Gradle `embedAndSignAppleFrameworkForXcode` run-script phase.
-- No Room schema, migration, external contract, or production iOS persistence was changed.
+- `:shared:compileKotlinIosSimulatorArm64` and `:shared:compileTestKotlinIosSimulatorArm64` completed successfully.
+- `:shared:testAndroid`, `:app:testDebugUnitTest`, `:app:assembleDebug`, `:app:assembleDebugAndroidTest`, and `:app:lintDebug` completed successfully.
+- The tracked Xcode scheme builds `BodyView.swift` and retains the Gradle `embedAndSignAppleFrameworkForXcode` run-script phase.
+- No Room schema, migration, external contract, or production iOS persistence implementation changed in M8.
 
-## Required macOS/Xcode verification
+Android instrumentation runtime is not claimed here because the attached device has a signing certificate incompatible with the current debug APK; M8 preserved its existing app data instead of forcing an install.
 
-Run from the repository root on macOS:
+## macOS CI evidence
+
+The `ios-host` CI job runs:
 
 ```bash
-./gradlew :shared:linkDebugFrameworkIosSimulatorArm64
-find shared/build -name YeonsikShared.h -print
-grep -n "BodyMetricsApplicationService\|BodyMetricsRepositoryApi\|IosBodyMetricsRepository\|BodyProfile" "<path-to-YeonsikShared.h>"
+./gradlew --no-daemon \
+  :shared:testAndroid \
+  :shared:compileKotlinIosSimulatorArm64 \
+  :shared:compileTestKotlinIosSimulatorArm64 \
+  :shared:iosSimulatorArm64Test \
+  :shared:linkDebugFrameworkIosSimulatorArm64
+
 xcodebuild \
   -project iosApp/iosApp.xcodeproj \
   -scheme YeonsikIosProof \
+  -configuration Debug \
   -sdk iphonesimulator \
   -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO \
   build
 ```
 
-Use the generated Objective-C header to confirm the exact Swift import and symbol spellings before changing any Swift call sites. In the simulator, open Body and verify:
-
-1. add a weight, look it up by date, edit it, and delete it;
-2. save and reload a valid `BodyProfile` height;
-3. run a small adapter/harness check showing owner A cannot read or mutate owner B's records or profile.
+`iosSimulatorArm64Test` includes `IosBodyMetricsRepositoryTest`, which checks in-memory Body CRUD, profile handling, and owner A/B isolation. [Run 35553619632](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/35553619632) passed that test, framework linking, and Swift symbol compilation. It does not prove an interactive simulator run; the latter must still cover add → lookup → edit → delete, profile save, and owner-isolation behavior before a device/runtime claim.

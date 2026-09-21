@@ -690,9 +690,11 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     @Override
-    @SuppressLint("GestureBackNavigation")
+    @SuppressLint({"GestureBackNavigation", "MissingSuperCall"})
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
+        // dispatchBack owns the navigation/finish invariant. Calling super here would
+        // bypass the in-app back stack and finish the Activity too early.
         dispatchBack();
     }
 
