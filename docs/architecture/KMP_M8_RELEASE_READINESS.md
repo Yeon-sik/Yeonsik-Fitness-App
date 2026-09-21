@@ -16,6 +16,15 @@
 
 No CI step uses `continue-on-error` or suppresses a failing build, test, lint, framework, or Swift host compile.
 
+### CI execution evidence
+
+[GitHub Actions run 35553619632](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/35553619632) for `be1a8651e57b8b16c65aa223205cb06e24d1850c` passed both required jobs on 2026-09-21.
+
+- Linux passed the credential/signing scan plus all shared/Android test, assemble, Android-test-APK, and lint gates in 3m22s.
+- macOS passed the shared iOS Simulator Kotlin compile/test, `iosSimulatorArm64Test`, `linkDebugFrameworkIosSimulatorArm64`, and `xcodebuild` of `YeonsikIosProof` in 4m18s.
+- The initial CI revision exposed an obsolete Android SDK `tools` package assumption; `android-actions/setup-android@v4` with explicit supported packages corrected it. The failed job was not ignored.
+- The next macOS run exposed `BodyProfile.heightCm` as the exported nullable `KotlinInt?` wrapper. `BodyView.swift` now constructs `KotlinInt(value:)`; the passing run above is the regression proof. The failed job was not ignored.
+
 ### Local Android and shared gates
 
 The following completed successfully on this host:
@@ -28,7 +37,7 @@ The following completed successfully on this host:
 - `:shared:testAndroid` re-executed 11 XML suites with zero failures/errors; this includes `DomainApiCompatibilityTest`, Body application/use-case, `BodyProfile`, Cardio, Meal, and Records model suites.
 - Android unit XML reports contain 74 suites / 335 tests with zero failures/errors; debug APK assembly and Android test APK compilation/packaging also passed.
 - `lintDebug` now has `0 errors, 29 warnings, 3 hints`. The M8 corrections preserve the existing back-stack owner, use public Android main-thread/Compose APIs, and put API 27 navigation style properties in `values-v27`; no persistence or domain semantics were changed.
-- iOS Simulator Kotlin source and test-source compilation passed on Windows. This is source compilation only, not Apple framework linking.
+- iOS Simulator Kotlin source and test-source compilation passed on Windows. This is source compilation only; Apple framework linking and Swift host compilation are verified separately by the successful macOS CI run above.
 
 ### Data and contract review
 
@@ -45,9 +54,9 @@ The following completed successfully on this host:
 
 ## HOST/DEVICE UNVERIFIED
 
-- macOS/Xcode is unavailable on this Windows host. The local host did not link `YeonsikShared`, inspect its generated Apple header, compile `BodyView.swift`, or run an iOS Simulator. The required `ios-host` GitHub Actions result is the only CI evidence for those compile gates.
+- macOS/Xcode is unavailable on this Windows host, but GitHub Actions [run 35553619632](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/35553619632) verified `YeonsikShared` framework linking, iOS Simulator Kotlin tests, and `BodyView.swift`/SwiftUI host compilation. This is compile/test evidence only.
 - The connected physical Android device has `com.yeonsik.fitnessapp` installed, but its signing certificate differs from the current debug APK. To preserve existing app data, M8 did not attempt an incompatible update, uninstall, `pm clear`, or instrumentation install. Therefore real-device Android instrumentation execution is unverified.
-- No interactive iOS Simulator add → lookup → edit → delete/profile workflow was executed. A successful future macOS compile job must not be reported as runtime verification.
+- No interactive iOS Simulator add → lookup → edit → delete/profile workflow was executed. The successful macOS compile job is not reported as runtime verification.
 - Supabase Auth/RLS and production sync behavior were not exercised against a remote environment.
 
 ## COMMERCIAL BLOCKER
@@ -65,7 +74,7 @@ The following completed successfully on this host:
 
 ## P0 assessment and M8 decision
 
-No P0 was observed in the Windows-executable shared/Android gates, static data-contract review, or secret scan. The per-commit macOS `ios-host` job remains a required P0 gate: a framework, Kotlin/Native iOS test, or Swift host compile failure changes the result to `M8 BLOCKED — P0`.
+No P0 was observed in the Windows-executable shared/Android gates, static data-contract review, secret scan, or passing macOS `ios-host` job. The per-commit macOS `ios-host` job remains a required P0 gate: a framework, Kotlin/Native iOS test, or Swift host compile failure changes the result to `M8 BLOCKED — P0`.
 
 With that CI requirement enforced and the in-memory iOS adapter intentionally retained, the code hardening decision is:
 

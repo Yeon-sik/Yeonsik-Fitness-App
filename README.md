@@ -27,8 +27,8 @@ M8 local verification executed on Windows on 2026-09-21:
 
 - Shared common/Android host tests, Android unit tests, `assembleDebug`, `assembleDebugAndroidTest`, and `lintDebug` passed.
 - `assembleDebugAndroidTest` proves test APK compilation/packaging only; real-device instrumentation was not run because the installed app has an incompatible signing certificate and its data was preserved.
-- iOS Simulator Kotlin main and test source compilation passed. Framework linking, generated Swift symbol compilation, and SwiftUI host compilation require macOS.
-- [KMP release readiness CI](.github/workflows/kmp-release-readiness.yml) enforces the same Android gates and adds macOS `iosSimulatorArm64Test`, framework linking, and `xcodebuild` for the SwiftUI host. Its per-commit GitHub Actions result is the source of truth for macOS host verification.
+- iOS Simulator Kotlin main and test source compilation passed on Windows. [macOS CI run 35553619632](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/35553619632) also passed `iosSimulatorArm64Test`, `YeonsikShared` framework linking, generated Swift symbol compilation, and `xcodebuild` for the SwiftUI host.
+- [KMP release readiness CI](.github/workflows/kmp-release-readiness.yml) enforces the same Android gates and macOS host gates for each commit. Its per-commit GitHub Actions result is the source of truth for macOS host verification; a compile pass is not an interactive Simulator runtime claim.
 
 A successful local build is not proof of physical-device behavior, interactive iOS Simulator behavior, release signing, Supabase/RLS behavior, or cross-app synchronization.
 

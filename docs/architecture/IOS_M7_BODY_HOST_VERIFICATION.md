@@ -1,6 +1,6 @@
 # M7 iOS Body host verification
 
-Status: **Windows local host: CODE COMPLETE / HOST-UNVERIFIED.** The M8 `ios-host` CI job is the required macOS resolution gate. Its GitHub Actions result, not this Windows workspace, determines whether framework generation and Swift compilation are host-verified for a reviewed commit.
+Status: **HOST COMPILE VERIFIED / DEVICE UNVERIFIED.** GitHub Actions [run 35553619632](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/35553619632) for `be1a8651e57b8b16c65aa223205cb06e24d1850c` passed `IosBodyMetricsRepositoryTest` through `iosSimulatorArm64Test`, linked `YeonsikShared`, and compiled `BodyView.swift` in the `YeonsikIosProof` host build. This remains compile/test evidence, not interactive runtime evidence.
 
 ## Integration path
 
@@ -22,7 +22,7 @@ SwiftUI BodyView
 
 Android instrumentation runtime is not claimed here because the attached device has a signing certificate incompatible with the current debug APK; M8 preserved its existing app data instead of forcing an install.
 
-## Required macOS/Xcode resolution gate
+## macOS CI evidence
 
 The `ios-host` CI job runs:
 
@@ -44,4 +44,4 @@ xcodebuild \
   build
 ```
 
-`iosSimulatorArm64Test` includes `IosBodyMetricsRepositoryTest`, which checks in-memory Body CRUD, profile handling, and owner A/B isolation. A passing macOS CI job verifies framework linking and Swift symbol compilation; it does not prove an interactive simulator run. The latter must still cover add → lookup → edit → delete, profile save, and owner-isolation behavior before a device/runtime claim.
+`iosSimulatorArm64Test` includes `IosBodyMetricsRepositoryTest`, which checks in-memory Body CRUD, profile handling, and owner A/B isolation. [Run 35553619632](https://github.com/Yeon-sik/Yeonsik-Fitness-App/actions/runs/35553619632) passed that test, framework linking, and Swift symbol compilation. It does not prove an interactive simulator run; the latter must still cover add → lookup → edit → delete, profile save, and owner-isolation behavior before a device/runtime claim.

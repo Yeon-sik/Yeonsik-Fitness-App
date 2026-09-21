@@ -10,8 +10,8 @@
 | M3 | Core type closure | Java/JVM 의존 핵심 타입을 common Kotlin으로 변환 | ✅ 완료 |
 | M4 | Domain/API 추출 | Repository API, UseCase, business rule 공통화 | ✅ 완료 |
 | M5 | Shared feature domain/read contract 확대 | Cardio 변환/필터/read contract, Body read, Meal/Records read model을 shared로 확장; JVM 의존 Home/Nutrition Analysis/Statistics는 후속으로 보류 | ✅ 완료 |
-| M6 | iOS shared integration proof | SwiftUI에서 shared framework import·domain/business logic 호출; M8 macOS CI가 framework·Swift host compile을 검증 | ⚠ HOST-UNVERIFIED (Windows local) |
-| M7 | Body cross-platform vertical slice | Android Room adapter와 iOS in-memory adapter가 동일 shared Body contract/application logic 사용; M8 macOS CI가 Body adapter test와 Swift host compile을 검증 | ⚠ CODE COMPLETE / HOST-UNVERIFIED (Windows local) |
+| M6 | iOS shared integration proof | SwiftUI에서 shared framework import·domain/business logic 호출; M8 macOS CI가 framework·Swift host compile을 검증 | ✅ HOST COMPILE VERIFIED / DEVICE UNVERIFIED |
+| M7 | Body cross-platform vertical slice | Android Room adapter와 iOS in-memory adapter가 동일 shared Body contract/application logic 사용; M8 macOS CI가 Body adapter test와 Swift host compile을 검증 | ✅ HOST COMPILE VERIFIED / DEVICE UNVERIFIED |
 | M8 | KMP release readiness hardening | CI, Android/KMP gate, iOS host compile gate, data/contract/security review; durable iOS persistence는 별도 상용 blocker | ⚠ HARDENING COMPLETE / COMMERCIAL-IOS BLOCKED |
 
 ## 공통 원칙
