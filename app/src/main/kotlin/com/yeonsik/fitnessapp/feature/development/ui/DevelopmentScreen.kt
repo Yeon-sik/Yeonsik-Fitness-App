@@ -71,7 +71,7 @@ internal fun DevelopmentScreen(
         first = { FitnessFactCard("이번 주 운동", "${report.currentWeekCompletedWorkoutSessions}회", "완료 세션") },
         second = { FitnessFactCard("최근 체중", report.latestWeightKg?.let { MassFormatter.withUnit(it, unit) } ?: "미기록", "기록 기준") }
     )
-    Text("신체 정보", fontWeight = FontWeight.Bold)
+    Text("신체 정보", style = MaterialTheme.typography.titleLarge)
     AppDataRow(
         "기준 신체 정보",
         "키 ${report.bodyProfile.heightLabelKo()} · 체중 " +
@@ -80,7 +80,7 @@ internal fun DevelopmentScreen(
     AppOutlinedButton(onClick = actions::showBodyProfile, Modifier.fillMaxWidth()) {
         Text("신체 정보 수정")
     }
-    Text("발전 목표", fontWeight = FontWeight.Bold)
+    Text("발전 목표", style = MaterialTheme.typography.titleLarge)
     AppDataRow(
         report.goal.objectiveLabelKo(),
         "${report.goal.focusBodyPartLabelKo()} · 주 ${report.goal.weeklySessionsTarget ?: 0}일"
@@ -88,7 +88,7 @@ internal fun DevelopmentScreen(
     AppOutlinedButton(onClick = actions::showGoal, Modifier.fillMaxWidth()) {
         Text("발전 목표 수정")
     }
-    Text("영양·회복", fontWeight = FontWeight.Bold)
+    Text("영양·회복", style = MaterialTheme.typography.titleLarge)
     AppDataRow(
         "사용자 입력 기준",
         "영양 목표와 날짜별 회복 체크인을 같은 계정으로 저장합니다."
@@ -99,27 +99,30 @@ internal fun DevelopmentScreen(
     AppOutlinedButton(onClick = actions::showRecoveryCheckIn, Modifier.fillMaxWidth()) {
         Text("오늘 회복 체크인")
     }
-    Text("우선 행동", fontWeight = FontWeight.Bold)
-    if (report.insights.isEmpty()) Text("현재 기록에서 추가로 경고할 우선 행동이 없습니다.")
+    Text("우선 행동", style = MaterialTheme.typography.titleLarge)
+    if (report.insights.isEmpty()) Text("현재 기록에서 추가로 경고할 우선 행동이 없습니다.",
+        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     report.insights.forEach { insight ->
         AppCard(Modifier.fillMaxWidth().clickable { actions.openInsightAction(insight) }) {
             Column(Modifier.padding(AppSpacing.card)) {
-                Text(insight.title, fontWeight = FontWeight.Bold)
-                Text(insight.evidence)
-                Text(insight.nextAction)
+                Text(insight.title, style = MaterialTheme.typography.titleMedium)
+                Text(insight.evidence, style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(insight.nextAction, style = MaterialTheme.typography.bodyMedium)
             }
         }
     }
-    Text("훈련 부위 근거", fontWeight = FontWeight.Bold)
+    Text("훈련 부위 근거", style = MaterialTheme.typography.titleLarge)
     report.recentCompletedStrengthSetsByBodyPart.forEach { (part, sets) -> Text("$part · ${sets}세트") }
-    Text("영양·회복 근거", fontWeight = FontWeight.Bold)
+    Text("영양·회복 근거", style = MaterialTheme.typography.titleLarge)
     Text("식사 ${report.mealRecordedDays}일 · 체크인 ${report.checkInRecordedDays}일")
-    Text("논문 기반 점검", fontWeight = FontWeight.Bold)
+    Text("논문 기반 점검", style = MaterialTheme.typography.titleLarge)
     PaperAdviceSection(paperAdviceState, ownerId)
-    Text("판단 근거 범위", fontWeight = FontWeight.Bold)
+    Text("판단 근거 범위", style = MaterialTheme.typography.titleLarge)
     Text(
         "${report.dataCoverage.windowDays}일 중 기록 ${report.dataCoverage.daysWithAnyData}일 · " +
-            "운동 ${report.dataCoverage.workoutRecordedDays}일 · 체중 ${report.dataCoverage.weightRecordedDays}일"
+            "운동 ${report.dataCoverage.workoutRecordedDays}일 · 체중 ${report.dataCoverage.weightRecordedDays}일",
+        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant
     )
 }
 

@@ -4,11 +4,17 @@ import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.interaction.collectIsHoveredAsState
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,12 +24,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -58,7 +66,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitness.shared.core.account.AccountScope
@@ -760,82 +772,99 @@ private fun AppRoot(
     }
 
     FitnessComposeTheme(dark) {
-        Column(
+        val bottomNavigationVisible = isBottomNavigationVisible(screen)
+        val bottomNavigationHeight = with(LocalDensity.current) {
+            // The icon and scaled label must both fit inside the capsule.
+            36.dp + MaterialTheme.typography.labelMedium.lineHeight.toDp()
+        }.coerceAtLeast(56.dp)
+        val bottomNavigationSpace = bottomNavigationHeight + 24.dp
+        Box(
             Modifier
                 .fillMaxSize()
                 .background(MaterialTheme.colorScheme.background)
                 .systemBarsPadding()
-            .imePadding()
+                .imePadding()
         ) {
-            if (screen == FitnessScreen.WORKOUT_SESSION) {
-                SessionTopBar(navigation, viewModels, ownerId, workoutState)
-            }
-            if (screen == FitnessScreen.RECORDS) {
-                RecordsHubTabs(
-                    selected = recordsHubTab,
-                    onSelected = navigation::selectRecordsHubTab
-                )
-            }
-            destinationStateHolder.SaveableStateProvider(
-                destinationScrollStateKey(screen) +
-                    if (screen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
-            ) {
-                val contentScrollState = rememberScrollState()
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                        .then(
-                            if (isExercisePickerDestination(screen)) {
-                                Modifier
-                            } else {
-                                Modifier.verticalScroll(contentScrollState)
-                            }
-                        )
-                        .then(
-                            if (topLevelSwipeEnabled) {
-                                Modifier.pointerInput(screen, topLevelSwipeThreshold) {
-                                    var totalDrag = 0f
-                                    detectHorizontalDragGestures(
-                                        onHorizontalDrag = { _, dragAmount ->
-                                            totalDrag += dragAmount
-                                        },
-                                        onDragEnd = {
-                                            when {
-                                                totalDrag <= -topLevelSwipeThreshold ->
-                                                    navigation.swipeTopLevel(forward = true)
-                                                totalDrag >= topLevelSwipeThreshold ->
-                                                    navigation.swipeTopLevel(forward = false)
-                                            }
-                                            totalDrag = 0f
-                                        },
-                                        onDragCancel = { totalDrag = 0f }
-                                    )
-                                }
-                            } else {
-                                Modifier
-                            }
-                        )
-                        .padding(horizontal = FitnessSpacing.page, vertical = FitnessSpacing.gap)
+            Column(Modifier.fillMaxSize()) {
+                if (screen == FitnessScreen.WORKOUT_SESSION) {
+                    SessionTopBar(navigation, viewModels, ownerId, workoutState)
+                }
+                if (screen == FitnessScreen.RECORDS) {
+                    RecordsHubTabs(
+                        selected = recordsHubTab,
+                        onSelected = navigation::selectRecordsHubTab
+                    )
+                }
+                destinationStateHolder.SaveableStateProvider(
+                    destinationScrollStateKey(screen) +
+                        if (screen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
                 ) {
-                    if (destinationScreen == FitnessScreen.HOME) {
-                        HomeDestination(homeState, ownerId, routeDate, homeActions)
-                    } else {
-                        AppDestination(
-                            host,
-                            viewModels,
-                            navigation,
-                            destinationScreen,
-                            ownerId,
-                            routeDate,
-                            unit
-                        )
+                    val contentScrollState = rememberScrollState()
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .then(
+                                if (isExercisePickerDestination(screen)) {
+                                    Modifier
+                                } else {
+                                    Modifier.verticalScroll(contentScrollState)
+                                }
+                            )
+                            .then(
+                                if (topLevelSwipeEnabled) {
+                                    Modifier.pointerInput(screen, topLevelSwipeThreshold) {
+                                        var totalDrag = 0f
+                                        detectHorizontalDragGestures(
+                                            onHorizontalDrag = { _, dragAmount ->
+                                                totalDrag += dragAmount
+                                            },
+                                            onDragEnd = {
+                                                when {
+                                                    totalDrag <= -topLevelSwipeThreshold ->
+                                                        navigation.swipeTopLevel(forward = true)
+                                                    totalDrag >= topLevelSwipeThreshold ->
+                                                        navigation.swipeTopLevel(forward = false)
+                                                }
+                                                totalDrag = 0f
+                                            },
+                                            onDragCancel = { totalDrag = 0f }
+                                        )
+                                    }
+                                } else {
+                                    Modifier
+                                }
+                            )
+                            .padding(
+                                start = FitnessSpacing.page,
+                                end = FitnessSpacing.page,
+                                top = FitnessSpacing.gap,
+                                bottom = FitnessSpacing.gap +
+                                    if (bottomNavigationVisible) bottomNavigationSpace else 0.dp
+                            )
+                    ) {
+                        if (destinationScreen == FitnessScreen.HOME) {
+                            HomeDestination(homeState, ownerId, routeDate, homeActions)
+                        } else {
+                            AppDestination(
+                                host,
+                                viewModels,
+                                navigation,
+                                destinationScreen,
+                                ownerId,
+                                routeDate,
+                                unit
+                            )
+                        }
                     }
                 }
+                RestTimerBar(host, viewModels, screen, restState, ownerId)
             }
-            RestTimerBar(host, viewModels, screen, restState, ownerId)
-            if (isBottomNavigationVisible(screen)) {
-                BottomNavigation(navigation, homeState, screen, dark)
+            if (bottomNavigationVisible) {
+                BottomNavigation(
+                    navigation, homeState, screen, dark, bottomNavigationHeight,
+                    Modifier.align(Alignment.BottomCenter)
+                )
             }
         }
         BodyMetricsEditorDialog(bodyEditorState, ownerId, unit, editorActions)
@@ -1043,235 +1072,107 @@ private fun RestTimerBar(
 private data class NavigationItem(val label: String, val screen: FitnessScreen)
 
 /**
- * A deliberately local approximation of backdrop diffusion.
- *
- * Compose's blur modifier (and Android's RenderEffect when applied to this node) blur this
- * composable and its children, rather than sampling the already-rendered content behind it.
- * Applying either here would soften the navigation labels, so the glass uses transmission plus
- * cached luminosity, grain, and asymmetric edge layers instead. The backing content remains
- * visible through the alpha-based fill while the controls stay sharp.
+ * Translucent glass treatment: the destination scrolls beneath the capsule while a milked
+ * surface and a narrow light-catching rim keep its controls legible. This is alpha compositing,
+ * not a backdrop blur; text and icons are drawn sharply above the surface.
  */
-private fun Modifier.frostedGlassSlab(
-    dark: Boolean,
-    shape: RoundedCornerShape
-): Modifier {
-    val shadowColor = if (dark) {
-        Color(0xFF02070B).copy(alpha = 0.28f)
-    } else {
-        Color(0xFF31465F).copy(alpha = 0.14f)
-    }
-    return shadow(
-        elevation = 18.dp,
-        shape = shape,
+private fun Modifier.frostedGlassSlab(dark: Boolean): Modifier =
+    shadow(
+        elevation = 16.dp,
+        shape = CircleShape,
         clip = false,
-        ambientColor = shadowColor,
-        spotColor = shadowColor
+        ambientColor = Color.Black.copy(alpha = if (dark) 0.20f else 0.08f),
+        spotColor = Color.Black.copy(alpha = if (dark) 0.24f else 0.10f)
     )
-        .clip(shape)
+        .clip(CircleShape)
         .drawWithCache {
-            val radius = 28.dp.toPx()
+            val radius = size.height / 2f
             val cornerRadius = CornerRadius(radius, radius)
-            val outlineInset = 0.75.dp.toPx()
-            val outlineSize = Size(
-                width = (size.width - outlineInset * 2f).coerceAtLeast(0f),
-                height = (size.height - outlineInset * 2f).coerceAtLeast(0f)
-            )
-            val outlineRadius = CornerRadius(
-                x = (radius - outlineInset).coerceAtLeast(0f),
-                y = (radius - outlineInset).coerceAtLeast(0f)
-            )
-            val transmission = Brush.verticalGradient(
-                colorStops = if (dark) {
-                    arrayOf(
-                        0f to Color(0xFF2B3A47).copy(alpha = 0.62f),
-                        0.5f to Color(0xFF17242E).copy(alpha = 0.54f),
-                        1f to Color(0xFF0C141C).copy(alpha = 0.66f)
-                    )
-                } else {
-                    arrayOf(
-                        0f to Color.White.copy(alpha = 0.52f),
-                        0.5f to Color(0xFFF7FBFF).copy(alpha = 0.42f),
-                        1f to Color(0xFFE7F0FA).copy(alpha = 0.47f)
-                    )
-                }
-            )
-            val diffusionVeil = Brush.radialGradient(
+            val inset = 0.65.dp.toPx()
+            val surface = Brush.verticalGradient(
                 colors = if (dark) {
                     listOf(
-                        Color.White.copy(alpha = 0.075f),
-                        Color(0xFFB9DEFF).copy(alpha = 0.025f),
-                        Color.Transparent
+                        Color(0xFF30343A).copy(alpha = 0.94f),
+                        Color(0xFF25292F).copy(alpha = 0.94f),
+                        Color(0xFF20242A).copy(alpha = 0.90f)
                     )
                 } else {
                     listOf(
-                        Color.White.copy(alpha = 0.10f),
-                        Color(0xFFCFE6FA).copy(alpha = 0.035f),
-                        Color.Transparent
-                    )
-                },
-                center = Offset(size.width * 0.22f, -size.height * 0.18f),
-                radius = size.width * 0.9f
-            )
-            val internalLuminosity = Brush.verticalGradient(
-                colorStops = if (dark) {
-                    arrayOf(
-                        0f to Color.White.copy(alpha = 0.085f),
-                        0.48f to Color.Transparent,
-                        1f to Color.Black.copy(alpha = 0.13f)
-                    )
-                } else {
-                    arrayOf(
-                        0f to Color.White.copy(alpha = 0.12f),
-                        0.48f to Color.Transparent,
-                        1f to Color(0xFF70839A).copy(alpha = 0.075f)
+                        Color.White.copy(alpha = 0.94f),
+                        Color(0xFFFCFDFE).copy(alpha = 0.84f),
+                        Color(0xFFF3F5F7).copy(alpha = 0.90f)
                     )
                 }
             )
-            val grain = if (dark) Color.White.copy(alpha = 0.022f) else Color.White.copy(alpha = 0.035f)
-            val grainPoints = List(28) { index ->
-                val x = ((index * 47) % 101) / 100f * size.width
-                val y = ((index * 61 + 19) % 97) / 96f * size.height
-                Offset(x, y)
-            }
-            val outerEdge = Brush.linearGradient(
-                colorStops = if (dark) {
-                    arrayOf(
-                        0f to Color.White.copy(alpha = 0.34f),
-                        0.42f to Color.White.copy(alpha = 0.10f),
-                        0.72f to Color.Black.copy(alpha = 0.10f),
-                        1f to Color.Black.copy(alpha = 0.34f)
-                    )
-                } else {
-                    arrayOf(
-                        0f to Color.White.copy(alpha = 0.64f),
-                        0.42f to Color.White.copy(alpha = 0.20f),
-                        0.72f to Color(0xFF607188).copy(alpha = 0.08f),
-                        1f to Color(0xFF31465F).copy(alpha = 0.20f)
-                    )
-                },
+            val sheen = Brush.linearGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = if (dark) 0.04f else 0.24f),
+                    Color.Transparent,
+                    Color.White.copy(alpha = if (dark) 0.025f else 0.06f)
+                ),
                 start = Offset.Zero,
-                end = Offset(size.width, size.height)
+                end = Offset(size.width * 0.8f, size.height)
             )
-            val topSpecularEdge = Brush.verticalGradient(
-                colorStops = if (dark) {
-                    arrayOf(
-                        0f to Color.White.copy(alpha = 0.50f),
-                        0.22f to Color.White.copy(alpha = 0.14f),
-                        0.50f to Color.Transparent,
-                        1f to Color.Transparent
-                    )
-                } else {
-                    arrayOf(
-                        0f to Color.White.copy(alpha = 0.82f),
-                        0.22f to Color.White.copy(alpha = 0.24f),
-                        0.50f to Color.Transparent,
-                        1f to Color.Transparent
-                    )
-                }
-            )
-            val lowerRefractionEdge = Brush.verticalGradient(
-                colorStops = if (dark) {
-                    arrayOf(
-                        0f to Color.Transparent,
-                        0.56f to Color.Transparent,
-                        1f to Color.Black.copy(alpha = 0.30f)
-                    )
-                } else {
-                    arrayOf(
-                        0f to Color.Transparent,
-                        0.56f to Color.Transparent,
-                        1f to Color(0xFF32465D).copy(alpha = 0.16f)
-                    )
-                }
+            val rim = Brush.verticalGradient(
+                colors = listOf(
+                    Color.White.copy(alpha = if (dark) 0.24f else 0.92f),
+                    Color.White.copy(alpha = if (dark) 0.09f else 0.46f),
+                    Color.White.copy(alpha = if (dark) 0.15f else 0.72f)
+                )
             )
             onDrawWithContent {
-                // Transmission is the first layer; the destination stays visible through it.
-                drawRoundRect(brush = transmission, cornerRadius = cornerRadius)
-                // These two veils emulate light scattering without blurring text or icons.
-                drawRoundRect(brush = diffusionVeil, cornerRadius = cornerRadius)
-                drawRoundRect(brush = internalLuminosity, cornerRadius = cornerRadius)
-                grainPoints.forEachIndexed { index, point ->
-                    drawCircle(
-                        color = grain,
-                        radius = if (index % 3 == 0) 0.65.dp.toPx() else 0.4.dp.toPx(),
-                        center = point
-                    )
-                }
+                drawRoundRect(brush = surface, cornerRadius = cornerRadius)
+                drawRoundRect(brush = sheen, cornerRadius = cornerRadius)
                 drawContent()
-
-                // A diagonal outer edge plus separate top and bottom strokes makes this a
-                // refracting slab, not a uniformly bordered translucent card.
                 drawRoundRect(
-                    brush = outerEdge,
-                    topLeft = Offset(outlineInset, outlineInset),
-                    size = outlineSize,
-                    cornerRadius = outlineRadius,
-                    style = Stroke(width = 0.75.dp.toPx())
-                )
-                drawRoundRect(
-                    brush = topSpecularEdge,
-                    topLeft = Offset(outlineInset, outlineInset),
-                    size = outlineSize,
-                    cornerRadius = outlineRadius,
-                    style = Stroke(width = 1.15.dp.toPx())
-                )
-                drawRoundRect(
-                    brush = lowerRefractionEdge,
-                    topLeft = Offset(outlineInset, outlineInset),
-                    size = outlineSize,
-                    cornerRadius = outlineRadius,
-                    style = Stroke(width = 0.75.dp.toPx())
+                    brush = rim,
+                    topLeft = Offset(inset, inset),
+                    size = Size(size.width - inset * 2, size.height - inset * 2),
+                    cornerRadius = CornerRadius(radius - inset, radius - inset),
+                    style = Stroke(width = 1.dp.toPx())
                 )
             }
         }
-}
 
-private fun Modifier.luminousGlassSelection(
-    activeTint: Color,
-    dark: Boolean,
-    shape: RoundedCornerShape
-): Modifier = clip(shape).drawWithCache {
-    val radius = 20.dp.toPx()
-    val cornerRadius = CornerRadius(radius, radius)
-    val fill = Brush.verticalGradient(
-        colorStops = if (dark) {
-            arrayOf(
-                0f to activeTint.copy(alpha = 0.38f),
-                0.55f to activeTint.copy(alpha = 0.23f),
-                1f to activeTint.copy(alpha = 0.30f)
+private fun Modifier.glassSelection(dark: Boolean, accent: Color): Modifier =
+    clip(CircleShape)
+        .background(
+            Brush.verticalGradient(
+                colors = if (dark) {
+                    listOf(accent.copy(alpha = 0.18f), accent.copy(alpha = 0.13f))
+                } else {
+                    listOf(accent.copy(alpha = 0.44f), accent.copy(alpha = 0.28f))
+                }
             )
-        } else {
-            arrayOf(
-                0f to activeTint.copy(alpha = 0.42f),
-                0.55f to activeTint.copy(alpha = 0.27f),
-                1f to activeTint.copy(alpha = 0.32f)
+        )
+
+@Composable
+private fun Modifier.glassTabFeedback(
+    dark: Boolean,
+    interactionSource: MutableInteractionSource
+): Modifier {
+    val pressed by interactionSource.collectIsPressedAsState()
+    val focused by interactionSource.collectIsFocusedAsState()
+    val hovered by interactionSource.collectIsHoveredAsState()
+    val opacity by animateFloatAsState(
+        targetValue = when {
+            pressed -> if (dark) 0.08f else 0.10f
+            focused -> if (dark) 0.07f else 0.09f
+            hovered -> 0.05f
+            else -> 0f
+        },
+        animationSpec = tween(durationMillis = if (pressed) 80 else 160)
+    )
+    val tint = if (dark) Color.White else Color(0xFF28313A)
+    // Round only the feedback layer. Clipping the full tab cuts off large Korean labels.
+    return drawWithCache {
+        val radius = size.minDimension / 2f
+        onDrawBehind {
+            drawRoundRect(
+                color = tint.copy(alpha = opacity),
+                cornerRadius = CornerRadius(radius, radius)
             )
         }
-    )
-    val glow = Brush.radialGradient(
-        colors = listOf(
-            Color.White.copy(alpha = if (dark) 0.16f else 0.24f),
-            activeTint.copy(alpha = if (dark) 0.12f else 0.16f),
-            Color.Transparent
-        ),
-        center = Offset(size.width * 0.5f, size.height * 0.18f),
-        radius = size.width * 0.72f
-    )
-    val edge = Brush.verticalGradient(
-        colorStops = arrayOf(
-            0f to Color.White.copy(alpha = if (dark) 0.42f else 0.64f),
-            0.38f to activeTint.copy(alpha = if (dark) 0.28f else 0.34f),
-            1f to activeTint.copy(alpha = 0.10f)
-        )
-    )
-    onDrawBehind {
-        drawRoundRect(brush = fill, cornerRadius = cornerRadius)
-        drawRoundRect(brush = glow, cornerRadius = cornerRadius)
-        drawRoundRect(
-            brush = edge,
-            cornerRadius = cornerRadius,
-            style = Stroke(width = 0.8.dp.toPx())
-        )
     }
 }
 
@@ -1280,45 +1181,37 @@ private fun RecordsHubTabs(
     selected: RecordsHubTab,
     onSelected: (RecordsHubTab) -> Unit
 ) {
-    Column(
+    Row(
         Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = FitnessSpacing.page, vertical = FitnessSpacing.small)
+            .clip(FitnessShape.input)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(FitnessSpacing.micro),
+        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
     ) {
-        HorizontalDivider()
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(horizontal = FitnessSpacing.small, vertical = FitnessSpacing.micro),
-            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
-        ) {
-            RecordsHubTab.entries.forEach { tab ->
-                val isSelected = tab == selected
-                Column(
-                    Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(12.dp))
-                        .clickable { onSelected(tab) }
-                        .padding(vertical = FitnessSpacing.micro),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Box(
-                        Modifier
-                            .width(24.dp)
-                            .height(4.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .background(
-                                if (isSelected) MaterialTheme.colorScheme.primary
-                                else Color.Transparent
-                            )
+        RecordsHubTab.entries.forEach { tab ->
+            val isSelected = tab == selected
+            Box(
+                Modifier
+                    .weight(1f)
+                    .heightIn(min = FitnessSpacing.touch)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(
+                        if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                        else Color.Transparent
                     )
-                    Text(
-                        tab.label,
-                        color = if (isSelected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.labelMedium
-                    )
-                }
+                    .clickable { onSelected(tab) }
+                    .padding(vertical = FitnessSpacing.micro),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    tab.label,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                )
             }
         }
     }
@@ -1329,7 +1222,9 @@ private fun BottomNavigation(
     navigation: AppNavigationViewModel,
     homeState: HomeUiState,
     screen: FitnessScreen,
-    dark: Boolean
+    dark: Boolean,
+    itemHeight: Dp,
+    modifier: Modifier = Modifier
 ) {
     val items = listOf(
         NavigationItem("메인", FitnessScreen.HOME),
@@ -1340,91 +1235,95 @@ private fun BottomNavigation(
     val active = navigationRoot(screen)
     val workoutInProgress = (homeState as? HomeUiState.Ready)?.snapshot?.inProgressSessionId != null
     val selectedIndex = items.indexOfFirst { it.screen == active }.coerceAtLeast(0)
-    val activeTint = LocalFitnessColors.current.action
-    val selectedContent = if (dark) activeTint else MaterialTheme.colorScheme.primary
-    val unselectedContent = MaterialTheme.colorScheme.onSurfaceVariant
-    val slabShape = RoundedCornerShape(28.dp)
-    val indicatorShape = RoundedCornerShape(20.dp)
+    val selectedContent = if (dark) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
+    val unselectedContent = if (dark) Color(0xFFCCD2D8) else Color(0xFF555F69)
+    val progressTint = LocalFitnessColors.current.action
+    // Give the longer Korean label more room at large accessibility font sizes.
+    val workoutTabWeight = if (LocalDensity.current.fontScale > 1.5f) 1.6f else 1f
+    val tabWeights = items.map { if (it.screen == FitnessScreen.WORKOUT) workoutTabWeight else 1f }
 
-    Column(
-        Modifier
+    Box(
+        modifier
+            .padding(horizontal = 24.dp, vertical = 8.dp)
+            .widthIn(max = 400.dp)
             .fillMaxWidth()
-            .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.small)
+            .frostedGlassSlab(dark)
+            // Consume taps on the glass rim rather than activating content underneath it.
+            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
+            .padding(4.dp)
     ) {
-        Box(
+        BoxWithConstraints(
             Modifier
                 .fillMaxWidth()
-                .frostedGlassSlab(dark, slabShape)
-                .padding(4.dp)
+                .height(itemHeight)
         ) {
-            BoxWithConstraints(
+            val widthPerWeight = maxWidth / tabWeights.sum()
+            val indicatorWidth by animateDpAsState(
+                targetValue = widthPerWeight * tabWeights[selectedIndex],
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                label = "bottom-navigation-indicator-width"
+            )
+            val indicatorOffset by animateDpAsState(
+                targetValue = widthPerWeight * tabWeights.take(selectedIndex).sum(),
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
+                label = "bottom-navigation-indicator"
+            )
+            Box(
                 Modifier
-                    .fillMaxWidth()
-                    .height(56.dp)
-            ) {
-                val tabWidth = maxWidth / items.size
-                val indicatorOffset by animateDpAsState(
-                    targetValue = tabWidth * selectedIndex,
-                    animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing),
-                    label = "bottom-navigation-indicator"
-                )
-                Box(
-                    Modifier
-                        .offset(x = indicatorOffset)
-                        .width(tabWidth)
-                        .height(56.dp)
-                        .padding(4.dp)
-                        .luminousGlassSelection(activeTint, dark, indicatorShape)
-                )
-                Row(Modifier.fillMaxSize().selectableGroup()) {
-                    items.forEach { item ->
-                        val selected = item.screen == active
-                        Column(
-                            Modifier
-                                .weight(1f)
-                                .fillMaxHeight()
-                                .clip(indicatorShape)
-                                .selectable(
-                                    selected = selected,
-                                    role = Role.Tab,
-                                    onClick = { navigation.selectTopLevel(item.screen) }
-                                ),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
-                            ) {
-                                Text(
-                                    item.label,
-                                    color = if (selected) selectedContent else unselectedContent,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
+                    .offset(x = indicatorOffset)
+                    .width(indicatorWidth)
+                    .fillMaxHeight()
+                    .glassSelection(dark, progressTint)
+            )
+            Row(Modifier.fillMaxSize().selectableGroup()) {
+                items.forEachIndexed { index, item ->
+                    val interactionSource = remember(item.screen) { MutableInteractionSource() }
+                    val selected = item.screen == active
+                    val contentColor = if (selected) selectedContent else unselectedContent
+                    val hasActiveWorkout = item.screen == FitnessScreen.WORKOUT && workoutInProgress
+                    Column(
+                        Modifier
+                            .weight(tabWeights[index])
+                            .fillMaxHeight()
+                            .glassTabFeedback(dark, interactionSource)
+                            .selectable(
+                                selected = selected,
+                                interactionSource = interactionSource,
+                                indication = null,
+                                role = Role.Tab,
+                                onClick = { navigation.selectTopLevel(item.screen) }
+                            )
+                            .semantics {
+                                if (hasActiveWorkout) stateDescription = "운동 진행 중"
+                            },
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)
+                    ) {
+                        Box(Modifier.size(24.dp), contentAlignment = Alignment.Center) {
+                            BottomNavigationIcon(item.screen, contentColor, Modifier.fillMaxSize())
+                            if (hasActiveWorkout) {
+                                Box(
+                                    Modifier
+                                        .align(Alignment.TopEnd)
+                                        .offset(x = 3.dp, y = (-1).dp)
+                                        .size(6.dp)
+                                        .background(progressTint, CircleShape)
+                                        .border(
+                                            1.dp,
+                                            if (dark) Color(0xFF343C43) else Color.White,
+                                            CircleShape
+                                        )
                                 )
-                                if (item.screen == FitnessScreen.WORKOUT && workoutInProgress) {
-                                    Box(
-                                        Modifier
-                                            .size(6.dp)
-                                            .shadow(
-                                                elevation = 4.dp,
-                                                shape = CircleShape,
-                                                clip = false,
-                                                ambientColor = activeTint.copy(alpha = 0.45f),
-                                                spotColor = activeTint.copy(alpha = 0.45f)
-                                            )
-                                            .clip(CircleShape)
-                                            .background(activeTint.copy(alpha = 0.88f))
-                                            .border(
-                                                0.75.dp,
-                                                Color.White.copy(alpha = if (dark) 0.34f else 0.72f),
-                                                CircleShape
-                                            )
-                                    )
-                                }
                             }
                         }
+                        Text(
+                            item.label,
+                            color = contentColor,
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
                     }
                 }
             }

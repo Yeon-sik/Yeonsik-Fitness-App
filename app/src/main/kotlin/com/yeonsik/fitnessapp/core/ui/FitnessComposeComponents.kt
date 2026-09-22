@@ -46,7 +46,7 @@ fun FitnessHeader(title: String, subtitle: String? = null, back: (() -> Unit)? =
             TextButton(onClick = back, contentPadding = PaddingValues(horizontal = 0.dp),
                 modifier = Modifier.heightIn(min = FitnessSpacing.touch)) { Text("‹ 뒤로") }
         }
-        Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineMedium)
+        Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineLarge)
         if (!subtitle.isNullOrBlank()) {
             Text(subtitle, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -58,7 +58,7 @@ fun FitnessHeader(title: String, subtitle: String? = null, back: (() -> Unit)? =
 fun FitnessSection(title: String, content: @Composable () -> Unit) {
     Column(Modifier.fillMaxWidth().padding(top = FitnessSpacing.section),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
-        Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleMedium)
+        Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.titleLarge)
         content()
     }
 }
@@ -67,13 +67,12 @@ fun FitnessSection(title: String, content: @Composable () -> Unit) {
 fun FitnessCard(modifier: Modifier = Modifier, onClick: (() -> Unit)? = null,
                 content: @Composable ColumnScope.() -> Unit) {
     val colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    val border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     val elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     if (onClick == null) {
-        Card(modifier, shape = FitnessShape.card, colors = colors, border = border,
+        Card(modifier, shape = FitnessShape.card, colors = colors,
             elevation = elevation, content = content)
     } else {
-        Card(onClick, modifier, shape = FitnessShape.card, colors = colors, border = border,
+        Card(onClick, modifier, shape = FitnessShape.card, colors = colors,
             elevation = elevation, content = content)
     }
 }
@@ -96,9 +95,13 @@ fun FitnessOutlinedButton(onClick: () -> Unit, modifier: Modifier = Modifier, en
         .semantics { this.selected = selected }, enabled = enabled,
         shape = FitnessShape.button,
         contentPadding = PaddingValues(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.gap),
-        border = BorderStroke(1.dp, if (selected) LocalFitnessColors.current.action else MaterialTheme.colorScheme.outlineVariant),
+        border = if (selected) BorderStroke(1.dp, LocalFitnessColors.current.action) else null,
         colors = ButtonDefaults.outlinedButtonColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
+            containerColor = when {
+                destructive -> MaterialTheme.colorScheme.surface
+                selected -> MaterialTheme.colorScheme.primaryContainer
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            },
             contentColor = when {
                 destructive -> MaterialTheme.colorScheme.error
                 selected -> MaterialTheme.colorScheme.onPrimaryContainer
@@ -121,7 +124,7 @@ fun FitnessTextField(value: String, onValueChange: (String) -> Unit, modifier: M
         visualTransformation = visualTransformation,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
             focusedContainerColor = MaterialTheme.colorScheme.surface,
             unfocusedContainerColor = MaterialTheme.colorScheme.surface
         ))
@@ -131,8 +134,8 @@ fun FitnessTextField(value: String, onValueChange: (String) -> Unit, modifier: M
 fun FitnessFactCard(title: String, value: String, detail: String, modifier: Modifier = Modifier) {
     FitnessCard(modifier.fillMaxWidth()) {
         Column(Modifier.padding(FitnessSpacing.card), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
-            Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.headlineSmall.copy(fontFeatureSettings = "tnum"))
+            Text(title, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.headlineMedium.copy(fontFeatureSettings = "tnum"))
             if (detail.isNotBlank()) Text(detail, style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

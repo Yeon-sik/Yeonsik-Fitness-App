@@ -16,15 +16,15 @@ public final class FitnessUiTokens {
     }
 
     // Light semantic tokens
-    public static final int COLOR_BACKGROUND = 0xFFF7F9FC;
+    public static final int COLOR_BACKGROUND = 0xFFF5F5F7;
     public static final int COLOR_SURFACE = 0xFFFFFFFF;
-    public static final int COLOR_SUBTLE = 0xFFF0F5F9;
-    public static final int COLOR_TEXT = 0xFF111827;
-    public static final int COLOR_MUTED = 0xFF667085;
+    public static final int COLOR_SUBTLE = 0xFFEEEFF2;
+    public static final int COLOR_TEXT = 0xFF1C1C1E;
+    public static final int COLOR_MUTED = 0xFF686C75;
     public static final int COLOR_TERTIARY = COLOR_MUTED;
-    public static final int COLOR_BORDER = 0xFFDCE5EC;
+    public static final int COLOR_BORDER = 0xFFE1E3E8;
     public static final int COLOR_PASTEL_BLUE = 0xFFA9D6F5;
-    public static final int COLOR_BLUE_CONTAINER = 0xFFEAF6FF;
+    public static final int COLOR_BLUE_CONTAINER = 0xFFE8F3FC;
     public static final int COLOR_BLUE_INK = 0xFF173B55;
     public static final int COLOR_PRIMARY = COLOR_PASTEL_BLUE;
     public static final int COLOR_INVERSE_TEXT = 0xFFFFFFFF;
@@ -46,15 +46,15 @@ public final class FitnessUiTokens {
     public static final int COLOR_INVERSE_LINE = 0x1AFFFFFF;
 
     // Dark semantic tokens
-    public static final int COLOR_D_BACKGROUND = 0xFF0E141A;
-    public static final int COLOR_D_SURFACE = 0xFF151C23;
-    public static final int COLOR_D_SUBTLE = 0xFF1B2530;
-    public static final int COLOR_D_TEXT = 0xFFF5F8FA;
-    public static final int COLOR_D_MUTED = 0xFFA6B0BA;
+    public static final int COLOR_D_BACKGROUND = 0xFF090B0E;
+    public static final int COLOR_D_SURFACE = 0xFF1C1E22;
+    public static final int COLOR_D_SUBTLE = 0xFF272A30;
+    public static final int COLOR_D_TEXT = 0xFFF5F5F7;
+    public static final int COLOR_D_MUTED = 0xFFADB0B8;
     public static final int COLOR_D_TERTIARY = COLOR_D_MUTED;
-    public static final int COLOR_D_BORDER = 0xFF2A3742;
+    public static final int COLOR_D_BORDER = 0xFF393D45;
     public static final int COLOR_D_PASTEL_BLUE = 0xFF8FC8EE;
-    public static final int COLOR_D_BLUE_CONTAINER = 0xFF18384D;
+    public static final int COLOR_D_BLUE_CONTAINER = 0xFF1D3548;
     public static final int COLOR_D_BLUE_INK = 0xFFD9F0FF;
     public static final int COLOR_D_ON_PASTEL_BLUE = 0xFF0E2938;
     public static final int COLOR_D_HERO_END = 0xFF214A63;
@@ -72,10 +72,10 @@ public final class FitnessUiTokens {
     public static final int COLOR_D_BAR_EMPTY = 0x1AF5F8FA;
 
     // Shape/depth tokens
-    public static final int CARD_RADIUS_DP = 16;
+    public static final int CARD_RADIUS_DP = 20;
     public static final int HERO_RADIUS_DP = 24;
-    public static final int INPUT_RADIUS_DP = 12;
-    public static final int BUTTON_RADIUS_DP = 12;
+    public static final int INPUT_RADIUS_DP = 14;
+    public static final int BUTTON_RADIUS_DP = 14;
     public static final int CHIP_RADIUS_DP = 999;
     public static final int SHEET_RADIUS_DP = 24;
     public static final int DEPTH_FLAT_DP = 0;

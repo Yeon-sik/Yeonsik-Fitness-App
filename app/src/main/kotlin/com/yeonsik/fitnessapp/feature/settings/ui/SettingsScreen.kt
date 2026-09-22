@@ -15,7 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.BuildConfig
@@ -61,29 +62,29 @@ interface SettingsScreenActions {
 internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActions) {
     var advancedConnectionsVisible by rememberSaveable { mutableStateOf(false) }
     AppHeader("설정", "계정·동기화·데이터 안전·표시 환경")
-    Text("상태", fontWeight = FontWeight.Bold)
+    SettingsSectionTitle("상태")
     SettingsAccountStatusCard(state.sharedConfig)
     SettingsSyncStatusCard(state)
-    Text("단위")
+    SettingsSectionTitle("단위")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
         MassUnit.values().forEach { unit ->
             AppOutlinedButton(onClick = { actions.setPreferredMassUnit(unit) }, selected = state.preferredMassUnit == unit) { Text(unit.labelKo()) }
         }
     }
-    Text("표시·입력 단위 설정은 로컬 기록을 kg 기준으로 보존합니다.")
-    Text("테마")
+    SettingsSupportingText("표시·입력 단위 설정은 로컬 기록을 kg 기준으로 보존합니다.")
+    SettingsSectionTitle("테마")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
         listOf("light", "dark", "system").forEach { mode ->
             AppOutlinedButton(onClick = { actions.setThemeMode(mode) }, selected = state.themeMode == mode) { Text(themeModeLabel(mode)) }
         }
     }
-    Text("데이터 안전", fontWeight = FontWeight.Bold)
+    SettingsSectionTitle("데이터 안전")
     AppButton(onClick = actions::runManualSync, enabled = !state.isManualSyncing,
         modifier = Modifier.fillMaxWidth()) { Text(if (state.isManualSyncing) "동기화 중" else "지금 동기화") }
-    Text(syncDetailForDisplay(state))
-    Text("가져오기·내보내기", fontWeight = FontWeight.Bold)
+    SettingsSupportingText(syncDetailForDisplay(state))
+    SettingsSectionTitle("가져오기·내보내기")
     AppOutlinedButton(onClick = actions::openFleekDataImport, enabled = !state.isDataImporting,
         modifier = Modifier.fillMaxWidth()) { Text("FLEEK 가져오기") }
     AppOutlinedButton(onClick = actions::openWorkoutTransferImport, enabled = !state.isDataTransferInProgress,
@@ -94,10 +95,10 @@ internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActio
     AppOutlinedButton(onClick = actions::restoreLocalBackup, Modifier.fillMaxWidth()) { Text("백업 복원") }
     AppOutlinedButton(onClick = actions::exportRecordsCsv, Modifier.fillMaxWidth()) { Text("CSV 내보내기") }
     if (state.isDataImporting && state.dataImportDetail.isNotBlank()) {
-        Text("가져오기 상태 · " + state.dataImportDetail)
+        Text("가져오기 상태 · " + state.dataImportDetail, style = MaterialTheme.typography.bodyMedium)
     }
     if (state.isDataTransferInProgress && state.dataTransferDetail.isNotBlank()) {
-        Text("전송 상태 · " + state.dataTransferDetail)
+        Text("전송 상태 · " + state.dataTransferDetail, style = MaterialTheme.typography.bodyMedium)
     }
     SettingsPrivacyCard()
     SettingsAppInfoCard()
@@ -137,8 +138,9 @@ private fun ConnectionAccountSection(
 ) {
     var url by rememberSaveable(config.supabaseUrl) { mutableStateOf(config.supabaseUrl) }
     var key by rememberSaveable(config.supabaseAnonKey) { mutableStateOf(config.supabaseAnonKey) }
-    Text(title, fontWeight = FontWeight.Bold)
-    Text(if (config.isConfigured) "로그인됨 · ${config.email}" else if (config.isConnectionConfigured) "로그인 필요" else "연결 없음")
+    SettingsSectionTitle(title)
+    Text(if (config.isConfigured) "로그인됨 · ${config.email}" else if (config.isConnectionConfigured) "로그인 필요" else "연결 없음",
+        style = MaterialTheme.typography.bodyMedium)
     if (!managed) {
         AppTextField(url, { url = it }, Modifier.fillMaxWidth(), label = { Text("DB URL") })
         AppTextField(key, { key = it }, Modifier.fillMaxWidth(), label = { Text("DB anon key") })
@@ -147,9 +149,15 @@ private fun ConnectionAccountSection(
             Modifier.fillMaxWidth()
         ) { Text("연결 저장") }
     } else {
-        Text("빌드 기본값으로 연결되었습니다.")
+        SettingsSupportingText("빌드 기본값으로 연결되었습니다.")
     }
     AccountControls(config, connection, actions)
+}
+
+@Composable
+private fun SettingsSectionTitle(title: String) {
+    Text(title, Modifier.padding(top = AppSpacing.section).semantics { heading() },
+        style = MaterialTheme.typography.titleMedium)
 }
 
 @Composable

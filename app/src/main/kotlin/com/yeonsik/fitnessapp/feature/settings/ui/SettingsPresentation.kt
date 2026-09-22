@@ -4,10 +4,10 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import com.yeonsik.fitnessapp.BuildConfig
 import com.yeonsik.fitnessapp.config.SupabaseConfig
 import com.yeonsik.fitnessapp.core.ui.AppCard
@@ -26,12 +26,13 @@ internal fun SettingsAccountStatusCard(config: SupabaseConfig) {
             Modifier.padding(AppSpacing.card),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
         ) {
-            Text("계정 상태", fontWeight = FontWeight.Bold)
-            Text("Personal OS 공통 계정 · " + status)
+            Text("계정 상태", style = MaterialTheme.typography.titleMedium)
+            Text("Personal OS 공통 계정 · " + status, style = MaterialTheme.typography.bodyMedium)
             if (config.isConfigured && config.email.isNotBlank()) {
-                Text("로그인 계정 · " + config.email)
+                Text("로그인 계정 · " + config.email, style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text("계정 상태와 동기화 상태는 별도로 표시합니다.")
+            SettingsSupportingText("계정 상태와 동기화 상태는 별도로 표시합니다.")
         }
     }
 }
@@ -45,11 +46,11 @@ internal fun SettingsSyncStatusCard(state: SettingsUiState) {
             Modifier.padding(AppSpacing.card),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
         ) {
-            Text("동기화 상태", fontWeight = FontWeight.Bold)
-            Text(label)
-            Text("상태 분류 · " + category)
-            Text(syncDetailForDisplay(state))
-            Text("동기화 여부와 관계없이 로컬 기록을 먼저 보관합니다.")
+            Text("동기화 상태", style = MaterialTheme.typography.titleMedium)
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            SettingsSupportingText("상태 분류 · " + category)
+            SettingsSupportingText(syncDetailForDisplay(state))
+            SettingsSupportingText("동기화 여부와 관계없이 로컬 기록을 먼저 보관합니다.")
         }
     }
 }
@@ -61,9 +62,9 @@ internal fun SettingsPrivacyCard() {
             Modifier.padding(AppSpacing.card),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
         ) {
-            Text("개인정보·보안", fontWeight = FontWeight.Bold)
-            Text("이 화면에는 비밀번호와 access/refresh token을 표시하지 않습니다.")
-            Text("기록은 계정 소유 범위 안에서 읽고, 외부 동기화는 사용자가 명시적으로 실행합니다.")
+            Text("개인정보·보안", style = MaterialTheme.typography.titleMedium)
+            SettingsSupportingText("이 화면에는 비밀번호와 access/refresh token을 표시하지 않습니다.")
+            SettingsSupportingText("기록은 계정 소유 범위 안에서 읽고, 외부 동기화는 사용자가 명시적으로 실행합니다.")
         }
     }
 }
@@ -75,12 +76,18 @@ internal fun SettingsAppInfoCard() {
             Modifier.padding(AppSpacing.card),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
         ) {
-            Text("앱 정보", fontWeight = FontWeight.Bold)
-            Text("FitnessApp")
-            Text("버전 · " + BuildConfig.VERSION_NAME)
-            Text("운동·체중·식사 기록을 로컬 우선으로 관리하는 앱입니다.")
+            Text("앱 정보", style = MaterialTheme.typography.titleMedium)
+            Text("FitnessApp", style = MaterialTheme.typography.bodyMedium)
+            SettingsSupportingText("버전 · " + BuildConfig.VERSION_NAME)
+            SettingsSupportingText("운동·체중·식사 기록을 로컬 우선으로 관리하는 앱입니다.")
         }
     }
+}
+
+@Composable
+internal fun SettingsSupportingText(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant)
 }
 
 internal fun themeModeLabel(mode: String): String = when (mode) {
