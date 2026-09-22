@@ -4,12 +4,16 @@
 through Auth, PostgREST, and the canonical import RPCs. It verifies owner-scoped
 RLS, anonymous rejection, the v1/v2 evidence contracts, the authoritative v3
 endpoint with the existing `nutrition-label.v1` and `food-estimate.v1` input
-semantics, all four explicit packaged-product hierarchy fields, seven
-provenance rows, replay/collision behavior including changed hierarchy,
-v1/v2 idempotency namespace separation, exact product↔Nutrition links,
-restaurant hierarchy rejection and null read round-trip, strict `p_brand` /
-`p_brand_name` alias handling, malformed payload rejection, and the direct
-`nutrition_foods` write boundary.
+semantics plus the `external-reference.v1` public-source contract, all four
+explicit packaged-product hierarchy fields, seven provenance rows,
+replay/collision behavior including changed hierarchy, v1/v2 idempotency
+namespace separation, exact product↔Nutrition links, restaurant hierarchy
+rejection and null read round-trip, strict `p_brand` / `p_brand_name` alias
+handling, malformed payload rejection, cross-owner read/update isolation, and
+the direct `nutrition_foods` write boundary. The external case is built from
+the exact OCR-App `yeonsik-ocr.v2.packaged-product.text-lookup.example.json`
+fixture and verifies the public URL, `external-nutrition-lookup.v1`, unchanged
+basis amount/unit, observed seven-nutrient provenance, and idempotent replay.
 
 The v3 endpoint does not accept `nutrition-label.v3`, `food-estimate.v3`, or a
 `p_category_hierarchy` array. Packaged-product callers send
