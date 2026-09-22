@@ -47,8 +47,14 @@ import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -1036,6 +1042,239 @@ private fun RestTimerBar(
 
 private data class NavigationItem(val label: String, val screen: FitnessScreen)
 
+/**
+ * A deliberately local approximation of backdrop diffusion.
+ *
+ * Compose's blur modifier (and Android's RenderEffect when applied to this node) blur this
+ * composable and its children, rather than sampling the already-rendered content behind it.
+ * Applying either here would soften the navigation labels, so the glass uses transmission plus
+ * cached luminosity, grain, and asymmetric edge layers instead. The backing content remains
+ * visible through the alpha-based fill while the controls stay sharp.
+ */
+private fun Modifier.frostedGlassSlab(
+    dark: Boolean,
+    shape: RoundedCornerShape
+): Modifier {
+    val shadowColor = if (dark) {
+        Color(0xFF02070B).copy(alpha = 0.28f)
+    } else {
+        Color(0xFF31465F).copy(alpha = 0.14f)
+    }
+    return shadow(
+        elevation = 18.dp,
+        shape = shape,
+        clip = false,
+        ambientColor = shadowColor,
+        spotColor = shadowColor
+    )
+        .clip(shape)
+        .drawWithCache {
+            val radius = 28.dp.toPx()
+            val cornerRadius = CornerRadius(radius, radius)
+            val outlineInset = 0.75.dp.toPx()
+            val outlineSize = Size(
+                width = (size.width - outlineInset * 2f).coerceAtLeast(0f),
+                height = (size.height - outlineInset * 2f).coerceAtLeast(0f)
+            )
+            val outlineRadius = CornerRadius(
+                x = (radius - outlineInset).coerceAtLeast(0f),
+                y = (radius - outlineInset).coerceAtLeast(0f)
+            )
+            val transmission = Brush.verticalGradient(
+                colorStops = if (dark) {
+                    arrayOf(
+                        0f to Color(0xFF2B3A47).copy(alpha = 0.62f),
+                        0.5f to Color(0xFF17242E).copy(alpha = 0.54f),
+                        1f to Color(0xFF0C141C).copy(alpha = 0.66f)
+                    )
+                } else {
+                    arrayOf(
+                        0f to Color.White.copy(alpha = 0.52f),
+                        0.5f to Color(0xFFF7FBFF).copy(alpha = 0.42f),
+                        1f to Color(0xFFE7F0FA).copy(alpha = 0.47f)
+                    )
+                }
+            )
+            val diffusionVeil = Brush.radialGradient(
+                colors = if (dark) {
+                    listOf(
+                        Color.White.copy(alpha = 0.075f),
+                        Color(0xFFB9DEFF).copy(alpha = 0.025f),
+                        Color.Transparent
+                    )
+                } else {
+                    listOf(
+                        Color.White.copy(alpha = 0.10f),
+                        Color(0xFFCFE6FA).copy(alpha = 0.035f),
+                        Color.Transparent
+                    )
+                },
+                center = Offset(size.width * 0.22f, -size.height * 0.18f),
+                radius = size.width * 0.9f
+            )
+            val internalLuminosity = Brush.verticalGradient(
+                colorStops = if (dark) {
+                    arrayOf(
+                        0f to Color.White.copy(alpha = 0.085f),
+                        0.48f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.13f)
+                    )
+                } else {
+                    arrayOf(
+                        0f to Color.White.copy(alpha = 0.12f),
+                        0.48f to Color.Transparent,
+                        1f to Color(0xFF70839A).copy(alpha = 0.075f)
+                    )
+                }
+            )
+            val grain = if (dark) Color.White.copy(alpha = 0.022f) else Color.White.copy(alpha = 0.035f)
+            val grainPoints = List(28) { index ->
+                val x = ((index * 47) % 101) / 100f * size.width
+                val y = ((index * 61 + 19) % 97) / 96f * size.height
+                Offset(x, y)
+            }
+            val outerEdge = Brush.linearGradient(
+                colorStops = if (dark) {
+                    arrayOf(
+                        0f to Color.White.copy(alpha = 0.34f),
+                        0.42f to Color.White.copy(alpha = 0.10f),
+                        0.72f to Color.Black.copy(alpha = 0.10f),
+                        1f to Color.Black.copy(alpha = 0.34f)
+                    )
+                } else {
+                    arrayOf(
+                        0f to Color.White.copy(alpha = 0.64f),
+                        0.42f to Color.White.copy(alpha = 0.20f),
+                        0.72f to Color(0xFF607188).copy(alpha = 0.08f),
+                        1f to Color(0xFF31465F).copy(alpha = 0.20f)
+                    )
+                },
+                start = Offset.Zero,
+                end = Offset(size.width, size.height)
+            )
+            val topSpecularEdge = Brush.verticalGradient(
+                colorStops = if (dark) {
+                    arrayOf(
+                        0f to Color.White.copy(alpha = 0.50f),
+                        0.22f to Color.White.copy(alpha = 0.14f),
+                        0.50f to Color.Transparent,
+                        1f to Color.Transparent
+                    )
+                } else {
+                    arrayOf(
+                        0f to Color.White.copy(alpha = 0.82f),
+                        0.22f to Color.White.copy(alpha = 0.24f),
+                        0.50f to Color.Transparent,
+                        1f to Color.Transparent
+                    )
+                }
+            )
+            val lowerRefractionEdge = Brush.verticalGradient(
+                colorStops = if (dark) {
+                    arrayOf(
+                        0f to Color.Transparent,
+                        0.56f to Color.Transparent,
+                        1f to Color.Black.copy(alpha = 0.30f)
+                    )
+                } else {
+                    arrayOf(
+                        0f to Color.Transparent,
+                        0.56f to Color.Transparent,
+                        1f to Color(0xFF32465D).copy(alpha = 0.16f)
+                    )
+                }
+            )
+            onDrawWithContent {
+                // Transmission is the first layer; the destination stays visible through it.
+                drawRoundRect(brush = transmission, cornerRadius = cornerRadius)
+                // These two veils emulate light scattering without blurring text or icons.
+                drawRoundRect(brush = diffusionVeil, cornerRadius = cornerRadius)
+                drawRoundRect(brush = internalLuminosity, cornerRadius = cornerRadius)
+                grainPoints.forEachIndexed { index, point ->
+                    drawCircle(
+                        color = grain,
+                        radius = if (index % 3 == 0) 0.65.dp.toPx() else 0.4.dp.toPx(),
+                        center = point
+                    )
+                }
+                drawContent()
+
+                // A diagonal outer edge plus separate top and bottom strokes makes this a
+                // refracting slab, not a uniformly bordered translucent card.
+                drawRoundRect(
+                    brush = outerEdge,
+                    topLeft = Offset(outlineInset, outlineInset),
+                    size = outlineSize,
+                    cornerRadius = outlineRadius,
+                    style = Stroke(width = 0.75.dp.toPx())
+                )
+                drawRoundRect(
+                    brush = topSpecularEdge,
+                    topLeft = Offset(outlineInset, outlineInset),
+                    size = outlineSize,
+                    cornerRadius = outlineRadius,
+                    style = Stroke(width = 1.15.dp.toPx())
+                )
+                drawRoundRect(
+                    brush = lowerRefractionEdge,
+                    topLeft = Offset(outlineInset, outlineInset),
+                    size = outlineSize,
+                    cornerRadius = outlineRadius,
+                    style = Stroke(width = 0.75.dp.toPx())
+                )
+            }
+        }
+}
+
+private fun Modifier.luminousGlassSelection(
+    activeTint: Color,
+    dark: Boolean,
+    shape: RoundedCornerShape
+): Modifier = clip(shape).drawWithCache {
+    val radius = 20.dp.toPx()
+    val cornerRadius = CornerRadius(radius, radius)
+    val fill = Brush.verticalGradient(
+        colorStops = if (dark) {
+            arrayOf(
+                0f to activeTint.copy(alpha = 0.38f),
+                0.55f to activeTint.copy(alpha = 0.23f),
+                1f to activeTint.copy(alpha = 0.30f)
+            )
+        } else {
+            arrayOf(
+                0f to activeTint.copy(alpha = 0.42f),
+                0.55f to activeTint.copy(alpha = 0.27f),
+                1f to activeTint.copy(alpha = 0.32f)
+            )
+        }
+    )
+    val glow = Brush.radialGradient(
+        colors = listOf(
+            Color.White.copy(alpha = if (dark) 0.16f else 0.24f),
+            activeTint.copy(alpha = if (dark) 0.12f else 0.16f),
+            Color.Transparent
+        ),
+        center = Offset(size.width * 0.5f, size.height * 0.18f),
+        radius = size.width * 0.72f
+    )
+    val edge = Brush.verticalGradient(
+        colorStops = arrayOf(
+            0f to Color.White.copy(alpha = if (dark) 0.42f else 0.64f),
+            0.38f to activeTint.copy(alpha = if (dark) 0.28f else 0.34f),
+            1f to activeTint.copy(alpha = 0.10f)
+        )
+    )
+    onDrawBehind {
+        drawRoundRect(brush = fill, cornerRadius = cornerRadius)
+        drawRoundRect(brush = glow, cornerRadius = cornerRadius)
+        drawRoundRect(
+            brush = edge,
+            cornerRadius = cornerRadius,
+            style = Stroke(width = 0.8.dp.toPx())
+        )
+    }
+}
+
 @Composable
 private fun RecordsHubTabs(
     selected: RecordsHubTab,
@@ -1102,13 +1341,6 @@ private fun BottomNavigation(
     val workoutInProgress = (homeState as? HomeUiState.Ready)?.snapshot?.inProgressSessionId != null
     val selectedIndex = items.indexOfFirst { it.screen == active }.coerceAtLeast(0)
     val activeTint = LocalFitnessColors.current.action
-    val glassSurface = if (dark) {
-        Color(0xD91B2731)
-    } else {
-        Color.White.copy(alpha = 0.56f)
-    }
-    val glassBorder = if (dark) Color.White.copy(alpha = 0.16f) else Color.White.copy(alpha = 0.76f)
-    val glassShadow = Color.Black.copy(alpha = if (dark) 0.26f else 0.10f)
     val selectedContent = if (dark) activeTint else MaterialTheme.colorScheme.primary
     val unselectedContent = MaterialTheme.colorScheme.onSurfaceVariant
     val slabShape = RoundedCornerShape(28.dp)
@@ -1122,16 +1354,7 @@ private fun BottomNavigation(
         Box(
             Modifier
                 .fillMaxWidth()
-                .shadow(
-                    elevation = 10.dp,
-                    shape = slabShape,
-                    clip = false,
-                    ambientColor = glassShadow,
-                    spotColor = glassShadow
-                )
-                .clip(slabShape)
-                .background(glassSurface)
-                .border(1.dp, glassBorder, slabShape)
+                .frostedGlassSlab(dark, slabShape)
                 .padding(4.dp)
         ) {
             BoxWithConstraints(
@@ -1151,17 +1374,7 @@ private fun BottomNavigation(
                         .width(tabWidth)
                         .height(56.dp)
                         .padding(4.dp)
-                        .clip(indicatorShape)
-                        .background(activeTint.copy(alpha = if (dark) 0.24f else 0.34f))
-                        .border(
-                            width = 1.dp,
-                            color = if (dark) {
-                                activeTint.copy(alpha = 0.42f)
-                            } else {
-                                Color.White.copy(alpha = 0.46f)
-                            },
-                            shape = indicatorShape
-                        )
+                        .luminousGlassSelection(activeTint, dark, indicatorShape)
                 )
                 Row(Modifier.fillMaxSize().selectableGroup()) {
                     items.forEach { item ->
@@ -1194,10 +1407,17 @@ private fun BottomNavigation(
                                     Box(
                                         Modifier
                                             .size(6.dp)
+                                            .shadow(
+                                                elevation = 4.dp,
+                                                shape = CircleShape,
+                                                clip = false,
+                                                ambientColor = activeTint.copy(alpha = 0.45f),
+                                                spotColor = activeTint.copy(alpha = 0.45f)
+                                            )
                                             .clip(CircleShape)
-                                            .background(activeTint)
+                                            .background(activeTint.copy(alpha = 0.88f))
                                             .border(
-                                                1.dp,
+                                                0.75.dp,
                                                 Color.White.copy(alpha = if (dark) 0.34f else 0.72f),
                                                 CircleShape
                                             )
