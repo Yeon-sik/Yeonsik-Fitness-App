@@ -22,7 +22,7 @@ object FitnessSpacing {
     val micro = 4.dp
     val small = FitnessUiTokens.FORM_ITEM_GAP_DP.dp
     val gap = FitnessUiTokens.CARD_GAP_DP.dp
-    val card = 16.dp
+    val card = 18.dp
     val page = FitnessUiTokens.PAGE_HORIZONTAL_PADDING_DP.dp
     val section = FitnessUiTokens.SECTION_TOP_SPACING_DP.dp
     val touch = FitnessUiTokens.NAV_ITEM_MIN_HEIGHT_DP.dp
@@ -57,6 +57,7 @@ private fun colors(dark: Boolean) = run {
     val semantic = if (dark) DarkSemantic else LightSemantic
     val base = if (dark) darkColorScheme() else lightColorScheme()
     base.copy(
+        // Text links and field labels keep readable ink; filled actions use semantic.action.
         primary = if (dark) semantic.action else blueInk,
         onPrimary = if (dark) semantic.onAction else surface,
         primaryContainer = blueContainer, onPrimaryContainer = blueInk, inversePrimary = semantic.action,
@@ -82,7 +83,7 @@ private val FitnessTypography = Typography(
     displayLarge = type(40, 48, FontWeight.SemiBold), displayMedium = type(36, 44, FontWeight.SemiBold),
     displaySmall = type(32, 40, FontWeight.SemiBold), headlineLarge = type(30, 38, FontWeight.SemiBold),
     headlineMedium = type(28, 36, FontWeight.SemiBold), headlineSmall = type(24, 32, FontWeight.SemiBold),
-    titleLarge = type(20, 28, FontWeight.SemiBold), titleMedium = type(16, 24, FontWeight.SemiBold),
+    titleLarge = type(20, 28, FontWeight.SemiBold), titleMedium = type(17, 24, FontWeight.SemiBold),
     titleSmall = type(14, 20, FontWeight.SemiBold), bodyLarge = type(16, 24),
     bodyMedium = type(14, 22), bodySmall = type(12, 18), labelLarge = type(14, 20, FontWeight.SemiBold),
     labelMedium = type(12, 18, FontWeight.Medium), labelSmall = type(11, 16, FontWeight.Medium)

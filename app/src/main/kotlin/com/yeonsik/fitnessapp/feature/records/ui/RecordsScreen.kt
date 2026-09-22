@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -162,9 +163,11 @@ private fun RecordsCalendarLegend() {
                 Spacer(
                     Modifier
                         .size(8.dp)
-                        .background(color)
+                        .background(color, CircleShape)
                 )
-                Text(label, Modifier.padding(start = FitnessSpacing.micro))
+                Text(label, Modifier.padding(start = FitnessSpacing.micro),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
@@ -183,7 +186,7 @@ private fun RecordsDayDetailSection(
         }
     }
     if (detail.workouts.isNotEmpty()) {
-        Text("운동 기록", fontWeight = FontWeight.Bold)
+        Text("운동 기록", style = MaterialTheme.typography.titleLarge)
         detail.workouts.forEach { workout ->
             AppCard(Modifier.fillMaxWidth()) {
                 Row(
@@ -196,15 +199,17 @@ private fun RecordsDayDetailSection(
                             .weight(1f)
                             .clickable { actions.openRecord(workout.id) }
                     ) {
-                        Text(workout.title.ifBlank { "운동 기록" }, fontWeight = FontWeight.Bold)
+                        Text(workout.title.ifBlank { "운동 기록" }, style = MaterialTheme.typography.titleMedium)
                         Text(
                             recordsWorkoutDetail(workout, unit),
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         if (workout.muscleLabels.isNotEmpty()) {
                             Text(
                                 "부위: ${workout.muscleLabels.joinToString(", ")}",
-                                style = MaterialTheme.typography.bodySmall
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
@@ -217,7 +222,7 @@ private fun RecordsDayDetailSection(
         }
     }
     if (detail.bodyMetrics.isNotEmpty()) {
-        Text("체중 기록", fontWeight = FontWeight.Bold)
+        Text("체중 기록", style = MaterialTheme.typography.titleLarge)
         detail.bodyMetrics.forEach { metric ->
             AppCard(Modifier.fillMaxWidth().clickable {
                 actions.showBodyMetric(metric.date, metric.id)
@@ -229,15 +234,18 @@ private fun RecordsDayDetailSection(
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(MassFormatter.withUnit(metric.weightKg, unit), fontWeight = FontWeight.Bold)
-                        if (metric.memo.isNotBlank()) Text(metric.memo)
+                        if (metric.memo.isNotBlank()) Text(metric.memo,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    Text("수정", style = MaterialTheme.typography.bodySmall)
+                    Text("수정", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
     }
     if (detail.meals.isNotEmpty()) {
-        Text("식사 기록", fontWeight = FontWeight.Bold)
+        Text("식사 기록", style = MaterialTheme.typography.titleLarge)
         detail.meals.forEach { meal ->
             AppDataRow(meal.mealLabel, meal.previewTitle)
         }

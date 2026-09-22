@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -26,11 +28,11 @@ import androidx.compose.ui.unit.dp
 
 /** Compatibility-stable App* visuals used by the current feature screens. */
 internal object AppSpacing {
-    val small = 8.dp
-    val gap = 12.dp
-    val card = 16.dp
-    val section = 24.dp
-    val touch = 48.dp
+    val small = FitnessSpacing.small
+    val gap = FitnessSpacing.gap
+    val card = FitnessSpacing.card
+    val section = FitnessSpacing.section
+    val touch = FitnessSpacing.touch
 }
 
 @Composable
@@ -40,8 +42,9 @@ internal fun AppHeader(title: String, subtitle: String? = null, back: (() -> Uni
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
     ) {
         if (back != null) TextButton(onClick = back) { Text("뒤로") }
-        Text(title, style = MaterialTheme.typography.headlineSmall)
-        if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium)
+        Text(title, style = MaterialTheme.typography.headlineLarge)
+        if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -52,8 +55,9 @@ internal fun AppCard(
 ) {
     Card(
         modifier,
+        shape = FitnessShape.card,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         content = content
     )
 }
@@ -69,6 +73,11 @@ internal fun AppButton(
         onClick,
         modifier.heightIn(min = AppSpacing.touch),
         enabled = enabled,
+        shape = FitnessShape.button,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = LocalFitnessColors.current.action,
+            contentColor = LocalFitnessColors.current.onAction
+        ),
         contentPadding = PaddingValues(
             horizontal = AppSpacing.card,
             vertical = AppSpacing.small
@@ -90,12 +99,18 @@ internal fun AppOutlinedButton(
         onClick,
         modifier.heightIn(min = AppSpacing.touch),
         enabled = enabled,
-        border = BorderStroke(
-            1.dp,
-            when {
+        shape = FitnessShape.button,
+        border = if (selected) BorderStroke(1.dp, LocalFitnessColors.current.action) else null,
+        colors = ButtonDefaults.outlinedButtonColors(
+            containerColor = when {
+                destructive -> MaterialTheme.colorScheme.surface
+                selected -> MaterialTheme.colorScheme.primaryContainer
+                else -> MaterialTheme.colorScheme.surfaceVariant
+            },
+            contentColor = when {
                 destructive -> MaterialTheme.colorScheme.error
-                selected -> MaterialTheme.colorScheme.primary
-                else -> MaterialTheme.colorScheme.outline
+                selected -> MaterialTheme.colorScheme.onPrimaryContainer
+                else -> MaterialTheme.colorScheme.onSurface
             }
         ),
         content = content
@@ -121,16 +136,25 @@ internal fun AppTextField(
         singleLine = singleLine,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions ?: KeyboardActions.Default,
-        visualTransformation = visualTransformation
+        visualTransformation = visualTransformation,
+        textStyle = MaterialTheme.typography.bodyLarge,
+        shape = FitnessShape.input,
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            focusedContainerColor = MaterialTheme.colorScheme.surface,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surface
+        )
     )
 }
 
 @Composable
 internal fun AppDataRow(title: String, detail: String, modifier: Modifier = Modifier) {
     AppCard(modifier.fillMaxWidth()) {
-        Column(Modifier.padding(AppSpacing.card)) {
+        Column(Modifier.padding(AppSpacing.card), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
-            if (detail.isNotBlank()) Text(detail, style = MaterialTheme.typography.bodyMedium)
+            if (detail.isNotBlank()) Text(detail, style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

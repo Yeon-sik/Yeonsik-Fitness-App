@@ -1,20 +1,28 @@
 package com.yeonsik.fitnessapp.feature.home.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessButton
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessHeader
 import com.yeonsik.fitnessapp.core.ui.FitnessOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
+import com.yeonsik.fitnessapp.core.ui.LocalFitnessColors
 import com.yeonsik.fitnessapp.state.FitnessScreen
 
 interface HomeScreenActions {
@@ -71,16 +79,28 @@ internal fun HomeDestination(
         FitnessSection("오늘 상태") {
             FitnessCard(Modifier.fillMaxWidth()) {
                 Column(
-                    Modifier.padding(FitnessSpacing.card),
-                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
+                    Modifier.padding(FitnessSpacing.card + FitnessSpacing.micro),
+                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
                 ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+                    ) {
+                        Box(
+                            Modifier.size(8.dp)
+                                .background(LocalFitnessColors.current.action, CircleShape)
+                        )
+                        Text(status, style = MaterialTheme.typography.headlineLarge)
+                    }
                     Text(
-                        status,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
+                        message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
-                    Text(message, style = MaterialTheme.typography.bodyMedium)
-                    FitnessButton(onClick = onCta, modifier = Modifier.fillMaxWidth()) {
+                    FitnessButton(
+                        onClick = onCta,
+                        modifier = Modifier.fillMaxWidth().padding(top = FitnessSpacing.small)
+                    ) {
                         Text(cta)
                     }
                 }
@@ -89,12 +109,12 @@ internal fun HomeDestination(
         FitnessSection("빠른 기록") {
             FitnessOutlinedButton(
                 onClick = actions::showBodyMetric,
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("체중") }
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            ) { Text("체중", style = MaterialTheme.typography.titleMedium) }
             FitnessOutlinedButton(
                 onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
-                modifier = Modifier.fillMaxWidth()
-            ) { Text("식사") }
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+            ) { Text("식사", style = MaterialTheme.typography.titleMedium) }
         }
     }
 }
@@ -102,7 +122,12 @@ internal fun HomeDestination(
 @Composable
 private fun LoadingHome() {
     Column(Modifier.fillMaxWidth().padding(vertical = FitnessSpacing.section)) {
-        Text("메인", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-        Text("오늘 상태를 불러오는 중입니다.", modifier = Modifier.padding(top = FitnessSpacing.small))
+        FitnessHeader("메인")
+        Text(
+            "오늘 상태를 불러오는 중입니다.",
+            modifier = Modifier.padding(top = FitnessSpacing.small),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }

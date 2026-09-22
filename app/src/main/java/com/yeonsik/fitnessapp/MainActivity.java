@@ -143,6 +143,8 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
 
         setContentView(buildRootView());
         configureWindow();
+        // Keep system icon contrast in step with the live Compose theme.
+        settingsViewModel.getUiState().observe(this, state -> configureWindow());
         handleDebugSessionProvisioning(getIntent());
         handleCardioIntent(getIntent());
     }
