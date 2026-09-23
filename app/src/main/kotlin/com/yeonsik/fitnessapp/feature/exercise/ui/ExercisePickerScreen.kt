@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.feature.exercise.ui
 
 import android.app.Activity
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,14 +13,21 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -173,19 +181,19 @@ private fun ExercisePickerFilters(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
         ExerciseMuscleMap(state, actions::selectMuscleGroup)
-        FilterButtonRow(
+        FilterPopupRow(
             title = "부위",
             options = BodyPart.values().map { it.id() to it.labelKo() },
             selectedId = state.bodyPart?.id(),
             onSelect = { id -> actions.setBodyPart(id?.let(BodyPart::fromId)) }
         )
-        FilterButtonRow(
+        FilterPopupRow(
             title = "주요 세부 부위",
             options = state.availablePrimarySubParts.map { it.id to it.label },
             selectedId = state.primarySubPart,
             onSelect = actions::setPrimarySubPart
         )
-        FilterButtonRow(
+        FilterPopupRow(
             title = "기구",
             options = UiEquipmentCategory.values().map { it.id() to it.labelKo() },
             selectedId = state.equipmentCategory?.id(),
@@ -214,31 +222,81 @@ private fun ExercisePickerFilters(
 }
 
 @Composable
-private fun FilterButtonRow(
+private fun FilterPopupRow(
     title: String,
     options: List<Pair<String, String>>,
     selectedId: String?,
     onSelect: (String?) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
-        Text(title, style = MaterialTheme.typography.labelLarge)
-        LazyRow(
+    var isOpen by rememberSaveable { mutableStateOf(false) }
+    val selectedLabel = options.firstOrNull { it.first == selectedId }?.second
+        ?: if (selectedId == null) "전체" else "알 수 없음"
+
+    FitnessCard(Modifier.fillMaxWidth(), onClick = { isOpen = true }) {
+        Row(
+            Modifier.fillMaxWidth().padding(FitnessSpacing.card),
             horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
-            contentPadding = PaddingValues(end = FitnessSpacing.small)
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            item {
-                FitnessOutlinedButton(
-                    onClick = { onSelect(null) },
-                    selected = selectedId == null
-                ) { Text("전체") }
-            }
-            items(options, key = { it.first }) { (id, label) ->
-                FitnessOutlinedButton(
-                    onClick = { onSelect(id) },
-                    selected = selectedId == id
-                ) { Text(label) }
-            }
+            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+            Text(
+                selectedLabel,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary
+            )
         }
+    }
+
+    if (isOpen) {
+        AlertDialog(
+            onDismissRequest = { isOpen = false },
+            title = { Text(title) },
+            text = {
+                val maxListHeight = LocalConfiguration.current.screenHeightDp.dp * 0.5f
+                LazyColumn(Modifier.fillMaxWidth().heightIn(max = maxListHeight)) {
+                    item {
+                        FilterPopupOption(
+                            label = "전체",
+                            selected = selectedId == null,
+                            onClick = {
+                                isOpen = false
+                                onSelect(null)
+                            }
+                        )
+                    }
+                    items(options, key = { it.first }) { (id, label) ->
+                        FilterPopupOption(
+                            label = label,
+                            selected = selectedId == id,
+                            onClick = {
+                                isOpen = false
+                                onSelect(id)
+                            }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { isOpen = false }) { Text("닫기") }
+            }
+        )
+    }
+}
+
+@Composable
+private fun FilterPopupOption(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Row(
+        Modifier.fillMaxWidth().clickable(onClick = onClick)
+            .padding(horizontal = FitnessSpacing.micro, vertical = FitnessSpacing.small),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
+    ) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+        RadioButton(selected = selected, onClick = null)
     }
 }
 
