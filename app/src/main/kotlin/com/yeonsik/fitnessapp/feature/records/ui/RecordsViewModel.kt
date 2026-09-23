@@ -64,6 +64,26 @@ class RecordsViewModel @JvmOverloads constructor(
     private val mutableState = MutableLiveData<RecordsUiState>(RecordsUiState.Idle)
     val uiState: LiveData<RecordsUiState> = mutableState
     private val requestGate = RecordsRequestGate()
+    private var stale = false
+
+    fun enterIfNeeded(scope: AccountScope, today: String, selectedDate: String) {
+        val safeToday = today.trim()
+        val safeSelectedDate = selectedDate.trim()
+        val month = resolveMonth(scope, safeSelectedDate, safeToday)
+        val current = mutableState.value
+        val sameReady = current is RecordsUiState.Ready &&
+            current.snapshot.ownerId == scope.ownerId &&
+            current.snapshot.displayedMonth == month.toString() &&
+            current.snapshot.selectedDate == safeSelectedDate &&
+            current.snapshot.today == safeToday
+        val sameLoading = current is RecordsUiState.Loading &&
+            current.ownerId == scope.ownerId && current.displayedMonth == month.toString() &&
+            current.selectedDate == safeSelectedDate && current.today == safeToday
+        if (!stale && (sameReady || sameLoading)) return
+        load(scope, month, safeSelectedDate, safeToday)
+    }
+
+    fun markStale() { stale = true }
 
     fun enter(scope: AccountScope, today: String, selectedDate: String) {
         val safeToday = today.trim()
@@ -132,6 +152,7 @@ class RecordsViewModel @JvmOverloads constructor(
             today = today
         )
         val request = requestGate.begin(identity)
+        stale = false
         savedStateHandle[KEY_OWNER] = identity.ownerId
         savedStateHandle[KEY_MONTH] = identity.displayedMonth
         savedStateHandle[KEY_SELECTED_DATE] = identity.selectedDate

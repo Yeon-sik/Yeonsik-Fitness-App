@@ -53,11 +53,25 @@ class HomeViewModel @JvmOverloads constructor(
     private val mutableState = MutableLiveData<HomeUiState>(HomeUiState.Idle)
     val uiState: LiveData<HomeUiState> = mutableState
     private val requestGate = HomeRequestGate()
+    private var loadingIdentity: HomeRequestIdentity? = null
+    private var stale = false
+
+    fun enterIfNeeded(scope: AccountScope, today: String) {
+        val identity = HomeRequestIdentity(scope.ownerId, today.trim())
+        val current = mutableState.value
+        if (!stale && (current is HomeUiState.Ready && current.requestIdentity == identity ||
+                    current is HomeUiState.Loading && loadingIdentity == identity)) return
+        enter(scope, today)
+    }
+
+    fun markStale() { stale = true }
 
     fun enter(scope: AccountScope, today: String) {
         val requestedDate = today.trim()
         val identity = HomeRequestIdentity(scope.ownerId, requestedDate)
         val request = requestGate.begin(identity)
+        loadingIdentity = identity
+        stale = false
         mutableState.value = HomeUiState.Loading
         executor.execute {
             try {

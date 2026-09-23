@@ -59,6 +59,26 @@ class StatisticsViewModel @JvmOverloads constructor(
     private val mutableState = MutableLiveData<StatisticsUiState>(StatisticsUiState.Idle)
     val uiState: LiveData<StatisticsUiState> = mutableState
     private val requestGate = StatisticsRequestGate()
+    private var stale = false
+
+    fun enterIfNeeded(scope: AccountScope, referenceDate: String) {
+        val identity = StatisticsRequestIdentity(
+            scope.ownerId, referenceDate.trim(), savedPeriod(scope)
+        )
+        val current = mutableState.value
+        val sameReady = current is StatisticsUiState.Ready &&
+            current.snapshot.ownerId == identity.ownerId &&
+            current.snapshot.referenceDate == identity.referenceDate &&
+            current.snapshot.window.period == identity.period
+        val sameLoading = current is StatisticsUiState.Loading &&
+            current.ownerId == identity.ownerId &&
+            current.referenceDate == identity.referenceDate &&
+            current.period == identity.period
+        if (!stale && (sameReady || sameLoading)) return
+        load(scope, identity.referenceDate, identity.period)
+    }
+
+    fun markStale() { stale = true }
 
     fun enter(scope: AccountScope, referenceDate: String) {
         load(scope, referenceDate, savedPeriod(scope))
@@ -96,6 +116,7 @@ class StatisticsViewModel @JvmOverloads constructor(
             period = period
         )
         val request = requestGate.begin(identity)
+        stale = false
         savedStateHandle[KEY_OWNER] = identity.ownerId
         savedStateHandle[KEY_REFERENCE_DATE] = identity.referenceDate
         savedStateHandle[KEY_PERIOD] = identity.period.name
