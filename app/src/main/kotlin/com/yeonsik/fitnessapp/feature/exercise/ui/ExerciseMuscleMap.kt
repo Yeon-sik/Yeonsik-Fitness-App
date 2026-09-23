@@ -8,14 +8,17 @@ import android.graphics.Path
 import android.graphics.Region
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -31,6 +34,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
@@ -63,24 +67,23 @@ internal fun ExerciseMuscleMap(
         ) {
             Text("그림에서 근육 선택", style = MaterialTheme.typography.titleMedium)
             Text(
-                "앞면·뒷면의 근육을 누르면 주요 세부 부위 필터가 설정됩니다.",
+                "근육을 눌러 부위를 선택하세요. 좌우로 밀어 앞면·뒷면 전체를 볼 수 있습니다.",
                 style = MaterialTheme.typography.bodySmall
             )
-            when {
-                assets != null -> Row(
-                    Modifier.fillMaxWidth(),
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val sideWidth = ((maxWidth - FitnessSpacing.small) / 2) * 1.3f
+                Row(
+                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
                 ) {
-                    MuscleMapSide("앞면", "front", assets, state.primarySubPart, available, onSelect)
-                    MuscleMapSide("뒷면", "back", assets, state.primarySubPart, available, onSelect)
-                }
-                else -> Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
-                ) {
-                    val message = if (loaded == null) "불러오는 중" else "표시할 수 없음"
-                    MuscleMapPlaceholder("앞면", message)
-                    MuscleMapPlaceholder("뒷면", message)
+                    if (assets != null) {
+                        MuscleMapSide("앞면", "front", sideWidth, assets, state.primarySubPart, available, onSelect)
+                        MuscleMapSide("뒷면", "back", sideWidth, assets, state.primarySubPart, available, onSelect)
+                    } else {
+                        val message = if (loaded == null) "불러오는 중" else "표시할 수 없음"
+                        MuscleMapPlaceholder("앞면", sideWidth, message)
+                        MuscleMapPlaceholder("뒷면", sideWidth, message)
+                    }
                 }
             }
             Text(
@@ -92,9 +95,9 @@ internal fun ExerciseMuscleMap(
 }
 
 @Composable
-private fun RowScope.MuscleMapPlaceholder(label: String, message: String) {
+private fun MuscleMapPlaceholder(label: String, width: Dp, message: String) {
     Column(
-        Modifier.weight(1f),
+        Modifier.width(width),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge)
@@ -108,9 +111,10 @@ private fun RowScope.MuscleMapPlaceholder(label: String, message: String) {
 }
 
 @Composable
-private fun RowScope.MuscleMapSide(
+private fun MuscleMapSide(
     label: String,
     view: String,
+    width: Dp,
     assets: MuscleMapAssets,
     selectedGroup: String?,
     available: Set<String>,
@@ -118,7 +122,7 @@ private fun RowScope.MuscleMapSide(
 ) {
     val highlight = LocalFitnessColors.current.action.toArgb()
     Column(
-        Modifier.weight(1f),
+        Modifier.width(width),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge)
