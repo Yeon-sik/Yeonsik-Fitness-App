@@ -8,8 +8,6 @@ import android.graphics.Path
 import android.graphics.Region
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -20,11 +18,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.ImageBitmap
@@ -33,6 +35,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -54,6 +57,7 @@ internal fun ExerciseMuscleMap(
     val loaded by produceState<Result<MuscleMapAssets>?>(initialValue = null, context) {
         value = withContext(Dispatchers.IO) { runCatching { MuscleMapAssets.load(context) } }
     }
+    var selectedView by rememberSaveable { mutableStateOf("front") }
     val assets = loaded?.getOrNull()
     val available = state.availablePrimarySubParts.map { it.id }.toSet()
     val selectedLabel = state.availablePrimarySubParts.firstOrNull {
@@ -67,22 +71,32 @@ internal fun ExerciseMuscleMap(
         ) {
             Text("그림에서 근육 선택", style = MaterialTheme.typography.titleMedium)
             Text(
-                "근육을 눌러 부위를 선택하세요. 좌우로 밀어 앞면·뒷면 전체를 볼 수 있습니다.",
+                "앞면 또는 뒷면을 선택한 뒤 근육을 누르세요.",
                 style = MaterialTheme.typography.bodySmall
             )
+            Row(horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+                FilterChip(
+                    selected = selectedView == "front",
+                    onClick = { selectedView = "front" },
+                    label = { Text("앞면") }
+                )
+                FilterChip(
+                    selected = selectedView == "back",
+                    onClick = { selectedView = "back" },
+                    label = { Text("뒷면") }
+                )
+            }
             BoxWithConstraints(Modifier.fillMaxWidth()) {
-                val sideWidth = ((maxWidth - FitnessSpacing.small) / 2) * 1.3f
-                Row(
-                    Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
-                ) {
+                val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+                val imageRatio = (assets?.width?.toFloat() ?: 2f) / (assets?.height ?: 3)
+                val imageWidth = minOf(maxWidth, screenHeight * 0.4f * imageRatio)
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                     if (assets != null) {
-                        MuscleMapSide("앞면", "front", sideWidth, assets, state.primarySubPart, available, onSelect)
-                        MuscleMapSide("뒷면", "back", sideWidth, assets, state.primarySubPart, available, onSelect)
+                        val label = if (selectedView == "front") "앞면" else "뒷면"
+                        MuscleMapSide(label, selectedView, imageWidth, assets, state.primarySubPart, available, onSelect)
                     } else {
                         val message = if (loaded == null) "불러오는 중" else "표시할 수 없음"
-                        MuscleMapPlaceholder("앞면", sideWidth, message)
-                        MuscleMapPlaceholder("뒷면", sideWidth, message)
+                        MuscleMapPlaceholder(imageWidth, message)
                     }
                 }
             }
@@ -95,18 +109,12 @@ internal fun ExerciseMuscleMap(
 }
 
 @Composable
-private fun MuscleMapPlaceholder(label: String, width: Dp, message: String) {
-    Column(
-        Modifier.width(width),
-        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+private fun MuscleMapPlaceholder(width: Dp, message: String) {
+    Box(
+        Modifier.width(width).aspectRatio(2f / 3f),
+        contentAlignment = Alignment.Center
     ) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
-        Box(
-            Modifier.fillMaxWidth().aspectRatio(2f / 3f),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(message, style = MaterialTheme.typography.bodySmall)
-        }
+        Text(message, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -121,51 +129,44 @@ private fun MuscleMapSide(
     onSelect: (String) -> Unit
 ) {
     val highlight = LocalFitnessColors.current.action.toArgb()
-    Column(
-        Modifier.width(width),
-        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
-    ) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .aspectRatio(assets.width.toFloat() / assets.height)
-                .pointerInput(assets, view, available) {
-                    detectTapGestures { position ->
-                        val x = position.x * assets.width / size.width
-                        val y = position.y * assets.height / size.height
-                        assets.groupAt(view, x.roundToInt(), y.roundToInt(), available)
-                            ?.let(onSelect)
-                    }
+    Box(
+        Modifier
+            .width(width)
+            .aspectRatio(assets.width.toFloat() / assets.height)
+            .pointerInput(assets, view, available) {
+                detectTapGestures { position ->
+                    val x = position.x * assets.width / size.width
+                    val y = position.y * assets.height / size.height
+                    assets.groupAt(view, x.roundToInt(), y.roundToInt(), available)
+                        ?.let(onSelect)
                 }
-        ) {
-            Image(
-                bitmap = assets.image(view),
-                contentDescription = "$label 근육 지도",
-                modifier = Modifier.matchParentSize()
-            )
-            if (selectedGroup != null) {
-                Canvas(Modifier.matchParentSize()) {
-                    drawIntoCanvas { canvas ->
-                        val native = canvas.nativeCanvas
-                        val saved = native.save()
-                        native.scale(size.width / assets.width, size.height / assets.height)
-                        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-                            color = highlight
-                            alpha = 130
-                            style = Paint.Style.FILL
-                        }
-                        assets.pathsForGroup(view, selectedGroup).forEach { path ->
-                            native.drawPath(path, paint)
-                        }
-                        native.restoreToCount(saved)
+            }
+    ) {
+        Image(
+            bitmap = assets.image(view),
+            contentDescription = "$label 근육 지도",
+            modifier = Modifier.matchParentSize()
+        )
+        if (selectedGroup != null) {
+            Canvas(Modifier.matchParentSize()) {
+                drawIntoCanvas { canvas ->
+                    val native = canvas.nativeCanvas
+                    val saved = native.save()
+                    native.scale(size.width / assets.width, size.height / assets.height)
+                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                        color = highlight
+                        alpha = 130
+                        style = Paint.Style.FILL
                     }
+                    assets.pathsForGroup(view, selectedGroup).forEach { path ->
+                        native.drawPath(path, paint)
+                    }
+                    native.restoreToCount(saved)
                 }
             }
         }
     }
 }
-
 internal fun groupForMuscleLayer(
     layerId: String,
     groups: Map<String, List<String>>,
