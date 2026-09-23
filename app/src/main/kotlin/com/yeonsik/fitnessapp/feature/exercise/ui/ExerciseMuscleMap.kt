@@ -18,15 +18,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.ImageBitmap
@@ -57,7 +53,6 @@ internal fun ExerciseMuscleMap(
     val loaded by produceState<Result<MuscleMapAssets>?>(initialValue = null, context) {
         value = withContext(Dispatchers.IO) { runCatching { MuscleMapAssets.load(context) } }
     }
-    var selectedView by rememberSaveable { mutableStateOf("front") }
     val assets = loaded?.getOrNull()
     val available = state.availablePrimarySubParts.map { it.id }.toSet()
     val selectedLabel = state.availablePrimarySubParts.firstOrNull {
@@ -65,43 +60,53 @@ internal fun ExerciseMuscleMap(
     }?.label
 
     FitnessCard(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.padding(FitnessSpacing.card),
-            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
-        ) {
-            Text("그림에서 근육 선택", style = MaterialTheme.typography.titleMedium)
-            Text(
-                "앞면 또는 뒷면을 선택한 뒤 근육을 누르세요.",
-                style = MaterialTheme.typography.bodySmall
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
-                FilterChip(
-                    selected = selectedView == "front",
-                    onClick = { selectedView = "front" },
-                    label = { Text("앞면") }
-                )
-                FilterChip(
-                    selected = selectedView == "back",
-                    onClick = { selectedView = "back" },
-                    label = { Text("뒷면") }
+        Column(Modifier.fillMaxWidth()) {
+            Column(
+                Modifier.padding(FitnessSpacing.card),
+                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
+            ) {
+                Text("그림에서 근육 선택", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "앞면·뒷면에서 근육을 누르면 주요 세부 부위가 설정됩니다.",
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
-            BoxWithConstraints(Modifier.fillMaxWidth()) {
+            BoxWithConstraints(
+                Modifier.fillMaxWidth().padding(horizontal = FitnessSpacing.micro)
+            ) {
                 val screenHeight = LocalConfiguration.current.screenHeightDp.dp
                 val imageRatio = (assets?.width?.toFloat() ?: 2f) / (assets?.height ?: 3)
-                val imageWidth = minOf(maxWidth, screenHeight * 0.4f * imageRatio)
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                    if (assets != null) {
-                        val label = if (selectedView == "front") "앞면" else "뒷면"
-                        MuscleMapSide(label, selectedView, imageWidth, assets, state.primarySubPart, available, onSelect)
-                    } else {
-                        val message = if (loaded == null) "불러오는 중" else "표시할 수 없음"
-                        MuscleMapPlaceholder(imageWidth, message)
+                val sideWidth = minOf(
+                    (maxWidth - FitnessSpacing.micro) / 2,
+                    screenHeight * 0.4f * imageRatio
+                )
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    for ((view, label) in listOf("front" to "앞면", "back" to "뒷면")) {
+                        Column(
+                            Modifier.width(sideWidth),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+                        ) {
+                            Text(label, style = MaterialTheme.typography.labelLarge)
+                            if (assets != null) {
+                                MuscleMapSide(
+                                    label, view, sideWidth, assets,
+                                    state.primarySubPart, available, onSelect
+                                )
+                            } else {
+                                val message = if (loaded == null) "불러오는 중" else "표시할 수 없음"
+                                MuscleMapPlaceholder(sideWidth, message)
+                            }
+                        }
                     }
                 }
             }
             Text(
                 "선택된 부위: ${selectedLabel ?: "없음"}",
+                Modifier.padding(FitnessSpacing.card),
                 style = MaterialTheme.typography.labelLarge
             )
         }
