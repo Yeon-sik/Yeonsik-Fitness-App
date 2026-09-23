@@ -523,6 +523,36 @@ function recordLegacy(result) {
   if (result.estimation_evidence_id) created.estimationEvidenceIds.add(result.estimation_evidence_id);
 }
 
+async function verifyPersistedEvidenceType(owner, result, expected, label) {
+  const imports = await getRows(
+    owner,
+    'nutrition_verified_imports',
+    { id: result.projection_import_id ?? result.import_id },
+    'source_document_ref,evidence_type,provenance,request_payload'
+  );
+  assertEqual(imports.length, 1, label + ' verified import row');
+  assertEqual(imports[0].evidence_type, expected, label + ' persisted evidence type');
+  if (expected === 'external_reference') {
+    const serializedAudit = JSON.stringify(imports[0]);
+    assert(!serializedAudit.includes('product_label'), label + ' audit must not persist product-label semantics');
+    assert(!serializedAudit.includes('product_label_ocr'), label + ' audit must not persist OCR label semantics');
+    assertEqual(imports[0].provenance.source_type, 'external_reference', label + ' provenance source type');
+    assertEqual(
+      imports[0].provenance.source_reference,
+      imports[0].source_document_ref,
+      label + ' persisted public source reference'
+    );
+    assertEqual(imports[0].provenance.source_version, 'external-nutrition-lookup.v1', label + ' source version');
+    assertEqual(imports[0].provenance.parser_version, 'external-nutrition-lookup.v1', label + ' parser version');
+    assertEqual(imports[0].request_payload.evidence_type, 'external_reference', label + ' request evidence type');
+    assertEqual(
+      imports[0].request_payload.provenance.source_type,
+      'external_reference',
+      label + ' request provenance source type'
+    );
+  }
+}
+
 async function verifyCanonicalResult(owner, result, contract, sourceType) {
   assert(result.canonical_import_id, 'canonical result is missing canonical_import_id');
   assertEqual(result.idempotent_replay, false, 'first canonical import must not be a replay');
@@ -561,6 +591,7 @@ async function verifyCanonicalResult(owner, result, contract, sourceType) {
 
 async function verifyExternalReference(owner, result, payload) {
   await verifyCanonicalResult(owner, result, 'external-reference.v1', 'external_reference');
+  await verifyPersistedEvidenceType(owner, result, 'external_reference', 'external-reference');
 
   const imports = await getRows(
     owner,
@@ -971,6 +1002,7 @@ async function run() {
   assertEqual(externalReplay.canonical_import_id, externalResult.canonical_import_id, 'external replay id');
   assertEqual(externalReplay.nutrition_food_id, externalResult.nutrition_food_id, 'external replay food id');
   assertEqual(externalReplay.idempotent_replay, true, 'external replay flag');
+  await verifyPersistedEvidenceType(ownerA, externalReplay, 'external_reference', 'external-reference replay');
   assertEqual(
     (await getRows(ownerA, 'nutrition_food_nutrient_provenance', {
       canonical_import_id: externalResult.canonical_import_id
@@ -1090,10 +1122,12 @@ async function run() {
   const label = labelPayload(uniqueId('label'), 'Integration Label Food');
   const labelResult = await callCanonical(ownerA, label);
   await verifyCanonicalResult(ownerA, labelResult, 'nutrition-label.v1', 'product_label_ocr');
+  await verifyPersistedEvidenceType(ownerA, labelResult, 'product_label', 'nutrition-label.v1');
 
   const estimate = estimatePayload(uniqueId('estimate'), 'Integration Estimated Menu');
   const estimateResult = await callCanonical(ownerA, estimate);
   await verifyCanonicalResult(ownerA, estimateResult, 'food-estimate.v1', 'food_image_estimate');
+  await verifyPersistedEvidenceType(ownerA, estimateResult, 'restaurant_estimate', 'food-estimate.v1');
   await verifyOwnerIsolation(ownerA, ownerB, labelResult);
 
   const replay = await callCanonical(ownerA, label);
@@ -1130,6 +1164,10 @@ async function run() {
   const sharedKey = uniqueId('shared-v1-v2-key');
   const legacyResult = await callLegacy(ownerA, legacyLabelPayload(sharedKey, 'Integration Legacy Food'));
   recordLegacy(legacyResult);
+  const legacyRows = await getRows(
+    ownerA, 'nutrition_verified_imports', { id: legacyResult.import_id }, 'evidence_type'
+  );
+  assertEqual(legacyRows[0]?.evidence_type, 'product_label', 'legacy caller evidence semantics');
   const v2SharedResult = await callCanonical(ownerA, labelPayload(sharedKey, 'Integration V2 Same Key'));
   recordImport(v2SharedResult);
   assert(legacyResult.import_id !== v2SharedResult.projection_import_id, 'v1/v2 projection ids must be namespaced');

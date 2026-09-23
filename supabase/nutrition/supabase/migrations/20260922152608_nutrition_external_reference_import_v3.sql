@@ -2,6 +2,12 @@
 -- Existing migrations remain unchanged. These constraints and the replacement
 -- function extend the already-applied canonical v2/v3 contract in place.
 
+alter table public.nutrition_verified_imports
+    drop constraint if exists nutrition_verified_imports_evidence_type_check;
+alter table public.nutrition_verified_imports
+    add constraint nutrition_verified_imports_evidence_type_check
+        check (evidence_type in ('product_label', 'restaurant_estimate', 'external_reference'));
+
 alter table public.nutrition_canonical_imports
     drop constraint if exists nutrition_canonical_imports_input_contract_check;
 alter table public.nutrition_canonical_imports
@@ -414,10 +420,16 @@ begin
       and deleted_at is null;
 
     if v_contract = 'external-reference.v1' then
-        -- The compatibility executor writes a product-label projection first;
-        -- restore the producer's external provenance on its audit row as well.
+        -- The compatibility executor accepts only the existing product-label or
+        -- restaurant-estimate contracts. Restore external semantics on the durable
+        -- projection audit row after its internal projection has completed.
         update public.nutrition_verified_imports
-        set provenance = v_provenance,
+        set evidence_type = 'external_reference',
+            provenance = v_provenance,
+            request_payload = request_payload || jsonb_build_object(
+                'evidence_type', 'external_reference',
+                'provenance', v_provenance
+            ),
             updated_at = now()
         where id = v_projection.import_id
           and owner_id = v_user_id;
