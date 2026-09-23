@@ -204,6 +204,19 @@ class ExercisePickerViewModel @JvmOverloads constructor(
         publishCurrentIfLoaded()
     }
 
+    /** Selects one verified catalog group and its owning top-level part in one state update. */
+    fun selectMuscleGroup(groupId: String) {
+        synchronized(lock) {
+            val option = availableSubParts.firstOrNull { it.id == groupId } ?: return
+            bodyPart = option.bodyPart
+            primarySubPart = option.id
+            savedStateHandle[KEY_BODY_PART] = bodyPart?.id()
+            savedStateHandle[KEY_PRIMARY_SUB_PART] = option.id
+            clearSelectionLocked()
+        }
+        publishCurrentIfLoaded()
+    }
+
     fun setPrimarySubPart(primarySubPart: String?) {
         val normalized = primarySubPart?.trim()?.takeIf { it.isNotEmpty() }
         synchronized(lock) {
@@ -548,7 +561,8 @@ class ExercisePickerViewModel @JvmOverloads constructor(
                     ?: return@mapNotNull null
                 ExercisePickerSubPartOption(
                     id = id,
-                    label = preset.primarySubPartNameKo?.trim()?.takeIf { it.isNotEmpty() } ?: id
+                    label = preset.primarySubPartNameKo?.trim()?.takeIf { it.isNotEmpty() } ?: id,
+                    bodyPart = BodyPart.fromId(preset.defaultUiPart)
                 )
             }
             .distinctBy { it.id }
