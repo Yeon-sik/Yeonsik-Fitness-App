@@ -1,24 +1,25 @@
 # FitnessApp
 
-Local-first Android fitness logger for detailed workouts, cardio, meals, supplements, and progress review. The app owns detailed records locally and shares only completed workout summaries with Personal OS through Fitness Record Contract v1.
+Local-first Android fitness logger for workouts, cardio, meals, supplements, and progress review. Detailed workout sessions and meal data are owned by FitnessApp. Personal OS reads a separate completed-workout summary projection; the older Fitness Record Contract v1 sync path remains for compatibility.
 
-KMP M8 verification evidence is based on `feat/kmp-m8-hardening-release-gate` from `main@c922c24727521b375cec1c9a4cf25dd7173810ed` (2026-09-21).
+Current source description is based on public `main@fdbbc11` (2026-09-23). The M8 verification results below are historical evidence from `feat/kmp-m8-hardening-release-gate` at `main@c922c24727521b375cec1c9a4cf25dd7173810ed` (2026-09-21); they do not cover every later change.
 
 ## What the app owns
 
-- Five app areas: `메인`, `피트니스`, `기록`, `발전`, and `설정`.
+- Five app areas: `메인`, `피트니스`, `기록`, `발전`, and `설정`. Current navigation uses a Compose root alongside retained Java and Android View code.
 - Strength routines and free sessions, six record types, six load states, sets, RIR, rest, volume, and completion summaries.
 - Walking, running, and cycling sessions with local distance, time, and route data.
 - Monthly records, body profile, goals, evidence-based development review, and non-prescriptive paper advice states.
 - Ingredient, recipe, external-menu, packaged-product, dining-out, and supplement records in SQLite.
-- Exact exercise family/preset/visual-variant identity and verified image fallback; PriceTrace product IDs are never replaced by name guesses.
+- Exact exercise family/preset/visual-variant identity and verified image fallback; the exercise picker includes front and back muscle maps. PriceTrace product IDs are never replaced by name guesses.
+- External-reference nutrition import has an exact URL and seven-nutrient provenance contract; it stays separate from label OCR and food estimates.
 - Explicit local JSON backup/restore and CSV summary export. Android automatic backup is disabled.
 
 Detailed scope and boundaries are in [docs/Project_Intro.md](docs/Project_Intro.md) and [docs/Project_Detail.md](docs/Project_Detail.md).
 
 ## Current verification
 
-M8 local verification executed on Windows on 2026-09-21:
+M8 local verification executed on Windows on 2026-09-21. These commands were not rerun here for the current `main@fdbbc11`:
 
 ```powershell
 .\gradlew.bat --no-daemon :shared:testAndroid :app:testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
@@ -54,7 +55,7 @@ Missing session values do not prevent the APK from being built; use the in-app S
 
 FitnessApp keeps these boundaries separate:
 
-1. **Shared Supabase** — shared Personal OS project for the current sync allowlist: `devices`, workout records, `meal_records`, and `weight_records`. `sync_fitness_data_v1` is attempted first, with a bounded legacy REST fallback. Detailed meal nutrition, GPS route points, and other local-only extensions remain local until their remote contract exists.
+1. **Shared Supabase** — shared Personal OS project. The legacy sync allowlist covers `devices`, workout records, `meal_records`, and `weight_records`; `sync_fitness_data_v1` is attempted first, with a bounded REST fallback. A separate v2 RPC publishes only completed-workout summary fields for Personal OS. Detailed sets, meal nutrition, GPS route points, and other local-only extensions are not part of that v2 summary. Remote RPC/RLS and cross-device behavior require project-level verification.
 2. **Nutrition Supabase** — independent Nutrition project for public/private nutrition catalog data, recipes, and related ownership. It must not receive migrations intended for the shared project.
 3. **PriceTrace** — external read/configuration boundary for exact product identity and nutrition linking. PriceTrace migrations are not owned by this repository.
 
@@ -112,5 +113,7 @@ Access and refresh tokens use AES/GCM with Android Keystore and separate aliases
 - [Project Intro](docs/Project_Intro.md)
 - [Project Detail](docs/Project_Detail.md)
 - [Supabase migration boundaries](supabase/README.md)
-- [Fitness Record Contract v1](https://github.com/Yeon-sik/Always_Memo/blob/main/docs/FITNESS_RECORD_CONTRACT_V1.md)
-- [Release readiness gates](https://github.com/Yeon-sik/Always_Memo/blob/main/docs/RELEASE_READINESS.md)
+- [Fitness Record Contract v1](https://github.com/Yeon-sik/Personal-OS/blob/main/docs/FITNESS_RECORD_CONTRACT_V1.md)
+- [Fitness Summary Projection v2](docs/FITNESS_SUMMARY_PROJECTION_V2.md)
+- [External reference nutrition contract](contracts/fitness-external-reference.v1.md)
+- [Release readiness gates](https://github.com/Yeon-sik/Personal-OS/blob/main/docs/RELEASE_READINESS.md)
