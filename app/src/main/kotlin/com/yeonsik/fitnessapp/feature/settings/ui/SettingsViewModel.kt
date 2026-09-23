@@ -106,6 +106,10 @@ class SettingsViewModel @JvmOverloads constructor(
         mutableState.value = snapshot()
     }
 
+    fun enterIfNeeded() {
+        if (mutableState.value == null) enter()
+    }
+
     fun refresh() {
         mutableState.postValue(snapshot())
     }

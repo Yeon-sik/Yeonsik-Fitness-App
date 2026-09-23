@@ -259,15 +259,16 @@ private fun AppRoot(
         when (destinationScreen) {
             FitnessScreen.HOME,
             FitnessScreen.STRENGTH -> {
-                viewModels.getRoutineEntry().enter(AccountScope(ownerId))
-                viewModels.getHome().enter(AccountScope(ownerId), navigationState.today)
+                viewModels.getRoutineEntry().enterIfNeeded(AccountScope(ownerId))
+                viewModels.getHome().enterIfNeeded(AccountScope(ownerId), navigationState.today)
             }
             FitnessScreen.WORKOUT,
-            FitnessScreen.ROUTINE_DETAIL,
+            FitnessScreen.ROUTINE_DETAIL ->
+                viewModels.getHome().enterIfNeeded(AccountScope(ownerId), routeDate)
             FitnessScreen.MEALS ->
                 viewModels.getHome().enter(AccountScope(ownerId), routeDate)
             FitnessScreen.RECORDS ->
-                viewModels.getRecords().enter(
+                viewModels.getRecords().enterIfNeeded(
                     AccountScope(ownerId),
                     navigationState.today,
                     navigationState.selectedRecordsDate
@@ -276,41 +277,45 @@ private fun AppRoot(
         }
     }
 
-    LaunchedEffect(
-        destinationScreen,
-        ownerId,
-        workoutAction,
-        workoutTerminalEvent,
-        bodyEditorState,
-        mealState
-    ) {
-        if (destinationScreen == FitnessScreen.RECORDS) {
-            viewModels.getRecords().refresh(
-                AccountScope(ownerId),
-                navigationState.today,
-                navigationState.selectedRecordsDate
-            )
+    LaunchedEffect(workoutAction, workoutTerminalEvent, bodyEditorState, mealState) {
+        val recordsChanged = workoutAction != null || workoutTerminalEvent != null ||
+            bodyEditorState is BodyMetricsEditorUiState.Saved ||
+            bodyEditorState is BodyMetricsEditorUiState.Deleted ||
+            (mealState as? MealUiState.Ready)?.notice != null
+        if (recordsChanged) {
+            viewModels.getRecords().markStale()
+            viewModels.getStatistics().markStale()
+            viewModels.getDevelopment().markStale()
+            if ((mealState as? MealUiState.Ready)?.notice != null) {
+                viewModels.getHome().markStale()
+            }
+            if (destinationScreen == FitnessScreen.RECORDS) {
+                viewModels.getRecords().enterIfNeeded(
+                    AccountScope(ownerId),
+                    navigationState.today,
+                    navigationState.selectedRecordsDate
+                )
+            }
         }
     }
 
-    LaunchedEffect(routineState, screen, ownerId, navigationState.today) {
-        when (val state = routineState) {
-            is RoutineEntryUiState.Ready -> {
-                if (state.ownerId == ownerId
-                    && (screen == FitnessScreen.HOME || screen == FitnessScreen.STRENGTH)
-                    && state.notice != null
-                ) {
-                    viewModels.getHome().enter(AccountScope(ownerId), routeDate)
-                }
+    LaunchedEffect(routineState, ownerId) {
+        val state = routineState as? RoutineEntryUiState.Ready ?: return@LaunchedEffect
+        if (state.ownerId == ownerId && state.notice != null) {
+            viewModels.getHome().markStale()
+            viewModels.getDevelopment().markStale()
+            if (screen == FitnessScreen.HOME || screen == FitnessScreen.STRENGTH) {
+                viewModels.getHome().enter(AccountScope(ownerId), routeDate)
             }
-            is RoutineEntryUiState.Error -> {
-                if (state.ownerId == ownerId
-                    && (screen == FitnessScreen.HOME || screen == FitnessScreen.STRENGTH)
-                ) {
-                    host.toast(state.message)
-                }
-            }
-            else -> Unit
+        }
+    }
+
+    LaunchedEffect(routineState, screen, ownerId) {
+        val state = routineState as? RoutineEntryUiState.Error ?: return@LaunchedEffect
+        if (state.ownerId == ownerId &&
+            (screen == FitnessScreen.HOME || screen == FitnessScreen.STRENGTH)
+        ) {
+            host.toast(state.message)
         }
     }
 
@@ -369,6 +374,9 @@ private fun AppRoot(
         if (event.ownerId != host.currentOwnerId() || !event.consume()) {
             return@LaunchedEffect
         }
+        if (event.outcome != WorkoutSessionActionOutcome.NONE) {
+            viewModels.getHome().markStale()
+        }
         when (event.outcome) {
             WorkoutSessionActionOutcome.FAILURE,
             WorkoutSessionActionOutcome.NONE ->
@@ -422,6 +430,7 @@ private fun AppRoot(
         if (event.ownerId != host.currentOwnerId() || !event.consume()) {
             return@LaunchedEffect
         }
+        viewModels.getHome().markStale()
         when (event.outcome) {
             WorkoutSessionTerminalOutcome.MISSING -> {
                 event.recordId?.let { clearActiveWorkout(viewModels, it) }
@@ -448,6 +457,14 @@ private fun AppRoot(
             return@LaunchedEffect
         }
         val cardioViewModel = viewModels.getCardioSession()
+        if (event.outcome != CardioSessionActionOutcome.FAILURE &&
+            event.outcome != CardioSessionActionOutcome.NOT_FOUND
+        ) {
+            viewModels.getHome().markStale()
+            viewModels.getRecords().markStale()
+            viewModels.getStatistics().markStale()
+            viewModels.getDevelopment().markStale()
+        }
         val recordId = event.recordId
         val session = event.session
         if (event.outcome == CardioSessionActionOutcome.FAILURE
@@ -1407,13 +1424,13 @@ private fun AppDestination(
         when (screen) {
             FitnessScreen.DEVELOPMENT ->
                 viewModels.getDevelopment().also { development ->
-                    development.enter(AccountScope(ownerId), today)
-                    development.enterRecovery(AccountScope(ownerId), today)
+                    development.enterIfNeeded(AccountScope(ownerId), today)
+                    development.enterRecoveryIfNeeded(AccountScope(ownerId), today)
                 }
             FitnessScreen.MEALS ->
                 viewModels.getMeal().enter(AccountScope(ownerId), today)
-            FitnessScreen.STATISTICS -> viewModels.getStatistics().enter(AccountScope(ownerId), today)
-            FitnessScreen.SETTINGS -> viewModels.getSettings().enter()
+            FitnessScreen.STATISTICS -> viewModels.getStatistics().enterIfNeeded(AccountScope(ownerId), today)
+            FitnessScreen.SETTINGS -> viewModels.getSettings().enterIfNeeded()
             FitnessScreen.SUPPLEMENTS ->
                 viewModels.getSupplement().enter(AccountScope(ownerId), today)
             else -> Unit

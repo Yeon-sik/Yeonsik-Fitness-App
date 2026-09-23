@@ -121,10 +121,38 @@ class DevelopmentViewModel @JvmOverloads constructor(
         MutableLiveData<RecoveryEditorUiState>(RecoveryEditorUiState.Idle)
     val recoveryEditorState: LiveData<RecoveryEditorUiState> = mutableRecoveryEditorState
     private var reportRequestVersion = 0L
+    private var reportIdentity: Pair<String, String>? = null
+    private var stale = false
+
+    fun enterIfNeeded(scope: AccountScope, date: String) {
+        val identity = scope.ownerId to date
+        val report = mutableState.value
+        val advice = mutablePaperAdviceState.value
+        val reportAvailable = report is DevelopmentUiState.Ready &&
+            report.ownerId == scope.ownerId || report is DevelopmentUiState.Loading
+        val adviceAvailable = advice is PaperAdviceUiState.Ready &&
+            advice.ownerId == scope.ownerId ||
+            advice is PaperAdviceUiState.Loading && advice.ownerId == scope.ownerId
+        if (!stale && reportIdentity == identity && reportAvailable && adviceAvailable) return
+        enter(scope, date)
+    }
+
+    fun enterRecoveryIfNeeded(scope: AccountScope, date: String) {
+        val current = mutableRecoveryEditorState.value
+        if (current is RecoveryEditorUiState.Ready &&
+            current.ownerId == scope.ownerId && current.date == date ||
+            current is RecoveryEditorUiState.Loading &&
+            current.ownerId == scope.ownerId && current.date == date) return
+        enterRecovery(scope, date)
+    }
+
+    fun markStale() { stale = true }
     private var editorRequestVersion = 0L
     private var recoveryRequestVersion = 0L
 
     fun enter(scope: AccountScope, date: String) {
+        reportIdentity = scope.ownerId to date
+        stale = false
         savedStateHandle[KEY_DATE] = date
         val request = ++reportRequestVersion
         mutableState.value = DevelopmentUiState.Loading

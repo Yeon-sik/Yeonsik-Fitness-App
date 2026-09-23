@@ -32,9 +32,18 @@ class RoutineEntryViewModel @JvmOverloads constructor(
     private val mutableState = MutableLiveData<RoutineEntryUiState>(RoutineEntryUiState.Idle)
     val uiState: LiveData<RoutineEntryUiState> = mutableState
     @Volatile private var requestVersion = 0L
+    private var loadingOwnerId: String? = null
+
+    fun enterIfNeeded(scope: AccountScope) {
+        val current = mutableState.value
+        if (current is RoutineEntryUiState.Ready && current.ownerId == scope.ownerId ||
+            current is RoutineEntryUiState.Loading && loadingOwnerId == scope.ownerId) return
+        enter(scope)
+    }
 
     fun enter(scope: AccountScope) {
         val request = ++requestVersion
+        loadingOwnerId = scope.ownerId
         mutableState.value = RoutineEntryUiState.Loading
         executor.execute {
             try {
