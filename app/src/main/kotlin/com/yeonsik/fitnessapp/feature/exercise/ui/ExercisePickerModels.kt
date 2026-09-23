@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.feature.exercise.ui
 
+import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitnessapp.state.FitnessScreen
 
 /** The picker target is explicit even though the existing navigation route is shared. */
@@ -21,7 +22,8 @@ enum class ExercisePickerSelectionMode {
 
 data class ExercisePickerSubPartOption(
     val id: String,
-    val label: String
+    val label: String,
+    val bodyPart: BodyPart?
 )
 
 /** Immutable request identity used to reject stale account, target, and mode results. */

@@ -46,6 +46,7 @@ interface ExercisePickerScreenActions {
     fun search(query: String)
     fun setBodyPart(bodyPart: BodyPart?)
     fun setPrimarySubPart(primarySubPart: String?)
+    fun selectMuscleGroup(groupId: String)
     fun setEquipmentCategory(category: UiEquipmentCategory?)
     fun setSortOrder(order: RuntimeExercisePicker.SortOrder)
     fun resetFilters()
@@ -171,6 +172,7 @@ private fun ExercisePickerFilters(
     actions: ExercisePickerScreenActions
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+        ExerciseMuscleMap(state, actions::selectMuscleGroup)
         FilterButtonRow(
             title = "부위",
             options = BodyPart.values().map { it.id() to it.labelKo() },
