@@ -40,6 +40,10 @@ public final class ExerciseIllustrationPreview {
         return create(ExerciseIllustrationLookup.resolve(activity, exerciseId));
     }
 
+    public ImageView createExact(String exerciseId) {
+        return create(ExerciseIllustrationLookup.resolveExactForStorageExerciseId(activity, exerciseId));
+    }
+
     public ImageView create(ExerciseFamilyIdentity identity) {
         return create(ExerciseIllustrationLookup.resolve(activity, identity));
     }

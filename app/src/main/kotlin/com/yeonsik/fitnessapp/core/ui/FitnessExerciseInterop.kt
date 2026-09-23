@@ -30,15 +30,16 @@ fun FitnessExerciseIllustration(
     modifier: Modifier = Modifier,
     dark: Boolean = isSystemInDarkTheme(),
     contentDescription: String? = null,
-    fallback: (@Composable () -> Unit)? = null
+    fallback: (@Composable () -> Unit)? = null,
+    exactVariant: Boolean = false
 ) {
     val preview = rememberExerciseIllustrationPreview(activity, dark)
-    val imageView = remember(preview, exerciseId) {
-        preview.create(exerciseId)
+    val imageView = remember(preview, exerciseId, exactVariant) {
+        if (exactVariant) preview.createExact(exerciseId) else preview.create(exerciseId)
     }
     FitnessIllustrationView(
         imageView = imageView,
-        viewKey = listOf(preview, exerciseId),
+        viewKey = listOf(preview, exerciseId, exactVariant),
         modifier = modifier,
         contentDescription = contentDescription,
         fallback = fallback

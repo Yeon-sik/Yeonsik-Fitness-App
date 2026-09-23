@@ -428,18 +428,10 @@ private fun WorkoutExerciseImage(
             modifier = modifier,
             contentDescription = contentDescription,
             fallback = {
-                FitnessExerciseIllustration(
-                    activity = activity,
-                    identity = identity,
-                    modifier = modifier,
-                    contentDescription = contentDescription,
-                    fallback = {
-                        FitnessStatusBadge(
-                            status = FitnessSemanticStatus.UNKNOWN,
-                            label = "운동 이미지 없음",
-                            modifier = modifier
-                        )
-                    }
+                FitnessStatusBadge(
+                    status = FitnessSemanticStatus.UNKNOWN,
+                    label = "운동 이미지 없음",
+                    modifier = modifier
                 )
             }
         )
@@ -449,6 +441,7 @@ private fun WorkoutExerciseImage(
             exerciseId = exerciseId,
             modifier = modifier,
             contentDescription = contentDescription,
+            exactVariant = true,
             fallback = {
                 FitnessStatusBadge(
                     status = FitnessSemanticStatus.UNKNOWN,
@@ -757,6 +750,7 @@ internal fun WorkoutSummaryScreen(
                                     exerciseId = exercise.exerciseId,
                                     modifier = Modifier.size(72.dp),
                                     contentDescription = exercise.name,
+                                    exactVariant = true,
                                     fallback = { Text("이미지 없음") }
                                 )
                             }

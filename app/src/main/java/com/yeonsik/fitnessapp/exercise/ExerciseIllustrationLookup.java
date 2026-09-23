@@ -93,6 +93,18 @@ public final class ExerciseIllustrationLookup {
                 : exact;
     }
 
+    /** Resolves a stored exercise without substituting a family's representative image. */
+    public static IllustrationResolution resolveExactForStorageExerciseId(
+            Context context,
+            String storageExerciseId
+    ) {
+        ExerciseFamilyIdentity identity = familyCatalog(context)
+                .identityForStorageExerciseId(storageExerciseId);
+        return identity == null
+                ? legacyResolution(storageExerciseId, "legacy_exercise_id_compatibility")
+                : resolveExact(context, identity);
+    }
+
     /** Returns only the representative image registered for the family. */
     public static IllustrationResolution resolveFamilyDefault(Context context, String familyId) {
         IllustrationResolution familyDefault = refResolution(
