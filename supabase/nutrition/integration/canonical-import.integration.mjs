@@ -1,10 +1,15 @@
 import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 
 const integrationDirectory = path.dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = path.resolve(integrationDirectory, '../../..');
+const EXTERNAL_REFERENCE_FIXTURE = JSON.parse(readFileSync(
+  path.join(repositoryRoot, 'contracts', 'fitness-external-reference.v1.json'),
+  'utf8'
+));
 const envPath = process.env.NUTRITION_INTEGRATION_ENV_FILE
   || path.join(repositoryRoot, 'supabase', '.env');
 dotenv.config({ path: envPath, quiet: true });
@@ -242,8 +247,10 @@ function assertAuthoritativeV3RequestShape(payload) {
     'v3 request must not use p_category_hierarchy'
   );
   assert(
-    payload.p_input_contract === 'nutrition-label.v1' || payload.p_input_contract === 'food-estimate.v1',
-    'v3 endpoint must retain the existing nutrient input contracts'
+    payload.p_input_contract === 'nutrition-label.v1'
+      || payload.p_input_contract === 'food-estimate.v1'
+      || payload.p_input_contract === 'external-reference.v1',
+    'v3 endpoint must accept only the documented nutrient input contracts'
   );
   for (const field of EXPLICIT_HIERARCHY_FIELDS) {
     assert(
@@ -486,6 +493,52 @@ async function verifyCanonicalResult(owner, result, contract, sourceType) {
   console.log(`PASS ${contract} import + seven provenance rows`);
 }
 
+async function verifyExternalReference(owner, result, payload, readQuery) {
+  await verifyCanonicalResult(owner, result, 'external-reference.v1', 'external_reference');
+
+  const imports = await getRows(
+    owner,
+    'nutrition_canonical_imports',
+    { id: result.canonical_import_id },
+    'request_payload,provenance'
+  );
+  assertEqual(imports.length, 1, 'external canonical audit row');
+  assertEqual(imports[0].request_payload.input_contract, 'external-reference.v1', 'external audit contract');
+  assertEqual(imports[0].request_payload.source_document_ref, payload.p_source_document_ref, 'external audit URL');
+  assertEqual(imports[0].provenance.source_type, 'external_reference', 'external audit source type');
+  assertEqual(imports[0].provenance.source_reference, payload.p_source_document_ref, 'external audit source URL');
+  assertEqual(imports[0].provenance.source_version, 'external-nutrition-lookup.v1', 'external audit source version');
+
+  const foods = await getRows(
+    owner,
+    'nutrition_foods',
+    { id: result.nutrition_food_id },
+    'source_type,source_reference,source_version'
+  );
+  assertEqual(foods.length, 1, 'external source food row');
+  assertEqual(foods[0].source_type, 'external_reference', 'external food source type');
+  assertEqual(foods[0].source_reference, payload.p_source_document_ref, 'external food source URL');
+  assertEqual(foods[0].source_version, 'external-nutrition-lookup.v1', 'external food source version');
+
+  const provenance = await getRows(
+    owner,
+    'nutrition_food_nutrient_provenance',
+    { canonical_import_id: result.canonical_import_id },
+    'source_type,value_status,evidence_refs'
+  );
+  for (const row of provenance) {
+    assertEqual(row.source_type, 'external_reference', 'external nutrient source type');
+    assertEqual(row.value_status, 'observed', 'external nutrient value status');
+    assert(row.evidence_refs.includes(payload.p_source_document_ref), 'external nutrient source URL evidence');
+  }
+
+  const read = await callNutritionReadV3(owner, readQuery);
+  assertEqual(read.source_type, 'external_reference', 'external read source type');
+  assertEqual(read.source_reference, payload.p_source_document_ref, 'external read source URL');
+  assertEqual(read.source_revision, 'external-nutrition-lookup.v1', 'external read source revision');
+  console.log('PASS external-reference.v1 provenance survives canonical and read projections');
+}
+
 async function verifyV3Hierarchy(owner, result, expected, readQuery) {
   assertEqual(result.manufacturer_name, expected.manufacturer_name, 'v3 result manufacturer');
   assertEqual(result.brand_name, expected.brand_name, 'v3 result brand');
@@ -625,7 +678,7 @@ async function directWriteChecks(owner, canonicalResult) {
     data_version: 2,
     visibility: 'private'
   };
-  for (const sourceType of ['product_label', 'product_label_ocr', 'food_image_estimate']) {
+  for (const sourceType of ['product_label', 'product_label_ocr', 'food_image_estimate', 'external_reference']) {
     await expectRejected(
       `direct nutrition_foods ${sourceType} bypass`,
       '/rest/v1/nutrition_foods',
@@ -809,6 +862,94 @@ async function run() {
   const estimateV3Result = await callCanonicalV3(ownerA, estimateV3);
   await verifyCanonicalResult(ownerA, estimateV3Result, 'food-estimate.v1', 'food_image_estimate');
   await verifyV3NullHierarchy(ownerA, estimateV3Result, estimateV3.p_brand, estimateV3.p_food_name);
+
+  const externalReference = {
+    ...JSON.parse(JSON.stringify(EXTERNAL_REFERENCE_FIXTURE)),
+    p_idempotency_key: uniqueId('external-reference')
+  };
+  const externalReferenceResult = await callCanonicalV3(ownerA, externalReference);
+  await verifyExternalReference(
+    ownerA,
+    externalReferenceResult,
+    externalReference,
+    externalReference.p_food_name
+  );
+  await verifyOwnerIsolation(ownerA, ownerB, externalReferenceResult);
+  await verifyV3ReadIsolation(ownerB, externalReference.p_food_name);
+
+  const externalReferenceReplay = await callCanonicalV3(ownerA, externalReference);
+  assertEqual(
+    externalReferenceReplay.canonical_import_id,
+    externalReferenceResult.canonical_import_id,
+    'external replay id'
+  );
+  assertEqual(
+    externalReferenceReplay.nutrition_food_id,
+    externalReferenceResult.nutrition_food_id,
+    'external replay food id'
+  );
+  assertEqual(externalReferenceReplay.idempotent_replay, true, 'external replay flag');
+  assertEqual(
+    (await getRows(ownerA, 'nutrition_food_nutrient_provenance', {
+      canonical_import_id: externalReferenceResult.canonical_import_id
+    })).length,
+    7,
+    'external replay must not add provenance rows'
+  );
+  console.log('PASS external-reference.v1 idempotency replay');
+
+  const externalSourceMismatch = {
+    ...JSON.parse(JSON.stringify(externalReference)),
+    p_idempotency_key: uniqueId('external-source-mismatch'),
+    p_provenance: {
+      ...externalReference.p_provenance,
+      source_type: 'product_label_ocr'
+    },
+    p_nutrient_provenance: Object.fromEntries(
+      Object.entries(externalReference.p_nutrient_provenance).map(([key, value]) => [
+        key,
+        { ...value, source_type: 'product_label_ocr' }
+      ])
+    )
+  };
+  await assertFunctionRejected(
+    'external-reference source_type mismatch rejection',
+    () => callCanonicalV3(ownerA, externalSourceMismatch)
+  );
+
+  const externalBlankReference = {
+    ...JSON.parse(JSON.stringify(externalReference)),
+    p_idempotency_key: uniqueId('external-blank-reference'),
+    p_source_document_ref: ' ',
+    p_provenance: {
+      ...externalReference.p_provenance,
+      source_reference: ' '
+    }
+  };
+  await assertFunctionRejected(
+    'external-reference blank source reference rejection',
+    () => callCanonicalV3(ownerA, externalBlankReference)
+  );
+
+  const externalMissingNutrient = {
+    ...JSON.parse(JSON.stringify(externalReference)),
+    p_idempotency_key: uniqueId('external-missing-nutrient')
+  };
+  delete externalMissingNutrient.p_required_nutrients.sodium_mg;
+  await assertFunctionRejected(
+    'external-reference missing required nutrient rejection',
+    () => callCanonicalV3(ownerA, externalMissingNutrient)
+  );
+
+  const externalPriceTraceIdentity = {
+    ...JSON.parse(JSON.stringify(externalReference)),
+    p_idempotency_key: uniqueId('external-pricetrace-authority'),
+    p_pricetrace_identity: { catalog_product_id: crypto.randomUUID() }
+  };
+  await assertFunctionRejected(
+    'external-reference client identity authority rejection',
+    () => callCanonicalV3(ownerA, externalPriceTraceIdentity)
+  );
   const invalidRestaurantHierarchy = {
     ...estimateV3Payload(uniqueId('estimate-v3-hierarchy-rejected'), 'Integration Invalid Restaurant Hierarchy'),
     p_sub_brand_name: 'Must not be applied to restaurant nutrition'
@@ -918,6 +1059,20 @@ async function run() {
           uniqueId('anonymous-v3'),
           'Anonymous v3 Import'
         ))
+      }
+    );
+  });
+  await assertFunctionRejected('anonymous external-reference v3 RPC rejection', async () => {
+    await expectOk(
+      'anonymous external-reference v3 RPC',
+      '/rest/v1/rpc/import_canonical_nutrition_v3',
+      {
+        method: 'POST',
+        headers: authHeaders(null),
+        body: JSON.stringify({
+          ...JSON.parse(JSON.stringify(EXTERNAL_REFERENCE_FIXTURE)),
+          p_idempotency_key: uniqueId('anonymous-external-reference')
+        })
       }
     );
   });
