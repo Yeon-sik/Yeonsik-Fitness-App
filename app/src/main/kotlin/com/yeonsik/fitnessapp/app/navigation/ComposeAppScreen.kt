@@ -1682,6 +1682,7 @@ private fun AppDestination(
             viewModels.getExercisePicker().setPrimarySubPart(primarySubPart)
         override fun selectMuscleGroup(groupId: String) =
             viewModels.getExercisePicker().selectMuscleGroup(groupId)
+        override fun clearBodyPartSelection() = viewModels.getExercisePicker().clearBodyPartSelection()
         override fun setEquipmentCategory(category: com.yeonsik.fitnessapp.exercise.UiEquipmentCategory?) =
             viewModels.getExercisePicker().setEquipmentCategory(category)
         override fun setSortOrder(order: com.yeonsik.fitnessapp.exercise.RuntimeExercisePicker.SortOrder) =

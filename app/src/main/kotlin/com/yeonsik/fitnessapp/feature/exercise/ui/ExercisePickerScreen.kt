@@ -47,6 +47,7 @@ interface ExercisePickerScreenActions {
     fun setBodyPart(bodyPart: BodyPart?)
     fun setPrimarySubPart(primarySubPart: String?)
     fun selectMuscleGroup(groupId: String)
+    fun clearBodyPartSelection()
     fun setEquipmentCategory(category: UiEquipmentCategory?)
     fun setSortOrder(order: RuntimeExercisePicker.SortOrder)
     fun resetFilters()
@@ -172,7 +173,7 @@ private fun ExercisePickerFilters(
     actions: ExercisePickerScreenActions
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
-        ExerciseMuscleMap(state, actions::selectMuscleGroup)
+        ExerciseMuscleMap(state, actions::selectMuscleGroup, actions::clearBodyPartSelection)
         FilterButtonRow(
             title = "부위",
             options = BodyPart.values().map { it.id() to it.labelKo() },
@@ -396,13 +397,6 @@ private fun ExercisePickerPresetText(
             Text(
                 text = metadata,
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        preset.canonicalVariantKey?.takeIf { it.isNotBlank() }?.let { variant ->
-            Text(
-                text = "변형 ID: $variant",
-                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
