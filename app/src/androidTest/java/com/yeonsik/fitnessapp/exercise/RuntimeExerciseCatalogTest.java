@@ -231,6 +231,10 @@ public final class RuntimeExerciseCatalogTest {
                 "family_default",
                 ExerciseIllustrationLookup.resolve(context, chinUp).source
         );
+        assertEquals(
+                "family_default",
+                ExerciseIllustrationLookup.resolveFamilyDefault(context, "pull_up").source
+        );
     }
 
     @Test
@@ -246,6 +250,7 @@ public final class RuntimeExerciseCatalogTest {
                 ExerciseIllustrationLookup.resolveExact(context, pullUp).source
         );
         assertTrue(ExerciseIllustrationLookup.resolveExact(context, chinUp).isPlaceholder());
+        assertTrue(ExerciseIllustrationLookup.resolveFamilyDefault(context, "unknown_family").isPlaceholder());
     }
 
     @Test

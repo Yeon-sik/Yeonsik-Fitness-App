@@ -93,6 +93,17 @@ public final class ExerciseIllustrationLookup {
                 : exact;
     }
 
+    /** Returns only the representative image registered for the family. */
+    public static IllustrationResolution resolveFamilyDefault(Context context, String familyId) {
+        IllustrationResolution familyDefault = refResolution(
+                familyCatalog(context).familyDefaultFor(familyId),
+                "family_default"
+        );
+        return familyDefault == null
+                ? IllustrationResolution.placeholder(null)
+                : familyDefault;
+    }
+
     /** Lookup without requiring callers to construct a legacy exercise object. */
     public static IllustrationResolution resolve(
             Context context,

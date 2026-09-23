@@ -49,6 +49,11 @@ public final class ExerciseIllustrationPreview {
         return create(ExerciseIllustrationLookup.resolveExact(activity, identity));
     }
 
+    /** Returns the family's representative frame without selecting a preset variant. */
+    public ImageView createFamilyDefault(String familyId) {
+        return create(ExerciseIllustrationLookup.resolveFamilyDefault(activity, familyId));
+    }
+
     private ImageView create(ExerciseIllustrationLookup.IllustrationResolution resolution) {
         int drawableId = resolution == null || resolution.drawables.length == 0
                 ? 0

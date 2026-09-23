@@ -25,6 +25,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
+import com.yeonsik.fitnessapp.core.ui.FitnessExerciseFamilyIllustration
 import com.yeonsik.fitnessapp.core.ui.FitnessExerciseIllustration
 import com.yeonsik.fitnessapp.core.ui.FitnessHeader
 import com.yeonsik.fitnessapp.core.ui.FitnessOutlinedButton
@@ -263,6 +264,9 @@ private fun ExerciseFamilyPickerCard(
                 horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
                 verticalAlignment = Alignment.Top
             ) {
+                if (!expanded) {
+                    ExercisePickerFamilyImage(family.familyId, family.displayName().orEmpty())
+                }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
                     Text(
                         text = family.displayName().orEmpty(),
@@ -404,6 +408,22 @@ private fun ExercisePickerPresetText(
 }
 
 @Composable
+private fun ExercisePickerFamilyImage(familyId: String, name: String) {
+    val context = LocalContext.current
+    val modifier = Modifier.size(72.dp)
+    if (context is Activity) {
+        FitnessExerciseFamilyIllustration(
+            activity = context,
+            familyId = familyId,
+            modifier = modifier,
+            contentDescription = "$name 대표 운동 이미지"
+        ) { ExercisePickerImageFallback(modifier) }
+    } else {
+        ExercisePickerImageFallback(modifier)
+    }
+}
+
+@Composable
 private fun ExercisePickerImage(preset: RuntimeExercisePreset) {
     val context = LocalContext.current
     val identity = remember(preset) {
@@ -417,15 +437,7 @@ private fun ExercisePickerImage(preset: RuntimeExercisePreset) {
             exactVariant = true,
             modifier = modifier,
             contentDescription = "${preset.displayName()} 운동 이미지",
-            fallback = {
-                FitnessExerciseIllustration(
-                    activity = context,
-                    identity = identity,
-                    exactVariant = false,
-                    modifier = modifier,
-                    contentDescription = "${preset.displayName()} 운동 이미지"
-                ) { ExercisePickerImageFallback() }
-            }
+            fallback = { ExercisePickerImageFallback(modifier) }
         )
     } else {
         ExercisePickerImageFallback(modifier)

@@ -73,6 +73,29 @@ fun FitnessExerciseIllustration(
     )
 }
 
+/** Shows only the representative illustration assigned to an exercise family. */
+@Composable
+fun FitnessExerciseFamilyIllustration(
+    activity: Activity,
+    familyId: String,
+    modifier: Modifier = Modifier,
+    dark: Boolean = isSystemInDarkTheme(),
+    contentDescription: String? = null,
+    fallback: (@Composable () -> Unit)? = null
+) {
+    val preview = rememberExerciseIllustrationPreview(activity, dark)
+    val imageView = remember(preview, familyId) {
+        preview.createFamilyDefault(familyId)
+    }
+    FitnessIllustrationView(
+        imageView = imageView,
+        viewKey = listOf(preview, familyId),
+        modifier = modifier,
+        contentDescription = contentDescription,
+        fallback = fallback
+    )
+}
+
 /**
  * Compose bridge for the existing front/back muscle model. The adapter accepts only the renderer's
  * existing primarySubPart keys; it does not infer anatomy or calculate training scores.
