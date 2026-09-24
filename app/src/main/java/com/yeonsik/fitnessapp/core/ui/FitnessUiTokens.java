@@ -91,6 +91,8 @@ public final class FitnessUiTokens {
     public static final int SECTION_TOP_SPACING_DP = 26;
     public static final int SECTION_BOTTOM_SPACING_DP = 10;
     public static final int CARD_GAP_DP = 12;
+    public static final int HERO_PADDING_DP = 24;
+    public static final int HOME_ACTION_MIN_HEIGHT_DP = 88;
     public static final int FIELD_LABEL_GAP_DP = 6;
     public static final int FORM_ITEM_GAP_DP = 8;
     public static final int NUTRITION_ROW_MIN_HEIGHT_DP = 56;
@@ -106,6 +108,7 @@ public final class FitnessUiTokens {
     public static final int NAV_BAR_HORIZONTAL_PADDING_DP = 8;
     public static final int NAV_BAR_TOP_PADDING_DP = 8;
     public static final int NAV_BAR_BOTTOM_PADDING_DP = 12;
+    public static final int NAV_GLASS_BLUR_RADIUS_DP = 7;
     public static final int NAV_ITEM_GAP_DP = 4;
     public static final int NAV_MARKER_SLOT_HEIGHT_DP = 14;
     public static final int NAV_ACTIVE_MARKER_WIDTH_DP = 24;

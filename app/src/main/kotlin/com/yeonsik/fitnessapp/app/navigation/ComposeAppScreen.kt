@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.app.navigation
 
-import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
+import android.os.Build
+import android.view.accessibility.AccessibilityManager
 
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateDpAsState
@@ -56,14 +57,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
@@ -72,8 +69,16 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.yeonsik.fitnessapp.core.ui.*
+import com.kashif_e.backdrop.Backdrop
+import com.kashif_e.backdrop.backdrops.layerBackdrop
+import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
+import com.kashif_e.backdrop.drawBackdrop
+import com.kashif_e.backdrop.effects.blur
+import com.kashif_e.backdrop.effects.colorControls
+import com.kashif_e.backdrop.highlight.Highlight
 import com.yeonsik.fitness.shared.core.account.AccountScope
+import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
+import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
@@ -789,7 +794,14 @@ private fun AppRoot(
     }
 
     FitnessComposeTheme(dark) {
+        val backdrop = rememberLayerBackdrop()
+        val context = LocalContext.current
+        val highContrastEnabled = Build.VERSION.SDK_INT >= 36 &&
+            context.getSystemService(AccessibilityManager::class.java)
+                ?.isHighContrastTextEnabled == true
         val bottomNavigationVisible = isBottomNavigationVisible(screen)
+        val useBackdropGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            bottomNavigationVisible && !highContrastEnabled
         val bottomNavigationHeight = with(LocalDensity.current) {
             // The icon and scaled label must both fit inside the capsule.
             36.dp + MaterialTheme.typography.labelMedium.lineHeight.toDp()
@@ -802,7 +814,11 @@ private fun AppRoot(
                 .systemBarsPadding()
                 .imePadding()
         ) {
-            Column(Modifier.fillMaxSize()) {
+            Column(
+                Modifier
+                    .fillMaxSize()
+                    .then(if (useBackdropGlass) Modifier.layerBackdrop(backdrop) else Modifier)
+            ) {
                 if (screen == FitnessScreen.WORKOUT_SESSION) {
                     SessionTopBar(navigation, viewModels, ownerId, workoutState)
                 }
@@ -880,6 +896,7 @@ private fun AppRoot(
             if (bottomNavigationVisible) {
                 BottomNavigation(
                     navigation, homeState, screen, dark, bottomNavigationHeight,
+                    backdrop, useBackdropGlass, highContrastEnabled,
                     Modifier.align(Alignment.BottomCenter)
                 )
             }
@@ -1088,80 +1105,38 @@ private fun RestTimerBar(
 
 private data class NavigationItem(val label: String, val screen: FitnessScreen)
 
-/**
- * Translucent glass treatment: the destination scrolls beneath the capsule while a milked
- * surface and a narrow light-catching rim keep its controls legible. This is alpha compositing,
- * not a backdrop blur; text and icons are drawn sharply above the surface.
- */
-private fun Modifier.frostedGlassSlab(dark: Boolean): Modifier =
-    shadow(
-        elevation = 16.dp,
-        shape = CircleShape,
-        clip = false,
-        ambientColor = Color.Black.copy(alpha = if (dark) 0.20f else 0.08f),
-        spotColor = Color.Black.copy(alpha = if (dark) 0.24f else 0.10f)
-    )
-        .clip(CircleShape)
-        .drawWithCache {
-            val radius = size.height / 2f
-            val cornerRadius = CornerRadius(radius, radius)
-            val inset = 0.65.dp.toPx()
-            val surface = Brush.verticalGradient(
-                colors = if (dark) {
-                    listOf(
-                        Color(0xFF30343A).copy(alpha = 0.94f),
-                        Color(0xFF25292F).copy(alpha = 0.94f),
-                        Color(0xFF20242A).copy(alpha = 0.90f)
-                    )
-                } else {
-                    listOf(
-                        Color.White.copy(alpha = 0.94f),
-                        Color(0xFFFCFDFE).copy(alpha = 0.84f),
-                        Color(0xFFF3F5F7).copy(alpha = 0.90f)
-                    )
-                }
-            )
-            val sheen = Brush.linearGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = if (dark) 0.04f else 0.24f),
-                    Color.Transparent,
-                    Color.White.copy(alpha = if (dark) 0.025f else 0.06f)
-                ),
-                start = Offset.Zero,
-                end = Offset(size.width * 0.8f, size.height)
-            )
-            val rim = Brush.verticalGradient(
-                colors = listOf(
-                    Color.White.copy(alpha = if (dark) 0.24f else 0.92f),
-                    Color.White.copy(alpha = if (dark) 0.09f else 0.46f),
-                    Color.White.copy(alpha = if (dark) 0.15f else 0.72f)
-                )
-            )
-            onDrawWithContent {
-                drawRoundRect(brush = surface, cornerRadius = cornerRadius)
-                drawRoundRect(brush = sheen, cornerRadius = cornerRadius)
-                drawContent()
-                drawRoundRect(
-                    brush = rim,
-                    topLeft = Offset(inset, inset),
-                    size = Size(size.width - inset * 2, size.height - inset * 2),
-                    cornerRadius = CornerRadius(radius - inset, radius - inset),
-                    style = Stroke(width = 1.dp.toPx())
-                )
-            }
-        }
-
-private fun Modifier.glassSelection(dark: Boolean, accent: Color): Modifier =
-    clip(CircleShape)
-        .background(
-            Brush.verticalGradient(
-                colors = if (dark) {
-                    listOf(accent.copy(alpha = 0.18f), accent.copy(alpha = 0.13f))
-                } else {
-                    listOf(accent.copy(alpha = 0.44f), accent.copy(alpha = 0.28f))
-                }
-            )
+@Composable
+private fun Modifier.navigationGlassSurface(
+    backdrop: Backdrop,
+    useBackdropGlass: Boolean,
+    highContrastEnabled: Boolean
+): Modifier {
+    val colors = MaterialTheme.colorScheme
+    return if (useBackdropGlass) {
+        clip(CircleShape).drawBackdrop(
+            backdrop = backdrop,
+            shape = { CircleShape },
+            effects = {
+                colorControls(saturation = 1.04f)
+                blur(FitnessUiTokens.NAV_GLASS_BLUR_RADIUS_DP.dp.toPx())
+            },
+            highlight = { Highlight.Plain },
+            onDrawSurface = { drawRect(colors.surface.copy(alpha = 0.72f)) }
         )
+    } else {
+        clip(CircleShape)
+            .background(colors.surfaceContainerHigh)
+            .border(
+                1.dp,
+                if (highContrastEnabled) colors.onSurface else colors.outlineVariant,
+                CircleShape
+            )
+    }
+}
+
+@Composable
+private fun Modifier.glassSelection(): Modifier =
+    clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer)
 
 @Composable
 private fun Modifier.glassTabFeedback(
@@ -1241,6 +1216,9 @@ private fun BottomNavigation(
     screen: FitnessScreen,
     dark: Boolean,
     itemHeight: Dp,
+    backdrop: Backdrop,
+    useBackdropGlass: Boolean,
+    highContrastEnabled: Boolean,
     modifier: Modifier = Modifier
 ) {
     val items = listOf(
@@ -1252,8 +1230,8 @@ private fun BottomNavigation(
     val active = navigationRoot(screen)
     val workoutInProgress = (homeState as? HomeUiState.Ready)?.snapshot?.inProgressSessionId != null
     val selectedIndex = items.indexOfFirst { it.screen == active }.coerceAtLeast(0)
-    val selectedContent = if (dark) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.primary
-    val unselectedContent = if (dark) Color(0xFFCCD2D8) else Color(0xFF555F69)
+    val selectedContent = MaterialTheme.colorScheme.onPrimaryContainer
+    val unselectedContent = MaterialTheme.colorScheme.onSurfaceVariant
     val progressTint = LocalFitnessColors.current.action
     // Give the longer Korean label more room at large accessibility font sizes.
     val workoutTabWeight = if (LocalDensity.current.fontScale > 1.5f) 1.6f else 1f
@@ -1264,7 +1242,7 @@ private fun BottomNavigation(
             .padding(horizontal = 24.dp, vertical = 8.dp)
             .widthIn(max = 400.dp)
             .fillMaxWidth()
-            .frostedGlassSlab(dark)
+            .navigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled)
             // Consume taps on the glass rim rather than activating content underneath it.
             .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .padding(4.dp)
@@ -1290,7 +1268,7 @@ private fun BottomNavigation(
                     .offset(x = indicatorOffset)
                     .width(indicatorWidth)
                     .fillMaxHeight()
-                    .glassSelection(dark, progressTint)
+                    .glassSelection()
             )
             Row(Modifier.fillMaxSize().selectableGroup()) {
                 items.forEachIndexed { index, item ->

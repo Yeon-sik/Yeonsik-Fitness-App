@@ -1,28 +1,25 @@
 package com.yeonsik.fitnessapp.feature.home.ui
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessButton
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessHeader
-import com.yeonsik.fitnessapp.core.ui.FitnessOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
+import com.yeonsik.fitnessapp.core.ui.FitnessShape
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
-import com.yeonsik.fitnessapp.core.ui.LocalFitnessColors
 import com.yeonsik.fitnessapp.state.FitnessScreen
 
 interface HomeScreenActions {
@@ -77,44 +74,72 @@ internal fun HomeDestination(
     ) {
         FitnessHeader("메인", today)
         FitnessSection("오늘 상태") {
-            FitnessCard(Modifier.fillMaxWidth()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = FitnessShape.hero,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            ) {
                 Column(
-                    Modifier.padding(FitnessSpacing.card + FitnessSpacing.micro),
+                    Modifier.padding(FitnessSpacing.hero),
                     verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
-                    ) {
-                        Box(
-                            Modifier.size(8.dp)
-                                .background(LocalFitnessColors.current.action, CircleShape)
-                        )
-                        Text(status, style = MaterialTheme.typography.headlineLarge)
-                    }
-                    Text(
-                        message,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Text(status, style = MaterialTheme.typography.displaySmall)
+                    Text(message, style = MaterialTheme.typography.bodyLarge)
                     FitnessButton(
                         onClick = onCta,
                         modifier = Modifier.fillMaxWidth().padding(top = FitnessSpacing.small)
-                    ) {
-                        Text(cta)
-                    }
+                    ) { Text(cta) }
                 }
             }
         }
         FitnessSection("빠른 기록") {
-            FitnessOutlinedButton(
-                onClick = actions::showBodyMetric,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-            ) { Text("체중", style = MaterialTheme.typography.titleMedium) }
-            FitnessOutlinedButton(
-                onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)
-            ) { Text("식사", style = MaterialTheme.typography.titleMedium) }
+            val fontScale = LocalDensity.current.fontScale
+            val weightAction: @Composable (Modifier) -> Unit = { modifier ->
+                QuickRecordCard("체중", "오늘 체중 기록", actions::showBodyMetric, modifier)
+            }
+            val mealAction: @Composable (Modifier) -> Unit = { modifier ->
+                QuickRecordCard("식사", "오늘 식사 기록", {
+                    actions.openMealManagement(today, FitnessScreen.HOME)
+                }, modifier)
+            }
+            if (fontScale >= 1.3f) {
+                Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
+                    weightAction(Modifier.fillMaxWidth())
+                    mealAction(Modifier.fillMaxWidth())
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    weightAction(Modifier.weight(1f))
+                    mealAction(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickRecordCard(
+    title: String,
+    detail: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    FitnessCard(modifier.heightIn(min = FitnessSpacing.homeActionMinHeight), onClick = onClick) {
+        Column(
+            Modifier.fillMaxWidth().padding(FitnessSpacing.card),
+            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+        ) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                detail,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
