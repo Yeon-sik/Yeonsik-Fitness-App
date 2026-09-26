@@ -1,0 +1,47 @@
+{
+  "version": 1,
+  "skills": {
+    "apple-design": {
+      "source": "dickwu/apple-design-skill",
+      "ref": "39ea3fbab3011e0798c076dbeabf4917001499da",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "1d50548823a11269581e27242f9cdad2e01be9097680e861cca45abbc2ce6ca5"
+    },
+    "compose-animations": {
+      "source": "chrisbanes/skills",
+      "ref": "d3efcb951b49a0f5018170d52978607a4e857dbb",
+      "sourceType": "github",
+      "skillPath": "skills/compose-animations/SKILL.md",
+      "computedHash": "275e73cce844118690368a932ab2692f5ea2eb4dc586f3f2ecff4738aba6d79e"
+    },
+    "compose-component-design": {
+      "source": "chrisbanes/skills",
+      "ref": "d3efcb951b49a0f5018170d52978607a4e857dbb",
+      "sourceType": "github",
+      "skillPath": "skills/compose-component-design/SKILL.md",
+      "computedHash": "aad7693b5fe33690a162469b693634292e6a41a08efc83fdb2b60525dd677b5c"
+    },
+    "compose-performance": {
+      "source": "chrisbanes/skills",
+      "ref": "d3efcb951b49a0f5018170d52978607a4e857dbb",
+      "sourceType": "github",
+      "skillPath": "skills/compose-performance/SKILL.md",
+      "computedHash": "8f036470ac4bb04c00a567689c9f19a0e1d9caa5d0c5b95175fffeaf37aa872a"
+    },
+    "compose-state-and-effects": {
+      "source": "chrisbanes/skills",
+      "ref": "d3efcb951b49a0f5018170d52978607a4e857dbb",
+      "sourceType": "github",
+      "skillPath": "skills/compose-state-and-effects/SKILL.md",
+      "computedHash": "f9946e99fba9b450b1ca1919e85fcdc3bdb7e8017726b96cc060449cb9d0e027"
+    },
+    "kmp-liquid-glass": {
+      "source": "Kashif-E/KMPLiquidGlass",
+      "ref": "e046366f2981dd6883fa3cc3d9d4cea59a7928e5",
+      "sourceType": "github",
+      "skillPath": "plugins/kmp-liquid-glass/skills/kmp-liquid-glass/SKILL.md",
+      "computedHash": "e9ff20708f6cad2dba9f085698401291a6e50ac0aa4e99db990f7f6eed5bb452"
+    }
+  }
+}

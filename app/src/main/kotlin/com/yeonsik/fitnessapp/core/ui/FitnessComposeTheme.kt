@@ -23,6 +23,8 @@ object FitnessSpacing {
     val small = FitnessUiTokens.FORM_ITEM_GAP_DP.dp
     val gap = FitnessUiTokens.CARD_GAP_DP.dp
     val card = 18.dp
+    val hero = FitnessUiTokens.HERO_PADDING_DP.dp
+    val homeActionMinHeight = FitnessUiTokens.HOME_ACTION_MIN_HEIGHT_DP.dp
     val page = FitnessUiTokens.PAGE_HORIZONTAL_PADDING_DP.dp
     val section = FitnessUiTokens.SECTION_TOP_SPACING_DP.dp
     val touch = FitnessUiTokens.NAV_ITEM_MIN_HEIGHT_DP.dp
@@ -30,6 +32,7 @@ object FitnessSpacing {
 
 object FitnessShape {
     val card = RoundedCornerShape(FitnessUiTokens.CARD_RADIUS_DP.dp)
+    val hero = RoundedCornerShape(FitnessUiTokens.HERO_RADIUS_DP.dp)
     val input = RoundedCornerShape(FitnessUiTokens.INPUT_RADIUS_DP.dp)
     val button = RoundedCornerShape(FitnessUiTokens.BUTTON_RADIUS_DP.dp)
 }

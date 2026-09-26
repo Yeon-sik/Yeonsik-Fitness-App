@@ -349,6 +349,9 @@ class FitnessVisualQaTest {
             }
             assertNotNull("$screen retains the $label tab; matches: $diagnostics", tab)
             assertEquals("$screen selected state for $label; all tabs: $tabStates", label == selected, tab!!.isSelected)
+            val bounds = android.graphics.Rect().also(tab::getBoundsInScreen)
+            val density = instrumentation.targetContext.resources.displayMetrics.density
+            assertTrue("$label bottom tab must remain at least 48dp tall", bounds.height() / density >= 48f)
         }
     }
 
