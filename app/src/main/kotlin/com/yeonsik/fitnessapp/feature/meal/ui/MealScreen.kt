@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.feature.meal.ui
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.*
@@ -15,11 +16,14 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.BuildConfig
 import com.yeonsik.fitnessapp.cardio.*
@@ -135,38 +139,75 @@ internal fun MealScreen(
     val totals = snapshot.mealNutritionTotals[today]
     val selectedDate = runCatching { LocalDate.parse(today) }.getOrNull()
     if (selectedDate != null) {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            AppOutlinedButton(
-                onClick = { actions.selectDate(selectedDate.minusDays(1).toString()) },
-                modifier = Modifier.weight(1f)
-            ) { Text("‹ 이전") }
-            Text(today, modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            AppOutlinedButton(
-                onClick = { actions.selectDate(selectedDate.plusDays(1).toString()) },
-                modifier = Modifier.weight(1f),
-                enabled = selectedDate.isBefore(LocalDate.now())
-            ) { Text("다음 ›") }
+        MealOverviewGlassSurface {
+            val largeText = LocalDensity.current.fontScale >= 1.35f
+            if (largeText) {
+                Text(
+                    today,
+                    modifier = Modifier.fillMaxWidth(),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center
+                )
+            }
+            Row(
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)
+            ) {
+                TextButton(
+                    onClick = { actions.selectDate(selectedDate.minusDays(1).toString()) },
+                    modifier = Modifier.heightIn(min = AppSpacing.touch)
+                ) { Text("‹ 이전") }
+                if (!largeText) {
+                    Text(
+                        today,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        textAlign = TextAlign.Center
+                    )
+                } else {
+                    Spacer(Modifier.weight(1f))
+                }
+                TextButton(
+                    onClick = { actions.selectDate(selectedDate.plusDays(1).toString()) },
+                    modifier = Modifier.heightIn(min = AppSpacing.touch),
+                    enabled = selectedDate.isBefore(LocalDate.now())
+                ) { Text("다음 ›") }
+            }
+            TextButton(
+                onClick = { actions.selectDate(LocalDate.now().toString()) },
+                modifier = Modifier.align(Alignment.End).heightIn(min = AppSpacing.touch),
+                enabled = !selectedDate.isEqual(LocalDate.now())
+            ) { Text("오늘로 이동") }
         }
-        AppOutlinedButton(
-            onClick = { actions.selectDate(LocalDate.now().toString()) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !selectedDate.isEqual(LocalDate.now())
-        ) { Text("오늘로 이동") }
     }
-    FitnessFactRow(
-        first = { FitnessFactCard("식사", "${snapshot.todayMeals.size}끼", today) },
-        second = { FitnessFactCard("열량", totals?.total("calories_kcal")?.describedValue() ?: "?", "kcal") }
-    )
+    Spacer(Modifier.height(AppSpacing.gap))
+    MealOverviewGlassSurface {
+        Text(
+            if (selectedDate == LocalDate.now()) "오늘의 식사" else "이날의 식사",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        MealDailyMetrics(
+            count = snapshot.todayMeals.size,
+            calories = totals?.total("calories_kcal")?.describedValue() ?: "?"
+        )
+    }
+    Spacer(Modifier.height(AppSpacing.gap))
     snapshot.todayMeals.forEach { meal ->
         AppCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(AppSpacing.card)) {
-                Text(meal.previewTitle, fontWeight = FontWeight.Bold)
-                Text(meal.previewSubtitle())
-                Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams}g")
+            Column(
+                Modifier.padding(AppSpacing.card),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+            ) {
+                Text(meal.previewTitle, style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold)
+                Text(meal.previewSubtitle(), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams}g",
+                    style = MaterialTheme.typography.bodyMedium)
                 Row(
                     Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)
@@ -289,52 +330,58 @@ private fun NutritionAnalysisSection(
     loading: Boolean,
     error: String?
 ) {
-    AppCard(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.padding(AppSpacing.card),
-            verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
-        ) {
-            Text("영양 분석", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            when {
-                loading -> Text("영양 분석을 계산하는 중입니다.")
-                error != null -> Text(error, color = MaterialTheme.colorScheme.error)
-                report == null -> Text("영양 분석 데이터가 없습니다.")
-                else -> {
-                    Text(
-                        "${report.recordedMealCount}끼 · ${report.recordedDays}일 기록 · ${report.calendarDayCount}일 범위",
-                        style = MaterialTheme.typography.bodySmall
-                    )
-                    report.target?.phase?.let { phase ->
-                        Text("목표 단계 · ${AthleteNutritionGoal.phaseLabel(phase)}")
-                    } ?: Text("영양 목표 미설정")
-                    NutritionAnalysisMetricRows(report)
-                    Text("단백질 분포", fontWeight = FontWeight.Bold)
-                    if (report.proteinDistribution.entries.isEmpty()) {
-                        Text("기록된 식사가 없습니다.")
-                    } else {
-                        report.proteinDistribution.entries.forEach { entry ->
-                            val share = entry.shareOfKnownTotalPercent?.let {
-                                " · ${NutritionCalculator.trim(it)}%"
-                            }.orEmpty()
-                            Text(
-                                "${entry.title} · ${entry.protein.displayValue()}g$share · " +
-                                    entry.protein.provenanceLabel()
-                            )
-                        }
+    MealOverviewGlassSurface {
+        Text("영양 분석", style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.SemiBold)
+        when {
+            loading -> Text("영양 분석을 계산하는 중입니다.")
+            error != null -> Text(error, color = MaterialTheme.colorScheme.error)
+            report == null -> Text("영양 분석 데이터가 없습니다.")
+            else -> {
+                Text(
+                    "${report.recordedMealCount}끼 · ${report.recordedDays}일 기록 · ${report.calendarDayCount}일 범위",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                report.target?.phase?.let { phase ->
+                    Text("목표 단계 · ${AthleteNutritionGoal.phaseLabel(phase)}")
+                } ?: Text("영양 목표 미설정")
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text("목표 대비 상태", style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold)
+                NutritionAnalysisMetricRows(report)
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                Text("단백질 분포", style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold)
+                if (report.proteinDistribution.entries.isEmpty()) {
+                    Text("기록된 식사가 없습니다.")
+                } else {
+                    report.proteinDistribution.entries.forEach { entry ->
+                        val share = entry.shareOfKnownTotalPercent?.let {
+                            " · ${NutritionCalculator.trim(it)}%"
+                        }.orEmpty()
+                        Text(
+                            "${entry.title} · ${entry.protein.displayValue()}g$share · " +
+                                entry.protein.provenanceLabel(),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
-                    val detailedKeys = report.metrics.keys.filterNot {
-                        NutritionProfile.PRIMARY_DISPLAY_ORDER.contains(it)
-                    }
-                    if (detailedKeys.isNotEmpty()) {
-                        Text("상세 영양소", fontWeight = FontWeight.Bold)
-                        detailedKeys.forEach { key ->
-                            val metric = report.metrics.getValue(key)
-                            Text(
-                                "${NutritionProfile.labelOf(key).ifBlank { key }} · " +
-                                    "${metric.displayValue()} ${NutritionProfile.unitOf(key)} · " +
-                                    metric.provenanceLabel()
-                            )
-                        }
+                }
+                val detailedKeys = report.metrics.keys.filterNot {
+                    NutritionProfile.PRIMARY_DISPLAY_ORDER.contains(it)
+                }
+                if (detailedKeys.isNotEmpty()) {
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                    Text("상세 영양소", style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold)
+                    detailedKeys.forEach { key ->
+                        val metric = report.metrics.getValue(key)
+                        Text(
+                            "${NutritionProfile.labelOf(key).ifBlank { key }} · " +
+                                "${metric.displayValue()} ${NutritionProfile.unitOf(key)} · " +
+                                metric.provenanceLabel(),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
                     }
                 }
             }
@@ -344,16 +391,49 @@ private fun NutritionAnalysisSection(
 
 @Composable
 private fun NutritionAnalysisMetricRows(report: NutritionAnalysisReport) {
-    NutritionProfile.PRIMARY_DISPLAY_ORDER.forEach { key ->
-        val metric = report.metrics[key] ?: return@forEach
-        val comparison = report.comparison(key)
-        val target = comparison?.targetValue?.let { value ->
-            " · 목표 ${NutritionCalculator.trim(value)} ${metric.unit} · ${comparison.status.label()}"
-        }.orEmpty()
-        Text(
-            "${NutritionProfile.labelOf(key)} · ${metric.displayValue()} ${metric.unit}$target · " +
-                metric.provenanceLabel()
-        )
+    val keys = NutritionProfile.PRIMARY_DISPLAY_ORDER.filter { it in report.metrics }
+    if (LocalDensity.current.fontScale >= 1.35f) {
+        Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+            keys.forEach { key -> NutritionAnalysisMetricTile(report, key, Modifier.fillMaxWidth()) }
+        }
+    } else {
+        Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+            keys.chunked(2).forEach { row ->
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                    row.forEach { key ->
+                        NutritionAnalysisMetricTile(report, key, Modifier.weight(1f))
+                    }
+                    if (row.size == 1) Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NutritionAnalysisMetricTile(
+    report: NutritionAnalysisReport,
+    key: String,
+    modifier: Modifier = Modifier
+) {
+    val metric = report.metrics.getValue(key)
+    val comparison = report.comparison(key)
+    Column(
+        modifier.clip(FitnessShape.card)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(AppSpacing.small),
+        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+    ) {
+        Text(NutritionProfile.labelOf(key), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("${metric.displayValue()} ${metric.unit}",
+            style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        comparison?.targetValue?.let { value ->
+            Text("목표 ${NutritionCalculator.trim(value)} ${metric.unit} · ${comparison.status.label()}",
+                style = MaterialTheme.typography.bodySmall)
+        }
+        Text(metric.provenanceLabel(), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
