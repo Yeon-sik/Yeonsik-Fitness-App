@@ -457,13 +457,6 @@ private fun ExercisePickerPresetText(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
-        preset.canonicalVariantKey?.takeIf { it.isNotBlank() }?.let { variant ->
-            Text(
-                text = "변형 ID: $variant",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
     }
 }
 
@@ -480,17 +473,8 @@ private fun ExercisePickerImage(preset: RuntimeExercisePreset) {
             identity = identity,
             exactVariant = true,
             modifier = modifier,
-            contentDescription = "${preset.displayName()} 운동 이미지",
-            fallback = {
-                FitnessExerciseIllustration(
-                    activity = context,
-                    identity = identity,
-                    exactVariant = false,
-                    modifier = modifier,
-                    contentDescription = "${preset.displayName()} 운동 이미지"
-                ) { ExercisePickerImageFallback() }
-            }
-        )
+            contentDescription = "${preset.displayName()} 운동 이미지"
+        ) { ExercisePickerImageFallback() }
     } else {
         ExercisePickerImageFallback(modifier)
     }
