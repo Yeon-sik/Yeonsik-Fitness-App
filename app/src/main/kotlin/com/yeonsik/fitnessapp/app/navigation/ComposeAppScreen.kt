@@ -1592,12 +1592,18 @@ private fun AppDestination(
             viewModels.getRecords().rememberSelectedDate(scope, date)
             navigation.selectRecordsDate(date)
         }
-        override fun previousMonth() = viewModels.getRecords().previousMonth(
-            AccountScope(ownerId), recordsToday, recordsSelectedDate
-        )
-        override fun nextMonth() = viewModels.getRecords().nextMonth(
-            AccountScope(ownerId), recordsToday, recordsSelectedDate
-        )
+        override fun previousMonth() {
+            val targetDate = viewModels.getRecords().previousMonth(
+                AccountScope(ownerId), recordsToday, recordsSelectedDate
+            )
+            navigation.selectRecordsDate(targetDate)
+        }
+        override fun nextMonth() {
+            val targetDate = viewModels.getRecords().nextMonth(
+                AccountScope(ownerId), recordsToday, recordsSelectedDate
+            )
+            navigation.selectRecordsDate(targetDate)
+        }
         override fun today() {
             val scope = AccountScope(ownerId)
             viewModels.getRecords().rememberSelectedDate(scope, recordsToday)
@@ -1610,8 +1616,6 @@ private fun AppDestination(
             .openDeleteConfirmation(AccountScope(ownerId), recordId)
         override fun showBodyMetric(date: String, recordId: String?) =
             viewModels.getBodyMetrics().open(AccountScope(ownerId), date, recordId)
-        override fun openMeals(date: String) =
-            navigation.selectMealDate(date).also { navigation.navigate(FitnessScreen.MEALS) }
     }
     val supplementActions = object : SupplementScreenActions {
         override fun back() { navigation.back() }

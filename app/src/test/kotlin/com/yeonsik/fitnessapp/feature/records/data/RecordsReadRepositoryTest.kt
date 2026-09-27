@@ -40,16 +40,17 @@ class RecordsReadRepositoryTest {
         )
         val body = FakeBodyReadApi(
             entries = listOf(
+                BodyReadEntry("spill-before", "2024-01-29", 90.0, ""),
                 BodyReadEntry("weight-1", "2024-02-05", 70.0, ""),
-                BodyReadEntry("weight-2", "2024-02-05", 70.4, "")
+                BodyReadEntry("weight-2", "2024-02-05", 70.4, ""),
+                BodyReadEntry("spill-after", "2024-03-01", 95.0, "")
             )
         )
-        val meal = FakeMealReadApi(setOf("2024-02-07"))
+        val meal = FakeMealReadApi(listOf(mealSummary("2024-02-07")))
 
         val snapshot = RecordsReadRepository(workout, body, meal).load(
             scope = scope,
             displayedMonth = "2024-02",
-            selectedDate = "2024-02-05",
             today = "2024-02-20"
         )
 
@@ -58,8 +59,8 @@ class RecordsReadRepositoryTest {
         assertEquals("2024-03-10", snapshot.calendarDays.last().date)
         assertEquals(scope.ownerId, snapshot.ownerId)
         assertEquals("2024-02", snapshot.displayedMonth)
-        assertEquals("2024-02-05", snapshot.selectedDate)
         assertEquals("2024-02-20", snapshot.today)
+        assertEquals(42, snapshot.dayDetailsByDate.size)
 
         val workoutDay = snapshot.calendarDays.first { it.date == "2024-02-05" }
         assertTrue(workoutDay.hasWorkout)
@@ -68,35 +69,46 @@ class RecordsReadRepositoryTest {
         assertEquals(listOf("등"), workoutDay.muscleLabels)
         assertTrue(snapshot.calendarDays.first { it.date == "2024-02-07" }.hasMeal)
 
-        assertEquals(1, snapshot.selectedDay.workouts.size)
-        assertEquals("workout-1", snapshot.selectedDay.workouts.single().id)
-        assertEquals(2, snapshot.selectedDay.bodyMetrics.size)
-        assertTrue(snapshot.selectedDay.meals.isEmpty())
+        val workoutDetail = snapshot.dayDetailsByDate.getValue("2024-02-05")
+        assertEquals(1, workoutDetail.workouts.size)
+        assertEquals("workout-1", workoutDetail.workouts.single().id)
+        assertEquals(2, workoutDetail.bodyMetrics.size)
+        assertTrue(workoutDetail.meals.isEmpty())
+        assertEquals("2024-02-07", snapshot.dayDetailsByDate.getValue("2024-02-07").meals.single().date)
+        assertTrue(!snapshot.dayDetailsByDate.getValue("2024-02-06").hasAnyRecord)
+        assertEquals("2024-01-29", snapshot.dayDetailsByDate.getValue("2024-01-29").date)
+        assertEquals("2024-03-10", snapshot.dayDetailsByDate.getValue("2024-03-10").date)
         assertEquals(1, snapshot.weightTrend.size)
         assertEquals(70.2, snapshot.weightTrend.single().averageKg, 0.001)
         assertTrue(workout.scopes.all { it == scope.ownerId })
         assertTrue(body.scopes.all { it == scope.ownerId })
         assertTrue(meal.scopes.all { it == scope.ownerId })
+        assertEquals(1, workout.scopes.size)
+        assertEquals(1, body.scopes.size)
+        assertEquals(1, meal.scopes.size)
     }
 
     @Test
-    fun selectedHistoricalDateIsReadIndependentlyOfDisplayedMonth() {
+    fun windowIncludesAdjacentDateWithoutSelectedDateQuery() {
         val scope = AccountScope("owner-a")
         val body = FakeBodyReadApi(emptyList())
         val snapshot = RecordsReadRepository(
             FakeWorkoutReadApi(emptyList(), emptyList()),
             body,
-            FakeMealReadApi(emptySet())
-        ).load(scope, "2024-02", "2024-01-31", "2024-02-20")
+            FakeMealReadApi(emptyList())
+        ).load(scope, "2024-02", "2024-02-20")
 
         assertEquals("2024-02", snapshot.displayedMonth)
-        assertEquals("2024-01-31", snapshot.selectedDate)
-        assertEquals("2024-01-31", snapshot.selectedDay.date)
-        assertTrue(snapshot.selectedDay.workouts.isEmpty())
-        assertTrue(snapshot.selectedDay.bodyMetrics.isEmpty())
-        assertTrue(snapshot.selectedDay.meals.isEmpty())
+        assertEquals("2024-01-31", snapshot.dayDetailsByDate.getValue("2024-01-31").date)
+        assertTrue(!snapshot.dayDetailsByDate.getValue("2024-01-31").hasAnyRecord)
     }
 }
+
+private fun mealSummary(date: String) = MealReadSummary(
+    "meal-1", date, "첫 끼", "메뉴", 300, 20.0, 30.0, 10.0, 1,
+    "메뉴", "12:00", "food", null, "", "", "", "recorded", "", "", false,
+    null, "12:00", "메뉴"
+)
 
 private class FakeWorkoutReadApi(
     private val dates: List<String>,
@@ -161,12 +173,12 @@ private class FakeBodyReadApi(
         endDate: String
     ): List<BodyReadEntry> {
         scopes += scope.ownerId
-        return entries
+        return entries.filter { it.date in startDate..endDate }
     }
 }
 
 private class FakeMealReadApi(
-    private val dateSet: Set<String>
+    private val summaries: List<MealReadSummary>
 ) : MealReadApi {
     val scopes = mutableListOf<String>()
 
@@ -180,7 +192,13 @@ private class FakeMealReadApi(
     override fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int = 0
     override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> {
         scopes += scope.ownerId
-        return dateSet.toList()
+        return summaries.map { it.date }.distinct()
+    }
+    override fun mealSummaries(
+        scope: AccountScope, startDate: String, endDate: String
+    ): List<MealReadSummary> {
+        scopes += scope.ownerId
+        return summaries.filter { it.date in startDate..endDate }
     }
     override fun nutritionSummary(scope: AccountScope, startDate: String, endDate: String) =
         MealNutritionReadSummary(0.0, 0, 0, 0)

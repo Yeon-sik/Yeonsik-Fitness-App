@@ -46,9 +46,8 @@ data class RecordsWeightPoint(
 data class RecordsSnapshot(
     val ownerId: String,
     val displayedMonth: String,
-    val selectedDate: String,
     val today: String,
     val calendarDays: List<RecordsCalendarDay>,
-    val selectedDay: RecordsDayDetail,
+    val dayDetailsByDate: Map<String, RecordsDayDetail>,
     val weightTrend: List<RecordsWeightPoint>
 )

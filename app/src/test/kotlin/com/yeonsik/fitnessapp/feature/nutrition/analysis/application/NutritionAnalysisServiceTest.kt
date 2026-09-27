@@ -355,6 +355,12 @@ class NutritionAnalysisServiceTest {
         override fun meals(scope: AccountScope, date: String): List<MealReadSummary> =
             error("unused")
 
+        override fun mealSummaries(
+            scope: AccountScope,
+            startDate: String,
+            endDate: String
+        ): List<MealReadSummary> = error("unused")
+
         override fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int =
             error("unused")
 

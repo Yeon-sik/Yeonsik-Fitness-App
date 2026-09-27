@@ -191,6 +191,11 @@ private class FakeMealReadApi(
     override fun mealTotals(scope: AccountScope, date: String) =
         MealReadNutritionTotals(0, emptyMap())
     override fun meals(scope: AccountScope, date: String): List<MealReadSummary> = emptyList()
+    override fun mealSummaries(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<MealReadSummary> = emptyList()
     override fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int = 0
     override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> {
         scopes += scope.ownerId
