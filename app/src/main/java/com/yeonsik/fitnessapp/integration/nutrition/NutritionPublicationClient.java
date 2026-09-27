@@ -85,6 +85,21 @@ public final class NutritionPublicationClient {
             NutritionFood food,
             boolean publish
     ) throws Exception {
+        return publishDiningOut(nutritionConfig, priceTraceConfig, food, publish, null);
+    }
+
+    /**
+     * Publishes a dining-out estimate against a user-selected existing PriceTrace menu.
+     * The selected identity comes from PriceTrace's read-only directory/detail contract, so this
+     * path attaches that exact identity without invoking the menu-creation RPC.
+     */
+    public PublicationState publishDiningOut(
+            SupabaseConfig nutritionConfig,
+            SupabaseConfig priceTraceConfig,
+            NutritionFood food,
+            boolean publish,
+            DiningOutIdentity selectedIdentity
+    ) throws Exception {
         requireConfiguredNutrition(nutritionConfig);
         String normalizedFoodId = requireName(food == null ? null : food.id);
         if (food == null || !food.isDiningOutMenu()) {
@@ -97,7 +112,9 @@ public final class NutritionPublicationClient {
             throw new IllegalStateException("PT 관리자 계정 로그인이 필요합니다.");
         }
 
-        JSONObject identity = parseIdentity(food.sourceReference);
+        JSONObject identity = parseIdentity(selectedIdentity == null
+                ? food.sourceReference
+                : selectedIdentity.metadataJson());
         String restaurantName = emptyToDefault(
                 nullableString(identity, "restaurant_name"),
                 emptyToDefault(food.brand, "식당명 미기록")
@@ -168,23 +185,34 @@ public final class NutritionPublicationClient {
         request.put("p_menu_category_label", NutritionFood.categoryLabel(food.category));
         request.put("p_serving_label", food.basisLabel());
 
-        HttpURLConnection priceTraceConnection = openConnection(
-                joinUrl(priceTraceConfig.supabaseUrl,
-                        "/rest/v1/rpc/admin_publish_fitness_dining_out_v1"),
-                "POST",
-                priceTraceConfig
-        );
-        priceTraceConnection.setRequestProperty("Content-Type", "application/json");
-        priceTraceConnection.setRequestProperty("Accept", "application/json");
-        priceTraceConnection.setDoOutput(true);
-        writeJson(priceTraceConnection, request);
+        String registeredRestaurantId;
+        String registeredLocationId;
+        String registeredMenuId;
+        String registeredCatalogProductId;
+        if (selectedIdentity != null) {
+            registeredRestaurantId = selectedIdentity.restaurantId;
+            registeredLocationId = selectedIdentity.restaurantLocationId;
+            registeredMenuId = selectedIdentity.restaurantMenuId;
+            registeredCatalogProductId = selectedIdentity.catalogProductId;
+        } else {
+            HttpURLConnection priceTraceConnection = openConnection(
+                    joinUrl(priceTraceConfig.supabaseUrl,
+                            "/rest/v1/rpc/admin_publish_fitness_dining_out_v1"),
+                    "POST",
+                    priceTraceConfig
+            );
+            priceTraceConnection.setRequestProperty("Content-Type", "application/json");
+            priceTraceConnection.setRequestProperty("Accept", "application/json");
+            priceTraceConnection.setDoOutput(true);
+            writeJson(priceTraceConnection, request);
 
-        JSONArray priceTraceRows = readRows(priceTraceConnection, "PT 식당 메뉴 등록 RPC");
-        JSONObject priceTraceRow = priceTraceRows.getJSONObject(0);
-        String registeredRestaurantId = requireReturnedUuid(priceTraceRow, "restaurant_id");
-        String registeredLocationId = requireReturnedUuid(priceTraceRow, "restaurant_location_id");
-        String registeredMenuId = requireReturnedUuid(priceTraceRow, "restaurant_menu_id");
-        String registeredCatalogProductId = requireReturnedUuid(priceTraceRow, "catalog_product_id");
+            JSONArray priceTraceRows = readRows(priceTraceConnection, "PT 식당 메뉴 등록 RPC");
+            JSONObject priceTraceRow = priceTraceRows.getJSONObject(0);
+            registeredRestaurantId = requireReturnedUuid(priceTraceRow, "restaurant_id");
+            registeredLocationId = requireReturnedUuid(priceTraceRow, "restaurant_location_id");
+            registeredMenuId = requireReturnedUuid(priceTraceRow, "restaurant_menu_id");
+            registeredCatalogProductId = requireReturnedUuid(priceTraceRow, "catalog_product_id");
+        }
 
         AttachedIdentity attachedIdentity = attachDiningOutMenuIdentity(
                 nutritionConfig,

@@ -4,6 +4,8 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
@@ -70,6 +72,11 @@ interface MealScreenActions {
     fun updatePriceTraceQuery(value: String)
     fun searchPriceTraceRestaurants()
     fun loadPriceTraceRestaurant(restaurantId: String)
+    fun openNutritionPublication()
+    fun closeNutritionPublication()
+    fun selectNutritionPublicationMenu(foodId: String)
+    fun syncNutritionPublicationCatalog()
+    fun publishNutritionMenu(locationId: String, menuId: String, catalogProductId: String)
     fun applyPriceTraceSelection(
         restaurantId: String,
         restaurantName: String,
@@ -104,6 +111,7 @@ internal fun MealScreen(
     homeState: HomeUiState,
     editorState: MealUiState,
     priceTraceState: PriceTraceUiState,
+    nutritionPublicationState: NutritionPublicationUiState,
     ownerId: String,
     today: String,
     unit: MassUnit,
@@ -131,6 +139,18 @@ internal fun MealScreen(
         Text("식사 기록을 불러오는 중입니다.")
         return
     }
+    AppOutlinedButton(
+        onClick = actions::openNutritionPublication,
+        modifier = Modifier.fillMaxWidth()
+    ) { Text("외식 영양정보 연결 · 공개") }
+    if (nutritionPublicationState.open && nutritionPublicationState.ownerId == ownerId) {
+        NutritionPublicationDialog(
+            state = nutritionPublicationState,
+            priceTraceState = priceTraceState,
+            actions = actions
+        )
+    }
+
     val snapshot = ready.snapshot
     val totals = snapshot.mealNutritionTotals[today]
     val selectedDate = runCatching { LocalDate.parse(today) }.getOrNull()
@@ -546,5 +566,168 @@ private fun PriceTraceDiningOutPicker(
                 }
             }
         }
+    }
+}
+
+
+@Composable
+private fun NutritionPublicationDialog(
+    state: NutritionPublicationUiState,
+    priceTraceState: PriceTraceUiState,
+    actions: MealScreenActions
+) {
+    var menuQuery by remember { mutableStateOf("") }
+    var pendingTarget by remember { mutableStateOf<Triple<String, String, String>?>(null) }
+    val priceTrace = priceTraceState as? PriceTraceUiState.Ready
+    val selectedNutritionFood = state.selectedFood
+    val busy = state.loading || state.syncing || state.publishing
+    val visibleMenus = state.menus.filter { food ->
+        val query = menuQuery.trim()
+        query.isEmpty() || food.displayName().contains(query, ignoreCase = true)
+                || food.name.contains(query, ignoreCase = true)
+    }
+
+    AlertDialog(
+        onDismissRequest = { if (!busy) actions.closeNutritionPublication() },
+        title = { Text("외식 영양정보 연결 · 공개") },
+        text = {
+            Column(
+                Modifier
+                    .heightIn(max = 560.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+            ) {
+                Text("Nutrition에 저장된 외식 영양정보를 기존 PriceTrace 식당·지점·메뉴에 연결합니다.")
+                Text("영양 값은 외식 메뉴 추정값입니다. 공개 전에 선택한 메뉴와 지점을 확인하세요.")
+
+                when {
+                    state.loading -> Text("Nutrition 외식 메뉴를 불러오는 중입니다.")
+                    state.menus.isEmpty() -> {
+                        Text("저장된 외식 메뉴가 없습니다. OCR 등록 자료가 원격 Nutrition에 있다면 먼저 동기화해야 할 수 있습니다.")
+                        Text("동기화는 현재 Nutrition 계정의 기존 push/pull 규칙으로 카탈로그 전체를 처리합니다.", style = MaterialTheme.typography.bodySmall)
+                        AppButton(
+                            onClick = actions::syncNutritionPublicationCatalog,
+                            modifier = Modifier.fillMaxWidth(),
+                            enabled = !busy
+                        ) { Text(if (state.syncing) "Nutrition 동기화 중" else "Nutrition 동기화 후 목록 불러오기") }
+                    }
+                    else -> {
+                        AppTextField(
+                            value = menuQuery,
+                            onValueChange = { menuQuery = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("등록된 Nutrition 외식 메뉴 검색") }
+                        )
+                        visibleMenus.forEach { food ->
+                            val selected = food.id == state.selectedFoodId
+                            AppOutlinedButton(
+                                onClick = { actions.selectNutritionPublicationMenu(food.id) },
+                                modifier = Modifier.fillMaxWidth(),
+                                selected = selected,
+                                enabled = !busy
+                            ) {
+                                Text("${food.displayName()} · 추정 영양정보")
+                            }
+                        }
+                        state.selectedFood?.let { food ->
+                            AppCard(Modifier.fillMaxWidth()) {
+                                Column(Modifier.padding(AppSpacing.card)) {
+                                    Text("선택된 Nutrition 행", fontWeight = FontWeight.Bold)
+                                    Text(food.displayName())
+                                    Text(food.extendedNutritionLabel())
+                                    Text("출처 유형 · ${food.sourceType}", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            AppTextField(
+                                value = priceTrace?.query.orEmpty(),
+                                onValueChange = actions::updatePriceTraceQuery,
+                                modifier = Modifier.fillMaxWidth(),
+                                label = { Text("PriceTrace 식당 검색") }
+                            )
+                            AppButton(
+                                onClick = actions::searchPriceTraceRestaurants,
+                                modifier = Modifier.fillMaxWidth(),
+                                enabled = !busy && !priceTrace?.query.isNullOrBlank()
+                            ) { Text("PriceTrace 식당 다시 검색") }
+                            if (priceTrace?.loading == true) Text("PriceTrace 식당·메뉴를 불러오는 중입니다.")
+                            priceTrace?.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                            priceTrace?.restaurants.orEmpty().forEach { restaurant ->
+                                AppOutlinedButton(
+                                    onClick = { actions.loadPriceTraceRestaurant(restaurant.restaurantId) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    enabled = !busy
+                                ) { Text(restaurant.restaurantName) }
+                            }
+                            priceTrace?.detail?.let { detail ->
+                                Text("${detail.restaurantName} · 지점과 기존 메뉴를 선택하세요", fontWeight = FontWeight.Bold)
+                                if (detail.locations.isEmpty() || detail.menus.isEmpty()) {
+                                    Text("선택할 수 있는 PriceTrace 지점 또는 메뉴가 없습니다.")
+                                }
+                                detail.locations.forEach { location ->
+                                    detail.menus.forEach { menu ->
+                                        AppOutlinedButton(
+                                            onClick = {
+                                                pendingTarget = Triple(
+                                                    location.restaurantLocationId,
+                                                    menu.restaurantMenuId,
+                                                    menu.catalogProductId
+                                                )
+                                            },
+                                            modifier = Modifier.fillMaxWidth(),
+                                            enabled = !busy
+                                        ) {
+                                            Text("${detail.restaurantName} · ${location.branchName.ifBlank { "본점" }} · ${menu.menuName}")
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                state.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = actions::closeNutritionPublication, enabled = !busy) {
+                Text(if (state.publishing) "공개 중" else "닫기")
+            }
+        }
+    )
+
+    val target = pendingTarget
+    val detail = priceTrace?.detail
+    val selectedLocation = target?.let { pending ->
+        detail?.locations?.singleOrNull { it.restaurantLocationId == pending.first }
+    }
+    val selectedMenu = target?.let { pending ->
+        detail?.menus?.singleOrNull {
+            it.restaurantMenuId == pending.second && it.catalogProductId == pending.third
+        }
+    }
+    if (target != null && selectedNutritionFood != null && selectedLocation != null && selectedMenu != null) {
+        AlertDialog(
+            onDismissRequest = { if (!busy) pendingTarget = null },
+            title = { Text("공개 연결 확인") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                    Text("${selectedNutritionFood.displayName()}의 추정 영양정보를 공개합니다.")
+                    Text("PriceTrace · ${detail?.restaurantName} · ${selectedLocation.branchName.ifBlank { "본점" }} · ${selectedMenu.menuName}")
+                    Text("공개하면 Fitness와 PriceTrace 공개 조회에서 이 메뉴의 영양정보를 확인할 수 있습니다.")
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        actions.publishNutritionMenu(target.first, target.second, target.third)
+                        pendingTarget = null
+                    },
+                    enabled = !busy
+                ) { Text("공개 연결") }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingTarget = null }, enabled = !busy) { Text("취소") }
+            }
+        )
     }
 }

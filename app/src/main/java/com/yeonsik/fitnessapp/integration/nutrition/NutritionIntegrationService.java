@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.integration.nutrition;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitnessapp.data.DiningOutIdentity;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
@@ -33,6 +34,7 @@ public final class NutritionIntegrationService {
     private final NutritionPublicationClient publicationClient;
     private final NutritionCatalogSyncClient syncClient;
     private volatile SupabaseConfig nutritionConfig;
+    private volatile SupabaseConfig priceTraceConfig = SupabaseConfig.empty();
 
     public NutritionIntegrationService(
             NutritionCatalogRepositoryApi nutritionCatalog,
@@ -85,6 +87,12 @@ public final class NutritionIntegrationService {
         this.nutritionConfig = nutritionConfig == null
                 ? SupabaseConfig.empty()
                 : nutritionConfig;
+    }
+
+    public void setPriceTraceConfig(SupabaseConfig priceTraceConfig) {
+        this.priceTraceConfig = priceTraceConfig == null
+                ? SupabaseConfig.empty()
+                : priceTraceConfig;
     }
 
     public List<ProductReadV1> searchProducts(String query) throws Exception {
@@ -147,6 +155,11 @@ public final class NutritionIntegrationService {
         return new SyncResult(active, result.pushedRows, result.pulledRows);
     }
 
+    /** Syncs with the Nutrition session already owned by this integration boundary. */
+    public SyncResult syncCurrentCatalog() throws Exception {
+        return syncCatalog(nutritionConfig);
+    }
+
     public PublicationResult publishNutrition(
             SupabaseConfig configuredNutrition,
             String nutritionFoodId,
@@ -183,6 +196,50 @@ public final class NutritionIntegrationService {
                 publish
         );
         applyLocalPublication(activeNutrition, state);
+        return new PublicationResult(activeNutrition, activePriceTrace, state);
+    }
+
+    /**
+     * Links an owner-owned Nutrition estimate to the exact existing PT menu selected in the app,
+     * publishes it through the Nutrition RPC, then confirms that PT's public read returns the
+     * same Nutrition and catalog IDs.
+     */
+    public PublicationResult publishDiningOutForExistingMenu(
+            String nutritionFoodId,
+            DiningOutIdentity selectedIdentity
+    ) throws Exception {
+        if (selectedIdentity == null) {
+            throw new IllegalArgumentException("연결할 PriceTrace 식당·지점·메뉴를 선택하세요.");
+        }
+        SupabaseConfig activeNutrition = requireNutritionAccount(nutritionConfig);
+        SupabaseConfig activePriceTrace = requirePriceTraceAccount(priceTraceConfig);
+        NutritionFood food = nutritionCatalog.findFoodById(nutritionFoodId);
+        if (food == null || !food.isDiningOutMenu()) {
+            throw new IllegalArgumentException("공개할 Nutrition 외식 메뉴를 찾을 수 없습니다.");
+        }
+
+        NutritionPublicationClient.PublicationState state = publicationClient.publishDiningOut(
+                activeNutrition,
+                activePriceTrace,
+                food,
+                true,
+                selectedIdentity
+        );
+        applyLocalPublication(activeNutrition, state);
+        if (!state.isPublic) {
+            throw new IOException("Nutrition 공개 RPC가 공개 상태를 반환하지 않았습니다.");
+        }
+
+        PublicProductNutrition verified = loadPublicProductNutrition(
+                selectedIdentity.catalogProductId
+        );
+        if (verified == null
+                || !selectedIdentity.catalogProductId.equals(verified.catalogProductId)
+                || !nutritionFoodId.equals(verified.nutritionFoodId)) {
+            throw new IOException(
+                    "공개 발행 응답은 받았지만 PT 공개 조회에서 같은 Nutrition 행을 확인하지 못했습니다."
+            );
+        }
         return new PublicationResult(activeNutrition, activePriceTrace, state);
     }
 
@@ -238,6 +295,7 @@ public final class NutritionIntegrationService {
             throw new IllegalStateException("PT 관리자 계정 로그인이 필요합니다.");
         }
         SupabaseConfig active = priceTraceAuth.refresh(configured);
+        priceTraceConfig = active;
         productReadClient.setConfig(active);
         restaurantReadClient.setConfig(active);
         return active;

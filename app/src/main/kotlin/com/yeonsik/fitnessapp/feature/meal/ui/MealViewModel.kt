@@ -82,6 +82,21 @@ sealed interface PriceTraceUiState {
     ) : PriceTraceUiState
 }
 
+data class NutritionPublicationUiState(
+    val ownerId: String = "",
+    val open: Boolean = false,
+    val menus: List<NutritionFood> = emptyList(),
+    val selectedFoodId: String? = null,
+    val loading: Boolean = false,
+    val syncing: Boolean = false,
+    val publishing: Boolean = false,
+    val error: String? = null,
+    val notice: String? = null
+) {
+    val selectedFood: NutritionFood?
+        get() = menus.firstOrNull { it.id == selectedFoodId }
+}
+
 /** Owns meal editor/search state; Compose only renders state and emits actions. */
 class MealViewModel @JvmOverloads constructor(
     private val savedStateHandle: SavedStateHandle,
@@ -95,10 +110,13 @@ class MealViewModel @JvmOverloads constructor(
     val uiState: LiveData<MealUiState> = mutableState
     private val mutablePriceTraceState = MutableLiveData<PriceTraceUiState>(PriceTraceUiState.Idle)
     val priceTraceState: LiveData<PriceTraceUiState> = mutablePriceTraceState
+    private val mutableNutritionPublicationState = MutableLiveData(NutritionPublicationUiState())
+    val nutritionPublicationState: LiveData<NutritionPublicationUiState> = mutableNutritionPublicationState
     private var ownerId = ""
     private var date = ""
     private var requestVersion = 0L
     private var priceTraceRequestVersion = 0L
+    private var nutritionPublicationRequestVersion = 0L
     private var nutritionAnalysisRequestVersion = 0L
     private var selectedFood: NutritionFood? = null
 
@@ -106,6 +124,11 @@ class MealViewModel @JvmOverloads constructor(
         val dateChanged = ownerId != scope.ownerId || this.date != date
         ownerId = scope.ownerId
         this.date = date
+        if (nutritionPublicationReady().ownerId.isNotBlank()
+            && nutritionPublicationReady().ownerId != scope.ownerId) {
+            ++nutritionPublicationRequestVersion
+            mutableNutritionPublicationState.value = NutritionPublicationUiState(ownerId = scope.ownerId)
+        }
         mealRepository.setUserId(scope.ownerId)
         val request = ++requestVersion
         if (dateChanged) {
@@ -354,6 +377,205 @@ class MealViewModel @JvmOverloads constructor(
                         priceTraceReady().copy(
                             loading = false,
                             error = error.message ?: "PriceTrace 메뉴를 불러오지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun openNutritionPublication() {
+        val request = ++nutritionPublicationRequestVersion
+        val requestedOwner = ownerId
+        val current = nutritionPublicationReady()
+        mutableNutritionPublicationState.value = current.copy(
+            ownerId = requestedOwner,
+            open = true,
+            loading = true,
+            error = null,
+            notice = null
+        )
+        executor.execute {
+            try {
+                val menus = nutritionCatalog.savedDiningOutMenus()
+                    .filter { it.isDiningOutMenu() }
+                if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
+                    mutableNutritionPublicationState.postValue(
+                        nutritionPublicationReady().copy(
+                            ownerId = requestedOwner,
+                            open = true,
+                            menus = menus,
+                            selectedFoodId = current.selectedFoodId
+                                ?.takeIf { id -> menus.any { it.id == id } },
+                            loading = false,
+                            error = null
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
+                    mutableNutritionPublicationState.postValue(
+                        nutritionPublicationReady().copy(
+                            ownerId = requestedOwner,
+                            open = true,
+                            loading = false,
+                            error = error.message ?: "Nutrition 외식 메뉴를 불러오지 못했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    fun closeNutritionPublication() {
+        ++nutritionPublicationRequestVersion
+        mutableNutritionPublicationState.value = nutritionPublicationReady().copy(
+            open = false,
+            loading = false,
+            error = null
+        )
+    }
+
+    fun selectNutritionPublicationMenu(foodId: String) {
+        val state = nutritionPublicationReady()
+        val food = state.menus.firstOrNull { it.id == foodId } ?: return
+        mutableNutritionPublicationState.value = state.copy(
+            selectedFoodId = food.id,
+            error = null,
+            notice = null
+        )
+        val source = food.sourceReference?.let { reference ->
+            runCatching { JSONObject(reference) }.getOrNull()
+        }
+        val restaurantName = food.brand?.takeIf { it.isNotBlank() }
+            ?: sourceValue(source, "restaurant_name")
+        val query = restaurantName.ifBlank { food.name }
+        updatePriceTraceQuery(query)
+        searchPriceTraceRestaurants()
+    }
+
+    /** Runs the existing Nutrition catalog sync, then refreshes the owner-scoped menu list. */
+    fun syncNutritionPublicationCatalog() {
+        val state = nutritionPublicationReady()
+        if (!state.open || state.syncing || state.publishing) return
+        val request = ++nutritionPublicationRequestVersion
+        val requestedOwner = ownerId
+        mutableNutritionPublicationState.value = state.copy(
+            syncing = true,
+            error = null,
+            notice = null
+        )
+        executor.execute {
+            try {
+                val result = nutritionIntegration.syncCurrentCatalog()
+                val menus = nutritionCatalog.savedDiningOutMenus()
+                    .filter { it.isDiningOutMenu() }
+                if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
+                    mutableNutritionPublicationState.postValue(
+                        nutritionPublicationReady().copy(
+                            ownerId = requestedOwner,
+                            menus = menus,
+                            selectedFoodId = state.selectedFoodId
+                                ?.takeIf { id -> menus.any { it.id == id } },
+                            syncing = false,
+                            notice = "Nutrition 동기화 완료 · 가져옴 ${result.pulledRows}건 · 보냄 ${result.pushedRows}건",
+                            error = null
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
+                    mutableNutritionPublicationState.postValue(
+                        nutritionPublicationReady().copy(
+                            syncing = false,
+                            error = error.message ?: "Nutrition 동기화에 실패했습니다."
+                        )
+                    )
+                }
+            }
+        }
+    }
+
+    /** Validates selected UUIDs against the loaded PriceTrace detail before writing. */
+    fun publishNutritionMenuForPriceTraceSelection(
+        locationId: String,
+        menuId: String,
+        catalogProductId: String
+    ) {
+        val state = nutritionPublicationReady()
+        val food = state.selectedFood
+        if (!state.open || food == null || state.publishing || state.syncing) return
+        val detail = priceTraceReady().detail
+        if (detail == null) {
+            mutableNutritionPublicationState.value = state.copy(
+                error = "PriceTrace 식당 상세를 다시 불러오세요."
+            )
+            return
+        }
+        val location = detail.locations.singleOrNull {
+            it.restaurantLocationId == locationId
+        }
+        val menu = detail.menus.singleOrNull {
+            it.restaurantMenuId == menuId && it.catalogProductId == catalogProductId
+        }
+        if (location == null || menu == null) {
+            mutableNutritionPublicationState.value = state.copy(
+                error = "선택한 지점·메뉴가 현재 PriceTrace 상세와 일치하지 않습니다. 다시 선택하세요."
+            )
+            return
+        }
+        val identity = runCatching {
+            DiningOutIdentity.fromPriceTrace(
+                detail.restaurantId,
+                detail.restaurantName,
+                location.restaurantLocationId,
+                location.locationSourceNamespace,
+                location.sourceLocationCode,
+                location.branchName,
+                menu.restaurantMenuId,
+                menu.menuName,
+                menu.catalogProductId
+            )
+        }.getOrElse { error ->
+            mutableNutritionPublicationState.value = state.copy(
+                error = error.message ?: "PriceTrace identity가 올바르지 않습니다."
+            )
+            return
+        }
+
+        val request = ++nutritionPublicationRequestVersion
+        val requestedOwner = ownerId
+        mutableNutritionPublicationState.value = state.copy(
+            publishing = true,
+            error = null,
+            notice = null
+        )
+        executor.execute {
+            try {
+                val result = nutritionIntegration.publishDiningOutForExistingMenu(food.id, identity)
+                if (!result.state.isPublic || result.state.catalogProductId != catalogProductId) {
+                    throw IllegalStateException("선택한 PT 메뉴의 공개 영양정보를 확인하지 못했습니다.")
+                }
+                val menus = nutritionCatalog.savedDiningOutMenus()
+                    .filter { it.isDiningOutMenu() }
+                if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
+                    mutableNutritionPublicationState.postValue(
+                        nutritionPublicationReady().copy(
+                            ownerId = requestedOwner,
+                            menus = menus,
+                            selectedFoodId = food.id,
+                            publishing = false,
+                            notice = "공개 완료 · ${menu.menuName} · PT 공개 조회에서 이 영양 행의 연결을 확인했습니다.",
+                            error = null
+                        )
+                    )
+                }
+            } catch (error: Exception) {
+                if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
+                    mutableNutritionPublicationState.postValue(
+                        nutritionPublicationReady().copy(
+                            publishing = false,
+                            error = error.message ?: "외식 영양정보를 연결하거나 공개하지 못했습니다."
                         )
                     )
                 }
@@ -677,6 +899,9 @@ class MealViewModel @JvmOverloads constructor(
     private fun priceTraceReady(): PriceTraceUiState.Ready =
         (mutablePriceTraceState.value as? PriceTraceUiState.Ready)
             ?: PriceTraceUiState.Ready(ownerId = ownerId)
+
+    private fun nutritionPublicationReady(): NutritionPublicationUiState =
+        mutableNutritionPublicationState.value ?: NutritionPublicationUiState(ownerId = ownerId)
 
     private fun savedDraft() = DiningOutDraft(
         savedStateHandle[KEY_STORE] ?: "", savedStateHandle[KEY_BRANCH] ?: "",

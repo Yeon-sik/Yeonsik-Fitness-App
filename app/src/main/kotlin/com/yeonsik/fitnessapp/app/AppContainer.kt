@@ -241,7 +241,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         nutritionAuthManager,
         priceTraceAuthManager,
         nutritionSupabaseConfig
-    )
+    ).also { it.setPriceTraceConfig(priceTraceSupabaseConfig) }
     val syncApplicationService = SyncApplicationService(
         supabaseAuthManager,
         syncManager,
@@ -304,6 +304,7 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
 
     fun applyPriceTraceSessionConfig(config: SupabaseConfig) {
         priceTraceSupabaseConfig = config
+        nutritionIntegrationService.setPriceTraceConfig(config)
         productReadClient.setConfig(config)
         restaurantMenuReadClient.setConfig(config)
     }
