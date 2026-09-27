@@ -241,6 +241,31 @@ async function callCanonicalV3(owner, payload) {
   return body[0];
 }
 
+async function callOcrDiningOutPublication(owner, payload) {
+  const body = await expectOk(
+    `OCR dining-out publication ${payload.p_idempotency_key}`,
+    '/rest/v1/rpc/publish_verified_ocr_dining_out_nutrition_v1',
+    {
+      method: 'POST',
+      headers: rpcHeaders(owner),
+      body: JSON.stringify(payload)
+    }
+  );
+  assert(Array.isArray(body) && body.length === 1, 'OCR publication must return exactly one row');
+  return body[0];
+}
+
+function exactDiningOutIdentity() {
+  return {
+    schema_version: 'dining-out-identity.v1',
+    namespace: 'pricetrace',
+    restaurant_id: crypto.randomUUID(),
+    restaurant_location_id: crypto.randomUUID(),
+    restaurant_menu_id: crypto.randomUUID(),
+    catalog_product_id: crypto.randomUUID()
+  };
+}
+
 function assertAuthoritativeV3RequestShape(payload) {
   assert(
     !Object.prototype.hasOwnProperty.call(payload, 'p_category_hierarchy'),
@@ -783,6 +808,9 @@ async function cleanupTable(table, column, values) {
 
 async function cleanup() {
   if (!serviceRoleKey) return;
+  await cleanupTable('nutrition_ocr_dining_out_publications', 'nutrition_food_id', created.foodIds);
+  await cleanupTable('nutrition_dining_out_publication_events', 'nutrition_food_id', created.foodIds);
+  await cleanupTable('product_nutrition_links', 'nutrition_food_id', created.foodIds);
   await cleanupTable('nutrition_food_nutrient_provenance', 'canonical_import_id', created.canonicalImportIds);
   await cleanupTable('nutrition_canonical_imports', 'id', created.canonicalImportIds);
   await cleanupTable('nutrition_estimation_evidence', 'id', created.estimationEvidenceIds);
@@ -862,6 +890,194 @@ async function run() {
   const estimateV3Result = await callCanonicalV3(ownerA, estimateV3);
   await verifyCanonicalResult(ownerA, estimateV3Result, 'food-estimate.v1', 'food_image_estimate');
   await verifyV3NullHierarchy(ownerA, estimateV3Result, estimateV3.p_brand, estimateV3.p_food_name);
+
+  const publicationEstimate = estimateV3Payload(
+    uniqueId('ocr-publication-import'),
+    'Integration OCR Publication Menu'
+  );
+  const publicationImport = await callCanonicalV3(ownerA, publicationEstimate);
+  await verifyCanonicalResult(ownerA, publicationImport, 'food-estimate.v1', 'food_image_estimate');
+  const publicationIdentity = exactDiningOutIdentity();
+  const publicationRequest = {
+    p_idempotency_key: uniqueId('ocr-publication'),
+    p_canonical_import_id: publicationImport.canonical_import_id,
+    p_nutrition_food_id: publicationImport.nutrition_food_id,
+    p_restaurant_id: publicationIdentity.restaurant_id,
+    p_restaurant_location_id: publicationIdentity.restaurant_location_id,
+    p_restaurant_menu_id: publicationIdentity.restaurant_menu_id,
+    p_catalog_product_id: publicationIdentity.catalog_product_id
+  };
+
+  for (const field of [
+    'p_restaurant_id',
+    'p_restaurant_location_id',
+    'p_restaurant_menu_id',
+    'p_catalog_product_id'
+  ]) {
+    await assertFunctionRejected(
+      `OCR publication rejects missing ${field}`,
+      () => callOcrDiningOutPublication(ownerA, { ...publicationRequest, [field]: null })
+    );
+  }
+
+  await assertFunctionRejected(
+    'OCR publication rejects another owner Nutrition food',
+    () => callOcrDiningOutPublication(ownerB, publicationRequest)
+  );
+
+  const unchangedBeforePublication = await getRows(
+    ownerA,
+    'nutrition_foods',
+    { id: publicationImport.nutrition_food_id },
+    'visibility,source_reference,publication_revision'
+  );
+  assertEqual(unchangedBeforePublication[0].visibility, 'private', 'rejected requests keep OCR Nutrition private');
+  assertEqual(unchangedBeforePublication[0].publication_revision, 0, 'rejected requests do not publish');
+  assertEqual(
+    (await getRows(ownerA, 'product_nutrition_links', {
+      nutrition_food_id: publicationImport.nutrition_food_id
+    })).length,
+    0,
+    'rejected requests do not attach a Nutrition link'
+  );
+  assertEqual(
+    (await getRows(ownerA, 'nutrition_dining_out_publication_events', {
+      nutrition_food_id: publicationImport.nutrition_food_id
+    })).length,
+    0,
+    'rejected requests do not create a publication event'
+  );
+
+  const publication = await callOcrDiningOutPublication(ownerA, publicationRequest);
+  assertEqual(publication.canonical_import_id, publicationImport.canonical_import_id, 'publication provenance');
+  assertEqual(publication.nutrition_food_id, publicationImport.nutrition_food_id, 'published Nutrition ID');
+  assertEqual(publication.restaurant_id, publicationIdentity.restaurant_id, 'published restaurant ID');
+  assertEqual(publication.restaurant_location_id, publicationIdentity.restaurant_location_id, 'published location ID');
+  assertEqual(publication.restaurant_menu_id, publicationIdentity.restaurant_menu_id, 'published menu ID');
+  assertEqual(publication.catalog_product_id, publicationIdentity.catalog_product_id, 'published catalog product ID');
+  assert(publication.nutrition_link_id, 'publication result includes approved link ID');
+  assert(publication.nutrition_link_revision >= 1, 'publication result includes link revision');
+  assertEqual(publication.visibility, 'public', 'explicit OCR publication visibility');
+  assert(publication.food_revision >= 1, 'publication result includes food revision');
+  assert(publication.publication_revision >= 1, 'publication result includes publication revision');
+  assert(publication.published_at, 'publication result includes published_at');
+  assertEqual(publication.replayed, false, 'first OCR publication is not a replay');
+
+  const publishedFood = await getRows(
+    ownerA,
+    'nutrition_foods',
+    { id: publicationImport.nutrition_food_id },
+    'visibility,source_reference,publication_revision,published_at'
+  );
+  assertEqual(publishedFood[0].visibility, 'public', 'published Nutrition row');
+  assertEqual(publishedFood[0].publication_revision, publication.publication_revision, 'publication revision persisted');
+  const attachedIdentity = JSON.parse(publishedFood[0].source_reference);
+  for (const field of [
+    'restaurant_id',
+    'restaurant_location_id',
+    'restaurant_menu_id',
+    'catalog_product_id'
+  ]) {
+    assertEqual(attachedIdentity[field], publicationIdentity[field], `attached ${field}`);
+  }
+  const approvedLinks = await getRows(
+    ownerA,
+    'product_nutrition_links',
+    { nutrition_food_id: publicationImport.nutrition_food_id, catalog_product_id: publicationIdentity.catalog_product_id },
+    'nutrition_food_id,catalog_product_id,status,revision,deleted_at'
+  );
+  assertEqual(approvedLinks.length, 1, 'one approved exact Nutrition link');
+  assertEqual(approvedLinks[0].status, 'approved', 'approved catalog/menu link');
+  assertEqual(approvedLinks[0].deleted_at, null, 'approved catalog/menu link is active');
+  const publicationEvents = await getRows(
+    ownerA,
+    'nutrition_dining_out_publication_events',
+    { nutrition_food_id: publicationImport.nutrition_food_id },
+    'action,restaurant_id,restaurant_location_id,restaurant_menu_id,catalog_product_id,publication_revision'
+  );
+  assertEqual(publicationEvents.length, 1, 'atomic RPC creates one publication event');
+  assertEqual(publicationEvents[0].action, 'publish', 'publication event action');
+
+  const publicationReplay = await callOcrDiningOutPublication(ownerA, publicationRequest);
+  assertEqual(publicationReplay.replayed, true, 'identical OCR publication retry is replayed');
+  assertEqual(publicationReplay.publication_revision, publication.publication_revision, 'replay publication revision');
+  assertEqual(publicationReplay.published_at, publication.published_at, 'replay publication timestamp');
+  const changedPublicationRequest = {
+    ...publicationRequest,
+    p_catalog_product_id: crypto.randomUUID()
+  };
+  await assertFunctionRejected(
+    'OCR publication rejects changed payload under the same idempotency key',
+    () => callOcrDiningOutPublication(ownerA, changedPublicationRequest)
+  );
+
+  const conflictingIdentity = exactDiningOutIdentity();
+  const conflictingEstimate = {
+    ...estimateV3Payload(uniqueId('ocr-publication-conflicting-identity'), 'Integration Conflicting Menu Identity'),
+    p_pricetrace_identity: conflictingIdentity
+  };
+  const conflictingImport = await callCanonicalV3(ownerA, conflictingEstimate);
+  await verifyCanonicalResult(ownerA, conflictingImport, 'food-estimate.v1', 'food_image_estimate');
+  const mismatchedIdentityRequest = {
+    p_idempotency_key: uniqueId('ocr-publication-mismatched-identity'),
+    p_canonical_import_id: conflictingImport.canonical_import_id,
+    p_nutrition_food_id: conflictingImport.nutrition_food_id,
+    p_restaurant_id: conflictingIdentity.restaurant_id,
+    p_restaurant_location_id: conflictingIdentity.restaurant_location_id,
+    p_restaurant_menu_id: crypto.randomUUID(),
+    p_catalog_product_id: conflictingIdentity.catalog_product_id
+  };
+  await assertFunctionRejected(
+    'OCR publication rejects IDs that conflict with canonical PriceTrace provenance',
+    () => callOcrDiningOutPublication(ownerA, mismatchedIdentityRequest)
+  );
+  const conflictingFood = await getRows(
+    ownerA,
+    'nutrition_foods',
+    { id: conflictingImport.nutrition_food_id },
+    'visibility,publication_revision'
+  );
+  assertEqual(conflictingFood[0].visibility, 'private', 'identity conflict keeps Nutrition private');
+  assertEqual(conflictingFood[0].publication_revision, 0, 'identity conflict does not publish');
+
+  const legacyExactIdentity = exactDiningOutIdentity();
+  const legacyEstimate = {
+    ...estimateV3Payload(uniqueId('legacy-menu-publication'), 'Integration Legacy Published Menu'),
+    p_pricetrace_identity: legacyExactIdentity
+  };
+  const legacyImport = await callCanonicalV3(ownerA, legacyEstimate);
+  await verifyCanonicalResult(ownerA, legacyImport, 'food-estimate.v1', 'food_image_estimate');
+  await expectOk(
+    'legacy dining-out identity attach regression',
+    '/rest/v1/rpc/attach_dining_out_menu_identity_v1',
+    {
+      method: 'POST',
+      headers: rpcHeaders(ownerA),
+      body: JSON.stringify({
+        p_nutrition_food_id: legacyImport.nutrition_food_id,
+        p_restaurant_id: legacyExactIdentity.restaurant_id,
+        p_restaurant_location_id: legacyExactIdentity.restaurant_location_id,
+        p_restaurant_menu_id: legacyExactIdentity.restaurant_menu_id,
+        p_catalog_product_id: legacyExactIdentity.catalog_product_id
+      })
+    }
+  );
+  const legacyPublicationBody = await expectOk(
+    'legacy dining-out publication regression',
+    '/rest/v1/rpc/set_dining_out_menu_publication_v1',
+    {
+      method: 'POST',
+      headers: rpcHeaders(ownerA),
+      body: JSON.stringify({ p_nutrition_food_id: legacyImport.nutrition_food_id, p_publish: true })
+    }
+  );
+  assertEqual(legacyPublicationBody[0].visibility, 'public', 'legacy publication remains available');
+  assertEqual(
+    legacyPublicationBody[0].catalog_product_id,
+    legacyExactIdentity.catalog_product_id,
+    'legacy publication exact catalog identity'
+  );
+  console.log('PASS atomic OCR dining-out publication, idempotency, owner, identity, and legacy publication checks');
 
   const externalReference = {
     ...JSON.parse(JSON.stringify(EXTERNAL_REFERENCE_FIXTURE)),
@@ -983,6 +1199,27 @@ async function run() {
   const label = labelPayload(uniqueId('label'), 'Integration Label Food');
   const labelResult = await callCanonical(ownerA, label);
   await verifyCanonicalResult(ownerA, labelResult, 'nutrition-label.v1', 'product_label_ocr');
+  const productLabelIdentity = exactDiningOutIdentity();
+  await assertFunctionRejected(
+    'OCR publication rejects product-label Nutrition',
+    () => callOcrDiningOutPublication(ownerA, {
+      p_idempotency_key: uniqueId('ocr-publication-product-label'),
+      p_canonical_import_id: labelResult.canonical_import_id,
+      p_nutrition_food_id: labelResult.nutrition_food_id,
+      p_restaurant_id: productLabelIdentity.restaurant_id,
+      p_restaurant_location_id: productLabelIdentity.restaurant_location_id,
+      p_restaurant_menu_id: productLabelIdentity.restaurant_menu_id,
+      p_catalog_product_id: productLabelIdentity.catalog_product_id
+    })
+  );
+  const rejectedProductLabel = await getRows(
+    ownerA,
+    'nutrition_foods',
+    { id: labelResult.nutrition_food_id },
+    'visibility,publication_revision'
+  );
+  assertEqual(rejectedProductLabel[0].visibility, 'private', 'product-label rejection preserves privacy');
+  assertEqual(rejectedProductLabel[0].publication_revision, 0, 'product-label rejection creates no publication');
 
   const estimate = estimatePayload(uniqueId('estimate'), 'Integration Estimated Menu');
   const estimateResult = await callCanonical(ownerA, estimate);

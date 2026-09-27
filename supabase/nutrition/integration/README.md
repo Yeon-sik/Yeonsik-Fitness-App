@@ -9,7 +9,11 @@ provenance rows, replay/collision behavior including changed hierarchy,
 v1/v2 idempotency namespace separation, exact product↔Nutrition links,
 restaurant hierarchy rejection and null read round-trip, strict `p_brand` /
 `p_brand_name` alias handling, malformed payload rejection, and the direct
-`nutrition_foods` write boundary.
+`nutrition_foods` write boundary. It also verifies the OCR dining-out
+publication RPC: private canonical import, all four required PriceTrace IDs,
+owner/product-label rejection, stored identity conflict rejection, atomic
+success, approved link, publication event, same-key replay, changed-payload
+conflict, and the existing manual publication RPC.
 
 The v3 endpoint does not accept `nutrition-label.v3`, `food-estimate.v3`, or a
 `p_category_hierarchy` array. Packaged-product callers send
@@ -34,6 +38,15 @@ $env:NUTRITION_INTEGRATION_EMAIL_B = "<dedicated test user B>"
 $env:NUTRITION_INTEGRATION_PASSWORD_B = "<dedicated test password B>"
 npm test
 ```
+
+The suite uses real test-owner rows and therefore remains opt-in. It removes
+the rows created by the suite after completion.
+
+For an injected failure at publication-event insertion, run
+`ocr-dining-out-publication-rollback.sql` against a disposable/local Nutrition
+database after all migrations. The SQL script opens a transaction and rolls it
+back after proving that identity, link, visibility, publication-event, and
+idempotency writes do not survive the failure.
 
 The URL and anon key can be supplied as `NUTRITION_DB_URL` and
 `NUTRITION_DB_ANON`, or by the corresponding `NUTRITION_SUPABASE_*` aliases.

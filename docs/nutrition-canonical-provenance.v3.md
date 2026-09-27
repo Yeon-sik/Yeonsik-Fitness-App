@@ -16,9 +16,18 @@ apikey: <Nutrition anon key>
 Content-Type: application/json
 ```
 
-The RPC is authenticated and writes a private Nutrition projection. The
-PostgREST request is a JSON object whose property names are the SQL parameter
-names below; positional JSON arrays are not part of this contract.
+The RPC is authenticated and writes a private Nutrition projection. A generic
+canonical import is not publication intent, even when the source values were
+user-verified. `visibility=private` remains the default for both v2 and v3.
+For an OCR-reviewed dining-out item, the caller must retain the returned
+`canonical_import_id` and `nutrition_food_id`, resolve all four exact
+PriceTrace IDs, and make the separate explicit
+[`publish_verified_ocr_dining_out_nutrition_v1`](../contracts/fitness-ocr-dining-out-publication.v1.md)
+call. That RPC alone performs the atomic identity attach, approved link, and
+publication for that reviewed item.
+
+The PostgREST request is a JSON object whose property names are the SQL
+parameter names below; positional JSON arrays are not part of this contract.
 
 ## Authoritative RPC parameter contract
 
