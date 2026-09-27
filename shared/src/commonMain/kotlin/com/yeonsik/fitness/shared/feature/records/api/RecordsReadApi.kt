@@ -8,7 +8,6 @@ interface RecordsReadApi {
     fun load(
         scope: AccountScope,
         displayedMonth: String,
-        selectedDate: String,
         today: String
     ): RecordsSnapshot
 }

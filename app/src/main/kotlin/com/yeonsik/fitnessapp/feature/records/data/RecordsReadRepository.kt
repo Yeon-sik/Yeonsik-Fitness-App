@@ -22,12 +22,10 @@ class RecordsReadRepository(
     override fun load(
         scope: AccountScope,
         displayedMonth: String,
-        selectedDate: String,
         today: String
     ): RecordsSnapshot {
         require(scope.ownerId.isNotBlank()) { "Records owner is required." }
         val month = YearMonth.parse(displayedMonth.trim())
-        val selected = LocalDate.parse(selectedDate.trim())
         val currentDay = LocalDate.parse(today.trim())
         val first = month.atDay(1)
         val last = month.atEndOfMonth()
@@ -36,59 +34,51 @@ class RecordsReadRepository(
         val calendarStartText = calendarStart.toString()
         val calendarEndText = calendarEnd.toString()
 
-        val workoutDates = workouts.completedDates(
-            scope, calendarStartText, calendarEndText
-        ).toSet()
-        val bodyDates = body.dates(scope, calendarStartText, calendarEndText).toSet()
-        val mealDates = meals.dates(scope, calendarStartText, calendarEndText).toSet()
         val sessions = workouts.completedSessionSummaries(
             scope, calendarStartText, calendarEndText
         )
-        val musclesByDate = sessions
+        val workoutsByDate = sessions.groupBy { it.date }
+        val bodyByDate = body.weightEntries(scope, calendarStartText, calendarEndText)
             .groupBy { it.date }
-            .mapValues { (_, rows) ->
-                rows.asSequence()
+        val mealsByDate = meals.mealSummaries(scope, calendarStartText, calendarEndText)
+            .groupBy { it.date }
+        val dayDetailsByDate = (0 until CALENDAR_CELL_COUNT).associate { offset ->
+            val date = calendarStart.plusDays(offset.toLong()).toString()
+            date to RecordsDayDetail(
+                date = date,
+                workouts = workoutsByDate[date].orEmpty().map { session ->
+                    RecordsWorkoutSummary(
+                        id = session.id,
+                        date = session.date,
+                        title = session.title,
+                        workoutType = session.workoutType,
+                        durationSeconds = session.durationSeconds,
+                        totalVolumeKg = session.totalVolumeKg,
+                        completedSetCount = session.completedSetCount,
+                        muscleLabels = session.muscleLabels
+                    )
+                },
+                bodyMetrics = bodyByDate[date].orEmpty(),
+                meals = mealsByDate[date].orEmpty()
+            )
+        }
+        val calendarDays = (0 until CALENDAR_CELL_COUNT).map { offset ->
+            val date = calendarStart.plusDays(offset.toLong()).toString()
+            val detail = dayDetailsByDate.getValue(date)
+            RecordsCalendarDay(
+                date = date,
+                hasWorkout = detail.workouts.isNotEmpty(),
+                hasBodyMetric = detail.bodyMetrics.isNotEmpty(),
+                hasMeal = detail.meals.isNotEmpty(),
+                muscleLabels = detail.workouts.asSequence()
                     .flatMap { it.muscleLabels.asSequence() }
                     .filter { it.isNotBlank() }
                     .distinct()
                     .toList()
-            }
-        val calendarDays = (0 until CALENDAR_CELL_COUNT).map { offset ->
-            val date = calendarStart.plusDays(offset.toLong()).toString()
-            RecordsCalendarDay(
-                date = date,
-                hasWorkout = date in workoutDates,
-                hasBodyMetric = date in bodyDates,
-                hasMeal = date in mealDates,
-                muscleLabels = musclesByDate[date].orEmpty()
             )
         }
-
-        val selectedText = selected.toString()
-        val selectedWorkouts = sessions
-            .asSequence()
-            .filter { it.date == selectedText }
-            .map { session ->
-                RecordsWorkoutSummary(
-                    id = session.id,
-                    date = session.date,
-                    title = session.title,
-                    workoutType = session.workoutType,
-                    durationSeconds = session.durationSeconds,
-                    totalVolumeKg = session.totalVolumeKg,
-                    completedSetCount = session.completedSetCount,
-                    muscleLabels = session.muscleLabels
-                )
-            }
-            .toList()
-        val selectedDetail = RecordsDayDetail(
-            date = selectedText,
-            workouts = selectedWorkouts,
-            bodyMetrics = body.bodyMetrics(scope, selectedText),
-            meals = meals.meals(scope, selectedText)
-        )
-
-        val weightTrend = body.weightEntries(scope, first.toString(), last.toString())
+        val weightTrend = bodyByDate.values.flatten()
+            .filter { it.date >= first.toString() && it.date <= last.toString() }
             .groupBy { it.date }
             .toSortedMap()
             .mapNotNull { (date, entries) ->
@@ -101,10 +91,9 @@ class RecordsReadRepository(
         return RecordsSnapshot(
             ownerId = scope.ownerId,
             displayedMonth = month.toString(),
-            selectedDate = selectedText,
             today = currentDay.toString(),
             calendarDays = calendarDays,
-            selectedDay = selectedDetail,
+            dayDetailsByDate = dayDetailsByDate,
             weightTrend = weightTrend
         )
     }

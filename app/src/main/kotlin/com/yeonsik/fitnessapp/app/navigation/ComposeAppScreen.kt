@@ -1610,8 +1610,6 @@ private fun AppDestination(
             .openDeleteConfirmation(AccountScope(ownerId), recordId)
         override fun showBodyMetric(date: String, recordId: String?) =
             viewModels.getBodyMetrics().open(AccountScope(ownerId), date, recordId)
-        override fun openMeals(date: String) =
-            navigation.selectMealDate(date).also { navigation.navigate(FitnessScreen.MEALS) }
     }
     val supplementActions = object : SupplementScreenActions {
         override fun back() { navigation.back() }

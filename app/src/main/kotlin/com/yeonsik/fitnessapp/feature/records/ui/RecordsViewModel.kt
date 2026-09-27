@@ -18,7 +18,6 @@ sealed interface RecordsUiState {
     data class Loading(
         val ownerId: String,
         val displayedMonth: String,
-        val selectedDate: String,
         val today: String
     ) : RecordsUiState
 
@@ -27,7 +26,6 @@ sealed interface RecordsUiState {
     data class Error(
         val ownerId: String,
         val displayedMonth: String,
-        val selectedDate: String,
         val today: String,
         val message: String
     ) : RecordsUiState
@@ -36,7 +34,6 @@ sealed interface RecordsUiState {
 internal data class RecordsRequestIdentity(
     val ownerId: String,
     val displayedMonth: String,
-    val selectedDate: String,
     val today: String
 )
 
@@ -74,13 +71,12 @@ class RecordsViewModel @JvmOverloads constructor(
         val sameReady = current is RecordsUiState.Ready &&
             current.snapshot.ownerId == scope.ownerId &&
             current.snapshot.displayedMonth == month.toString() &&
-            current.snapshot.selectedDate == safeSelectedDate &&
             current.snapshot.today == safeToday
         val sameLoading = current is RecordsUiState.Loading &&
             current.ownerId == scope.ownerId && current.displayedMonth == month.toString() &&
-            current.selectedDate == safeSelectedDate && current.today == safeToday
+            current.today == safeToday
         if (!stale && (sameReady || sameLoading)) return
-        load(scope, month, safeSelectedDate, safeToday)
+        load(scope, month, safeToday)
     }
 
     fun markStale() { stale = true }
@@ -88,7 +84,7 @@ class RecordsViewModel @JvmOverloads constructor(
     fun enter(scope: AccountScope, today: String, selectedDate: String) {
         val safeToday = today.trim()
         val safeSelectedDate = selectedDate.trim()
-        load(scope, resolveMonth(scope, safeSelectedDate, safeToday), safeSelectedDate, safeToday)
+        load(scope, resolveMonth(scope, safeSelectedDate, safeToday), safeToday)
     }
 
     fun refresh(scope: AccountScope, today: String, selectedDate: String) {
@@ -114,7 +110,9 @@ class RecordsViewModel @JvmOverloads constructor(
         val safeToday = today.trim()
         val month = runCatching { YearMonth.from(LocalDate.parse(safeToday)) }
             .getOrElse { return }
-        load(scope, month, safeToday, safeToday)
+        savedStateHandle[KEY_OWNER] = scope.ownerId
+        savedStateHandle[KEY_MONTH] = month.toString()
+        enterIfNeeded(scope, safeToday, safeToday)
     }
 
     private fun moveMonth(
@@ -126,7 +124,7 @@ class RecordsViewModel @JvmOverloads constructor(
         val safeToday = today.trim()
         val safeSelectedDate = selectedDate.trim()
         val currentMonth = resolveMonth(scope, safeSelectedDate, safeToday)
-        load(scope, currentMonth.plusMonths(delta), safeSelectedDate, safeToday)
+        load(scope, currentMonth.plusMonths(delta), safeToday)
     }
 
     private fun resolveMonth(scope: AccountScope, selectedDate: String, today: String): YearMonth {
@@ -142,24 +140,20 @@ class RecordsViewModel @JvmOverloads constructor(
     private fun load(
         scope: AccountScope,
         month: YearMonth,
-        selectedDate: String,
         today: String
     ) {
         val identity = RecordsRequestIdentity(
             ownerId = scope.ownerId,
             displayedMonth = month.toString(),
-            selectedDate = selectedDate,
             today = today
         )
         val request = requestGate.begin(identity)
         stale = false
         savedStateHandle[KEY_OWNER] = identity.ownerId
         savedStateHandle[KEY_MONTH] = identity.displayedMonth
-        savedStateHandle[KEY_SELECTED_DATE] = identity.selectedDate
         mutableState.value = RecordsUiState.Loading(
             identity.ownerId,
             identity.displayedMonth,
-            identity.selectedDate,
             identity.today
         )
         executor.execute {
@@ -167,13 +161,11 @@ class RecordsViewModel @JvmOverloads constructor(
                 val snapshot = repository.load(
                     scope,
                     identity.displayedMonth,
-                    identity.selectedDate,
                     identity.today
                 )
                 if (requestGate.accepts(request, identity) &&
                     snapshot.ownerId == identity.ownerId &&
                     snapshot.displayedMonth == identity.displayedMonth &&
-                    snapshot.selectedDate == identity.selectedDate &&
                     snapshot.today == identity.today
                 ) {
                     mutableState.postValue(RecordsUiState.Ready(snapshot))
@@ -184,7 +176,6 @@ class RecordsViewModel @JvmOverloads constructor(
                         RecordsUiState.Error(
                             identity.ownerId,
                             identity.displayedMonth,
-                            identity.selectedDate,
                             identity.today,
                             error.message ?: "����� �ҷ����� ���߽��ϴ�."
                         )
@@ -201,6 +192,5 @@ class RecordsViewModel @JvmOverloads constructor(
     private companion object {
         const val KEY_OWNER = "records.owner"
         const val KEY_MONTH = "records.month"
-        const val KEY_SELECTED_DATE = "records.selected_date"
     }
 }

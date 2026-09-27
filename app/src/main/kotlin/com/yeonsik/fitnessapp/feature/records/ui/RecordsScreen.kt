@@ -3,11 +3,13 @@ package com.yeonsik.fitnessapp.feature.records.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -46,7 +48,6 @@ interface RecordsScreenActions {
     fun openRecord(recordId: String)
     fun deleteRecord(recordId: String)
     fun showBodyMetric(date: String, recordId: String?)
-    fun openMeals(date: String)
 }
 
 @Composable
@@ -60,25 +61,16 @@ internal fun RecordsScreen(
 ) {
     val ready = state as? RecordsUiState.Ready
     val snapshot = ready?.snapshot?.takeIf { it.ownerId == ownerId }
-    AppHeader("기록", snapshot?.selectedDate ?: selectedDate)
-    if (state is RecordsUiState.Error) {
-        AppCard(Modifier.fillMaxWidth()) {
-            Text(state.message, Modifier.padding(AppSpacing.card))
-        }
-        return
+    AppHeader("기록", selectedDate)
+    val monthText = snapshot?.displayedMonth ?: when (state) {
+        is RecordsUiState.Loading -> state.displayedMonth
+        is RecordsUiState.Error -> state.displayedMonth
+        else -> selectedDate.take(7)
     }
-    if (snapshot == null) {
-        Text(
-            if (state is RecordsUiState.Loading) "기록을 불러오는 중입니다."
-            else "기록을 준비하고 있습니다."
-        )
-        return
-    }
-
-    val displayedMonth = runCatching { YearMonth.parse(snapshot.displayedMonth) }
-        .getOrElse { YearMonth.from(LocalDate.parse(snapshot.selectedDate)) }
-    val selected = runCatching { LocalDate.parse(snapshot.selectedDate) }.getOrNull()
-    val currentDay = runCatching { LocalDate.parse(snapshot.today) }
+    val displayedMonth = runCatching { YearMonth.parse(monthText) }
+        .getOrElse { YearMonth.from(LocalDate.parse(today)) }
+    val selected = runCatching { LocalDate.parse(selectedDate) }.getOrNull()
+    val currentDay = runCatching { LocalDate.parse(snapshot?.today ?: today) }
         .getOrElse { LocalDate.parse(today) }
 
     FitnessMonthHeader(
@@ -88,13 +80,32 @@ internal fun RecordsScreen(
     )
     AppOutlinedButton(
         onClick = actions::today,
-        enabled = snapshot.selectedDate != snapshot.today,
+        enabled = selectedDate != today,
         modifier = Modifier.fillMaxWidth()
     ) { Text("오늘로 이동") }
+    if (snapshot == null) {
+        Box(
+            Modifier.fillMaxWidth().heightIn(min = 360.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            when (state) {
+                is RecordsUiState.Error -> AppCard(Modifier.fillMaxWidth()) {
+                    Text(state.message, Modifier.padding(AppSpacing.card))
+                }
+                else -> Text(
+                    if (state is RecordsUiState.Loading) "기록 불러오는 중.."
+                    else "기록을 준비하고 있습니다."
+                )
+            }
+        }
+        return
+    }
     RecordsCalendarLegend()
     RecordsCalendar(displayedMonth, selected, currentDay, snapshot.calendarDays, actions)
     Spacer(Modifier.height(AppSpacing.small))
-    RecordsDayDetailSection(snapshot.selectedDay, unit, actions)
+    snapshot.dayDetailsByDate[selectedDate]?.let { detail ->
+        RecordsDayDetailSection(detail, unit, actions)
+    }
 }
 
 @Composable
@@ -250,14 +261,6 @@ private fun RecordsDayDetailSection(
             AppDataRow(meal.mealLabel, meal.previewTitle)
         }
     }
-    AppOutlinedButton(
-        onClick = { actions.showBodyMetric(detail.date, null) },
-        modifier = Modifier.fillMaxWidth()
-    ) { Text("체중 기록") }
-    AppOutlinedButton(
-        onClick = { actions.openMeals(detail.date) },
-        modifier = Modifier.fillMaxWidth()
-    ) { Text("식사 기록 관리") }
 }
 
 private fun RecordsCalendarDay.markers(): List<FitnessCalendarMarker> = buildList {
