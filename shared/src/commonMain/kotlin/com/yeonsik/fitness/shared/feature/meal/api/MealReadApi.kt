@@ -11,9 +11,12 @@ interface MealReadApi {
     fun mealCount(scope: AccountScope, date: String): Int
     fun mealTotals(scope: AccountScope, date: String): MealReadNutritionTotals
     fun meals(scope: AccountScope, date: String): List<MealReadSummary>
-    /** Owner-scoped summaries for a calendar window; Android overrides with one range read. */
-    fun mealSummaries(scope: AccountScope, startDate: String, endDate: String): List<MealReadSummary> =
-        dates(scope, startDate, endDate).flatMap { date -> meals(scope, date) }
+    /** Owner-scoped summaries for a calendar window, returned by a range read. */
+    fun mealSummaries(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<MealReadSummary>
     fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int
     fun dates(scope: AccountScope, startDate: String, endDate: String): List<String>
     fun nutritionSummary(scope: AccountScope, startDate: String, endDate: String): MealNutritionReadSummary

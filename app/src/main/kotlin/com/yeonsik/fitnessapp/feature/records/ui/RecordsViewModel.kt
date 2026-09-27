@@ -98,13 +98,11 @@ class RecordsViewModel @JvmOverloads constructor(
         savedStateHandle[KEY_MONTH] = YearMonth.from(parsed).toString()
     }
 
-    fun previousMonth(scope: AccountScope, today: String, selectedDate: String) {
+    fun previousMonth(scope: AccountScope, today: String, selectedDate: String): String =
         moveMonth(scope, today, selectedDate, -1)
-    }
 
-    fun nextMonth(scope: AccountScope, today: String, selectedDate: String) {
+    fun nextMonth(scope: AccountScope, today: String, selectedDate: String): String =
         moveMonth(scope, today, selectedDate, 1)
-    }
 
     fun showToday(scope: AccountScope, today: String) {
         val safeToday = today.trim()
@@ -120,11 +118,24 @@ class RecordsViewModel @JvmOverloads constructor(
         today: String,
         selectedDate: String,
         delta: Long
-    ) {
+    ): String {
         val safeToday = today.trim()
         val safeSelectedDate = selectedDate.trim()
-        val currentMonth = resolveMonth(scope, safeSelectedDate, safeToday)
-        load(scope, currentMonth.plusMonths(delta), safeToday)
+        val parsedSelected = runCatching { LocalDate.parse(safeSelectedDate) }.getOrNull()
+        val selected = parsedSelected
+            ?: runCatching { LocalDate.parse(safeToday) }.getOrNull()
+            ?: return safeToday
+        val currentMonth = if (parsedSelected != null) {
+            resolveMonth(scope, selected.toString(), safeToday)
+        } else {
+            YearMonth.from(selected)
+        }
+        val targetMonth = currentMonth.plusMonths(delta)
+        val targetDate = shiftRecordsDate(selected, targetMonth).toString()
+
+        rememberSelectedDate(scope, targetDate)
+        enterIfNeeded(scope, safeToday, targetDate)
+        return targetDate
     }
 
     private fun resolveMonth(scope: AccountScope, selectedDate: String, today: String): YearMonth {
@@ -194,3 +205,13 @@ class RecordsViewModel @JvmOverloads constructor(
         const val KEY_MONTH = "records.month"
     }
 }
+
+/** Moves a date by whole months and clamps its day to the target month's last day. */
+internal fun shiftRecordsDate(date: String, monthDelta: Long): String? = runCatching {
+    val original = LocalDate.parse(date.trim())
+    val targetMonth = YearMonth.from(original).plusMonths(monthDelta)
+    shiftRecordsDate(original, targetMonth).toString()
+}.getOrNull()
+
+private fun shiftRecordsDate(date: LocalDate, targetMonth: YearMonth): LocalDate =
+    targetMonth.atDay(date.dayOfMonth.coerceAtMost(targetMonth.lengthOfMonth()))

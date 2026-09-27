@@ -130,7 +130,7 @@ internal fun MealScreen(
         }
     }
 
-    AppHeader("식사", today, back = actions::back)
+    AppHeader("식사", back = actions::back)
     if (ready == null || ready.snapshot.ownerId != ownerId || ready.snapshot.today != today) {
         Text("식사 기록을 불러오는 중입니다.")
         return
