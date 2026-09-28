@@ -38,6 +38,9 @@ class RecordsReadRepository(
             scope, calendarStartText, calendarEndText
         )
         val workoutsByDate = sessions.groupBy { it.date }
+        val projectionMuscleLabelsByDate = workoutsByDate.mapValues { (_, daySessions) ->
+            daySessions.flatMap { it.projectionMuscleLabels }.distinct()
+        }
         val bodyByDate = body.weightEntries(scope, calendarStartText, calendarEndText)
             .groupBy { it.date }
         val mealsByDate = meals.mealSummaries(scope, calendarStartText, calendarEndText)
@@ -70,11 +73,7 @@ class RecordsReadRepository(
                 hasWorkout = detail.workouts.isNotEmpty(),
                 hasBodyMetric = detail.bodyMetrics.isNotEmpty(),
                 hasMeal = detail.meals.isNotEmpty(),
-                muscleLabels = detail.workouts.asSequence()
-                    .flatMap { it.muscleLabels.asSequence() }
-                    .filter { it.isNotBlank() }
-                    .distinct()
-                    .toList()
+                muscleLabels = projectionMuscleLabelsByDate[date].orEmpty()
             )
         }
         val weightTrend = bodyByDate.values.flatten()

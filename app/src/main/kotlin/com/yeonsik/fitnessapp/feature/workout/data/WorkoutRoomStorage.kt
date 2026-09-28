@@ -659,6 +659,8 @@ class WorkoutRoomStorage(
                 val info = sessionInfo(scope, record.id) ?: return@mapNotNull null
                 val exerciseRows = exercises(scope, record.id)
                 val summary = metrics(scope, record.id)
+                val projectionMuscleLabels = workoutDao.summarySetCounts(record.id, scope.ownerId)
+                    .toFitnessSummaryProjectionMuscleLabels()
                 val muscleLabels = exerciseRows.asSequence()
                     .map { exercise ->
                         ExercisePrimaryMuscleLabel.forPrimarySubPart(
@@ -676,7 +678,8 @@ class WorkoutRoomStorage(
                     durationSeconds = info.durationSeconds,
                     totalVolumeKg = summary.totalVolumeKg,
                     completedSetCount = summary.setCount,
-                    muscleLabels = muscleLabels
+                    muscleLabels = muscleLabels,
+                    projectionMuscleLabels = projectionMuscleLabels
                 )
             }
 
@@ -1215,3 +1218,38 @@ class WorkoutRoomStorage(
 
     private fun now(): String = OffsetDateTime.now().toString()
 }
+
+internal fun List<WorkoutRoomDao.SummarySetCount>.toFitnessSummaryProjectionMuscleLabels(): List<String> {
+    val parts = asSequence()
+        .filter { it.setCount > 0 }
+        .mapNotNull { row ->
+            val uiPart = summaryProjectionPartKey(row.uiPart) ?: return@mapNotNull null
+            if (uiPart == "arms") summaryProjectionPartKey(row.primarySubPart) else uiPart
+        }
+        .toSet()
+    return FITNESS_SUMMARY_PROJECTION_PART_LABELS
+        .filter { (part, _) -> part in parts }
+        .map { (_, label) -> label }
+}
+
+private fun summaryProjectionPartKey(value: String?): String? = when (value?.trim()?.lowercase()) {
+    "가슴", "chest" -> "chest"
+    "등", "back" -> "back"
+    "하체", "legs" -> "legs"
+    "어깨", "shoulders" -> "shoulders"
+    "복부", "복근", "abs" -> "abs"
+    "삼두", "triceps" -> "triceps"
+    "이두", "biceps" -> "biceps"
+    "팔", "arms" -> "arms"
+    else -> null
+}
+
+private val FITNESS_SUMMARY_PROJECTION_PART_LABELS = listOf(
+    "chest" to "가슴",
+    "back" to "등",
+    "legs" to "하체",
+    "shoulders" to "어깨",
+    "abs" to "복근",
+    "triceps" to "삼두",
+    "biceps" to "이두"
+)

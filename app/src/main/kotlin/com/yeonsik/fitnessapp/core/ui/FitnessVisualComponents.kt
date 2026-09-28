@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -384,11 +385,7 @@ fun FitnessCalendarDayCell(
             alpha = if (day.isOutsideDisplayedMonth) 0.48f else 1f
         )
     }
-    val borderColor = when {
-        selected -> LocalFitnessColors.current.action
-        day.isToday -> LocalFitnessColors.current.action
-        else -> MaterialTheme.colorScheme.outlineVariant
-    }
+    val todayOutline = LocalFitnessColors.current.action
     val cellDescription = buildString {
         append(day.date)
         if (day.isSelected) append(", 선택됨")
@@ -402,26 +399,31 @@ fun FitnessCalendarDayCell(
         modifier = modifier
             .widthIn(min = FitnessSpacing.touch)
             .heightIn(min = FitnessSpacing.touch)
-            .clip(FitnessShape.input)
-            .background(
-                if (selected) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surface
-            )
-            .border(1.dp, borderColor, FitnessShape.input)
             .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
             .semantics {
                 this.selected = selected
                 contentDescription = cellDescription
             }
-            .padding(vertical = FitnessSpacing.small, horizontal = FitnessSpacing.micro),
+            .padding(horizontal = FitnessSpacing.micro),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro, Alignment.CenterVertically)
     ) {
-        Text(
-            text = day.date.dayOfMonth.toString(),
-            color = foreground,
-            style = MaterialTheme.typography.labelLarge
-        )
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(CircleShape)
+                .background(
+                    if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                )
+                .then(if (day.isToday) Modifier.border(1.dp, todayOutline, CircleShape) else Modifier),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = day.date.dayOfMonth.toString(),
+                color = foreground,
+                style = MaterialTheme.typography.labelLarge
+            )
+        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro),
             verticalAlignment = Alignment.CenterVertically
