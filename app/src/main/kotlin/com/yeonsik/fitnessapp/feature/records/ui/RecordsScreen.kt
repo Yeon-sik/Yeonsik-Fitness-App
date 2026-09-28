@@ -299,8 +299,8 @@ private fun RecordsDayDetailSection(
 
 private fun RecordsCalendarDay.markers(): List<FitnessCalendarMarker> = buildList {
     if (hasWorkout) add(FitnessCalendarMarker("workout", "운동"))
-    if (hasBodyMetric) add(FitnessCalendarMarker("body", "체중"))
     if (hasMeal) add(FitnessCalendarMarker("meal", "식사"))
+    if (hasBodyMetric) add(FitnessCalendarMarker("body", "체중"))
 }
 
 private fun recordsWorkoutDetail(workout: RecordsWorkoutSummary, unit: MassUnit): String {
