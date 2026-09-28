@@ -47,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,6 +60,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -813,6 +815,13 @@ private fun AppRoot(
         }.coerceAtLeast(56.dp)
         val bottomNavigationSpace = bottomNavigationHeight + 24.dp
         val destinationPage: @Composable (FitnessScreen) -> Unit = { pageScreen ->
+            val recordsBackdrop = rememberLayerBackdrop()
+            var recordsBarHeightPx by remember(pageScreen) { mutableIntStateOf(0) }
+            val recordsBarHeight = if (recordsBarHeightPx > 0) {
+                with(LocalDensity.current) { recordsBarHeightPx.toDp() }
+            } else {
+                FitnessSpacing.touch + (FitnessSpacing.small + FitnessSpacing.micro) * 2
+            }
             val pageDestination = if (pageScreen == FitnessScreen.RECORDS) {
                 recordsHubTab.screen
             } else {
@@ -823,13 +832,7 @@ private fun AppRoot(
                 FitnessScreen.RECORDS -> navigationState.selectedRecordsDate
                 else -> navigationState.today
             }
-            Column(Modifier.fillMaxSize()) {
-                if (pageScreen == FitnessScreen.RECORDS) {
-                    RecordsHubTabs(
-                        selected = recordsHubTab,
-                        onSelected = navigation::selectRecordsHubTab
-                    )
-                }
+            Box(Modifier.fillMaxSize()) {
                 destinationStateHolder.SaveableStateProvider(
                     destinationScrollStateKey(pageScreen) +
                         if (pageScreen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
@@ -837,8 +840,12 @@ private fun AppRoot(
                     val contentScrollState = rememberScrollState()
                     Column(
                         Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
+                            .fillMaxSize()
+                            .then(
+                                if (pageScreen == FitnessScreen.RECORDS && useBackdropGlass) {
+                                    Modifier.layerBackdrop(recordsBackdrop)
+                                } else Modifier
+                            )
                             .then(
                                 if (isExercisePickerDestination(pageScreen)) {
                                     Modifier
@@ -849,7 +856,9 @@ private fun AppRoot(
                             .padding(
                                 start = FitnessSpacing.page,
                                 end = FitnessSpacing.page,
-                                top = FitnessSpacing.gap,
+                                top = FitnessSpacing.gap +
+                                    if (pageScreen == FitnessScreen.RECORDS) recordsBarHeight
+                                    else 0.dp,
                                 bottom = FitnessSpacing.gap +
                                     if (bottomNavigationVisible) bottomNavigationSpace else 0.dp
                             )
@@ -868,6 +877,18 @@ private fun AppRoot(
                             )
                         }
                     }
+                }
+                if (pageScreen == FitnessScreen.RECORDS) {
+                    RecordsHubTabs(
+                        selected = recordsHubTab,
+                        onSelected = navigation::selectRecordsHubTab,
+                        backdrop = recordsBackdrop,
+                        useBackdropGlass = useBackdropGlass,
+                        highContrastEnabled = highContrastEnabled,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .onSizeChanged { recordsBarHeightPx = it.height }
+                    )
                 }
             }
         }
@@ -1186,16 +1207,21 @@ private fun Modifier.glassTabFeedback(
 @Composable
 private fun RecordsHubTabs(
     selected: RecordsHubTab,
-    onSelected: (RecordsHubTab) -> Unit
+    onSelected: (RecordsHubTab) -> Unit,
+    backdrop: Backdrop,
+    useBackdropGlass: Boolean,
+    highContrastEnabled: Boolean,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        Modifier
+        modifier
+            .padding(horizontal = 24.dp, vertical = FitnessSpacing.small)
+            .widthIn(max = 400.dp)
             .fillMaxWidth()
-            .padding(horizontal = FitnessSpacing.page, vertical = FitnessSpacing.small)
-            .clip(FitnessShape.input)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(FitnessSpacing.micro),
-        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+            .navigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled)
+            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
+            .padding(FitnessSpacing.micro)
+            .selectableGroup()
     ) {
         RecordsHubTab.entries.forEach { tab ->
             val isSelected = tab == selected
@@ -1203,12 +1229,12 @@ private fun RecordsHubTabs(
                 Modifier
                     .weight(1f)
                     .heightIn(min = FitnessSpacing.touch)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                        else Color.Transparent
+                    .then(if (isSelected) Modifier.glassSelection() else Modifier)
+                    .selectable(
+                        selected = isSelected,
+                        role = Role.Tab,
+                        onClick = { onSelected(tab) }
                     )
-                    .clickable { onSelected(tab) }
                     .padding(vertical = FitnessSpacing.micro),
                 contentAlignment = Alignment.Center
             ) {
