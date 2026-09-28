@@ -7,6 +7,7 @@ import com.yeonsik.fitnessapp.state.FitnessScreen
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -92,6 +93,8 @@ class AppNavigationViewModelTest {
         val navigation = AppNavigationViewModel(SavedStateHandle())
 
         assertTrue(navigation.canSwipeTopLevel())
+        assertNull(navigation.adjacentTopLevel(forward = false))
+        assertEquals(FitnessScreen.WORKOUT, navigation.adjacentTopLevel(forward = true))
         assertTrue(navigation.swipeTopLevel(forward = true))
         assertEquals(FitnessScreen.WORKOUT, navigation.currentScreen())
         assertTrue(navigation.swipeTopLevel(forward = true))
@@ -100,6 +103,8 @@ class AppNavigationViewModelTest {
         navigation.selectRecordsHubTab(RecordsHubTab.STATISTICS)
         assertTrue(navigation.swipeTopLevel(forward = true))
         assertEquals(FitnessScreen.SETTINGS, navigation.currentScreen())
+        assertNull(navigation.adjacentTopLevel(forward = true))
+        assertEquals(FitnessScreen.RECORDS, navigation.adjacentTopLevel(forward = false))
         assertFalse(navigation.swipeTopLevel(forward = true))
         assertTrue(navigation.swipeTopLevel(forward = false))
 
@@ -129,6 +134,7 @@ class AppNavigationViewModelTest {
             navigation.navigate(focusedScreen)
 
             assertFalse(navigation.canSwipeTopLevel())
+            assertNull(navigation.adjacentTopLevel(forward = true))
             assertFalse(navigation.swipeTopLevel(forward = true))
             assertEquals(focusedScreen, navigation.currentScreen())
         }

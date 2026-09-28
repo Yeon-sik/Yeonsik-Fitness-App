@@ -10,7 +10,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -187,7 +186,6 @@ private fun AppRoot(
     } == true
     val destinationStateHolder = rememberSaveableStateHolder()
     val topLevelSwipeEnabled = navigation.canSwipeTopLevel()
-    val topLevelSwipeThreshold = with(LocalDensity.current) { 56.dp.toPx() }
     val workoutAction by viewModels.getWorkoutSession().actionState
         .observeAsState()
     val workoutTerminalEvent by viewModels.getWorkoutSession().terminalEvents
@@ -807,6 +805,65 @@ private fun AppRoot(
             36.dp + MaterialTheme.typography.labelMedium.lineHeight.toDp()
         }.coerceAtLeast(56.dp)
         val bottomNavigationSpace = bottomNavigationHeight + 24.dp
+        val destinationPage: @Composable (FitnessScreen) -> Unit = { pageScreen ->
+            val pageDestination = if (pageScreen == FitnessScreen.RECORDS) {
+                recordsHubTab.screen
+            } else {
+                pageScreen
+            }
+            val pageDate = when (pageDestination) {
+                FitnessScreen.MEALS -> navigationState.selectedMealDate
+                FitnessScreen.RECORDS -> navigationState.selectedRecordsDate
+                else -> navigationState.today
+            }
+            Column(Modifier.fillMaxSize()) {
+                if (pageScreen == FitnessScreen.RECORDS) {
+                    RecordsHubTabs(
+                        selected = recordsHubTab,
+                        onSelected = navigation::selectRecordsHubTab
+                    )
+                }
+                destinationStateHolder.SaveableStateProvider(
+                    destinationScrollStateKey(pageScreen) +
+                        if (pageScreen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
+                ) {
+                    val contentScrollState = rememberScrollState()
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .then(
+                                if (isExercisePickerDestination(pageScreen)) {
+                                    Modifier
+                                } else {
+                                    Modifier.verticalScroll(contentScrollState)
+                                }
+                            )
+                            .padding(
+                                start = FitnessSpacing.page,
+                                end = FitnessSpacing.page,
+                                top = FitnessSpacing.gap,
+                                bottom = FitnessSpacing.gap +
+                                    if (bottomNavigationVisible) bottomNavigationSpace else 0.dp
+                            )
+                    ) {
+                        if (pageDestination == FitnessScreen.HOME) {
+                            HomeDestination(homeState, ownerId, pageDate, homeActions)
+                        } else {
+                            AppDestination(
+                                host,
+                                viewModels,
+                                navigation,
+                                pageDestination,
+                                ownerId,
+                                pageDate,
+                                unit
+                            )
+                        }
+                    }
+                }
+            }
+        }
         Box(
             Modifier
                 .fillMaxSize()
@@ -822,73 +879,11 @@ private fun AppRoot(
                 if (screen == FitnessScreen.WORKOUT_SESSION) {
                     SessionTopBar(navigation, viewModels, ownerId, workoutState)
                 }
-                if (screen == FitnessScreen.RECORDS) {
-                    RecordsHubTabs(
-                        selected = recordsHubTab,
-                        onSelected = navigation::selectRecordsHubTab
-                    )
-                }
-                destinationStateHolder.SaveableStateProvider(
-                    destinationScrollStateKey(screen) +
-                        if (screen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
-                ) {
-                    val contentScrollState = rememberScrollState()
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .then(
-                                if (isExercisePickerDestination(screen)) {
-                                    Modifier
-                                } else {
-                                    Modifier.verticalScroll(contentScrollState)
-                                }
-                            )
-                            .then(
-                                if (topLevelSwipeEnabled) {
-                                    Modifier.pointerInput(screen, topLevelSwipeThreshold) {
-                                        var totalDrag = 0f
-                                        detectHorizontalDragGestures(
-                                            onHorizontalDrag = { _, dragAmount ->
-                                                totalDrag += dragAmount
-                                            },
-                                            onDragEnd = {
-                                                when {
-                                                    totalDrag <= -topLevelSwipeThreshold ->
-                                                        navigation.swipeTopLevel(forward = true)
-                                                    totalDrag >= topLevelSwipeThreshold ->
-                                                        navigation.swipeTopLevel(forward = false)
-                                                }
-                                                totalDrag = 0f
-                                            },
-                                            onDragCancel = { totalDrag = 0f }
-                                        )
-                                    }
-                                } else {
-                                    Modifier
-                                }
-                            )
-                            .padding(
-                                start = FitnessSpacing.page,
-                                end = FitnessSpacing.page,
-                                top = FitnessSpacing.gap,
-                                bottom = FitnessSpacing.gap +
-                                    if (bottomNavigationVisible) bottomNavigationSpace else 0.dp
-                            )
-                    ) {
-                        if (destinationScreen == FitnessScreen.HOME) {
-                            HomeDestination(homeState, ownerId, routeDate, homeActions)
-                        } else {
-                            AppDestination(
-                                host,
-                                viewModels,
-                                navigation,
-                                destinationScreen,
-                                ownerId,
-                                routeDate,
-                                unit
-                            )
-                        }
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    if (topLevelSwipeEnabled) {
+                        TopLevelSwipeHost(screen, navigation, Modifier.fillMaxSize(), destinationPage)
+                    } else {
+                        destinationPage(screen)
                     }
                 }
                 RestTimerBar(host, viewModels, screen, restState, ownerId)
