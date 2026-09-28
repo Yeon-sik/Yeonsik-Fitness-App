@@ -138,6 +138,12 @@ internal fun homeEntryEffectKey(
     date: String
 ): HomeEntryEffectKey = HomeEntryEffectKey(screen, ownerId, date)
 
+internal data class RecordEntryEffectKey(
+    val screen: FitnessScreen,
+    val ownerId: String,
+    val recordId: String?
+)
+
 @Composable
 private fun AppRoot(
     host: AppUiActions,
@@ -186,6 +192,7 @@ private fun AppRoot(
     } == true
     val destinationStateHolder = rememberSaveableStateHolder()
     val topLevelSwipeEnabled = navigation.canSwipeTopLevel()
+    var swipeSelection by remember(screen) { mutableStateOf<TopLevelSwipeSelection?>(null) }
     val workoutAction by viewModels.getWorkoutSession().actionState
         .observeAsState()
     val workoutTerminalEvent by viewModels.getWorkoutSession().terminalEvents
@@ -881,7 +888,15 @@ private fun AppRoot(
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     if (topLevelSwipeEnabled) {
-                        TopLevelSwipeHost(screen, navigation, Modifier.fillMaxSize(), destinationPage)
+                        TopLevelSwipeHost(
+                            screen, navigation, Modifier.fillMaxSize(),
+                            onSettlingDestinationChange = {
+                                swipeSelection = it?.let { destination ->
+                                    TopLevelSwipeSelection(screen, destination)
+                                }
+                            },
+                            content = destinationPage
+                        )
                     } else {
                         destinationPage(screen)
                     }
@@ -890,7 +905,12 @@ private fun AppRoot(
             }
             if (bottomNavigationVisible) {
                 BottomNavigation(
-                    navigation, homeState, screen, dark, bottomNavigationHeight,
+                    homeState, visualActiveTopLevelTab(screen, swipeSelection),
+                    onTabSelected = {
+                        swipeSelection = null
+                        navigation.selectTopLevel(it)
+                    },
+                    dark, bottomNavigationHeight,
                     backdrop, useBackdropGlass, highContrastEnabled,
                     Modifier.align(Alignment.BottomCenter)
                 )
@@ -1206,9 +1226,9 @@ private fun RecordsHubTabs(
 
 @Composable
 private fun BottomNavigation(
-    navigation: AppNavigationViewModel,
     homeState: HomeUiState,
     screen: FitnessScreen,
+    onTabSelected: (FitnessScreen) -> Unit,
     dark: Boolean,
     itemHeight: Dp,
     backdrop: Backdrop,
@@ -1281,7 +1301,7 @@ private fun BottomNavigation(
                                 interactionSource = interactionSource,
                                 indication = null,
                                 role = Role.Tab,
-                                onClick = { navigation.selectTopLevel(item.screen) }
+                                onClick = { onTabSelected(item.screen) }
                             )
                             .semantics {
                                 if (hasActiveWorkout) stateDescription = "운동 진행 중"
@@ -1410,22 +1430,13 @@ private fun AppDestination(
         }
     }
 
-    LaunchedEffect(screen, ownerId, activeRecordId, workoutReadOnly) {
+    LaunchedEffect(RecordEntryEffectKey(screen, ownerId, activeRecordId)) {
         when (screen) {
             FitnessScreen.WORKOUT_SESSION,
             FitnessScreen.WORKOUT_SUMMARY ->
                 viewModels.getWorkoutSession().enter(
                     AccountScope(ownerId), activeRecordId
                 )
-            FitnessScreen.WORKOUT_EXERCISE_DETAIL ->
-                activeRecordId?.let { recordId ->
-                    viewModels.getWorkoutExerciseDetail().enter(
-                        AccountScope(ownerId),
-                        recordId,
-                        viewModels.getWorkoutExerciseDetail().activeExerciseId(),
-                        readOnly = workoutReadOnly
-                    )
-                }
             FitnessScreen.CARDIO_SESSION,
             FitnessScreen.CARDIO_SUMMARY ->
                 viewModels.getCardioSession().enter(
@@ -1446,6 +1457,18 @@ private fun AppDestination(
                     )
                 }
             else -> Unit
+        }
+    }
+    LaunchedEffect(screen, ownerId, activeRecordId, workoutReadOnly) {
+        if (screen == FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
+            activeRecordId?.let { recordId ->
+                viewModels.getWorkoutExerciseDetail().enter(
+                    AccountScope(ownerId),
+                    recordId,
+                    viewModels.getWorkoutExerciseDetail().activeExerciseId(),
+                    readOnly = workoutReadOnly
+                )
+            }
         }
     }
     val mealNotice = (mealState as? MealUiState.Ready)?.notice

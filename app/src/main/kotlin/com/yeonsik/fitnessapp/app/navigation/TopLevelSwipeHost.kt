@@ -33,6 +33,7 @@ internal fun TopLevelSwipeHost(
     screen: FitnessScreen,
     navigation: AppNavigationViewModel,
     modifier: Modifier = Modifier,
+    onSettlingDestinationChange: (FitnessScreen?) -> Unit,
     content: @Composable (FitnessScreen) -> Unit
 ) {
     val forwardPage = remember(screen) { navigation.adjacentTopLevel(forward = true) }
@@ -59,13 +60,19 @@ internal fun TopLevelSwipeHost(
         val pageWidth = constraints.maxWidth.toFloat()
 
         fun settle(complete: Boolean) {
-            val destination = previewPage
-            val target = if (complete && destination != null) {
+            val destination = if (complete) {
+                topLevelSwipeDestination(
+                    dragOffset, settleThreshold.coerceAtMost(pageWidth * 0.25f),
+                    forwardPage, backwardPage
+                )
+            } else null
+            val target = if (destination != null) {
                 if (dragOffset < 0f) -pageWidth else pageWidth
             } else {
                 0f
             }
             settleJob?.cancel()
+            onSettlingDestinationChange(destination)
             settleJob = scope.launch {
                 Animatable(dragOffset).animateTo(
                     targetValue = target,
@@ -74,8 +81,10 @@ internal fun TopLevelSwipeHost(
                         stiffness = Spring.StiffnessMedium
                     )
                 ) { dragOffset = value }
-                if (target != 0f && navigation.currentScreen() == screen) {
-                    navigation.selectTopLevel(destination!!)
+                if (destination != null && navigation.currentScreen() == screen) {
+                    navigation.selectTopLevel(destination)
+                } else {
+                    onSettlingDestinationChange(null)
                 }
                 dragOffset = 0f
             }
@@ -86,7 +95,10 @@ internal fun TopLevelSwipeHost(
                 .fillMaxSize()
                 .pointerInput(screen, pageWidth) {
                     detectHorizontalDragGestures(
-                        onDragStart = { settleJob?.cancel() },
+                        onDragStart = {
+                            settleJob?.cancel()
+                            onSettlingDestinationChange(null)
+                        },
                         onHorizontalDrag = { change, amount ->
                             change.consume()
                             val proposed = (dragOffset + amount).coerceIn(-pageWidth, pageWidth)
@@ -96,9 +108,7 @@ internal fun TopLevelSwipeHost(
                                 else -> 0f
                             }
                         },
-                        onDragEnd = {
-                            settle(abs(dragOffset) >= settleThreshold.coerceAtMost(pageWidth * 0.25f))
-                        },
+                        onDragEnd = { settle(complete = true) },
                         onDragCancel = { settle(complete = false) }
                     )
                 }
@@ -123,3 +133,25 @@ internal fun TopLevelSwipeHost(
         }
     }
 }
+
+internal fun topLevelSwipeDestination(
+    dragOffset: Float,
+    threshold: Float,
+    forwardPage: FitnessScreen?,
+    backwardPage: FitnessScreen?
+): FitnessScreen? = when {
+    abs(dragOffset) < threshold -> null
+    dragOffset < 0f -> forwardPage
+    dragOffset > 0f -> backwardPage
+    else -> null
+}
+
+internal data class TopLevelSwipeSelection(
+    val source: FitnessScreen,
+    val destination: FitnessScreen
+)
+
+internal fun visualActiveTopLevelTab(
+    screen: FitnessScreen,
+    swipeSelection: TopLevelSwipeSelection?
+): FitnessScreen = swipeSelection?.takeIf { it.source == screen }?.destination ?: screen
