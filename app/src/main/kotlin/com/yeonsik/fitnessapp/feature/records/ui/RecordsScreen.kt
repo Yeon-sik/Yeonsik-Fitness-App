@@ -303,9 +303,6 @@ private fun RecordsDayDetailSection(
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(MassFormatter.withUnit(metric.weightKg, unit), fontWeight = FontWeight.Bold)
-                        if (metric.memo.isNotBlank()) Text(metric.memo,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text("수정", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary)
