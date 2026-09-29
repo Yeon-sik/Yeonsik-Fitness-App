@@ -136,6 +136,7 @@ internal fun OrbLoadingStatus(messages: List<String>, modifier: Modifier = Modif
     require(messages.isNotEmpty())
     var messageIndex by remember(messages) { mutableIntStateOf(0) }
     LaunchedEffect(messages) {
+        if (messages.size == 1) return@LaunchedEffect
         while (true) {
             delay(1_400)
             messageIndex = (messageIndex + 1) % messages.size

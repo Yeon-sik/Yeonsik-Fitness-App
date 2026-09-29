@@ -30,6 +30,7 @@ import com.yeonsik.fitnessapp.core.ui.AppDataRow
 import com.yeonsik.fitnessapp.core.ui.AppHeader
 import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
+import com.yeonsik.fitnessapp.core.ui.OrbLoadingStatus
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarDayCell
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarMarker
@@ -50,6 +51,7 @@ private val recordsCalendarMarkerColors = mapOf(
     "body" to Color(0xFF10B981),
     "meal" to Color(0xFFFACC15)
 )
+private val recordsLoadingMessages = listOf("기록을 불러오는 중")
 
 interface RecordsScreenActions {
     fun selectDate(date: String)
@@ -103,10 +105,8 @@ internal fun RecordsScreen(
                 is RecordsUiState.Error -> AppCard(Modifier.fillMaxWidth()) {
                     Text(state.message, Modifier.padding(AppSpacing.card))
                 }
-                else -> Text(
-                    if (state is RecordsUiState.Loading) "기록 불러오는 중.."
-                    else "기록을 준비하고 있습니다."
-                )
+                is RecordsUiState.Loading -> OrbLoadingStatus(recordsLoadingMessages)
+                else -> Text("기록을 준비하고 있습니다.")
             }
         }
         return
