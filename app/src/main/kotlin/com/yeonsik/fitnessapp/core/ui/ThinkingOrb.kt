@@ -91,11 +91,11 @@ internal fun ThinkingOrb(modifier: Modifier = Modifier, size: Dp = 52.dp) {
         val rotation = rotationState?.value ?: 0f
         val center = Offset(this.size.width / 2f, this.size.height / 2f)
         val radius = this.size.minDimension * 0.38f *
-            (1f + 0.035f * sin(rotation * 1.4f))
+            (1f + 0.035f * sin(rotation))
         val dotRadius = this.size.minDimension * 0.018f
         for (particle in orbParticles) {
             val circleRadius = particle.circleRadius
-            val angle = particle.angle + rotation * (0.75f + circleRadius * 0.25f)
+            val angle = particle.angle + rotation
             val depth = sin(angle) * circleRadius
             val pulse = 0.86f + 0.14f * sin(rotation * 2f + particle.phase)
             val opacity = (0.3f + (depth + 1f) * 0.28f) * pulse
