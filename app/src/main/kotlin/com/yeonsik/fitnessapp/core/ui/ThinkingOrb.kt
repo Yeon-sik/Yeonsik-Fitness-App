@@ -39,6 +39,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -157,10 +158,12 @@ internal fun OrbLoadingStatus(messages: List<String>, modifier: Modifier = Modif
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 internal fun RollingStatusText(message: String, modifier: Modifier = Modifier) {
-    val textBox = modifier.height(56.dp).clipToBounds()
+    val textStyle = MaterialTheme.typography.bodyMedium
+    val slotHeight = with(LocalDensity.current) { textStyle.lineHeight.toDp() * 2 } + 16.dp
+    val textBox = modifier.height(slotHeight).clipToBounds().testTag("rolling-status-slot")
     if (!ValueAnimator.areAnimatorsEnabled()) {
         Box(textBox, contentAlignment = Alignment.CenterStart) {
-            Text(message, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(message, style = textStyle, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         return
     }
@@ -178,7 +181,8 @@ internal fun RollingStatusText(message: String, modifier: Modifier = Modifier) {
             },
             label = "rollingLoadingStatus"
         ) { currentMessage ->
-            Text(currentMessage, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(currentMessage, style = textStyle, maxLines = 2,
+                overflow = TextOverflow.Ellipsis)
         }
     }
 }
