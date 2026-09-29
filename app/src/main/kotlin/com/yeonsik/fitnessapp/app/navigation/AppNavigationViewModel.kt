@@ -11,9 +11,9 @@ import java.time.LocalDate
 /**
  * App-level navigation state that survives Activity recreation.
  *
- * Feature ViewModels still own feature state. This ViewModel only owns the
- * route, the small set of cross-route selection values, and the existing
- * push/back/replace policy.
+ * Feature ViewModels still own feature state. This ViewModel owns the route,
+ * cross-route selection values, the push/back/replace policy, and an unsaved
+ * Activity-lifetime startup flag.
  */
 data class AppNavigationState(
     val screen: FitnessScreen = FitnessScreen.HOME,
@@ -53,6 +53,13 @@ class AppNavigationViewModel(
     private val history = FitnessNavigationHistory(canonicalScreen(initialScreen))
     private val mutableState = MutableLiveData<AppNavigationState>()
     val uiState: LiveData<AppNavigationState> = mutableState
+    // Runtime only: a restored process must preload Home and Records again.
+    private val mutableStartupCompleted = MutableLiveData(false)
+    val startupCompleted: LiveData<Boolean> = mutableStartupCompleted
+
+    fun completeStartup() {
+        if (mutableStartupCompleted.value != true) mutableStartupCompleted.value = true
+    }
 
     init {
         savedStateHandle[KEY_RECORDS_HUB_TAB] = initialHubTab(initialScreen).name

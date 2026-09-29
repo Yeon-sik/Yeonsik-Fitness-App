@@ -53,7 +53,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.livedata.observeAsState
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -151,6 +150,7 @@ internal data class RecordEntryEffectKey(
 )
 
 internal const val STARTUP_MIN_VISIBLE_MS = 550L
+internal const val STARTUP_MAX_WAIT_MS = 10_000L
 
 internal fun startupDataSettled(
     home: HomeUiState,
@@ -183,8 +183,8 @@ internal fun startupCanComplete(
     ownerId: String,
     today: String,
     elapsedMs: Long
-): Boolean = elapsedMs >= STARTUP_MIN_VISIBLE_MS &&
-    startupDataSettled(home, records, ownerId, today)
+): Boolean = (elapsedMs >= STARTUP_MIN_VISIBLE_MS &&
+    startupDataSettled(home, records, ownerId, today)) || elapsedMs >= STARTUP_MAX_WAIT_MS
 
 @Composable
 private fun AppRoot(
@@ -197,6 +197,7 @@ private fun AppRoot(
     val settingsEvent by viewModels.getSettings().events.observeAsState()
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
     val recordsState by viewModels.getRecords().uiState.observeAsState(RecordsUiState.Idle)
+    val startupCompleted by navigation.startupCompleted.observeAsState(false)
     val routineState by viewModels.getRoutineEntry().uiState.observeAsState(RoutineEntryUiState.Idle)
 
     val cardioState by viewModels.getCardioSession().uiState
@@ -214,7 +215,6 @@ private fun AppRoot(
     }
     val ownerId = host.currentOwnerId()
     val today = navigationState.today
-    var startupCompleted by rememberSaveable { mutableStateOf(false) }
     val startupStartedAt = remember(ownerId, today) { SystemClock.elapsedRealtime() }
     val unit = settingsState?.preferredMassUnit
         ?: viewModels.getSettings().preferredMassUnit()
@@ -324,10 +324,13 @@ private fun AppRoot(
         ownerId, today, homeState, recordsState,
         navigationState.selectedRecordsDate, startupCompleted
     ) {
-        if (startupCompleted || !startupDataSettled(homeState, recordsState, ownerId, today)) {
-            return@LaunchedEffect
+        if (startupCompleted) return@LaunchedEffect
+        val deadline = if (startupDataSettled(homeState, recordsState, ownerId, today)) {
+            STARTUP_MIN_VISIBLE_MS
+        } else {
+            STARTUP_MAX_WAIT_MS
         }
-        val remaining = STARTUP_MIN_VISIBLE_MS -
+        val remaining = deadline -
             (SystemClock.elapsedRealtime() - startupStartedAt)
         if (remaining > 0) delay(remaining)
         if (!startupCanComplete(
@@ -337,7 +340,7 @@ private fun AppRoot(
         viewModels.getRecords().rememberSelectedDate(
             AccountScope(ownerId), navigationState.selectedRecordsDate
         )
-        startupCompleted = true
+        navigation.completeStartup()
     }
     LaunchedEffect(homeEntryKey, startupCompleted) {
         if (!startupCompleted) return@LaunchedEffect

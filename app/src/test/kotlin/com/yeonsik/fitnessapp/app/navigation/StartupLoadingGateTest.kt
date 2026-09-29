@@ -38,6 +38,21 @@ class StartupLoadingGateTest {
     }
 
     @Test
+    fun loadingFailsOpenAtTenSeconds() {
+        val loadingRecords = RecordsUiState.Loading(owner, "2026-09", today)
+
+        assertFalse(startupCanComplete(
+            HomeUiState.Loading, loadingRecords, owner, today, 9_999
+        ))
+        assertTrue(startupCanComplete(
+            HomeUiState.Loading, loadingRecords, owner, today, 10_000
+        ))
+        assertTrue(startupCanComplete(
+            readyHome(), loadingRecords, owner, today, 10_000
+        ))
+    }
+
+    @Test
     fun matchingErrorsReleaseGateAndForeignErrorsDoNot() {
         assertTrue(startupDataSettled(
             HomeUiState.Error(owner, "unavailable", today), RecordsUiState.Loading(

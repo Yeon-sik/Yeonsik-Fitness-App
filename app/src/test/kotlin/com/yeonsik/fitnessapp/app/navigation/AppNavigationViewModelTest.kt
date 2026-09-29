@@ -31,6 +31,19 @@ class AppNavigationViewModelTest {
     }
 
     @Test
+    fun startupCompletionIsRetainedByViewModelButNotSavedForProcessRecreation() {
+        val savedState = SavedStateHandle()
+        val navigation = AppNavigationViewModel(savedState)
+
+        assertFalse(navigation.startupCompleted.value == true)
+        navigation.completeStartup()
+        assertTrue(navigation.startupCompleted.value == true)
+
+        val recreated = AppNavigationViewModel(savedState)
+        assertFalse(recreated.startupCompleted.value == true)
+    }
+
+    @Test
     fun firstRecordsEntryUsesRecordsInnerTab() {
         val navigation = AppNavigationViewModel(SavedStateHandle())
 
