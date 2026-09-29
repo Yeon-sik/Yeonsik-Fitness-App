@@ -59,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -77,6 +78,8 @@ import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
 import com.kashif_e.backdrop.drawBackdrop
 import com.kashif_e.backdrop.effects.blur
 import com.kashif_e.backdrop.effects.colorControls
+import com.kashif_e.backdrop.effects.lens
+import com.kashif_e.backdrop.effects.vibrancy
 import com.kashif_e.backdrop.highlight.Highlight
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
@@ -1255,6 +1258,65 @@ private fun Modifier.glassSelection(): Modifier =
     clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer)
 
 @Composable
+private fun Modifier.bottomNavigationGlassSurface(
+    backdrop: Backdrop,
+    useBackdropGlass: Boolean,
+    highContrastEnabled: Boolean,
+    dark: Boolean
+): Modifier {
+    if (!useBackdropGlass) {
+        return navigationGlassSurface(backdrop, false, highContrastEnabled)
+    }
+    val colors = MaterialTheme.colorScheme
+    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val sheen = Brush.verticalGradient(
+        listOf(
+            Color.White.copy(alpha = if (dark) 0.10f else 0.28f),
+            Color.Transparent,
+            colors.surface.copy(alpha = 0.10f)
+        )
+    )
+    return clip(CircleShape).drawBackdrop(
+        backdrop = backdrop,
+        shape = { CircleShape },
+        effects = {
+            if (fullEffects) vibrancy()
+            blur(8.dp.toPx())
+            if (fullEffects) {
+                lens(10.dp.toPx(), 16.dp.toPx())
+            }
+        },
+        highlight = { Highlight.Ambient.copy(alpha = 0.65f) },
+        onDrawSurface = {
+            drawRect(colors.surface.copy(alpha = if (dark) 0.34f else 0.30f))
+            drawRect(sheen)
+        }
+    )
+}
+
+@Composable
+private fun Modifier.bottomNavigationGlassSelection(
+    backdrop: Backdrop,
+    useBackdropGlass: Boolean
+): Modifier {
+    if (!useBackdropGlass) return glassSelection()
+    val tint = MaterialTheme.colorScheme.primaryContainer
+    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    return clip(CircleShape).drawBackdrop(
+        backdrop = backdrop,
+        shape = { CircleShape },
+        effects = {
+            blur(3.dp.toPx())
+            if (fullEffects) {
+                lens(4.dp.toPx(), 7.dp.toPx())
+            }
+        },
+        highlight = { Highlight.Ambient.copy(alpha = 0.55f) },
+        onDrawSurface = { drawRect(tint.copy(alpha = 0.72f)) }
+    )
+}
+
+@Composable
 private fun Modifier.glassTabFeedback(
     dark: Boolean,
     interactionSource: MutableInteractionSource
@@ -1363,7 +1425,7 @@ private fun BottomNavigation(
             .padding(horizontal = 24.dp, vertical = 8.dp)
             .widthIn(max = 400.dp)
             .fillMaxWidth()
-            .navigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled)
+            .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
             // Consume taps on the glass rim rather than activating content underneath it.
             .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .padding(4.dp)
@@ -1389,7 +1451,7 @@ private fun BottomNavigation(
                     .offset(x = indicatorOffset)
                     .width(indicatorWidth)
                     .fillMaxHeight()
-                    .glassSelection()
+                    .bottomNavigationGlassSelection(backdrop, useBackdropGlass)
             )
             Row(Modifier.fillMaxSize().selectableGroup()) {
                 items.forEachIndexed { index, item ->
