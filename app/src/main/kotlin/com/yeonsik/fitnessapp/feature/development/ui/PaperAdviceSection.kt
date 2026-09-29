@@ -10,9 +10,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import com.yeonsik.fitnessapp.core.ui.AppCard
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
+import com.yeonsik.fitnessapp.core.ui.OrbLoadingStatus
 import com.yeonsik.fitnessapp.development.PaperAdvice
 import com.yeonsik.fitnessapp.development.PaperAdviceAssessment
 import java.util.Locale
+
+private val paperAdviceLoadingMessages = listOf(
+    "분석 결과를 정리하고 있어요",
+    "연결된 논문 근거를 확인하고 있어요",
+    "검토할 조언을 구성하고 있어요"
+)
 
 @Composable
 internal fun PaperAdviceSection(
@@ -23,7 +30,7 @@ internal fun PaperAdviceSection(
         PaperAdviceUiState.Idle -> Text("논문 기반 점검을 준비하는 중입니다.")
         is PaperAdviceUiState.Loading -> {
             if (state.ownerId == ownerId) {
-                Text("논문 기반 점검을 불러오는 중입니다.")
+                OrbLoadingStatus(paperAdviceLoadingMessages)
             }
         }
         is PaperAdviceUiState.Error -> {

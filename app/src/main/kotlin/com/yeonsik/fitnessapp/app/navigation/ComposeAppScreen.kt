@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.app.navigation
 
 import android.os.Build
+import android.os.SystemClock
 import android.view.accessibility.AccessibilityManager
 
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -52,6 +53,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -105,6 +107,8 @@ import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseDraft
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import java.time.LocalDate
+import java.time.YearMonth
 import java.util.Locale
 
 /** The single Compose root and navigation destination host for every application screen. */
@@ -146,6 +150,42 @@ internal data class RecordEntryEffectKey(
     val recordId: String?
 )
 
+internal const val STARTUP_MIN_VISIBLE_MS = 550L
+
+internal fun startupDataSettled(
+    home: HomeUiState,
+    records: RecordsUiState,
+    ownerId: String,
+    today: String
+): Boolean {
+    val month = runCatching { YearMonth.from(LocalDate.parse(today)).toString() }
+        .getOrNull() ?: return false
+    val homeReady = when (home) {
+        is HomeUiState.Ready -> home.requestIdentity.ownerId == ownerId &&
+            home.requestIdentity.date == today
+        else -> false
+    }
+    val recordsReady = when (records) {
+        is RecordsUiState.Ready -> records.snapshot.ownerId == ownerId &&
+            records.snapshot.today == today && records.snapshot.displayedMonth == month
+        else -> false
+    }
+    val homeError = home is HomeUiState.Error && home.ownerId == ownerId &&
+        (home.date == null || home.date == today)
+    val recordsError = records is RecordsUiState.Error && records.ownerId == ownerId &&
+        records.today == today && records.displayedMonth == month
+    return homeError || recordsError || (homeReady && recordsReady)
+}
+
+internal fun startupCanComplete(
+    home: HomeUiState,
+    records: RecordsUiState,
+    ownerId: String,
+    today: String,
+    elapsedMs: Long
+): Boolean = elapsedMs >= STARTUP_MIN_VISIBLE_MS &&
+    startupDataSettled(home, records, ownerId, today)
+
 @Composable
 private fun AppRoot(
     host: AppUiActions,
@@ -156,6 +196,7 @@ private fun AppRoot(
     val settingsState by viewModels.getSettings().uiState.observeAsState()
     val settingsEvent by viewModels.getSettings().events.observeAsState()
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
+    val recordsState by viewModels.getRecords().uiState.observeAsState(RecordsUiState.Idle)
     val routineState by viewModels.getRoutineEntry().uiState.observeAsState(RoutineEntryUiState.Idle)
 
     val cardioState by viewModels.getCardioSession().uiState
@@ -172,6 +213,9 @@ private fun AppRoot(
         screen
     }
     val ownerId = host.currentOwnerId()
+    val today = navigationState.today
+    var startupCompleted by rememberSaveable { mutableStateOf(false) }
+    val startupStartedAt = remember(ownerId, today) { SystemClock.elapsedRealtime() }
     val unit = settingsState?.preferredMassUnit
         ?: viewModels.getSettings().preferredMassUnit()
     val themeMode = settingsState?.themeMode
@@ -267,7 +311,36 @@ private fun AppRoot(
     }
 
     val homeEntryKey = homeEntryEffectKey(destinationScreen, ownerId, routeDate)
-    LaunchedEffect(homeEntryKey) {
+    LaunchedEffect(ownerId, today, startupCompleted) {
+        if (!startupCompleted) {
+            val scope = AccountScope(ownerId)
+            viewModels.getRoutineEntry().enterIfNeeded(scope)
+            viewModels.getHome().enterIfNeeded(scope, today)
+            viewModels.getRecords().rememberSelectedDate(scope, today)
+            viewModels.getRecords().enterIfNeeded(scope, today, today)
+        }
+    }
+    LaunchedEffect(
+        ownerId, today, homeState, recordsState,
+        navigationState.selectedRecordsDate, startupCompleted
+    ) {
+        if (startupCompleted || !startupDataSettled(homeState, recordsState, ownerId, today)) {
+            return@LaunchedEffect
+        }
+        val remaining = STARTUP_MIN_VISIBLE_MS -
+            (SystemClock.elapsedRealtime() - startupStartedAt)
+        if (remaining > 0) delay(remaining)
+        if (!startupCanComplete(
+                homeState, recordsState, ownerId, today,
+                SystemClock.elapsedRealtime() - startupStartedAt
+            )) return@LaunchedEffect
+        viewModels.getRecords().rememberSelectedDate(
+            AccountScope(ownerId), navigationState.selectedRecordsDate
+        )
+        startupCompleted = true
+    }
+    LaunchedEffect(homeEntryKey, startupCompleted) {
+        if (!startupCompleted) return@LaunchedEffect
         when (destinationScreen) {
             FitnessScreen.HOME,
             FitnessScreen.STRENGTH -> {
@@ -801,6 +874,10 @@ private fun AppRoot(
     }
 
     FitnessComposeTheme(dark) {
+        if (!startupCompleted) {
+            StartupOrbScreen()
+            return@FitnessComposeTheme
+        }
         val backdrop = rememberLayerBackdrop()
         val context = LocalContext.current
         val highContrastEnabled = Build.VERSION.SDK_INT >= 36 &&
