@@ -8,20 +8,29 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
@@ -45,6 +54,64 @@ interface HomeScreenActions {
     fun showBodyMetric()
     fun openMealManagement(date: String, returnScreen: FitnessScreen)
 }
+
+private val HomeBodyMetricIcon = ImageVector.Builder(
+    name = "HomeBodyMetric",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.9f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(12f, 2.8f)
+        curveTo(10.5f, 2.8f, 9.3f, 4f, 9.3f, 5.5f)
+        curveTo(9.3f, 7f, 10.5f, 8.2f, 12f, 8.2f)
+        curveTo(13.5f, 8.2f, 14.7f, 7f, 14.7f, 5.5f)
+        curveTo(14.7f, 4f, 13.5f, 2.8f, 12f, 2.8f)
+        close()
+        moveTo(3.5f, 9.6f)
+        horizontalLineTo(20.5f)
+        moveTo(12f, 9.6f)
+        verticalLineTo(15.4f)
+        moveTo(12f, 15.4f)
+        lineTo(7.7f, 20.7f)
+        moveTo(12f, 15.4f)
+        lineTo(16.3f, 20.7f)
+    }
+}.build()
+
+private val HomeMealIcon = ImageVector.Builder(
+    name = "HomeMeal",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.9f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(8f, 7f)
+        curveTo(6.6f, 5.8f, 8.8f, 4.8f, 7.7f, 3.5f)
+        moveTo(12f, 7f)
+        curveTo(10.6f, 5.8f, 12.8f, 4.8f, 11.7f, 3.5f)
+        moveTo(16f, 7f)
+        curveTo(14.6f, 5.8f, 16.8f, 4.8f, 15.7f, 3.5f)
+        moveTo(3.5f, 9.5f)
+        horizontalLineTo(20.5f)
+        curveTo(19.9f, 14.1f, 16.6f, 17.5f, 12f, 17.5f)
+        curveTo(7.4f, 17.5f, 4.1f, 14.1f, 3.5f, 9.5f)
+        moveTo(9f, 20.5f)
+        horizontalLineTo(15f)
+    }
+}.build()
 
 @Composable
 internal fun HomeDestination(
@@ -103,18 +170,20 @@ internal fun HomeDestination(
                 verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
             ) {
                 HomeGlassQuickRecordCard(
-                    "체중",
-                    "오늘 체중 기록",
-                    actions::showBodyMetric,
-                    useGlass,
-                    Modifier.fillMaxWidth()
+                    title = "체중",
+                    detail = "오늘 체중 기록",
+                    icon = HomeBodyMetricIcon,
+                    onClick = actions::showBodyMetric,
+                    useGlass = useGlass,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 HomeGlassQuickRecordCard(
-                    "식사",
-                    "오늘 식사 기록",
-                    { actions.openMealManagement(today, FitnessScreen.HOME) },
-                    useGlass,
-                    Modifier.fillMaxWidth()
+                    title = "식사",
+                    detail = "오늘 식사 기록",
+                    icon = HomeMealIcon,
+                    onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
+                    useGlass = useGlass,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
         }
@@ -179,21 +248,34 @@ private fun HomeHeroContent(
 private fun HomeGlassQuickRecordCard(
     title: String,
     detail: String,
+    icon: ImageVector,
     onClick: () -> Unit,
     useGlass: Boolean,
     modifier: Modifier = Modifier
 ) {
     val content: @Composable () -> Unit = {
-        Column(
-            Modifier.fillMaxWidth().padding(FitnessSpacing.card),
-            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(FitnessSpacing.card),
+            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                detail,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
             )
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
     if (useGlass) {
