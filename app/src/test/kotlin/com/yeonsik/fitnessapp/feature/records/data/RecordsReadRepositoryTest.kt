@@ -34,7 +34,8 @@ class RecordsReadRepositoryTest {
                     durationSeconds = 1800,
                     totalVolumeKg = 1200.0,
                     completedSetCount = 12,
-                    muscleLabels = listOf("등")
+                    muscleLabels = listOf("등"),
+                    projectionMuscleLabels = listOf("등", "삼두")
                 )
             )
         )
@@ -66,7 +67,7 @@ class RecordsReadRepositoryTest {
         assertTrue(workoutDay.hasWorkout)
         assertTrue(workoutDay.hasBodyMetric)
         assertTrue(!workoutDay.hasMeal)
-        assertEquals(listOf("등"), workoutDay.muscleLabels)
+        assertEquals(listOf("등", "삼두"), workoutDay.muscleLabels)
         assertTrue(snapshot.calendarDays.first { it.date == "2024-02-07" }.hasMeal)
 
         val workoutDetail = snapshot.dayDetailsByDate.getValue("2024-02-05")

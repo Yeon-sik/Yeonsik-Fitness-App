@@ -12,14 +12,19 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.yeonsik.fitnessapp.core.ui.AppCard
 import com.yeonsik.fitnessapp.core.ui.AppDataRow
 import com.yeonsik.fitnessapp.core.ui.AppHeader
@@ -39,6 +44,12 @@ import com.yeonsik.fitness.shared.feature.records.model.RecordsWorkoutSummary
 import java.time.LocalDate
 import java.time.YearMonth
 import java.util.Locale
+
+private val recordsCalendarMarkerColors = mapOf(
+    "workout" to Color(0xFFEF4444),
+    "body" to Color(0xFF10B981),
+    "meal" to Color(0xFFFACC15)
+)
 
 interface RecordsScreenActions {
     fun selectDate(date: String)
@@ -116,20 +127,26 @@ private fun RecordsCalendar(
     calendarDays: List<RecordsCalendarDay>,
     actions: RecordsScreenActions
 ) {
-    val colors = mapOf(
-        "workout" to MaterialTheme.colorScheme.primary,
-        "body" to MaterialTheme.colorScheme.tertiary,
-        "meal" to MaterialTheme.colorScheme.secondary
-    )
     Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
-        Row(Modifier.fillMaxWidth()) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+        ) {
             fitnessWeekdayLabels(Locale.KOREA).forEach { label ->
-                Text(
-                    label,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .widthIn(min = FitnessSpacing.touch)
+                        .heightIn(min = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
+                }
             }
         }
         calendarDays.chunked(7).forEach { week ->
@@ -139,18 +156,35 @@ private fun RecordsCalendar(
             ) {
                 week.forEach { day ->
                     val date = LocalDate.parse(day.date)
-                    FitnessCalendarDayCell(
-                        day = fitnessCalendarDayPresentation(
-                            date = date,
-                            displayedMonth = displayedMonth,
-                            selectedDate = selectedDate,
-                            today = today,
-                            markers = day.markers()
-                        ),
-                        markerColors = colors,
+                    Column(
                         modifier = Modifier.weight(1f),
-                        onClick = { actions.selectDate(day.date) }
-                    )
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        FitnessCalendarDayCell(
+                            day = fitnessCalendarDayPresentation(
+                                date = date,
+                                displayedMonth = displayedMonth,
+                                selectedDate = selectedDate,
+                                today = today,
+                                markers = day.markers()
+                            ),
+                            markerColors = recordsCalendarMarkerColors,
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = { actions.selectDate(day.date) }
+                        )
+                        if (day.muscleLabels.isNotEmpty()) {
+                            Text(
+                                text = day.muscleLabels.joinToString("·"),
+                                modifier = Modifier.fillMaxWidth(),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 8.sp,
+                                textAlign = TextAlign.Center,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -160,9 +194,9 @@ private fun RecordsCalendar(
 @Composable
 private fun RecordsCalendarLegend() {
     val entries = listOf(
-        "운동" to MaterialTheme.colorScheme.primary,
-        "체중" to MaterialTheme.colorScheme.tertiary,
-        "식사" to MaterialTheme.colorScheme.secondary
+        "운동" to recordsCalendarMarkerColors.getValue("workout"),
+        "식사" to recordsCalendarMarkerColors.getValue("meal"),
+        "체중" to recordsCalendarMarkerColors.getValue("body")
     )
     Row(
         Modifier.fillMaxWidth(),
@@ -265,8 +299,8 @@ private fun RecordsDayDetailSection(
 
 private fun RecordsCalendarDay.markers(): List<FitnessCalendarMarker> = buildList {
     if (hasWorkout) add(FitnessCalendarMarker("workout", "운동"))
-    if (hasBodyMetric) add(FitnessCalendarMarker("body", "체중"))
     if (hasMeal) add(FitnessCalendarMarker("meal", "식사"))
+    if (hasBodyMetric) add(FitnessCalendarMarker("body", "체중"))
 }
 
 private fun recordsWorkoutDetail(workout: RecordsWorkoutSummary, unit: MassUnit): String {

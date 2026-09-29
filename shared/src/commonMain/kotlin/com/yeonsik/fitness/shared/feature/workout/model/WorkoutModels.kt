@@ -39,7 +39,9 @@ data class WorkoutReadSessionSummary(
     val durationSeconds: Int,
     val totalVolumeKg: Double,
     val completedSetCount: Int,
-    val muscleLabels: List<String>
+    val muscleLabels: List<String>,
+    /** Body areas with completed sets, matching the v2 Personal OS summary fields. */
+    val projectionMuscleLabels: List<String> = emptyList()
 )
 
 /** Workout-owned completed-set facts for cross-feature performance trends. */

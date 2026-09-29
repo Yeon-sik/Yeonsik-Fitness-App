@@ -2,7 +2,6 @@ package com.yeonsik.fitnessapp.feature.home.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -10,13 +9,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessButton
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
-import com.yeonsik.fitnessapp.core.ui.FitnessHeader
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessShape
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
@@ -72,7 +67,6 @@ internal fun HomeDestination(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
     ) {
-        FitnessHeader("메인", today)
         FitnessSection("오늘 상태") {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
@@ -93,30 +87,23 @@ internal fun HomeDestination(
                 }
             }
         }
-        FitnessSection("빠른 기록") {
-            val fontScale = LocalDensity.current.fontScale
-            val weightAction: @Composable (Modifier) -> Unit = { modifier ->
-                QuickRecordCard("체중", "오늘 체중 기록", actions::showBodyMetric, modifier)
-            }
-            val mealAction: @Composable (Modifier) -> Unit = { modifier ->
-                QuickRecordCard("식사", "오늘 식사 기록", {
-                    actions.openMealManagement(today, FitnessScreen.HOME)
-                }, modifier)
-            }
-            if (fontScale >= 1.3f) {
-                Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
-                    weightAction(Modifier.fillMaxWidth())
-                    mealAction(Modifier.fillMaxWidth())
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    weightAction(Modifier.weight(1f))
-                    mealAction(Modifier.weight(1f))
-                }
+        FitnessSection("기록으로 이동") {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+            ) {
+                QuickRecordCard(
+                    "체중",
+                    "오늘 체중 기록",
+                    actions::showBodyMetric,
+                    Modifier.fillMaxWidth()
+                )
+                QuickRecordCard(
+                    "식사",
+                    "오늘 식사 기록",
+                    { actions.openMealManagement(today, FitnessScreen.HOME) },
+                    Modifier.fillMaxWidth()
+                )
             }
         }
     }
@@ -147,7 +134,6 @@ private fun QuickRecordCard(
 @Composable
 private fun LoadingHome() {
     Column(Modifier.fillMaxWidth().padding(vertical = FitnessSpacing.section)) {
-        FitnessHeader("메인")
         Text(
             "오늘 상태를 불러오는 중입니다.",
             modifier = Modifier.padding(top = FitnessSpacing.small),

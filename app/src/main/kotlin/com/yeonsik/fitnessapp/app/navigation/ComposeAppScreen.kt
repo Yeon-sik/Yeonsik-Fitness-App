@@ -10,7 +10,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -48,6 +47,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -60,6 +60,7 @@ import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -139,6 +140,12 @@ internal fun homeEntryEffectKey(
     date: String
 ): HomeEntryEffectKey = HomeEntryEffectKey(screen, ownerId, date)
 
+internal data class RecordEntryEffectKey(
+    val screen: FitnessScreen,
+    val ownerId: String,
+    val recordId: String?
+)
+
 @Composable
 private fun AppRoot(
     host: AppUiActions,
@@ -187,7 +194,7 @@ private fun AppRoot(
     } == true
     val destinationStateHolder = rememberSaveableStateHolder()
     val topLevelSwipeEnabled = navigation.canSwipeTopLevel()
-    val topLevelSwipeThreshold = with(LocalDensity.current) { 56.dp.toPx() }
+    var swipeSelection by remember(screen) { mutableStateOf<TopLevelSwipeSelection?>(null) }
     val workoutAction by viewModels.getWorkoutSession().actionState
         .observeAsState()
     val workoutTerminalEvent by viewModels.getWorkoutSession().terminalEvents
@@ -807,6 +814,84 @@ private fun AppRoot(
             36.dp + MaterialTheme.typography.labelMedium.lineHeight.toDp()
         }.coerceAtLeast(56.dp)
         val bottomNavigationSpace = bottomNavigationHeight + 24.dp
+        val destinationPage: @Composable (FitnessScreen) -> Unit = { pageScreen ->
+            val recordsBackdrop = rememberLayerBackdrop()
+            var recordsBarHeightPx by remember(pageScreen) { mutableIntStateOf(0) }
+            val recordsBarHeight = if (recordsBarHeightPx > 0) {
+                with(LocalDensity.current) { recordsBarHeightPx.toDp() }
+            } else {
+                FitnessSpacing.touch + (FitnessSpacing.small + FitnessSpacing.micro) * 2
+            }
+            val pageDestination = if (pageScreen == FitnessScreen.RECORDS) {
+                recordsHubTab.screen
+            } else {
+                pageScreen
+            }
+            val pageDate = when (pageDestination) {
+                FitnessScreen.MEALS -> navigationState.selectedMealDate
+                FitnessScreen.RECORDS -> navigationState.selectedRecordsDate
+                else -> navigationState.today
+            }
+            Box(Modifier.fillMaxSize()) {
+                destinationStateHolder.SaveableStateProvider(
+                    destinationScrollStateKey(pageScreen) +
+                        if (pageScreen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
+                ) {
+                    val contentScrollState = rememberScrollState()
+                    Column(
+                        Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (pageScreen == FitnessScreen.RECORDS && useBackdropGlass) {
+                                    Modifier.layerBackdrop(recordsBackdrop)
+                                } else Modifier
+                            )
+                            .then(
+                                if (isExercisePickerDestination(pageScreen)) {
+                                    Modifier
+                                } else {
+                                    Modifier.verticalScroll(contentScrollState)
+                                }
+                            )
+                            .padding(
+                                start = FitnessSpacing.page,
+                                end = FitnessSpacing.page,
+                                top = FitnessSpacing.gap +
+                                    if (pageScreen == FitnessScreen.RECORDS) recordsBarHeight
+                                    else 0.dp,
+                                bottom = FitnessSpacing.gap +
+                                    if (bottomNavigationVisible) bottomNavigationSpace else 0.dp
+                            )
+                    ) {
+                        if (pageDestination == FitnessScreen.HOME) {
+                            HomeDestination(homeState, ownerId, pageDate, homeActions)
+                        } else {
+                            AppDestination(
+                                host,
+                                viewModels,
+                                navigation,
+                                pageDestination,
+                                ownerId,
+                                pageDate,
+                                unit
+                            )
+                        }
+                    }
+                }
+                if (pageScreen == FitnessScreen.RECORDS) {
+                    RecordsHubTabs(
+                        selected = recordsHubTab,
+                        onSelected = navigation::selectRecordsHubTab,
+                        backdrop = recordsBackdrop,
+                        useBackdropGlass = useBackdropGlass,
+                        highContrastEnabled = highContrastEnabled,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .onSizeChanged { recordsBarHeightPx = it.height }
+                    )
+                }
+            }
+        }
         Box(
             Modifier
                 .fillMaxSize()
@@ -822,80 +907,31 @@ private fun AppRoot(
                 if (screen == FitnessScreen.WORKOUT_SESSION) {
                     SessionTopBar(navigation, viewModels, ownerId, workoutState)
                 }
-                if (screen == FitnessScreen.RECORDS) {
-                    RecordsHubTabs(
-                        selected = recordsHubTab,
-                        onSelected = navigation::selectRecordsHubTab
-                    )
-                }
-                destinationStateHolder.SaveableStateProvider(
-                    destinationScrollStateKey(screen) +
-                        if (screen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
-                ) {
-                    val contentScrollState = rememberScrollState()
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                            .then(
-                                if (isExercisePickerDestination(screen)) {
-                                    Modifier
-                                } else {
-                                    Modifier.verticalScroll(contentScrollState)
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    if (topLevelSwipeEnabled) {
+                        TopLevelSwipeHost(
+                            screen, navigation, Modifier.fillMaxSize(),
+                            onSettlingDestinationChange = {
+                                swipeSelection = it?.let { destination ->
+                                    TopLevelSwipeSelection(screen, destination)
                                 }
-                            )
-                            .then(
-                                if (topLevelSwipeEnabled) {
-                                    Modifier.pointerInput(screen, topLevelSwipeThreshold) {
-                                        var totalDrag = 0f
-                                        detectHorizontalDragGestures(
-                                            onHorizontalDrag = { _, dragAmount ->
-                                                totalDrag += dragAmount
-                                            },
-                                            onDragEnd = {
-                                                when {
-                                                    totalDrag <= -topLevelSwipeThreshold ->
-                                                        navigation.swipeTopLevel(forward = true)
-                                                    totalDrag >= topLevelSwipeThreshold ->
-                                                        navigation.swipeTopLevel(forward = false)
-                                                }
-                                                totalDrag = 0f
-                                            },
-                                            onDragCancel = { totalDrag = 0f }
-                                        )
-                                    }
-                                } else {
-                                    Modifier
-                                }
-                            )
-                            .padding(
-                                start = FitnessSpacing.page,
-                                end = FitnessSpacing.page,
-                                top = FitnessSpacing.gap,
-                                bottom = FitnessSpacing.gap +
-                                    if (bottomNavigationVisible) bottomNavigationSpace else 0.dp
-                            )
-                    ) {
-                        if (destinationScreen == FitnessScreen.HOME) {
-                            HomeDestination(homeState, ownerId, routeDate, homeActions)
-                        } else {
-                            AppDestination(
-                                host,
-                                viewModels,
-                                navigation,
-                                destinationScreen,
-                                ownerId,
-                                routeDate,
-                                unit
-                            )
-                        }
+                            },
+                            content = destinationPage
+                        )
+                    } else {
+                        destinationPage(screen)
                     }
                 }
                 RestTimerBar(host, viewModels, screen, restState, ownerId)
             }
             if (bottomNavigationVisible) {
                 BottomNavigation(
-                    navigation, homeState, screen, dark, bottomNavigationHeight,
+                    homeState, visualActiveTopLevelTab(screen, swipeSelection),
+                    onTabSelected = {
+                        swipeSelection = null
+                        navigation.selectTopLevel(it)
+                    },
+                    dark, bottomNavigationHeight,
                     backdrop, useBackdropGlass, highContrastEnabled,
                     Modifier.align(Alignment.BottomCenter)
                 )
@@ -1171,16 +1207,21 @@ private fun Modifier.glassTabFeedback(
 @Composable
 private fun RecordsHubTabs(
     selected: RecordsHubTab,
-    onSelected: (RecordsHubTab) -> Unit
+    onSelected: (RecordsHubTab) -> Unit,
+    backdrop: Backdrop,
+    useBackdropGlass: Boolean,
+    highContrastEnabled: Boolean,
+    modifier: Modifier = Modifier
 ) {
     Row(
-        Modifier
+        modifier
+            .padding(horizontal = 24.dp, vertical = FitnessSpacing.small)
+            .widthIn(max = 400.dp)
             .fillMaxWidth()
-            .padding(horizontal = FitnessSpacing.page, vertical = FitnessSpacing.small)
-            .clip(FitnessShape.input)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(FitnessSpacing.micro),
-        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+            .navigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled)
+            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
+            .padding(FitnessSpacing.micro)
+            .selectableGroup()
     ) {
         RecordsHubTab.entries.forEach { tab ->
             val isSelected = tab == selected
@@ -1188,12 +1229,12 @@ private fun RecordsHubTabs(
                 Modifier
                     .weight(1f)
                     .heightIn(min = FitnessSpacing.touch)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                        else Color.Transparent
+                    .then(if (isSelected) Modifier.glassSelection() else Modifier)
+                    .selectable(
+                        selected = isSelected,
+                        role = Role.Tab,
+                        onClick = { onSelected(tab) }
                     )
-                    .clickable { onSelected(tab) }
                     .padding(vertical = FitnessSpacing.micro),
                 contentAlignment = Alignment.Center
             ) {
@@ -1211,9 +1252,9 @@ private fun RecordsHubTabs(
 
 @Composable
 private fun BottomNavigation(
-    navigation: AppNavigationViewModel,
     homeState: HomeUiState,
     screen: FitnessScreen,
+    onTabSelected: (FitnessScreen) -> Unit,
     dark: Boolean,
     itemHeight: Dp,
     backdrop: Backdrop,
@@ -1286,7 +1327,7 @@ private fun BottomNavigation(
                                 interactionSource = interactionSource,
                                 indication = null,
                                 role = Role.Tab,
-                                onClick = { navigation.selectTopLevel(item.screen) }
+                                onClick = { onTabSelected(item.screen) }
                             )
                             .semantics {
                                 if (hasActiveWorkout) stateDescription = "운동 진행 중"
@@ -1415,22 +1456,13 @@ private fun AppDestination(
         }
     }
 
-    LaunchedEffect(screen, ownerId, activeRecordId, workoutReadOnly) {
+    LaunchedEffect(RecordEntryEffectKey(screen, ownerId, activeRecordId)) {
         when (screen) {
             FitnessScreen.WORKOUT_SESSION,
             FitnessScreen.WORKOUT_SUMMARY ->
                 viewModels.getWorkoutSession().enter(
                     AccountScope(ownerId), activeRecordId
                 )
-            FitnessScreen.WORKOUT_EXERCISE_DETAIL ->
-                activeRecordId?.let { recordId ->
-                    viewModels.getWorkoutExerciseDetail().enter(
-                        AccountScope(ownerId),
-                        recordId,
-                        viewModels.getWorkoutExerciseDetail().activeExerciseId(),
-                        readOnly = workoutReadOnly
-                    )
-                }
             FitnessScreen.CARDIO_SESSION,
             FitnessScreen.CARDIO_SUMMARY ->
                 viewModels.getCardioSession().enter(
@@ -1451,6 +1483,18 @@ private fun AppDestination(
                     )
                 }
             else -> Unit
+        }
+    }
+    LaunchedEffect(screen, ownerId, activeRecordId, workoutReadOnly) {
+        if (screen == FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
+            activeRecordId?.let { recordId ->
+                viewModels.getWorkoutExerciseDetail().enter(
+                    AccountScope(ownerId),
+                    recordId,
+                    viewModels.getWorkoutExerciseDetail().activeExerciseId(),
+                    readOnly = workoutReadOnly
+                )
+            }
         }
     }
     val mealNotice = (mealState as? MealUiState.Ready)?.notice

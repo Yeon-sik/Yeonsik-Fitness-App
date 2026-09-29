@@ -148,13 +148,16 @@ class AppNavigationViewModel(
 
     /** Moves to an adjacent top-level tab without wrapping at either end. */
     fun swipeTopLevel(forward: Boolean): Boolean {
-        val currentIndex = TOP_LEVEL_SCREENS.indexOf(history.current())
-        if (currentIndex < 0) return false
-        val destination = TOP_LEVEL_SCREENS.getOrNull(
-            currentIndex + if (forward) 1 else -1
-        ) ?: return false
+        val destination = adjacentTopLevel(forward) ?: return false
         selectTopLevel(destination)
         return true
+    }
+
+    /** Returns the page that can be revealed during a top-level drag. */
+    fun adjacentTopLevel(forward: Boolean): FitnessScreen? {
+        val currentIndex = TOP_LEVEL_SCREENS.indexOf(history.current())
+        if (currentIndex < 0) return null
+        return TOP_LEVEL_SCREENS.getOrNull(currentIndex + if (forward) 1 else -1)
     }
 
     fun selectRecordsHubTab(tab: RecordsHubTab) {

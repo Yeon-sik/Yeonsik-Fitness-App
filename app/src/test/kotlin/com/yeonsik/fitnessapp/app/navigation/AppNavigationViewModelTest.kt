@@ -7,6 +7,7 @@ import com.yeonsik.fitnessapp.state.FitnessScreen
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -92,6 +93,8 @@ class AppNavigationViewModelTest {
         val navigation = AppNavigationViewModel(SavedStateHandle())
 
         assertTrue(navigation.canSwipeTopLevel())
+        assertNull(navigation.adjacentTopLevel(forward = false))
+        assertEquals(FitnessScreen.WORKOUT, navigation.adjacentTopLevel(forward = true))
         assertTrue(navigation.swipeTopLevel(forward = true))
         assertEquals(FitnessScreen.WORKOUT, navigation.currentScreen())
         assertTrue(navigation.swipeTopLevel(forward = true))
@@ -100,6 +103,8 @@ class AppNavigationViewModelTest {
         navigation.selectRecordsHubTab(RecordsHubTab.STATISTICS)
         assertTrue(navigation.swipeTopLevel(forward = true))
         assertEquals(FitnessScreen.SETTINGS, navigation.currentScreen())
+        assertNull(navigation.adjacentTopLevel(forward = true))
+        assertEquals(FitnessScreen.RECORDS, navigation.adjacentTopLevel(forward = false))
         assertFalse(navigation.swipeTopLevel(forward = true))
         assertTrue(navigation.swipeTopLevel(forward = false))
 
@@ -129,8 +134,69 @@ class AppNavigationViewModelTest {
             navigation.navigate(focusedScreen)
 
             assertFalse(navigation.canSwipeTopLevel())
+            assertNull(navigation.adjacentTopLevel(forward = true))
             assertFalse(navigation.swipeTopLevel(forward = true))
             assertEquals(focusedScreen, navigation.currentScreen())
         }
+    }
+
+    @Test
+    fun swipeVisualSelectionChangesAtCommitWithoutChangingRouteUntilSettle() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        val source = navigation.currentScreen()
+        val destination = topLevelSwipeDestination(
+            dragOffset = -80f,
+            threshold = 72f,
+            forwardPage = navigation.adjacentTopLevel(forward = true),
+            backwardPage = navigation.adjacentTopLevel(forward = false)
+        )
+        val selection = TopLevelSwipeSelection(source, destination!!)
+
+        assertEquals(FitnessScreen.WORKOUT, visualActiveTopLevelTab(source, selection))
+        assertEquals(FitnessScreen.HOME, navigation.currentScreen())
+
+        navigation.selectTopLevel(destination)
+
+        assertEquals(FitnessScreen.WORKOUT, navigation.currentScreen())
+        assertEquals(FitnessScreen.WORKOUT, visualActiveTopLevelTab(navigation.currentScreen(), selection))
+    }
+
+    @Test
+    fun swipeBelowThresholdAndOutsideEdgesKeepsTheCurrentVisualTab() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        val home = navigation.currentScreen()
+
+        assertNull(topLevelSwipeDestination(-71f, 72f, FitnessScreen.WORKOUT, null))
+        assertNull(topLevelSwipeDestination(80f, 72f, FitnessScreen.WORKOUT, null))
+        assertEquals(home, visualActiveTopLevelTab(home, null))
+
+        navigation.selectTopLevel(FitnessScreen.SETTINGS)
+        assertNull(topLevelSwipeDestination(-80f, 72f, null, FitnessScreen.RECORDS))
+        assertEquals(FitnessScreen.SETTINGS, visualActiveTopLevelTab(navigation.currentScreen(), null))
+        assertEquals(
+            FitnessScreen.SETTINGS,
+            visualActiveTopLevelTab(
+                navigation.currentScreen(),
+                TopLevelSwipeSelection(FitnessScreen.HOME, FitnessScreen.WORKOUT)
+            )
+        )
+    }
+
+    @Test
+    fun completedWorkoutStateDoesNotChangeTheSessionEntryEffectKey() {
+        val loadingKey = RecordEntryEffectKey(
+            FitnessScreen.WORKOUT_SESSION, "owner", "historical-record"
+        )
+        val completedKey = RecordEntryEffectKey(
+            FitnessScreen.WORKOUT_SESSION, "owner", "historical-record"
+        )
+
+        assertEquals(loadingKey, completedKey)
+        assertFalse(loadingKey == RecordEntryEffectKey(
+            FitnessScreen.WORKOUT_SESSION, "owner", "another-record"
+        ))
+        assertFalse(loadingKey == RecordEntryEffectKey(
+            FitnessScreen.WORKOUT_SUMMARY, "owner", "historical-record"
+        ))
     }
 }
