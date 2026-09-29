@@ -2,6 +2,9 @@ package com.yeonsik.fitnessapp.feature.home.ui
 
 import android.os.Build
 import android.view.accessibility.AccessibilityManager
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +23,11 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -29,6 +37,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
@@ -120,8 +129,15 @@ internal fun HomeDestination(
     today: String,
     actions: HomeScreenActions
 ) {
-    val ready = homeState as? HomeUiState.Ready
-    if (ready == null || ready.snapshot.ownerId != ownerId || ready.snapshot.today != today) {
+    val ready = (homeState as? HomeUiState.Ready)?.takeIf {
+        it.snapshot.ownerId == ownerId && it.snapshot.today == today
+    }
+    val contentReady = ready != null
+    var entrancePlayed by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(contentReady) {
+        if (contentReady && !entrancePlayed) entrancePlayed = true
+    }
+    if (ready == null) {
         LoadingHome()
         return
     }
@@ -161,32 +177,72 @@ internal fun HomeDestination(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
     ) {
-        FitnessSection("오늘 상태") {
-            HomeGlassHero(status, message, cta, onCta, useGlass)
-        }
-        FitnessSection("기록으로 이동") {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
-            ) {
-                HomeGlassQuickRecordCard(
-                    title = "체중",
-                    detail = "오늘 체중 기록",
-                    icon = HomeBodyMetricIcon,
-                    onClick = actions::showBodyMetric,
-                    useGlass = useGlass,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                HomeGlassQuickRecordCard(
-                    title = "식사",
-                    detail = "오늘 식사 기록",
-                    icon = HomeMealIcon,
-                    onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
-                    useGlass = useGlass,
-                    modifier = Modifier.fillMaxWidth()
-                )
+        HomeEntranceContent(entrancePlayed, order = 0) {
+            FitnessSection("오늘 상태") {
+                HomeGlassHero(status, message, cta, onCta, useGlass)
             }
         }
+        HomeEntranceContent(entrancePlayed, order = 1) {
+            FitnessSection("기록으로 이동") {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+                ) {
+                    HomeEntranceContent(entrancePlayed, order = 2) {
+                        HomeGlassQuickRecordCard(
+                            title = "체중",
+                            detail = "오늘 체중 기록",
+                            icon = HomeBodyMetricIcon,
+                            onClick = actions::showBodyMetric,
+                            useGlass = useGlass,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    HomeEntranceContent(entrancePlayed, order = 3) {
+                        HomeGlassQuickRecordCard(
+                            title = "식사",
+                            detail = "오늘 식사 기록",
+                            icon = HomeMealIcon,
+                            onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
+                            useGlass = useGlass,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private const val HOME_ENTRANCE_DURATION_MILLIS = 390
+private const val HOME_ENTRANCE_STAGGER_MILLIS = 70
+
+@Composable
+private fun HomeEntranceContent(
+    visible: Boolean,
+    order: Int,
+    content: @Composable () -> Unit
+) {
+    val progress by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = HOME_ENTRANCE_DURATION_MILLIS,
+            delayMillis = order * HOME_ENTRANCE_STAGGER_MILLIS,
+            easing = FastOutSlowInEasing
+        ),
+        label = "home-entrance-$order"
+    )
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = progress
+                translationY = 14.dp.toPx() * (1f - progress)
+                scaleX = 0.985f + 0.015f * progress
+                scaleY = 0.985f + 0.015f * progress
+            }
+    ) {
+        content()
     }
 }
 
