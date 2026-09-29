@@ -968,6 +968,7 @@ private fun AppRoot(
                         backdrop = recordsBackdrop,
                         useBackdropGlass = useBackdropGlass,
                         highContrastEnabled = highContrastEnabled,
+                        dark = dark,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .onSizeChanged { recordsBarHeightPx = it.height }
@@ -1353,6 +1354,7 @@ private fun RecordsHubTabs(
     backdrop: Backdrop,
     useBackdropGlass: Boolean,
     highContrastEnabled: Boolean,
+    dark: Boolean,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -1360,7 +1362,7 @@ private fun RecordsHubTabs(
             .padding(horizontal = 24.dp, vertical = FitnessSpacing.small)
             .widthIn(max = 400.dp)
             .fillMaxWidth()
-            .navigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled)
+            .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
             .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .padding(FitnessSpacing.micro)
             .selectableGroup()
@@ -1371,7 +1373,10 @@ private fun RecordsHubTabs(
                 Modifier
                     .weight(1f)
                     .heightIn(min = FitnessSpacing.touch)
-                    .then(if (isSelected) Modifier.glassSelection() else Modifier)
+                    .then(
+                        if (isSelected) Modifier.bottomNavigationGlassSelection(backdrop, useBackdropGlass)
+                        else Modifier
+                    )
                     .selectable(
                         selected = isSelected,
                         role = Role.Tab,
