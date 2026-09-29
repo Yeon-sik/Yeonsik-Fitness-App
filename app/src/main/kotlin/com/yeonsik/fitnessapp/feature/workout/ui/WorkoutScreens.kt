@@ -26,7 +26,10 @@ import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
+import com.yeonsik.fitnessapp.exercise.ExercisePrimaryMuscleLabel
 import com.yeonsik.fitness.shared.feature.workout.model.*
+import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.WorkoutSetPresentation
@@ -100,25 +103,63 @@ internal fun StrengthScreen(
     AppButton(onClick = actions::startEmptyWorkout, Modifier.fillMaxWidth()) { Text("루틴 없이 운동 시작") }
     AppOutlinedButton(onClick = actions::showPastWorkout, Modifier.fillMaxWidth()) { Text("지난 운동 수동 등록") }
     ready.snapshot.routines.forEach { routineRow ->
+        val exercises = ready.snapshot.routineExercises[routineRow.id].orEmpty()
+        val bodyParts = routineBodyPartLabels(exercises)
         AppCard(Modifier.fillMaxWidth().clickable {
             actions.selectRoutine(routineRow.id)
             actions.navigate(FitnessScreen.ROUTINE_DETAIL)
         }) {
-            Column(Modifier.padding(AppSpacing.card)) {
-                Text(routineRow.name, fontWeight = FontWeight.Bold)
-                Text("${routineRow.exerciseCount}개 종목", style = MaterialTheme.typography.bodySmall)
-                AppButton(onClick = {
-                    actions.selectRoutine(routineRow.id)
-                    actions.startRoutineWorkout(
-                        routineRow.id,
-                        routineRow.name,
-                        ready.snapshot.routineExercises[routineRow.id].orEmpty()
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .heightIn(min = AppSpacing.touch)
+                    .padding(AppSpacing.card),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        routineRow.name.ifBlank { "나만의 루틴" },
+                        fontWeight = FontWeight.Bold
                     )
-                }) { Text("이 루틴으로 시작") }
+                    Text(
+                        "운동 부위: ${bodyParts.ifEmpty { listOf("-") }.joinToString(" · ")}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        "${routineRow.exerciseCount}개 종목",
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                Text(
+                    "›",
+                    modifier = Modifier.padding(start = AppSpacing.small),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
+
+private fun routineBodyPartLabels(exercises: List<RoutineExerciseInstance>): List<String> {
+    val parts = exercises.mapNotNull { exercise ->
+        when (BodyPart.fromId(exercise.uiPart)) {
+            BodyPart.CHEST -> "가슴"
+            BodyPart.BACK -> "등"
+            BodyPart.LEGS -> "하체"
+            BodyPart.SHOULDERS -> "어깨"
+            BodyPart.ABS -> "복근"
+            BodyPart.ARMS -> ExercisePrimaryMuscleLabel
+                .forPrimarySubPart(exercise.primarySubPart, exercise.uiPart)
+                .takeIf { it == "삼두" || it == "이두" }
+            null -> null
+        }
+    }.toSet()
+
+    return ROUTINE_BODY_PART_ORDER.filter { it in parts }
+}
+
+private val ROUTINE_BODY_PART_ORDER = listOf("가슴", "등", "하체", "어깨", "복근", "삼두", "이두")
 
 @Composable
 internal fun WorkoutSessionScreen(
