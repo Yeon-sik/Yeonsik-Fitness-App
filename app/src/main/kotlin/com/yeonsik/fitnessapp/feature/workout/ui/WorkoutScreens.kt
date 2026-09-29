@@ -885,6 +885,17 @@ private fun AppWorkoutSessionContent(
             delay(1000L)
         }
     }
+    val isInProgress = session.status == "in_progress"
+    val displayedDurationSeconds = if (isInProgress) {
+        workoutElapsedSeconds(
+            session.startedAt,
+            session.durationSeconds,
+            session.status,
+            nowMillis
+        )
+    } else {
+        session.durationSeconds
+    }
     FitnessHeader("운동 진행", session.title)
     FitnessStatusBadge(
         status = when (session.status) {
@@ -903,16 +914,9 @@ private fun AppWorkoutSessionContent(
         first = { FitnessFactCard("완료 세트", session.completedSetCount.toString(), "현재 운동") },
         second = {
             FitnessFactCard(
-                "경과 시간",
-                formatWorkoutElapsedSeconds(
-                    workoutElapsedSeconds(
-                        session.startedAt,
-                        session.durationSeconds,
-                        session.status,
-                        nowMillis
-                    )
-                ),
-                "운동 시간"
+                if (isInProgress) "경과 시간" else "운동 시간",
+                formatWorkoutElapsedSeconds(displayedDurationSeconds),
+                if (isInProgress) "현재 운동" else "기록된 운동 시간"
             )
         }
     )
