@@ -1373,6 +1373,7 @@ private fun RecordsHubTabs(
                 Modifier
                     .weight(1f)
                     .heightIn(min = FitnessSpacing.touch)
+                    .clip(CircleShape)
                     .then(
                         if (isSelected) Modifier.bottomNavigationGlassSelection(backdrop, useBackdropGlass)
                         else Modifier
