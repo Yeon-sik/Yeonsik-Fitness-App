@@ -10,7 +10,8 @@ sealed interface HomeActivityUiState {
     data object Idle : HomeActivityUiState { override val identity = null }
     data class Loading(
         override val identity: HomeActivityRequestIdentity,
-        val window: HomeActivityWindow? = null
+        val window: HomeActivityWindow? = null,
+        val previous: Ready? = null
     ) : HomeActivityUiState
     data class Ready(
         override val identity: HomeActivityRequestIdentity,
@@ -21,7 +22,8 @@ sealed interface HomeActivityUiState {
     data class Error(
         override val identity: HomeActivityRequestIdentity,
         val message: String,
-        val window: HomeActivityWindow? = null
+        val window: HomeActivityWindow? = null,
+        val previous: Ready? = null
     ) : HomeActivityUiState
 }
 

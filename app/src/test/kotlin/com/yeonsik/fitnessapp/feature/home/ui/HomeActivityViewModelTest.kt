@@ -63,6 +63,34 @@ class HomeActivityViewModelTest {
         assertEquals(1, f.activity.earliestOwners.size)
     }
 
+    @Test fun pagingAndRetryRetainTheLastReadyPageUntilTheReadCompletes() {
+        val f = Fixture()
+        f.enter()
+        val previous = f.ready()
+        f.activity.failRange = true
+        f.vm.previousActivityPage()
+        val loading = f.vm.activityState.value as HomeActivityUiState.Loading
+        assertEquals(1, loading.identity.pageOffset)
+        assertSame(previous, loading.previous)
+        f.worker.runAll()
+        assertSame(previous, (f.vm.activityState.value as HomeActivityUiState.Error).previous)
+        f.activity.failRange = false
+        f.vm.retryActivityHistory()
+        assertSame(previous, (f.vm.activityState.value as HomeActivityUiState.Loading).previous)
+        f.worker.runAll()
+        assertEquals(1, f.ready().identity.pageOffset)
+    }
+
+    @Test fun retainedPageIsClearedWhenOwnerOrTodayChanges() {
+        val f = Fixture()
+        f.enter()
+        f.vm.enterIfNeeded(AccountScope("b"), TODAY)
+        assertNull((f.vm.activityState.value as HomeActivityUiState.Loading).previous)
+        f.worker.runAll()
+        f.vm.enterIfNeeded(AccountScope("b"), "2026-10-02")
+        assertNull((f.vm.activityState.value as HomeActivityUiState.Loading).previous)
+    }
+
     @Test fun initialRangeFailureCachesSuccessfulEarliestReadForRetry() {
         val f = Fixture()
         f.activity.failRange = true

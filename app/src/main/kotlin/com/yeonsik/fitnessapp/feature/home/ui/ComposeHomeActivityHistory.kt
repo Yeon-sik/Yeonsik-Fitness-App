@@ -26,8 +26,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -50,39 +52,60 @@ internal fun HomeActivityHistorySection(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val page = when (state) {
+        is HomeActivityUiState.Ready -> state
+        is HomeActivityUiState.Loading -> state.previous
+        is HomeActivityUiState.Error -> state.previous
+        else -> null
+    }
     Column(modifier.testTag("home-activity-history")) {
         FitnessSection("활동 내역") {
             FitnessCard {
-                Column(
-                    Modifier.padding(FitnessSpacing.card),
-                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
-                ) {
-                    when (state) {
-                        HomeActivityUiState.Idle, is HomeActivityUiState.Loading ->
-                            Text("활동 내역을 불러오는 중입니다.", style = MaterialTheme.typography.bodyMedium)
-                        is HomeActivityUiState.Empty ->
-                            Text("아직 활동 기록이 없어요.", style = MaterialTheme.typography.bodyMedium)
-                        is HomeActivityUiState.Error -> {
-                            Text("활동 내역을 불러오지 못했습니다.", style = MaterialTheme.typography.bodyMedium)
-                            TextButton(onClick = onRetry, modifier = Modifier.testTag("home-activity-retry")) {
-                                Text("다시 시도")
-                            }
-                        }
-                        is HomeActivityUiState.Ready -> {
-                            ActivityPeriodSelector(state.window, onSelectPage)
-                            ActivityGrid(state.cells)
+                Box(Modifier.padding(FitnessSpacing.card)) {
+                    if (page != null) {
+                        val interactive = state is HomeActivityUiState.Ready
+                        // Keep the measured page while a read is pending so verticalScroll cannot clamp upward.
+                        Column(
+                            Modifier.fillMaxWidth().then(
+                                if (interactive) Modifier else Modifier
+                                    .graphicsLayer { alpha = 0f }
+                                    .clearAndSetSemantics { }
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
+                        ) {
+                            ActivityPeriodSelector(page.window, onSelectPage, interactive)
+                            ActivityGrid(page.cells)
                             ActivityLegend()
                             Row(Modifier.fillMaxWidth()) {
                                 TextButton(
                                     onClick = onPrevious,
-                                    enabled = state.window.canGoPrevious,
+                                    enabled = interactive && page.window.canGoPrevious,
                                     modifier = Modifier.weight(1f).testTag("home-activity-previous")
                                 ) { Text("‹ 이전 13주") }
                                 TextButton(
                                     onClick = onNext,
-                                    enabled = state.window.canGoNext,
+                                    enabled = interactive && page.window.canGoNext,
                                     modifier = Modifier.weight(1f).testTag("home-activity-next")
                                 ) { Text("다음 13주 ›") }
+                            }
+                        }
+                    }
+                    if (state !is HomeActivityUiState.Ready) {
+                        Column(
+                            if (page != null) Modifier.matchParentSize() else Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small, Alignment.CenterVertically),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            when (state) {
+                                is HomeActivityUiState.Empty ->
+                                    Text("아직 활동 기록이 없어요.", style = MaterialTheme.typography.bodyMedium)
+                                is HomeActivityUiState.Error -> {
+                                    Text("활동 내역을 불러오지 못했습니다.", style = MaterialTheme.typography.bodyMedium)
+                                    TextButton(onClick = onRetry, modifier = Modifier.testTag("home-activity-retry")) {
+                                        Text("다시 시도")
+                                    }
+                                }
+                                else -> Text("활동 내역을 불러오는 중입니다.", style = MaterialTheme.typography.bodyMedium)
                             }
                         }
                     }
@@ -93,14 +116,17 @@ internal fun HomeActivityHistorySection(
 }
 
 @Composable
-private fun ActivityPeriodSelector(window: HomeActivityWindow, onSelectPage: (Int) -> Unit) {
+private fun ActivityPeriodSelector(
+    window: HomeActivityWindow, onSelectPage: (Int) -> Unit, enabled: Boolean = true
+) {
     var expanded by rememberSaveable(window.today, window.firstRecordedDate) { mutableStateOf(false) }
     Box(Modifier.fillMaxWidth()) {
         TextButton(
             onClick = { expanded = true },
+            enabled = enabled,
             modifier = Modifier.fillMaxWidth().testTag("home-activity-period")
         ) { Text("${window.periodLabel} ▾", style = MaterialTheme.typography.bodySmall) }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
             HomeActivityWindowPolicy.windows(window.today, window.firstRecordedDate).forEach { option ->
                 DropdownMenuItem(
                     text = { Text(option.periodLabel, style = MaterialTheme.typography.bodySmall) },

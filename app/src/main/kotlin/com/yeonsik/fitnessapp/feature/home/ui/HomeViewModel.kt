@@ -167,7 +167,13 @@ class HomeViewModel @JvmOverloads constructor(
         val knownWindow = knownFirst?.let {
             HomeActivityWindowPolicy.window(LocalDate.parse(today), LocalDate.parse(it), pageOffset)
         }
-        mutableActivityState.value = HomeActivityUiState.Loading(identity, knownWindow)
+        val previous = when (val state = mutableActivityState.value) {
+            is HomeActivityUiState.Ready -> state
+            is HomeActivityUiState.Loading -> state.previous
+            is HomeActivityUiState.Error -> state.previous
+            else -> null
+        }?.takeIf { it.identity.ownerId == scope.ownerId && it.identity.today == today }
+        mutableActivityState.value = HomeActivityUiState.Loading(identity, knownWindow, previous)
         executor.execute {
             var readFirst = knownFirst
             var readEarliest = wasEarliestLoaded
@@ -190,7 +196,9 @@ class HomeViewModel @JvmOverloads constructor(
                     HomeActivityUiState.Ready(identity, loadedWindow, loadedWindow.cells(kinds))
                 }
             } catch (error: Exception) {
-                HomeActivityUiState.Error(identity, error.message ?: "활동 내역을 불러오지 못했습니다.", window)
+                HomeActivityUiState.Error(
+                    identity, error.message ?: "활동 내역을 불러오지 못했습니다.", window, previous
+                )
             }
             mainExecutor.execute {
                 if (activityRequestGate.accepts(request, identity)) {

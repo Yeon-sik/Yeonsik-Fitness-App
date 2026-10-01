@@ -1,7 +1,12 @@
 package com.yeonsik.fitnessapp.feature.home.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -29,6 +34,7 @@ import java.time.LocalDate
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
+import kotlinx.coroutines.runBlocking
 
 class HomeActivityHistoryUiTest {
     @get:Rule val compose = createComposeRule()
@@ -148,6 +154,52 @@ class HomeActivityHistoryUiTest {
         compose.onNodeWithText("활동 내역을 불러오지 못했습니다.").assertExists()
         compose.onNodeWithTag("home-activity-retry").performClick()
         assertEquals(1, retries)
+    }
+
+    @Test fun pagingThroughLoadingFailureAndEmptyWindowsKeepsScrollAndSectionHeight() {
+        val initial = ready(kinds = mapOf(TODAY to setOf(HomeActivityKind.WEIGHT)))
+        val state = mutableStateOf<HomeActivityUiState>(initial)
+        val scroll = ScrollState(0)
+        compose.setContent {
+            FitnessComposeTheme(false) {
+                Column(Modifier.width(320.dp).height(420.dp).verticalScroll(scroll)) {
+                    Spacer(Modifier.height(700.dp))
+                    HomeActivityHistorySection(state.value, {}, {}, {}, {})
+                }
+            }
+        }
+        compose.runOnIdle { runBlocking { scroll.scrollTo(scroll.maxValue) } }
+        val offset = scroll.value
+        val bounds = compose.onNodeWithTag("home-activity-history").fetchSemanticsNode().boundsInRoot
+        assertTrue(offset > 0)
+        fun assertUnmoved() {
+            compose.waitForIdle()
+            val current = compose.onNodeWithTag("home-activity-history").fetchSemanticsNode().boundsInRoot
+            assertEquals(offset, scroll.value)
+            assertEquals(bounds.top, current.top, 1f)
+            assertEquals(bounds.height, current.height, 1f)
+        }
+        val previousPage = ready(1)
+        compose.runOnIdle {
+            state.value = HomeActivityUiState.Loading(previousPage.identity, previousPage.window, initial)
+        }
+        compose.onNodeWithText("활동 내역을 불러오는 중입니다.").assertExists()
+        compose.onNodeWithContentDescription("2026년 10월 1일, 체중, 1종 기록").assertDoesNotExist()
+        assertUnmoved()
+        compose.runOnIdle {
+            state.value = HomeActivityUiState.Error(previousPage.identity, "read failed", previousPage.window, initial)
+        }
+        compose.onNodeWithTag("home-activity-retry").assertExists()
+        assertUnmoved()
+        compose.runOnIdle { state.value = previousPage }
+        compose.onAllNodes(cellMatcher, useUnmergedTree = true).assertCountEquals(91)
+        assertUnmoved()
+        compose.runOnIdle {
+            state.value = HomeActivityUiState.Loading(initial.identity, initial.window, previousPage)
+        }
+        assertUnmoved()
+        compose.runOnIdle { state.value = ready() }
+        assertUnmoved()
     }
 
     private fun ready(
