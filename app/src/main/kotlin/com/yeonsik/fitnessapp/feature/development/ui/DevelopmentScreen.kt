@@ -52,6 +52,12 @@ interface DevelopmentScreenActions {
     fun openInsightAction(insight: DevelopmentInsight)
 }
 
+private val reportLoadingMessages = listOf(
+    "최근 기록을 정리하고 있어요",
+    "운동·체중·회복 데이터를 확인하고 있어요",
+    "발전 상태를 계산하고 있어요"
+)
+
 @Composable
 internal fun DevelopmentScreen(
     state: DevelopmentUiState,
@@ -63,7 +69,14 @@ internal fun DevelopmentScreen(
     val ready = state as? DevelopmentUiState.Ready
     AppHeader("발전", "최근 기록을 기반으로 계산합니다.")
     if (ready == null || ready.ownerId != ownerId) {
-        Text("발전 리포트를 불러오는 중입니다.")
+        val error = state as? DevelopmentUiState.Error
+        if (error != null && error.ownerId == ownerId) {
+            AppCard(Modifier.fillMaxWidth()) {
+                Text(error.message, Modifier.padding(AppSpacing.card))
+            }
+        } else {
+            OrbLoadingStatus(reportLoadingMessages)
+        }
         return
     }
     val report = ready.report

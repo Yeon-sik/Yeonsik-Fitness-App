@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.app.navigation
 
 import android.os.Build
+import android.os.SystemClock
 import android.view.accessibility.AccessibilityManager
 
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -58,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
@@ -76,6 +78,8 @@ import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
 import com.kashif_e.backdrop.drawBackdrop
 import com.kashif_e.backdrop.effects.blur
 import com.kashif_e.backdrop.effects.colorControls
+import com.kashif_e.backdrop.effects.lens
+import com.kashif_e.backdrop.effects.vibrancy
 import com.kashif_e.backdrop.highlight.Highlight
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
@@ -105,6 +109,8 @@ import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseDraft
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import java.time.LocalDate
+import java.time.YearMonth
 import java.util.Locale
 
 /** The single Compose root and navigation destination host for every application screen. */
@@ -146,6 +152,43 @@ internal data class RecordEntryEffectKey(
     val recordId: String?
 )
 
+internal const val STARTUP_MIN_VISIBLE_MS = 550L
+internal const val STARTUP_MAX_WAIT_MS = 10_000L
+
+internal fun startupDataSettled(
+    home: HomeUiState,
+    records: RecordsUiState,
+    ownerId: String,
+    today: String
+): Boolean {
+    val month = runCatching { YearMonth.from(LocalDate.parse(today)).toString() }
+        .getOrNull() ?: return false
+    val homeReady = when (home) {
+        is HomeUiState.Ready -> home.requestIdentity.ownerId == ownerId &&
+            home.requestIdentity.date == today
+        else -> false
+    }
+    val recordsReady = when (records) {
+        is RecordsUiState.Ready -> records.snapshot.ownerId == ownerId &&
+            records.snapshot.today == today && records.snapshot.displayedMonth == month
+        else -> false
+    }
+    val homeError = home is HomeUiState.Error && home.ownerId == ownerId &&
+        (home.date == null || home.date == today)
+    val recordsError = records is RecordsUiState.Error && records.ownerId == ownerId &&
+        records.today == today && records.displayedMonth == month
+    return homeError || recordsError || (homeReady && recordsReady)
+}
+
+internal fun startupCanComplete(
+    home: HomeUiState,
+    records: RecordsUiState,
+    ownerId: String,
+    today: String,
+    elapsedMs: Long
+): Boolean = (elapsedMs >= STARTUP_MIN_VISIBLE_MS &&
+    startupDataSettled(home, records, ownerId, today)) || elapsedMs >= STARTUP_MAX_WAIT_MS
+
 @Composable
 private fun AppRoot(
     host: AppUiActions,
@@ -156,6 +199,8 @@ private fun AppRoot(
     val settingsState by viewModels.getSettings().uiState.observeAsState()
     val settingsEvent by viewModels.getSettings().events.observeAsState()
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
+    val recordsState by viewModels.getRecords().uiState.observeAsState(RecordsUiState.Idle)
+    val startupCompleted by navigation.startupCompleted.observeAsState(false)
     val routineState by viewModels.getRoutineEntry().uiState.observeAsState(RoutineEntryUiState.Idle)
 
     val cardioState by viewModels.getCardioSession().uiState
@@ -172,6 +217,8 @@ private fun AppRoot(
         screen
     }
     val ownerId = host.currentOwnerId()
+    val today = navigationState.today
+    val startupStartedAt = remember(ownerId, today) { SystemClock.elapsedRealtime() }
     val unit = settingsState?.preferredMassUnit
         ?: viewModels.getSettings().preferredMassUnit()
     val themeMode = settingsState?.themeMode
@@ -267,7 +314,39 @@ private fun AppRoot(
     }
 
     val homeEntryKey = homeEntryEffectKey(destinationScreen, ownerId, routeDate)
-    LaunchedEffect(homeEntryKey) {
+    LaunchedEffect(ownerId, today, startupCompleted) {
+        if (!startupCompleted) {
+            val scope = AccountScope(ownerId)
+            viewModels.getRoutineEntry().enterIfNeeded(scope)
+            viewModels.getHome().enterIfNeeded(scope, today)
+            viewModels.getRecords().rememberSelectedDate(scope, today)
+            viewModels.getRecords().enterIfNeeded(scope, today, today)
+        }
+    }
+    LaunchedEffect(
+        ownerId, today, homeState, recordsState,
+        navigationState.selectedRecordsDate, startupCompleted
+    ) {
+        if (startupCompleted) return@LaunchedEffect
+        val deadline = if (startupDataSettled(homeState, recordsState, ownerId, today)) {
+            STARTUP_MIN_VISIBLE_MS
+        } else {
+            STARTUP_MAX_WAIT_MS
+        }
+        val remaining = deadline -
+            (SystemClock.elapsedRealtime() - startupStartedAt)
+        if (remaining > 0) delay(remaining)
+        if (!startupCanComplete(
+                homeState, recordsState, ownerId, today,
+                SystemClock.elapsedRealtime() - startupStartedAt
+            )) return@LaunchedEffect
+        viewModels.getRecords().rememberSelectedDate(
+            AccountScope(ownerId), navigationState.selectedRecordsDate
+        )
+        navigation.completeStartup()
+    }
+    LaunchedEffect(homeEntryKey, startupCompleted) {
+        if (!startupCompleted) return@LaunchedEffect
         when (destinationScreen) {
             FitnessScreen.HOME,
             FitnessScreen.STRENGTH -> {
@@ -801,6 +880,10 @@ private fun AppRoot(
     }
 
     FitnessComposeTheme(dark) {
+        if (!startupCompleted) {
+            StartupOrbScreen()
+            return@FitnessComposeTheme
+        }
         val backdrop = rememberLayerBackdrop()
         val context = LocalContext.current
         val highContrastEnabled = Build.VERSION.SDK_INT >= 36 &&
@@ -885,6 +968,7 @@ private fun AppRoot(
                         backdrop = recordsBackdrop,
                         useBackdropGlass = useBackdropGlass,
                         highContrastEnabled = highContrastEnabled,
+                        dark = dark,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
                             .onSizeChanged { recordsBarHeightPx = it.height }
@@ -1175,6 +1259,65 @@ private fun Modifier.glassSelection(): Modifier =
     clip(CircleShape).background(MaterialTheme.colorScheme.primaryContainer)
 
 @Composable
+private fun Modifier.bottomNavigationGlassSurface(
+    backdrop: Backdrop,
+    useBackdropGlass: Boolean,
+    highContrastEnabled: Boolean,
+    dark: Boolean
+): Modifier {
+    if (!useBackdropGlass) {
+        return navigationGlassSurface(backdrop, false, highContrastEnabled)
+    }
+    val colors = MaterialTheme.colorScheme
+    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    val sheen = Brush.verticalGradient(
+        listOf(
+            Color.White.copy(alpha = if (dark) 0.10f else 0.28f),
+            Color.Transparent,
+            colors.surface.copy(alpha = 0.10f)
+        )
+    )
+    return clip(CircleShape).drawBackdrop(
+        backdrop = backdrop,
+        shape = { CircleShape },
+        effects = {
+            if (fullEffects) vibrancy()
+            blur(8.dp.toPx())
+            if (fullEffects) {
+                lens(10.dp.toPx(), 16.dp.toPx())
+            }
+        },
+        highlight = { Highlight.Ambient.copy(alpha = 0.65f) },
+        onDrawSurface = {
+            drawRect(colors.surface.copy(alpha = if (dark) 0.34f else 0.30f))
+            drawRect(sheen)
+        }
+    )
+}
+
+@Composable
+private fun Modifier.bottomNavigationGlassSelection(
+    backdrop: Backdrop,
+    useBackdropGlass: Boolean
+): Modifier {
+    if (!useBackdropGlass) return glassSelection()
+    val tint = MaterialTheme.colorScheme.primaryContainer
+    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    return clip(CircleShape).drawBackdrop(
+        backdrop = backdrop,
+        shape = { CircleShape },
+        effects = {
+            blur(3.dp.toPx())
+            if (fullEffects) {
+                lens(4.dp.toPx(), 7.dp.toPx())
+            }
+        },
+        highlight = { Highlight.Ambient.copy(alpha = 0.55f) },
+        onDrawSurface = { drawRect(tint.copy(alpha = 0.72f)) }
+    )
+}
+
+@Composable
 private fun Modifier.glassTabFeedback(
     dark: Boolean,
     interactionSource: MutableInteractionSource
@@ -1211,6 +1354,7 @@ private fun RecordsHubTabs(
     backdrop: Backdrop,
     useBackdropGlass: Boolean,
     highContrastEnabled: Boolean,
+    dark: Boolean,
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -1218,7 +1362,7 @@ private fun RecordsHubTabs(
             .padding(horizontal = 24.dp, vertical = FitnessSpacing.small)
             .widthIn(max = 400.dp)
             .fillMaxWidth()
-            .navigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled)
+            .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
             .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .padding(FitnessSpacing.micro)
             .selectableGroup()
@@ -1229,7 +1373,11 @@ private fun RecordsHubTabs(
                 Modifier
                     .weight(1f)
                     .heightIn(min = FitnessSpacing.touch)
-                    .then(if (isSelected) Modifier.glassSelection() else Modifier)
+                    .clip(CircleShape)
+                    .then(
+                        if (isSelected) Modifier.bottomNavigationGlassSelection(backdrop, useBackdropGlass)
+                        else Modifier
+                    )
                     .selectable(
                         selected = isSelected,
                         role = Role.Tab,
@@ -1283,7 +1431,7 @@ private fun BottomNavigation(
             .padding(horizontal = 24.dp, vertical = 8.dp)
             .widthIn(max = 400.dp)
             .fillMaxWidth()
-            .navigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled)
+            .bottomNavigationGlassSurface(backdrop, useBackdropGlass, highContrastEnabled, dark)
             // Consume taps on the glass rim rather than activating content underneath it.
             .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .padding(4.dp)
@@ -1309,7 +1457,7 @@ private fun BottomNavigation(
                     .offset(x = indicatorOffset)
                     .width(indicatorWidth)
                     .fillMaxHeight()
-                    .glassSelection()
+                    .bottomNavigationGlassSelection(backdrop, useBackdropGlass)
             )
             Row(Modifier.fillMaxSize().selectableGroup()) {
                 items.forEachIndexed { index, item ->

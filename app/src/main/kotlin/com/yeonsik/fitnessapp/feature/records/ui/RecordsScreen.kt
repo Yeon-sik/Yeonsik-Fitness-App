@@ -20,6 +20,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,6 +33,7 @@ import com.yeonsik.fitnessapp.core.ui.AppDataRow
 import com.yeonsik.fitnessapp.core.ui.AppHeader
 import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
+import com.yeonsik.fitnessapp.core.ui.ThinkingOrb
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarDayCell
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarMarker
@@ -50,6 +54,7 @@ private val recordsCalendarMarkerColors = mapOf(
     "body" to Color(0xFF10B981),
     "meal" to Color(0xFFFACC15)
 )
+private val recordsLoadingMessages = listOf("기록을 불러오는 중")
 
 interface RecordsScreenActions {
     fun selectDate(date: String)
@@ -96,17 +101,16 @@ internal fun RecordsScreen(
     ) { Text("오늘로 이동") }
     if (snapshot == null) {
         Box(
-            Modifier.fillMaxWidth().heightIn(min = 360.dp),
+            Modifier.fillMaxWidth().heightIn(min = 360.dp)
+                .testTag("records-calendar-loading-region"),
             contentAlignment = Alignment.Center
         ) {
             when (state) {
                 is RecordsUiState.Error -> AppCard(Modifier.fillMaxWidth()) {
                     Text(state.message, Modifier.padding(AppSpacing.card))
                 }
-                else -> Text(
-                    if (state is RecordsUiState.Loading) "기록 불러오는 중.."
-                    else "기록을 준비하고 있습니다."
-                )
+                is RecordsUiState.Loading -> RecordsCalendarLoading()
+                else -> Text("기록을 준비하고 있습니다.")
             }
         }
         return
@@ -116,6 +120,26 @@ internal fun RecordsScreen(
     Spacer(Modifier.height(AppSpacing.small))
     snapshot.dayDetailsByDate[selectedDate]?.let { detail ->
         RecordsDayDetailSection(detail, unit, actions)
+    }
+}
+
+@Composable
+private fun RecordsCalendarLoading() {
+    val message = recordsLoadingMessages.first()
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .semantics { stateDescription = message }
+            .testTag("records-calendar-loading-content"),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        ThinkingOrb(size = 104.dp)
+        Spacer(Modifier.height(FitnessSpacing.gap))
+        Text(
+            message,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -279,9 +303,6 @@ private fun RecordsDayDetailSection(
                 ) {
                     Column(Modifier.weight(1f)) {
                         Text(MassFormatter.withUnit(metric.weightKg, unit), fontWeight = FontWeight.Bold)
-                        if (metric.memo.isNotBlank()) Text(metric.memo,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text("수정", style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.primary)

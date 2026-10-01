@@ -1,15 +1,55 @@
 package com.yeonsik.fitnessapp.feature.home.ui
 
+import android.os.Build
+import android.view.accessibility.AccessibilityManager
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Icon
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.dp
+import com.kashif_e.backdrop.backdrops.layerBackdrop
+import com.kashif_e.backdrop.backdrops.rememberLayerBackdrop
+import com.kashif_e.backdrop.drawBackdrop
+import com.kashif_e.backdrop.effects.blur
+import com.kashif_e.backdrop.effects.lens
+import com.kashif_e.backdrop.effects.vibrancy
+import com.kashif_e.backdrop.highlight.Highlight
 import com.yeonsik.fitnessapp.core.ui.FitnessButton
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
@@ -24,6 +64,64 @@ interface HomeScreenActions {
     fun openMealManagement(date: String, returnScreen: FitnessScreen)
 }
 
+private val HomeBodyMetricIcon = ImageVector.Builder(
+    name = "HomeBodyMetric",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.9f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(12f, 2.8f)
+        curveTo(10.5f, 2.8f, 9.3f, 4f, 9.3f, 5.5f)
+        curveTo(9.3f, 7f, 10.5f, 8.2f, 12f, 8.2f)
+        curveTo(13.5f, 8.2f, 14.7f, 7f, 14.7f, 5.5f)
+        curveTo(14.7f, 4f, 13.5f, 2.8f, 12f, 2.8f)
+        close()
+        moveTo(3.5f, 9.6f)
+        horizontalLineTo(20.5f)
+        moveTo(12f, 9.6f)
+        verticalLineTo(15.4f)
+        moveTo(12f, 15.4f)
+        lineTo(7.7f, 20.7f)
+        moveTo(12f, 15.4f)
+        lineTo(16.3f, 20.7f)
+    }
+}.build()
+
+private val HomeMealIcon = ImageVector.Builder(
+    name = "HomeMeal",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.9f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(8f, 7f)
+        curveTo(6.6f, 5.8f, 8.8f, 4.8f, 7.7f, 3.5f)
+        moveTo(12f, 7f)
+        curveTo(10.6f, 5.8f, 12.8f, 4.8f, 11.7f, 3.5f)
+        moveTo(16f, 7f)
+        curveTo(14.6f, 5.8f, 16.8f, 4.8f, 15.7f, 3.5f)
+        moveTo(3.5f, 9.5f)
+        horizontalLineTo(20.5f)
+        curveTo(19.9f, 14.1f, 16.6f, 17.5f, 12f, 17.5f)
+        curveTo(7.4f, 17.5f, 4.1f, 14.1f, 3.5f, 9.5f)
+        moveTo(9f, 20.5f)
+        horizontalLineTo(15f)
+    }
+}.build()
+
 @Composable
 internal fun HomeDestination(
     homeState: HomeUiState,
@@ -31,13 +129,25 @@ internal fun HomeDestination(
     today: String,
     actions: HomeScreenActions
 ) {
-    val ready = homeState as? HomeUiState.Ready
-    if (ready == null || ready.snapshot.ownerId != ownerId || ready.snapshot.today != today) {
+    val ready = (homeState as? HomeUiState.Ready)?.takeIf {
+        it.snapshot.ownerId == ownerId && it.snapshot.today == today
+    }
+    val contentReady = ready != null
+    var entrancePlayed by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(contentReady) {
+        if (contentReady && !entrancePlayed) entrancePlayed = true
+    }
+    if (ready == null) {
         LoadingHome()
         return
     }
 
     val snapshot = ready.snapshot
+    val context = LocalContext.current
+    val highContrast = Build.VERSION.SDK_INT >= 36 &&
+        context.getSystemService(AccessibilityManager::class.java)
+            ?.isHighContrastTextEnabled == true
+    val useGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !highContrast
     val status: String
     val message: String
     val cta: String
@@ -67,67 +177,223 @@ internal fun HomeDestination(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
     ) {
-        FitnessSection("오늘 상태") {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = FitnessShape.hero,
-                color = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ) {
-                Column(
-                    Modifier.padding(FitnessSpacing.hero),
-                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
-                ) {
-                    Text(status, style = MaterialTheme.typography.displaySmall)
-                    Text(message, style = MaterialTheme.typography.bodyLarge)
-                    FitnessButton(
-                        onClick = onCta,
-                        modifier = Modifier.fillMaxWidth().padding(top = FitnessSpacing.small)
-                    ) { Text(cta) }
-                }
+        HomeEntranceContent(entrancePlayed, order = 0) {
+            FitnessSection("오늘 상태") {
+                HomeGlassHero(status, message, cta, onCta, useGlass)
             }
         }
-        FitnessSection("기록으로 이동") {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
-            ) {
-                QuickRecordCard(
-                    "체중",
-                    "오늘 체중 기록",
-                    actions::showBodyMetric,
-                    Modifier.fillMaxWidth()
-                )
-                QuickRecordCard(
-                    "식사",
-                    "오늘 식사 기록",
-                    { actions.openMealManagement(today, FitnessScreen.HOME) },
-                    Modifier.fillMaxWidth()
-                )
+        HomeEntranceContent(entrancePlayed, order = 1) {
+            FitnessSection("기록으로 이동") {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+                ) {
+                    HomeEntranceContent(entrancePlayed, order = 2) {
+                        HomeGlassQuickRecordCard(
+                            title = "체중",
+                            detail = "오늘 체중 기록",
+                            icon = HomeBodyMetricIcon,
+                            onClick = actions::showBodyMetric,
+                            useGlass = useGlass,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                    HomeEntranceContent(entrancePlayed, order = 3) {
+                        HomeGlassQuickRecordCard(
+                            title = "식사",
+                            detail = "오늘 식사 기록",
+                            icon = HomeMealIcon,
+                            onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
+                            useGlass = useGlass,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+                }
             }
         }
     }
 }
 
+private const val HOME_ENTRANCE_DURATION_MILLIS = 390
+private const val HOME_ENTRANCE_STAGGER_MILLIS = 70
+
 @Composable
-private fun QuickRecordCard(
-    title: String,
-    detail: String,
-    onClick: () -> Unit,
+private fun HomeEntranceContent(
+    visible: Boolean,
+    order: Int,
+    content: @Composable () -> Unit
+) {
+    val progress by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = HOME_ENTRANCE_DURATION_MILLIS,
+            delayMillis = order * HOME_ENTRANCE_STAGGER_MILLIS,
+            easing = FastOutSlowInEasing
+        ),
+        label = "home-entrance-$order"
+    )
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                alpha = progress
+                translationY = 14.dp.toPx() * (1f - progress)
+                scaleX = 0.985f + 0.015f * progress
+                scaleY = 0.985f + 0.015f * progress
+            }
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun HomeGlassHero(
+    status: String,
+    message: String,
+    cta: String,
+    onCta: () -> Unit,
+    useGlass: Boolean
+) {
+    val colors = MaterialTheme.colorScheme
+    if (useGlass) {
+        HomeGlassPanel(
+            modifier = Modifier.fillMaxWidth(),
+            shape = FitnessShape.hero,
+            source = Brush.linearGradient(listOf(colors.primaryContainer, colors.surfaceContainerHigh)),
+            tint = colors.primaryContainer.copy(alpha = 0.32f),
+            hero = true
+        ) {
+            CompositionLocalProvider(LocalContentColor provides colors.onPrimaryContainer) {
+                HomeHeroContent(status, message, cta, onCta, Modifier.fillMaxWidth())
+            }
+        }
+    } else {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = FitnessShape.hero,
+            color = colors.primaryContainer,
+            contentColor = colors.onPrimaryContainer
+        ) {
+            HomeHeroContent(status, message, cta, onCta)
+        }
+    }
+}
+
+@Composable
+private fun HomeHeroContent(
+    status: String,
+    message: String,
+    cta: String,
+    onCta: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    FitnessCard(modifier.heightIn(min = FitnessSpacing.homeActionMinHeight), onClick = onClick) {
-        Column(
-            Modifier.fillMaxWidth().padding(FitnessSpacing.card),
-            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+    Column(
+        modifier.padding(FitnessSpacing.hero),
+        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+    ) {
+        Text(status, style = MaterialTheme.typography.displaySmall)
+        Text(message, style = MaterialTheme.typography.bodyLarge)
+        FitnessButton(
+            onClick = onCta,
+            modifier = Modifier.fillMaxWidth().padding(top = FitnessSpacing.small)
+        ) { Text(cta) }
+    }
+}
+
+@Composable
+private fun HomeGlassQuickRecordCard(
+    title: String,
+    detail: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    useGlass: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val content: @Composable () -> Unit = {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(FitnessSpacing.card),
+            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(
-                detail,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
             )
+            Column(
+                Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+            ) {
+                Text(title, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
+    }
+    if (useGlass) {
+        val colors = MaterialTheme.colorScheme
+        HomeGlassPanel(
+            modifier = modifier.heightIn(min = FitnessSpacing.homeActionMinHeight),
+            shape = FitnessShape.card,
+            source = Brush.linearGradient(listOf(colors.surface, colors.surfaceContainerHigh)),
+            tint = colors.surface.copy(alpha = 0.28f),
+            hero = false,
+            onClick = onClick
+        ) { content() }
+    } else {
+        FitnessCard(modifier.heightIn(min = FitnessSpacing.homeActionMinHeight), onClick = onClick) {
+            content()
+        }
+    }
+}
+
+@Composable
+private fun HomeGlassPanel(
+    modifier: Modifier,
+    shape: Shape,
+    source: Brush,
+    tint: Color,
+    hero: Boolean,
+    onClick: (() -> Unit)? = null,
+    content: @Composable BoxScope.() -> Unit
+) {
+    // The navigation backdrop captures the whole page for the bottom bar. This local source
+    // is drawn first so a Home panel never samples itself from that parent layer.
+    val backdrop = rememberLayerBackdrop()
+    val fullEffects = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+    Box(
+        modifier.clip(shape).then(
+            if (onClick != null) Modifier.clickable(role = Role.Button, onClick = onClick)
+            else Modifier
+        )
+    ) {
+        Box(Modifier.matchParentSize().layerBackdrop(backdrop).background(source))
+        Box(
+            Modifier.drawBackdrop(
+                backdrop = backdrop,
+                shape = { shape },
+                effects = {
+                    if (hero && fullEffects) vibrancy()
+                    blur((if (hero) 8.dp else 5.dp).toPx())
+                    if (fullEffects) {
+                        lens(
+                            (if (hero) 6.dp else 3.dp).toPx(),
+                            (if (hero) 10.dp else 5.dp).toPx()
+                        )
+                    }
+                },
+                highlight = {
+                    if (hero) Highlight.Ambient.copy(alpha = 0.55f)
+                    else Highlight.Plain.copy(alpha = 0.35f)
+                },
+                onDrawSurface = { drawRect(tint) }
+            ).matchParentSize()
+        )
+        content()
     }
 }
 

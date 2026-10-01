@@ -14,11 +14,14 @@ import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
@@ -26,12 +29,17 @@ import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
+import com.yeonsik.fitnessapp.exercise.ExercisePrimaryMuscleLabel
 import com.yeonsik.fitness.shared.feature.workout.model.*
+import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.WorkoutSetPresentation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 @Composable
 internal fun WorkoutOverview(
@@ -99,26 +107,100 @@ internal fun StrengthScreen(
     ) { Text("루틴 만들기") }
     AppButton(onClick = actions::startEmptyWorkout, Modifier.fillMaxWidth()) { Text("루틴 없이 운동 시작") }
     AppOutlinedButton(onClick = actions::showPastWorkout, Modifier.fillMaxWidth()) { Text("지난 운동 수동 등록") }
+    val bodyPartColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
+        Color(0xFFFFD666)
+    } else {
+        Color(0xFF8A6900)
+    }
     ready.snapshot.routines.forEach { routineRow ->
+        val exercises = ready.snapshot.routineExercises[routineRow.id].orEmpty()
+        val bodyParts = routineBodyPartLabels(exercises)
         AppCard(Modifier.fillMaxWidth().clickable {
             actions.selectRoutine(routineRow.id)
             actions.navigate(FitnessScreen.ROUTINE_DETAIL)
         }) {
-            Column(Modifier.padding(AppSpacing.card)) {
-                Text(routineRow.name, fontWeight = FontWeight.Bold)
-                Text("${routineRow.exerciseCount}개 종목", style = MaterialTheme.typography.bodySmall)
-                AppButton(onClick = {
-                    actions.selectRoutine(routineRow.id)
-                    actions.startRoutineWorkout(
-                        routineRow.id,
-                        routineRow.name,
-                        ready.snapshot.routineExercises[routineRow.id].orEmpty()
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .heightIn(min = AppSpacing.touch)
+                    .padding(AppSpacing.card),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            routineRow.name.ifBlank { "나만의 루틴" },
+                            modifier = Modifier.weight(1f),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            if (bodyParts.isEmpty()) "부위 미설정"
+                            else "${bodyParts.joinToString(" · ")} 운동",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = bodyPartColor,
+                            textAlign = TextAlign.End
+                        )
+                    }
+                    Text(
+                        "${routineRow.exerciseCount}개 종목",
+                        style = MaterialTheme.typography.bodySmall
                     )
-                }) { Text("이 루틴으로 시작") }
+                    Text(
+                        routineLastWorkoutLabel(
+                            ready.snapshot.latestRoutineDates[routineRow.id],
+                            ready.snapshot.today
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Text(
+                    "›",
+                    modifier = Modifier.padding(start = AppSpacing.small),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
     }
 }
+
+private fun routineLastWorkoutLabel(date: String?, today: String): String {
+    if (date.isNullOrBlank()) return "마지막 운동 기록 없음"
+    val daysAgo = runCatching {
+        ChronoUnit.DAYS.between(LocalDate.parse(date), LocalDate.parse(today))
+    }.getOrNull()
+    val relative = when {
+        daysAgo == null || daysAgo < 0 -> date
+        daysAgo == 0L -> "오늘"
+        else -> "${daysAgo}일 전"
+    }
+    return "마지막 운동 · $relative"
+}
+
+private fun routineBodyPartLabels(exercises: List<RoutineExerciseInstance>): List<String> {
+    val parts = exercises.mapNotNull { exercise ->
+        when (BodyPart.fromId(exercise.uiPart)) {
+            BodyPart.CHEST -> "가슴"
+            BodyPart.BACK -> "등"
+            BodyPart.LEGS -> "하체"
+            BodyPart.SHOULDERS -> "어깨"
+            BodyPart.ABS -> "복근"
+            BodyPart.ARMS -> ExercisePrimaryMuscleLabel
+                .forPrimarySubPart(exercise.primarySubPart, exercise.uiPart)
+                .takeIf { it == "삼두" || it == "이두" }
+            null -> null
+        }
+    }.toSet()
+
+    return ROUTINE_BODY_PART_ORDER.filter { it in parts }
+}
+
+private val ROUTINE_BODY_PART_ORDER = listOf("가슴", "등", "하체", "어깨", "복근", "삼두", "이두")
 
 @Composable
 internal fun WorkoutSessionScreen(
@@ -885,6 +967,17 @@ private fun AppWorkoutSessionContent(
             delay(1000L)
         }
     }
+    val isInProgress = session.status == "in_progress"
+    val displayedDurationSeconds = if (isInProgress) {
+        workoutElapsedSeconds(
+            session.startedAt,
+            session.durationSeconds,
+            session.status,
+            nowMillis
+        )
+    } else {
+        session.durationSeconds
+    }
     FitnessHeader("운동 진행", session.title)
     FitnessStatusBadge(
         status = when (session.status) {
@@ -903,16 +996,9 @@ private fun AppWorkoutSessionContent(
         first = { FitnessFactCard("완료 세트", session.completedSetCount.toString(), "현재 운동") },
         second = {
             FitnessFactCard(
-                "경과 시간",
-                formatWorkoutElapsedSeconds(
-                    workoutElapsedSeconds(
-                        session.startedAt,
-                        session.durationSeconds,
-                        session.status,
-                        nowMillis
-                    )
-                ),
-                "운동 시간"
+                if (isInProgress) "경과 시간" else "운동 시간",
+                formatWorkoutElapsedSeconds(displayedDurationSeconds),
+                if (isInProgress) "현재 운동" else "기록된 운동 시간"
             )
         }
     )
