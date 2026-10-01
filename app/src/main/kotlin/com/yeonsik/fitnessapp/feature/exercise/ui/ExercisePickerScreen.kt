@@ -7,8 +7,10 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -16,10 +18,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -144,61 +149,72 @@ private fun ExercisePickerReady(
             keyboard?.show()
         }
     }
-    LazyColumn(
-        state = listState,
-        modifier = Modifier.fillMaxWidth().fillMaxHeight(),
-        contentPadding = PaddingValues(bottom = FitnessSpacing.card),
-        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
-    ) {
-        item {
-            FitnessHeader(title, back = actions::back)
+    val selectedFamily = state.selectedFamilyId?.let { familyId ->
+        state.families.firstOrNull { result ->
+            result.family.familyId == familyId && result.presets.size > 1
         }
-        item {
-            FitnessTextField(
-                value = state.query,
-                onValueChange = actions::search,
-                label = { Text("종목 검색") },
-                modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester)
-            )
-        }
-        item {
-            ExercisePickerFilters(state, actions)
-        }
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "${state.families.size}개 운동 그룹",
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.weight(1f)
+    }
+    Box(Modifier.fillMaxWidth().fillMaxHeight()) {
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+            contentPadding = PaddingValues(bottom = FitnessSpacing.card),
+            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+        ) {
+            item {
+                FitnessHeader(title, back = actions::back)
+            }
+            item {
+                FitnessTextField(
+                    value = state.query,
+                    onValueChange = actions::search,
+                    label = { Text("종목 검색") },
+                    modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester)
                 )
-                FitnessOutlinedButton(onClick = actions::resetFilters) {
-                    Text("필터 초기화")
+            }
+            item {
+                ExercisePickerFilters(state, actions)
+            }
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "${state.families.size}개 운동 그룹",
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.weight(1f)
+                    )
+                    FitnessOutlinedButton(onClick = actions::resetFilters) {
+                        Text("필터 초기화")
+                    }
+                }
+            }
+            if (state.families.isEmpty()) {
+                item {
+                    FitnessStatusMessage(
+                        status = FitnessSemanticStatus.UNKNOWN,
+                        title = "검색 결과 없음",
+                        message = "조건에 맞는 운동 종목이 없습니다. 검색어나 필터를 바꿔 보세요."
+                    )
+                }
+            } else {
+                items(
+                    items = state.families,
+                    key = { result -> result.family.familyId }
+                ) { result ->
+                    ExerciseFamilyPickerCard(result, state, actions, onSelectFamily = {
+                        focusManager.clearFocus()
+                        keyboard?.hide()
+                        actions.selectFamily(result.family.familyId)
+                    })
                 }
             }
         }
-        if (state.families.isEmpty()) {
-            item {
-                FitnessStatusMessage(
-                    status = FitnessSemanticStatus.UNKNOWN,
-                    title = "검색 결과 없음",
-                    message = "조건에 맞는 운동 종목이 없습니다. 검색어나 필터를 바꿔 보세요."
-                )
-            }
-        } else {
-            items(
-                items = state.families,
-                key = { result -> result.family.familyId }
-            ) { result ->
-                ExerciseFamilyPickerCard(result, state, actions, onToggleFamily = {
-                    focusManager.clearFocus()
-                    keyboard?.hide()
-                    actions.selectFamily(result.family.familyId)
-                })
-            }
+
+        selectedFamily?.let { result ->
+            ExercisePickerVariantSheet(result, state, actions)
         }
     }
 }
@@ -334,10 +350,10 @@ private fun ExerciseFamilyPickerCard(
     result: RuntimeExercisePicker.FamilyResult,
     state: ExercisePickerUiState.Ready,
     actions: ExercisePickerScreenActions,
-    onToggleFamily: () -> Unit
+    onSelectFamily: () -> Unit
 ) {
     val family = result.family
-    val expanded = !result.hasSinglePreset() && state.selectedFamilyId == family.familyId
+    val selectedFamily = result.presets.size > 1 && state.selectedFamilyId == family.familyId
     val bodyPart = BodyPart.fromId(family.defaultUiPart)?.labelKo() ?: family.defaultUiPart.orEmpty()
     val singlePreset = result.presets.singleOrNull()
     val representative = family.presets.firstOrNull() ?: result.presets.first()
@@ -348,7 +364,7 @@ private fun ExerciseFamilyPickerCard(
         listOfNotNull(bodyPart.takeIf { it.isNotBlank() }, "${result.presets.size}개 변형")
             .joinToString(" · ")
     }
-    val actionLabel = if (singlePreset != null) "선택" else if (expanded) "변형 닫기" else "변형 선택"
+    val actionLabel = if (singlePreset != null) "선택" else "변형 선택"
 
     FitnessCard(Modifier.fillMaxWidth()) {
         Column(
@@ -384,42 +400,82 @@ private fun ExerciseFamilyPickerCard(
                         FitnessOutlinedButton(
                             onClick = {
                                 if (singlePreset != null) actions.choose(singlePreset)
-                                else onToggleFamily()
+                                else onSelectFamily()
                             },
                             modifier = Modifier.semantics {
                                 contentDescription = "$title $actionLabel"
                             },
                             selected = if (singlePreset != null) {
                                 state.selectedPresetId == singlePreset.presetId
-                            } else expanded
+                            } else selectedFamily
                         ) { Text(actionLabel) }
                     }
                 }
             }
 
-            if (expanded) {
-                result.presets.forEach { preset ->
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ExercisePickerVariantSheet(
+    result: RuntimeExercisePicker.FamilyResult,
+    state: ExercisePickerUiState.Ready,
+    actions: ExercisePickerScreenActions
+) {
+    val familyId = result.family.familyId
+    val familyTitle = result.family.displayName().orEmpty().ifBlank { "운동 변형" }
+    val selectedPreset = result.presets.firstOrNull { it.presetId == state.selectedPresetId }
+    val screenHeight = LocalConfiguration.current.screenHeightDp.dp
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    ModalBottomSheet(
+        onDismissRequest = { actions.selectFamily(familyId) },
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth()
+                .heightIn(max = screenHeight * 0.84f)
+                .padding(horizontal = FitnessSpacing.card)
+        ) {
+            Text(
+                text = "$familyTitle 변형 선택",
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                text = "${result.presets.size}개 변형",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.fillMaxWidth().height(FitnessSpacing.small))
+            LazyColumn(
+                state = rememberLazyListState(),
+                modifier = Modifier.fillMaxWidth()
+                    .heightIn(max = screenHeight * 0.56f)
+                    .semantics { contentDescription = "$familyTitle 변형 목록" },
+                contentPadding = PaddingValues(bottom = FitnessSpacing.small),
+                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+            ) {
+                items(result.presets, key = { preset -> preset.presetId }) { preset ->
+                    val selected = state.selectedPresetId == preset.presetId
                     ExercisePickerPresetRow(
                         preset = preset,
-                        selected = state.selectedPresetId == preset.presetId,
-                        actionLabel = "변형 선택",
-                        onClick = {
-                            actions.selectPreset(family.familyId, preset.presetId)
-                        }
+                        selected = selected,
+                        actionLabel = if (selected) "선택됨" else "선택",
+                        onClick = { actions.selectPreset(familyId, preset.presetId) }
                     )
                 }
-                val selectedPreset = result.presets.firstOrNull {
-                    it.presetId == state.selectedPresetId
-                }
-                if (selectedPreset != null) {
-                    FitnessOutlinedButton(
-                        onClick = { actions.choose(selectedPreset) },
-                        modifier = Modifier.fillMaxWidth(),
-                        selected = true
-                    ) {
-                        Text("이 변형으로 선택")
-                    }
-                }
+            }
+            FitnessOutlinedButton(
+                onClick = { selectedPreset?.let(actions::choose) },
+                modifier = Modifier.fillMaxWidth()
+                    .padding(top = FitnessSpacing.small, bottom = FitnessSpacing.card),
+                enabled = selectedPreset != null,
+                selected = selectedPreset != null
+            ) {
+                Text("이 변형으로 선택")
             }
         }
     }
