@@ -106,6 +106,9 @@ class IosBodyMetricsRepository : BodyMetricsRepositoryApi {
     override fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int =
         dates(scope, startDate, endDate).size
 
+    override fun earliestRecordedDate(scope: AccountScope): String? =
+        entriesByOwner[owner(scope)].orEmpty().minOfOrNull { it.date }
+
     override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> {
         val start = requireRecordDate(startDate)
         val end = requireRecordDate(endDate)

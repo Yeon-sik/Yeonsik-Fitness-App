@@ -644,6 +644,8 @@ class WorkoutRoomStorage(
     fun completedDates(scope: AccountScope, startDate: String, endDate: String): List<String> =
         workoutDao.completedWorkoutDates(scope.ownerId, startDate, endDate)
 
+    fun earliestCompletedDate(scope: AccountScope): String? = workoutDao.earliestCompletedWorkoutDate(scope.ownerId)
+
 
     /**
      * Completed session facts for a calendar/detail read model. The DAO query and

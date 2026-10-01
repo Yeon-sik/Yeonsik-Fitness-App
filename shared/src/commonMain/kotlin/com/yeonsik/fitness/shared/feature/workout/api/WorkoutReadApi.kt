@@ -26,6 +26,8 @@ interface WorkoutReadApi {
     ): String?
     fun completedRecordedDays(scope: AccountScope, startDate: String, endDate: String): Int
     fun completedDates(scope: AccountScope, startDate: String, endDate: String): List<String>
+    /** Same owner, visibility and completion policy as completedDates, across all dates. */
+    fun earliestCompletedDate(scope: AccountScope): String?
 
     /**
      * Completed session facts for read-only cross-feature compositions such as Records.

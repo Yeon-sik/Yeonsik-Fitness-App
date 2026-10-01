@@ -175,6 +175,12 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     }
 
     @Override
+    public String earliestRecordedDate(AccountScope scope) {
+        requireScope(scope);
+        return readApi.earliestRecordedDate(scope);
+    }
+
+    @Override
     public BodyWeightWindow weightWindow(
             AccountScope scope, String startDate, String endDate
     ) {

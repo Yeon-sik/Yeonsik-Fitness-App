@@ -140,6 +140,12 @@ interface BodyRoomDao {
     fun visibleWeightDates(userId: String, startDate: String, endDate: String): List<String>
 
     @Query(
+        "SELECT MIN(date) FROM weight_records WHERE user_id = :userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness', 'both')"
+    )
+    fun earliestVisibleWeightDate(userId: String): String?
+
+    @Query(
         "SELECT * FROM weight_records WHERE user_id = :userId AND deleted_at IS NULL " +
             "AND scope IN ('fitness', 'both') AND date BETWEEN :startDate AND :endDate " +
             "ORDER BY date, updated_at DESC"
@@ -1309,6 +1315,13 @@ interface WorkoutRoomDao {
     fun completedWorkoutDates(userId: String, startDate: String, endDate: String): List<String>
 
     @Query(
+        "SELECT MIN(date) FROM workout_records WHERE user_id=:userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness','both') " +
+            "AND (source_app = 'os' OR metadata LIKE '%\"status\":\"completed\"%')"
+    )
+    fun earliestCompletedWorkoutDate(userId: String): String?
+
+    @Query(
         "SELECT COUNT(*) FROM workout_records WHERE user_id=:userId AND deleted_at IS NULL " +
             "AND scope IN ('fitness','both') AND workout_type='strength' " +
             "AND date BETWEEN :startDate AND :endDate " +
@@ -1657,6 +1670,12 @@ interface MealRoomDao {
             "AND date BETWEEN :startDate AND :endDate ORDER BY date"
     )
     fun visibleMealDates(userId: String, startDate: String, endDate: String): List<String>
+
+    @Query(
+        "SELECT MIN(date) FROM meal_records WHERE user_id=:userId " +
+            "AND deleted_at IS NULL AND scope IN ('fitness','both')"
+    )
+    fun earliestVisibleMealDate(userId: String): String?
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertRecord(record: MealRecordsRoomEntity)

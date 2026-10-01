@@ -68,6 +68,8 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
     override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> =
         mealDao.visibleMealDates(scope.ownerId, startDate, endDate)
 
+    override fun earliestRecordedDate(scope: AccountScope): String? = mealDao.earliestVisibleMealDate(scope.ownerId)
+
     override fun nutritionSummary(
         scope: AccountScope,
         startDate: String,

@@ -30,6 +30,8 @@ class BodyMetricsReadRepository(roomDatabase: FitnessRoomDatabase) : BodyMetrics
     override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> =
         bodyDao.visibleWeightDates(scope.ownerId, startDate, endDate)
 
+    override fun earliestRecordedDate(scope: AccountScope): String? = bodyDao.earliestVisibleWeightDate(scope.ownerId)
+
     override fun weightWindow(
         scope: AccountScope,
         startDate: String,

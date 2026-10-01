@@ -12,6 +12,8 @@ interface BodyMetricsReadApi {
     fun latestBodyMetricOnOrBefore(scope: AccountScope, date: String): BodyReadEntry?
     fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int
     fun dates(scope: AccountScope, startDate: String, endDate: String): List<String>
+    /** Same owner and visibility policy as dates, across all dates. */
+    fun earliestRecordedDate(scope: AccountScope): String?
     fun weightWindow(scope: AccountScope, startDate: String, endDate: String): BodyWeightWindow
 
     /** Raw owner-scoped weight facts for read-only trend compositions. */

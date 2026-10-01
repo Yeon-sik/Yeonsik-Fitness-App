@@ -139,6 +139,7 @@ private class FakeWorkoutReadApi(
         scopes += scope.ownerId
         return dates
     }
+    override fun earliestCompletedDate(scope: AccountScope): String? = dates.minOrNull()
     override fun completedSessionSummaries(
         scope: AccountScope,
         startDate: String,
@@ -166,6 +167,7 @@ private class FakeBodyReadApi(
         scopes += scope.ownerId
         return entries.map { it.date }.distinct()
     }
+    override fun earliestRecordedDate(scope: AccountScope): String? = entries.minOfOrNull { it.date }
     override fun weightWindow(scope: AccountScope, startDate: String, endDate: String) =
         BodyWeightWindow(null, 0)
     override fun weightEntries(
@@ -195,6 +197,7 @@ private class FakeMealReadApi(
         scopes += scope.ownerId
         return summaries.map { it.date }.distinct()
     }
+    override fun earliestRecordedDate(scope: AccountScope): String? = summaries.minOfOrNull { it.date }
     override fun mealSummaries(
         scope: AccountScope, startDate: String, endDate: String
     ): List<MealReadSummary> {

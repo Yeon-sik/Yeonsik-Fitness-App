@@ -367,6 +367,8 @@ class NutritionAnalysisServiceTest {
         override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> =
             error("unused")
 
+        override fun earliestRecordedDate(scope: AccountScope): String? = values.minOfOrNull { it.date }
+
         override fun nutritionSummary(
             scope: AccountScope,
             startDate: String,

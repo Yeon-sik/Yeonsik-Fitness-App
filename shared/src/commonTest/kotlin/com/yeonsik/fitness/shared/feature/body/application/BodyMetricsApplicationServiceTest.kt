@@ -112,6 +112,9 @@ class BodyMetricsApplicationServiceTest {
         override fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int =
             dates(scope, startDate, endDate).size
 
+        override fun earliestRecordedDate(scope: AccountScope): String? =
+            entries[scope.ownerId].orEmpty().minOfOrNull { it.date }
+
         override fun dates(scope: AccountScope, startDate: String, endDate: String): List<String> =
             entries[scope.ownerId].orEmpty().map { it.date }
                 .filter { it in startDate..endDate }
