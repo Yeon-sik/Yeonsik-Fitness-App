@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -36,11 +37,14 @@ import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCell
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCellState
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCoveragePolicyV1
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityWindow
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityWindowPolicy
+
+private val HomeActivityCoverageColor = Color(FitnessUiTokens.COLOR_HOME_ACTIVITY_FULL_COVERAGE)
 
 /** Plain state/callback rendering; loading, paging and cache ownership stay in HomeViewModel. */
 @Composable
@@ -184,7 +188,7 @@ private fun ActivityCell(cell: HomeActivityCell, modifier: Modifier = Modifier) 
     val shape = RoundedCornerShape(3.dp)
     val alpha = HomeActivityCoveragePolicyV1.alpha(cell)
     val background = when {
-        alpha != null && alpha > 0f -> colors.primary.copy(alpha = alpha)
+        alpha != null && alpha > 0f -> HomeActivityCoverageColor.copy(alpha = alpha)
         cell.state == HomeActivityCellState.TRACKED -> colors.surfaceContainerHighest
         else -> colors.surface
     }
@@ -216,7 +220,7 @@ private fun ActivityLegend() {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                     Box(Modifier.size(10.dp).background(
                         if (count == 0) MaterialTheme.colorScheme.surfaceContainerHighest
-                        else MaterialTheme.colorScheme.primary.copy(alpha = alpha), RoundedCornerShape(2.dp)
+                        else HomeActivityCoverageColor.copy(alpha = alpha), RoundedCornerShape(2.dp)
                     ))
                     Text("${count}종", style = MaterialTheme.typography.labelSmall)
                 }

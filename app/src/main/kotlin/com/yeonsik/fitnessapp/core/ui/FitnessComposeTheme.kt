@@ -39,11 +39,11 @@ object FitnessShape {
 
 data class FitnessSemanticColors(val action: Color, val onAction: Color, val success: Color, val warning: Color)
 private val LightSemantic = FitnessSemanticColors(
-    Color(FitnessUiTokens.COLOR_PASTEL_BLUE), Color(FitnessUiTokens.COLOR_BLUE_INK),
+    Color(FitnessUiTokens.COLOR_BRAND_BLUE), Color(FitnessUiTokens.COLOR_BLUE_INK),
     Color(FitnessUiTokens.COLOR_POSITIVE), Color(FitnessUiTokens.COLOR_WARNING)
 )
 private val DarkSemantic = FitnessSemanticColors(
-    Color(FitnessUiTokens.COLOR_D_PASTEL_BLUE), Color(FitnessUiTokens.COLOR_D_ON_PASTEL_BLUE),
+    Color(FitnessUiTokens.COLOR_BRAND_BLUE), Color(FitnessUiTokens.COLOR_D_ON_PASTEL_BLUE),
     Color(FitnessUiTokens.COLOR_D_POSITIVE), Color(FitnessUiTokens.COLOR_D_WARNING)
 )
 val LocalFitnessColors = staticCompositionLocalOf { LightSemantic }
@@ -60,9 +60,8 @@ private fun colors(dark: Boolean) = run {
     val semantic = if (dark) DarkSemantic else LightSemantic
     val base = if (dark) darkColorScheme() else lightColorScheme()
     base.copy(
-        // Text links and field labels keep readable ink; filled actions use semantic.action.
-        primary = if (dark) semantic.action else blueInk,
-        onPrimary = if (dark) semantic.onAction else surface,
+        primary = semantic.action,
+        onPrimary = semantic.onAction,
         primaryContainer = blueContainer, onPrimaryContainer = blueInk, inversePrimary = semantic.action,
         secondary = muted, onSecondary = surface, secondaryContainer = subtle, onSecondaryContainer = ink,
         tertiary = muted, onTertiary = surface, tertiaryContainer = subtle, onTertiaryContainer = ink,

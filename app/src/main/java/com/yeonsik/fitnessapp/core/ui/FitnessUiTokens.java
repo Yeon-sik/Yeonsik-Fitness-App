@@ -15,6 +15,10 @@ public final class FitnessUiTokens {
     private FitnessUiTokens() {
     }
 
+    // Fixed brand and activity coverage colors are shared across light and dark modes.
+    public static final int COLOR_BRAND_BLUE = 0xFF38BDF8;
+    public static final int COLOR_HOME_ACTIVITY_FULL_COVERAGE = 0xFF00FFFF;
+
     // Light semantic tokens
     public static final int COLOR_BACKGROUND = 0xFFF5F5F7;
     public static final int COLOR_SURFACE = 0xFFFFFFFF;
@@ -23,10 +27,11 @@ public final class FitnessUiTokens {
     public static final int COLOR_MUTED = 0xFF686C75;
     public static final int COLOR_TERTIARY = COLOR_MUTED;
     public static final int COLOR_BORDER = 0xFFE1E3E8;
-    public static final int COLOR_PASTEL_BLUE = 0xFFA9D6F5;
-    public static final int COLOR_BLUE_CONTAINER = 0xFFE8F3FC;
+    // Retained names are compatibility aliases for the fixed brand color.
+    public static final int COLOR_PASTEL_BLUE = COLOR_BRAND_BLUE;
+    public static final int COLOR_BLUE_CONTAINER = 0xFFE0F2FE;
     public static final int COLOR_BLUE_INK = 0xFF173B55;
-    public static final int COLOR_PRIMARY = COLOR_PASTEL_BLUE;
+    public static final int COLOR_PRIMARY = COLOR_BRAND_BLUE;
     public static final int COLOR_INVERSE_TEXT = 0xFFFFFFFF;
     public static final int COLOR_INVERSE_MUTED = 0xE6FFFFFF;
     public static final int COLOR_POSITIVE = 0xFF2E7D5B;
@@ -53,8 +58,8 @@ public final class FitnessUiTokens {
     public static final int COLOR_D_MUTED = 0xFFADB0B8;
     public static final int COLOR_D_TERTIARY = COLOR_D_MUTED;
     public static final int COLOR_D_BORDER = 0xFF393D45;
-    public static final int COLOR_D_PASTEL_BLUE = 0xFF8FC8EE;
-    public static final int COLOR_D_BLUE_CONTAINER = 0xFF1D3548;
+    public static final int COLOR_D_PASTEL_BLUE = COLOR_BRAND_BLUE;
+    public static final int COLOR_D_BLUE_CONTAINER = 0xFF12394D;
     public static final int COLOR_D_BLUE_INK = 0xFFD9F0FF;
     public static final int COLOR_D_ON_PASTEL_BLUE = 0xFF0E2938;
     public static final int COLOR_D_HERO_END = 0xFF214A63;
