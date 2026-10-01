@@ -26,7 +26,7 @@ class HomeDestinationUiTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun briefingHasNoActionWithoutActiveSessionAndQuickActionsFormTwoRows() {
+    fun briefingHasNoActionWithoutActiveSessionAndQuickActionsFormThreeWideAreas() {
         val actions = RecordingActions()
         showHome(snapshot(), actions)
 
@@ -38,17 +38,21 @@ class HomeDestinationUiTest {
         compose.onNodeWithText("운동 이어가기").assertDoesNotExist()
         compose.onNodeWithText("빠른 이동").assertExists()
 
+        val workout = compose.onNodeWithTag("home-quick-workout").fetchSemanticsNode().boundsInRoot
         val strength = compose.onNodeWithTag("home-quick-strength").fetchSemanticsNode().boundsInRoot
         val cardio = compose.onNodeWithTag("home-quick-cardio").fetchSemanticsNode().boundsInRoot
         val weight = compose.onNodeWithTag("home-quick-weight").fetchSemanticsNode().boundsInRoot
         val meal = compose.onNodeWithTag("home-quick-meal").fetchSemanticsNode().boundsInRoot
         assertTrue(strength.width > 0f && cardio.width > 0f)
         assertEquals(strength.width, cardio.width, 1f)
+        assertEquals(workout.width, weight.width, 1f)
+        assertEquals(weight.width, meal.width, 1f)
         assertTrue(strength.center.x < cardio.center.x)
-        assertTrue(weight.center.x < meal.center.x)
+        assertEquals(workout.center.x, weight.center.x, 1f)
+        assertEquals(weight.center.x, meal.center.x, 1f)
         assertTrue(strength.center.y < weight.center.y)
         assertEquals(strength.center.y, cardio.center.y, 1f)
-        assertEquals(weight.center.y, meal.center.y, 1f)
+        assertTrue(weight.center.y < meal.center.y)
     }
 
     @Test

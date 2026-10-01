@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -218,51 +221,31 @@ internal fun HomeDestination(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
-                    ) {
-                        HomeEntranceContent(entrancePlayed, order = 2, modifier = Modifier.weight(1f)) {
-                            HomeGlassQuickActionCard(
-                                title = "근력 운동",
-                                icon = HomeStrengthIcon,
-                                onClick = { actions.navigate(FitnessScreen.STRENGTH) },
-                                useGlass = useGlass,
-                                modifier = Modifier.fillMaxWidth().testTag("home-quick-strength")
-                            )
-                        }
-                        HomeEntranceContent(entrancePlayed, order = 3, modifier = Modifier.weight(1f)) {
-                            HomeGlassQuickActionCard(
-                                title = "유산소",
-                                icon = HomeCardioIcon,
-                                onClick = { actions.navigate(FitnessScreen.CARDIO) },
-                                useGlass = useGlass,
-                                modifier = Modifier.fillMaxWidth().testTag("home-quick-cardio")
-                            )
-                        }
+                    HomeEntranceContent(entrancePlayed, order = 2) {
+                        HomeGlassWorkoutQuickActions(
+                            useGlass = useGlass,
+                            onStrength = { actions.navigate(FitnessScreen.STRENGTH) },
+                            onCardio = { actions.navigate(FitnessScreen.CARDIO) },
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
-                    ) {
-                        HomeEntranceContent(entrancePlayed, order = 4, modifier = Modifier.weight(1f)) {
-                            HomeGlassQuickActionCard(
-                                title = "체중",
-                                icon = HomeBodyMetricIcon,
-                                onClick = actions::showBodyMetric,
-                                useGlass = useGlass,
-                                modifier = Modifier.fillMaxWidth().testTag("home-quick-weight")
-                            )
-                        }
-                        HomeEntranceContent(entrancePlayed, order = 5, modifier = Modifier.weight(1f)) {
-                            HomeGlassQuickActionCard(
-                                title = "식단",
-                                icon = HomeMealIcon,
-                                onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
-                                useGlass = useGlass,
-                                modifier = Modifier.fillMaxWidth().testTag("home-quick-meal")
-                            )
-                        }
+                    HomeEntranceContent(entrancePlayed, order = 3) {
+                        HomeGlassQuickActionCard(
+                            title = "체중",
+                            icon = HomeBodyMetricIcon,
+                            onClick = actions::showBodyMetric,
+                            useGlass = useGlass,
+                            modifier = Modifier.fillMaxWidth().testTag("home-quick-weight")
+                        )
+                    }
+                    HomeEntranceContent(entrancePlayed, order = 4) {
+                        HomeGlassQuickActionCard(
+                            title = "식단",
+                            icon = HomeMealIcon,
+                            onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
+                            useGlass = useGlass,
+                            modifier = Modifier.fillMaxWidth().testTag("home-quick-meal")
+                        )
                     }
                 }
             }
@@ -372,6 +355,58 @@ private fun HomeHeroContent(
 }
 
 @Composable
+private fun HomeGlassWorkoutQuickActions(
+    useGlass: Boolean,
+    onStrength: () -> Unit,
+    onCardio: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = MaterialTheme.colorScheme
+    val content: @Composable () -> Unit = {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.homeActionMinHeight),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            HomeQuickActionItem(
+                title = "근력 운동",
+                icon = HomeStrengthIcon,
+                onClick = onStrength,
+                modifier = Modifier.weight(1f).testTag("home-quick-strength")
+            )
+            Box(
+                Modifier
+                    .width(1.dp)
+                    .height(36.dp)
+                    .background(colors.outlineVariant.copy(alpha = 0.6f))
+            )
+            HomeQuickActionItem(
+                title = "유산소",
+                icon = HomeCardioIcon,
+                onClick = onCardio,
+                modifier = Modifier.weight(1f).testTag("home-quick-cardio")
+            )
+        }
+    }
+    if (useGlass) {
+        HomeGlassPanel(
+            modifier = modifier.heightIn(min = FitnessSpacing.homeActionMinHeight)
+                .testTag("home-quick-workout"),
+            shape = FitnessShape.card,
+            source = Brush.linearGradient(listOf(colors.surface, colors.surfaceContainerHigh)),
+            tint = colors.surface.copy(alpha = 0.28f),
+            hero = false,
+            content = { content() }
+        )
+    } else {
+        FitnessCard(
+            modifier = modifier.heightIn(min = FitnessSpacing.homeActionMinHeight)
+                .testTag("home-quick-workout"),
+            content = { content() }
+        )
+    }
+}
+
+@Composable
 private fun HomeGlassQuickActionCard(
     title: String,
     icon: ImageVector,
@@ -380,9 +415,10 @@ private fun HomeGlassQuickActionCard(
     modifier: Modifier = Modifier
 ) {
     val content: @Composable () -> Unit = {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(FitnessSpacing.card),
-            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = FitnessSpacing.card),
+            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 imageVector = icon,
@@ -407,6 +443,32 @@ private fun HomeGlassQuickActionCard(
         FitnessCard(modifier.heightIn(min = FitnessSpacing.homeActionMinHeight), onClick = onClick) {
             content()
         }
+    }
+}
+
+@Composable
+private fun HomeQuickActionItem(
+    title: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .heightIn(min = FitnessSpacing.homeActionMinHeight)
+            .clip(FitnessShape.card)
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = FitnessSpacing.card),
+        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.size(24.dp)
+        )
+        Text(title, style = MaterialTheme.typography.titleMedium)
     }
 }
 
