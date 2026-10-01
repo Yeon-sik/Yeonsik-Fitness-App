@@ -183,7 +183,12 @@ internal fun HomeDestination(
     homeState: HomeUiState,
     ownerId: String,
     today: String,
-    actions: HomeScreenActions
+    actions: HomeScreenActions,
+    activityState: HomeActivityUiState = HomeActivityUiState.Idle,
+    onActivityPrevious: () -> Unit = {},
+    onActivityNext: () -> Unit = {},
+    onActivitySelectPage: (Int) -> Unit = {},
+    onActivityRetry: () -> Unit = {}
 ) {
     val ready = (homeState as? HomeUiState.Ready)?.takeIf {
         it.snapshot.ownerId == ownerId && it.snapshot.today == today
@@ -250,6 +255,15 @@ internal fun HomeDestination(
                 }
             }
         }
+        HomeActivityHistorySection(
+            state = activityState.takeIf { it.identity?.ownerId == ownerId && it.identity?.today == today }
+                ?: HomeActivityUiState.Idle,
+            onPrevious = onActivityPrevious,
+            onNext = onActivityNext,
+            onSelectPage = onActivitySelectPage,
+            onRetry = onActivityRetry,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 

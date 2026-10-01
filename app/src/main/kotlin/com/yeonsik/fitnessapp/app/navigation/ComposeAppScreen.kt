@@ -199,6 +199,9 @@ private fun AppRoot(
     val settingsState by viewModels.getSettings().uiState.observeAsState()
     val settingsEvent by viewModels.getSettings().events.observeAsState()
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
+    val homeActivityState by viewModels.getHome().activityState.observeAsState(
+        com.yeonsik.fitnessapp.feature.home.ui.HomeActivityUiState.Idle
+    )
     val recordsState by viewModels.getRecords().uiState.observeAsState(RecordsUiState.Idle)
     val startupCompleted by navigation.startupCompleted.observeAsState(false)
     val routineState by viewModels.getRoutineEntry().uiState.observeAsState(RoutineEntryUiState.Idle)
@@ -379,6 +382,9 @@ private fun AppRoot(
             viewModels.getDevelopment().markStale()
             if ((mealState as? MealUiState.Ready)?.notice != null) {
                 viewModels.getHome().markStale()
+                if (destinationScreen == FitnessScreen.HOME) {
+                    viewModels.getHome().enterIfNeeded(AccountScope(ownerId), navigationState.today)
+                }
             }
             if (destinationScreen == FitnessScreen.RECORDS) {
                 viewModels.getRecords().enterIfNeeded(
@@ -809,12 +815,14 @@ private fun AppRoot(
         when (val state = bodyEditorState) {
             is BodyMetricsEditorUiState.Saved -> {
                 host.toast("체중 기록을 저장했습니다.")
+                viewModels.getHome().markStale()
                 viewModels.getHome().enter(AccountScope(ownerId), routeDate)
                 viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
                 viewModels.getBodyMetrics().dismissEditor()
             }
             is BodyMetricsEditorUiState.Deleted -> {
                 host.toast("체중 기록을 삭제했습니다.")
+                viewModels.getHome().markStale()
                 viewModels.getHome().enter(AccountScope(ownerId), routeDate)
                 viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
                 viewModels.getBodyMetrics().dismissEditor()
@@ -947,7 +955,14 @@ private fun AppRoot(
                             )
                     ) {
                         if (pageDestination == FitnessScreen.HOME) {
-                            HomeDestination(homeState, ownerId, pageDate, homeActions)
+                            HomeDestination(
+                                homeState, ownerId, pageDate, homeActions,
+                                activityState = homeActivityState,
+                                onActivityPrevious = viewModels.getHome()::previousActivityPage,
+                                onActivityNext = viewModels.getHome()::nextActivityPage,
+                                onActivitySelectPage = viewModels.getHome()::selectActivityPage,
+                                onActivityRetry = viewModels.getHome()::retryActivityHistory
+                            )
                         } else {
                             AppDestination(
                                 host,
