@@ -28,6 +28,21 @@ data class HomeActivityCell(
         }
 }
 
+data class HomeActivityRecordSummary(
+    val kind: HomeActivityKind,
+    val name: String? = null,
+    val category: String? = null,
+    val weightKg: Double? = null
+)
+
+data class HomeActivityDayDetails(
+    val date: String,
+    val records: List<HomeActivityRecordSummary>
+) {
+    fun recordsFor(kind: HomeActivityKind): List<HomeActivityRecordSummary> =
+        records.filter { it.kind == kind }
+}
+
 /** Versioned meaning: adding a source must never renormalize historical colors. */
 object HomeActivityCoveragePolicyV1 {
     val baselineKinds: Set<HomeActivityKind> = setOf(

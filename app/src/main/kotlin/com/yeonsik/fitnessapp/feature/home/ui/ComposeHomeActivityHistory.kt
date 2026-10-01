@@ -2,6 +2,8 @@ package com.yeonsik.fitnessapp.feature.home.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,10 +13,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -27,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
@@ -34,6 +39,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
+import com.yeonsik.fitnessapp.data.MassFormatter
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
@@ -41,6 +53,9 @@ import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCell
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCellState
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCoveragePolicyV1
+import com.yeonsik.fitnessapp.feature.home.model.HomeActivityDayDetails
+import com.yeonsik.fitnessapp.feature.home.model.HomeActivityKind
+import com.yeonsik.fitnessapp.feature.home.model.HomeActivityRecordSummary
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityWindow
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityWindowPolicy
 
@@ -54,6 +69,9 @@ internal fun HomeActivityHistorySection(
     onNext: () -> Unit,
     onSelectPage: (Int) -> Unit,
     onRetry: () -> Unit,
+    dayDetails: HomeActivityDayDetailsUiState = HomeActivityDayDetailsUiState.Idle,
+    onSelectDate: (String) -> Unit = {},
+    preferredMassUnit: MassUnit = MassUnit.KG,
     modifier: Modifier = Modifier
 ) {
     val page = when (state) {
@@ -68,6 +86,7 @@ internal fun HomeActivityHistorySection(
                 Box(Modifier.padding(FitnessSpacing.card)) {
                     if (page != null) {
                         val interactive = state is HomeActivityUiState.Ready
+                        var selectedDate by rememberSaveable(page.identity) { mutableStateOf<String?>(null) }
                         // Keep the measured page while a read is pending so verticalScroll cannot clamp upward.
                         Column(
                             Modifier.fillMaxWidth().then(
@@ -78,7 +97,10 @@ internal fun HomeActivityHistorySection(
                             verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
                         ) {
                             ActivityPeriodSelector(page.window, onSelectPage, interactive)
-                            ActivityGrid(page.cells)
+                            ActivityGrid(page.cells, selectedDate, dayDetails, preferredMassUnit) { date ->
+                                selectedDate = if (selectedDate == date) null else date
+                                if (selectedDate != null) onSelectDate(date)
+                            }
                             ActivityLegend()
                             Row(Modifier.fillMaxWidth()) {
                                 TextButton(
@@ -146,7 +168,13 @@ private fun ActivityPeriodSelector(
 }
 
 @Composable
-private fun ActivityGrid(cells: List<HomeActivityCell>) {
+private fun ActivityGrid(
+    cells: List<HomeActivityCell>,
+    selectedDate: String?,
+    dayDetails: HomeActivityDayDetailsUiState,
+    preferredMassUnit: MassUnit,
+    onSelectCell: (String) -> Unit
+) {
     val weeks = cells.chunked(7)
     val monthGroups = weeks.map { it.first().date.monthValue }.fold(mutableListOf<Pair<Int, Int>>()) { groups, month ->
         if (groups.lastOrNull()?.first == month) {
@@ -175,7 +203,17 @@ private fun ActivityGrid(cells: List<HomeActivityCell>) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(day, modifier = Modifier.width(24.dp), style = MaterialTheme.typography.labelSmall)
                 Row(Modifier.weight(1f), horizontalArrangement = Arrangement.spacedBy(3.dp)) {
-                    weeks.forEach { week -> ActivityCell(week[dayIndex], Modifier.weight(1f).aspectRatio(1f)) }
+                    weeks.forEach { week ->
+                        val cell = week[dayIndex]
+                        ActivityCell(
+                            cell = cell,
+                            modifier = Modifier.weight(1f).aspectRatio(1f),
+                            selected = selectedDate == cell.date.toString(),
+                            dayDetails = dayDetails,
+                            preferredMassUnit = preferredMassUnit,
+                            onClick = { onSelectCell(cell.date.toString()) }
+                        )
+                    }
                 }
             }
         }
@@ -183,10 +221,20 @@ private fun ActivityGrid(cells: List<HomeActivityCell>) {
 }
 
 @Composable
-private fun ActivityCell(cell: HomeActivityCell, modifier: Modifier = Modifier) {
+private fun ActivityCell(
+    cell: HomeActivityCell,
+    modifier: Modifier = Modifier,
+    selected: Boolean = false,
+    dayDetails: HomeActivityDayDetailsUiState = HomeActivityDayDetailsUiState.Idle,
+    preferredMassUnit: MassUnit = MassUnit.KG,
+    onClick: () -> Unit = {}
+) {
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(3.dp)
     val alpha = HomeActivityCoveragePolicyV1.alpha(cell)
+    val date = cell.date.toString()
+    val selectedDetails = (dayDetails as? HomeActivityDayDetailsUiState.Ready)
+        ?.takeIf { it.details.date == date }?.details
     val background = when {
         alpha != null && alpha > 0f -> HomeActivityCoverageColor.copy(alpha = alpha)
         cell.state == HomeActivityCellState.TRACKED -> colors.surfaceContainerHighest
@@ -202,12 +250,116 @@ private fun ActivityCell(cell: HomeActivityCell, modifier: Modifier = Modifier) 
                         Offset(size.width * 0.7f, size.height * 0.3f), strokeWidth = 1.dp.toPx())
                 }
             } else Modifier)
+            .clickable(enabled = cell.state == HomeActivityCellState.TRACKED, onClick = onClick)
             .testTag("home-activity-cell-${cell.date}")
             .semantics {
                 contentDescription = cell.contentDescription
                 if (cell.state != HomeActivityCellState.TRACKED) disabled()
             }
+    ) {
+        if (selected && cell.state == HomeActivityCellState.TRACKED) {
+            ActivityDayBubble(date, dayDetails, selectedDetails, preferredMassUnit)
+        }
+    }
+}
+
+@Composable
+private fun ActivityDayBubble(
+    date: String,
+    state: HomeActivityDayDetailsUiState,
+    details: HomeActivityDayDetails?,
+    preferredMassUnit: MassUnit
+) {
+    Popup(
+        alignment = Alignment.BottomCenter,
+        offset = androidx.compose.ui.unit.IntOffset.Zero,
+        onDismissRequest = {},
+        properties = PopupProperties(focusable = false)
+    ) {
+        Column(
+            modifier = Modifier.testTag("home-activity-day-bubble-$date"),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Surface(
+                color = Color.White,
+                contentColor = Color(0xFF202124),
+                shape = RoundedCornerShape(8.dp),
+                shadowElevation = 6.dp,
+                tonalElevation = 0.dp
+            ) {
+                Column(
+                    Modifier.widthIn(min = 126.dp, max = 220.dp)
+                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    Text(date, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF202124))
+                    when {
+                        state is HomeActivityDayDetailsUiState.Loading && state.date == date ->
+                            BubbleLine("기록을 불러오는 중", color = Color(0xFF5F6368))
+                        state is HomeActivityDayDetailsUiState.Error && state.date == date ->
+                            BubbleLine("기록을 불러오지 못했어요", color = Color(0xFF5F6368))
+                        details == null || details.records.isEmpty() ->
+                            BubbleLine("기록 없음", color = Color(0xFF5F6368))
+                        else -> HomeActivityKind.entries.forEach { kind ->
+                            val records = details.recordsFor(kind)
+                            if (records.isNotEmpty()) {
+                                BubbleLine(
+                                    activitySummary(kind, records, preferredMassUnit),
+                                    color = Color(0xFF202124)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Canvas(Modifier.size(width = 12.dp, height = 6.dp)) {
+                val pointer = Path().apply {
+                    moveTo(0f, 0f)
+                    lineTo(size.width / 2f, size.height)
+                    lineTo(size.width, 0f)
+                    close()
+                }
+                drawPath(pointer, Color.White)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BubbleLine(text: String, color: Color) {
+    Text(
+        text,
+        color = color,
+        fontSize = 10.sp,
+        lineHeight = 13.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
     )
+}
+
+private fun activitySummary(
+    kind: HomeActivityKind,
+    records: List<HomeActivityRecordSummary>,
+    preferredMassUnit: MassUnit
+): String {
+    val labels = records.take(2).mapNotNull { record ->
+        when (kind) {
+            HomeActivityKind.EXERCISE -> record.name?.takeIf(String::isNotBlank)
+            HomeActivityKind.WEIGHT -> record.weightKg?.let { MassFormatter.withUnit(it, preferredMassUnit) }
+            HomeActivityKind.MEAL -> listOfNotNull(
+                record.category?.takeIf(String::isNotBlank),
+                record.name?.takeIf(String::isNotBlank)
+            ).joinToString(" ").takeIf(String::isNotBlank)
+        }
+    }
+    val more = records.size - labels.size
+    val label = when (kind) {
+        HomeActivityKind.EXERCISE -> "운동"
+        HomeActivityKind.WEIGHT -> "체중"
+        HomeActivityKind.MEAL -> "식단"
+    }
+    val summary = if (labels.isEmpty()) "기록 ${records.size}건" else labels.joinToString(", ")
+    return "$label · $summary" + if (more > 0) " 외 ${more}건" else ""
 }
 
 @Composable

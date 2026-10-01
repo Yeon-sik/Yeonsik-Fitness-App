@@ -181,6 +181,8 @@ internal fun HomeDestination(
     onActivityNext: () -> Unit = {},
     onActivitySelectPage: (Int) -> Unit = {},
     onActivityRetry: () -> Unit = {},
+    activityDayDetails: HomeActivityDayDetailsUiState = HomeActivityDayDetailsUiState.Idle,
+    onActivityDateSelected: (String) -> Unit = {},
     entranceState: TopLevelEntranceState = rememberTopLevelEntranceState("HOME"),
     preferredMassUnit: MassUnit = MassUnit.KG,
     entranceToken: Long? = null,
@@ -251,6 +253,9 @@ internal fun HomeDestination(
                 onNext = onActivityNext,
                 onSelectPage = onActivitySelectPage,
                 onRetry = onActivityRetry,
+                dayDetails = activityDayDetails,
+                onSelectDate = onActivityDateSelected,
+                preferredMassUnit = preferredMassUnit,
                 modifier = Modifier.fillMaxWidth()
             )
         }

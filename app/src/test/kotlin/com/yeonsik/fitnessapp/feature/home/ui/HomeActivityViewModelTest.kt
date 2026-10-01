@@ -221,6 +221,39 @@ class HomeActivityViewModelTest {
         assertEquals("a", f.ready().identity.ownerId)
     }
 
+    @Test fun selectedTrackedDayLoadsOwnerScopedDetailsAndRejectsOlderSelection() {
+        val f = Fixture()
+        f.enter()
+        val firstDate = "2026-09-29"
+        val secondDate = "2026-09-30"
+        f.activity.detailsByDate[secondDate] = listOf(
+            com.yeonsik.fitnessapp.feature.home.model.HomeActivityRecordSummary(
+                HomeActivityKind.EXERCISE, name = "상체 운동"
+            )
+        )
+
+        f.vm.selectActivityDay(firstDate)
+        f.vm.selectActivityDay(secondDate)
+        assertEquals(2, f.worker.pending)
+        assertEquals(HomeActivityDayDetailsUiState.Loading("a", secondDate), f.vm.activityDayDetails.value)
+        f.worker.runAt(0)
+        assertEquals(HomeActivityDayDetailsUiState.Loading("a", secondDate), f.vm.activityDayDetails.value)
+        f.worker.runAt(0)
+        assertEquals(
+            HomeActivityDayDetailsUiState.Ready(
+                "a",
+                com.yeonsik.fitnessapp.feature.home.model.HomeActivityDayDetails(
+                    secondDate, f.activity.detailsByDate.getValue(secondDate)
+                )
+            ),
+            f.vm.activityDayDetails.value
+        )
+        f.vm.selectActivityDay(secondDate)
+        assertEquals(2, f.activity.detailDates.size)
+        f.vm.selectActivityDay("2025-12-31") // before this account's first tracked date
+        assertEquals(0, f.worker.pending)
+    }
+
     @Test fun noRecordsShowsEmptyWithoutRangeReadOrRepeatedEarliestQuery() {
         val f = Fixture()
         f.activity.firstByOwner["a"] = null
@@ -260,6 +293,8 @@ class HomeActivityViewModelTest {
         val firstByOwner = mutableMapOf<String, String?>("a" to "2026-01-01", "b" to "2026-02-01")
         val earliestOwners = mutableListOf<String>()
         val ranges = mutableListOf<Triple<String, String, String>>()
+        val detailDates = mutableListOf<String>()
+        val detailsByDate = mutableMapOf<String, List<com.yeonsik.fitnessapp.feature.home.model.HomeActivityRecordSummary>>()
         var failRange = false
         var failEarliest = false
         override fun firstRecordedDate(scope: AccountScope): String? {
@@ -272,6 +307,13 @@ class HomeActivityViewModelTest {
             if (failRange) error("range failed")
             return mapOf(endDate to setOf(HomeActivityKind.EXERCISE))
         }
+        override fun detailsForDate(
+            scope: AccountScope,
+            date: String
+        ) = com.yeonsik.fitnessapp.feature.home.model.HomeActivityDayDetails(
+            date,
+            detailsByDate[date].orEmpty().also { detailDates += date }
+        )
     }
 
     private class CountingHomeApi : HomeRepositoryApi {

@@ -1,9 +1,17 @@
 package com.yeonsik.fitnessapp.feature.home.ui
 
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCell
+import com.yeonsik.fitnessapp.feature.home.model.HomeActivityDayDetails
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityWindow
 
 data class HomeActivityRequestIdentity(val ownerId: String, val today: String, val pageOffset: Int)
+
+sealed interface HomeActivityDayDetailsUiState {
+    data object Idle : HomeActivityDayDetailsUiState
+    data class Loading(val ownerId: String, val date: String) : HomeActivityDayDetailsUiState
+    data class Ready(val ownerId: String, val details: HomeActivityDayDetails) : HomeActivityDayDetailsUiState
+    data class Error(val ownerId: String, val date: String) : HomeActivityDayDetailsUiState
+}
 
 sealed interface HomeActivityUiState {
     val identity: HomeActivityRequestIdentity?

@@ -202,6 +202,9 @@ private fun AppRoot(
     val homeActivityState by viewModels.getHome().activityState.observeAsState(
         com.yeonsik.fitnessapp.feature.home.ui.HomeActivityUiState.Idle
     )
+    val homeActivityDayDetails by viewModels.getHome().activityDayDetails.observeAsState(
+        com.yeonsik.fitnessapp.feature.home.ui.HomeActivityDayDetailsUiState.Idle
+    )
     val recordsState by viewModels.getRecords().uiState.observeAsState(RecordsUiState.Idle)
     val startupCompleted by navigation.startupCompleted.observeAsState(false)
     val routineState by viewModels.getRoutineEntry().uiState.observeAsState(RoutineEntryUiState.Idle)
@@ -973,6 +976,8 @@ private fun AppRoot(
                                 onActivityNext = viewModels.getHome()::nextActivityPage,
                                 onActivitySelectPage = viewModels.getHome()::selectActivityPage,
                                 onActivityRetry = viewModels.getHome()::retryActivityHistory,
+                                activityDayDetails = homeActivityDayDetails,
+                                onActivityDateSelected = viewModels.getHome()::selectActivityDay,
                                 entranceState = homeEntranceState,
                                 preferredMassUnit = unit,
                                 entranceToken = entranceToken,

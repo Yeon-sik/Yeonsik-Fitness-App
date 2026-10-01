@@ -67,7 +67,11 @@ class HomeViewModel @JvmOverloads constructor(
     private var stale = false
     private val mutableActivityState = MutableLiveData<HomeActivityUiState>(HomeActivityUiState.Idle)
     val activityState: LiveData<HomeActivityUiState> = mutableActivityState
+    private val mutableActivityDayDetails =
+        MutableLiveData<HomeActivityDayDetailsUiState>(HomeActivityDayDetailsUiState.Idle)
+    val activityDayDetails: LiveData<HomeActivityDayDetailsUiState> = mutableActivityDayDetails
     private val activityRequestGate = HomeActivityRequestGate()
+    private var activityDetailsGeneration = 0L
     private var activityScope: AccountScope? = null
     private var activityToday: String? = null
     private var activityPageOffset = 0
@@ -119,6 +123,8 @@ class HomeViewModel @JvmOverloads constructor(
 
     private fun invalidateActivity(clearEarliest: Boolean) {
         activityRequestGate.invalidate()
+        activityDetailsGeneration += 1L
+        mutableActivityDayDetails.value = HomeActivityDayDetailsUiState.Idle
         activityCache.clear()
         activityPageOffset = 0
         if (clearEarliest) {
@@ -151,6 +157,40 @@ class HomeViewModel @JvmOverloads constructor(
     }
 
     fun retryActivityHistory() { loadActivityPage(activityPageOffset) }
+
+    fun selectActivityDay(date: String) {
+        val scope = activityScope ?: return
+        val page = mutableActivityState.value as? HomeActivityUiState.Ready ?: return
+        if (page.identity.ownerId != scope.ownerId || page.cells.none {
+                it.state == com.yeonsik.fitnessapp.feature.home.model.HomeActivityCellState.TRACKED &&
+                    it.date.toString() == date
+            }
+        ) return
+        when (val current = mutableActivityDayDetails.value) {
+            is HomeActivityDayDetailsUiState.Loading ->
+                if (current.ownerId == scope.ownerId && current.date == date) return
+            is HomeActivityDayDetailsUiState.Ready ->
+                if (current.ownerId == scope.ownerId && current.details.date == date) return
+            else -> Unit
+        }
+
+        val generation = ++activityDetailsGeneration
+        mutableActivityDayDetails.value = HomeActivityDayDetailsUiState.Loading(scope.ownerId, date)
+        executor.execute {
+            val result = runCatching {
+                activityRepository.detailsForDate(scope, date).also {
+                    require(it.date == date) { "Activity details returned a different date." }
+                }
+            }
+            mainExecutor.execute {
+                if (generation != activityDetailsGeneration || activityScope != scope) return@execute
+                mutableActivityDayDetails.value = result.fold(
+                    onSuccess = { HomeActivityDayDetailsUiState.Ready(scope.ownerId, it) },
+                    onFailure = { HomeActivityDayDetailsUiState.Error(scope.ownerId, date) }
+                )
+            }
+        }
+    }
 
     private fun loadActivityPage(pageOffset: Int) {
         val scope = activityScope ?: return

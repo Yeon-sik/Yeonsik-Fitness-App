@@ -27,6 +27,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityKind
+import com.yeonsik.fitnessapp.feature.home.model.HomeActivityDayDetails
+import com.yeonsik.fitnessapp.feature.home.model.HomeActivityRecordSummary
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityWindowPolicy
 import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
 import com.yeonsik.fitnessapp.state.FitnessScreen
@@ -139,6 +141,40 @@ class HomeActivityHistoryUiTest {
         compose.runOnIdle { state.value = HomeActivityUiState.Empty(HomeActivityRequestIdentity("owner", TODAY, 0)) }
         compose.onNodeWithText("아직 활동 기록이 없어요.").assertExists()
         compose.onAllNodes(cellMatcher, useUnmergedTree = true).assertCountEquals(0)
+    }
+
+    @Test fun clickingTrackedCellShowsSmallDateAndRecordSummaryBubble() {
+        val date = "2026-09-30"
+        val selectedDates = mutableListOf<String>()
+        val details = HomeActivityDayDetails(date, listOf(
+            HomeActivityRecordSummary(HomeActivityKind.EXERCISE, name = "하체 근력 운동"),
+            HomeActivityRecordSummary(HomeActivityKind.WEIGHT, weightKg = 62.4),
+            HomeActivityRecordSummary(HomeActivityKind.MEAL, name = "현미밥", category = "점심")
+        ))
+        compose.setContent {
+            FitnessComposeTheme(false) {
+                HomeActivityHistorySection(
+                    ready(kinds = mapOf(date to HomeActivityKind.entries.toSet())),
+                    {}, {}, {}, {},
+                    dayDetails = HomeActivityDayDetailsUiState.Ready("owner", details),
+                    onSelectDate = selectedDates::add
+                )
+            }
+        }
+
+        compose.onNodeWithTag("home-activity-cell-$date").performClick()
+        compose.onNodeWithTag("home-activity-day-bubble-$date").assertExists()
+        compose.onNodeWithText(date).assertExists()
+        compose.onNodeWithText("운동 · 하체 근력 운동").assertExists()
+        compose.onNodeWithText("체중 · 62.4kg").assertExists()
+        compose.onNodeWithText("식단 · 점심 현미밥").assertExists()
+        assertEquals(listOf(date), selectedDates)
+
+        compose.onNodeWithTag("home-activity-cell-$TODAY").performClick()
+        compose.onNodeWithTag("home-activity-day-bubble-$date").assertDoesNotExist()
+        compose.onNodeWithTag("home-activity-day-bubble-$TODAY").assertExists()
+        compose.onNodeWithText("기록 없음").assertExists()
+        compose.onNodeWithTag("home-activity-cell-2026-10-02").assertIsNotEnabled()
     }
 
     @Test fun sectionFailureProvidesRetry() {
