@@ -25,7 +25,7 @@ public final class MealEntryPolicy {
     /** Meal labels are derived from their zero-based order and have no fixed upper bound. */
     public static String labelForIndex(int zeroBasedIndex) {
         if (zeroBasedIndex < 0) {
-            throw new IllegalArgumentException("식사 순서는 0 이상이어야 합니다.");
+            throw new IllegalArgumentException("식단 기록 순서는 0 이상이어야 합니다.");
         }
         return ((long) zeroBasedIndex + 1L) + "끼";
     }
@@ -40,10 +40,10 @@ public final class MealEntryPolicy {
         try {
             recordDate = normalized.isEmpty() ? today : LocalDate.parse(normalized);
         } catch (DateTimeParseException error) {
-            throw new IllegalArgumentException("식사 날짜 형식이 올바르지 않습니다.");
+            throw new IllegalArgumentException("식단 기록 날짜 형식이 올바르지 않습니다.");
         }
         if (recordDate.isAfter(today)) {
-            throw new IllegalArgumentException("미래 날짜에는 식사를 기록할 수 없습니다.");
+            throw new IllegalArgumentException("미래 날짜에는 식단을 기록할 수 없습니다.");
         }
         return recordDate;
     }

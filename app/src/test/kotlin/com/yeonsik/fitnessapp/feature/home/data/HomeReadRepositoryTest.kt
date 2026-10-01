@@ -4,6 +4,7 @@ import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.home.model.HomeDayWorkoutMetrics
 import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotals
+import com.yeonsik.fitnessapp.feature.home.model.HomeTodayWorkoutStatus
 import com.yeonsik.fitness.shared.feature.routine.api.RoutineRepositoryApi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -19,6 +20,10 @@ class HomeReadRepositoryTest {
                 return listOf("record-$date")
             }
             override fun dayMetrics(scope: AccountScope, date: String) = HomeDayWorkoutMetrics(0, 0, 0.0, 0)
+            override fun todayWorkoutStatus(scope: AccountScope, date: String): HomeTodayWorkoutStatus {
+                requested += "completed:${scope.ownerId}:$date"
+                return HomeTodayWorkoutStatus(hasCompletedWorkout = true)
+            }
             override fun latestInProgress(scope: AccountScope): String? = null
             override fun latestRoutineDate(scope: AccountScope, routineId: String, routineName: String): String? = null
             override fun mealCount(scope: AccountScope, date: String): Int = 0
@@ -45,5 +50,9 @@ class HomeReadRepositoryTest {
         assertEquals(listOf("record-2026-09-13"), past.todaySessions)
         assertTrue(requested.contains("meals:2026-09-14"))
         assertTrue(requested.contains("meals:2026-09-13"))
+        assertEquals(listOf("completed:owner:2026-09-14", "completed:owner:2026-09-13"),
+            requested.filter { it.startsWith("completed:") })
+        assertTrue(today.todayWorkoutStatus.hasCompletedWorkout)
+        assertTrue(past.todayWorkoutStatus.hasCompletedWorkout)
     }
 }

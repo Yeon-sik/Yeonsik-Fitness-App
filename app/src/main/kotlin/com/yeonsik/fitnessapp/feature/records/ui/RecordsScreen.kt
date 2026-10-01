@@ -19,7 +19,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -37,6 +36,7 @@ import com.yeonsik.fitnessapp.core.ui.ThinkingOrb
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarDayCell
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarMarker
+import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
 import com.yeonsik.fitnessapp.core.ui.FitnessMonthHeader
 import com.yeonsik.fitnessapp.core.ui.fitnessCalendarDayPresentation
 import com.yeonsik.fitnessapp.core.ui.fitnessWeekdayLabels
@@ -49,11 +49,6 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.util.Locale
 
-private val recordsCalendarMarkerColors = mapOf(
-    "workout" to Color(0xFFEF4444),
-    "body" to Color(0xFF10B981),
-    "meal" to Color(0xFFFACC15)
-)
 private val recordsLoadingMessages = listOf("기록을 불러오는 중")
 
 interface RecordsScreenActions {
@@ -192,7 +187,7 @@ private fun RecordsCalendar(
                                 today = today,
                                 markers = day.markers()
                             ),
-                            markerColors = recordsCalendarMarkerColors,
+                            markerColors = FitnessRecordMarkerColors.byKey,
                             modifier = Modifier.fillMaxWidth(),
                             onClick = { actions.selectDate(day.date) }
                         )
@@ -216,23 +211,24 @@ private fun RecordsCalendar(
 }
 
 @Composable
-private fun RecordsCalendarLegend() {
+internal fun RecordsCalendarLegend(modifier: Modifier = Modifier) {
     val entries = listOf(
-        "운동" to recordsCalendarMarkerColors.getValue("workout"),
-        "식사" to recordsCalendarMarkerColors.getValue("meal"),
-        "체중" to recordsCalendarMarkerColors.getValue("body")
+        "workout" to "운동",
+        "meal" to "식단",
+        "body" to "체중"
     )
     Row(
-        Modifier.fillMaxWidth(),
+        modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        entries.forEach { (label, color) ->
+        entries.forEach { (key, label) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Spacer(
                     Modifier
                         .size(8.dp)
-                        .background(color, CircleShape)
+                        .background(FitnessRecordMarkerColors.byKey.getValue(key), CircleShape)
+                        .testTag("records-legend-$key")
                 )
                 Text(label, Modifier.padding(start = FitnessSpacing.micro),
                     style = MaterialTheme.typography.bodySmall,
@@ -311,7 +307,7 @@ private fun RecordsDayDetailSection(
         }
     }
     if (detail.meals.isNotEmpty()) {
-        Text("식사 기록", style = MaterialTheme.typography.titleLarge)
+        Text("식단 기록", style = MaterialTheme.typography.titleLarge)
         detail.meals.forEach { meal ->
             AppDataRow(meal.mealLabel, meal.previewTitle)
         }
@@ -320,7 +316,7 @@ private fun RecordsDayDetailSection(
 
 private fun RecordsCalendarDay.markers(): List<FitnessCalendarMarker> = buildList {
     if (hasWorkout) add(FitnessCalendarMarker("workout", "운동"))
-    if (hasMeal) add(FitnessCalendarMarker("meal", "식사"))
+    if (hasMeal) add(FitnessCalendarMarker("meal", "식단"))
     if (hasBodyMetric) add(FitnessCalendarMarker("body", "체중"))
 }
 

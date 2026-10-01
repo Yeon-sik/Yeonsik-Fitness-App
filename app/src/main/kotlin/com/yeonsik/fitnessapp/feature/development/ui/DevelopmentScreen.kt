@@ -128,7 +128,7 @@ internal fun DevelopmentScreen(
     Text("훈련 부위 근거", style = MaterialTheme.typography.titleLarge)
     report.recentCompletedStrengthSetsByBodyPart.forEach { (part, sets) -> Text("$part · ${sets}세트") }
     Text("영양·회복 근거", style = MaterialTheme.typography.titleLarge)
-    Text("식사 ${report.mealRecordedDays}일 · 체크인 ${report.checkInRecordedDays}일")
+    Text("식단 ${report.mealRecordedDays}일 · 체크인 ${report.checkInRecordedDays}일")
     Text("논문 기반 점검", style = MaterialTheme.typography.titleLarge)
     PaperAdviceSection(paperAdviceState, ownerId)
     Text("판단 근거 범위", style = MaterialTheme.typography.titleLarge)

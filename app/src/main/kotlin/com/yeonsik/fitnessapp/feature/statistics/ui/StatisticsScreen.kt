@@ -150,7 +150,7 @@ private fun SufficiencyCard(snapshot: StatisticsSnapshot) {
             Text(levelLabel, fontWeight = FontWeight.Bold)
             Text(
                 "운동 ${sufficiency.workoutDays}일 · 세션 ${sufficiency.workoutSessions}회 · " +
-                    "체중 ${sufficiency.weightDays}일 · 식사 ${sufficiency.mealDays}일 / " +
+                    "체중 ${sufficiency.weightDays}일 · 식단 ${sufficiency.mealDays}일 / " +
                     "${sufficiency.periodDays}일",
                 style = MaterialTheme.typography.bodySmall
             )

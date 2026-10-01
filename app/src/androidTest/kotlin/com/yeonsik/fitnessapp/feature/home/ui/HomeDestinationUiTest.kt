@@ -1,8 +1,11 @@
 package com.yeonsik.fitnessapp.feature.home.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -12,9 +15,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
@@ -27,8 +34,8 @@ import com.yeonsik.fitnessapp.app.navigation.TopLevelSwipeHost
 import com.yeonsik.fitnessapp.app.navigation.destinationScrollStateKey
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.feature.home.model.HomeBodyMetric
-import com.yeonsik.fitnessapp.feature.home.model.HomeDayWorkoutMetrics
 import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
+import com.yeonsik.fitnessapp.feature.home.model.HomeTodayWorkoutStatus
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -44,8 +51,9 @@ class HomeDestinationUiTest {
         showHome(snapshot(), actions)
 
         compose.onNodeWithText("오늘").assertExists()
-        compose.onNodeWithText("아직 완료한 운동이 없어요.").assertExists()
-        compose.onNodeWithText("체중 미기록 · 식사 미기록").assertExists()
+        compose.onNodeWithTag("home-hero-domain-workout").assertExists()
+        compose.onNodeWithTag("home-hero-domain-meal").assertExists()
+        compose.onNodeWithTag("home-hero-domain-body").assertExists()
         compose.onNodeWithText("운동 시작").assertDoesNotExist()
         compose.onNodeWithText("기록 보기").assertDoesNotExist()
         compose.onNodeWithText("운동 이어가기").assertDoesNotExist()
@@ -63,33 +71,34 @@ class HomeDestinationUiTest {
         assertTrue(strength.center.x < cardio.center.x)
         assertEquals(workout.center.x, weight.center.x, 1f)
         assertEquals(weight.center.x, meal.center.x, 1f)
-        assertTrue(strength.center.y < weight.center.y)
+        assertTrue(strength.center.y < meal.center.y)
         assertEquals(strength.center.y, cardio.center.y, 1f)
-        assertTrue(weight.center.y < meal.center.y)
+        assertTrue(meal.center.y < weight.center.y)
     }
 
     @Test
-    fun completedBriefingUsesMetricsAndQuickActionsKeepTheirDestinations() {
+    fun completedHeroUsesProjectionAndQuickActionsKeepTheirDestinations() {
         val actions = RecordingActions()
         showHome(
             snapshot().copy(
-                dayMetrics = mapOf(TODAY to HomeDayWorkoutMetrics(1, 18, 12_400.0, 4_080)),
+                todayWorkoutStatus = HomeTodayWorkoutStatus(true, true, listOf("등", "이두"), true, 1_920),
                 mealCounts = mapOf(TODAY to 3),
                 todayWeight = HomeBodyMetric("weight", TODAY, 88.4, "")
             ),
             actions
         )
 
-        compose.onNodeWithText("오늘 운동 완료").assertExists()
-        compose.onNodeWithText("1회 · 18세트 · 12.4t · 1시간 8분").assertExists()
-        compose.onNodeWithText("체중 88.4kg · 식사 3회").assertExists()
+        compose.onNodeWithText("등 · 이두").assertExists()
+        compose.onNodeWithText("유산소 32분").assertExists()
+        compose.onNodeWithText("3회").assertExists()
+        compose.onNodeWithText("88.4 kg").assertExists()
         compose.onNodeWithText("운동 시작").assertDoesNotExist()
         compose.onNodeWithText("기록 보기").assertDoesNotExist()
 
-        compose.onNodeWithTag("home-quick-strength").performClick()
-        compose.onNodeWithTag("home-quick-cardio").performClick()
-        compose.onNodeWithTag("home-quick-weight").performClick()
-        compose.onNodeWithTag("home-quick-meal").performClick()
+        compose.onNodeWithTag("home-quick-strength").performScrollTo().performClick()
+        compose.onNodeWithTag("home-quick-cardio").performScrollTo().performClick()
+        compose.onNodeWithTag("home-quick-weight").performScrollTo().performClick()
+        compose.onNodeWithTag("home-quick-meal").performScrollTo().performClick()
         assertEquals(listOf(FitnessScreen.STRENGTH, FitnessScreen.CARDIO), actions.destinations)
         assertEquals(1, actions.bodyMetricOpens)
         assertEquals(listOf(TODAY to FitnessScreen.HOME), actions.mealOpens)
@@ -101,14 +110,14 @@ class HomeDestinationUiTest {
         showHome(
             snapshot().copy(
                 inProgressSessionId = "active",
-                dayMetrics = mapOf(TODAY to HomeDayWorkoutMetrics(1, 18, 12_400.0, 4_080))
+                todayWorkoutStatus = HomeTodayWorkoutStatus(true, true, listOf("등", "이두"))
             ),
             actions
         )
 
-        compose.onNodeWithText("운동 진행 중").assertExists()
-        compose.onNodeWithText("진행 중인 운동을 이어서 기록하세요.").assertExists()
-        compose.onNodeWithText("오늘 운동 완료").assertDoesNotExist()
+        compose.onNodeWithText("오늘").assertExists()
+        compose.onNodeWithText("진행 중").assertExists()
+        compose.onNodeWithText("등 · 이두").assertExists()
         compose.onNodeWithText("운동 이어가기").performClick()
         assertEquals(1, actions.continues)
     }
@@ -119,7 +128,7 @@ class HomeDestinationUiTest {
             FitnessComposeTheme(false) {
                 val density = LocalDensity.current
                 CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
-                    Box(Modifier.width(280.dp).testTag("narrow-home")) {
+                    Column(Modifier.width(280.dp).verticalScroll(rememberScrollState()).testTag("narrow-home")) {
                         HomeDestination(HomeUiState.Ready(snapshot()), "owner", TODAY, RecordingActions())
                     }
                 }
@@ -129,6 +138,7 @@ class HomeDestinationUiTest {
 
         val container = compose.onNodeWithTag("narrow-home").fetchSemanticsNode().boundsInRoot
         listOf("strength", "cardio", "weight", "meal").forEach { action ->
+            compose.onNodeWithTag("home-quick-$action").performScrollTo()
             val bounds = compose.onNodeWithTag("home-quick-$action").fetchSemanticsNode().boundsInRoot
             assertTrue(bounds.width > 0f)
             assertTrue(bounds.left >= container.left - 1f)
@@ -140,8 +150,10 @@ class HomeDestinationUiTest {
     fun weightAndMealLabelsAreVerticallyCenteredInTheirCards() {
         showHome(snapshot(), RecordingActions())
         listOf("weight" to "체중", "meal" to "식단").forEach { (tag, title) ->
+            compose.onNodeWithTag("home-quick-$tag").performScrollTo()
             val card = compose.onNodeWithTag("home-quick-$tag").fetchSemanticsNode().boundsInRoot
-            val label = compose.onNodeWithText(title, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            val label = compose.onNode(hasText(title) and hasAnyAncestor(hasTestTag("home-quick-$tag")),
+                useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
             assertEquals(card.center.y, label.center.y, 1f)
         }
     }
@@ -192,12 +204,14 @@ class HomeDestinationUiTest {
     private fun showHome(snapshot: HomeSnapshot, actions: RecordingActions) {
         compose.setContent {
             FitnessComposeTheme(false) {
-                HomeDestination(
-                    homeState = HomeUiState.Ready(snapshot),
-                    ownerId = "owner",
-                    today = TODAY,
-                    actions = actions
-                )
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    HomeDestination(
+                        homeState = HomeUiState.Ready(snapshot),
+                        ownerId = "owner",
+                        today = TODAY,
+                        actions = actions
+                    )
+                }
             }
         }
         compose.waitForIdle()

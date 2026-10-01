@@ -106,10 +106,10 @@ public final class PaperAdviceInput {
                 || proteinRecordedDays > proteinWindowDays) {
             throw new IllegalArgumentException("단백질 관찰 기간 범위가 올바르지 않습니다.");
         }
-        requireCount(mealCount, "식사 수");
-        requireCount(estimatedMealCount, "추정 식사 수");
+        requireCount(mealCount, "식단 기록 수");
+        requireCount(estimatedMealCount, "추정 식단 기록 수");
         if (estimatedMealCount > mealCount) {
-            throw new IllegalArgumentException("추정 식사 수는 전체 식사 수를 넘을 수 없습니다.");
+            throw new IllegalArgumentException("추정 식단 기록 수는 전체 식단 기록 수를 넘을 수 없습니다.");
         }
         requireWindowCount(sleepRecordedDays, 7, "수면 기록일 수");
         requireWindowCount(lowEnergyOrReadinessDays, 7, "낮은 컨디션 기록일 수");

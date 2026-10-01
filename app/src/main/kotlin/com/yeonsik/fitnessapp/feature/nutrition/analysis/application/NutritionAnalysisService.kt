@@ -274,7 +274,7 @@ internal object NutritionAnalysisCalculator {
         val metadata = runCatching { JSONObject(snapshot.metadata.ifBlank { "{}" }) }.getOrNull()
         return metadata?.optString("menu_name", "")?.trim().orEmpty().takeIf { it.isNotEmpty() }
             ?: snapshot.items.firstOrNull()?.foodName?.takeIf { it.isNotBlank() }
-            ?: "식사 기록"
+            ?: "식단 기록"
     }
 
     private fun nutritionStatus(metadata: String): String =

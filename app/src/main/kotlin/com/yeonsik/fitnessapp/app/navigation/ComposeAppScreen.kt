@@ -963,7 +963,8 @@ private fun AppRoot(
                                 onActivityNext = viewModels.getHome()::nextActivityPage,
                                 onActivitySelectPage = viewModels.getHome()::selectActivityPage,
                                 onActivityRetry = viewModels.getHome()::retryActivityHistory,
-                                entranceState = homeEntranceState
+                                entranceState = homeEntranceState,
+                                preferredMassUnit = unit
                             )
                         } else {
                             AppDestination(

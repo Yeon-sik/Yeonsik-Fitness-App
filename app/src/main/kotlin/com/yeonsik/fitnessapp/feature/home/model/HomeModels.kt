@@ -1,6 +1,14 @@
 package com.yeonsik.fitnessapp.feature.home.model
 
 /** Read-only values rendered by the home feature. */
+data class HomeTodayWorkoutStatus(
+    val hasCompletedWorkout: Boolean = false,
+    val hasCompletedStrength: Boolean = false,
+    val muscleLabels: List<String> = emptyList(),
+    val hasCompletedCardio: Boolean = false,
+    val cardioDurationSeconds: Long = 0
+)
+
 data class HomeDayWorkoutMetrics(
     @JvmField val sessionCount: Int,
     @JvmField val totalSetCount: Int,

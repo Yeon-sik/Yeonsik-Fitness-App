@@ -53,9 +53,9 @@ class HomeActivityHistoryUiTest {
         compose.onNodeWithText("오늘 상태").assertExists()
         compose.onNodeWithText("빠른 이동").assertExists()
         compose.onNodeWithText("활동 내역").assertExists()
-        val meal = compose.onNodeWithTag("home-quick-meal").fetchSemanticsNode().boundsInRoot
+        val weight = compose.onNodeWithTag("home-quick-weight").fetchSemanticsNode().boundsInRoot
         val history = compose.onNodeWithTag("home-activity-history").fetchSemanticsNode().boundsInRoot
-        assertTrue(history.top >= meal.bottom)
+        assertTrue(history.top >= weight.bottom)
     }
 
     @Test fun gridHas13WeekColumnsAnd7WeekdayRowsAtNarrowWidthWithoutOverflow() {

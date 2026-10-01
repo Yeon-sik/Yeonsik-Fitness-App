@@ -79,7 +79,7 @@ internal fun SettingsAppInfoCard() {
             Text("앱 정보", style = MaterialTheme.typography.titleMedium)
             Text("FitnessApp", style = MaterialTheme.typography.bodyMedium)
             SettingsSupportingText("버전 · " + BuildConfig.VERSION_NAME)
-            SettingsSupportingText("운동·체중·식사 기록을 로컬 우선으로 관리하는 앱입니다.")
+            SettingsSupportingText("운동·체중·식단 기록을 로컬 우선으로 관리하는 앱입니다.")
         }
     }
 }

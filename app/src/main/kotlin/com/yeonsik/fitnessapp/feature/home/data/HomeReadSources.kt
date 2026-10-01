@@ -9,12 +9,14 @@ import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionGoal
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotal
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotals
+import com.yeonsik.fitnessapp.feature.home.model.HomeTodayWorkoutStatus
 import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutReadApi
 
 /** Read-only ports used by the home application read model. */
 interface HomeReadSources {
     fun sessionsForDate(scope: AccountScope, date: String): List<String>
+    fun todayWorkoutStatus(scope: AccountScope, date: String): HomeTodayWorkoutStatus
     fun dayMetrics(scope: AccountScope, date: String): HomeDayWorkoutMetrics
     fun latestInProgress(scope: AccountScope): String?
     fun latestRoutineDate(scope: AccountScope, routineId: String, routineName: String): String?
@@ -35,6 +37,21 @@ class FeatureHomeReadSources(
 ) : HomeReadSources {
     override fun sessionsForDate(scope: AccountScope, date: String): List<String> =
         workouts.sessionsForDate(scope, date)
+
+    override fun todayWorkoutStatus(scope: AccountScope, date: String): HomeTodayWorkoutStatus {
+        val completed = workouts.completedSessionSummaries(scope, date, date)
+            .filter { it.date == date }
+        val strength = completed.filter { it.workoutType == "strength" }
+        val cardio = completed.filter { it.workoutType == "cardio" }
+        return HomeTodayWorkoutStatus(
+            hasCompletedWorkout = completed.isNotEmpty(),
+            hasCompletedStrength = strength.isNotEmpty(),
+            muscleLabels = strength.flatMap { it.projectionMuscleLabels }
+                .filter { it.isNotBlank() }.distinct(),
+            hasCompletedCardio = cardio.isNotEmpty(),
+            cardioDurationSeconds = cardio.sumOf { it.durationSeconds.toLong() }
+        )
+    }
 
     override fun dayMetrics(scope: AccountScope, date: String): HomeDayWorkoutMetrics =
         workouts.dayMetrics(scope, date).let {

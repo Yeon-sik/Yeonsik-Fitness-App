@@ -59,7 +59,7 @@ internal fun WorkoutOverview(
     AppHeader("운동", today)
     FitnessFactRow(
         first = { FitnessFactCard("오늘 볼륨", MassFormatter.withUnit(metrics?.totalVolumeKg ?: 0.0, unit), "완료 세트 기준") },
-        second = { FitnessFactCard("식사", "${snapshot.mealCounts[today] ?: 0}끼", "오늘") }
+        second = { FitnessFactCard("식단", "${snapshot.mealCounts[today] ?: 0}끼", "오늘") }
     )
     if (snapshot.inProgressSessionId != null) {
         AppButton(onClick = actions::continueWorkout, Modifier.fillMaxWidth()) {
@@ -73,7 +73,7 @@ internal fun WorkoutOverview(
         Text("유산소 운동")
     }
     AppOutlinedButton(onClick = actions::showBodyMetric, Modifier.fillMaxWidth()) { Text("체중 기록") }
-    AppOutlinedButton(onClick = actions::openMeals, Modifier.fillMaxWidth()) { Text("식사 기록") }
+    AppOutlinedButton(onClick = actions::openMeals, Modifier.fillMaxWidth()) { Text("식단 기록") }
 }
 
 @Composable

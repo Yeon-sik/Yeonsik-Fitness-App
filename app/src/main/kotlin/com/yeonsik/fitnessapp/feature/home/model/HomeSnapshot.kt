@@ -18,5 +18,6 @@ data class HomeSnapshot(
     val nutritionGoal: HomeNutritionGoal?,
     val todayWeight: HomeBodyMetric?,
     val todayBodyMetrics: List<HomeBodyMetric>,
-    val todayMeals: List<HomeMealSummary>
+    val todayMeals: List<HomeMealSummary>,
+    val todayWorkoutStatus: HomeTodayWorkoutStatus = HomeTodayWorkoutStatus()
 )
