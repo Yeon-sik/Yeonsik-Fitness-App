@@ -243,6 +243,7 @@ private fun AppRoot(
         it.session.status == "completed"
     } == true
     val destinationStateHolder = rememberSaveableStateHolder()
+    val homeEntranceState = rememberHomeEntranceState(ownerId)
     val topLevelSwipeEnabled = navigation.canSwipeTopLevel()
     var swipeSelection by remember(screen) { mutableStateOf<TopLevelSwipeSelection?>(null) }
     val workoutAction by viewModels.getWorkoutSession().actionState
@@ -961,7 +962,8 @@ private fun AppRoot(
                                 onActivityPrevious = viewModels.getHome()::previousActivityPage,
                                 onActivityNext = viewModels.getHome()::nextActivityPage,
                                 onActivitySelectPage = viewModels.getHome()::selectActivityPage,
-                                onActivityRetry = viewModels.getHome()::retryActivityHistory
+                                onActivityRetry = viewModels.getHome()::retryActivityHistory,
+                                entranceState = homeEntranceState
                             )
                         } else {
                             AppDestination(

@@ -1,8 +1,13 @@
 package com.yeonsik.fitnessapp.feature.home.ui
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
@@ -10,8 +15,16 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeLeft
+import androidx.compose.ui.test.swipeRight
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.SavedStateHandle
+import com.yeonsik.fitnessapp.app.navigation.AppNavigationState
+import com.yeonsik.fitnessapp.app.navigation.AppNavigationViewModel
+import com.yeonsik.fitnessapp.app.navigation.TopLevelSwipeHost
+import com.yeonsik.fitnessapp.app.navigation.destinationScrollStateKey
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.feature.home.model.HomeBodyMetric
 import com.yeonsik.fitnessapp.feature.home.model.HomeDayWorkoutMetrics
@@ -121,6 +134,59 @@ class HomeDestinationUiTest {
             assertTrue(bounds.left >= container.left - 1f)
             assertTrue(bounds.right <= container.right + 1f)
         }
+    }
+
+    @Test
+    fun weightAndMealLabelsAreVerticallyCenteredInTheirCards() {
+        showHome(snapshot(), RecordingActions())
+        listOf("weight" to "체중", "meal" to "식단").forEach { (tag, title) ->
+            val card = compose.onNodeWithTag("home-quick-$tag").fetchSemanticsNode().boundsInRoot
+            val label = compose.onNodeWithText(title, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+            assertEquals(card.center.y, label.center.y, 1f)
+        }
+    }
+
+    @Test
+    fun firstEntranceAnimatesButPreviewAndCurrentRecreationDoNotReplayIt() {
+        compose.mainClock.autoAdvance = false
+        compose.setContent {
+            FitnessComposeTheme(false) {
+                val entrance = rememberHomeEntranceState("owner")
+                val savedPages = rememberSaveableStateHolder()
+                val navigation = remember { AppNavigationViewModel(SavedStateHandle()) }
+                val route by navigation.uiState.observeAsState(AppNavigationState())
+                TopLevelSwipeHost(
+                    route.screen, navigation, Modifier.fillMaxSize().testTag("home-swipe-host"),
+                    onSettlingDestinationChange = {}
+                ) { page ->
+                    savedPages.SaveableStateProvider(destinationScrollStateKey(page)) {
+                        if (page == FitnessScreen.HOME) {
+                            HomeDestination(
+                                HomeUiState.Ready(snapshot()), "owner", TODAY, RecordingActions(),
+                                entranceState = entrance
+                            )
+                        } else Box { androidx.compose.material3.Text("피트니스") }
+                    }
+                }
+            }
+        }
+        compose.mainClock.advanceTimeByFrame()
+        val enteringTop = compose.onNodeWithText("오늘 상태").fetchSemanticsNode().boundsInRoot.top
+        compose.mainClock.advanceTimeBy(1_000)
+        val settledTop = compose.onNodeWithText("오늘 상태").fetchSemanticsNode().boundsInRoot.top
+        val settledMealTop = compose.onNodeWithTag("home-quick-meal").fetchSemanticsNode().boundsInRoot.top
+        assertTrue(enteringTop > settledTop + 1f)
+        compose.onNodeWithTag("home-swipe-host").performTouchInput { swipeLeft() }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onNodeWithText("오늘 상태").assertDoesNotExist()
+        compose.onNodeWithText("피트니스").assertExists()
+        compose.onNodeWithTag("home-swipe-host").performTouchInput { swipeRight() }
+        compose.mainClock.advanceTimeByFrame()
+        val previewTop = compose.onNodeWithTag("home-quick-meal").fetchSemanticsNode().boundsInRoot.top
+        assertEquals(settledMealTop, previewTop, 1f)
+        compose.mainClock.advanceTimeBy(1_000)
+        val currentTop = compose.onNodeWithText("오늘 상태").fetchSemanticsNode().boundsInRoot.top
+        assertEquals(settledTop, currentTop, 1f)
     }
 
     private fun showHome(snapshot: HomeSnapshot, actions: RecordingActions) {

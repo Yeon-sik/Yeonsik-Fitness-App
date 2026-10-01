@@ -27,9 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -188,15 +185,15 @@ internal fun HomeDestination(
     onActivityPrevious: () -> Unit = {},
     onActivityNext: () -> Unit = {},
     onActivitySelectPage: (Int) -> Unit = {},
-    onActivityRetry: () -> Unit = {}
+    onActivityRetry: () -> Unit = {},
+    entranceState: HomeEntranceState = rememberHomeEntranceState(ownerId)
 ) {
     val ready = (homeState as? HomeUiState.Ready)?.takeIf {
         it.snapshot.ownerId == ownerId && it.snapshot.today == today
     }
     val contentReady = ready != null
-    var entrancePlayed by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(contentReady) {
-        if (contentReady && !entrancePlayed) entrancePlayed = true
+    LaunchedEffect(contentReady, entranceState) {
+        if (contentReady) entranceState.play()
     }
     if (ready == null) {
         LoadingHome()
@@ -215,18 +212,18 @@ internal fun HomeDestination(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
     ) {
-        HomeEntranceContent(entrancePlayed, order = 0) {
+        HomeEntranceContent(entranceState.played, order = 0) {
             FitnessSection("오늘 상태") {
                 HomeGlassHero(snapshot, workoutSummary, actions::continueWorkout, useGlass)
             }
         }
-        HomeEntranceContent(entrancePlayed, order = 1) {
+        HomeEntranceContent(entranceState.played, order = 1) {
             FitnessSection("빠른 이동") {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
                 ) {
-                    HomeEntranceContent(entrancePlayed, order = 2) {
+                    HomeEntranceContent(entranceState.played, order = 2) {
                         HomeGlassWorkoutQuickActions(
                             useGlass = useGlass,
                             onStrength = { actions.navigate(FitnessScreen.STRENGTH) },
@@ -234,7 +231,7 @@ internal fun HomeDestination(
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
-                    HomeEntranceContent(entrancePlayed, order = 3) {
+                    HomeEntranceContent(entranceState.played, order = 3) {
                         HomeGlassQuickActionCard(
                             title = "체중",
                             icon = HomeBodyMetricIcon,
@@ -243,7 +240,7 @@ internal fun HomeDestination(
                             modifier = Modifier.fillMaxWidth().testTag("home-quick-weight")
                         )
                     }
-                    HomeEntranceContent(entrancePlayed, order = 4) {
+                    HomeEntranceContent(entranceState.played, order = 4) {
                         HomeGlassQuickActionCard(
                             title = "식단",
                             icon = HomeMealIcon,
@@ -430,7 +427,9 @@ private fun HomeGlassQuickActionCard(
 ) {
     val content: @Composable () -> Unit = {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = FitnessSpacing.card),
+            modifier = Modifier.fillMaxWidth()
+                .heightIn(min = FitnessSpacing.homeActionMinHeight)
+                .padding(horizontal = FitnessSpacing.card),
             horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
             verticalAlignment = Alignment.CenterVertically
         ) {
