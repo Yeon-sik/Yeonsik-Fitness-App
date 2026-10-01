@@ -28,7 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
@@ -41,6 +40,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.kashif_e.backdrop.backdrops.layerBackdrop
@@ -55,7 +55,10 @@ import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessShape
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
+import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
 import com.yeonsik.fitnessapp.state.FitnessScreen
+import java.util.Locale
 
 interface HomeScreenActions {
     fun continueWorkout()
@@ -63,6 +66,56 @@ interface HomeScreenActions {
     fun showBodyMetric()
     fun openMealManagement(date: String, returnScreen: FitnessScreen)
 }
+
+private val HomeStrengthIcon = ImageVector.Builder(
+    name = "HomeStrength",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.9f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(3f, 9f)
+        verticalLineTo(15f)
+        moveTo(6f, 6f)
+        verticalLineTo(18f)
+        moveTo(6f, 12f)
+        horizontalLineTo(18f)
+        moveTo(18f, 6f)
+        verticalLineTo(18f)
+        moveTo(21f, 9f)
+        verticalLineTo(15f)
+    }
+}.build()
+
+private val HomeCardioIcon = ImageVector.Builder(
+    name = "HomeCardio",
+    defaultWidth = 24.dp,
+    defaultHeight = 24.dp,
+    viewportWidth = 24f,
+    viewportHeight = 24f
+).apply {
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.9f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(12f, 20.5f)
+        curveTo(8f, 17f, 3f, 13.1f, 3f, 8.6f)
+        curveTo(3f, 5.6f, 5f, 3.6f, 7.7f, 3.6f)
+        curveTo(9.5f, 3.6f, 11f, 4.5f, 12f, 6f)
+        curveTo(13f, 4.5f, 14.5f, 3.6f, 16.3f, 3.6f)
+        curveTo(19f, 3.6f, 21f, 5.6f, 21f, 8.6f)
+        curveTo(21f, 13.1f, 16f, 17f, 12f, 20.5f)
+        close()
+    }
+}.build()
 
 private val HomeBodyMetricIcon = ImageVector.Builder(
     name = "HomeBodyMetric",
@@ -148,30 +201,7 @@ internal fun HomeDestination(
         context.getSystemService(AccessibilityManager::class.java)
             ?.isHighContrastTextEnabled == true
     val useGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !highContrast
-    val status: String
-    val message: String
-    val cta: String
-    val onCta: () -> Unit
-    when {
-        snapshot.inProgressSessionId != null -> {
-            status = "진행 중"
-            message = "진행 중인 운동을 이어서 기록하세요."
-            cta = "운동 이어가기"
-            onCta = actions::continueWorkout
-        }
-        snapshot.todaySessions.isEmpty() -> {
-            status = "운동 전"
-            message = "오늘 운동을 시작하세요."
-            cta = "운동 시작"
-            onCta = { actions.navigate(FitnessScreen.WORKOUT) }
-        }
-        else -> {
-            status = "완료"
-            message = "오늘 운동 기록을 확인할 수 있습니다."
-            cta = "기록 보기"
-            onCta = { actions.navigate(FitnessScreen.RECORDS) }
-        }
-    }
+    val workoutSummary = homeWorkoutSummary(snapshot)
 
     Column(
         Modifier.fillMaxWidth(),
@@ -179,34 +209,60 @@ internal fun HomeDestination(
     ) {
         HomeEntranceContent(entrancePlayed, order = 0) {
             FitnessSection("오늘 상태") {
-                HomeGlassHero(status, message, cta, onCta, useGlass)
+                HomeGlassHero(snapshot, workoutSummary, actions::continueWorkout, useGlass)
             }
         }
         HomeEntranceContent(entrancePlayed, order = 1) {
-            FitnessSection("기록으로 이동") {
+            FitnessSection("빠른 이동") {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
                 ) {
-                    HomeEntranceContent(entrancePlayed, order = 2) {
-                        HomeGlassQuickRecordCard(
-                            title = "체중",
-                            detail = "오늘 체중 기록",
-                            icon = HomeBodyMetricIcon,
-                            onClick = actions::showBodyMetric,
-                            useGlass = useGlass,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+                    ) {
+                        HomeEntranceContent(entrancePlayed, order = 2, modifier = Modifier.weight(1f)) {
+                            HomeGlassQuickActionCard(
+                                title = "근력 운동",
+                                icon = HomeStrengthIcon,
+                                onClick = { actions.navigate(FitnessScreen.STRENGTH) },
+                                useGlass = useGlass,
+                                modifier = Modifier.fillMaxWidth().testTag("home-quick-strength")
+                            )
+                        }
+                        HomeEntranceContent(entrancePlayed, order = 3, modifier = Modifier.weight(1f)) {
+                            HomeGlassQuickActionCard(
+                                title = "유산소",
+                                icon = HomeCardioIcon,
+                                onClick = { actions.navigate(FitnessScreen.CARDIO) },
+                                useGlass = useGlass,
+                                modifier = Modifier.fillMaxWidth().testTag("home-quick-cardio")
+                            )
+                        }
                     }
-                    HomeEntranceContent(entrancePlayed, order = 3) {
-                        HomeGlassQuickRecordCard(
-                            title = "식사",
-                            detail = "오늘 식사 기록",
-                            icon = HomeMealIcon,
-                            onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
-                            useGlass = useGlass,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+                    ) {
+                        HomeEntranceContent(entrancePlayed, order = 4, modifier = Modifier.weight(1f)) {
+                            HomeGlassQuickActionCard(
+                                title = "체중",
+                                icon = HomeBodyMetricIcon,
+                                onClick = actions::showBodyMetric,
+                                useGlass = useGlass,
+                                modifier = Modifier.fillMaxWidth().testTag("home-quick-weight")
+                            )
+                        }
+                        HomeEntranceContent(entrancePlayed, order = 5, modifier = Modifier.weight(1f)) {
+                            HomeGlassQuickActionCard(
+                                title = "식단",
+                                icon = HomeMealIcon,
+                                onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
+                                useGlass = useGlass,
+                                modifier = Modifier.fillMaxWidth().testTag("home-quick-meal")
+                            )
+                        }
                     }
                 }
             }
@@ -221,6 +277,7 @@ private const val HOME_ENTRANCE_STAGGER_MILLIS = 70
 private fun HomeEntranceContent(
     visible: Boolean,
     order: Int,
+    modifier: Modifier = Modifier.fillMaxWidth(),
     content: @Composable () -> Unit
 ) {
     val progress by animateFloatAsState(
@@ -233,9 +290,7 @@ private fun HomeEntranceContent(
         label = "home-entrance-$order"
     )
     Box(
-        Modifier
-            .fillMaxWidth()
-            .graphicsLayer {
+        modifier.graphicsLayer {
                 alpha = progress
                 translationY = 14.dp.toPx() * (1f - progress)
                 scaleX = 0.985f + 0.015f * progress
@@ -248,10 +303,9 @@ private fun HomeEntranceContent(
 
 @Composable
 private fun HomeGlassHero(
-    status: String,
-    message: String,
-    cta: String,
-    onCta: () -> Unit,
+    snapshot: HomeSnapshot,
+    workoutSummary: String?,
+    onContinue: () -> Unit,
     useGlass: Boolean
 ) {
     val colors = MaterialTheme.colorScheme
@@ -264,7 +318,7 @@ private fun HomeGlassHero(
             hero = true
         ) {
             CompositionLocalProvider(LocalContentColor provides colors.onPrimaryContainer) {
-                HomeHeroContent(status, message, cta, onCta, Modifier.fillMaxWidth())
+                HomeHeroContent(snapshot, workoutSummary, onContinue, Modifier.fillMaxWidth())
             }
         }
     } else {
@@ -274,46 +328,61 @@ private fun HomeGlassHero(
             color = colors.primaryContainer,
             contentColor = colors.onPrimaryContainer
         ) {
-            HomeHeroContent(status, message, cta, onCta)
+            HomeHeroContent(snapshot, workoutSummary, onContinue)
         }
     }
 }
 
 @Composable
 private fun HomeHeroContent(
-    status: String,
-    message: String,
-    cta: String,
-    onCta: () -> Unit,
+    snapshot: HomeSnapshot,
+    workoutSummary: String?,
+    onContinue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val inProgress = snapshot.inProgressSessionId != null
     Column(
         modifier.padding(FitnessSpacing.hero),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
     ) {
-        Text(status, style = MaterialTheme.typography.displaySmall)
-        Text(message, style = MaterialTheme.typography.bodyLarge)
-        FitnessButton(
-            onClick = onCta,
-            modifier = Modifier.fillMaxWidth().padding(top = FitnessSpacing.small)
-        ) { Text(cta) }
+        Text(if (inProgress) "운동 진행 중" else "오늘", style = MaterialTheme.typography.displaySmall)
+        Text(
+            when {
+                inProgress -> "진행 중인 운동을 이어서 기록하세요."
+                workoutSummary != null -> "오늘 운동 완료"
+                else -> "아직 완료한 운동이 없어요."
+            },
+            style = MaterialTheme.typography.bodyLarge
+        )
+        if (inProgress) {
+            FitnessButton(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth().padding(top = FitnessSpacing.small)
+            ) { Text("운동 이어가기") }
+        } else {
+            if (workoutSummary != null) {
+                Text(workoutSummary, style = MaterialTheme.typography.bodyMedium)
+            }
+            Text(
+                homeBodyMealSummary(snapshot, workoutSummary != null),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
     }
 }
 
 @Composable
-private fun HomeGlassQuickRecordCard(
+private fun HomeGlassQuickActionCard(
     title: String,
-    detail: String,
     icon: ImageVector,
     onClick: () -> Unit,
     useGlass: Boolean,
     modifier: Modifier = Modifier
 ) {
     val content: @Composable () -> Unit = {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth().padding(FitnessSpacing.card),
-            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
-            verticalAlignment = Alignment.CenterVertically
+            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
         ) {
             Icon(
                 imageVector = icon,
@@ -321,17 +390,7 @@ private fun HomeGlassQuickRecordCard(
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(24.dp)
             )
-            Column(
-                Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
-            ) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    detail,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(title, style = MaterialTheme.typography.titleMedium)
         }
     }
     if (useGlass) {
@@ -349,6 +408,26 @@ private fun HomeGlassQuickRecordCard(
             content()
         }
     }
+}
+
+internal fun homeWorkoutSummary(snapshot: HomeSnapshot): String? {
+    val metrics = snapshot.dayMetrics[snapshot.today] ?: return null
+    if (metrics.sessionCount <= 0) return null
+    val volume = if (metrics.totalVolumeKg >= 1000.0) {
+        String.format(Locale.KOREAN, "%.1ft", metrics.totalVolumeKg / 1000.0)
+    } else {
+        "${FitnessUiTokens.formatVolume(metrics.totalVolumeKg)}kg"
+    }
+    return "${metrics.sessionCount}회 · ${metrics.totalSetCount}세트 · $volume · " +
+        FitnessUiTokens.formatDuration(metrics.totalDurationSeconds)
+}
+
+internal fun homeBodyMealSummary(snapshot: HomeSnapshot, hasCompletedWorkout: Boolean): String {
+    val weight = snapshot.todayWeight?.let { "체중 ${FitnessUiTokens.trimDouble(it.weightKg)}kg" }
+        ?: "체중 미기록"
+    val meals = snapshot.mealCounts[snapshot.today] ?: 0
+    val mealStatus = if (!hasCompletedWorkout && meals == 0) "식사 미기록" else "식사 ${meals}회"
+    return "$weight · $mealStatus"
 }
 
 @Composable
