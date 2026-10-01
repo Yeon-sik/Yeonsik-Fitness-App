@@ -243,7 +243,10 @@ private fun AppRoot(
         it.session.status == "completed"
     } == true
     val destinationStateHolder = rememberSaveableStateHolder()
-    val homeEntranceState = rememberHomeEntranceState(ownerId)
+    // Above the swipe host: preview/current composition changes must not reset consumption.
+    val homeEntranceState = rememberTopLevelEntranceState("HOME")
+    val workoutEntranceState = rememberTopLevelEntranceState("WORKOUT")
+    val recordsEntranceState = rememberTopLevelEntranceState("RECORDS")
     val topLevelSwipeEnabled = navigation.canSwipeTopLevel()
     var swipeSelection by remember(screen) { mutableStateOf<TopLevelSwipeSelection?>(null) }
     val workoutAction by viewModels.getWorkoutSession().actionState
@@ -906,7 +909,7 @@ private fun AppRoot(
             36.dp + MaterialTheme.typography.labelMedium.lineHeight.toDp()
         }.coerceAtLeast(56.dp)
         val bottomNavigationSpace = bottomNavigationHeight + 24.dp
-        val destinationPage: @Composable (FitnessScreen) -> Unit = { pageScreen ->
+        val destinationPage: @Composable (FitnessScreen, Boolean) -> Unit = { pageScreen, isActualActive ->
             val recordsBackdrop = rememberLayerBackdrop()
             var recordsBarHeightPx by remember(pageScreen) { mutableIntStateOf(0) }
             val recordsBarHeight = if (recordsBarHeightPx > 0) {
@@ -918,6 +921,13 @@ private fun AppRoot(
                 recordsHubTab.screen
             } else {
                 pageScreen
+            }
+            val entranceToken = navigationState.topLevelEntrance
+                ?.takeIf { it.destination == pageDestination }?.generation
+            val entranceState = when (pageScreen) {
+                FitnessScreen.WORKOUT -> workoutEntranceState
+                FitnessScreen.RECORDS -> recordsEntranceState
+                else -> homeEntranceState
             }
             val pageDate = when (pageDestination) {
                 FitnessScreen.MEALS -> navigationState.selectedMealDate
@@ -964,7 +974,9 @@ private fun AppRoot(
                                 onActivitySelectPage = viewModels.getHome()::selectActivityPage,
                                 onActivityRetry = viewModels.getHome()::retryActivityHistory,
                                 entranceState = homeEntranceState,
-                                preferredMassUnit = unit
+                                preferredMassUnit = unit,
+                                entranceToken = entranceToken,
+                                isActualActive = isActualActive
                             )
                         } else {
                             AppDestination(
@@ -974,7 +986,10 @@ private fun AppRoot(
                                 pageDestination,
                                 ownerId,
                                 pageDate,
-                                unit
+                                unit,
+                                entranceState,
+                                entranceToken,
+                                isActualActive
                             )
                         }
                     }
@@ -1021,7 +1036,7 @@ private fun AppRoot(
                             content = destinationPage
                         )
                     } else {
-                        destinationPage(screen)
+                        destinationPage(screen, true)
                     }
                 }
                 RestTimerBar(host, viewModels, screen, restState, ownerId)
@@ -1031,7 +1046,7 @@ private fun AppRoot(
                     homeState, visualActiveTopLevelTab(screen, swipeSelection),
                     onTabSelected = {
                         swipeSelection = null
-                        navigation.selectTopLevel(it)
+                        navigation.selectTopLevelFromTab(it)
                     },
                     dark, bottomNavigationHeight,
                     backdrop, useBackdropGlass, highContrastEnabled,
@@ -1573,7 +1588,10 @@ private fun AppDestination(
     screen: FitnessScreen,
     ownerId: String,
     today: String,
-    unit: MassUnit
+    unit: MassUnit,
+    entranceState: TopLevelEntranceState,
+    entranceToken: Long?,
+    isActualActive: Boolean
 ) {
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
     val recordsState by viewModels.getRecords().uiState
@@ -1910,7 +1928,8 @@ private fun AppDestination(
                         navigation.selectMealDate(today)
                         navigation.navigate(FitnessScreen.MEALS)
                     }
-                }
+                },
+                entranceState, entranceToken, isActualActive
             )
             FitnessScreen.STRENGTH -> StrengthScreen(
                 homeState,
@@ -1943,7 +1962,8 @@ private fun AppDestination(
                 navigation.uiState.value?.today ?: today,
                 unit,
                 navigation.uiState.value?.selectedRecordsDate ?: today,
-                recordsActions
+                recordsActions,
+                entranceState, entranceToken, isActualActive
             )
             FitnessScreen.STATISTICS -> StatisticsScreen(
                 statisticsState,

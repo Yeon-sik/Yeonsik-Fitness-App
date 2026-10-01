@@ -47,33 +47,53 @@ internal fun WorkoutOverview(
     ownerId: String,
     today: String,
     unit: MassUnit,
-    actions: WorkoutOverviewActions
+    actions: WorkoutOverviewActions,
+    entranceState: TopLevelEntranceState = rememberTopLevelEntranceState("WORKOUT"),
+    entranceToken: Long? = null,
+    isActualActive: Boolean = true
 ) {
     val ready = state as? HomeUiState.Ready
+    val entrance = rememberTopLevelEntranceMotion(
+        entranceState, entranceToken, isActualActive,
+        contentReady = ready != null && ready.snapshot.ownerId == ownerId
+    )
     if (ready == null || ready.snapshot.ownerId != ownerId) {
         StateMessage("운동", "오늘 기록을 불러오는 중입니다.")
         return
     }
     val snapshot = ready.snapshot
     val metrics = snapshot.dayMetrics[today]
-    AppHeader("운동", today)
-    FitnessFactRow(
-        first = { FitnessFactCard("오늘 볼륨", MassFormatter.withUnit(metrics?.totalVolumeKg ?: 0.0, unit), "완료 세트 기준") },
-        second = { FitnessFactCard("식단", "${snapshot.mealCounts[today] ?: 0}끼", "오늘") }
-    )
+    var order = 0
+    TopLevelEntranceContent(entrance, order++) { AppHeader("운동", today) }
+    TopLevelEntranceContent(entrance, order++) {
+        FitnessFactRow(
+            first = { FitnessFactCard("오늘 볼륨", MassFormatter.withUnit(metrics?.totalVolumeKg ?: 0.0, unit), "완료 세트 기준") },
+            second = { FitnessFactCard("식단", "${snapshot.mealCounts[today] ?: 0}끼", "오늘") }
+        )
+    }
     if (snapshot.inProgressSessionId != null) {
-        AppButton(onClick = actions::continueWorkout, Modifier.fillMaxWidth()) {
-            Text("진행 중인 운동 이어가기")
+        TopLevelEntranceContent(entrance, order++) {
+            AppButton(onClick = actions::continueWorkout, Modifier.fillMaxWidth()) {
+                Text("진행 중인 운동 이어가기")
+            }
         }
     }
-    AppButton(onClick = { actions.navigate(FitnessScreen.STRENGTH) }, Modifier.fillMaxWidth()) {
-        Text("무산소 운동")
+    TopLevelEntranceContent(entrance, order++) {
+        AppButton(onClick = { actions.navigate(FitnessScreen.STRENGTH) }, Modifier.fillMaxWidth()) {
+            Text("무산소 운동")
+        }
     }
-    AppOutlinedButton(onClick = { actions.navigate(FitnessScreen.CARDIO) }, Modifier.fillMaxWidth()) {
-        Text("유산소 운동")
+    TopLevelEntranceContent(entrance, order++) {
+        AppOutlinedButton(onClick = { actions.navigate(FitnessScreen.CARDIO) }, Modifier.fillMaxWidth()) {
+            Text("유산소 운동")
+        }
     }
-    AppOutlinedButton(onClick = actions::showBodyMetric, Modifier.fillMaxWidth()) { Text("체중 기록") }
-    AppOutlinedButton(onClick = actions::openMeals, Modifier.fillMaxWidth()) { Text("식단 기록") }
+    TopLevelEntranceContent(entrance, order++) {
+        AppOutlinedButton(onClick = actions::showBodyMetric, Modifier.fillMaxWidth()) { Text("체중 기록") }
+    }
+    TopLevelEntranceContent(entrance, order) {
+        AppOutlinedButton(onClick = actions::openMeals, Modifier.fillMaxWidth()) { Text("식단 기록") }
+    }
 }
 
 @Composable

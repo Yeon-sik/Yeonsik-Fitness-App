@@ -34,7 +34,7 @@ internal fun TopLevelSwipeHost(
     navigation: AppNavigationViewModel,
     modifier: Modifier = Modifier,
     onSettlingDestinationChange: (FitnessScreen?) -> Unit,
-    content: @Composable (FitnessScreen) -> Unit
+    content: @Composable (FitnessScreen, isActualActive: Boolean) -> Unit
 ) {
     val forwardPage = remember(screen) { navigation.adjacentTopLevel(forward = true) }
     val backwardPage = remember(screen) { navigation.adjacentTopLevel(forward = false) }
@@ -42,6 +42,7 @@ internal fun TopLevelSwipeHost(
     val scope = rememberCoroutineScope()
     var dragOffset by remember(screen) { mutableFloatStateOf(0f) }
     var settleJob by remember(screen) { mutableStateOf<Job?>(null) }
+    var swipeInProgress by remember(screen) { mutableStateOf(false) }
     val previewPage by remember(screen) {
         derivedStateOf {
             when {
@@ -60,6 +61,7 @@ internal fun TopLevelSwipeHost(
         val pageWidth = constraints.maxWidth.toFloat()
 
         fun settle(complete: Boolean) {
+            swipeInProgress = true
             val destination = if (complete) {
                 topLevelSwipeDestination(
                     dragOffset, settleThreshold.coerceAtMost(pageWidth * 0.25f),
@@ -87,6 +89,7 @@ internal fun TopLevelSwipeHost(
                     onSettlingDestinationChange(null)
                 }
                 dragOffset = 0f
+                swipeInProgress = false
             }
         }
 
@@ -97,6 +100,8 @@ internal fun TopLevelSwipeHost(
                     detectHorizontalDragGestures(
                         onDragStart = {
                             settleJob?.cancel()
+                            swipeInProgress = true
+                            navigation.beginTopLevelSwipe()
                             onSettlingDestinationChange(null)
                         },
                         onHorizontalDrag = { change, amount ->
@@ -118,7 +123,7 @@ internal fun TopLevelSwipeHost(
                     .fillMaxSize()
                     .graphicsLayer { translationX = dragOffset }
             ) {
-                content(screen)
+                content(screen, !swipeInProgress)
             }
             if (previewPage != null) {
                 val pagePosition = if (dragOffset < 0f) pageWidth else -pageWidth
@@ -127,7 +132,7 @@ internal fun TopLevelSwipeHost(
                         .fillMaxSize()
                         .graphicsLayer { translationX = dragOffset + pagePosition }
                 ) {
-                    content(previewPage!!)
+                    content(previewPage!!, false)
                 }
             }
         }

@@ -2,9 +2,6 @@ package com.yeonsik.fitnessapp.feature.home.ui
 
 import android.os.Build
 import android.view.accessibility.AccessibilityManager
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,8 +22,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,7 +31,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
@@ -54,6 +48,10 @@ import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessShape
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
+import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceContent
+import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceState
+import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceMotion
+import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceState
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
 
@@ -183,16 +181,17 @@ internal fun HomeDestination(
     onActivityNext: () -> Unit = {},
     onActivitySelectPage: (Int) -> Unit = {},
     onActivityRetry: () -> Unit = {},
-    entranceState: HomeEntranceState = rememberHomeEntranceState(ownerId),
-    preferredMassUnit: MassUnit = MassUnit.KG
+    entranceState: TopLevelEntranceState = rememberTopLevelEntranceState("HOME"),
+    preferredMassUnit: MassUnit = MassUnit.KG,
+    entranceToken: Long? = null,
+    isActualActive: Boolean = true
 ) {
     val ready = (homeState as? HomeUiState.Ready)?.takeIf {
         it.snapshot.ownerId == ownerId && it.snapshot.today == today
     }
-    val contentReady = ready != null
-    LaunchedEffect(contentReady, entranceState) {
-        if (contentReady) entranceState.play()
-    }
+    val entrance = rememberTopLevelEntranceMotion(
+        entranceState, entranceToken, isActualActive, contentReady = ready != null
+    )
     if (ready == null) {
         LoadingHome()
         return
@@ -210,86 +209,51 @@ internal fun HomeDestination(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
     ) {
-        HomeEntranceContent(entranceState.played, order = 0) {
+        TopLevelEntranceContent(entrance, order = 0) {
             FitnessSection("오늘 상태") {
                 HomeGlassHero(heroStatus, actions::continueWorkout, useGlass)
             }
         }
-        HomeEntranceContent(entranceState.played, order = 1) {
-            FitnessSection("빠른 이동") {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
-                ) {
-                    HomeEntranceContent(entranceState.played, order = 2) {
-                        HomeGlassWorkoutQuickActions(
-                            useGlass = useGlass,
-                            onStrength = { actions.navigate(FitnessScreen.STRENGTH) },
-                            onCardio = { actions.navigate(FitnessScreen.CARDIO) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    HomeEntranceContent(entranceState.played, order = 3) {
-                        HomeGlassQuickActionCard(
-                            title = "식단",
-                            icon = HomeMealIcon,
-                            onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
-                            useGlass = useGlass,
-                            modifier = Modifier.fillMaxWidth().testTag("home-quick-meal")
-                        )
-                    }
-                    HomeEntranceContent(entranceState.played, order = 4) {
-                        HomeGlassQuickActionCard(
-                            title = "체중",
-                            icon = HomeBodyMetricIcon,
-                            onClick = actions::showBodyMetric,
-                            useGlass = useGlass,
-                            modifier = Modifier.fillMaxWidth().testTag("home-quick-weight")
-                        )
-                    }
-                }
-            }
+        TopLevelEntranceContent(entrance, order = 1) {
+            FitnessSection("빠른 이동") {}
         }
-        HomeActivityHistorySection(
-            state = activityState.takeIf { it.identity?.ownerId == ownerId && it.identity?.today == today }
-                ?: HomeActivityUiState.Idle,
-            onPrevious = onActivityPrevious,
-            onNext = onActivityNext,
-            onSelectPage = onActivitySelectPage,
-            onRetry = onActivityRetry,
-            modifier = Modifier.fillMaxWidth()
-        )
-    }
-}
-
-private const val HOME_ENTRANCE_DURATION_MILLIS = 390
-private const val HOME_ENTRANCE_STAGGER_MILLIS = 70
-
-@Composable
-private fun HomeEntranceContent(
-    visible: Boolean,
-    order: Int,
-    modifier: Modifier = Modifier.fillMaxWidth(),
-    content: @Composable () -> Unit
-) {
-    val progress by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(
-            durationMillis = HOME_ENTRANCE_DURATION_MILLIS,
-            delayMillis = order * HOME_ENTRANCE_STAGGER_MILLIS,
-            easing = FastOutSlowInEasing
-        ),
-        label = "home-entrance-$order"
-    )
-    Box(
-        modifier.graphicsLayer {
-                alpha = progress
-                translationY = 14.dp.toPx() * (1f - progress)
-                scaleX = 0.985f + 0.015f * progress
-                scaleY = 0.985f + 0.015f * progress
-            }
-    ) {
-        content()
+        TopLevelEntranceContent(entrance, order = 2) {
+            HomeGlassWorkoutQuickActions(
+                useGlass = useGlass,
+                onStrength = { actions.navigate(FitnessScreen.STRENGTH) },
+                onCardio = { actions.navigate(FitnessScreen.CARDIO) },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        TopLevelEntranceContent(entrance, order = 3) {
+            HomeGlassQuickActionCard(
+                title = "식단",
+                icon = HomeMealIcon,
+                onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
+                useGlass = useGlass,
+                modifier = Modifier.fillMaxWidth().testTag("home-quick-meal")
+            )
+        }
+        TopLevelEntranceContent(entrance, order = 4) {
+            HomeGlassQuickActionCard(
+                title = "체중",
+                icon = HomeBodyMetricIcon,
+                onClick = actions::showBodyMetric,
+                useGlass = useGlass,
+                modifier = Modifier.fillMaxWidth().testTag("home-quick-weight")
+            )
+        }
+        TopLevelEntranceContent(entrance, order = 5) {
+            HomeActivityHistorySection(
+                state = activityState.takeIf { it.identity?.ownerId == ownerId && it.identity?.today == today }
+                    ?: HomeActivityUiState.Idle,
+                onPrevious = onActivityPrevious,
+                onNext = onActivityNext,
+                onSelectPage = onActivitySelectPage,
+                onRetry = onActivityRetry,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 

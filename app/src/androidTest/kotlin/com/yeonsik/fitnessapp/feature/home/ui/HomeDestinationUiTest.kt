@@ -33,6 +33,7 @@ import com.yeonsik.fitnessapp.app.navigation.AppNavigationViewModel
 import com.yeonsik.fitnessapp.app.navigation.TopLevelSwipeHost
 import com.yeonsik.fitnessapp.app.navigation.destinationScrollStateKey
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
+import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceState
 import com.yeonsik.fitnessapp.feature.home.model.HomeBodyMetric
 import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
 import com.yeonsik.fitnessapp.feature.home.model.HomeTodayWorkoutStatus
@@ -163,19 +164,22 @@ class HomeDestinationUiTest {
         compose.mainClock.autoAdvance = false
         compose.setContent {
             FitnessComposeTheme(false) {
-                val entrance = rememberHomeEntranceState("owner")
+                val entrance = rememberTopLevelEntranceState("HOME")
                 val savedPages = rememberSaveableStateHolder()
                 val navigation = remember { AppNavigationViewModel(SavedStateHandle()) }
                 val route by navigation.uiState.observeAsState(AppNavigationState())
                 TopLevelSwipeHost(
                     route.screen, navigation, Modifier.fillMaxSize().testTag("home-swipe-host"),
                     onSettlingDestinationChange = {}
-                ) { page ->
+                ) { page, isActualActive ->
                     savedPages.SaveableStateProvider(destinationScrollStateKey(page)) {
                         if (page == FitnessScreen.HOME) {
                             HomeDestination(
                                 HomeUiState.Ready(snapshot()), "owner", TODAY, RecordingActions(),
-                                entranceState = entrance
+                                entranceState = entrance,
+                                entranceToken = route.topLevelEntrance
+                                    ?.takeIf { it.destination == page }?.generation,
+                                isActualActive = isActualActive
                             )
                         } else Box { androidx.compose.material3.Text("피트니스") }
                     }
