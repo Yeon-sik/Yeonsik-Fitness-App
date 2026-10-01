@@ -4,6 +4,7 @@ import com.yeonsik.fitnessapp.feature.home.model.HomeBodyMetric
 import com.yeonsik.fitnessapp.feature.home.model.HomeDayWorkoutMetrics
 import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -13,7 +14,7 @@ class HomeBriefingTest {
         val snapshot = snapshot()
 
         assertNull(homeWorkoutSummary(snapshot))
-        assertEquals("체중 미기록 · 식사 미기록", homeBodyMealSummary(snapshot, false))
+        assertEquals("체중 미기록 · 식사 미기록", homeBodyMealSummary(snapshot))
     }
 
     @Test
@@ -25,7 +26,37 @@ class HomeBriefingTest {
         )
 
         assertEquals("1회 · 18세트 · 12.4t · 1시간 8분", homeWorkoutSummary(snapshot))
-        assertEquals("체중 88.4kg · 식사 3회", homeBodyMealSummary(snapshot, true))
+        assertEquals("체중 88.4kg · 식사 3회", homeBodyMealSummary(snapshot))
+    }
+
+    @Test
+    fun cardioOnlySummaryOmitsSetAndVolumeValues() {
+        val snapshot = snapshot().copy(
+            dayMetrics = mapOf("2026-10-01" to HomeDayWorkoutMetrics(1, 0, 0.0, 1_800))
+        )
+
+        val summary = homeWorkoutSummary(snapshot)
+        assertEquals("1회 · 30분", summary)
+        assertFalse(summary.orEmpty().contains("0세트"))
+        assertFalse(summary.orEmpty().contains("0kg"))
+    }
+
+    @Test
+    fun mixedSummaryOmitsAnyMetricWithZeroValue() {
+        val snapshot = snapshot().copy(
+            dayMetrics = mapOf("2026-10-01" to HomeDayWorkoutMetrics(2, 18, 12_400.0, 0))
+        )
+
+        assertEquals("2회 · 18세트 · 12.4t", homeWorkoutSummary(snapshot))
+    }
+
+    @Test
+    fun missingMealStateDoesNotDependOnWorkoutCompletion() {
+        val snapshot = snapshot().copy(
+            dayMetrics = mapOf("2026-10-01" to HomeDayWorkoutMetrics(1, 18, 12_400.0, 4_080))
+        )
+
+        assertEquals("체중 미기록 · 식사 미기록", homeBodyMealSummary(snapshot))
     }
 
     @Test

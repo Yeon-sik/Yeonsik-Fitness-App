@@ -347,7 +347,7 @@ private fun HomeHeroContent(
                 Text(workoutSummary, style = MaterialTheme.typography.bodyMedium)
             }
             Text(
-                homeBodyMealSummary(snapshot, workoutSummary != null),
+                homeBodyMealSummary(snapshot),
                 style = MaterialTheme.typography.bodyMedium
             )
         }
@@ -475,20 +475,30 @@ private fun HomeQuickActionItem(
 internal fun homeWorkoutSummary(snapshot: HomeSnapshot): String? {
     val metrics = snapshot.dayMetrics[snapshot.today] ?: return null
     if (metrics.sessionCount <= 0) return null
-    val volume = if (metrics.totalVolumeKg >= 1000.0) {
-        String.format(Locale.KOREAN, "%.1ft", metrics.totalVolumeKg / 1000.0)
-    } else {
-        "${FitnessUiTokens.formatVolume(metrics.totalVolumeKg)}kg"
+    val parts = buildList {
+        add("${metrics.sessionCount}회")
+        if (metrics.totalSetCount > 0) add("${metrics.totalSetCount}세트")
+        if (metrics.totalVolumeKg > 0.0) {
+            add(
+                if (metrics.totalVolumeKg >= 1000.0) {
+                    String.format(Locale.KOREAN, "%.1ft", metrics.totalVolumeKg / 1000.0)
+                } else {
+                    "${FitnessUiTokens.formatVolume(metrics.totalVolumeKg)}kg"
+                }
+            )
+        }
+        if (metrics.totalDurationSeconds > 0) {
+            add(FitnessUiTokens.formatDuration(metrics.totalDurationSeconds))
+        }
     }
-    return "${metrics.sessionCount}회 · ${metrics.totalSetCount}세트 · $volume · " +
-        FitnessUiTokens.formatDuration(metrics.totalDurationSeconds)
+    return parts.joinToString(" · ")
 }
 
-internal fun homeBodyMealSummary(snapshot: HomeSnapshot, hasCompletedWorkout: Boolean): String {
+internal fun homeBodyMealSummary(snapshot: HomeSnapshot): String {
     val weight = snapshot.todayWeight?.let { "체중 ${FitnessUiTokens.trimDouble(it.weightKg)}kg" }
         ?: "체중 미기록"
     val meals = snapshot.mealCounts[snapshot.today] ?: 0
-    val mealStatus = if (!hasCompletedWorkout && meals == 0) "식사 미기록" else "식사 ${meals}회"
+    val mealStatus = if (meals > 0) "식사 ${meals}회" else "식사 미기록"
     return "$weight · $mealStatus"
 }
 
