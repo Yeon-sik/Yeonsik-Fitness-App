@@ -26,6 +26,11 @@ import com.yeonsik.fitnessapp.feature.cardio.application.CardioSessionApplicatio
 import com.yeonsik.fitnessapp.feature.home.api.HomeRepositoryApi
 import com.yeonsik.fitnessapp.feature.home.data.FeatureHomeReadSources
 import com.yeonsik.fitnessapp.feature.home.data.HomeReadRepository
+import com.yeonsik.fitnessapp.feature.home.api.HomeActivityHistoryApi
+import com.yeonsik.fitnessapp.feature.home.data.HomeActivityHistoryRepository
+import com.yeonsik.fitnessapp.feature.home.data.WorkoutHomeActivityReadSource
+import com.yeonsik.fitnessapp.feature.home.data.BodyHomeActivityReadSource
+import com.yeonsik.fitnessapp.feature.home.data.MealHomeActivityReadSource
 import com.yeonsik.fitnessapp.feature.body.data.BodyMetricsReadRepository
 import com.yeonsik.fitness.shared.feature.records.api.RecordsReadApi
 import com.yeonsik.fitnessapp.feature.records.data.RecordsReadRepository
@@ -196,6 +201,11 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         ),
         routineRepositoryApi
     )
+    val homeActivityHistory: HomeActivityHistoryApi = HomeActivityHistoryRepository(listOf(
+        WorkoutHomeActivityReadSource(workoutReadRepository),
+        BodyHomeActivityReadSource(bodyMetricsReadRepository),
+        MealHomeActivityReadSource(mealReadRepository)
+    ))
     val recordsRepository: RecordsReadApi = RecordsReadRepository(
         workoutReadRepository, bodyMetricsReadRepository, mealReadRepository
     )

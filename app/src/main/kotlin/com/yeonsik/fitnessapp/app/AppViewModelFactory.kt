@@ -82,7 +82,7 @@ class AppViewModelFactory(
             modelClass.isAssignableFrom(RoutineEntryViewModel::class.java) ->
                 RoutineEntryViewModel(handle, container.routineRepositoryApi)
             modelClass.isAssignableFrom(HomeViewModel::class.java) ->
-                HomeViewModel(handle, container.homeRepository)
+                HomeViewModel(handle, container.homeRepository, container.homeActivityHistory)
             modelClass.isAssignableFrom(RecordsViewModel::class.java) ->
                 RecordsViewModel(handle, container.recordsRepository)
             modelClass.isAssignableFrom(StatisticsViewModel::class.java) ->
