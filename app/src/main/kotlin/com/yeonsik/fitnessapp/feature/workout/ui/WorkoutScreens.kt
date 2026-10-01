@@ -14,11 +14,14 @@ import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
@@ -35,6 +38,8 @@ import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.WorkoutSetPresentation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
 
 @Composable
 internal fun WorkoutOverview(
@@ -102,6 +107,11 @@ internal fun StrengthScreen(
     ) { Text("루틴 만들기") }
     AppButton(onClick = actions::startEmptyWorkout, Modifier.fillMaxWidth()) { Text("루틴 없이 운동 시작") }
     AppOutlinedButton(onClick = actions::showPastWorkout, Modifier.fillMaxWidth()) { Text("지난 운동 수동 등록") }
+    val bodyPartColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) {
+        Color(0xFFFFD666)
+    } else {
+        Color(0xFF8A6900)
+    }
     ready.snapshot.routines.forEach { routineRow ->
         val exercises = ready.snapshot.routineExercises[routineRow.id].orEmpty()
         val bodyParts = routineBodyPartLabels(exercises)
@@ -116,18 +126,36 @@ internal fun StrengthScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        routineRow.name.ifBlank { "나만의 루틴" },
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        "운동 부위: ${bodyParts.ifEmpty { listOf("-") }.joinToString(" · ")}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            routineRow.name.ifBlank { "나만의 루틴" },
+                            modifier = Modifier.weight(1f),
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            if (bodyParts.isEmpty()) "부위 미설정"
+                            else "${bodyParts.joinToString(" · ")} 운동",
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = bodyPartColor,
+                            textAlign = TextAlign.End
+                        )
+                    }
                     Text(
                         "${routineRow.exerciseCount}개 종목",
                         style = MaterialTheme.typography.bodySmall
+                    )
+                    Text(
+                        routineLastWorkoutLabel(
+                            ready.snapshot.latestRoutineDates[routineRow.id],
+                            ready.snapshot.today
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
                 Text(
@@ -139,6 +167,19 @@ internal fun StrengthScreen(
             }
         }
     }
+}
+
+private fun routineLastWorkoutLabel(date: String?, today: String): String {
+    if (date.isNullOrBlank()) return "마지막 운동 기록 없음"
+    val daysAgo = runCatching {
+        ChronoUnit.DAYS.between(LocalDate.parse(date), LocalDate.parse(today))
+    }.getOrNull()
+    val relative = when {
+        daysAgo == null || daysAgo < 0 -> date
+        daysAgo == 0L -> "오늘"
+        else -> "${daysAgo}일 전"
+    }
+    return "마지막 운동 · $relative"
 }
 
 private fun routineBodyPartLabels(exercises: List<RoutineExerciseInstance>): List<String> {
