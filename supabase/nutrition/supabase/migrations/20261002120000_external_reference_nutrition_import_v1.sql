@@ -1,33 +1,6 @@
--- Additive canonical Nutrition contract for OCR-App V2 text nutrition lookup.
--- The existing v3 implementation is retained under a private legacy name and
--- remains the executor for nutrition-label.v1 and food-estimate.v1.
-
-alter table public.nutrition_canonical_imports
-    drop constraint if exists nutrition_canonical_imports_input_contract_check;
-alter table public.nutrition_canonical_imports
-    add constraint nutrition_canonical_imports_input_contract_check
-    check (input_contract in ('nutrition-label.v1', 'food-estimate.v1', 'external-reference.v1'));
-
-alter table public.nutrition_canonical_imports
-    drop constraint if exists nutrition_canonical_imports_projection_source_type_check;
-alter table public.nutrition_canonical_imports
-    add constraint nutrition_canonical_imports_projection_source_type_check
-    check (projection_source_type in ('product_label_ocr', 'food_image_estimate', 'external_reference'));
-
-alter table public.nutrition_food_nutrient_provenance
-    drop constraint if exists nutrition_food_nutrient_provenance_source_type_check;
-alter table public.nutrition_food_nutrient_provenance
-    add constraint nutrition_food_nutrient_provenance_source_type_check
-    check (source_type in (
-        'product_label_ocr', 'external_reference', 'food_image_estimate', 'menu_reference', 'manual'
-    ));
-
-alter table public.nutrition_verified_imports
-    drop constraint if exists nutrition_verified_imports_evidence_type_check;
-alter table public.nutrition_verified_imports
-    add constraint nutrition_verified_imports_evidence_type_check
-    check (evidence_type in ('product_label', 'restaurant_estimate', 'external_reference'));
-
+-- This forward migration follows the recovered 20260920091351 remote migration.
+-- Its shared contract constraints and v3 legacy body already exist on the target.
+-- Add only the distinct external-reference executor and dispatch through the existing v3 RPC.
 create or replace function public.import_external_reference_nutrition_v1(
     p_idempotency_key text,
     p_input_contract text,
@@ -164,7 +137,7 @@ begin
        or jsonb_typeof(v_provenance) <> 'object' then
         raise exception 'Nutrients and provenance must be objects.' using errcode = '22023';
     end if;
-    if jsonb_object_length(v_required) <> 7
+    if (select count(*) from pg_catalog.jsonb_object_keys(v_required)) <> 7
        or exists (
            select 1
            from jsonb_object_keys(v_required) as required_key(key_name)
@@ -176,7 +149,7 @@ begin
         raise exception 'required_nutrients must contain exactly the seven required nutrient keys.'
             using errcode = '23514';
     end if;
-    if jsonb_object_length(v_nutrient_provenance) <> 7
+    if (select count(*) from pg_catalog.jsonb_object_keys(v_nutrient_provenance)) <> 7
        or exists (
            select 1
            from jsonb_object_keys(v_nutrient_provenance) as provenance_key(key_name)
@@ -317,9 +290,9 @@ begin
             v_existing.projection_source_type,
             v_existing.projection_import_id,
             null::uuid,
-            (select estimation_evidence_id
-             from public.nutrition_verified_imports
-             where id = v_existing.projection_import_id),
+            (select verified_import.estimation_evidence_id
+             from public.nutrition_verified_imports as verified_import
+             where verified_import.id = v_existing.projection_import_id),
             'private',
             v_existing.request_payload ->> 'manufacturer_name',
             v_existing.request_payload ->> 'brand_name',
@@ -343,9 +316,9 @@ begin
     perform pg_catalog.pg_advisory_xact_lock(
         pg_catalog.hashtextextended(v_user_id || ':' || v_catalog_key, 0)
     );
-    select nutrition_food_id into v_food_id
-    from public.nutrition_verified_catalog_keys
-    where owner_id = v_user_id and catalog_key = v_catalog_key
+    select catalog_mapping.nutrition_food_id into v_food_id
+    from public.nutrition_verified_catalog_keys as catalog_mapping
+    where catalog_mapping.owner_id = v_user_id and catalog_mapping.catalog_key = v_catalog_key
     for update;
 
     if v_food_id is null then
@@ -504,17 +477,14 @@ revoke all on function public.import_external_reference_nutrition_v1(
 
 -- Keep the already deployed legacy v3 body intact and route only the new contract
 -- through the external-reference executor above.
-alter function public.import_canonical_nutrition_v3(
-    text, text, text, text, text, text, numeric, text, jsonb, jsonb, jsonb,
-    jsonb, boolean, jsonb, jsonb, text, text, text, text
-) rename to import_canonical_nutrition_v3_legacy;
+
 
 revoke all on function public.import_canonical_nutrition_v3_legacy(
     text, text, text, text, text, text, numeric, text, jsonb, jsonb, jsonb,
     jsonb, boolean, jsonb, jsonb, text, text, text, text
 ) from public, anon, authenticated;
 
-create function public.import_canonical_nutrition_v3(
+create or replace function public.import_canonical_nutrition_v3(
     p_idempotency_key text,
     p_input_contract text,
     p_source_document_ref text,

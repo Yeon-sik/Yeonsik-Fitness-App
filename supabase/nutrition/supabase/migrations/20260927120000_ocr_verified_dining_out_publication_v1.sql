@@ -72,6 +72,9 @@ declare
     v_identity_value jsonb;
     v_identity_key text;
     v_candidate_id uuid;
+    v_now timestamptz := now();
+    v_existing_link_id uuid;
+    v_existing_link_deleted_at timestamptz;
     v_attached record;
     v_link record;
     v_publication record;
@@ -239,6 +242,66 @@ begin
     if not found
        or v_attached.nutrition_food_id <> p_nutrition_food_id then
         raise exception 'The exact owner dining-out identity was not attached.' using errcode = '23514';
+    end if;
+
+    -- The Sep20 helper's INSERT RETURNING uses output-column names that are
+    -- ambiguous in PL/pgSQL. Prepare the exact approved row here so that its
+    -- existing-link branch returns it without entering that broken INSERT
+    -- branch. Keep the already-applied helper definition unchanged.
+    select link.id, link.deleted_at
+    into v_existing_link_id, v_existing_link_deleted_at
+    from public.product_nutrition_links as link
+    where link.owner_id = v_owner_id
+      and link.nutrition_food_id = p_nutrition_food_id
+      and link.catalog_product_id = p_catalog_product_id
+      and link.status = 'approved'
+    order by link.created_at desc
+    limit 1
+    for update;
+
+    update public.product_nutrition_links as link
+    set deleted_at = v_now,
+        updated_at = v_now
+    where link.owner_id = v_owner_id
+      and link.nutrition_food_id = p_nutrition_food_id
+      and link.status = 'approved'
+      and link.deleted_at is null
+      and link.catalog_product_id <> p_catalog_product_id;
+
+    if v_existing_link_id is not null and v_existing_link_deleted_at is not null then
+        update public.product_nutrition_links as link
+        set deleted_at = null,
+            reviewed_at = v_now,
+            updated_at = v_now
+        where link.id = v_existing_link_id;
+    elsif v_existing_link_id is null then
+        insert into public.product_nutrition_links (
+            owner_id,
+            nutrition_food_id,
+            catalog_product_id,
+            status,
+            source_type,
+            proposal_reference,
+            product_contract_version,
+            revision,
+            reviewed_at,
+            created_at,
+            updated_at,
+            deleted_at
+        ) values (
+            v_owner_id,
+            p_nutrition_food_id,
+            p_catalog_product_id,
+            'approved',
+            'manual_selection',
+            'FitnessApp dining-out publication',
+            'product-read.v1',
+            1,
+            v_now,
+            v_now,
+            v_now,
+            null
+        );
     end if;
 
     select linked.*
