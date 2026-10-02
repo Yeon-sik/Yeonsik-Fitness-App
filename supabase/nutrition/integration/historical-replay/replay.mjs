@@ -192,7 +192,7 @@ function parseStatus(text) {
   return values;
 }
 
-async function canonicalIntegration(project, status) {
+async function canonicalIntegration(project, status, mode) {
   const values = parseStatus(status.stdout);
   if (!values.API_URL || !values.ANON_KEY || !values.SERVICE_ROLE_KEY) {
     throw new Error('Local status did not provide the API URL and local test keys.');
@@ -213,9 +213,9 @@ async function canonicalIntegration(project, status) {
     NUTRITION_DB_URL: values.API_URL,
     NUTRITION_DB_ANON: values.ANON_KEY,
     NUTRITION_INTEGRATION_SERVICE_ROLE_KEY: values.SERVICE_ROLE_KEY,
-    NUTRITION_INTEGRATION_MODE: 'external-reference-only'
+    NUTRITION_INTEGRATION_MODE: mode
   };
-  console.log('Running external-reference auth/owner, privacy, seven-nutrient provenance, source URL, and idempotency integration tests locally');
+  console.log('Running ' + mode + ' authenticated integration tests locally');
   const result = await run(process.execPath, [
     path.join(integrationDir, 'canonical-import.integration.mjs')
   ], { cwd: integrationDir, env, timeout: 10 * 60 * 1000 });
@@ -268,7 +268,9 @@ async function replay(label, final, kaguriId) {
     await sql(container, readFileSync(path.join(replayDir, 'assert_final_replay.sql'), 'utf8'));
 
     const status = await run(cli, ['status', '--output', 'env'], { cwd: project.dir, timeout: 60000 });
-    await canonicalIntegration(project, status);
+    await canonicalIntegration(project, status, 'generic-v3-ambiguity-repro');
+    await sql(container, readFileSync(path.join(replayDir, 'reproduce_generic_v3_ambiguity.sql'), 'utf8'));
+    await canonicalIntegration(project, status, 'external-reference-only');
     console.log('PASS final fresh replay (27 recovered migrations plus both pending migrations)');
   } finally {
     if (startAttempted) {
