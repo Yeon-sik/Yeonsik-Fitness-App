@@ -21,7 +21,7 @@ const remote = [
   '20260920091328', '20260920091342', '20260920091351', '20260924130855',
   '20260924131958', '20260924132515', '20260924132818'
 ];
-const pending = ['20260927120000', '20261002120000'];
+const pending = ['20260927120000', '20261002120000', '20261002130000'];
 const excluded = [
   'realtime', 'storage-api', 'imgproxy', 'studio', 'mailpit',
   'postgres-meta', 'edge-runtime', 'logflare', 'vector', 'supavisor'
@@ -101,6 +101,14 @@ function inventory() {
   if (/\bpg_get_functiondef\s*\(|\bexecute\s+(?!on\b)/i.test(extSql)) {
     throw new Error('Dynamic function patch found; add exact unique anchor and fail-closed assertions before replay.');
   }
+  const genericFixSql = readFileSync(migration('20261002130000'), 'utf8');
+  if (!genericFixSql.includes('pg_get_functiondef')
+      || !genericFixSql.includes('v_anchor_count <> 1')
+      || !genericFixSql.includes('execute v_repaired')
+      || !genericFixSql.includes('v_v3_anchor_count <> 1')
+      || !genericFixSql.includes('execute v_v3_repaired')) {
+    throw new Error('Both generic v3 patches must use pg_get_functiondef with exact unique anchors and fail closed.');
+  }
   const oldSql = readFileSync(migration('20260814065823'), 'utf8');
   const ids = Array.from(oldSql.matchAll(/catalog_product_id\s*=\s*'([0-9a-f-]{36})'::uuid/gi), match => match[1]);
   if (ids.length !== 1) throw new Error('Expected exactly one Kaguri selector in unchanged historical SQL.');
@@ -168,8 +176,9 @@ async function sql(container, text) {
     'exec', '-i', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1',
     '-U', 'postgres', '-d', 'postgres'
   ], { input: text, timeout: 3 * 60 * 1000 });
-  for (const line of result.stdout.split(/\r?\n/)) {
-    if (/^PASS /.test(line.trim())) console.log(line.trim());
+  for (const line of (result.stdout + '\n' + result.stderr).split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (/^(?:NOTICE:\s*)?PASS /.test(trimmed)) console.log(trimmed.replace(/^NOTICE:\s*/, ''));
   }
 }
 
@@ -192,7 +201,7 @@ function parseStatus(text) {
   return values;
 }
 
-async function canonicalIntegration(project, status) {
+async function canonicalIntegration(project, status, mode) {
   const values = parseStatus(status.stdout);
   if (!values.API_URL || !values.ANON_KEY || !values.SERVICE_ROLE_KEY) {
     throw new Error('Local status did not provide the API URL and local test keys.');
@@ -213,14 +222,15 @@ async function canonicalIntegration(project, status) {
     NUTRITION_DB_URL: values.API_URL,
     NUTRITION_DB_ANON: values.ANON_KEY,
     NUTRITION_INTEGRATION_SERVICE_ROLE_KEY: values.SERVICE_ROLE_KEY,
-    NUTRITION_INTEGRATION_MODE: 'external-reference-only'
+    NUTRITION_INTEGRATION_MODE: mode
   };
-  console.log('Running external-reference auth/owner, privacy, seven-nutrient provenance, source URL, and idempotency integration tests locally');
+  console.log('Running ' + mode + ' authenticated integration tests locally');
   const result = await run(process.execPath, [
     path.join(integrationDir, 'canonical-import.integration.mjs')
   ], { cwd: integrationDir, env, timeout: 10 * 60 * 1000 });
   for (const line of result.stdout.split(/\r?\n/)) {
-    if (/^PASS /.test(line.trim())) console.log(line.trim());
+    const trimmed = line.trim();
+    if (/^(?:PASS |DIAG )/.test(trimmed)) console.log(trimmed);
   }
 }
 
@@ -268,8 +278,15 @@ async function replay(label, final, kaguriId) {
     await sql(container, readFileSync(path.join(replayDir, 'assert_final_replay.sql'), 'utf8'));
 
     const status = await run(cli, ['status', '--output', 'env'], { cwd: project.dir, timeout: 60000 });
-    await canonicalIntegration(project, status);
-    console.log('PASS final fresh replay (27 recovered migrations plus both pending migrations)');
+    await canonicalIntegration(project, status, 'generic-v3-ambiguity-repro');
+    await sql(container, readFileSync(path.join(replayDir, 'reproduce_generic_v3_ambiguity.sql'), 'utf8'));
+    await sql(container, readFileSync(path.join(replayDir, 'snapshot_before_generic_v3_fix.sql'), 'utf8'));
+    stage('20261002130000', project.migrationsDir);
+    console.log('Applying pending generic v3 ambiguity forward fix locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, readFileSync(path.join(replayDir, 'assert_generic_v3_fix.sql'), 'utf8'));
+    await canonicalIntegration(project, status, 'canonical-v3-contract-matrix');
+    console.log('PASS final fresh replay (27 recovered migrations plus all three pending migrations)');
   } finally {
     if (startAttempted) {
       try {
@@ -285,7 +302,7 @@ async function replay(label, final, kaguriId) {
 
 async function main() {
   const kaguriId = inventory();
-  console.log('Verified exactly 27 remote migration files and 2 pending migration files.');
+  console.log('Verified exactly 27 remote migration files and 3 pending migration files.');
   const fixture = readFileSync(path.join(replayDir, 'pre_20260814065823_kaguri.sql'), 'utf8');
   const selectorToken = '{{KAGURI_PRODUCT_UUID_FROM_HISTORICAL_SQL}}';
   if (fixture.split(selectorToken).length !== 2) {
