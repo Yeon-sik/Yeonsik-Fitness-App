@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
+import com.yeonsik.fitnessapp.core.ui.FitnessExerciseFamilyIllustration
 import com.yeonsik.fitnessapp.core.ui.FitnessExerciseIllustration
 import com.yeonsik.fitnessapp.core.ui.FitnessHeader
 import com.yeonsik.fitnessapp.core.ui.FitnessOutlinedButton
@@ -72,6 +73,7 @@ interface ExercisePickerScreenActions {
     fun setBodyPart(bodyPart: BodyPart?)
     fun setPrimarySubPart(primarySubPart: String?)
     fun selectMuscleGroup(groupId: String)
+    fun clearBodyPartSelection()
     fun setEquipmentCategory(category: UiEquipmentCategory?)
     fun setSortOrder(order: RuntimeExercisePicker.SortOrder)
     fun resetFilters()
@@ -225,7 +227,7 @@ private fun ExercisePickerFilters(
     actions: ExercisePickerScreenActions
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
-        ExerciseMuscleMap(state, actions::selectMuscleGroup)
+        ExerciseMuscleMap(state, actions::selectMuscleGroup, actions::clearBodyPartSelection)
         FilterPopupRow(
             title = "부위",
             options = BodyPart.values().map { it.id() to it.labelKo() },
@@ -379,7 +381,7 @@ private fun ExerciseFamilyPickerCard(
                 horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ExercisePickerImage(representative, exactVariant = false)
+                ExercisePickerFamilyImage(family.familyId, family.displayName().orEmpty())
                 Column(Modifier.weight(1f)) {
                     Text(
                         text = title,
@@ -533,6 +535,22 @@ private fun ExercisePickerPresetText(
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
+    }
+}
+
+@Composable
+private fun ExercisePickerFamilyImage(familyId: String, name: String) {
+    val context = LocalContext.current
+    val modifier = Modifier.size(PICKER_IMAGE_SIZE)
+    if (context is Activity) {
+        FitnessExerciseFamilyIllustration(
+            activity = context,
+            familyId = familyId,
+            modifier = modifier,
+            contentDescription = "$name 대표 운동 이미지"
+        ) { ExercisePickerImageFallback(modifier) }
+    } else {
+        ExercisePickerImageFallback(modifier)
     }
 }
 

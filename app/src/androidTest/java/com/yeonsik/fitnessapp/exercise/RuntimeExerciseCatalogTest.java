@@ -231,6 +231,10 @@ public final class RuntimeExerciseCatalogTest {
                 "family_default",
                 ExerciseIllustrationLookup.resolve(context, chinUp).source
         );
+        assertEquals(
+                "family_default",
+                ExerciseIllustrationLookup.resolveFamilyDefault(context, "pull_up").source
+        );
     }
 
     @Test
@@ -246,6 +250,11 @@ public final class RuntimeExerciseCatalogTest {
                 ExerciseIllustrationLookup.resolveExact(context, pullUp).source
         );
         assertTrue(ExerciseIllustrationLookup.resolveExact(context, chinUp).isPlaceholder());
+        assertTrue(ExerciseIllustrationLookup.resolveExactForStorageExerciseId(
+                context, "back_bodyweight_chin_up").isPlaceholder());
+        assertEquals("exact_visual_variant", ExerciseIllustrationLookup.resolveExactForStorageExerciseId(
+                context, "back_bodyweight_pull_up").source);
+        assertTrue(ExerciseIllustrationLookup.resolveFamilyDefault(context, "unknown_family").isPlaceholder());
     }
 
     @Test

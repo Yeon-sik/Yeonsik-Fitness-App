@@ -40,6 +40,10 @@ public final class ExerciseIllustrationPreview {
         return create(ExerciseIllustrationLookup.resolve(activity, exerciseId));
     }
 
+    public ImageView createExact(String exerciseId) {
+        return create(ExerciseIllustrationLookup.resolveExactForStorageExerciseId(activity, exerciseId));
+    }
+
     public ImageView create(ExerciseFamilyIdentity identity) {
         return create(ExerciseIllustrationLookup.resolve(activity, identity));
     }
@@ -47,6 +51,11 @@ public final class ExerciseIllustrationPreview {
     /** 이미지가 정확히 해당 variant에 등록된 경우에만 대표 프레임을 반환한다. */
     public ImageView createExact(ExerciseFamilyIdentity identity) {
         return create(ExerciseIllustrationLookup.resolveExact(activity, identity));
+    }
+
+    /** Returns the family's representative frame without selecting a preset variant. */
+    public ImageView createFamilyDefault(String familyId) {
+        return create(ExerciseIllustrationLookup.resolveFamilyDefault(activity, familyId));
     }
 
     private ImageView create(ExerciseIllustrationLookup.IllustrationResolution resolution) {
