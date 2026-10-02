@@ -830,6 +830,73 @@ async function cleanup() {
   console.log('PASS integration cleanup');
 }
 
+async function runExternalReferenceOnly(ownerA, ownerB) {
+  const payload = {
+    ...JSON.parse(JSON.stringify(EXTERNAL_REFERENCE_FIXTURE)),
+    p_idempotency_key: uniqueId('external-reference-replay')
+  };
+  const result = await callCanonicalV3(ownerA, payload);
+  recordImport(result);
+  await verifyExternalReference(ownerA, result, payload, payload.p_food_name);
+  await verifyOwnerIsolation(ownerA, ownerB, result);
+  await verifyV3ReadIsolation(ownerB, payload.p_food_name);
+
+  const replay = await callCanonicalV3(ownerA, payload);
+  recordImport(replay);
+  assertEqual(replay.canonical_import_id, result.canonical_import_id, 'external replay canonical id');
+  assertEqual(replay.nutrition_food_id, result.nutrition_food_id, 'external replay food id');
+  assertEqual(replay.idempotent_replay, true, 'external replay flag');
+  assertEqual(
+    (await getRows(ownerA, 'nutrition_food_nutrient_provenance', {
+      canonical_import_id: result.canonical_import_id
+    })).length,
+    7,
+    'external replay must not add provenance rows'
+  );
+
+  const changedPayload = {
+    ...JSON.parse(JSON.stringify(payload)),
+    p_food_name: `${payload.p_food_name} changed`
+  };
+  await assertFunctionRejected(
+    'external-reference same-key changed-payload conflict',
+    () => callCanonicalV3(ownerA, changedPayload)
+  );
+
+  const missingNutrientProvenance = {
+    ...JSON.parse(JSON.stringify(payload)),
+    p_idempotency_key: uniqueId('external-reference-missing-provenance')
+  };
+  delete missingNutrientProvenance.p_nutrient_provenance.sodium_mg;
+  await assertFunctionRejected(
+    'external-reference missing nutrient provenance rejection',
+    () => callCanonicalV3(ownerA, missingNutrientProvenance)
+  );
+
+  const changedEvidenceReference = {
+    ...JSON.parse(JSON.stringify(payload)),
+    p_idempotency_key: uniqueId('external-reference-evidence-mismatch')
+  };
+  changedEvidenceReference.p_nutrient_provenance.calories_kcal.evidence_refs = [
+    'https://example.test/different-source'
+  ];
+  await assertFunctionRejected(
+    'external-reference nutrient source URL evidence rejection',
+    () => callCanonicalV3(ownerA, changedEvidenceReference)
+  );
+
+  await expectRejected(
+    'anonymous external-reference canonical RPC rejection',
+    '/rest/v1/rpc/import_canonical_nutrition_v3',
+    {
+      method: 'POST',
+      headers: authHeaders(null),
+      body: JSON.stringify(payload)
+    }
+  );
+  console.log('PASS external-reference private import, owner isolation, seven nutrient provenance, source URL, auth, and idempotency checks');
+}
+
 async function run() {
   if (process.env.NUTRITION_INTEGRATION_ALLOW_REMOTE !== 'true') {
     throw new ConfigurationError(
@@ -843,6 +910,11 @@ async function run() {
   }
 
   const { ownerA, ownerB } = await resolveOwners();
+  if (process.env.NUTRITION_INTEGRATION_MODE === 'external-reference-only') {
+    await runExternalReferenceOnly(ownerA, ownerB);
+    return;
+  }
+
   const hierarchy = packagedHierarchyLabelPayload(
     uniqueId('hierarchy-full'),
     'Integration Hierarchy Display'

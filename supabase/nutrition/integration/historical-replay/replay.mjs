@@ -212,9 +212,10 @@ async function canonicalIntegration(project, status) {
     NUTRITION_INTEGRATION_PASSWORD: '',
     NUTRITION_DB_URL: values.API_URL,
     NUTRITION_DB_ANON: values.ANON_KEY,
-    NUTRITION_INTEGRATION_SERVICE_ROLE_KEY: values.SERVICE_ROLE_KEY
+    NUTRITION_INTEGRATION_SERVICE_ROLE_KEY: values.SERVICE_ROLE_KEY,
+    NUTRITION_INTEGRATION_MODE: 'external-reference-only'
   };
-  console.log('Running canonical, OCR publication, auth/owner, idempotency, and external-reference integration tests locally');
+  console.log('Running external-reference auth/owner, privacy, seven-nutrient provenance, source URL, and idempotency integration tests locally');
   const result = await run(process.execPath, [
     path.join(integrationDir, 'canonical-import.integration.mjs')
   ], { cwd: integrationDir, env, timeout: 10 * 60 * 1000 });

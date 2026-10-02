@@ -58,11 +58,13 @@ temporary users and remove them after the run.
 The historical-replay/replay.mjs runner starts two uniquely named local Supabase projects with Docker and no linked project reference:
 
 - a historical replay that runs all 27 recovered remote migrations from an empty database;
-- a second fresh replay that runs those same 27 migrations, applies both pending migrations, verifies the final schema and grants, runs the rollback fixture, and executes the authenticated integration suite.
+- a second fresh replay that runs those same 27 migrations, applies both pending migrations, verifies the final schema and grants, runs the rollback fixture, and runs the authenticated `external-reference-only` integration mode.
 
 The runner first applies the real SQL through 20260814065526_product_nutrition_link_pricetrace_metadata.sql. It then loads historical-replay/pre_20260814065823_kaguri.sql, a disposable-only synthetic prerequisite, and applies unchanged historical SQL from 20260814065823 onward. The runner derives the one selector UUID from that original migration; the fixture contains no production owner or Nutrition row data and is not part of normal seed configuration.
 
 The final replay snapshots public table columns, constraints, and function definitions before 20261002120000_external_reference_nutrition_import_v1.sql. Assertions require that migration to add only its external-reference helper, preserve Sep20 constraints and the legacy RPC body, and update only the canonical v3 dispatcher. The current migration has no dynamic function patch. The runner fails closed if one is introduced before exact-anchor validation is added.
+
+The disposable replay's integration mode verifies the new external-reference route through the v3 dispatcher: authenticated owner isolation, private visibility, exactly seven nutrient provenance rows with the same public source URL, same-payload idempotent replay, changed-payload conflict, malformed provenance rejection, and anonymous rejection. It deliberately does not call the Sep20 generic v3 legacy branch. On a vanilla local Postgres replay that existing branch currently errors in the already-applied `20260920091249_nutrition_verified_import.sql` at its unqualified `nutrition_food_id` lookup; that remote-applied SQL remains unchanged and the generic legacy path is not proven by this replay.
 
 Run with Node.js, the Supabase CLI, Docker, and the integration package dependencies installed:
 
