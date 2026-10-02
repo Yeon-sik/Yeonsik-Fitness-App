@@ -53,6 +53,24 @@ The URL and anon key can be supplied as `NUTRITION_DB_URL` and
 When owner credentials are omitted, the service-role key is used to create two
 temporary users and remove them after the run.
 
+## Disposable migration history replay
+
+The historical-replay/replay.mjs runner starts two uniquely named local Supabase projects with Docker and no linked project reference:
+
+- a historical replay that runs all 27 recovered remote migrations from an empty database;
+- a second fresh replay that runs those same 27 migrations, applies both pending migrations, verifies the final schema and grants, runs the rollback fixture, and executes the authenticated integration suite.
+
+The runner first applies the real SQL through 20260814065526_product_nutrition_link_pricetrace_metadata.sql. It then loads historical-replay/pre_20260814065823_kaguri.sql, a disposable-only synthetic prerequisite, and applies unchanged historical SQL from 20260814065823 onward. The runner derives the one selector UUID from that original migration; the fixture contains no production owner or Nutrition row data and is not part of normal seed configuration.
+
+The final replay snapshots public table columns, constraints, and function definitions before 20261002120000_external_reference_nutrition_import_v1.sql. Assertions require that migration to add only its external-reference helper, preserve Sep20 constraints and the legacy RPC body, and update only the canonical v3 dispatcher. The current migration has no dynamic function patch. The runner fails closed if one is introduced before exact-anchor validation is added.
+
+Run with Node.js, the Supabase CLI, Docker, and the integration package dependencies installed:
+
+    npm ci --prefix supabase/nutrition/integration
+    node supabase/nutrition/integration/historical-replay/replay.mjs
+
+The runner removes only its uniquely created temporary project directories and Supabase data volumes. It never links to a hosted project and never runs db push.
+
 ## Verified Meal ingest
 
 `meal-import.integration.mjs` exercises the receiver path for a v2
