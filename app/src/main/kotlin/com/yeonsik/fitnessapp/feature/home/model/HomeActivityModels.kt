@@ -32,7 +32,9 @@ data class HomeActivityRecordSummary(
     val kind: HomeActivityKind,
     val name: String? = null,
     val category: String? = null,
-    val weightKg: Double? = null
+    val weightKg: Double? = null,
+    val workoutType: String? = null,
+    val durationSeconds: Int? = null
 )
 
 data class HomeActivityDayDetails(

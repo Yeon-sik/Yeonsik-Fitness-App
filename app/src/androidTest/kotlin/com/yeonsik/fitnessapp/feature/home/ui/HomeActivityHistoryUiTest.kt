@@ -93,6 +93,54 @@ class HomeActivityHistoryUiTest {
         assertTrue(nextMonday.left > first.left)
     }
 
+    @Test fun inlinePreviewStaysInsideNarrowScreenAtLargeFontScale() {
+        val date = "2026-09-30"
+        compose.setContent {
+            FitnessComposeTheme(false) {
+                val density = LocalDensity.current
+                CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
+                    Box(Modifier.width(280.dp).testTag("narrow-preview-host")) {
+                        HomeActivityHistorySection(
+                            ready(kinds = mapOf(date to HomeActivityKind.entries.toSet())),
+                            {}, {}, {}, {},
+                            dayDetails = HomeActivityDayDetailsUiState.Ready(
+                                "owner",
+                                HomeActivityDayDetails(date, listOf(
+                                    HomeActivityRecordSummary(
+                                        HomeActivityKind.EXERCISE,
+                                        name = "Long strength session title",
+                                        category = "등 · 가슴 · 이두 · 어깨",
+                                        workoutType = "strength"
+                                    ),
+                                    HomeActivityRecordSummary(
+                                        HomeActivityKind.EXERCISE,
+                                        name = "Long cardio title",
+                                        workoutType = "cardio",
+                                        durationSeconds = 5_400
+                                    ),
+                                    HomeActivityRecordSummary(HomeActivityKind.MEAL, name = "Long meal one"),
+                                    HomeActivityRecordSummary(HomeActivityKind.MEAL, name = "Long meal two"),
+                                    HomeActivityRecordSummary(HomeActivityKind.WEIGHT, weightKg = 88.4)
+                                ))
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        compose.onNodeWithTag("home-activity-cell-$date").performClick()
+        val host = compose.onNodeWithTag("narrow-preview-host").fetchSemanticsNode().boundsInRoot
+        val preview = compose.onNodeWithTag("home-activity-preview-$date", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot
+        assertTrue(preview.left >= host.left - 1f)
+        assertTrue(preview.right <= host.right + 1f)
+        compose.onNodeWithTag("home-activity-open-records").assertExists()
+        compose.onNodeWithTag("home-activity-preview-exercise", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("home-activity-preview-meal", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("home-activity-preview-weight", useUnmergedTree = true).assertExists()
+    }
+
     @Test fun currentNextAndOldestPreviousAreDisabledAndSelectorMovesBetweenPages() {
         val state = mutableStateOf<HomeActivityUiState>(ready())
         fun select(page: Int) { state.value = ready(page) }
@@ -106,6 +154,10 @@ class HomeActivityHistoryUiTest {
                 )
             }
         }
+        compose.onNodeWithText("2026 · 7–10월 ▾").assertExists()
+        compose.onNodeWithTag("home-activity-month-2026-10").assertExists()
+        compose.onNodeWithText("‹ 이전 13주").assertDoesNotExist()
+        compose.onNodeWithText("다음 13주 ›").assertDoesNotExist()
         compose.onNodeWithTag("home-activity-next").assertIsNotEnabled()
         compose.onNodeWithTag("home-activity-previous").assertIsEnabled().performClick()
         assertEquals(1, (state.value as HomeActivityUiState.Ready).window.pageOffset)
@@ -146,50 +198,82 @@ class HomeActivityHistoryUiTest {
         compose.onAllNodes(cellMatcher, useUnmergedTree = true).assertCountEquals(0)
     }
 
-    @Test fun clickingTrackedCellShowsSmallDateAndRecordSummaryBubble() {
+    @Test fun clickingTrackedCellShowsCompactInlinePreviewAndRecordsDateAction() {
         val date = "2026-09-30"
         val selectedDates = mutableListOf<String>()
+        val openedRecords = mutableListOf<String>()
         val details = HomeActivityDayDetails(date, listOf(
             HomeActivityRecordSummary(
                 HomeActivityKind.EXERCISE,
-                name = "하체 루틴",
-                category = "하체"
+                name = "상체 루틴",
+                category = "등 · 이두",
+                workoutType = "strength"
             ),
+            HomeActivityRecordSummary(
+                HomeActivityKind.EXERCISE,
+                name = "아침 달리기",
+                workoutType = "cardio",
+                durationSeconds = 1_920
+            ),
+            HomeActivityRecordSummary(HomeActivityKind.MEAL, name = "현미밥", category = "점심"),
+            HomeActivityRecordSummary(HomeActivityKind.MEAL, name = "닭가슴살", category = "저녁"),
             HomeActivityRecordSummary(HomeActivityKind.WEIGHT, weightKg = 62.4),
-            HomeActivityRecordSummary(HomeActivityKind.MEAL, name = "현미밥", category = "점심")
+            HomeActivityRecordSummary(HomeActivityKind.WEIGHT, weightKg = 63.0)
         ))
+        val detailState = mutableStateOf<HomeActivityDayDetailsUiState>(
+            HomeActivityDayDetailsUiState.Ready("owner", details)
+        )
         compose.setContent {
             FitnessComposeTheme(false) {
                 HomeActivityHistorySection(
                     ready(kinds = mapOf(date to HomeActivityKind.entries.toSet())),
                     {}, {}, {}, {},
-                    dayDetails = HomeActivityDayDetailsUiState.Ready("owner", details),
-                    onSelectDate = selectedDates::add
+                    dayDetails = detailState.value,
+                    onSelectDate = { selected ->
+                        selectedDates += selected
+                        if (selected != date) {
+                            detailState.value = HomeActivityDayDetailsUiState.Ready(
+                                "owner", HomeActivityDayDetails(selected, emptyList())
+                            )
+                        }
+                    },
+                    onOpenRecords = openedRecords::add
                 )
             }
         }
 
         compose.onNodeWithTag("home-activity-cell-$date").performClick()
-        compose.onNodeWithTag("home-activity-day-bubble-$date").assertExists()
+        compose.onNodeWithTag("home-activity-preview-$date", useUnmergedTree = true).assertExists()
         assertTrue(
             compose.onNodeWithTag("home-activity-cell-$date").fetchSemanticsNode().config
                 .getOrNull(SemanticsProperties.ContentDescription)
                 .orEmpty().any { it.endsWith("선택됨") }
         )
-        compose.onNodeWithText(date).assertExists()
-        compose.onNodeWithText("운동 · 하체 루틴 (하체)").assertExists()
-        compose.onNodeWithText("체중 · 62.4kg").assertExists()
-        compose.onNodeWithText("식단 · 점심 현미밥").assertExists()
+        compose.onNodeWithText("9월 30일").assertExists()
+        compose.onNodeWithText("등 · 이두 · 유산소 32분").assertExists()
+        compose.onNodeWithText("2회").assertExists()
+        compose.onNodeWithText("62.4kg").assertExists()
+        compose.onNodeWithText("상체 루틴").assertDoesNotExist()
+        compose.onNodeWithText("현미밥").assertDoesNotExist()
+        val exerciseTop = compose.onNodeWithTag("home-activity-preview-exercise", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.top
+        val mealTop = compose.onNodeWithTag("home-activity-preview-meal", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.top
+        val weightTop = compose.onNodeWithTag("home-activity-preview-weight", useUnmergedTree = true)
+            .fetchSemanticsNode().boundsInRoot.top
+        assertTrue(exerciseTop < mealTop && mealTop < weightTop)
         assertEquals(listOf(date), selectedDates)
+        compose.onNodeWithTag("home-activity-open-records").performClick()
+        assertEquals(listOf(date), openedRecords)
 
         compose.onNodeWithTag("home-activity-cell-$TODAY").performClick()
-        compose.onNodeWithTag("home-activity-day-bubble-$date").assertDoesNotExist()
-        compose.onNodeWithTag("home-activity-day-bubble-$TODAY").assertExists()
-        compose.onNodeWithText("기록 없음").assertExists()
+        compose.onNodeWithTag("home-activity-preview-$date", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag("home-activity-preview-$TODAY", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("home-activity-preview-empty", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("home-activity-cell-2026-10-02").assertIsNotEnabled()
     }
 
-    @Test fun tappingOutsideBubbleDismissesSelectedCell() {
+    @Test fun tappingBlankSpaceDismissesInlinePreviewAndSelection() {
         val date = "2026-09-30"
         compose.setContent {
             FitnessComposeTheme(false) {
@@ -208,14 +292,14 @@ class HomeActivityHistoryUiTest {
         }
 
         compose.onNodeWithTag("home-activity-cell-$date").performClick()
-        compose.onNodeWithTag("home-activity-day-bubble-$date").assertExists()
+        compose.onNodeWithTag("home-activity-preview-$date", useUnmergedTree = true).assertExists()
 
         val historyWidth = compose.onNodeWithTag("home-activity-history")
             .fetchSemanticsNode().boundsInRoot.width
         compose.onNodeWithTag("home-activity-history")
             .performTouchInput { click(Offset(historyWidth - 4f, 4f)) }
 
-        compose.onNodeWithTag("home-activity-day-bubble-$date").assertDoesNotExist()
+        compose.onNodeWithTag("home-activity-preview-$date", useUnmergedTree = true).assertDoesNotExist()
         assertTrue(
             compose.onNodeWithTag("home-activity-cell-$date").fetchSemanticsNode().config
                 .getOrNull(SemanticsProperties.ContentDescription)

@@ -153,6 +153,24 @@ class AppNavigationViewModelTest {
     }
 
     @Test
+    fun homeActivityDetailTargetOpensRecordsForTheSelectedDateWithoutTabEntrance() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        val selectedDate = "2026-09-30"
+
+        navigation.selectRecordsDate(selectedDate)
+        navigation.navigate(FitnessScreen.RECORDS)
+
+        assertEquals(FitnessScreen.RECORDS, navigation.currentScreen())
+        assertEquals(RecordsHubTab.RECORDS, navigation.recordsHubTab())
+        assertEquals(selectedDate, navigation.selectedRecordsDate())
+        assertEquals(null, navigation.uiState.value?.topLevelEntrance)
+        assertEquals(
+            arrayListOf(FitnessScreen.HOME.name, FitnessScreen.RECORDS.name),
+            navigation.savedScreenNames()
+        )
+    }
+
+    @Test
     fun legacyDeepNavigationOpensTheMatchingRecordsInnerTab() {
         val navigation = AppNavigationViewModel(SavedStateHandle())
 

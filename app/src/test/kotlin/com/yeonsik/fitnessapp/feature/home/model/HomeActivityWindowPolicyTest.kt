@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.feature.home.model
 
 import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.YearMonth
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -96,5 +97,35 @@ class HomeActivityWindowPolicyTest {
             assertEquals(DayOfWeek.MONDAY, window.start.dayOfWeek)
             assertEquals(DayOfWeek.SUNDAY, window.end.dayOfWeek)
         }
+    }
+
+    @Test fun periodUsesEveryVisibleMonthAndIncludesPartialLatestMonth() {
+        val dates = List(81) { LocalDate.parse("2026-06-13").plusDays(it.toLong()) }
+
+        assertEquals(
+            listOf("2026-06", "2026-07", "2026-08", "2026-09"),
+            HomeActivityWindowPolicy.visibleMonths(dates).map { it.yearMonth.toString() }
+        )
+        assertEquals("2026 · 6–9월", HomeActivityWindowPolicy.periodLabel(dates.first(), dates.last()))
+        assertEquals(YearMonth.parse("2026-09"), HomeActivityWindowPolicy.visibleMonths(dates).last().yearMonth)
+    }
+
+    @Test fun crossYearPeriodUsesPaddedYearMonthLabels() {
+        assertEquals(
+            "2025.12 – 2026.03",
+            HomeActivityWindowPolicy.periodLabel(LocalDate.parse("2025-12-15"), LocalDate.parse("2026-03-10"))
+        )
+    }
+
+    @Test fun collidingMonthLabelsKeepTheLatestVisibleMonth() {
+        val dates = List(91) { LocalDate.parse("2025-06-30").plusDays(it.toLong()) }
+        val months = HomeActivityWindowPolicy.visibleMonths(dates)
+        val labelWidths = months.associate { it.yearMonth to 2 }
+
+        assertEquals("2025 · 6–9월", HomeActivityWindowPolicy.periodLabel(dates.first(), dates.last()))
+        val placements = HomeActivityWindowPolicy.placeMonthLabels(months, labelWidths)
+        assertTrue(placements.any { it.yearMonth == YearMonth.parse("2025-09") })
+        assertFalse(placements.any { it.yearMonth == YearMonth.parse("2025-06") })
+        assertTrue(placements.any { it.yearMonth == YearMonth.parse("2025-07") })
     }
 }

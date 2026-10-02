@@ -31,7 +31,9 @@ class WorkoutHomeActivityReadSource(private val read: WorkoutReadApi) : HomeActi
                             else -> "운동 기록"
                         }
                     },
-                    category = bodyParts.joinToString(" · ").takeIf(String::isNotBlank)
+                    category = bodyParts.joinToString(" · ").takeIf(String::isNotBlank),
+                    workoutType = summary.workoutType,
+                    durationSeconds = summary.durationSeconds
                 )
             }
 }

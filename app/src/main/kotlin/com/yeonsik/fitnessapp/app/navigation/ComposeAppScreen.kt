@@ -978,6 +978,12 @@ private fun AppRoot(
                                 onActivityRetry = viewModels.getHome()::retryActivityHistory,
                                 activityDayDetails = homeActivityDayDetails,
                                 onActivityDateSelected = viewModels.getHome()::selectActivityDay,
+                                onActivityOpenRecords = { date ->
+                                    val scope = AccountScope(ownerId)
+                                    viewModels.getRecords().rememberSelectedDate(scope, date)
+                                    navigation.selectRecordsDate(date)
+                                    navigation.navigate(FitnessScreen.RECORDS)
+                                },
                                 entranceState = homeEntranceState,
                                 preferredMassUnit = unit,
                                 entranceToken = entranceToken,

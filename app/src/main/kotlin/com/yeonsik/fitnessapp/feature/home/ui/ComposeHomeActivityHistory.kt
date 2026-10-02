@@ -3,22 +3,23 @@ package com.yeonsik.fitnessapp.feature.home.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -32,25 +33,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntRect
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.window.Popup
-import androidx.compose.ui.window.PopupPositionProvider
-import androidx.compose.ui.window.PopupProperties
-import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
@@ -59,11 +52,12 @@ import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCell
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCellState
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityCoveragePolicyV1
-import com.yeonsik.fitnessapp.feature.home.model.HomeActivityDayDetails
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityKind
-import com.yeonsik.fitnessapp.feature.home.model.HomeActivityRecordSummary
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityWindow
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityWindowPolicy
+import java.time.LocalDate
+import java.util.Locale
+import kotlin.math.ceil
 
 private val HomeActivityCoverageColor = Color(FitnessUiTokens.COLOR_HOME_ACTIVITY_FULL_COVERAGE)
 private val HomeActivitySelectionColor = Color(0xFFFFD54F)
@@ -78,6 +72,7 @@ internal fun HomeActivityHistorySection(
     onRetry: () -> Unit,
     dayDetails: HomeActivityDayDetailsUiState = HomeActivityDayDetailsUiState.Idle,
     onSelectDate: (String) -> Unit = {},
+    onOpenRecords: (String) -> Unit = {},
     preferredMassUnit: MassUnit = MassUnit.KG,
     modifier: Modifier = Modifier
 ) {
@@ -107,31 +102,31 @@ internal fun HomeActivityHistorySection(
                             ),
                             verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
                         ) {
-                            ActivityPeriodSelector(page.window, onSelectPage, interactive)
+                            ActivityWindowNavigation(
+                                page.window,
+                                onPrevious,
+                                onNext,
+                                onSelectPage,
+                                interactive
+                            )
                             ActivityGrid(
                                 cells = page.cells,
                                 selectedDate = selectedDate,
-                                dayDetails = dayDetails,
-                                preferredMassUnit = preferredMassUnit,
                                 onSelectCell = { date ->
                                     selectedDate = if (selectedDate == date) null else date
                                     if (selectedDate != null) onSelectDate(date)
-                                },
-                                onDismissSelection = { selectedDate = null }
+                                }
                             )
-                            ActivityLegend()
-                            Row(Modifier.fillMaxWidth()) {
-                                TextButton(
-                                    onClick = onPrevious,
-                                    enabled = interactive && page.window.canGoPrevious,
-                                    modifier = Modifier.weight(1f).testTag("home-activity-previous")
-                                ) { Text("‹ 이전 13주") }
-                                TextButton(
-                                    onClick = onNext,
-                                    enabled = interactive && page.window.canGoNext,
-                                    modifier = Modifier.weight(1f).testTag("home-activity-next")
-                                ) { Text("다음 13주 ›") }
+                            selectedDate?.let { date ->
+                                ActivityDayPreview(
+                                    date = date,
+                                    expectedOwnerId = page.identity.ownerId,
+                                    state = dayDetails,
+                                    preferredMassUnit = preferredMassUnit,
+                                    onOpenRecords = { onOpenRecords(date) }
+                                )
                             }
+                            ActivityLegend()
                         }
                     }
                     if (state !is HomeActivityUiState.Ready) {
@@ -160,28 +155,46 @@ internal fun HomeActivityHistorySection(
 }
 
 @Composable
-private fun ActivityPeriodSelector(
-    window: HomeActivityWindow, onSelectPage: (Int) -> Unit, enabled: Boolean = true
+private fun ActivityWindowNavigation(
+    window: HomeActivityWindow,
+    onPrevious: () -> Unit,
+    onNext: () -> Unit,
+    onSelectPage: (Int) -> Unit,
+    enabled: Boolean
 ) {
     var expanded by rememberSaveable(window.today, window.firstRecordedDate) { mutableStateOf(false) }
-    Box(Modifier.fillMaxWidth()) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
         TextButton(
-            onClick = { expanded = true },
-            enabled = enabled,
-            modifier = Modifier.fillMaxWidth().testTag("home-activity-period")
-        ) { Text("${window.periodLabel} ▾", style = MaterialTheme.typography.bodySmall) }
-        DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
-            HomeActivityWindowPolicy.windows(window.today, window.firstRecordedDate).forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.periodLabel, style = MaterialTheme.typography.bodySmall) },
-                    onClick = {
-                        expanded = false
-                        onSelectPage(option.pageOffset)
-                    },
-                    modifier = Modifier.testTag("home-activity-period-${option.pageOffset}")
-                )
+            onClick = onPrevious,
+            enabled = enabled && window.canGoPrevious,
+            modifier = Modifier.width(48.dp).testTag("home-activity-previous")
+                .semantics { contentDescription = "이전 기간" }
+        ) { Text("‹", style = MaterialTheme.typography.titleMedium) }
+        Box(Modifier.weight(1f)) {
+            TextButton(
+                onClick = { expanded = true },
+                enabled = enabled,
+                modifier = Modifier.fillMaxWidth().testTag("home-activity-period")
+            ) { Text("${window.periodLabel} ▾", style = MaterialTheme.typography.bodySmall, maxLines = 1) }
+            DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
+                HomeActivityWindowPolicy.windows(window.today, window.firstRecordedDate).forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.periodLabel, style = MaterialTheme.typography.bodySmall) },
+                        onClick = {
+                            expanded = false
+                            onSelectPage(option.pageOffset)
+                        },
+                        modifier = Modifier.testTag("home-activity-period-${option.pageOffset}")
+                    )
+                }
             }
         }
+        TextButton(
+            onClick = onNext,
+            enabled = enabled && window.canGoNext,
+            modifier = Modifier.width(48.dp).testTag("home-activity-next")
+                .semantics { contentDescription = "다음 기간" }
+        ) { Text("›", style = MaterialTheme.typography.titleMedium) }
     }
 }
 
@@ -189,34 +202,16 @@ private fun ActivityPeriodSelector(
 private fun ActivityGrid(
     cells: List<HomeActivityCell>,
     selectedDate: String?,
-    dayDetails: HomeActivityDayDetailsUiState,
-    preferredMassUnit: MassUnit,
-    onSelectCell: (String) -> Unit,
-    onDismissSelection: () -> Unit
+    onSelectCell: (String) -> Unit
 ) {
     val weeks = cells.chunked(7)
-    val monthGroups = weeks.map { it.first().date.monthValue }.fold(mutableListOf<Pair<Int, Int>>()) { groups, month ->
-        if (groups.lastOrNull()?.first == month) {
-            val last = groups.removeAt(groups.lastIndex)
-            groups.add(month to last.second + 1)
-        } else groups.add(month to 1)
-        groups
-    }
     Column(
         modifier = Modifier.fillMaxWidth().testTag("home-activity-grid"),
         verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
         Row(Modifier.fillMaxWidth()) {
             Box(Modifier.width(24.dp))
-            Row(Modifier.weight(1f)) {
-                monthGroups.forEach { (month, count) ->
-                    Text(
-                        "${month}월", modifier = Modifier.weight(count.toFloat()),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            ActivityMonthLabels(cells.map { it.date }, Modifier.weight(1f))
         }
         listOf("월", "화", "수", "목", "금", "토", "일").forEachIndexed { dayIndex, day ->
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -228,10 +223,7 @@ private fun ActivityGrid(
                             cell = cell,
                             modifier = Modifier.weight(1f).aspectRatio(1f),
                             selected = selectedDate == cell.date.toString(),
-                            dayDetails = dayDetails,
-                            preferredMassUnit = preferredMassUnit,
-                            onClick = { onSelectCell(cell.date.toString()) },
-                            onDismissSelection = onDismissSelection
+                            onClick = { onSelectCell(cell.date.toString()) }
                         )
                     }
                 }
@@ -241,21 +233,54 @@ private fun ActivityGrid(
 }
 
 @Composable
+private fun ActivityMonthLabels(dates: List<LocalDate>, modifier: Modifier = Modifier) {
+    val months = remember(dates) { HomeActivityWindowPolicy.visibleMonths(dates) }
+    val textMeasurer = rememberTextMeasurer()
+    val density = LocalDensity.current
+    val labelStyle = MaterialTheme.typography.labelSmall
+    val gap = 3.dp
+    BoxWithConstraints(modifier.heightIn(min = 18.dp)) {
+        val columnStep = (maxWidth + gap) / HomeActivityWindowPolicy.WEEKS
+        val columnStepPx = with(density) { columnStep.toPx() }.coerceAtLeast(1f)
+        val widthsInColumns = months.associate { month ->
+            val label = "${month.yearMonth.monthValue}월"
+            val widthPx = textMeasurer.measure(label, style = labelStyle).size.width
+            month.yearMonth to ceil(widthPx / columnStepPx).toInt().coerceAtLeast(1)
+        }
+        val placements = HomeActivityWindowPolicy.placeMonthLabels(months, widthsInColumns)
+        placements.forEach { placement ->
+            val label = "${placement.yearMonth.monthValue}월"
+            val width = (columnStep * placement.columnSpan - gap).coerceAtLeast(1.dp)
+            Text(
+                text = label,
+                modifier = Modifier
+                    .offset(x = columnStep * placement.firstWeekColumn)
+                    .widthIn(max = width)
+                    .testTag("home-activity-month-${placement.yearMonth}")
+                    .semantics {
+                        contentDescription = "${placement.yearMonth.year}년 ${placement.yearMonth.monthValue}월"
+                    },
+                style = labelStyle,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                softWrap = false,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
 private fun ActivityCell(
     cell: HomeActivityCell,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
-    dayDetails: HomeActivityDayDetailsUiState = HomeActivityDayDetailsUiState.Idle,
-    preferredMassUnit: MassUnit = MassUnit.KG,
-    onClick: () -> Unit = {},
-    onDismissSelection: () -> Unit = {}
+    onClick: () -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(3.dp)
     val alpha = HomeActivityCoveragePolicyV1.alpha(cell)
     val date = cell.date.toString()
-    val selectedDetails = (dayDetails as? HomeActivityDayDetailsUiState.Ready)
-        ?.takeIf { it.details.date == date }?.details
     val background = when {
         alpha != null && alpha > 0f -> HomeActivityCoverageColor.copy(alpha = alpha)
         cell.state == HomeActivityCellState.TRACKED -> colors.surfaceContainerHighest
@@ -277,137 +302,73 @@ private fun ActivityCell(
             .semantics {
                 contentDescription = cell.contentDescription + if (selected) ", 선택됨" else ""
                 if (cell.state != HomeActivityCellState.TRACKED) disabled()
-            }
-    ) {
-        if (selected && cell.state == HomeActivityCellState.TRACKED) {
-            ActivityDayBubble(date, dayDetails, selectedDetails, preferredMassUnit, onDismissSelection)
-        }
-    }
+            })
 }
 
 @Composable
-private fun ActivityDayBubble(
+private fun ActivityDayPreview(
     date: String,
+    expectedOwnerId: String,
     state: HomeActivityDayDetailsUiState,
-    details: HomeActivityDayDetails?,
     preferredMassUnit: MassUnit,
-    onDismissRequest: () -> Unit
+    onOpenRecords: () -> Unit
 ) {
-    val positionProvider = remember(date) { ActivityDayBubblePositionProvider() }
-    Popup(
-        popupPositionProvider = positionProvider,
-        onDismissRequest = onDismissRequest,
-        properties = PopupProperties(focusable = true, dismissOnClickOutside = true)
+    val details = (state as? HomeActivityDayDetailsUiState.Ready)
+        ?.takeIf { it.ownerId == expectedOwnerId && it.details.date == date }
+        ?.details
+    val isLoading = (state as? HomeActivityDayDetailsUiState.Loading)
+        ?.let { it.ownerId == expectedOwnerId && it.date == date } ?: false
+    val error = (state as? HomeActivityDayDetailsUiState.Error)
+        ?.let { it.ownerId == expectedOwnerId && it.date == date } ?: false
+    val labelDate = remember(date) {
+        runCatching { LocalDate.parse(date) }.getOrNull()?.let { "${it.monthValue}월 ${it.dayOfMonth}일" } ?: date
+    }
+    val rows = remember(details, preferredMassUnit) {
+        details?.let { homeActivityPreviewRows(it, preferredMassUnit) }.orEmpty()
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(8.dp))
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .testTag("home-activity-preview-$date"),
+        verticalArrangement = Arrangement.spacedBy(3.dp)
     ) {
-        Column(
-            modifier = Modifier.width(180.dp).testTag("home-activity-day-bubble-$date"),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = Color.White,
-                contentColor = Color(0xFF202124),
-                shape = RoundedCornerShape(8.dp),
-                shadowElevation = 6.dp,
-                tonalElevation = 0.dp
-            ) {
-                Column(
-                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
+        Text(
+            labelDate,
+            modifier = Modifier.testTag("home-activity-preview-date")
+                .semantics { contentDescription = "${date.replace('-', ' ')}" },
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1
+        )
+        when {
+            isLoading || details == null && !error ->
+                Text("기록을 불러오는 중", style = MaterialTheme.typography.labelSmall)
+            error -> Text("기록을 불러오지 못했어요", style = MaterialTheme.typography.labelSmall)
+            details?.records?.isEmpty() != false || rows.isEmpty() ->
+                Text("기록 없음", modifier = Modifier.testTag("home-activity-preview-empty"),
+                    style = MaterialTheme.typography.labelSmall)
+            else -> rows.forEach { row ->
+                Row(
+                    Modifier.fillMaxWidth()
+                        .testTag("home-activity-preview-${row.kind.name.lowercase(Locale.ROOT)}"),
+                    verticalAlignment = Alignment.Top
                 ) {
-                    Text(date, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF202124))
-                    when {
-                        state is HomeActivityDayDetailsUiState.Loading && state.date == date ->
-                            BubbleLine("기록을 불러오는 중", color = Color(0xFF5F6368))
-                        state is HomeActivityDayDetailsUiState.Error && state.date == date ->
-                            BubbleLine("기록을 불러오지 못했어요", color = Color(0xFF5F6368))
-                        details == null || details.records.isEmpty() ->
-                            BubbleLine("기록 없음", color = Color(0xFF5F6368))
-                        else -> HomeActivityKind.entries.forEach { kind ->
-                            val records = details.recordsFor(kind)
-                            if (records.isNotEmpty()) {
-                                BubbleLine(
-                                    activitySummary(kind, records, preferredMassUnit),
-                                    color = Color(0xFF202124)
-                                )
-                            }
-                        }
-                    }
+                    Text(row.kind.label, modifier = Modifier.width(40.dp), style = MaterialTheme.typography.labelSmall)
+                    Text(
+                        row.summary,
+                        modifier = Modifier.weight(1f),
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
-            Canvas(Modifier.fillMaxWidth().height(6.dp)) {
-                val arrowHalfWidth = 6.dp.toPx()
-                val arrowCenter = positionProvider.arrowCenterX.toFloat()
-                    .coerceIn(arrowHalfWidth, size.width - arrowHalfWidth)
-                val pointer = Path().apply {
-                    moveTo(arrowCenter - arrowHalfWidth, 0f)
-                    lineTo(arrowCenter, size.height)
-                    lineTo(arrowCenter + arrowHalfWidth, 0f)
-                    close()
-                }
-                drawPath(pointer, Color.White)
-            }
         }
-    }
-}
-
-@Composable
-private fun BubbleLine(text: String, color: Color) {
-    Text(
-        text,
-        color = color,
-        fontSize = 11.sp,
-        lineHeight = 14.sp,
-        maxLines = 1,
-        overflow = TextOverflow.Ellipsis
-    )
-}
-
-private fun activitySummary(
-    kind: HomeActivityKind,
-    records: List<HomeActivityRecordSummary>,
-    preferredMassUnit: MassUnit
-): String {
-    val labels = records.take(2).mapNotNull { record ->
-        when (kind) {
-            HomeActivityKind.EXERCISE -> {
-                val routineName = record.name?.takeIf(String::isNotBlank) ?: "운동 기록"
-                val bodyPart = record.category?.takeIf(String::isNotBlank)
-                if (bodyPart == null) routineName else "$routineName ($bodyPart)"
-            }
-            HomeActivityKind.WEIGHT -> record.weightKg?.let { MassFormatter.withUnit(it, preferredMassUnit) }
-            HomeActivityKind.MEAL -> listOfNotNull(
-                record.category?.takeIf(String::isNotBlank),
-                record.name?.takeIf(String::isNotBlank)
-            ).joinToString(" ").takeIf(String::isNotBlank)
-        }
-    }
-    val more = records.size - labels.size
-    val label = when (kind) {
-        HomeActivityKind.EXERCISE -> "운동"
-        HomeActivityKind.WEIGHT -> "체중"
-        HomeActivityKind.MEAL -> "식단"
-    }
-    val summary = if (labels.isEmpty()) "기록 ${records.size}건" else labels.joinToString(", ")
-    return "$label · $summary" + if (more > 0) " 외 ${more}건" else ""
-}
-
-internal class ActivityDayBubblePositionProvider : PopupPositionProvider {
-    var arrowCenterX: Int = 0
-        private set
-
-    override fun calculatePosition(
-        anchorBounds: IntRect,
-        windowSize: IntSize,
-        layoutDirection: LayoutDirection,
-        popupContentSize: IntSize
-    ): IntOffset {
-        val anchorCenterX = anchorBounds.left + (anchorBounds.right - anchorBounds.left) / 2
-        val maxPopupLeft = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
-        val popupLeft = (anchorCenterX - popupContentSize.width / 2).coerceIn(0, maxPopupLeft)
-        arrowCenterX = (anchorCenterX - popupLeft).coerceIn(0, popupContentSize.width)
-        val popupTop = (anchorBounds.top - popupContentSize.height).coerceAtLeast(0)
-        return IntOffset(popupLeft, popupTop)
+        TextButton(
+            onClick = onOpenRecords,
+            modifier = Modifier.align(Alignment.End).testTag("home-activity-open-records")
+        ) { Text("기록에서 자세히 보기 ›", style = MaterialTheme.typography.labelSmall, maxLines = 1) }
     }
 }
 

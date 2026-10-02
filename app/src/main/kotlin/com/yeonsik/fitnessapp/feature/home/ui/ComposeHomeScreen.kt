@@ -207,6 +207,7 @@ internal fun HomeDestination(
     onActivityRetry: () -> Unit = {},
     activityDayDetails: HomeActivityDayDetailsUiState = HomeActivityDayDetailsUiState.Idle,
     onActivityDateSelected: (String) -> Unit = {},
+    onActivityOpenRecords: (String) -> Unit = {},
     entranceState: TopLevelEntranceState = rememberTopLevelEntranceState("HOME"),
     preferredMassUnit: MassUnit = MassUnit.KG,
     entranceToken: Long? = null,
@@ -279,6 +280,7 @@ internal fun HomeDestination(
                 onRetry = onActivityRetry,
                 dayDetails = activityDayDetails,
                 onSelectDate = onActivityDateSelected,
+                onOpenRecords = onActivityOpenRecords,
                 preferredMassUnit = preferredMassUnit,
                 modifier = Modifier.fillMaxWidth()
             )

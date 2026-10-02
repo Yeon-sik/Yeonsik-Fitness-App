@@ -224,6 +224,7 @@ class HomeActivityViewModelTest {
     @Test fun selectedTrackedDayLoadsOwnerScopedDetailsAndRejectsOlderSelection() {
         val f = Fixture()
         f.enter()
+        assertTrue(f.activity.detailDates.isEmpty()) // Range coverage never preloads day details.
         val firstDate = "2026-09-29"
         val secondDate = "2026-09-30"
         f.activity.detailsByDate[secondDate] = listOf(
