@@ -104,8 +104,10 @@ function inventory() {
   const genericFixSql = readFileSync(migration('20261002130000'), 'utf8');
   if (!genericFixSql.includes('pg_get_functiondef')
       || !genericFixSql.includes('v_anchor_count <> 1')
-      || !genericFixSql.includes('execute v_repaired')) {
-    throw new Error('Generic v3 patch must use pg_get_functiondef with an exact unique anchor and fail closed.');
+      || !genericFixSql.includes('execute v_repaired')
+      || !genericFixSql.includes('v_v3_anchor_count <> 1')
+      || !genericFixSql.includes('execute v_v3_repaired')) {
+    throw new Error('Both generic v3 patches must use pg_get_functiondef with exact unique anchors and fail closed.');
   }
   const oldSql = readFileSync(migration('20260814065823'), 'utf8');
   const ids = Array.from(oldSql.matchAll(/catalog_product_id\s*=\s*'([0-9a-f-]{36})'::uuid/gi), match => match[1]);
@@ -283,7 +285,6 @@ async function replay(label, final, kaguriId) {
     console.log('Applying pending generic v3 ambiguity forward fix locally');
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
     await sql(container, readFileSync(path.join(replayDir, 'assert_generic_v3_fix.sql'), 'utf8'));
-    await sql(container, readFileSync(path.join(replayDir, 'reproduce_generic_v3_followup_ambiguity.sql'), 'utf8'));
     await canonicalIntegration(project, status, 'canonical-v3-contract-matrix');
     console.log('PASS final fresh replay (27 recovered migrations plus all three pending migrations)');
   } finally {

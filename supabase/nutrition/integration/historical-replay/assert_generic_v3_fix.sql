@@ -2,12 +2,19 @@ do $assert_generic_v3_nutrition_food_id_fix$
 declare
     v_versions text[];
     v_target regprocedure;
+    v_v3_target regprocedure;
     v_before_definition text;
     v_before_privileges text;
     v_expected_definition text;
+    v_v3_before_definition text;
+    v_v3_before_privileges text;
+    v_v3_expected_definition text;
     v_anchor text := E'select * into v_existing_link\n        from public.product_nutrition_links\n        where owner_id = v_user_id\n          and nutrition_food_id = v_food_id\n          and status = ''approved''\n          and deleted_at is null\n        order by created_at desc\n        limit 1\n        for update;';
     v_qualified text := E'select * into v_existing_link\n        from public.product_nutrition_links as existing_link\n        where existing_link.owner_id = v_user_id\n          and existing_link.nutrition_food_id = v_food_id\n          and existing_link.status = ''approved''\n          and existing_link.deleted_at is null\n        order by existing_link.created_at desc\n        limit 1\n        for update;';
     v_target_count integer;
+    v_v3_anchor text := E'(select estimation_evidence_id\n             from public.nutrition_verified_imports\n             where id = v_existing.projection_import_id)';
+    v_v3_qualified text := E'(select verified_import.estimation_evidence_id\n             from public.nutrition_verified_imports as verified_import\n             where verified_import.id = v_existing.projection_import_id)';
+    v_v3_target_count integer;
     v_public_function_count integer;
     v_before_function_count integer;
 begin
@@ -53,6 +60,39 @@ begin
         raise exception 'Forward migration changed the legacy projection RPC grants';
     end if;
 
+    v_v3_target := pg_catalog.to_regprocedure(
+        'public.import_canonical_nutrition_v3_legacy(text,text,text,text,text,text,numeric,text,jsonb,jsonb,jsonb,jsonb,boolean,jsonb,jsonb,text,text,text,text)'
+    );
+    if v_v3_target is null then
+        raise exception 'Fixed legacy v3 dispatcher is missing';
+    end if;
+
+    select before_row.definition, before_row.privileges
+    into v_v3_before_definition, v_v3_before_privileges
+    from nutrition_v3_fix_replay.public_functions_before_fix as before_row
+    where before_row.function_oid = v_v3_target::oid
+      and before_row.function_name = 'import_canonical_nutrition_v3_legacy';
+    if v_v3_before_definition is null then
+        raise exception 'Pre-fix snapshot of the exact legacy v3 dispatcher is missing';
+    end if;
+
+    v_v3_target_count := (
+        pg_catalog.length(v_v3_before_definition)
+        - pg_catalog.length(pg_catalog.replace(v_v3_before_definition, v_v3_anchor, ''))
+    ) / pg_catalog.length(v_v3_anchor);
+    if v_v3_target_count <> 1 then
+        raise exception 'Pre-fix legacy v3 dispatcher must contain exactly one ambiguous estimation_evidence_id lookup; found %',
+            v_v3_target_count;
+    end if;
+    v_v3_expected_definition := pg_catalog.replace(v_v3_before_definition, v_v3_anchor, v_v3_qualified);
+    if pg_catalog.pg_get_functiondef(v_v3_target::oid) is distinct from v_v3_expected_definition then
+        raise exception 'Forward migration changed more than the exact legacy v3 idempotent replay query qualifier';
+    end if;
+    if (select procedure.proacl::text from pg_catalog.pg_proc as procedure where procedure.oid = v_v3_target::oid)
+       is distinct from v_v3_before_privileges then
+        raise exception 'Forward migration changed the legacy v3 dispatcher grants';
+    end if;
+
     if exists (
         select 1
         from nutrition_v3_fix_replay.public_functions_before_fix as before_row
@@ -61,6 +101,7 @@ begin
         where procedure.oid is null
            or (
                before_row.function_oid <> v_target::oid
+               and before_row.function_oid <> v_v3_target::oid
                and before_row.definition is distinct from pg_catalog.pg_get_functiondef(procedure.oid)
            )
            or before_row.privileges is distinct from procedure.proacl::text
@@ -202,4 +243,4 @@ begin
 end;
 $assert_generic_v3_nutrition_food_id_fix$;
 
-select 'PASS forward fix changed one generic v3 qualifier only; RPC grants, table shape, constraints, and RLS preserved' as result;
+select 'PASS forward fix changed only the two exact generic v3 query qualifiers; RPC grants, table shape, constraints, and RLS preserved' as result;
