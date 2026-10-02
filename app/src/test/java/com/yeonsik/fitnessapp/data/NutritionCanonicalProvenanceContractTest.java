@@ -81,7 +81,7 @@ public final class NutritionCanonicalProvenanceContractTest {
     private static String readMigration() throws Exception {
         return new String(Files.readAllBytes(findPath(
                 "supabase", "nutrition", "supabase", "migrations",
-                "20260827103000_nutrition_canonical_provenance_v2.sql"
+                "20260920091256_nutrition_canonical_provenance_v2.sql"
         )), StandardCharsets.UTF_8);
     }
 

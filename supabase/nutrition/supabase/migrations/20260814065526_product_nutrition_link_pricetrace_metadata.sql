@@ -189,3 +189,5 @@ comment on function public.get_public_product_nutrition_v1(text, uuid) is
 revoke all on function public.get_public_product_nutrition_v1(text, uuid) from public;
 grant execute on function public.get_public_product_nutrition_v1(text, uuid)
     to anon, authenticated;
+
+;

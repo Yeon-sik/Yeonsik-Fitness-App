@@ -487,3 +487,4 @@ comment on function public.import_canonical_nutrition_v2(
 ) is 'Authenticated canonical Nutrition input boundary. Separates nutrition-label.v1 observed facts from food-estimate.v1 estimates, retains per-nutrient evidence, and writes only a private point-value nutrition_foods projection.';
 comment on table public.nutrition_canonical_imports is 'Canonical OCR/App Nutrition provenance, separate from the legacy-compatible nutrition_foods projection.';
 comment on table public.nutrition_food_nutrient_provenance is 'Per-nutrient observed or estimated provenance for a canonical Nutrition import.';
+;

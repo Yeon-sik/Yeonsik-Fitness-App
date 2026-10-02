@@ -122,7 +122,7 @@ public final class ProductNutritionLinkContractTest {
     private static Path findPriceTraceMetadataMigration() {
         Path fromRoot = Paths.get(
                 "supabase", "nutrition", "supabase", "migrations",
-                "20260814100000_product_nutrition_link_pricetrace_metadata.sql"
+                "20260814065526_product_nutrition_link_pricetrace_metadata.sql"
         );
         if (Files.exists(fromRoot)) {
             return fromRoot;

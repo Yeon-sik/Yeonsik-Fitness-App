@@ -14,7 +14,7 @@ import static org.junit.Assert.assertTrue;
 public final class NutritionExternalReferenceContractTest {
     @Test
     public void acceptsTheSharedExternalReferenceFixtureWithPublishedNutritionProvenance() throws Exception {
-        String sql = readMigration("20260922100000_external_reference_nutrition_import_v1.sql");
+        String sql = readMigration("20261002120000_external_reference_nutrition_import_v1.sql");
         String fixture = readFixture();
         String helper = slice(
                 sql,
@@ -50,20 +50,21 @@ public final class NutritionExternalReferenceContractTest {
     @Test
     public void rejectsSourceMismatchBlankReferenceAndMissingRequiredNutrients() throws Exception {
         String helper = slice(
-                readMigration("20260922100000_external_reference_nutrition_import_v1.sql"),
+                readMigration("20261002120000_external_reference_nutrition_import_v1.sql"),
                 "create or replace function public.import_external_reference_nutrition_v1(",
                 "revoke all on function public.import_external_reference_nutrition_v1"
         );
         assertTrue(helper.contains("v_nutrient_source_type <> 'external_reference'"));
-        assertTrue(helper.contains("jsonb_object_length(v_required) <> 7"));
-        assertTrue(helper.contains("jsonb_object_length(v_nutrient_provenance) <> 7"));
+        assertTrue(helper.contains("(select count(*) from pg_catalog.jsonb_object_keys(v_required)) <> 7"));
+        assertTrue(helper.contains("(select count(*) from pg_catalog.jsonb_object_keys(v_nutrient_provenance)) <> 7"));
+        assertTrue(helper.contains("catalog_mapping.nutrition_food_id"));
         assertTrue(helper.contains("source URL in evidence_refs"));
         assertTrue(helper.contains("source_reference must be a public http/https URL"));
     }
 
     @Test
     public void keepsAuthenticationOwnerIsolationAndIdempotentReplayBoundaries() throws Exception {
-        String migration = readMigration("20260922100000_external_reference_nutrition_import_v1.sql");
+        String migration = readMigration("20261002120000_external_reference_nutrition_import_v1.sql");
         String helper = slice(
                 migration,
                 "create or replace function public.import_external_reference_nutrition_v1(",
@@ -77,13 +78,15 @@ public final class NutritionExternalReferenceContractTest {
         assertTrue(helper.contains("source_type = 'external_reference'"));
         assertTrue(helper.contains("source_reference = v_source_reference"));
         assertTrue(migration.contains("grant execute on function public.import_canonical_nutrition_v3"));
+        assertFalse(migration.contains("rename to import_canonical_nutrition_v3_legacy"));
+        assertFalse(migration.contains("alter table public.nutrition_canonical_imports"));
         assertTrue(migration.contains("revoke all on function public.import_canonical_nutrition_v3_legacy"));
     }
 
     @Test
     public void preservesTheExistingNutritionLabelAndRestaurantEstimateContracts() throws Exception {
-        String oldV3 = readMigration("20260910130534_nutrition_product_hierarchy_import_v3.sql");
-        String oldV2 = readMigration("20260827103000_nutrition_canonical_provenance_v2.sql");
+        String oldV3 = readMigration("20260920091342_nutrition_product_hierarchy_import_v3.sql");
+        String oldV2 = readMigration("20260920091256_nutrition_canonical_provenance_v2.sql");
         assertTrue(oldV3.contains("v_contract not in ('nutrition-label.v1', 'food-estimate.v1')"));
         assertFalse(oldV3.contains("external-reference.v1"));
         assertTrue(oldV2.contains("input_contract in ('nutrition-label.v1', 'food-estimate.v1')"));

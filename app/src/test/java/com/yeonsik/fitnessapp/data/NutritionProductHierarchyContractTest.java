@@ -103,10 +103,10 @@ public final class NutritionProductHierarchyContractTest {
     @Test
     public void keepsV1V2ContractsAndPreservesHierarchyThroughAppSyncMapping() throws Exception {
         String v1 = readMigration(
-                "20260827090000_nutrition_verified_import.sql"
+                "20260920091249_nutrition_verified_import.sql"
         );
         String v2 = readMigration(
-                "20260827103000_nutrition_canonical_provenance_v2.sql"
+                "20260920091256_nutrition_canonical_provenance_v2.sql"
         );
         String client = readPath(
                 "app", "src", "main", "java", "com", "yeonsik", "fitnessapp",
@@ -150,7 +150,7 @@ public final class NutritionProductHierarchyContractTest {
     }
 
     private static String readV3Migration() throws Exception {
-        return readMigration("20260910130534_nutrition_product_hierarchy_import_v3.sql");
+        return readMigration("20260920091342_nutrition_product_hierarchy_import_v3.sql");
     }
 
     private static String slice(String value, String start, String end) {

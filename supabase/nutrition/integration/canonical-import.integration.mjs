@@ -286,8 +286,11 @@ function assertAuthoritativeV3RequestShape(payload) {
 }
 
 function hierarchyFingerprint(values) {
+  // PostgreSQL hashes jsonb_build_array(... )::text, which inserts a space
+  // after each comma; mirror that canonical text instead of compact JSON.stringify.
+  const postgresJsonbArrayText = `[${values.map(value => JSON.stringify(value)).join(', ')}]`;
   return crypto.createHash('sha256')
-    .update(JSON.stringify(values), 'utf8')
+    .update(postgresJsonbArrayText, 'utf8')
     .digest('hex');
 }
 
@@ -346,14 +349,15 @@ function requiredValues(seed) {
 }
 
 function provenanceFor(values, sourceTypes, valueStatus, refPrefix) {
-  return Object.fromEntries(REQUIRED_NUTRIENTS.map((key, index) => ({
-    [key]: {
+  return Object.fromEntries(REQUIRED_NUTRIENTS.map((key, index) => [
+    key,
+    {
       value: values[key],
       value_status: valueStatus,
       source_type: sourceTypes[index],
       evidence_refs: [integrationRef(`${refPrefix}/${key}`)]
     }
-  })));
+  ]));
 }
 
 function labelPayload(idempotencyKey, name, documentRef = idempotencyKey) {
@@ -406,13 +410,14 @@ function estimatePayload(idempotencyKey, name, documentRef = idempotencyKey) {
     'food_image_estimate',
     'menu_reference'
   ];
-  const range = Object.fromEntries(REQUIRED_NUTRIENTS.map((key) => ({
-    [key]: {
+  const range = Object.fromEntries(REQUIRED_NUTRIENTS.map((key) => [
+    key,
+    {
       min: Math.max(0, values[key] * 0.8),
       point: values[key],
       max: values[key] * 1.25
     }
-  })));
+  ]));
   return {
     p_idempotency_key: idempotencyKey,
     p_input_contract: 'food-estimate.v1',
@@ -829,6 +834,222 @@ async function cleanup() {
   console.log('PASS integration cleanup');
 }
 
+async function runExternalReferenceOnly(ownerA, ownerB) {
+  const payload = {
+    ...JSON.parse(JSON.stringify(EXTERNAL_REFERENCE_FIXTURE)),
+    p_idempotency_key: uniqueId('external-reference-replay')
+  };
+  const result = await callCanonicalV3(ownerA, payload);
+  recordImport(result);
+  await verifyExternalReference(ownerA, result, payload, payload.p_food_name);
+  await verifyOwnerIsolation(ownerA, ownerB, result);
+  await verifyV3ReadIsolation(ownerB, payload.p_food_name);
+
+  const replay = await callCanonicalV3(ownerA, payload);
+  recordImport(replay);
+  assertEqual(replay.canonical_import_id, result.canonical_import_id, 'external replay canonical id');
+  assertEqual(replay.nutrition_food_id, result.nutrition_food_id, 'external replay food id');
+  assertEqual(replay.idempotent_replay, true, 'external replay flag');
+  assertEqual(
+    (await getRows(ownerA, 'nutrition_food_nutrient_provenance', {
+      canonical_import_id: result.canonical_import_id
+    })).length,
+    7,
+    'external replay must not add provenance rows'
+  );
+
+  const changedPayload = {
+    ...JSON.parse(JSON.stringify(payload)),
+    p_food_name: `${payload.p_food_name} changed`
+  };
+  await assertFunctionRejected(
+    'external-reference same-key changed-payload conflict',
+    () => callCanonicalV3(ownerA, changedPayload)
+  );
+
+  const missingNutrientProvenance = {
+    ...JSON.parse(JSON.stringify(payload)),
+    p_idempotency_key: uniqueId('external-reference-missing-provenance')
+  };
+  delete missingNutrientProvenance.p_nutrient_provenance.sodium_mg;
+  await assertFunctionRejected(
+    'external-reference missing nutrient provenance rejection',
+    () => callCanonicalV3(ownerA, missingNutrientProvenance)
+  );
+
+  const changedEvidenceReference = {
+    ...JSON.parse(JSON.stringify(payload)),
+    p_idempotency_key: uniqueId('external-reference-evidence-mismatch')
+  };
+  changedEvidenceReference.p_nutrient_provenance.calories_kcal.evidence_refs = [
+    'https://example.test/different-source'
+  ];
+  await assertFunctionRejected(
+    'external-reference nutrient source URL evidence rejection',
+    () => callCanonicalV3(ownerA, changedEvidenceReference)
+  );
+
+  await expectRejected(
+    'anonymous external-reference canonical RPC rejection',
+    '/rest/v1/rpc/import_canonical_nutrition_v3',
+    {
+      method: 'POST',
+      headers: authHeaders(null),
+      body: JSON.stringify(payload)
+    }
+  );
+  console.log('PASS external-reference private import, owner isolation, seven nutrient provenance, source URL, auth, and idempotency checks');
+}
+
+async function reproduceGenericV3NutritionFoodIdAmbiguity(owner) {
+  const payload = packagedHierarchyLabelPayload(
+    uniqueId('generic-v3-ambiguity-repro'),
+    'Generic v3 Ambiguity Reproduction'
+  );
+  const result = await request(
+    'generic v3 ambiguity reproduction',
+    '/rest/v1/rpc/import_canonical_nutrition_v3',
+    {
+      method: 'POST',
+      headers: rpcHeaders(owner),
+      body: JSON.stringify(payload)
+    }
+  );
+  assert(!result.ok, 'generic v3 ambiguity reproduction unexpectedly succeeded');
+  assertEqual(result.body?.code, '42702', 'generic v3 ambiguity SQLSTATE');
+  assert(
+    /nutrition_food_id/i.test(result.body?.message || ''),
+    `generic v3 ambiguity error did not identify nutrition_food_id: ${bodyJson(result.body)}`
+  );
+  console.log('PASS reproduced authenticated generic v3 nutrition_food_id ambiguity (SQLSTATE 42702)');
+  console.log(`DIAG generic-v3-ambiguity ${bodyJson(result.body)}`);
+}
+
+async function runCanonicalV3ContractMatrix(ownerA, ownerB) {
+  const label = packagedHierarchyLabelPayload(
+    uniqueId('v3-matrix-label'),
+    'Integration v3 Label Matrix'
+  );
+  const labelResult = await callCanonicalV3(ownerA, label);
+  await verifyCanonicalResult(ownerA, labelResult, 'nutrition-label.v1', 'product_label_ocr');
+  await verifyV3Hierarchy(
+    ownerA,
+    labelResult,
+    {
+      manufacturer_name: label.p_manufacturer_name,
+      brand_name: label.p_brand_name,
+      sub_brand_name: label.p_sub_brand_name,
+      product_name: label.p_product_name,
+      legacy_brand: label.p_brand,
+      catalog_product_id: label.p_pricetrace_identity.catalog_product_id
+    },
+    label.p_sub_brand_name
+  );
+  await verifyOwnerIsolation(ownerA, ownerB, labelResult);
+  await verifyV3ReadIsolation(ownerB, label.p_sub_brand_name);
+  const labelReplay = await callCanonicalV3(ownerA, label);
+  assertEqual(labelReplay.canonical_import_id, labelResult.canonical_import_id, 'label v3 replay import id');
+  assertEqual(labelReplay.nutrition_food_id, labelResult.nutrition_food_id, 'label v3 replay food id');
+  assertEqual(labelReplay.idempotent_replay, true, 'label v3 replay flag');
+  assertEqual(
+    (await getRows(ownerA, 'nutrition_food_nutrient_provenance', {
+      canonical_import_id: labelResult.canonical_import_id
+    })).length,
+    7,
+    'label v3 replay must not add provenance rows'
+  );
+  console.log('PASS nutrition-label.v1 v3 owner isolation and idempotency');
+
+  const estimate = estimateV3Payload(
+    uniqueId('v3-matrix-estimate'),
+    'Integration v3 Estimate Matrix'
+  );
+  const estimateResult = await callCanonicalV3(ownerA, estimate);
+  await verifyCanonicalResult(ownerA, estimateResult, 'food-estimate.v1', 'food_image_estimate');
+  await verifyV3NullHierarchy(ownerA, estimateResult, estimate.p_brand, estimate.p_food_name);
+  await verifyOwnerIsolation(ownerA, ownerB, estimateResult);
+  await verifyV3ReadIsolation(ownerB, estimate.p_food_name);
+  const estimateProvenance = await getRows(
+    ownerA,
+    'nutrition_food_nutrient_provenance',
+    { canonical_import_id: estimateResult.canonical_import_id },
+    'nutrient_code,value_status,source_type,confidence,uncertainty_range,evidence_refs'
+  );
+  assertEqual(estimateProvenance.length, 7, 'estimate v3 provenance row count');
+  for (const row of estimateProvenance) {
+    assertEqual(row.value_status, 'estimated', `estimate status for ${row.nutrient_code}`);
+    assertEqual(row.confidence, estimate.p_estimation_evidence.confidence, `estimate confidence for ${row.nutrient_code}`);
+    const expectedRange = estimate.p_estimation_evidence.range[row.nutrient_code];
+    assert(expectedRange, `estimate payload range for ${row.nutrient_code}`);
+    assert(row.uncertainty_range, `persisted estimate uncertainty range for ${row.nutrient_code}`);
+    for (const bound of ['min', 'point', 'max']) {
+      assertEqual(
+        row.uncertainty_range[bound],
+        expectedRange[bound],
+        `estimate ${bound} provenance for ${row.nutrient_code}`
+      );
+    }
+  }
+  const estimateReplay = await callCanonicalV3(ownerA, estimate);
+  assertEqual(estimateReplay.canonical_import_id, estimateResult.canonical_import_id, 'estimate v3 replay import id');
+  assertEqual(estimateReplay.nutrition_food_id, estimateResult.nutrition_food_id, 'estimate v3 replay food id');
+  assertEqual(estimateReplay.idempotent_replay, true, 'estimate v3 replay flag');
+  assertEqual(
+    (await getRows(ownerA, 'nutrition_food_nutrient_provenance', {
+      canonical_import_id: estimateResult.canonical_import_id
+    })).length,
+    7,
+    'estimate v3 replay must not add provenance rows'
+  );
+  console.log('PASS food-estimate.v1 v3 owner isolation, uncertainty provenance, and idempotency');
+
+  const externalReference = {
+    ...JSON.parse(JSON.stringify(EXTERNAL_REFERENCE_FIXTURE)),
+    p_idempotency_key: uniqueId('v3-matrix-external-reference')
+  };
+  const externalResult = await callCanonicalV3(ownerA, externalReference);
+  await verifyExternalReference(
+    ownerA,
+    externalResult,
+    externalReference,
+    externalReference.p_food_name
+  );
+  await verifyOwnerIsolation(ownerA, ownerB, externalResult);
+  await verifyV3ReadIsolation(ownerB, externalReference.p_food_name);
+  const externalReplay = await callCanonicalV3(ownerA, externalReference);
+  assertEqual(externalReplay.canonical_import_id, externalResult.canonical_import_id, 'external v3 replay import id');
+  assertEqual(externalReplay.nutrition_food_id, externalResult.nutrition_food_id, 'external v3 replay food id');
+  assertEqual(externalReplay.idempotent_replay, true, 'external v3 replay flag');
+  assertEqual(
+    (await getRows(ownerA, 'nutrition_food_nutrient_provenance', {
+      canonical_import_id: externalResult.canonical_import_id
+    })).length,
+    7,
+    'external v3 replay must not add provenance rows'
+  );
+  console.log('PASS external-reference.v1 v3 owner isolation, source reference, provenance, and idempotency');
+
+  for (const [contract, payload] of [
+    ['nutrition-label.v1', label],
+    ['food-estimate.v1', estimate],
+    ['external-reference.v1', externalReference]
+  ]) {
+    const anonymous = await request(
+      `anonymous canonical v3 ${contract}`,
+      '/rest/v1/rpc/import_canonical_nutrition_v3',
+      {
+        method: 'POST',
+        headers: authHeaders(null),
+        body: JSON.stringify(payload)
+      }
+    );
+    assert(!anonymous.ok, `anonymous ${contract} import unexpectedly succeeded`);
+    assertEqual(anonymous.status, 401, `anonymous ${contract} status`);
+    console.log(`PASS anonymous ${contract} v3 rejection (401)`);
+  }
+  console.log('PASS all three canonical v3 contract paths');
+}
+
 async function run() {
   if (process.env.NUTRITION_INTEGRATION_ALLOW_REMOTE !== 'true') {
     throw new ConfigurationError(
@@ -842,6 +1063,19 @@ async function run() {
   }
 
   const { ownerA, ownerB } = await resolveOwners();
+  if (process.env.NUTRITION_INTEGRATION_MODE === 'generic-v3-ambiguity-repro') {
+    await reproduceGenericV3NutritionFoodIdAmbiguity(ownerA);
+    return;
+  }
+  if (process.env.NUTRITION_INTEGRATION_MODE === 'canonical-v3-contract-matrix') {
+    await runCanonicalV3ContractMatrix(ownerA, ownerB);
+    return;
+  }
+  if (process.env.NUTRITION_INTEGRATION_MODE === 'external-reference-only') {
+    await runExternalReferenceOnly(ownerA, ownerB);
+    return;
+  }
+
   const hierarchy = packagedHierarchyLabelPayload(
     uniqueId('hierarchy-full'),
     'Integration Hierarchy Display'

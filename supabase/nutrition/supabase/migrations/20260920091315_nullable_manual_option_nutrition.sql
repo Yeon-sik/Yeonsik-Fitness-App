@@ -33,3 +33,4 @@ alter table public.nutrition_foods
       )
     )
   );
+;
