@@ -19,6 +19,8 @@ interface MealReadApi {
     ): List<MealReadSummary>
     fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int
     fun dates(scope: AccountScope, startDate: String, endDate: String): List<String>
+    /** Same owner and visibility policy as dates, across all dates. */
+    fun earliestRecordedDate(scope: AccountScope): String?
     fun nutritionSummary(scope: AccountScope, startDate: String, endDate: String): MealNutritionReadSummary
 
     /** Returns immutable Meal-owned snapshots for a date range. */

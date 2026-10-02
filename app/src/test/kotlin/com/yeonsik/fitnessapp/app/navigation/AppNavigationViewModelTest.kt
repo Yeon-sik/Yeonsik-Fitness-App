@@ -31,6 +31,105 @@ class AppNavigationViewModelTest {
     }
 
     @Test
+    fun freshHomeHasInitialEntranceAndRefreshOrSameTabKeepsThatArrival() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        val initial = TopLevelEntranceEvent(FitnessScreen.HOME, 1L)
+        assertEquals(initial, navigation.uiState.value?.topLevelEntrance)
+
+        navigation.selectTopLevelFromTab(FitnessScreen.HOME)
+        navigation.updateToday("2026-10-02")
+        navigation.selectMealDate("2026-10-01")
+        navigation.selectRecordsDate("2026-10-01")
+        navigation.selectRoutine("routine")
+        assertEquals(initial, navigation.uiState.value?.topLevelEntrance)
+    }
+
+    @Test
+    fun onlyActualTabClicksToAnimatedDestinationsAdvanceGeneration() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        navigation.selectTopLevelFromTab(FitnessScreen.WORKOUT)
+        assertEquals(TopLevelEntranceEvent(FitnessScreen.WORKOUT, 2L), navigation.uiState.value?.topLevelEntrance)
+        navigation.selectTopLevelFromTab(FitnessScreen.WORKOUT)
+        assertEquals(TopLevelEntranceEvent(FitnessScreen.WORKOUT, 2L), navigation.uiState.value?.topLevelEntrance)
+        navigation.selectTopLevelFromTab(FitnessScreen.RECORDS)
+        assertEquals(TopLevelEntranceEvent(FitnessScreen.RECORDS, 3L), navigation.uiState.value?.topLevelEntrance)
+        navigation.selectTopLevelFromTab(FitnessScreen.HOME)
+        assertEquals(TopLevelEntranceEvent(FitnessScreen.HOME, 4L), navigation.uiState.value?.topLevelEntrance)
+        navigation.selectTopLevelFromTab(FitnessScreen.SETTINGS)
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+        navigation.selectTopLevelFromTab(FitnessScreen.HOME)
+        assertEquals(TopLevelEntranceEvent(FitnessScreen.HOME, 5L), navigation.uiState.value?.topLevelEntrance)
+    }
+
+    @Test
+    fun swipeStartCancelsPendingEntranceAndCancelOrCompletionDoesNotIssueAnother() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        navigation.beginTopLevelSwipe()
+        assertEquals(FitnessScreen.HOME, navigation.currentScreen())
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+        // Cancel has no navigation commit; later ready/refresh must not revive the pending arrival.
+        navigation.updateToday("2026-10-02")
+        navigation.selectTopLevelFromTab(FitnessScreen.HOME)
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+        assertTrue(navigation.swipeTopLevel(forward = true))
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+        navigation.selectTopLevel(FitnessScreen.RECORDS)
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+        navigation.selectTopLevelFromTab(FitnessScreen.HOME)
+        assertEquals(TopLevelEntranceEvent(FitnessScreen.HOME, 2L), navigation.uiState.value?.topLevelEntrance)
+    }
+
+    @Test
+    fun childBackAndProgrammaticReplacementDoNotGenerateEntrance() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        navigation.selectTopLevelFromTab(FitnessScreen.WORKOUT)
+        navigation.navigate(FitnessScreen.STRENGTH)
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+        assertTrue(navigation.back())
+        assertEquals(FitnessScreen.WORKOUT, navigation.currentScreen())
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+        navigation.replace(FitnessScreen.HOME)
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+        navigation.navigate(FitnessScreen.CARDIO)
+        navigation.selectTopLevelFromTab(FitnessScreen.HOME)
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+    }
+
+    @Test
+    fun recordsHubSwitchesNeverGenerateEntranceAndRetainInnerTabOnClickReturn() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        navigation.selectTopLevelFromTab(FitnessScreen.RECORDS)
+        navigation.selectRecordsHubTab(RecordsHubTab.DEVELOPMENT)
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+        navigation.selectRecordsHubTab(RecordsHubTab.STATISTICS)
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+        navigation.selectTopLevelFromTab(FitnessScreen.WORKOUT)
+        navigation.selectTopLevelFromTab(FitnessScreen.RECORDS)
+        assertEquals(RecordsHubTab.STATISTICS, navigation.recordsHubTab())
+        assertEquals(TopLevelEntranceEvent(FitnessScreen.RECORDS, 4L), navigation.uiState.value?.topLevelEntrance)
+        navigation.selectRecordsHubTab(RecordsHubTab.RECORDS)
+        assertNull(navigation.uiState.value?.topLevelEntrance)
+    }
+
+    @Test
+    fun savedStateAndExplicitActivityRestoreDoNotReplayPendingArrivals() {
+        val savedState = SavedStateHandle()
+        val navigation = AppNavigationViewModel(savedState)
+        navigation.selectTopLevelFromTab(FitnessScreen.WORKOUT)
+        val restored = AppNavigationViewModel(savedState)
+        assertEquals(FitnessScreen.WORKOUT, restored.currentScreen())
+        assertNull(restored.uiState.value?.topLevelEntrance)
+        restored.selectTopLevelFromTab(FitnessScreen.HOME)
+        assertEquals(TopLevelEntranceEvent(FitnessScreen.HOME, 3L), restored.uiState.value?.topLevelEntrance)
+        restored.restore("HOME", arrayListOf("HOME"), "2026-10-02", null, null, null, "RECORDS")
+        assertNull(restored.uiState.value?.topLevelEntrance)
+        restored.selectTopLevelFromTab(FitnessScreen.WORKOUT)
+        assertEquals(TopLevelEntranceEvent(FitnessScreen.WORKOUT, 4L), restored.uiState.value?.topLevelEntrance)
+        val restoredInitialHome = AppNavigationViewModel(SavedStateHandle(mapOf("navigation.screen" to "HOME")))
+        assertNull(restoredInitialHome.uiState.value?.topLevelEntrance)
+    }
+
+    @Test
     fun startupCompletionIsRetainedByViewModelButNotSavedForProcessRecreation() {
         val savedState = SavedStateHandle()
         val navigation = AppNavigationViewModel(savedState)
@@ -51,6 +150,24 @@ class AppNavigationViewModelTest {
 
         assertEquals(FitnessScreen.RECORDS, navigation.currentScreen())
         assertEquals(RecordsHubTab.RECORDS, navigation.recordsHubTab())
+    }
+
+    @Test
+    fun homeActivityDetailTargetOpensRecordsForTheSelectedDateWithoutTabEntrance() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        val selectedDate = "2026-09-30"
+
+        navigation.selectRecordsDate(selectedDate)
+        navigation.navigate(FitnessScreen.RECORDS)
+
+        assertEquals(FitnessScreen.RECORDS, navigation.currentScreen())
+        assertEquals(RecordsHubTab.RECORDS, navigation.recordsHubTab())
+        assertEquals(selectedDate, navigation.selectedRecordsDate())
+        assertEquals(null, navigation.uiState.value?.topLevelEntrance)
+        assertEquals(
+            arrayListOf(FitnessScreen.HOME.name, FitnessScreen.RECORDS.name),
+            navigation.savedScreenNames()
+        )
     }
 
     @Test

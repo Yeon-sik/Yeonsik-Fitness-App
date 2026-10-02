@@ -14,14 +14,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -37,23 +43,26 @@ import com.yeonsik.fitnessapp.core.ui.ThinkingOrb
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarDayCell
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarMarker
+import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
 import com.yeonsik.fitnessapp.core.ui.FitnessMonthHeader
 import com.yeonsik.fitnessapp.core.ui.fitnessCalendarDayPresentation
 import com.yeonsik.fitnessapp.core.ui.fitnessWeekdayLabels
+import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceContent
+import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceMotion
+import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceState
+import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceMotion
+import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceState
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
+import com.yeonsik.fitness.shared.feature.meal.model.MealReadSummary
 import com.yeonsik.fitness.shared.feature.records.model.RecordsCalendarDay
 import com.yeonsik.fitness.shared.feature.records.model.RecordsDayDetail
 import com.yeonsik.fitness.shared.feature.records.model.RecordsWorkoutSummary
 import java.time.LocalDate
 import java.time.YearMonth
+import java.text.NumberFormat
 import java.util.Locale
 
-private val recordsCalendarMarkerColors = mapOf(
-    "workout" to Color(0xFFEF4444),
-    "body" to Color(0xFF10B981),
-    "meal" to Color(0xFFFACC15)
-)
 private val recordsLoadingMessages = listOf("기록을 불러오는 중")
 
 interface RecordsScreenActions {
@@ -73,10 +82,19 @@ internal fun RecordsScreen(
     today: String,
     unit: MassUnit,
     selectedDate: String,
-    actions: RecordsScreenActions
+    actions: RecordsScreenActions,
+    entranceState: TopLevelEntranceState = rememberTopLevelEntranceState("RECORDS"),
+    entranceToken: Long? = null,
+    isActualActive: Boolean = true
 ) {
+    var selectedMealId by rememberSaveable(ownerId, selectedDate, isActualActive) {
+        mutableStateOf<String?>(null)
+    }
     val ready = state as? RecordsUiState.Ready
     val snapshot = ready?.snapshot?.takeIf { it.ownerId == ownerId }
+    val entrance = rememberTopLevelEntranceMotion(
+        entranceState, entranceToken, isActualActive, contentReady = snapshot != null
+    )
     AppHeader("기록", selectedDate)
     val monthText = snapshot?.displayedMonth ?: when (state) {
         is RecordsUiState.Loading -> state.displayedMonth
@@ -115,11 +133,18 @@ internal fun RecordsScreen(
         }
         return
     }
-    RecordsCalendarLegend()
-    RecordsCalendar(displayedMonth, selected, currentDay, snapshot.calendarDays, actions)
+    TopLevelEntranceContent(entrance, order = 0) { RecordsCalendarLegend() }
+    TopLevelEntranceContent(entrance, order = 1) {
+        RecordsCalendar(displayedMonth, selected, currentDay, snapshot.calendarDays, actions)
+    }
     Spacer(Modifier.height(AppSpacing.small))
     snapshot.dayDetailsByDate[selectedDate]?.let { detail ->
-        RecordsDayDetailSection(detail, unit, actions)
+        RecordsDayDetailSection(detail, unit, actions, entrance) { mealId ->
+            if (isActualActive) selectedMealId = mealId
+        }
+        detail.meals.firstOrNull { it.id == selectedMealId }?.takeIf { isActualActive }?.let { meal ->
+            RecordsMealSummaryDialog(meal, onDismiss = { selectedMealId = null })
+        }
     }
 }
 
@@ -192,7 +217,7 @@ private fun RecordsCalendar(
                                 today = today,
                                 markers = day.markers()
                             ),
-                            markerColors = recordsCalendarMarkerColors,
+                            markerColors = FitnessRecordMarkerColors.byKey,
                             modifier = Modifier.fillMaxWidth(),
                             onClick = { actions.selectDate(day.date) }
                         )
@@ -216,23 +241,24 @@ private fun RecordsCalendar(
 }
 
 @Composable
-private fun RecordsCalendarLegend() {
+internal fun RecordsCalendarLegend(modifier: Modifier = Modifier) {
     val entries = listOf(
-        "운동" to recordsCalendarMarkerColors.getValue("workout"),
-        "식사" to recordsCalendarMarkerColors.getValue("meal"),
-        "체중" to recordsCalendarMarkerColors.getValue("body")
+        "workout" to "운동",
+        "meal" to "식단",
+        "body" to "체중"
     )
     Row(
-        Modifier.fillMaxWidth(),
+        modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        entries.forEach { (label, color) ->
+        entries.forEach { (key, label) ->
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Spacer(
                     Modifier
                         .size(8.dp)
-                        .background(color, CircleShape)
+                        .background(FitnessRecordMarkerColors.byKey.getValue(key), CircleShape)
+                        .testTag("records-legend-$key")
                 )
                 Text(label, Modifier.padding(start = FitnessSpacing.micro),
                     style = MaterialTheme.typography.bodySmall,
@@ -246,81 +272,159 @@ private fun RecordsCalendarLegend() {
 private fun RecordsDayDetailSection(
     detail: RecordsDayDetail,
     unit: MassUnit,
-    actions: RecordsScreenActions
+    actions: RecordsScreenActions,
+    entrance: TopLevelEntranceMotion,
+    onSelectMeal: (String) -> Unit
 ) {
-    Text("${detail.date} 상세", style = MaterialTheme.typography.titleMedium)
+    var order = 2
+    TopLevelEntranceContent(entrance, order++) {
+        Text("${detail.date} 상세", style = MaterialTheme.typography.titleMedium)
+    }
     if (!detail.hasAnyRecord) {
-        AppCard(Modifier.fillMaxWidth()) {
-            Text("선택한 날짜에 저장된 기록이 없습니다.", Modifier.padding(AppSpacing.card))
+        TopLevelEntranceContent(entrance, order++) {
+            AppCard(Modifier.fillMaxWidth()) {
+                Text("선택한 날짜에 저장된 기록이 없습니다.", Modifier.padding(AppSpacing.card))
+            }
         }
     }
     if (detail.workouts.isNotEmpty()) {
-        Text("운동 기록", style = MaterialTheme.typography.titleLarge)
+        TopLevelEntranceContent(entrance, order++) {
+            Text("운동 기록", style = MaterialTheme.typography.titleLarge)
+        }
         detail.workouts.forEach { workout ->
-            AppCard(Modifier.fillMaxWidth()) {
-                Row(
-                    Modifier.padding(AppSpacing.card),
-                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(
-                        Modifier
-                            .weight(1f)
-                            .clickable { actions.openRecord(workout.id) }
+            TopLevelEntranceContent(entrance, order++) {
+                AppCard(Modifier.fillMaxWidth()) {
+                    Row(
+                        Modifier.padding(AppSpacing.card),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(workout.title.ifBlank { "운동 기록" }, style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            recordsWorkoutDetail(workout, unit),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        if (workout.muscleLabels.isNotEmpty()) {
+                        Column(
+                            Modifier.weight(1f).clickable { actions.openRecord(workout.id) }
+                        ) {
+                            Text(workout.title.ifBlank { "운동 기록" }, style = MaterialTheme.typography.titleMedium)
                             Text(
-                                "부위: ${workout.muscleLabels.joinToString(", ")}",
+                                recordsWorkoutDetail(workout, unit),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
+                            if (workout.muscleLabels.isNotEmpty()) {
+                                Text(
+                                    "부위: ${workout.muscleLabels.joinToString(", ")}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
+                        AppOutlinedButton(
+                            onClick = { actions.deleteRecord(workout.id) }, destructive = true
+                        ) { Text("삭제") }
                     }
-                    AppOutlinedButton(
-                        onClick = { actions.deleteRecord(workout.id) },
-                        destructive = true
-                    ) { Text("삭제") }
                 }
             }
         }
     }
     if (detail.bodyMetrics.isNotEmpty()) {
-        Text("체중 기록", style = MaterialTheme.typography.titleLarge)
+        TopLevelEntranceContent(entrance, order++) {
+            Text("체중 기록", style = MaterialTheme.typography.titleLarge)
+        }
         detail.bodyMetrics.forEach { metric ->
-            AppCard(Modifier.fillMaxWidth().clickable {
-                actions.showBodyMetric(metric.date, metric.id)
-            }) {
-                Row(
-                    Modifier.padding(AppSpacing.card),
-                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(MassFormatter.withUnit(metric.weightKg, unit), fontWeight = FontWeight.Bold)
+            TopLevelEntranceContent(entrance, order++) {
+                AppCard(Modifier.fillMaxWidth().clickable {
+                    actions.showBodyMetric(metric.date, metric.id)
+                }) {
+                    Row(
+                        Modifier.padding(AppSpacing.card),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(MassFormatter.withUnit(metric.weightKg, unit), fontWeight = FontWeight.Bold)
+                        }
+                        Text("수정", style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary)
                     }
-                    Text("수정", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.primary)
                 }
             }
         }
     }
     if (detail.meals.isNotEmpty()) {
-        Text("식사 기록", style = MaterialTheme.typography.titleLarge)
+        TopLevelEntranceContent(entrance, order++) {
+            Text("식단 기록", style = MaterialTheme.typography.titleLarge)
+        }
         detail.meals.forEach { meal ->
-            AppDataRow(meal.mealLabel, meal.previewTitle)
+            TopLevelEntranceContent(entrance, order++) {
+                AppDataRow(
+                    meal.mealLabel,
+                    meal.previewTitle,
+                    Modifier.testTag("records-meal-${meal.id}")
+                        .clickable(role = Role.Button) { onSelectMeal(meal.id) }
+                )
+            }
         }
     }
 }
 
+@Composable
+private fun RecordsMealSummaryDialog(meal: MealReadSummary, onDismiss: () -> Unit) {
+    val nutritionRecorded = meal.nutritionStatus != "unknown"
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("records-meal-dialog"),
+        title = { Text("${meal.mealLabel} 정보") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                Text(
+                    meal.previewTitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                RecordsMealInfoRow("먹은 시각", meal.mealTime.ifBlank { "시간 미기록" }, "time")
+                if (meal.nutritionStatus == "estimated") {
+                    Text("추정 영양 정보", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                RecordsMealInfoRow("칼로리", if (nutritionRecorded) "${meal.calories} kcal" else "미기록", "calories")
+                RecordsMealInfoRow("탄수화물", recordsMealGrams(meal.recordedCarbsGrams.takeIf { nutritionRecorded }), "carbs")
+                RecordsMealInfoRow("단백질", recordsMealGrams(meal.recordedProteinGrams.takeIf { nutritionRecorded }), "protein")
+                RecordsMealInfoRow("지방", recordsMealGrams(meal.recordedFatGrams.takeIf { nutritionRecorded }), "fat")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.testTag("records-meal-dialog-close")) {
+                Text("닫기")
+            }
+        }
+    )
+}
+
+@Composable
+private fun RecordsMealInfoRow(label: String, value: String, key: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().testTag("records-meal-$key"),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+    }
+}
+
+internal fun recordsMealGrams(value: Double?): String {
+    if (value == null || !value.isFinite() || value < 0.0) return "미기록"
+    val number = NumberFormat.getNumberInstance(Locale.KOREA).apply {
+        maximumFractionDigits = 1
+        isGroupingUsed = false
+    }.format(value)
+    return "${number}g"
+}
+
 private fun RecordsCalendarDay.markers(): List<FitnessCalendarMarker> = buildList {
     if (hasWorkout) add(FitnessCalendarMarker("workout", "운동"))
-    if (hasMeal) add(FitnessCalendarMarker("meal", "식사"))
+    if (hasMeal) add(FitnessCalendarMarker("meal", "식단"))
     if (hasBodyMetric) add(FitnessCalendarMarker("body", "체중"))
 }
 

@@ -31,7 +31,6 @@ import com.yeonsik.fitnessapp.config.*
 import com.yeonsik.fitnessapp.core.account.*
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.*
-import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitness.shared.feature.cardio.model.*
 import com.yeonsik.fitnessapp.feature.cardio.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
@@ -82,7 +81,6 @@ interface MealScreenActions {
         catalogProductId: String
     )
     fun saveDiningOut()
-    fun showBodyMetric()
     fun editMeal(meal: HomeMealSummary)
     fun deleteMeal(recordId: String)
     fun saveMealTime(recordId: String, mealTime: String)
@@ -108,7 +106,6 @@ internal fun MealScreen(
     priceTraceState: PriceTraceUiState,
     ownerId: String,
     today: String,
-    unit: MassUnit,
     actions: MealScreenActions
 ) {
     val ready = homeState as? HomeUiState.Ready
@@ -128,9 +125,9 @@ internal fun MealScreen(
         }
     }
 
-    AppHeader("식사", back = actions::back)
+    AppHeader("식단", back = actions::back)
     if (ready == null || ready.snapshot.ownerId != ownerId || ready.snapshot.today != today) {
-        Text("식사 기록을 불러오는 중입니다.")
+        Text("식단 기록을 불러오는 중입니다.")
         return
     }
     val snapshot = ready.snapshot
@@ -185,7 +182,7 @@ internal fun MealScreen(
     Spacer(Modifier.height(AppSpacing.gap))
     MealOverviewGlassSurface {
         Text(
-            if (selectedDate == LocalDate.now()) "오늘의 식사" else "이날의 식사",
+            if (selectedDate == LocalDate.now()) "오늘의 식단" else "이날의 식단",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
@@ -232,7 +229,7 @@ internal fun MealScreen(
     }
 
     if (editor == null || editor.ownerId != ownerId || editor.date != today) {
-        Text("식사 입력을 준비하는 중입니다.")
+        Text("식단 입력을 준비하는 중입니다.")
     } else if (!editor.editing) {
         editor.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         AppButton(onClick = actions::startDraft, Modifier.fillMaxWidth()) {
@@ -263,15 +260,11 @@ internal fun MealScreen(
         }
     }
 
-    AppOutlinedButton(onClick = actions::showBodyMetric, Modifier.fillMaxWidth()) {
-        Text("오늘 체중 · ${snapshot.todayWeight?.let { MassFormatter.withUnit(it.weightKg, unit) } ?: "미기록"}")
-    }
-
     val deleteTarget = deleteTargetId?.let { id -> snapshot.todayMeals.firstOrNull { it.id == id } }
     if (deleteTarget != null) {
         AlertDialog(
             onDismissRequest = { deleteTargetId = null },
-            title = { Text("식사 기록 삭제") },
+            title = { Text("식단 기록 삭제") },
             text = { Text("${deleteTarget.previewTitle} 기록을 삭제할까요?") },
             confirmButton = {
                 TextButton(
@@ -295,14 +288,14 @@ internal fun MealScreen(
         }
         AlertDialog(
             onDismissRequest = actions::cancelMealEdit,
-            title = { Text("식사 수정") },
+            title = { Text("식단 수정") },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
                     Text(recordEditor.title, fontWeight = FontWeight.Bold)
                     AppTextField(
                         value = editTime,
                         onValueChange = { editTime = it },
-                        label = { Text("식사 시각 HH:mm") }
+                        label = { Text("식단 기록 시간 HH:mm") }
                     )
                     editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 }
@@ -394,7 +387,7 @@ private fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready
         editor.draft.time,
         actions::updateTime,
         Modifier.fillMaxWidth(),
-        label = { Text("식사 시각 HH:mm") }
+        label = { Text("식단 기록 시간 HH:mm") }
     )
     editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
@@ -436,7 +429,7 @@ private fun DiningOutEditor(
     AppTextField(draft.store, actions::updateStore, Modifier.fillMaxWidth(), { Text("상호명") })
     AppTextField(draft.branch, actions::updateBranch, Modifier.fillMaxWidth(), { Text("지점명 (선택)") })
     AppTextField(draft.menu, actions::updateMenu, Modifier.fillMaxWidth(), { Text("메뉴명") })
-    AppTextField(draft.time, actions::updateTime, Modifier.fillMaxWidth(), { Text("식사 시각 HH:mm") })
+    AppTextField(draft.time, actions::updateTime, Modifier.fillMaxWidth(), { Text("식단 기록 시간 HH:mm") })
     AppTextField(draft.calories, actions::updateCalories, Modifier.fillMaxWidth(), { Text("칼로리 kcal") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
     AppTextField(draft.carbs, actions::updateCarbs, Modifier.fillMaxWidth(), { Text("탄수화물 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
     AppTextField(draft.protein, actions::updateProtein, Modifier.fillMaxWidth(), { Text("단백질 g") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))

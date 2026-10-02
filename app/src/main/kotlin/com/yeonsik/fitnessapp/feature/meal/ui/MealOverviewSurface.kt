@@ -87,7 +87,7 @@ internal fun MealOverviewGlassSurface(content: @Composable ColumnScope.() -> Uni
 internal fun MealDailyMetrics(count: Int, calories: String) {
     if (LocalDensity.current.fontScale >= 1.35f) {
         Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-            MealOverviewMetric("식사", "${count}끼")
+            MealOverviewMetric("식단", "${count}끼")
             MealOverviewMetric("열량", calories, unit = "kcal")
         }
     } else {
@@ -95,7 +95,7 @@ internal fun MealDailyMetrics(count: Int, calories: String) {
             Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)
         ) {
-            MealOverviewMetric("식사", "${count}끼", Modifier.weight(1f))
+            MealOverviewMetric("식단", "${count}끼", Modifier.weight(1f))
             MealOverviewMetric("열량", calories, Modifier.weight(1f), "kcal")
         }
     }

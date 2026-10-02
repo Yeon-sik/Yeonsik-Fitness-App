@@ -43,7 +43,8 @@ class HomeReadRepository(
             reads.nutritionGoal(scope),
             reads.bodyMetric(scope, requestedDate),
             reads.bodyMetrics(scope, requestedDate),
-            reads.meals(scope, requestedDate)
+            reads.meals(scope, requestedDate),
+            reads.todayWorkoutStatus(scope, requestedDate)
         )
     }
 

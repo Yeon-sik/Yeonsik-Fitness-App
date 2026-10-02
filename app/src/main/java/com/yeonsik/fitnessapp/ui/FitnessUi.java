@@ -1,6 +1,8 @@
 package com.yeonsik.fitnessapp.ui;
 
 import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
 
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
@@ -44,7 +46,7 @@ import java.util.function.BooleanSupplier;
  * Fitness 앱의 semantic token과 공통 View를 제공하는 UI 팩토리.
  * 색 토큰, 타이포그래피, 표면(카드/타일), 버튼/칩, 입력창, 리스트 행, 포맷터를 담당한다.
  * 화면 상태를 소유하지 않으며, 다크 테마 여부는 생성 시 주입된 supplier로 판단한다.
- * 일반 컴포넌트는 평면 surface와 Pastel Blue semantic을 사용하고, Hero만 tonal blue gradient를 사용한다.
+ * 일반 컴포넌트는 평면 surface와 고정 Brand Blue semantic을 사용하고, Hero만 tonal blue gradient를 사용한다.
  */
 public final class FitnessUi {
     // ── Light semantic tokens ─────────────────────────────────────────
@@ -214,7 +216,7 @@ public final class FitnessUi {
         return dark() ? COLOR_D_BLUE_INK : COLOR_BLUE_INK;
     }
 
-    /** Pastel Blue 표면 위에서 사용하는 대비 잉크. */
+    /** Brand Blue 표면 위에서 사용하는 대비 잉크. */
     public int onPastelBlue() {
         return dark() ? COLOR_D_ON_PASTEL_BLUE : COLOR_BLUE_INK;
     }
@@ -249,7 +251,7 @@ public final class FitnessUi {
         return dark() ? COLOR_D_HERO_BORDER : COLOR_BORDER;
     }
 
-    /** 강조 표면은 더 이상 흑백 반전이 아니라 Pastel Blue semantic이다. */
+    /** 강조 표면은 고정 Brand Blue semantic을 사용한다. */
     public int accent() {
         return pastelBlue();
     }
@@ -1366,8 +1368,9 @@ public final class FitnessUi {
             }
 
             private String valueLabel(double value) {
-                String number = "kg".equals(displayUnit)
-                        ? formatVolume(value)
+                MassUnit massUnit = MassUnit.parse(displayUnit);
+                String number = massUnit != null
+                        ? MassFormatter.formatValue(value, massUnit)
                         : trimDouble(value);
                 return number + displayUnit;
             }
@@ -1797,7 +1800,7 @@ public final class FitnessUi {
         bottomSheet(title, body, actionText, onConfirm, null, null);
     }
 
-    /** 시트 전용 Primary 버튼도 전역 Pastel Blue 버튼 토큰을 사용한다. */
+    /** 시트 전용 Primary 버튼도 전역 Brand Blue 버튼 토큰을 사용한다. */
     private Button sheetPrimaryButton(String text, Runnable action) {
         return primaryButton(text, v -> action.run());
     }

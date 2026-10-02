@@ -2,9 +2,6 @@ package com.yeonsik.fitnessapp.feature.home.ui
 
 import android.os.Build
 import android.view.accessibility.AccessibilityManager
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -19,17 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -39,7 +29,6 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.platform.LocalContext
@@ -53,15 +42,17 @@ import com.kashif_e.backdrop.effects.blur
 import com.kashif_e.backdrop.effects.lens
 import com.kashif_e.backdrop.effects.vibrancy
 import com.kashif_e.backdrop.highlight.Highlight
-import com.yeonsik.fitnessapp.core.ui.FitnessButton
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessShape
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
-import com.yeonsik.fitnessapp.feature.home.model.HomeSnapshot
+import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceContent
+import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceState
+import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceMotion
+import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceState
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
-import java.util.Locale
 
 interface HomeScreenActions {
     fun continueWorkout()
@@ -133,20 +124,44 @@ private val HomeBodyMetricIcon = ImageVector.Builder(
         strokeLineCap = StrokeCap.Round,
         strokeLineJoin = StrokeJoin.Round
     ) {
-        moveTo(12f, 2.8f)
-        curveTo(10.5f, 2.8f, 9.3f, 4f, 9.3f, 5.5f)
-        curveTo(9.3f, 7f, 10.5f, 8.2f, 12f, 8.2f)
-        curveTo(13.5f, 8.2f, 14.7f, 7f, 14.7f, 5.5f)
-        curveTo(14.7f, 4f, 13.5f, 2.8f, 12f, 2.8f)
+        moveTo(12f, 1.8f)
+        curveTo(9.7f, 1.8f, 8.2f, 3.5f, 8.2f, 5.7f)
+        curveTo(8.2f, 7.9f, 9.7f, 9.2f, 12f, 9.2f)
+        curveTo(14.3f, 9.2f, 15.8f, 7.8f, 15.8f, 5.5f)
+        curveTo(15.8f, 3.3f, 14.3f, 1.8f, 12f, 1.8f)
         close()
-        moveTo(3.5f, 9.6f)
-        horizontalLineTo(20.5f)
-        moveTo(12f, 9.6f)
-        verticalLineTo(15.4f)
-        moveTo(12f, 15.4f)
-        lineTo(7.7f, 20.7f)
-        moveTo(12f, 15.4f)
-        lineTo(16.3f, 20.7f)
+    }
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.9f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(10.5f, 7.5f)
+        curveTo(9.5f, 7.3f, 8.8f, 8.1f, 7.9f, 8.4f)
+        lineTo(3.5f, 7.2f)
+        curveTo(2.4f, 6.9f, 1.7f, 7.5f, 1.8f, 8.4f)
+        curveTo(1.9f, 9.2f, 2.5f, 9.6f, 3.4f, 9.8f)
+        lineTo(8.7f, 11f)
+        curveTo(8.3f, 12.6f, 8.4f, 14.7f, 8.7f, 15.9f)
+        curveTo(8.9f, 16.7f, 8.6f, 17.4f, 8.1f, 18.1f)
+        lineTo(6.6f, 20.3f)
+        curveTo(6.1f, 21.1f, 6.4f, 21.9f, 7.2f, 22f)
+        curveTo(7.9f, 22.1f, 8.6f, 21.8f, 9.2f, 21.1f)
+        lineTo(10.9f, 19.2f)
+        curveTo(11.5f, 18.6f, 11.8f, 17.8f, 11.8f, 17f)
+        lineTo(12f, 13.8f)
+        lineTo(13.2f, 17.5f)
+        curveTo(13.6f, 18.5f, 14.3f, 19.8f, 15f, 20.9f)
+        curveTo(15.5f, 21.7f, 16.3f, 22.1f, 17f, 21.8f)
+        curveTo(17.8f, 21.5f, 18f, 20.7f, 17.6f, 19.9f)
+        lineTo(16f, 16.1f)
+        curveTo(15.5f, 14.7f, 15.4f, 12.8f, 14.9f, 11f)
+        lineTo(20.6f, 9.8f)
+        curveTo(21.5f, 9.6f, 22.1f, 9.1f, 22.1f, 8.4f)
+        curveTo(22.1f, 7.6f, 21.4f, 7f, 20.5f, 7.2f)
+        lineTo(15.5f, 8.3f)
+        curveTo(14.4f, 8.6f, 13.5f, 7.7f, 12.7f, 7.5f)
     }
 }.build()
 
@@ -183,16 +198,26 @@ internal fun HomeDestination(
     homeState: HomeUiState,
     ownerId: String,
     today: String,
-    actions: HomeScreenActions
+    actions: HomeScreenActions,
+    activityState: HomeActivityUiState = HomeActivityUiState.Idle,
+    onActivityPrevious: () -> Unit = {},
+    onActivityNext: () -> Unit = {},
+    onActivitySelectPage: (Int) -> Unit = {},
+    onActivityRetry: () -> Unit = {},
+    activityDayDetails: HomeActivityDayDetailsUiState = HomeActivityDayDetailsUiState.Idle,
+    onActivityDateSelected: (String) -> Unit = {},
+    onActivityOpenRecords: (String) -> Unit = {},
+    entranceState: TopLevelEntranceState = rememberTopLevelEntranceState("HOME"),
+    preferredMassUnit: MassUnit = MassUnit.KG,
+    entranceToken: Long? = null,
+    isActualActive: Boolean = true
 ) {
     val ready = (homeState as? HomeUiState.Ready)?.takeIf {
         it.snapshot.ownerId == ownerId && it.snapshot.today == today
     }
-    val contentReady = ready != null
-    var entrancePlayed by rememberSaveable { mutableStateOf(false) }
-    LaunchedEffect(contentReady) {
-        if (contentReady && !entrancePlayed) entrancePlayed = true
-    }
+    val entrance = rememberTopLevelEntranceMotion(
+        entranceState, entranceToken, isActualActive, contentReady = ready != null
+    )
     if (ready == null) {
         LoadingHome()
         return
@@ -204,153 +229,77 @@ internal fun HomeDestination(
         context.getSystemService(AccessibilityManager::class.java)
             ?.isHighContrastTextEnabled == true
     val useGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !highContrast
-    val workoutSummary = homeWorkoutSummary(snapshot)
+    val heroStatus = homeTodayHeroStatus(snapshot, preferredMassUnit)
 
     Column(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
     ) {
-        HomeEntranceContent(entrancePlayed, order = 0) {
+        TopLevelEntranceContent(entrance, order = 0) {
             FitnessSection("오늘 상태") {
-                HomeGlassHero(snapshot, workoutSummary, actions::continueWorkout, useGlass)
+                HomeTodayHero(heroStatus, actions::continueWorkout)
             }
         }
-        HomeEntranceContent(entrancePlayed, order = 1) {
-            FitnessSection("빠른 이동") {
-                Column(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
-                ) {
-                    HomeEntranceContent(entrancePlayed, order = 2) {
-                        HomeGlassWorkoutQuickActions(
-                            useGlass = useGlass,
-                            onStrength = { actions.navigate(FitnessScreen.STRENGTH) },
-                            onCardio = { actions.navigate(FitnessScreen.CARDIO) },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                    HomeEntranceContent(entrancePlayed, order = 3) {
-                        HomeGlassQuickActionCard(
-                            title = "체중",
-                            icon = HomeBodyMetricIcon,
-                            onClick = actions::showBodyMetric,
-                            useGlass = useGlass,
-                            modifier = Modifier.fillMaxWidth().testTag("home-quick-weight")
-                        )
-                    }
-                    HomeEntranceContent(entrancePlayed, order = 4) {
-                        HomeGlassQuickActionCard(
-                            title = "식단",
-                            icon = HomeMealIcon,
-                            onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
-                            useGlass = useGlass,
-                            modifier = Modifier.fillMaxWidth().testTag("home-quick-meal")
-                        )
-                    }
-                }
-            }
+        TopLevelEntranceContent(entrance, order = 1) {
+            FitnessSection("빠른 이동") {}
         }
-    }
-}
-
-private const val HOME_ENTRANCE_DURATION_MILLIS = 390
-private const val HOME_ENTRANCE_STAGGER_MILLIS = 70
-
-@Composable
-private fun HomeEntranceContent(
-    visible: Boolean,
-    order: Int,
-    modifier: Modifier = Modifier.fillMaxWidth(),
-    content: @Composable () -> Unit
-) {
-    val progress by animateFloatAsState(
-        targetValue = if (visible) 1f else 0f,
-        animationSpec = tween(
-            durationMillis = HOME_ENTRANCE_DURATION_MILLIS,
-            delayMillis = order * HOME_ENTRANCE_STAGGER_MILLIS,
-            easing = FastOutSlowInEasing
-        ),
-        label = "home-entrance-$order"
-    )
-    Box(
-        modifier.graphicsLayer {
-                alpha = progress
-                translationY = 14.dp.toPx() * (1f - progress)
-                scaleX = 0.985f + 0.015f * progress
-                scaleY = 0.985f + 0.015f * progress
-            }
-    ) {
-        content()
-    }
-}
-
-@Composable
-private fun HomeGlassHero(
-    snapshot: HomeSnapshot,
-    workoutSummary: String?,
-    onContinue: () -> Unit,
-    useGlass: Boolean
-) {
-    val colors = MaterialTheme.colorScheme
-    if (useGlass) {
-        HomeGlassPanel(
-            modifier = Modifier.fillMaxWidth(),
-            shape = FitnessShape.hero,
-            source = Brush.linearGradient(listOf(colors.primaryContainer, colors.surfaceContainerHigh)),
-            tint = colors.primaryContainer.copy(alpha = 0.32f),
-            hero = true
-        ) {
-            CompositionLocalProvider(LocalContentColor provides colors.onPrimaryContainer) {
-                HomeHeroContent(snapshot, workoutSummary, onContinue, Modifier.fillMaxWidth())
-            }
+        TopLevelEntranceContent(entrance, order = 2) {
+            HomeGlassWorkoutQuickActions(
+                useGlass = useGlass,
+                onStrength = { actions.navigate(FitnessScreen.STRENGTH) },
+                onCardio = { actions.navigate(FitnessScreen.CARDIO) },
+                modifier = Modifier.fillMaxWidth()
+            )
         }
-    } else {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = FitnessShape.hero,
-            color = colors.primaryContainer,
-            contentColor = colors.onPrimaryContainer
-        ) {
-            HomeHeroContent(snapshot, workoutSummary, onContinue)
+        TopLevelEntranceContent(entrance, order = 3) {
+            HomeGlassQuickActionCard(
+                title = "식단",
+                icon = HomeMealIcon,
+                onClick = { actions.openMealManagement(today, FitnessScreen.HOME) },
+                useGlass = useGlass,
+                modifier = Modifier.fillMaxWidth().testTag("home-quick-meal")
+            )
+        }
+        TopLevelEntranceContent(entrance, order = 4) {
+            HomeGlassQuickActionCard(
+                title = "체중",
+                icon = HomeBodyMetricIcon,
+                onClick = actions::showBodyMetric,
+                useGlass = useGlass,
+                modifier = Modifier.fillMaxWidth().testTag("home-quick-weight")
+            )
+        }
+        TopLevelEntranceContent(entrance, order = 5) {
+            HomeActivityHistorySection(
+                state = activityState.takeIf { it.identity?.ownerId == ownerId && it.identity?.today == today }
+                    ?: HomeActivityUiState.Idle,
+                onPrevious = onActivityPrevious,
+                onNext = onActivityNext,
+                onSelectPage = onActivitySelectPage,
+                onRetry = onActivityRetry,
+                dayDetails = activityDayDetails,
+                onSelectDate = onActivityDateSelected,
+                onOpenRecords = onActivityOpenRecords,
+                preferredMassUnit = preferredMassUnit,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
 
 @Composable
-private fun HomeHeroContent(
-    snapshot: HomeSnapshot,
-    workoutSummary: String?,
+internal fun HomeTodayHero(
+    status: HomeTodayHeroStatus,
     onContinue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val inProgress = snapshot.inProgressSessionId != null
-    Column(
-        modifier.padding(FitnessSpacing.hero),
-        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+    Surface(
+        modifier = modifier.fillMaxWidth().testTag("home-today-hero"),
+        shape = FitnessShape.hero,
+        color = Color(FitnessUiTokens.COLOR_BLUE_CONTAINER),
+        contentColor = Color(FitnessUiTokens.COLOR_BLUE_INK)
     ) {
-        Text(if (inProgress) "운동 진행 중" else "오늘", style = MaterialTheme.typography.displaySmall)
-        Text(
-            when {
-                inProgress -> "진행 중인 운동을 이어서 기록하세요."
-                workoutSummary != null -> "오늘 운동 완료"
-                else -> "아직 완료한 운동이 없어요."
-            },
-            style = MaterialTheme.typography.bodyLarge
-        )
-        if (inProgress) {
-            FitnessButton(
-                onClick = onContinue,
-                modifier = Modifier.fillMaxWidth().padding(top = FitnessSpacing.small)
-            ) { Text("운동 이어가기") }
-        } else {
-            if (workoutSummary != null) {
-                Text(workoutSummary, style = MaterialTheme.typography.bodyMedium)
-            }
-            Text(
-                homeBodyMealSummary(snapshot),
-                style = MaterialTheme.typography.bodyMedium
-            )
-        }
+        HomeHeroContent(status, onContinue)
     }
 }
 
@@ -416,7 +365,9 @@ private fun HomeGlassQuickActionCard(
 ) {
     val content: @Composable () -> Unit = {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = FitnessSpacing.card),
+            modifier = Modifier.fillMaxWidth()
+                .heightIn(min = FitnessSpacing.homeActionMinHeight)
+                .padding(horizontal = FitnessSpacing.card),
             horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -470,36 +421,6 @@ private fun HomeQuickActionItem(
         )
         Text(title, style = MaterialTheme.typography.titleMedium)
     }
-}
-
-internal fun homeWorkoutSummary(snapshot: HomeSnapshot): String? {
-    val metrics = snapshot.dayMetrics[snapshot.today] ?: return null
-    if (metrics.sessionCount <= 0) return null
-    val parts = buildList {
-        add("${metrics.sessionCount}회")
-        if (metrics.totalSetCount > 0) add("${metrics.totalSetCount}세트")
-        if (metrics.totalVolumeKg > 0.0) {
-            add(
-                if (metrics.totalVolumeKg >= 1000.0) {
-                    String.format(Locale.KOREAN, "%.1ft", metrics.totalVolumeKg / 1000.0)
-                } else {
-                    "${FitnessUiTokens.formatVolume(metrics.totalVolumeKg)}kg"
-                }
-            )
-        }
-        if (metrics.totalDurationSeconds > 0) {
-            add(FitnessUiTokens.formatDuration(metrics.totalDurationSeconds))
-        }
-    }
-    return parts.joinToString(" · ")
-}
-
-internal fun homeBodyMealSummary(snapshot: HomeSnapshot): String {
-    val weight = snapshot.todayWeight?.let { "체중 ${FitnessUiTokens.trimDouble(it.weightKg)}kg" }
-        ?: "체중 미기록"
-    val meals = snapshot.mealCounts[snapshot.today] ?: 0
-    val mealStatus = if (meals > 0) "식사 ${meals}회" else "식사 미기록"
-    return "$weight · $mealStatus"
 }
 
 @Composable

@@ -4,8 +4,14 @@ import android.app.Activity
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.toggleable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -13,15 +19,18 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
@@ -32,6 +41,8 @@ import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.exercise.ExercisePrimaryMuscleLabel
 import com.yeonsik.fitness.shared.feature.workout.model.*
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
+import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType
+import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitness.shared.feature.exercise.model.ExerciseFamilyIdentity
 import com.yeonsik.fitnessapp.state.FitnessScreen
@@ -47,33 +58,81 @@ internal fun WorkoutOverview(
     ownerId: String,
     today: String,
     unit: MassUnit,
-    actions: WorkoutOverviewActions
+    actions: WorkoutOverviewActions,
+    entranceState: TopLevelEntranceState = rememberTopLevelEntranceState("WORKOUT"),
+    entranceToken: Long? = null,
+    isActualActive: Boolean = true,
+    inProgressIsCardio: Boolean? = null
 ) {
     val ready = state as? HomeUiState.Ready
+    val entrance = rememberTopLevelEntranceMotion(
+        entranceState, entranceToken, isActualActive,
+        contentReady = ready != null && ready.snapshot.ownerId == ownerId
+    )
     if (ready == null || ready.snapshot.ownerId != ownerId) {
         StateMessage("운동", "오늘 기록을 불러오는 중입니다.")
         return
     }
     val snapshot = ready.snapshot
     val metrics = snapshot.dayMetrics[today]
-    AppHeader("운동", today)
-    FitnessFactRow(
-        first = { FitnessFactCard("오늘 볼륨", MassFormatter.withUnit(metrics?.totalVolumeKg ?: 0.0, unit), "완료 세트 기준") },
-        second = { FitnessFactCard("식사", "${snapshot.mealCounts[today] ?: 0}끼", "오늘") }
-    )
-    if (snapshot.inProgressSessionId != null) {
-        AppButton(onClick = actions::continueWorkout, Modifier.fillMaxWidth()) {
-            Text("진행 중인 운동 이어가기")
+    val strengthInProgress = snapshot.inProgressSessionId != null && inProgressIsCardio == false
+    val cardioInProgress = snapshot.inProgressSessionId != null && inProgressIsCardio == true
+    var order = 0
+    TopLevelEntranceContent(entrance, order++) { AppHeader("운동", today) }
+    TopLevelEntranceContent(entrance, order++) {
+        FitnessFactRow(
+            first = { FitnessFactCard("오늘 볼륨", MassFormatter.withUnit(metrics?.totalVolumeKg ?: 0.0, unit), "완료 세트 기준") },
+            second = { FitnessFactCard("식단", "${snapshot.mealCounts[today] ?: 0}끼", "오늘") }
+        )
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
+        WorkoutOverviewAction(
+            "무산소 운동",
+            { if (strengthInProgress) actions.continueWorkout() else actions.navigate(FitnessScreen.STRENGTH) },
+            entrance, order++, Modifier.weight(1f),
+            supportingText = if (strengthInProgress) "운동 진행중 >" else null
+        )
+        WorkoutOverviewAction(
+            "유산소 운동",
+            { if (cardioInProgress) actions.continueWorkout() else actions.navigate(FitnessScreen.CARDIO) },
+            entrance, order++, Modifier.weight(1f),
+            supportingText = if (cardioInProgress) "운동 진행중 >" else null
+        )
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
+        WorkoutOverviewAction(
+            "체중 기록", actions::showBodyMetric, entrance, order++, Modifier.weight(1f)
+        )
+        WorkoutOverviewAction(
+            "식단 기록", actions::openMeals, entrance, order, Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun WorkoutOverviewAction(
+    label: String,
+    onClick: () -> Unit,
+    entrance: TopLevelEntranceMotion,
+    order: Int,
+    modifier: Modifier = Modifier,
+    supportingText: String? = null
+) {
+    TopLevelEntranceContent(entrance, order, modifier.aspectRatio(1f)) {
+        AppButton(onClick = onClick, modifier = Modifier.fillMaxSize()) {
+            if (supportingText == null) {
+                Text(label, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+                ) {
+                    Text(label, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+                    Text(supportingText, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+                }
+            }
         }
     }
-    AppButton(onClick = { actions.navigate(FitnessScreen.STRENGTH) }, Modifier.fillMaxWidth()) {
-        Text("무산소 운동")
-    }
-    AppOutlinedButton(onClick = { actions.navigate(FitnessScreen.CARDIO) }, Modifier.fillMaxWidth()) {
-        Text("유산소 운동")
-    }
-    AppOutlinedButton(onClick = actions::showBodyMetric, Modifier.fillMaxWidth()) { Text("체중 기록") }
-    AppOutlinedButton(onClick = actions::openMeals, Modifier.fillMaxWidth()) { Text("식사 기록") }
 }
 
 @Composable
@@ -126,23 +185,22 @@ internal fun StrengthScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(Modifier.weight(1f)) {
-                    Row(
+                    FlowRow(
                         Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
                     ) {
                         Text(
                             routineRow.name.ifBlank { "나만의 루틴" },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.alignByBaseline(),
                             fontWeight = FontWeight.Bold
                         )
                         Text(
                             if (bodyParts.isEmpty()) "부위 미설정"
                             else "${bodyParts.joinToString(" · ")} 운동",
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.alignByBaseline(),
                             style = MaterialTheme.typography.bodySmall,
-                            color = bodyPartColor,
-                            textAlign = TextAlign.End
+                            color = bodyPartColor
                         )
                     }
                     Text(
@@ -266,8 +324,11 @@ internal fun WorkoutDetailScreen(
     )
     Text(
         workoutExerciseMetadata(detail.activeExercise),
-        style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Ellipsis
     )
     WorkoutExerciseNavigation(orderedExercises, activeIndex, actions::openExercise)
     FitnessStatusBadge(
@@ -312,35 +373,34 @@ internal fun WorkoutDetailScreen(
         WorkoutReadOnlyDetail(detail, unit)
         return
     }
-    detail.sets.forEach { set ->
-        drafts.SaveableStateProvider("$ownerId:${detail.recordId}:${set.id}") {
-            WorkoutSetEditor(
-                actions,
-                ownerId,
+    FitnessSection("세트 기록") {
+        detail.sets.forEach { set ->
+            drafts.SaveableStateProvider("$ownerId:${detail.recordId}:${set.id}") {
+                WorkoutSetEditor(
+                    actions,
+                    detail.recordId,
+                    detail.activeExercise.recordType,
+                    detail.allowedLoadStates[detail.activeExercise.id].orEmpty(),
+                    set,
+                    unit
+                )
+            }
+        }
+        FitnessOutlinedButton(onClick = {
+            val next = (detail.sets.maxOfOrNull { it.setIndex } ?: 0) + 1
+            actions.addSet(
                 detail.recordId,
-                detail.activeExercise.recordType,
-                detail.allowedLoadStates[detail.activeExercise.id].orEmpty(),
-                set,
-                unit
-            )
+                detail.activeExercise.id,
+                next,
+                WorkoutSetInput(null, null, null, null, null, null, null, 90, false, null, null, unit)
+            ) { ok -> if (ok) actions.refresh() else actions.toast("세트를 추가하지 못했습니다.") }
+        }, Modifier.fillMaxWidth()) {
+            Text("+ 세트 추가", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
         }
     }
-    FitnessOutlinedButton(onClick = {
-        val next = (detail.sets.maxOfOrNull { it.setIndex } ?: 0) + 1
-        actions.addSet(
-            detail.recordId,
-            detail.activeExercise.id,
-            next,
-            WorkoutSetInput(null, null, null, null, null, null, null, 90, false, null, null, unit)
-        ) { ok -> if (ok) actions.refresh() else actions.toast("세트를 추가하지 못했습니다.") }
-    }, Modifier.fillMaxWidth()) { Text("세트 추가") }
     var confirmDelete by rememberSaveable(detail.recordId, detail.activeExercise.id) {
         mutableStateOf(false)
     }
-    FitnessOutlinedButton(
-        onClick = { actions.replaceExercise(detail.activeExercise.id) },
-        modifier = Modifier.fillMaxWidth()
-    ) { Text("종목 교체") }
     FitnessOutlinedButton(
         onClick = { confirmDelete = true },
         modifier = Modifier.fillMaxWidth(),
@@ -543,16 +603,18 @@ private fun WorkoutExerciseImage(
 }
 
 private fun workoutExerciseMetadata(exercise: WorkoutExercise): String = listOfNotNull(
-    exercise.uiPart.takeIf { it.isNotBlank() },
-    exercise.equipment.takeIf { it.isNotBlank() },
+    exercise.uiPart.takeIf { it.isNotBlank() }?.let {
+        BodyPart.fromId(it)?.labelKo() ?: it
+    },
+    exercise.equipment.takeIf { it.isNotBlank() }?.let {
+        EquipmentType.fromId(it)?.labelKo() ?: it
+    },
     FitnessRecordContract.displayRecordTypeKo(exercise.recordType)
 ).joinToString(" · ")
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 private fun WorkoutSetEditor(
     actions: WorkoutDetailActions,
-    ownerId: String,
     recordId: String,
     rawRecordType: String,
     allowedLoadStates: List<com.yeonsik.fitness.shared.feature.exercise.model.LoadState>,
@@ -586,155 +648,248 @@ private fun WorkoutSetEditor(
     val showMassInput = recordType != FitnessRecordContract.REPS_ONLY &&
         recordType != FitnessRecordContract.TIME &&
         loadState != com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BODYWEIGHT
-    val massLabel = when {
-        loadState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ADDED_WEIGHT -> "추가 중량 ${inputUnit.symbol()}"
-        loadState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ASSISTED ||
-            loadState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BAND_ASSISTED -> "보조 중량 ${inputUnit.symbol()}"
-        else -> "중량 ${inputUnit.symbol()}"
+    val mainFieldLabel = when (recordType) {
+        FitnessRecordContract.REPS_ONLY -> "횟수"
+        FitnessRecordContract.TIME -> "시간(초)"
+        FitnessRecordContract.ASSISTED_WEIGHT_REPS -> "보조(${inputUnit.symbol()})"
+        FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS ->
+            if (showMassInput) "추가(${inputUnit.symbol()})" else "체중"
+        else -> "중량(${inputUnit.symbol()})"
     }
-    AppCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(AppSpacing.card), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-            Text("${set.setIndex}세트", fontWeight = FontWeight.Bold)
-            set.inputLoadUnit?.let { inputLoadUnit ->
-                Text(
-                    "저장 당시 입력 단위: ${inputLoadUnit.symbol()}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (allowedLoadStates.isNotEmpty()) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                    allowedLoadStates.forEach { state ->
-                        AppOutlinedButton(onClick = { loadState = state }, selected = loadState == state) {
-                            Text(state.id())
+    val hasSecondField = recordType != FitnessRecordContract.REPS_ONLY &&
+        recordType != FitnessRecordContract.TIME
+    val secondFieldLabel = if (recordType == FitnessRecordContract.WEIGHT_TIME) "시간(초)" else "횟수"
+    val hasRirField = FitnessRecordContract.supportsRir(recordType)
+    val saveCurrentSet: () -> Unit = {
+        val enteredWeight = weight.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
+        val enteredAssisted = assisted.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
+        val enteredAdded = added.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
+        val selectedState = loadState
+        val enteredLoad = when {
+            selectedState == LoadState.ADDED_WEIGHT ||
+                (recordType == FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS && selectedState == null) -> enteredAdded
+            selectedState == LoadState.ASSISTED || selectedState == LoadState.BAND_ASSISTED ||
+                recordType == FitnessRecordContract.ASSISTED_WEIGHT_REPS -> enteredAssisted
+            selectedState == LoadState.EXTERNAL_LOAD || selectedState == LoadState.BAND_RESISTED ||
+                recordType == FitnessRecordContract.WEIGHT_REPS ||
+                recordType == FitnessRecordContract.WEIGHT_TIME -> enteredWeight
+            else -> null
+        }
+        val canonicalWeight = when {
+            selectedState == LoadState.EXTERNAL_LOAD || selectedState == LoadState.BAND_RESISTED ||
+                recordType == FitnessRecordContract.WEIGHT_REPS ||
+                recordType == FitnessRecordContract.WEIGHT_TIME -> enteredWeight?.let { MassUnit.toKg(it, inputUnit) }
+            else -> null
+        }
+        val canonicalAssisted = when {
+            selectedState == LoadState.ASSISTED || selectedState == LoadState.BAND_ASSISTED ||
+                recordType == FitnessRecordContract.ASSISTED_WEIGHT_REPS -> enteredAssisted?.let { MassUnit.toKg(it, inputUnit) }
+            else -> null
+        }
+        val canonicalAdded = when {
+            selectedState == LoadState.ADDED_WEIGHT ||
+                recordType == FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS -> enteredAdded?.let { MassUnit.toKg(it, inputUnit) }
+            else -> null
+        }
+        val input = WorkoutSetInput(
+            canonicalWeight,
+            if (recordType == FitnessRecordContract.TIME || recordType == FitnessRecordContract.WEIGHT_TIME) set.actualReps.takeIf { it > 0 } else reps.toIntOrNull(),
+            if (recordType == FitnessRecordContract.TIME || recordType == FitnessRecordContract.WEIGHT_TIME) duration.toIntOrNull() else set.durationSeconds.takeIf { it > 0 },
+            set.distanceMeters.takeIf { it > 0.0 },
+            canonicalAssisted,
+            canonicalAdded,
+            if (FitnessRecordContract.supportsRir(recordType)) rir.toIntOrNull() else set.rir,
+            rest.toIntOrNull(), completed, loadState,
+            enteredLoad,
+            enteredLoad?.let { inputUnit }
+        )
+        actions.updateSet(recordId, set.id, input) { ok ->
+            if (ok) {
+                if (completed) actions.startRestTimer(rest.toIntOrNull())
+                actions.refresh()
+            } else actions.toast("세트를 저장하지 못했습니다.")
+        }
+    }
+
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val tableWidth = maxWidth.coerceAtLeast(320.dp)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
+                Column(Modifier.width(tableWidth)) {
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        WorkoutSetFieldColumn("세트", Modifier.width(40.dp)) {
+                            Box(Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch), contentAlignment = Alignment.Center) {
+                                Text(set.setIndex.toString(), style = MaterialTheme.typography.bodySmall)
+                            }
+                        }
+                        WorkoutSetFieldColumn(mainFieldLabel, Modifier.weight(1f)) {
+                            when (recordType) {
+                                FitnessRecordContract.REPS_ONLY -> WorkoutSetValueField(reps, { reps = it }, mainFieldLabel, numberOptions, nextAction)
+                                FitnessRecordContract.TIME -> WorkoutSetValueField(duration, { duration = it }, mainFieldLabel, numberOptions, nextAction)
+                                FitnessRecordContract.ASSISTED_WEIGHT_REPS -> WorkoutSetValueField(assisted, { assisted = it }, mainFieldLabel, decimalOptions, nextAction)
+                                FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS -> if (showMassInput) {
+                                    WorkoutSetValueField(added, { added = it }, mainFieldLabel, decimalOptions, nextAction)
+                                } else WorkoutSetStaticValue("체중")
+                                else -> if (showMassInput) {
+                                    WorkoutSetValueField(weight, { weight = it }, mainFieldLabel, decimalOptions, nextAction)
+                                } else WorkoutSetStaticValue("체중")
+                            }
+                        }
+                        if (hasSecondField) {
+                            WorkoutSetFieldColumn(secondFieldLabel, Modifier.width(48.dp)) {
+                                if (recordType == FitnessRecordContract.WEIGHT_TIME) {
+                                    WorkoutSetValueField(duration, { duration = it }, secondFieldLabel, numberOptions, nextAction)
+                                } else {
+                                    WorkoutSetValueField(reps, { reps = it }, secondFieldLabel, numberOptions, nextAction)
+                                }
+                            }
+                        }
+                        if (hasRirField) {
+                            WorkoutSetFieldColumn("RIR", Modifier.width(44.dp)) {
+                                WorkoutSetValueField(rir, { rir = it }, "RIR", numberOptions, nextAction)
+                            }
+                        }
+                        WorkoutSetFieldColumn("휴식", Modifier.width(56.dp)) {
+                            WorkoutSetValueField(
+                                rest,
+                                { rest = it },
+                                "휴식 초",
+                                KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                                KeyboardActions(onDone = { focus.clearFocus() })
+                            )
+                        }
+                        WorkoutSetFieldColumn("완료", Modifier.width(48.dp)) {
+                            Checkbox(
+                                checked = completed,
+                                onCheckedChange = { completed = it },
+                                modifier = Modifier.size(FitnessSpacing.touch)
+                                    .semantics { contentDescription = "${set.setIndex}세트 완료" }
+                            )
                         }
                     }
                 }
             }
-            when (recordType) {
-                FitnessRecordContract.REPS_ONLY -> AppTextField(reps, { reps = it }, Modifier.fillMaxWidth(), { Text("횟수") }, keyboardOptions = numberOptions, keyboardActions = nextAction)
-                FitnessRecordContract.TIME -> AppTextField(duration, { duration = it }, Modifier.fillMaxWidth(), { Text("시간 초") }, keyboardOptions = numberOptions, keyboardActions = nextAction)
-                FitnessRecordContract.WEIGHT_TIME -> WorkoutInputPair(
-                    first = {
-                        if (showMassInput) AppTextField(weight, { weight = it }, Modifier.fillMaxWidth(), { Text(massLabel) }, keyboardOptions = decimalOptions, keyboardActions = nextAction)
-                    },
-                    second = { AppTextField(duration, { duration = it }, Modifier.fillMaxWidth(), { Text("시간 초") }, keyboardOptions = numberOptions, keyboardActions = nextAction) }
-                )
-                FitnessRecordContract.ASSISTED_WEIGHT_REPS -> WorkoutInputPair(
-                    first = { AppTextField(assisted, { assisted = it }, Modifier.fillMaxWidth(), { Text("보조 중량 ${inputUnit.symbol()}") }, keyboardOptions = decimalOptions, keyboardActions = nextAction) },
-                    second = { AppTextField(reps, { reps = it }, Modifier.fillMaxWidth(), { Text("횟수") }, keyboardOptions = numberOptions, keyboardActions = nextAction) }
-                )
-                FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS -> WorkoutInputPair(
-                    first = {
-                        if (showMassInput) AppTextField(added, { added = it }, Modifier.fillMaxWidth(), { Text("추가 중량 ${inputUnit.symbol()}") }, keyboardOptions = decimalOptions, keyboardActions = nextAction)
-                        else Text("체중", style = MaterialTheme.typography.bodyLarge)
-                    },
-                    second = { AppTextField(reps, { reps = it }, Modifier.fillMaxWidth(), { Text("횟수") }, keyboardOptions = numberOptions, keyboardActions = nextAction) }
-                )
-                else -> WorkoutInputPair(
-                    first = {
-                        if (showMassInput) AppTextField(weight, { weight = it }, Modifier.fillMaxWidth(), { Text(massLabel) }, keyboardOptions = decimalOptions, keyboardActions = nextAction)
-                        else Text("체중", style = MaterialTheme.typography.bodyLarge)
-                    },
-                    second = { AppTextField(reps, { reps = it }, Modifier.fillMaxWidth(), { Text("횟수") }, keyboardOptions = numberOptions, keyboardActions = nextAction) }
-                )
-            }
-            if (FitnessRecordContract.supportsRir(recordType)) {
-                AppTextField(rir, { rir = it }, Modifier.fillMaxWidth(), { Text("RIR") }, keyboardOptions = numberOptions, keyboardActions = nextAction)
-            }
-            AppTextField(rest, { rest = it }, Modifier.fillMaxWidth(), { Text("휴식 초") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done))
-            Row(Modifier.fillMaxWidth().heightIn(min = AppSpacing.touch)
-                .toggleable(completed, role = Role.Checkbox, onValueChange = { completed = it }),
-                verticalAlignment = Alignment.CenterVertically) {
-                Checkbox(completed, onCheckedChange = null)
-                Text("완료", Modifier.padding(start = AppSpacing.small),
-                    color = if (completed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface)
-            }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                AppButton(onClick = {
-                    val enteredWeight = weight.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
-                    val enteredAssisted = assisted.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
-                    val enteredAdded = added.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
-                    val selectedState = loadState
-                    val enteredLoad = when {
-                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ADDED_WEIGHT ||
-                            (recordType == FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS && selectedState == null) -> enteredAdded
-                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ASSISTED ||
-                            selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BAND_ASSISTED ||
-                            recordType == FitnessRecordContract.ASSISTED_WEIGHT_REPS -> enteredAssisted
-                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.EXTERNAL_LOAD ||
-                            selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BAND_RESISTED ||
-                            recordType == FitnessRecordContract.WEIGHT_REPS ||
-                            recordType == FitnessRecordContract.WEIGHT_TIME -> enteredWeight
-                        else -> null
-                    }
-                    val canonicalWeight = when {
-                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.EXTERNAL_LOAD ||
-                            selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BAND_RESISTED ||
-                            recordType == FitnessRecordContract.WEIGHT_REPS ||
-                            recordType == FitnessRecordContract.WEIGHT_TIME -> enteredWeight?.let { MassUnit.toKg(it, inputUnit) }
-                        else -> null
-                    }
-                    val canonicalAssisted = when {
-                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ASSISTED ||
-                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.BAND_ASSISTED ||
-                            recordType == FitnessRecordContract.ASSISTED_WEIGHT_REPS -> enteredAssisted?.let { MassUnit.toKg(it, inputUnit) }
-                        else -> null
-                    }
-                    val canonicalAdded = when {
-                        selectedState == com.yeonsik.fitness.shared.feature.exercise.model.LoadState.ADDED_WEIGHT ||
-                            recordType == FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS -> enteredAdded?.let { MassUnit.toKg(it, inputUnit) }
-                        else -> null
-                    }
-                    val input = WorkoutSetInput(
-                        canonicalWeight,
-                        if (recordType == FitnessRecordContract.TIME || recordType == FitnessRecordContract.WEIGHT_TIME) set.actualReps.takeIf { it > 0 } else reps.toIntOrNull(),
-                        if (recordType == FitnessRecordContract.TIME || recordType == FitnessRecordContract.WEIGHT_TIME) duration.toIntOrNull() else set.durationSeconds.takeIf { it > 0 },
-                        set.distanceMeters.takeIf { it > 0.0 },
-                        canonicalAssisted,
-                        canonicalAdded,
-                        if (FitnessRecordContract.supportsRir(recordType)) rir.toIntOrNull() else set.rir,
-                        rest.toIntOrNull(), completed, loadState,
-                        enteredLoad,
-                        enteredLoad?.let { inputUnit }
+        }
+
+        if (allowedLoadStates.isNotEmpty()) {
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).selectableGroup(),
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)
+            ) {
+                allowedLoadStates.forEach { state ->
+                    val selected = loadState == state
+                    Text(
+                        loadStateLabelKo(state),
+                        modifier = Modifier
+                            .clip(FitnessShape.button)
+                            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant)
+                            .border(
+                                1.dp,
+                                if (selected) LocalFitnessColors.current.action else MaterialTheme.colorScheme.outlineVariant,
+                                FitnessShape.button
+                            )
+                            .selectable(
+                                selected = selected,
+                                role = Role.RadioButton,
+                                onClick = { loadState = state }
+                            )
+                            .heightIn(min = FitnessSpacing.touch)
+                            .padding(horizontal = AppSpacing.small),
+                        style = MaterialTheme.typography.labelMedium,
+                        maxLines = 1
                     )
-                    actions.updateSet(recordId, set.id, input) { ok ->
-                        if (ok) {
-                            if (completed) actions.startRestTimer(rest.toIntOrNull())
-                            actions.refresh()
-                        } else actions.toast("세트를 저장하지 못했습니다.")
-                    }
-                }) { Text("저장") }
-                AppOutlinedButton(destructive = true, onClick = {
-                    actions.deleteSet(recordId, set.id) {
-                        if (it) actions.refresh() else actions.toast("세트를 삭제하지 못했습니다.")
-                    }
-                }) { Text("삭제") }
+                }
             }
         }
+
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextButton(onClick = saveCurrentSet) { Text("저장") }
+            TextButton(onClick = {
+                actions.deleteSet(recordId, set.id) {
+                    if (it) actions.refresh() else actions.toast("세트를 삭제하지 못했습니다.")
+                }
+            }) { Text("삭제", color = MaterialTheme.colorScheme.error) }
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
 }
 
 @Composable
-private fun WorkoutInputPair(
-    first: @Composable () -> Unit,
-    second: @Composable () -> Unit
+private fun WorkoutSetFieldColumn(
+    label: String,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
 ) {
-    if (LocalDensity.current.fontScale >= 1.3f) {
-        Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
-            first()
-            second()
-        }
-    } else {
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
-            verticalAlignment = Alignment.Top
-        ) {
-            Box(Modifier.weight(1f)) { first() }
-            Box(Modifier.weight(1f)) { second() }
-        }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(
+            label,
+            modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Ellipsis
+        )
+        content()
     }
+}
+
+@Composable
+private fun WorkoutSetValueField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    keyboardOptions: KeyboardOptions,
+    keyboardActions: KeyboardActions
+) {
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        modifier = Modifier.fillMaxWidth()
+            .heightIn(min = FitnessSpacing.touch)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, FitnessShape.input)
+            .padding(horizontal = 2.dp, vertical = AppSpacing.small)
+            .semantics { contentDescription = label },
+        singleLine = true,
+        textStyle = MaterialTheme.typography.bodyMedium.copy(
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.Center
+        ),
+        keyboardOptions = keyboardOptions,
+        keyboardActions = keyboardActions,
+        decorationBox = { innerTextField ->
+            Box(contentAlignment = Alignment.Center) {
+                if (value.isEmpty()) Text("—", color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall)
+                innerTextField()
+            }
+        }
+    )
+}
+
+@Composable
+private fun WorkoutSetStaticValue(value: String) {
+    Box(Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch), contentAlignment = Alignment.Center) {
+        Text(value, style = MaterialTheme.typography.bodySmall, maxLines = 1)
+    }
+}
+
+private fun loadStateLabelKo(state: LoadState): String = when (state) {
+    LoadState.BODYWEIGHT -> "체중"
+    LoadState.EXTERNAL_LOAD -> "외부 중량"
+    LoadState.ADDED_WEIGHT -> "추가 중량"
+    LoadState.ASSISTED -> "보조"
+    LoadState.BAND_ASSISTED -> "밴드 보조"
+    LoadState.BAND_RESISTED -> "밴드 저항"
 }
 
 @Composable
@@ -955,7 +1110,6 @@ private fun AppWorkoutSessionContent(
     onExercise: (String) -> Unit
 ) {
     val orderedExercises = stableWorkoutSessionExercises(session.exercises)
-    val currentExercise = currentWorkoutExercise(orderedExercises)
     val sessionProgress = workoutSessionProgress(orderedExercises)
     var nowMillis by remember(session.recordId, session.status, session.startedAt) {
         mutableStateOf(System.currentTimeMillis())
@@ -1008,32 +1162,6 @@ private fun AppWorkoutSessionContent(
         MassFormatter.withUnit(session.totalVolumeKg, unit),
         "저장 기준 kg · 표시 ${unit.symbol()}"
     )
-    currentExercise?.let { exercise ->
-        FitnessSection("현재 종목") {
-            FitnessCard(
-                Modifier.fillMaxWidth(),
-                onClick = { onExercise(exercise.id) }
-            ) {
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    WorkoutExerciseImage(
-                        exerciseId = exercise.exerciseId,
-                        identity = exercise.familyIdentity,
-                        contentDescription = "${exercise.name} 현재 종목 이미지",
-                        modifier = Modifier.size(72.dp)
-                    )
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
-                        Text(exercise.name, style = MaterialTheme.typography.titleMedium)
-                        Text(exercise.recordTypeLabel, style = MaterialTheme.typography.bodySmall)
-                        FitnessProgressBar(workoutExerciseProgress(exercise), title = "종목 진행")
-                    }
-                }
-            }
-        }
-    }
     FitnessSection("운동 종목") {
         if (orderedExercises.isEmpty()) {
             FitnessStatusMessage(

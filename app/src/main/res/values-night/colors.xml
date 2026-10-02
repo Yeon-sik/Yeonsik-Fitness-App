@@ -6,8 +6,8 @@
     <color name="ui_text_primary">#F5F5F7</color>
     <color name="ui_text_secondary">#ADB0B8</color>
     <color name="ui_border_subtle">#393D45</color>
-    <color name="ui_pastel_blue">#8FC8EE</color>
-    <color name="ui_blue_container">#1D3548</color>
+    <color name="ui_pastel_blue">@color/ui_brand_blue</color>
+    <color name="ui_blue_container">#12394D</color>
     <color name="ui_blue_ink">#D9F0FF</color>
     <color name="ui_status_positive">#69D39E</color>
     <color name="ui_status_negative">#FF8A80</color>

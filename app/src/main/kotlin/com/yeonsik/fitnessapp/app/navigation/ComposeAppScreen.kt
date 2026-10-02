@@ -199,6 +199,12 @@ private fun AppRoot(
     val settingsState by viewModels.getSettings().uiState.observeAsState()
     val settingsEvent by viewModels.getSettings().events.observeAsState()
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
+    val homeActivityState by viewModels.getHome().activityState.observeAsState(
+        com.yeonsik.fitnessapp.feature.home.ui.HomeActivityUiState.Idle
+    )
+    val homeActivityDayDetails by viewModels.getHome().activityDayDetails.observeAsState(
+        com.yeonsik.fitnessapp.feature.home.ui.HomeActivityDayDetailsUiState.Idle
+    )
     val recordsState by viewModels.getRecords().uiState.observeAsState(RecordsUiState.Idle)
     val startupCompleted by navigation.startupCompleted.observeAsState(false)
     val routineState by viewModels.getRoutineEntry().uiState.observeAsState(RoutineEntryUiState.Idle)
@@ -240,6 +246,10 @@ private fun AppRoot(
         it.session.status == "completed"
     } == true
     val destinationStateHolder = rememberSaveableStateHolder()
+    // Above the swipe host: preview/current composition changes must not reset consumption.
+    val homeEntranceState = rememberTopLevelEntranceState("HOME")
+    val workoutEntranceState = rememberTopLevelEntranceState("WORKOUT")
+    val recordsEntranceState = rememberTopLevelEntranceState("RECORDS")
     val topLevelSwipeEnabled = navigation.canSwipeTopLevel()
     var swipeSelection by remember(screen) { mutableStateOf<TopLevelSwipeSelection?>(null) }
     val workoutAction by viewModels.getWorkoutSession().actionState
@@ -379,6 +389,9 @@ private fun AppRoot(
             viewModels.getDevelopment().markStale()
             if ((mealState as? MealUiState.Ready)?.notice != null) {
                 viewModels.getHome().markStale()
+                if (destinationScreen == FitnessScreen.HOME) {
+                    viewModels.getHome().enterIfNeeded(AccountScope(ownerId), navigationState.today)
+                }
             }
             if (destinationScreen == FitnessScreen.RECORDS) {
                 viewModels.getRecords().enterIfNeeded(
@@ -809,12 +822,14 @@ private fun AppRoot(
         when (val state = bodyEditorState) {
             is BodyMetricsEditorUiState.Saved -> {
                 host.toast("체중 기록을 저장했습니다.")
+                viewModels.getHome().markStale()
                 viewModels.getHome().enter(AccountScope(ownerId), routeDate)
                 viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
                 viewModels.getBodyMetrics().dismissEditor()
             }
             is BodyMetricsEditorUiState.Deleted -> {
                 host.toast("체중 기록을 삭제했습니다.")
+                viewModels.getHome().markStale()
                 viewModels.getHome().enter(AccountScope(ownerId), routeDate)
                 viewModels.getDevelopment().enter(AccountScope(ownerId), navigationState.today)
                 viewModels.getBodyMetrics().dismissEditor()
@@ -897,7 +912,7 @@ private fun AppRoot(
             36.dp + MaterialTheme.typography.labelMedium.lineHeight.toDp()
         }.coerceAtLeast(56.dp)
         val bottomNavigationSpace = bottomNavigationHeight + 24.dp
-        val destinationPage: @Composable (FitnessScreen) -> Unit = { pageScreen ->
+        val destinationPage: @Composable (FitnessScreen, Boolean) -> Unit = { pageScreen, isActualActive ->
             val recordsBackdrop = rememberLayerBackdrop()
             var recordsBarHeightPx by remember(pageScreen) { mutableIntStateOf(0) }
             val recordsBarHeight = if (recordsBarHeightPx > 0) {
@@ -910,6 +925,13 @@ private fun AppRoot(
             } else {
                 pageScreen
             }
+            val entranceToken = navigationState.topLevelEntrance
+                ?.takeIf { it.destination == pageDestination }?.generation
+            val entranceState = when (pageScreen) {
+                FitnessScreen.WORKOUT -> workoutEntranceState
+                FitnessScreen.RECORDS -> recordsEntranceState
+                else -> homeEntranceState
+            }
             val pageDate = when (pageDestination) {
                 FitnessScreen.MEALS -> navigationState.selectedMealDate
                 FitnessScreen.RECORDS -> navigationState.selectedRecordsDate
@@ -921,6 +943,14 @@ private fun AppRoot(
                         if (pageScreen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
                 ) {
                     val contentScrollState = rememberScrollState()
+                    val tabScrollReset = navigationState.topLevelTabScrollReset
+                        ?.takeIf { it.destination == pageScreen }
+                    LaunchedEffect(tabScrollReset?.generation, isActualActive) {
+                        val reset = tabScrollReset ?: return@LaunchedEffect
+                        if (!isActualActive) return@LaunchedEffect
+                        contentScrollState.scrollTo(0)
+                        navigation.consumeTopLevelTabScrollReset(reset)
+                    }
                     Column(
                         Modifier
                             .fillMaxSize()
@@ -947,7 +977,26 @@ private fun AppRoot(
                             )
                     ) {
                         if (pageDestination == FitnessScreen.HOME) {
-                            HomeDestination(homeState, ownerId, pageDate, homeActions)
+                            HomeDestination(
+                                homeState, ownerId, pageDate, homeActions,
+                                activityState = homeActivityState,
+                                onActivityPrevious = viewModels.getHome()::previousActivityPage,
+                                onActivityNext = viewModels.getHome()::nextActivityPage,
+                                onActivitySelectPage = viewModels.getHome()::selectActivityPage,
+                                onActivityRetry = viewModels.getHome()::retryActivityHistory,
+                                activityDayDetails = homeActivityDayDetails,
+                                onActivityDateSelected = viewModels.getHome()::selectActivityDay,
+                                onActivityOpenRecords = { date ->
+                                    val scope = AccountScope(ownerId)
+                                    viewModels.getRecords().rememberSelectedDate(scope, date)
+                                    navigation.selectRecordsDate(date)
+                                    navigation.navigate(FitnessScreen.RECORDS)
+                                },
+                                entranceState = homeEntranceState,
+                                preferredMassUnit = unit,
+                                entranceToken = entranceToken,
+                                isActualActive = isActualActive
+                            )
                         } else {
                             AppDestination(
                                 host,
@@ -956,7 +1005,10 @@ private fun AppRoot(
                                 pageDestination,
                                 ownerId,
                                 pageDate,
-                                unit
+                                unit,
+                                entranceState,
+                                entranceToken,
+                                isActualActive
                             )
                         }
                     }
@@ -1003,7 +1055,7 @@ private fun AppRoot(
                             content = destinationPage
                         )
                     } else {
-                        destinationPage(screen)
+                        destinationPage(screen, true)
                     }
                 }
                 RestTimerBar(host, viewModels, screen, restState, ownerId)
@@ -1013,7 +1065,7 @@ private fun AppRoot(
                     homeState, visualActiveTopLevelTab(screen, swipeSelection),
                     onTabSelected = {
                         swipeSelection = null
-                        navigation.selectTopLevel(it)
+                        navigation.selectTopLevelFromTab(it)
                     },
                     dark, bottomNavigationHeight,
                     backdrop, useBackdropGlass, highContrastEnabled,
@@ -1555,7 +1607,10 @@ private fun AppDestination(
     screen: FitnessScreen,
     ownerId: String,
     today: String,
-    unit: MassUnit
+    unit: MassUnit,
+    entranceState: TopLevelEntranceState,
+    entranceToken: Long?,
+    isActualActive: Boolean
 ) {
     val homeState by viewModels.getHome().uiState.observeAsState(HomeUiState.Idle)
     val recordsState by viewModels.getRecords().uiState
@@ -1584,6 +1639,21 @@ private fun AppDestination(
         .observeAsState(ExercisePickerUiState.Idle)
     val settingsState by viewModels.getSettings().uiState.observeAsState()
     val activeRecordId = currentWorkoutRecordId(screen, viewModels, homeState)
+    val inProgressSessionId = (homeState as? HomeUiState.Ready)?.snapshot
+        ?.takeIf { it.ownerId == ownerId }?.inProgressSessionId
+    var inProgressIsCardio by remember(ownerId, inProgressSessionId) {
+        mutableStateOf<Boolean?>(null)
+    }
+    LaunchedEffect(screen, ownerId, inProgressSessionId, isActualActive) {
+        if (screen != FitnessScreen.WORKOUT || !isActualActive || inProgressSessionId == null) {
+            return@LaunchedEffect
+        }
+        if (inProgressIsCardio == null) {
+            inProgressIsCardio = viewModels.getWorkoutSession().readInProgressIsCardio(
+                AccountScope(ownerId), inProgressSessionId
+            )
+        }
+    }
     val workoutReadOnly = (workoutState as? WorkoutSessionUiState.Ready)?.let {
         it.session.status == "completed"
     } == true
@@ -1746,9 +1816,6 @@ private fun AppDestination(
             catalogProductId
         )
         override fun saveDiningOut() = viewModels.getMeal().save(AccountScope(ownerId)) { }
-        override fun showBodyMetric() = viewModels.getBodyMetrics().open(
-            AccountScope(ownerId), today, null
-        )
         override fun editMeal(meal: com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary) =
             viewModels.getMeal().openRecordEditor(meal)
         override fun deleteMeal(recordId: String) =
@@ -1892,7 +1959,9 @@ private fun AppDestination(
                         navigation.selectMealDate(today)
                         navigation.navigate(FitnessScreen.MEALS)
                     }
-                }
+                },
+                entranceState, entranceToken, isActualActive,
+                inProgressIsCardio = inProgressIsCardio
             )
             FitnessScreen.STRENGTH -> StrengthScreen(
                 homeState,
@@ -1925,7 +1994,8 @@ private fun AppDestination(
                 navigation.uiState.value?.today ?: today,
                 unit,
                 navigation.uiState.value?.selectedRecordsDate ?: today,
-                recordsActions
+                recordsActions,
+                entranceState, entranceToken, isActualActive
             )
             FitnessScreen.STATISTICS -> StatisticsScreen(
                 statisticsState,
@@ -2008,11 +2078,6 @@ private fun AppDestination(
                         viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
                         navigation.replace(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
                     }
-                    override fun replaceExercise(exerciseId: String) {
-                        viewModels.getExercisePicker().rememberReplacementExercise(exerciseId)
-                        navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
-                    }
-
                     override fun deleteExercise(
                         recordId: String,
                         exerciseId: String,
@@ -2124,7 +2189,6 @@ private fun AppDestination(
                 mealPriceTraceState,
                 ownerId,
                 today,
-                unit,
                 mealActions
             )
             FitnessScreen.SUPPLEMENTS -> SupplementScreen(

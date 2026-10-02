@@ -229,14 +229,14 @@ class MealViewModel @JvmOverloads constructor(
         executor.execute {
             try {
                 if (!mealRepository.updateMealTime(scope, recordId, mealTime)) {
-                    throw IllegalStateException("이 식사 시간을 수정할 수 없습니다.")
+                    throw IllegalStateException("이 식단 기록 시간을 수정할 수 없습니다.")
                 }
                 if (request == requestVersion && ownerId == scope.ownerId) {
                     mutableState.postValue(
                         ready().copy(
                             recordEditor = null,
                             recordActionSaving = false,
-                            notice = "식사 시간을 수정했습니다."
+                            notice = "식단 기록 시간을 수정했습니다."
                         )
                     )
                     loadNutritionAnalysis(scope, date)
@@ -246,7 +246,7 @@ class MealViewModel @JvmOverloads constructor(
                     mutableState.postValue(
                         ready().copy(
                             recordActionSaving = false,
-                            error = error.message ?: "식사 시간을 수정하지 못했습니다."
+                            error = error.message ?: "식단 기록 시간을 수정하지 못했습니다."
                         )
                     )
                 }
@@ -266,14 +266,14 @@ class MealViewModel @JvmOverloads constructor(
         executor.execute {
             try {
                 if (!mealRepository.deleteMeal(scope, recordId)) {
-                    throw IllegalStateException("이 식사를 삭제할 수 없습니다.")
+                    throw IllegalStateException("이 식단 기록을 삭제할 수 없습니다.")
                 }
                 if (request == requestVersion && ownerId == scope.ownerId) {
                     mutableState.postValue(
                         ready().copy(
                             recordEditor = null,
                             recordActionSaving = false,
-                            notice = "식사 기록을 삭제했습니다."
+                            notice = "식단 기록을 삭제했습니다."
                         )
                     )
                     loadNutritionAnalysis(scope, date)
@@ -283,7 +283,7 @@ class MealViewModel @JvmOverloads constructor(
                     mutableState.postValue(
                         ready().copy(
                             recordActionSaving = false,
-                            error = error.message ?: "식사 기록을 삭제하지 못했습니다."
+                            error = error.message ?: "식단 기록을 삭제하지 못했습니다."
                         )
                     )
                 }

@@ -19,14 +19,18 @@ Apple: 절제, typography 중심, 명확한 hierarchy, semantic color, 일관된
 WHOOP/Apple을 복제하지 않는다.
 WHOOP의 정보 표현 방식 + Apple의 디자인 규율을 Yeonsik Fitness의 독자적 언어로 재구성한다.
 
-Identity color는 Pastel Blue다.
+Identity color는 고정 Brand Blue `#38BDF8`다. 라이트·다크 테마에 같은 대표색을 적용한다.
 
 기존 기능, domain logic, database/schema/API contract/navigation behavior는 UI redesign을 이유로 변경하지 않는다.
 
 
 2. Visual Foundation
 
-Pastel Blue는 장식색이 아니라 action / selection / focus / 중요한 metric에만 사용한다.
+Brand Blue는 장식색이 아니라 action / selection / focus / 중요한 metric에만 사용한다.
+
+활동 내역 히트맵의 강도 기준색은 대표색과 별도로 `#00FFFF`를 사용한다.
+1종 / 2종 / 3종 기록은 각각 기준색의 33% / 66% / 100% 불투명도로 표시한다.
+0종 / 첫 기록 이전 / 미래 날짜의 중립 표현은 유지한다.
 
 Success / Warning / Danger는 각각 의미론적 green / amber / red를 사용한다.
 
@@ -34,7 +38,7 @@ Success / Warning / Danger는 각각 의미론적 green / amber / red를 사용�
 
 1초 안에 가장 중요한 정보가 보인다.
 색을 제거해도 hierarchy가 유지된다.
-Pastel Blue가 적게 사용되어 더 강하게 기억된다.
+Brand Blue가 적게 사용되어 더 강하게 기억된다.
 데이터가 많아도 복잡해 보이지 않는다.
 화면 전체가 동일한 spacing / typography / surface grammar를 사용한다.
 개인 프로젝트가 아니라 실제 상용 fitness product처럼 보인다.

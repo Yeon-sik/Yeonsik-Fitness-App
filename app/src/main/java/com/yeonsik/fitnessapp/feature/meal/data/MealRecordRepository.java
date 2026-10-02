@@ -905,7 +905,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
     private String requireActiveOwner(AccountScope scope) {
         String requested = scope == null ? "" : scope.getOwnerId().trim();
         if (requested.isEmpty() || !requested.equals(userId)) {
-            throw new IllegalStateException("계정이 전환되어 식사 저장을 취소했습니다.");
+            throw new IllegalStateException("계정이 전환되어 식단 저장을 취소했습니다.");
         }
         return requested;
     }

@@ -17,7 +17,7 @@ public final class PaperAdviceEngine {
             advice.add(new PaperAdvice(
                     "DATA_COVERAGE_001", "coverage", "조언을 만들 최근 기록이 부족합니다",
                     "최근 기록일이 0일이어서 사용자의 상태와 훈련·영양·회복 추세를 비교할 수 없습니다.",
-                    "체중, 식사, 운동, 수면·준비도 중 가능한 항목을 같은 날짜 기준으로 기록한 뒤 다시 평가하세요.",
+                    "체중, 식단, 운동, 수면·준비도 중 가능한 항목을 같은 날짜 기준으로 기록한 뒤 다시 평가하세요.",
                     "기록 부재는 미섭취·미운동·회복 실패를 의미하지 않습니다.", "unknown",
                     PaperAdvice.Status.INSUFFICIENT_DATA, Collections.emptyList()
             ));
@@ -98,7 +98,7 @@ public final class PaperAdviceEngine {
         advice.add(new PaperAdvice(
                 "NUT_PRO_001", "nutrition", "총 단백질 섭취량을 검토할 후보가 있습니다",
                 String.format("현재 입력 단백질은 %.2fg/kg/day이며 목표는 %s입니다.", input.proteinGPerKg, input.goal),
-                "식사 기록의 누락과 에너지 섭취를 먼저 확인한 뒤 총 단백질을 높일 수 있는지 검토하세요. 보충제만으로 해결한다고 가정하지 않습니다.",
+                "식단 기록의 누락과 에너지 섭취를 먼저 확인한 뒤 총 단백질을 높일 수 있는지 검토하세요. 보충제만으로 해결한다고 가정하지 않습니다.",
                 "1.6g/kg/day는 meta-analysis의 평균적 포화점 추정치에 가깝고 개인의 절대 최소량이나 보장된 목표량이 아닙니다.",
                 "high", PaperAdvice.Status.ACTIONABLE, Arrays.asList("08#1", "08#2")
         ));
@@ -116,7 +116,7 @@ public final class PaperAdviceEngine {
                         "각 4일 이상 기록된 두 7일 평균 체중을 비교했을 때 주간 변화율이 %.2f%%입니다.",
                         input.weeklyWeightChangePct
                 ),
-                "식사 기록 누락, 수행 저하, 허기와 회복 상태를 함께 확인하고 감량 속도를 낮출 필요가 있는지 검토하세요.",
+                "식단 기록 누락, 수행 저하, 허기와 회복 상태를 함께 확인하고 감량 속도를 낮출 필요가 있는지 검토하세요.",
                 "7일 평균끼리의 단기 비교이며 체지방·제지방 변화나 에너지 적자의 원인을 확정하지 않습니다.",
                 "moderate", PaperAdvice.Status.ACTIONABLE, Arrays.asList("03#6", "03#7")
         ));

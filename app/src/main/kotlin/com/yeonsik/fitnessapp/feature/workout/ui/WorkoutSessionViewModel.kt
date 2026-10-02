@@ -13,9 +13,11 @@ import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicat
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.resume
 
 sealed interface WorkoutSessionUiState {
     data object Idle : WorkoutSessionUiState
@@ -289,6 +291,21 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
             ActionResult(WorkoutSessionActionOutcome.OPEN_EXISTING, recordId, cardio, null)
         }
     }
+
+    /** Reads only the matching active session; it does not emit a navigation action. */
+    suspend fun readInProgressIsCardio(scope: AccountScope, recordId: String): Boolean? =
+        suspendCancellableCoroutine { continuation ->
+            executor.execute {
+                if (!continuation.isActive) return@execute
+                val result = runCatching {
+                    val service = requireSessionApplicationService()
+                    if (service.latestInProgress(scope) == recordId) {
+                        service.isCardioSession(scope, recordId)
+                    } else null
+                }.getOrNull()
+                continuation.resume(result)
+            }
+        }
 
     fun startEmpty(scope: AccountScope, date: String) {
         executeAction(scope, WorkoutSessionAction.START_EMPTY) {

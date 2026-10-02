@@ -11,17 +11,17 @@ public final class MassFormatter {
 
     /** Formats a canonical kilogram value in the selected display unit. */
     public static String format(double kilograms, MassUnit unit) {
-        return formatValue(MassUnit.fromKg(kilograms, MassUnit.orDefault(unit)), unit, true);
+        return formatValue(MassUnit.fromKg(kilograms, MassUnit.orDefault(unit)), true, 1);
     }
 
     /** Formats a canonical kilogram value for an editable field without grouping separators. */
     public static String formatInput(double kilograms, MassUnit unit) {
-        return formatValue(MassUnit.fromKg(kilograms, MassUnit.orDefault(unit)), unit, false);
+        return formatValue(MassUnit.fromKg(kilograms, MassUnit.orDefault(unit)), false, 2);
     }
 
     /** Formats a value that is already expressed in the selected unit. */
     public static String formatValue(double value, MassUnit unit) {
-        return formatValue(value, unit, true);
+        return formatValue(value, true, 1);
     }
 
     public static String withUnit(double kilograms, MassUnit unit) {
@@ -34,14 +34,16 @@ public final class MassFormatter {
         return formatValue(value, effective) + effective.symbol();
     }
 
-    private static String formatValue(double value, MassUnit unit, boolean grouped) {
+    private static String formatValue(double value, boolean grouped, int maximumFractionDigits) {
         if (!Double.isFinite(value)) {
             return "—";
         }
         if (Math.abs(value) < 0.0000001d) {
             value = 0d;
         }
-        String pattern = grouped ? "%,.2f" : "%.2f";
+        String pattern = grouped
+                ? (maximumFractionDigits == 1 ? "%,.1f" : "%,.2f")
+                : (maximumFractionDigits == 1 ? "%.1f" : "%.2f");
         String result = String.format(Locale.ROOT, pattern, value);
         int end = result.length();
         while (end > 0 && result.charAt(end - 1) == '0') {

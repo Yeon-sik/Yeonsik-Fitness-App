@@ -266,7 +266,7 @@ class FitnessVisualQaTest {
         FitnessScreen.STATISTICS -> "통계"
         FitnessScreen.DEVELOPMENT -> "발전"
         FitnessScreen.SETTINGS -> "설정"
-        FitnessScreen.MEALS -> "식사"
+        FitnessScreen.MEALS -> "식단"
         FitnessScreen.SUPPLEMENTS -> "보충제"
         FitnessScreen.ROUTINE_DETAIL -> "루틴"
         FitnessScreen.CARDIO -> "유산소"

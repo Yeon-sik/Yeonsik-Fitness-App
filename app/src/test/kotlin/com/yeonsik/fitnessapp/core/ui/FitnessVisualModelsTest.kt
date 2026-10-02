@@ -90,6 +90,12 @@ class FitnessVisualModelsTest {
     }
 
     @Test
+    fun trendLabelsLimitMeasurementValuesToOneFractionDigit() {
+        assertEquals("120kg", formatFitnessTrendValue(120.0000007, "kg"))
+        assertEquals("120.3kg", formatFitnessTrendValue(120.26, "kg"))
+    }
+
+    @Test
     fun calendarUsesTheCallerTimezoneBeforeFormattingLocalDate() {
         val instant = Instant.parse("2026-01-01T15:00:00Z").toEpochMilli()
         val utc = fitnessCalendarDateAt(

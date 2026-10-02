@@ -73,6 +73,8 @@ class WorkoutReadRepository(
     override fun completedDates(scope: AccountScope, startDate: String, endDate: String): List<String> =
         storage.completedDates(scope, startDate, endDate)
 
+    override fun earliestCompletedDate(scope: AccountScope): String? = storage.earliestCompletedDate(scope)
+
     override fun completedResistanceSessions(scope: AccountScope, startDate: String, endDate: String): Int =
         storage.completedResistanceSessions(scope, startDate, endDate)
 }
