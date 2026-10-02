@@ -87,13 +87,17 @@ internal fun HomeActivityHistorySection(
         is HomeActivityUiState.Error -> state.previous
         else -> null
     }
-    Column(modifier.testTag("home-activity-history")) {
+    var selectedDate by rememberSaveable(page?.identity) { mutableStateOf<String?>(null) }
+    Column(
+        modifier.then(
+            if (selectedDate != null) Modifier.clickable { selectedDate = null } else Modifier
+        ).testTag("home-activity-history")
+    ) {
         FitnessSection("활동 내역") {
             FitnessCard {
                 Box(Modifier.padding(FitnessSpacing.card)) {
                     if (page != null) {
                         val interactive = state is HomeActivityUiState.Ready
-                        var selectedDate by rememberSaveable(page.identity) { mutableStateOf<String?>(null) }
                         // Keep the measured page while a read is pending so verticalScroll cannot clamp upward.
                         Column(
                             Modifier.fillMaxWidth().then(
@@ -104,10 +108,17 @@ internal fun HomeActivityHistorySection(
                             verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
                         ) {
                             ActivityPeriodSelector(page.window, onSelectPage, interactive)
-                            ActivityGrid(page.cells, selectedDate, dayDetails, preferredMassUnit) { date ->
-                                selectedDate = if (selectedDate == date) null else date
-                                if (selectedDate != null) onSelectDate(date)
-                            }
+                            ActivityGrid(
+                                cells = page.cells,
+                                selectedDate = selectedDate,
+                                dayDetails = dayDetails,
+                                preferredMassUnit = preferredMassUnit,
+                                onSelectCell = { date ->
+                                    selectedDate = if (selectedDate == date) null else date
+                                    if (selectedDate != null) onSelectDate(date)
+                                },
+                                onDismissSelection = { selectedDate = null }
+                            )
                             ActivityLegend()
                             Row(Modifier.fillMaxWidth()) {
                                 TextButton(
@@ -180,7 +191,8 @@ private fun ActivityGrid(
     selectedDate: String?,
     dayDetails: HomeActivityDayDetailsUiState,
     preferredMassUnit: MassUnit,
-    onSelectCell: (String) -> Unit
+    onSelectCell: (String) -> Unit,
+    onDismissSelection: () -> Unit
 ) {
     val weeks = cells.chunked(7)
     val monthGroups = weeks.map { it.first().date.monthValue }.fold(mutableListOf<Pair<Int, Int>>()) { groups, month ->
@@ -218,7 +230,8 @@ private fun ActivityGrid(
                             selected = selectedDate == cell.date.toString(),
                             dayDetails = dayDetails,
                             preferredMassUnit = preferredMassUnit,
-                            onClick = { onSelectCell(cell.date.toString()) }
+                            onClick = { onSelectCell(cell.date.toString()) },
+                            onDismissSelection = onDismissSelection
                         )
                     }
                 }
@@ -234,7 +247,8 @@ private fun ActivityCell(
     selected: Boolean = false,
     dayDetails: HomeActivityDayDetailsUiState = HomeActivityDayDetailsUiState.Idle,
     preferredMassUnit: MassUnit = MassUnit.KG,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    onDismissSelection: () -> Unit = {}
 ) {
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(3.dp)
@@ -266,7 +280,7 @@ private fun ActivityCell(
             }
     ) {
         if (selected && cell.state == HomeActivityCellState.TRACKED) {
-            ActivityDayBubble(date, dayDetails, selectedDetails, preferredMassUnit)
+            ActivityDayBubble(date, dayDetails, selectedDetails, preferredMassUnit, onDismissSelection)
         }
     }
 }
@@ -276,13 +290,14 @@ private fun ActivityDayBubble(
     date: String,
     state: HomeActivityDayDetailsUiState,
     details: HomeActivityDayDetails?,
-    preferredMassUnit: MassUnit
+    preferredMassUnit: MassUnit,
+    onDismissRequest: () -> Unit
 ) {
     val positionProvider = remember(date) { ActivityDayBubblePositionProvider() }
     Popup(
         popupPositionProvider = positionProvider,
-        onDismissRequest = {},
-        properties = PopupProperties(focusable = false)
+        onDismissRequest = onDismissRequest,
+        properties = PopupProperties(focusable = true, dismissOnClickOutside = true)
     ) {
         Column(
             modifier = Modifier.width(180.dp).testTag("home-activity-day-bubble-$date"),

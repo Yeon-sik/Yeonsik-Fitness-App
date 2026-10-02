@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -18,11 +19,13 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
@@ -184,6 +187,40 @@ class HomeActivityHistoryUiTest {
         compose.onNodeWithTag("home-activity-day-bubble-$TODAY").assertExists()
         compose.onNodeWithText("기록 없음").assertExists()
         compose.onNodeWithTag("home-activity-cell-2026-10-02").assertIsNotEnabled()
+    }
+
+    @Test fun tappingOutsideBubbleDismissesSelectedCell() {
+        val date = "2026-09-30"
+        compose.setContent {
+            FitnessComposeTheme(false) {
+                HomeActivityHistorySection(
+                    ready(kinds = mapOf(date to setOf(HomeActivityKind.WEIGHT))),
+                    {}, {}, {}, {},
+                    dayDetails = HomeActivityDayDetailsUiState.Ready(
+                        "owner",
+                        HomeActivityDayDetails(
+                            date,
+                            listOf(HomeActivityRecordSummary(HomeActivityKind.WEIGHT, weightKg = 62.4))
+                        )
+                    )
+                )
+            }
+        }
+
+        compose.onNodeWithTag("home-activity-cell-$date").performClick()
+        compose.onNodeWithTag("home-activity-day-bubble-$date").assertExists()
+
+        val historyWidth = compose.onNodeWithTag("home-activity-history")
+            .fetchSemanticsNode().boundsInRoot.width
+        compose.onNodeWithTag("home-activity-history")
+            .performTouchInput { click(Offset(historyWidth - 4f, 4f)) }
+
+        compose.onNodeWithTag("home-activity-day-bubble-$date").assertDoesNotExist()
+        assertTrue(
+            compose.onNodeWithTag("home-activity-cell-$date").fetchSemanticsNode().config
+                .getOrNull(SemanticsProperties.ContentDescription)
+                .orEmpty().none { it.endsWith("선택됨") }
+        )
     }
 
     @Test fun sectionFailureProvidesRetry() {
