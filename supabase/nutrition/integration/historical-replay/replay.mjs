@@ -283,6 +283,7 @@ async function replay(label, final, kaguriId) {
     console.log('Applying pending generic v3 ambiguity forward fix locally');
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
     await sql(container, readFileSync(path.join(replayDir, 'assert_generic_v3_fix.sql'), 'utf8'));
+    await sql(container, readFileSync(path.join(replayDir, 'reproduce_generic_v3_followup_ambiguity.sql'), 'utf8'));
     await canonicalIntegration(project, status, 'canonical-v3-contract-matrix');
     console.log('PASS final fresh replay (27 recovered migrations plus all three pending migrations)');
   } finally {
