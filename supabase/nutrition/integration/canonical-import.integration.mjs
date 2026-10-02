@@ -286,8 +286,11 @@ function assertAuthoritativeV3RequestShape(payload) {
 }
 
 function hierarchyFingerprint(values) {
+  // PostgreSQL hashes jsonb_build_array(... )::text, which inserts a space
+  // after each comma; mirror that canonical text instead of compact JSON.stringify.
+  const postgresJsonbArrayText = `[${values.map(value => JSON.stringify(value)).join(', ')}]`;
   return crypto.createHash('sha256')
-    .update(JSON.stringify(values), 'utf8')
+    .update(postgresJsonbArrayText, 'utf8')
     .digest('hex');
 }
 
