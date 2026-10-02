@@ -11,6 +11,7 @@ import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercise
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseBests
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercisePersonalBests
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionExercise
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
@@ -130,7 +131,8 @@ class WorkoutRepositoryImplementation(
                 WorkoutVolumePoint(it.date, it.label, it.volumeKg)
             },
             routineId = info.routineId,
-            previousRoutine = storage.previousCompletedRoutine(scope, recordId, info.routineId)
+            previousRoutine = storage.previousCompletedRoutine(scope, recordId, info.routineId),
+            completedAt = info.completedAt.takeIf { it.isNotBlank() }
         )
     }
 
@@ -139,29 +141,84 @@ class WorkoutRepositoryImplementation(
         recordId: String,
         activeExerciseId: String?
     ): WorkoutExerciseDetail? {
+        val session = storage.sessionInfo(scope, recordId) ?: return null
         val exercises = storage.exercises(scope, recordId)
         val active = exercises.firstOrNull { it.id == activeExerciseId } ?: exercises.firstOrNull()
             ?: return null
         val activeSets = storage.sets(scope, active.id)
+        val completedSets = activeSets.filter { it.isCompleted }
+        val currentVolumeKg = completedSets.sumOf { storage.volumeForSet(active, it) }
+        val currentOneRepMaxKg = completedSets.mapNotNull {
+            storage.estimatedOneRepMaxKg(active, it)
+        }.maxOrNull()
+        val previousHistories = storage.recentExerciseHistories(
+            scope,
+            active,
+            recordId,
+            limit = if (completedSets.isEmpty()) 5 else 4
+        )
+        val bests = storage.bests(scope, active, recordId)
+        val currentIsOneRepMax = currentOneRepMaxKg != null &&
+            currentOneRepMaxKg >= (bests.estimatedOneRepMax?.valueKg ?: 0.0)
+        val currentIsVolumeBest = currentVolumeKg > 0.0 &&
+            currentVolumeKg >= (bests.highestTotalVolume?.valueKg ?: 0.0)
+        val currentHistory = completedSets.takeIf { it.isNotEmpty() }?.let { sets ->
+            WorkoutExerciseHistory(
+                date = session.date,
+                totalVolumeKg = currentVolumeKg,
+                sets = sets.map { it.toFeatureModel() },
+                recordId = recordId,
+                estimatedOneRepMaxKg = currentOneRepMaxKg
+            )
+        }
+        val recentHistories = (previousHistories.map { history ->
+            WorkoutExerciseHistory(
+                date = history.date,
+                totalVolumeKg = history.totalVolumeKg,
+                sets = history.sets.map { it.toFeatureModel() },
+                recordId = history.recordId,
+                estimatedOneRepMaxKg = history.estimatedOneRepMaxKg
+            )
+        } + listOfNotNull(currentHistory)).takeLast(5)
         return WorkoutExerciseDetail(
             recordId = recordId,
             activeExercise = active.toFeatureModel(),
             exercises = exercises.map { it.toFeatureModel() },
             sets = activeSets.map { it.toFeatureModel() },
-            lastHistory = storage.lastExerciseHistory(scope, active, recordId)?.let { history ->
+            lastHistory = previousHistories.lastOrNull()?.let { history ->
                 WorkoutExerciseHistory(
-                    history.date,
-                    history.totalVolumeKg,
-                    history.sets.map { it.toFeatureModel() }
+                    date = history.date,
+                    totalVolumeKg = history.totalVolumeKg,
+                    sets = history.sets.map { it.toFeatureModel() },
+                    recordId = history.recordId,
+                    estimatedOneRepMaxKg = history.estimatedOneRepMaxKg
                 )
             },
-            bests = storage.bests(scope, active, recordId).map { it.toFeatureModel() },
+            bests = bests.byLoadState.map { it.toFeatureModel() },
             recentVolumes = storage.recentExerciseVolumes(scope, active, recordId, 8).map {
                 WorkoutVolumePoint(it.date, it.label, it.volumeKg)
             },
             allowedLoadStates = exercises.associate { it.id to storage.allowedLoadStates(it) },
             volumeFormula = storage.volumeFormula(active),
-            volumeBySetId = activeSets.associate { it.id to storage.volumeForSet(active, it) }
+            volumeBySetId = activeSets.associate { it.id to storage.volumeForSet(active, it) },
+            recentHistories = recentHistories,
+            personalBests = WorkoutExercisePersonalBests(
+                estimatedOneRepMaxKg = listOfNotNull(
+                    currentOneRepMaxKg,
+                    bests.estimatedOneRepMax?.valueKg
+                ).maxOrNull(),
+                estimatedOneRepMaxDate = if (currentIsOneRepMax) {
+                    session.date
+                } else bests.estimatedOneRepMax?.date,
+                totalVolumeKg = listOfNotNull(
+                    currentVolumeKg.takeIf { it > 0.0 },
+                    bests.highestTotalVolume?.valueKg
+                ).maxOrNull(),
+                totalVolumeDate = if (currentIsVolumeBest) {
+                    session.date
+                } else bests.highestTotalVolume?.date
+            ),
+            currentRecordDate = session.date
         )
     }
 

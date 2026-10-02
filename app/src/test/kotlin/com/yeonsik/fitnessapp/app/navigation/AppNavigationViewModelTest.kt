@@ -31,6 +31,41 @@ class AppNavigationViewModelTest {
     }
 
     @Test
+    fun dayRolloverRefreshesTodayWithoutGeneratingEntranceOrScrollReset() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        navigation.updateToday("2026-10-02")
+        val before = requireNotNull(navigation.uiState.value)
+
+        navigation.updateToday("2026-10-03")
+
+        val after = requireNotNull(navigation.uiState.value)
+        assertEquals("2026-10-03", after.today)
+        assertEquals("2026-10-03", after.selectedMealDate)
+        assertEquals("2026-10-03", after.selectedRecordsDate)
+        assertEquals(before.screen, after.screen)
+        assertEquals(before.topLevelEntrance, after.topLevelEntrance)
+        assertEquals(before.topLevelTabScrollReset, after.topLevelTabScrollReset)
+    }
+
+    @Test
+    fun dayRolloverKeepsTheDateBeingViewedInRecords() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        navigation.updateToday("2026-10-02")
+        navigation.selectTopLevelFromTab(FitnessScreen.RECORDS)
+        navigation.selectRecordsDate("2026-09-20")
+        val before = requireNotNull(navigation.uiState.value)
+
+        navigation.updateToday("2026-10-03")
+
+        val after = requireNotNull(navigation.uiState.value)
+        assertEquals("2026-10-03", after.today)
+        assertEquals("2026-09-20", after.selectedRecordsDate)
+        assertEquals(before.recordsHubTab, after.recordsHubTab)
+        assertEquals(before.topLevelEntrance, after.topLevelEntrance)
+        assertEquals(before.topLevelTabScrollReset, after.topLevelTabScrollReset)
+    }
+
+    @Test
     fun freshHomeHasInitialEntranceAndRefreshOrSameTabKeepsThatArrival() {
         val navigation = AppNavigationViewModel(SavedStateHandle())
         val initial = TopLevelEntranceEvent(FitnessScreen.HOME, 1L)

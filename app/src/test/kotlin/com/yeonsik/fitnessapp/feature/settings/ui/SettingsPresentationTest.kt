@@ -1,6 +1,8 @@
 package com.yeonsik.fitnessapp.feature.settings.ui
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig
+import com.yeonsik.fitnessapp.config.ThemeModePreferences
+import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -9,8 +11,17 @@ class SettingsPresentationTest {
     @Test
     fun themeModesUseFriendlyLabelsWithoutChangingStoredIds() {
         assertEquals("밝은 테마", themeModeLabel("light"))
-        assertEquals("어두운 테마", themeModeLabel("dark"))
+        assertEquals("어두운 테마(권장)", themeModeLabel("dark"))
         assertEquals("기기 설정 따르기", themeModeLabel("system"))
+        assertEquals("dark", ThemeModePreferences.DEFAULT_THEME_MODE)
+    }
+
+    @Test
+    fun syncStatusUsesSemanticUiState() {
+        assertEquals(FitnessSemanticStatus.SUCCESS, semanticStatusForSync("synced"))
+        assertEquals(FitnessSemanticStatus.WARNING, semanticStatusForSync("partial"))
+        assertEquals(FitnessSemanticStatus.ERROR, semanticStatusForSync("sync failed"))
+        assertEquals(FitnessSemanticStatus.INFO, semanticStatusForSync("local-only"))
     }
 
     @Test

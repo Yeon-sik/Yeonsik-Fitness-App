@@ -7,7 +7,7 @@ import android.content.SharedPreferences;
 public final class ThemeModePreferences {
     public static final String PREFERENCES_NAME = "fitness_ui_prefs";
     public static final String KEY_THEME_MODE = "theme_mode";
-    public static final String DEFAULT_THEME_MODE = "light";
+    public static final String DEFAULT_THEME_MODE = "dark";
 
     private final SharedPreferences preferences;
 

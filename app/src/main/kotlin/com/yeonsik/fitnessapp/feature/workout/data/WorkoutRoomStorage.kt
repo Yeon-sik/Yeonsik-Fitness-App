@@ -49,6 +49,7 @@ class WorkoutRoomStorage(
         val title: String,
         val date: String,
         val startedAt: String,
+        val completedAt: String,
         val status: String,
         val durationSeconds: Int,
         val workoutType: String,
@@ -87,7 +88,13 @@ class WorkoutRoomStorage(
 
     data class Metrics(val totalVolumeKg: Double, val setCount: Int, val totalDistanceMeters: Double)
     data class VolumePoint(val date: String, val label: String, val volumeKg: Double)
-    data class History(val date: String, val totalVolumeKg: Double, val sets: List<SetRow>)
+    data class History(
+        val date: String,
+        val totalVolumeKg: Double,
+        val sets: List<SetRow>,
+        val recordId: String = "",
+        val estimatedOneRepMaxKg: Double? = null
+    )
     /** One exact family + canonical variant + LoadState performance bucket. */
     data class Bests(
         val performanceKey: String,
@@ -100,6 +107,14 @@ class WorkoutRoomStorage(
         val bestSessionVolumeKg: Double,
         val bestVolumeDate: String,
         val sessionCount: Int
+    )
+
+    data class PerformanceMetric(val valueKg: Double, val date: String)
+
+    data class BestsSummary(
+        val byLoadState: List<Bests>,
+        val estimatedOneRepMax: PerformanceMetric?,
+        val highestTotalVolume: PerformanceMetric?
     )
 
     private class BestAccumulator(val loadState: LoadState) {
@@ -454,6 +469,7 @@ class WorkoutRoomStorage(
                 record.exerciseName,
                 record.date,
                 metadataValue(metadata, "started_at"),
+                metadataValue(metadata, "ended_at"),
                 metadataValue(metadata, "status"),
                 resolvedDurationSeconds(
                     record.date,
@@ -681,7 +697,8 @@ class WorkoutRoomStorage(
                     totalVolumeKg = summary.totalVolumeKg,
                     completedSetCount = summary.setCount,
                     muscleLabels = muscleLabels,
-                    projectionMuscleLabels = projectionMuscleLabels
+                    projectionMuscleLabels = projectionMuscleLabels,
+                    completedAt = info.completedAt.takeIf { it.isNotBlank() }
                 )
             }
 
@@ -778,8 +795,19 @@ class WorkoutRoomStorage(
         return points.values.toList().asReversed()
     }
 
-    fun lastExerciseHistory(scope: AccountScope, exercise: ExerciseRow, currentRecordId: String): History? {
-        val row = workoutDao.lastExerciseCandidate(
+    fun lastExerciseHistory(scope: AccountScope, exercise: ExerciseRow, currentRecordId: String): History? =
+        recentExerciseHistories(scope, exercise, currentRecordId, limit = 1).lastOrNull()
+
+    /** Returns distinct completed exercise sessions in chronological order, bounded by limit. */
+    fun recentExerciseHistories(
+        scope: AccountScope,
+        exercise: ExerciseRow,
+        currentRecordId: String,
+        limit: Int
+    ): List<History> {
+        if (limit <= 0) return emptyList()
+        val histories = linkedMapOf<String, History>()
+        val candidates = workoutDao.exerciseHistoryCandidates(
             scope.ownerId,
             currentRecordId,
             exercise.exerciseId,
@@ -787,14 +815,34 @@ class WorkoutRoomStorage(
             exercise.familyIdentity?.familyId,
             exercise.familyIdentity?.canonicalVariantKey,
             legacyExerciseIds(exercise)
-        ) ?: return null
-        val sets = sets(scope, row.recordId).filter { it.isCompleted }
-        if (sets.isEmpty()) return null
-        return History(row.date, sets.sumOf { volumeForSet(exercise, it) }, sets)
+        )
+        for (candidate in candidates) {
+            if (histories.size >= limit) break
+            if (candidate.recordId in histories) continue
+            val matchingExercise = exercises(scope, candidate.recordId).firstOrNull {
+                sameExerciseIdentity(it, exercise)
+            } ?: continue
+            val completedSets = sets(scope, matchingExercise.id).filter { it.isCompleted }
+            if (completedSets.isEmpty()) continue
+            histories[candidate.recordId] = History(
+                date = candidate.date,
+                totalVolumeKg = completedSets.sumOf { volumeForSet(matchingExercise, it) },
+                sets = completedSets,
+                recordId = candidate.recordId,
+                estimatedOneRepMaxKg = completedSets.mapNotNull {
+                    estimatedOneRepMaxKg(matchingExercise, it)
+                }.maxOrNull()
+            )
+        }
+        return histories.values.toList().asReversed()
     }
 
-    fun bests(scope: AccountScope, exercise: ExerciseRow, currentRecordId: String): List<Bests> {
+    fun bests(scope: AccountScope, exercise: ExerciseRow, currentRecordId: String): BestsSummary {
         val accumulators = linkedMapOf<LoadState, BestAccumulator>()
+        val totalVolumeBySession = linkedMapOf<String, Double>()
+        val dateBySession = linkedMapOf<String, String>()
+        var bestEstimatedOneRepMaxKg = 0.0
+        var bestEstimatedOneRepMaxDate = ""
         for (row in workoutDao.bestSetRows(
             scope.ownerId,
             currentRecordId,
@@ -819,6 +867,9 @@ class WorkoutRoomStorage(
             accumulator.sessionVolumes[recordId] =
                 (accumulator.sessionVolumes[recordId] ?: 0.0) + setVolume
             accumulator.sessionDates[recordId] = date
+            totalVolumeBySession[recordId] =
+                (totalVolumeBySession[recordId] ?: 0.0) + setVolume
+            dateBySession[recordId] = date
             val comparableLoad = performanceLoad(set)
             if (comparableLoad > accumulator.maxWeightKg ||
                 (comparableLoad == accumulator.maxWeightKg &&
@@ -833,8 +884,12 @@ class WorkoutRoomStorage(
                 accumulator.bestE1rmKg = e1rm
                 accumulator.bestE1rmDate = date
             }
+            if (e1rm.isFinite() && e1rm > bestEstimatedOneRepMaxKg) {
+                bestEstimatedOneRepMaxKg = e1rm
+                bestEstimatedOneRepMaxDate = date
+            }
         }
-        return accumulators.values
+        val byLoadState = accumulators.values
             .sortedBy { it.loadState.ordinal }
             .map { accumulator ->
                 var bestVolume = 0.0
@@ -863,6 +918,14 @@ class WorkoutRoomStorage(
                     accumulator.sessionVolumes.size
                 )
             }
+        val highestTotalVolume = totalVolumeBySession.entries
+            .filter { it.value.isFinite() && it.value > 0.0 }
+            .maxByOrNull { it.value }
+            ?.let { entry -> PerformanceMetric(entry.value, dateBySession[entry.key].orEmpty()) }
+        val estimatedOneRepMax = bestEstimatedOneRepMaxKg
+            .takeIf { it.isFinite() && it > 0.0 }
+            ?.let { PerformanceMetric(it, bestEstimatedOneRepMaxDate) }
+        return BestsSummary(byLoadState, estimatedOneRepMax, highestTotalVolume)
     }
 
     fun allowedLoadStates(exercise: ExerciseRow): List<LoadState> {
@@ -887,6 +950,10 @@ class WorkoutRoomStorage(
             implementMultiplier(identity)
         )
     }
+
+    fun estimatedOneRepMaxKg(exercise: ExerciseRow, set: SetRow): Double? =
+        WorkoutPerformanceCalculator.epleyE1rm(performanceLoad(set), set.actualReps)
+            .takeIf { it.isFinite() && it > 0.0 }
 
     fun volumeFormula(exercise: ExerciseRow): String = ExerciseVolumeCalculator.formulaLabel(
         exercise.familyIdentity?.let(::laterality),

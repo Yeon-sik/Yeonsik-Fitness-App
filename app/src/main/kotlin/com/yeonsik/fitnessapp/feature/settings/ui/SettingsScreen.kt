@@ -63,8 +63,7 @@ internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActio
     var advancedConnectionsVisible by rememberSaveable { mutableStateOf(false) }
     AppHeader("설정", "계정·동기화·데이터 안전·표시 환경")
     SettingsSectionTitle("상태")
-    SettingsAccountStatusCard(state.sharedConfig)
-    SettingsSyncStatusCard(state)
+    SettingsStatusCard(state.sharedConfig, state, Modifier.fillMaxWidth())
     SettingsSectionTitle("단위")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
@@ -76,7 +75,7 @@ internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActio
     SettingsSectionTitle("테마")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
         verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-        listOf("light", "dark", "system").forEach { mode ->
+        listOf("dark", "light", "system").forEach { mode ->
             AppOutlinedButton(onClick = { actions.setThemeMode(mode) }, selected = state.themeMode == mode) { Text(themeModeLabel(mode)) }
         }
     }
