@@ -346,14 +346,15 @@ function requiredValues(seed) {
 }
 
 function provenanceFor(values, sourceTypes, valueStatus, refPrefix) {
-  return Object.fromEntries(REQUIRED_NUTRIENTS.map((key, index) => ({
-    [key]: {
+  return Object.fromEntries(REQUIRED_NUTRIENTS.map((key, index) => [
+    key,
+    {
       value: values[key],
       value_status: valueStatus,
       source_type: sourceTypes[index],
       evidence_refs: [integrationRef(`${refPrefix}/${key}`)]
     }
-  })));
+  ]));
 }
 
 function labelPayload(idempotencyKey, name, documentRef = idempotencyKey) {
