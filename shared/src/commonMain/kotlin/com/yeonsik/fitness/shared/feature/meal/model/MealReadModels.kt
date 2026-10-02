@@ -34,7 +34,11 @@ data class MealReadSummary(
     val timeEditable: Boolean,
     val createdAt: String?,
     val subtitle: String,
-    val accessibilityLabel: String
+    val accessibilityLabel: String,
+    /** Source amounts retain missing values while the legacy numeric fields remain compatible. */
+    val recordedProteinGrams: Double? = proteinGrams,
+    val recordedCarbsGrams: Double? = carbsGrams,
+    val recordedFatGrams: Double? = fatGrams
 )
 
 data class MealNutritionReadSummary(

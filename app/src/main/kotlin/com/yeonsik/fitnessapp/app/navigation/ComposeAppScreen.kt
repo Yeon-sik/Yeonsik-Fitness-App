@@ -943,6 +943,14 @@ private fun AppRoot(
                         if (pageScreen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
                 ) {
                     val contentScrollState = rememberScrollState()
+                    val tabScrollReset = navigationState.topLevelTabScrollReset
+                        ?.takeIf { it.destination == pageScreen }
+                    LaunchedEffect(tabScrollReset?.generation, isActualActive) {
+                        val reset = tabScrollReset ?: return@LaunchedEffect
+                        if (!isActualActive) return@LaunchedEffect
+                        contentScrollState.scrollTo(0)
+                        navigation.consumeTopLevelTabScrollReset(reset)
+                    }
                     Column(
                         Modifier
                             .fillMaxSize()
@@ -1631,6 +1639,21 @@ private fun AppDestination(
         .observeAsState(ExercisePickerUiState.Idle)
     val settingsState by viewModels.getSettings().uiState.observeAsState()
     val activeRecordId = currentWorkoutRecordId(screen, viewModels, homeState)
+    val inProgressSessionId = (homeState as? HomeUiState.Ready)?.snapshot
+        ?.takeIf { it.ownerId == ownerId }?.inProgressSessionId
+    var inProgressIsCardio by remember(ownerId, inProgressSessionId) {
+        mutableStateOf<Boolean?>(null)
+    }
+    LaunchedEffect(screen, ownerId, inProgressSessionId, isActualActive) {
+        if (screen != FitnessScreen.WORKOUT || !isActualActive || inProgressSessionId == null) {
+            return@LaunchedEffect
+        }
+        if (inProgressIsCardio == null) {
+            inProgressIsCardio = viewModels.getWorkoutSession().readInProgressIsCardio(
+                AccountScope(ownerId), inProgressSessionId
+            )
+        }
+    }
     val workoutReadOnly = (workoutState as? WorkoutSessionUiState.Ready)?.let {
         it.session.status == "completed"
     } == true
@@ -1793,9 +1816,6 @@ private fun AppDestination(
             catalogProductId
         )
         override fun saveDiningOut() = viewModels.getMeal().save(AccountScope(ownerId)) { }
-        override fun showBodyMetric() = viewModels.getBodyMetrics().open(
-            AccountScope(ownerId), today, null
-        )
         override fun editMeal(meal: com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary) =
             viewModels.getMeal().openRecordEditor(meal)
         override fun deleteMeal(recordId: String) =
@@ -1940,7 +1960,8 @@ private fun AppDestination(
                         navigation.navigate(FitnessScreen.MEALS)
                     }
                 },
-                entranceState, entranceToken, isActualActive
+                entranceState, entranceToken, isActualActive,
+                inProgressIsCardio = inProgressIsCardio
             )
             FitnessScreen.STRENGTH -> StrengthScreen(
                 homeState,
@@ -2057,11 +2078,6 @@ private fun AppDestination(
                         viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
                         navigation.replace(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
                     }
-                    override fun replaceExercise(exerciseId: String) {
-                        viewModels.getExercisePicker().rememberReplacementExercise(exerciseId)
-                        navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
-                    }
-
                     override fun deleteExercise(
                         recordId: String,
                         exerciseId: String,
@@ -2173,7 +2189,6 @@ private fun AppDestination(
                 mealPriceTraceState,
                 ownerId,
                 today,
-                unit,
                 mealActions
             )
             FitnessScreen.SUPPLEMENTS -> SupplementScreen(

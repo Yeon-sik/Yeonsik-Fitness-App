@@ -14,13 +14,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -47,11 +54,13 @@ import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceMotion
 import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceState
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
+import com.yeonsik.fitness.shared.feature.meal.model.MealReadSummary
 import com.yeonsik.fitness.shared.feature.records.model.RecordsCalendarDay
 import com.yeonsik.fitness.shared.feature.records.model.RecordsDayDetail
 import com.yeonsik.fitness.shared.feature.records.model.RecordsWorkoutSummary
 import java.time.LocalDate
 import java.time.YearMonth
+import java.text.NumberFormat
 import java.util.Locale
 
 private val recordsLoadingMessages = listOf("기록을 불러오는 중")
@@ -78,6 +87,9 @@ internal fun RecordsScreen(
     entranceToken: Long? = null,
     isActualActive: Boolean = true
 ) {
+    var selectedMealId by rememberSaveable(ownerId, selectedDate, isActualActive) {
+        mutableStateOf<String?>(null)
+    }
     val ready = state as? RecordsUiState.Ready
     val snapshot = ready?.snapshot?.takeIf { it.ownerId == ownerId }
     val entrance = rememberTopLevelEntranceMotion(
@@ -127,7 +139,12 @@ internal fun RecordsScreen(
     }
     Spacer(Modifier.height(AppSpacing.small))
     snapshot.dayDetailsByDate[selectedDate]?.let { detail ->
-        RecordsDayDetailSection(detail, unit, actions, entrance)
+        RecordsDayDetailSection(detail, unit, actions, entrance) { mealId ->
+            if (isActualActive) selectedMealId = mealId
+        }
+        detail.meals.firstOrNull { it.id == selectedMealId }?.takeIf { isActualActive }?.let { meal ->
+            RecordsMealSummaryDialog(meal, onDismiss = { selectedMealId = null })
+        }
     }
 }
 
@@ -256,7 +273,8 @@ private fun RecordsDayDetailSection(
     detail: RecordsDayDetail,
     unit: MassUnit,
     actions: RecordsScreenActions,
-    entrance: TopLevelEntranceMotion
+    entrance: TopLevelEntranceMotion,
+    onSelectMeal: (String) -> Unit
 ) {
     var order = 2
     TopLevelEntranceContent(entrance, order++) {
@@ -336,10 +354,72 @@ private fun RecordsDayDetailSection(
         }
         detail.meals.forEach { meal ->
             TopLevelEntranceContent(entrance, order++) {
-                AppDataRow(meal.mealLabel, meal.previewTitle)
+                AppDataRow(
+                    meal.mealLabel,
+                    meal.previewTitle,
+                    Modifier.testTag("records-meal-${meal.id}")
+                        .clickable(role = Role.Button) { onSelectMeal(meal.id) }
+                )
             }
         }
     }
+}
+
+@Composable
+private fun RecordsMealSummaryDialog(meal: MealReadSummary, onDismiss: () -> Unit) {
+    val nutritionRecorded = meal.nutritionStatus != "unknown"
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        modifier = Modifier.testTag("records-meal-dialog"),
+        title = { Text("${meal.mealLabel} 정보") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                Text(
+                    meal.previewTitle,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                RecordsMealInfoRow("먹은 시각", meal.mealTime.ifBlank { "시간 미기록" }, "time")
+                if (meal.nutritionStatus == "estimated") {
+                    Text("추정 영양 정보", style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                RecordsMealInfoRow("칼로리", if (nutritionRecorded) "${meal.calories} kcal" else "미기록", "calories")
+                RecordsMealInfoRow("탄수화물", recordsMealGrams(meal.recordedCarbsGrams.takeIf { nutritionRecorded }), "carbs")
+                RecordsMealInfoRow("단백질", recordsMealGrams(meal.recordedProteinGrams.takeIf { nutritionRecorded }), "protein")
+                RecordsMealInfoRow("지방", recordsMealGrams(meal.recordedFatGrams.takeIf { nutritionRecorded }), "fat")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.testTag("records-meal-dialog-close")) {
+                Text("닫기")
+            }
+        }
+    )
+}
+
+@Composable
+private fun RecordsMealInfoRow(label: String, value: String, key: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().testTag("records-meal-$key"),
+        horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+    }
+}
+
+internal fun recordsMealGrams(value: Double?): String {
+    if (value == null || !value.isFinite() || value < 0.0) return "미기록"
+    val number = NumberFormat.getNumberInstance(Locale.KOREA).apply {
+        maximumFractionDigits = 1
+        isGroupingUsed = false
+    }.format(value)
+    return "${number}g"
 }
 
 private fun RecordsCalendarDay.markers(): List<FitnessCalendarMarker> = buildList {

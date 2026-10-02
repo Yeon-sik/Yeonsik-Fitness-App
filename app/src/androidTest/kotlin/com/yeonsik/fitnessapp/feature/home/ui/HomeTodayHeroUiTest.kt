@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.toPixelMap
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import com.yeonsik.fitnessapp.feature.records.ui.RecordsCalendarLegend
 import org.junit.Assert.*
 import org.junit.Rule
@@ -61,7 +62,7 @@ class HomeTodayHeroUiTest {
         compose.setContent {
             FitnessComposeTheme(false) {
                 Column {
-                    HomeGlassHero(status, {}, useGlass = false)
+                    HomeTodayHero(status, {})
                     RecordsCalendarLegend(Modifier.fillMaxWidth())
                 }
             }
@@ -88,7 +89,7 @@ class HomeTodayHeroUiTest {
                 val density = LocalDensity.current
                 CompositionLocalProvider(LocalDensity provides Density(density.density, 1.8f)) {
                     Box(Modifier.width(280.dp).testTag("hero-narrow")) {
-                        HomeGlassHero(status, {}, useGlass = false)
+                        HomeTodayHero(status, {})
                     }
                 }
             }
@@ -117,7 +118,7 @@ class HomeTodayHeroUiTest {
         compose.setContent {
             FitnessComposeTheme(false) {
                 androidx.compose.material3.MaterialTheme(colorScheme = androidx.compose.material3.MaterialTheme.colorScheme.copy(primary = accent)) {
-                    HomeGlassHero(changingStatus.value, {}, useGlass = false)
+                    HomeTodayHero(changingStatus.value, {})
                 }
             }
         }
@@ -147,7 +148,7 @@ class HomeTodayHeroUiTest {
             domain("meal", "식단", "아직"), domain("body", "체중", "아직")
         ), true)
         compose.setContent {
-            FitnessComposeTheme(false) { HomeGlassHero(status, { continued++ }, useGlass = false) }
+            FitnessComposeTheme(false) { HomeTodayHero(status, { continued++ }) }
         }
         compose.onNodeWithText("오늘").assertExists()
         compose.onNodeWithText("진행 중").assertExists()
@@ -157,32 +158,30 @@ class HomeTodayHeroUiTest {
         compose.onNodeWithContentDescription("오늘 1/3 영역 기록").assertExists()
     }
 
-    @Test fun glassAndSurfacePathsRenderInBothColorSchemes() {
-        val mode = mutableStateOf(false to false)
+    @Test fun opaqueHeroKeepsTheSameBackgroundInBothColorSchemes() {
+        val mode = mutableStateOf(false)
         compose.setContent {
-            val (dark, glass) = mode.value
-            FitnessComposeTheme(dark) {
-                HomeGlassHero(HomeTodayHeroStatus(listOf(
+            FitnessComposeTheme(mode.value) {
+                HomeTodayHero(HomeTodayHeroStatus(listOf(
                     domain("workout", "운동", "완료", true),
                     domain("meal", "식단", "아직"), domain("body", "체중", "아직")
-                ), false), {}, useGlass = glass)
+                ), false), {})
             }
         }
         listOf(false, true).forEach { dark ->
-            listOf(false, true).forEach { glass ->
-                compose.runOnIdle { mode.value = dark to glass }
-                compose.waitForIdle()
-                compose.onNodeWithText("오늘").assertExists()
-                compose.onNodeWithText("완료").assertExists()
-                compose.onNodeWithTag("home-today-hero").assertExists()
-            }
+            compose.runOnIdle { mode.value = dark }
+            compose.waitForIdle()
+            compose.onNodeWithText("오늘").assertExists()
+            compose.onNodeWithText("완료").assertExists()
+            val pixels = compose.onNodeWithTag("home-today-hero").captureToImage().toPixelMap()
+            assertColorNear(Color(FitnessUiTokens.COLOR_BLUE_CONTAINER), pixels[pixels.width / 2, 2])
         }
     }
 
     private fun showHero(status: HomeTodayHeroStatus = HomeTodayHeroStatus(listOf(
         domain("workout", "운동", "아직"), domain("meal", "식단", "아직"), domain("body", "체중", "아직")
     ), false)) {
-        compose.setContent { FitnessComposeTheme(false) { HomeGlassHero(status, {}, useGlass = false) } }
+        compose.setContent { FitnessComposeTheme(false) { HomeTodayHero(status, {}) } }
         compose.waitForIdle()
     }
 

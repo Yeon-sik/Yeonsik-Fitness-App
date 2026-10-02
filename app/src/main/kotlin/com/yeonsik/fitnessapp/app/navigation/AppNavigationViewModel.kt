@@ -22,11 +22,15 @@ data class AppNavigationState(
     val selectedRecordsDate: String = today,
     val selectedRoutineId: String? = null,
     val recordsHubTab: RecordsHubTab = RecordsHubTab.RECORDS,
-    val topLevelEntrance: TopLevelEntranceEvent? = null
+    val topLevelEntrance: TopLevelEntranceEvent? = null,
+    val topLevelTabScrollReset: TopLevelTabScrollReset? = null
 )
 
 /** An arrival, not a composition or data-loading event. Pending arrivals are runtime only. */
 data class TopLevelEntranceEvent(val destination: FitnessScreen, val generation: Long)
+
+/** A real tab click requests a one-time scroll reset for the selected root. */
+data class TopLevelTabScrollReset(val destination: FitnessScreen, val generation: Long)
 
 /** The three destinations hosted by the top-level Records tab. */
 enum class RecordsHubTab(
@@ -64,6 +68,9 @@ class AppNavigationViewModel(
     private var entranceGeneration = savedStateHandle.get<Long>(KEY_ENTRANCE_GENERATION) ?: 0L
     private var topLevelEntrance: TopLevelEntranceEvent? =
         if (freshNavigation) newEntrance(FitnessScreen.HOME) else null
+    private var topLevelTabScrollReset: TopLevelTabScrollReset? = null
+    private var topLevelTabScrollResetGeneration =
+        savedStateHandle.get<Long>(KEY_TAB_SCROLL_RESET_GENERATION) ?: 0L
 
     fun completeStartup() {
         if (mutableStartupCompleted.value != true) mutableStartupCompleted.value = true
@@ -84,6 +91,7 @@ class AppNavigationViewModel(
         recordsHubTabName: String?
     ) {
         topLevelEntrance = null
+        topLevelTabScrollReset = null
         val restoredScreen = parseScreen(screenName)
         val resolvedHubTab = restoredHubTab(
             restoredScreen,
@@ -137,6 +145,7 @@ class AppNavigationViewModel(
     /** Deep navigation entry point. Legacy Statistics/Development routes open the Records hub. */
     fun navigate(screen: FitnessScreen) {
         topLevelEntrance = null
+        topLevelTabScrollReset = null
         when (val hubTab = RecordsHubTab.forScreen(screen)) {
             null -> history.push(screen)
             else -> openRecordsHub(hubTab, replace = false)
@@ -147,6 +156,7 @@ class AppNavigationViewModel(
     /** Replaces a destination while preserving the existing session/back-stack policy. */
     fun replace(screen: FitnessScreen) {
         topLevelEntrance = null
+        topLevelTabScrollReset = null
         when (val hubTab = RecordsHubTab.forScreen(screen)) {
             null -> history.replace(screen)
             else -> openRecordsHub(hubTab, replace = true)
@@ -158,24 +168,36 @@ class AppNavigationViewModel(
     fun selectTopLevel(screen: FitnessScreen) {
         if (screen !in TOP_LEVEL_SCREENS) return
         topLevelEntrance = null
+        topLevelTabScrollReset = null
         history.replace(screen)
         publish()
     }
 
-    /** Only an actual bottom-tab click from another top-level page creates an entrance. */
+    /** A bottom-tab click returns to that tab's root and resets its scroll position. */
     fun selectTopLevelFromTab(screen: FitnessScreen) {
-        if (screen !in TOP_LEVEL_SCREENS || screen == history.current()) return
-        topLevelEntrance = if (history.current() in TOP_LEVEL_SCREENS &&
-            screen in ANIMATED_TOP_LEVEL_SCREENS
-        ) newEntrance(screen) else null
-        history.replace(screen)
+        if (screen !in TOP_LEVEL_SCREENS) return
+        if (screen != history.current()) {
+            topLevelEntrance = if (history.current() in TOP_LEVEL_SCREENS &&
+                screen in ANIMATED_TOP_LEVEL_SCREENS
+            ) newEntrance(screen) else null
+            history.replace(screen)
+        }
+        topLevelTabScrollReset = newTopLevelTabScrollReset(screen)
         publish()
     }
 
     /** A drag owns the arrival motion, including a drag that eventually springs back. */
     fun beginTopLevelSwipe() {
-        if (!canSwipeTopLevel() || topLevelEntrance == null) return
+        if (!canSwipeTopLevel()) return
+        if (topLevelEntrance == null && topLevelTabScrollReset == null) return
         topLevelEntrance = null
+        topLevelTabScrollReset = null
+        publish()
+    }
+
+    fun consumeTopLevelTabScrollReset(event: TopLevelTabScrollReset) {
+        if (topLevelTabScrollReset != event) return
+        topLevelTabScrollReset = null
         publish()
     }
 
@@ -198,6 +220,7 @@ class AppNavigationViewModel(
 
     fun selectRecordsHubTab(tab: RecordsHubTab) {
         topLevelEntrance = null
+        topLevelTabScrollReset = null
         savedStateHandle[KEY_RECORDS_HUB_TAB] = tab.name
         history.replace(FitnessScreen.RECORDS)
         publish()
@@ -206,6 +229,7 @@ class AppNavigationViewModel(
     fun back(): Boolean {
         history.back() ?: return false
         topLevelEntrance = null
+        topLevelTabScrollReset = null
         publish()
         return true
     }
@@ -232,13 +256,20 @@ class AppNavigationViewModel(
         selectedRecordsDate = stateSelectedRecordsDate(),
         selectedRoutineId = savedStateHandle[KEY_ROUTINE_ID],
         recordsHubTab = recordsHubTab(),
-        topLevelEntrance = topLevelEntrance
+        topLevelEntrance = topLevelEntrance,
+        topLevelTabScrollReset = topLevelTabScrollReset
     )
 
     private fun newEntrance(destination: FitnessScreen): TopLevelEntranceEvent {
         entranceGeneration += 1L
         savedStateHandle[KEY_ENTRANCE_GENERATION] = entranceGeneration
         return TopLevelEntranceEvent(destination, entranceGeneration)
+    }
+
+    private fun newTopLevelTabScrollReset(destination: FitnessScreen): TopLevelTabScrollReset {
+        topLevelTabScrollResetGeneration += 1L
+        savedStateHandle[KEY_TAB_SCROLL_RESET_GENERATION] = topLevelTabScrollResetGeneration
+        return TopLevelTabScrollReset(destination, topLevelTabScrollResetGeneration)
     }
 
     private fun stateSelectedMealDate(): String =
@@ -325,5 +356,6 @@ class AppNavigationViewModel(
         const val KEY_ROUTINE_ID = "navigation.routine_id"
         const val KEY_RECORDS_HUB_TAB = "navigation.records_hub_tab"
         const val KEY_ENTRANCE_GENERATION = "navigation.entrance_generation"
+        const val KEY_TAB_SCROLL_RESET_GENERATION = "navigation.tab_scroll_reset_generation"
     }
 }

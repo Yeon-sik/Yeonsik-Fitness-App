@@ -280,7 +280,10 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
             deviceId == "android-local",
             createdAt,
             if (MealRecordKind.isDiningOut(mealKind)) "$mealTime · 외식" else "$mealTime · $ratio",
-            "$previewTitle, $mealTime, $ratioAccessibility"
+            "$previewTitle, $mealTime, $ratioAccessibility",
+            recordedProteinGrams = proteinGrams,
+            recordedCarbsGrams = carbsGrams,
+            recordedFatGrams = fatGrams
         )
     }
 

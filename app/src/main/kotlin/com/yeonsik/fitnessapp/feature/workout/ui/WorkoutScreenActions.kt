@@ -3,7 +3,6 @@ package com.yeonsik.fitnessapp.feature.workout.ui
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
-import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitnessapp.state.FitnessScreen
 
@@ -38,7 +37,6 @@ internal interface WorkoutDetailActions {
     fun back()
     fun refresh()
     fun openExercise(exerciseId: String)
-    fun replaceExercise(exerciseId: String)
     fun deleteExercise(recordId: String, exerciseId: String, onResult: (Boolean) -> Unit)
     fun applyPreviousHistory(
         recordId: String,

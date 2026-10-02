@@ -16,12 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,6 +46,7 @@ import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
 import com.yeonsik.fitnessapp.core.ui.FitnessShape
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceContent
 import com.yeonsik.fitnessapp.core.ui.TopLevelEntranceState
 import com.yeonsik.fitnessapp.core.ui.rememberTopLevelEntranceMotion
@@ -238,7 +237,7 @@ internal fun HomeDestination(
     ) {
         TopLevelEntranceContent(entrance, order = 0) {
             FitnessSection("오늘 상태") {
-                HomeGlassHero(heroStatus, actions::continueWorkout, useGlass)
+                HomeTodayHero(heroStatus, actions::continueWorkout)
             }
         }
         TopLevelEntranceContent(entrance, order = 1) {
@@ -289,34 +288,18 @@ internal fun HomeDestination(
 }
 
 @Composable
-internal fun HomeGlassHero(
+internal fun HomeTodayHero(
     status: HomeTodayHeroStatus,
     onContinue: () -> Unit,
-    useGlass: Boolean,
     modifier: Modifier = Modifier
 ) {
-    val colors = MaterialTheme.colorScheme
-    if (useGlass) {
-        HomeGlassPanel(
-            modifier = modifier.fillMaxWidth().testTag("home-today-hero"),
-            shape = FitnessShape.hero,
-            source = Brush.linearGradient(listOf(colors.primaryContainer, colors.surfaceContainerHigh)),
-            tint = colors.primaryContainer.copy(alpha = 0.32f),
-            hero = true
-        ) {
-            CompositionLocalProvider(LocalContentColor provides colors.onPrimaryContainer) {
-                HomeHeroContent(status, onContinue, Modifier.fillMaxWidth())
-            }
-        }
-    } else {
-        Surface(
-            modifier = modifier.fillMaxWidth().testTag("home-today-hero"),
-            shape = FitnessShape.hero,
-            color = colors.primaryContainer,
-            contentColor = colors.onPrimaryContainer
-        ) {
-            HomeHeroContent(status, onContinue)
-        }
+    Surface(
+        modifier = modifier.fillMaxWidth().testTag("home-today-hero"),
+        shape = FitnessShape.hero,
+        color = Color(FitnessUiTokens.COLOR_BLUE_CONTAINER),
+        contentColor = Color(FitnessUiTokens.COLOR_BLUE_INK)
+    ) {
+        HomeHeroContent(status, onContinue)
     }
 }
 

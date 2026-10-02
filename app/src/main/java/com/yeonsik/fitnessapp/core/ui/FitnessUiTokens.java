@@ -125,10 +125,14 @@ public final class FitnessUiTokens {
     }
 
     public static String trimDouble(double value) {
-        if (value == Math.rint(value)) {
-            return String.valueOf((long) value);
+        if (!Double.isFinite(value)) {
+            return String.valueOf(value);
         }
-        return String.valueOf(value);
+        if (Math.abs(value) < 0.05d) {
+            value = 0d;
+        }
+        String result = String.format(Locale.ROOT, "%.1f", value);
+        return result.endsWith(".0") ? result.substring(0, result.length() - 2) : result;
     }
 
     public static String formatVolume(double kg) {

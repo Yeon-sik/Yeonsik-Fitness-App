@@ -1,6 +1,8 @@
 package com.yeonsik.fitnessapp.ui;
 
 import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens;
+import com.yeonsik.fitnessapp.data.MassFormatter;
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
 
 import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
@@ -1366,8 +1368,9 @@ public final class FitnessUi {
             }
 
             private String valueLabel(double value) {
-                String number = "kg".equals(displayUnit)
-                        ? formatVolume(value)
+                MassUnit massUnit = MassUnit.parse(displayUnit);
+                String number = massUnit != null
+                        ? MassFormatter.formatValue(value, massUnit)
                         : trimDouble(value);
                 return number + displayUnit;
             }

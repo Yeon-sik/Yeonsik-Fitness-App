@@ -31,7 +31,6 @@ import com.yeonsik.fitnessapp.config.*
 import com.yeonsik.fitnessapp.core.account.*
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.*
-import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitness.shared.feature.cardio.model.*
 import com.yeonsik.fitnessapp.feature.cardio.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
@@ -82,7 +81,6 @@ interface MealScreenActions {
         catalogProductId: String
     )
     fun saveDiningOut()
-    fun showBodyMetric()
     fun editMeal(meal: HomeMealSummary)
     fun deleteMeal(recordId: String)
     fun saveMealTime(recordId: String, mealTime: String)
@@ -108,7 +106,6 @@ internal fun MealScreen(
     priceTraceState: PriceTraceUiState,
     ownerId: String,
     today: String,
-    unit: MassUnit,
     actions: MealScreenActions
 ) {
     val ready = homeState as? HomeUiState.Ready
@@ -261,10 +258,6 @@ internal fun MealScreen(
         } else {
             FoodMealEditor(actions, editor)
         }
-    }
-
-    AppOutlinedButton(onClick = actions::showBodyMetric, Modifier.fillMaxWidth()) {
-        Text("오늘 체중 · ${snapshot.todayWeight?.let { MassFormatter.withUnit(it.weightKg, unit) } ?: "미기록"}")
     }
 
     val deleteTarget = deleteTargetId?.let { id -> snapshot.todayMeals.firstOrNull { it.id == id } }

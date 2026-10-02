@@ -70,7 +70,7 @@ internal fun HomeHeroContent(
         ) {
             status.domains.forEach { domain ->
                 val fill = animateColorAsState(
-                    if (domain.recorded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                    if (domain.recorded) MaterialTheme.colorScheme.primary else ink.copy(alpha = 0.18f),
                     animationSpec = tween(HERO_STATUS_MOTION_MILLIS), label = "home-progress-${domain.key}"
                 )
                 Box(Modifier.weight(1f).height(4.dp).testTag("home-hero-segment-${domain.key}").drawBehind {

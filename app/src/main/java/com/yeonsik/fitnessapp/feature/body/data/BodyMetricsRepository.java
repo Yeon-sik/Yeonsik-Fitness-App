@@ -9,6 +9,8 @@ import com.yeonsik.fitnessapp.core.database.DevicesRoomEntity;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.core.database.WeightRecordEntity;
 import com.yeonsik.fitness.shared.feature.body.model.BodyReadEntry;
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit;
+import com.yeonsik.fitnessapp.data.MassFormatter;
 import com.yeonsik.fitnessapp.data.TextValuePolicy;
 import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitness.shared.feature.body.api.BodyMetricsReadApi;
@@ -203,7 +205,7 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
     public List<String> bodyMetricsForDate(String date) {
         List<String> rows = new ArrayList<>();
         for (BodyReadEntry entry : bodyMetricEntriesForDate(date)) {
-            rows.add(formatDate(entry.getDate()) + "  " + trimDouble(entry.getWeightKg()) + "kg");
+            rows.add(formatDate(entry.getDate()) + "  " + MassFormatter.withUnit(entry.getWeightKg(), MassUnit.KG));
         }
         return rows;
     }
@@ -339,9 +341,6 @@ public final class BodyMetricsRepository implements BodyMetricsRepositoryApi {
         return date == null ? "" : date.replace("-", ". ");
     }
 
-    private static String trimDouble(double value) {
-        return value == Math.rint(value) ? String.valueOf((long) value) : String.valueOf(value);
-    }
     private void requireScope(AccountScope scope) {
         if (scope == null || !userId.equals(scope.getOwnerId())) {
             throw new IllegalStateException("계정이 변경된 뒤 체중 작업이 도착했습니다.");

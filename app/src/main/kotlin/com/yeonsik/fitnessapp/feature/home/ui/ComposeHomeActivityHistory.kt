@@ -31,19 +31,29 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
+import androidx.compose.ui.window.PopupProperties
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessSection
@@ -111,21 +121,20 @@ internal fun HomeActivityHistorySection(
                             )
                             ActivityGrid(
                                 cells = page.cells,
-                                selectedDate = selectedDate,
+                                selectedDate = selectedDate.takeIf { interactive },
+                                ownerId = page.identity.ownerId,
+                                dayDetails = dayDetails,
+                                preferredMassUnit = preferredMassUnit,
                                 onSelectCell = { date ->
                                     selectedDate = if (selectedDate == date) null else date
                                     if (selectedDate != null) onSelectDate(date)
+                                },
+                                onDismissSelection = { selectedDate = null },
+                                onOpenRecords = { date ->
+                                    selectedDate = null
+                                    onOpenRecords(date)
                                 }
                             )
-                            selectedDate?.let { date ->
-                                ActivityDayPreview(
-                                    date = date,
-                                    expectedOwnerId = page.identity.ownerId,
-                                    state = dayDetails,
-                                    preferredMassUnit = preferredMassUnit,
-                                    onOpenRecords = { onOpenRecords(date) }
-                                )
-                            }
                             ActivityLegend()
                         }
                     }
@@ -202,7 +211,12 @@ private fun ActivityWindowNavigation(
 private fun ActivityGrid(
     cells: List<HomeActivityCell>,
     selectedDate: String?,
-    onSelectCell: (String) -> Unit
+    ownerId: String,
+    dayDetails: HomeActivityDayDetailsUiState,
+    preferredMassUnit: MassUnit,
+    onSelectCell: (String) -> Unit,
+    onDismissSelection: () -> Unit,
+    onOpenRecords: (String) -> Unit
 ) {
     val weeks = cells.chunked(7)
     Column(
@@ -223,7 +237,19 @@ private fun ActivityGrid(
                             cell = cell,
                             modifier = Modifier.weight(1f).aspectRatio(1f),
                             selected = selectedDate == cell.date.toString(),
-                            onClick = { onSelectCell(cell.date.toString()) }
+                            onClick = { onSelectCell(cell.date.toString()) },
+                            preview = if (selectedDate == cell.date.toString()) {
+                                {
+                                    ActivityDayPreview(
+                                        date = cell.date.toString(),
+                                        expectedOwnerId = ownerId,
+                                        state = dayDetails,
+                                        preferredMassUnit = preferredMassUnit,
+                                        onDismissRequest = onDismissSelection,
+                                        onOpenRecords = { onOpenRecords(cell.date.toString()) }
+                                    )
+                                }
+                            } else null
                         )
                     }
                 }
@@ -275,7 +301,8 @@ private fun ActivityCell(
     cell: HomeActivityCell,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    preview: (@Composable () -> Unit)? = null
 ) {
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(3.dp)
@@ -302,7 +329,10 @@ private fun ActivityCell(
             .semantics {
                 contentDescription = cell.contentDescription + if (selected) ", 선택됨" else ""
                 if (cell.state != HomeActivityCellState.TRACKED) disabled()
-            })
+            }
+    ) {
+        preview?.invoke()
+    }
 }
 
 @Composable
@@ -311,6 +341,7 @@ private fun ActivityDayPreview(
     expectedOwnerId: String,
     state: HomeActivityDayDetailsUiState,
     preferredMassUnit: MassUnit,
+    onDismissRequest: () -> Unit,
     onOpenRecords: () -> Unit
 ) {
     val details = (state as? HomeActivityDayDetailsUiState.Ready)
@@ -320,55 +351,120 @@ private fun ActivityDayPreview(
         ?.let { it.ownerId == expectedOwnerId && it.date == date } ?: false
     val error = (state as? HomeActivityDayDetailsUiState.Error)
         ?.let { it.ownerId == expectedOwnerId && it.date == date } ?: false
-    val labelDate = remember(date) {
-        runCatching { LocalDate.parse(date) }.getOrNull()?.let { "${it.monthValue}월 ${it.dayOfMonth}일" } ?: date
-    }
     val rows = remember(details, preferredMassUnit) {
         details?.let { homeActivityPreviewRows(it, preferredMassUnit) }.orEmpty()
     }
-    Column(
-        modifier = Modifier.fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceContainerLow, RoundedCornerShape(8.dp))
-            .padding(horizontal = 10.dp, vertical = 8.dp)
-            .testTag("home-activity-preview-$date"),
-        verticalArrangement = Arrangement.spacedBy(3.dp)
+    val density = LocalDensity.current
+    val positionProvider = remember(density) { ActivityCalloutPositionProvider(density) }
+    Popup(
+        popupPositionProvider = positionProvider,
+        onDismissRequest = onDismissRequest,
+        properties = PopupProperties(focusable = false, dismissOnClickOutside = false)
     ) {
-        Text(
-            labelDate,
-            modifier = Modifier.testTag("home-activity-preview-date")
-                .semantics { contentDescription = "${date.replace('-', ' ')}" },
-            style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1
-        )
-        when {
-            isLoading || details == null && !error ->
-                Text("기록을 불러오는 중", style = MaterialTheme.typography.labelSmall)
-            error -> Text("기록을 불러오지 못했어요", style = MaterialTheme.typography.labelSmall)
-            details?.records?.isEmpty() != false || rows.isEmpty() ->
-                Text("기록 없음", modifier = Modifier.testTag("home-activity-preview-empty"),
-                    style = MaterialTheme.typography.labelSmall)
-            else -> rows.forEach { row ->
+        Column(
+            modifier = Modifier.widthIn(max = 240.dp)
+                .drawBehind {
+                    val tailHeight = 6.dp.toPx()
+                    val halfWidth = 7.dp.toPx()
+                    val centerX = positionProvider.arrowCenterPx.toFloat()
+                        .coerceIn(halfWidth, size.width - halfWidth)
+                    val path = Path().apply {
+                        moveTo(centerX - halfWidth, size.height - tailHeight)
+                        lineTo(centerX, size.height)
+                        lineTo(centerX + halfWidth, size.height - tailHeight)
+                        close()
+                    }
+                    drawPath(path, Color.White)
+                }
+                .padding(bottom = 6.dp)
+                .testTag("home-activity-preview-$date"),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
+        ) {
+            Column(
+                modifier = Modifier.shadow(8.dp, RoundedCornerShape(8.dp))
+                    .background(Color.White, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 9.dp, vertical = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
                 Row(
-                    Modifier.fillMaxWidth()
-                        .testTag("home-activity-preview-${row.kind.name.lowercase(Locale.ROOT)}"),
-                    verticalAlignment = Alignment.Top
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Text(row.kind.label, modifier = Modifier.width(40.dp), style = MaterialTheme.typography.labelSmall)
                     Text(
-                        row.summary,
-                        modifier = Modifier.weight(1f),
+                        date,
+                        modifier = Modifier.testTag("home-activity-preview-date")
+                            .semantics { contentDescription = date.replace('-', ' ') },
+                        color = Color(0xFF202124),
                         style = MaterialTheme.typography.labelSmall,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1
                     )
+                    Text(
+                        "기록 보기 ›",
+                        modifier = Modifier
+                            .clickable(role = Role.Button, onClick = onOpenRecords)
+                            .padding(horizontal = 3.dp, vertical = 2.dp)
+                            .testTag("home-activity-open-records"),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.labelSmall,
+                        maxLines = 1
+                    )
+                }
+                when {
+                    isLoading || details == null && !error ->
+                        Text("기록을 불러오는 중", color = Color(0xFF202124), style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    error -> Text("기록을 불러오지 못했어요", color = Color(0xFF202124),
+                        style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    details?.records?.isEmpty() != false || rows.isEmpty() ->
+                        Text("기록 없음", modifier = Modifier.testTag("home-activity-preview-empty"),
+                            color = Color(0xFF202124), style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    else -> rows.forEach { row ->
+                        Row(
+                            Modifier.testTag("home-activity-preview-${row.kind.name.lowercase(Locale.ROOT)}"),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                        ) {
+                            Text(row.kind.label,
+                                color = Color(0xFF202124), style = MaterialTheme.typography.labelSmall)
+                            Text("·", color = Color(0xFF202124), style = MaterialTheme.typography.labelSmall)
+                            Text(
+                                row.summary,
+                                color = Color(0xFF202124),
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
                 }
             }
         }
-        TextButton(
-            onClick = onOpenRecords,
-            modifier = Modifier.align(Alignment.End).testTag("home-activity-open-records")
-        ) { Text("기록에서 자세히 보기 ›", style = MaterialTheme.typography.labelSmall, maxLines = 1) }
+    }
+}
+
+private class ActivityCalloutPositionProvider(
+    private val density: androidx.compose.ui.unit.Density
+) : PopupPositionProvider {
+    var arrowCenterPx: Int = 0
+        private set
+
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize
+    ): IntOffset {
+        val margin = with(density) { 8.dp.roundToPx() }
+        val minX = margin
+        val maxX = (windowSize.width - popupContentSize.width - margin).coerceAtLeast(minX)
+        val centeredX = anchorBounds.left + (anchorBounds.width - popupContentSize.width) / 2
+        val x = centeredX.coerceIn(minX, maxX)
+        arrowCenterPx = (anchorBounds.center.x - x)
+            .coerceIn(with(density) { 14.dp.roundToPx() }, popupContentSize.width - with(density) { 14.dp.roundToPx() })
+
+        val y = (anchorBounds.top - popupContentSize.height).coerceAtLeast(margin)
+        return IntOffset(x, y)
     }
 }
 
