@@ -75,11 +75,11 @@ public final class OcrDiningOutPublicationContractTest {
     public void keepsCanonicalImportsPrivateAndRequiresExplicitPublicationIntent() throws Exception {
         String v2 = readPath(
                 "supabase", "nutrition", "supabase", "migrations",
-                "20260827103000_nutrition_canonical_provenance_v2.sql"
+                "20260920091256_nutrition_canonical_provenance_v2.sql"
         );
         String v3 = readPath(
                 "supabase", "nutrition", "supabase", "migrations",
-                "20260910130534_nutrition_product_hierarchy_import_v3.sql"
+                "20260920091342_nutrition_product_hierarchy_import_v3.sql"
         );
         String contract = readPath(
                 "contracts", "fitness-ocr-dining-out-publication.v1.md"

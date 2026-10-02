@@ -7,10 +7,8 @@ alter table public.product_nutrition_links
     add column if not exists catalog_content_unit text,
     add column if not exists catalog_package_count integer,
     add column if not exists catalog_product_revision text;
-
 alter table public.product_nutrition_links
     drop constraint if exists product_nutrition_links_catalog_specification_valid;
-
 alter table public.product_nutrition_links
     add constraint product_nutrition_links_catalog_specification_valid
     check (
@@ -27,7 +25,6 @@ alter table public.product_nutrition_links
             and catalog_product_revision ~ '^sha256:[0-9a-f]{64}$'
         )
     );
-
 comment on column public.product_nutrition_links.catalog_content_amount is
     'Trusted content amount verified server-side from the PriceTrace product-read.v1 catalog child.';
 comment on column public.product_nutrition_links.catalog_content_unit is
@@ -36,7 +33,6 @@ comment on column public.product_nutrition_links.catalog_package_count is
     'Trusted package count verified server-side from the PriceTrace product-read.v1 catalog child.';
 comment on column public.product_nutrition_links.catalog_product_revision is
     'Trusted sha256 revision returned by the exact PriceTrace product-read.v1 document.';
-
 create or replace function public.nutrition_product_basis_matches_v1(
     p_food_amount numeric,
     p_food_unit text,
@@ -169,19 +165,16 @@ begin
     return abs(v_food_base - v_catalog_base) <= v_tolerance;
 end;
 $$;
-
 revoke execute on function public.nutrition_product_basis_matches_v1(
     numeric, text, numeric, text
 ) from public, anon, authenticated;
 grant execute on function public.nutrition_product_basis_matches_v1(
     numeric, text, numeric, text
 ) to service_role;
-
 revoke select on table public.nutrition_foods from anon;
 revoke select on table public.nutrition_food_nutrients from anon;
 revoke select on table public.nutrition_food_components from anon;
 revoke select on table public.product_nutrition_links from anon;
-
 alter policy nutrition_foods_select
     on public.nutrition_foods
     to authenticated
@@ -189,7 +182,6 @@ alter policy nutrition_foods_select
         deleted_at is null
         and owner_id = ((select auth.uid())::text)
     );
-
 alter policy nutrition_food_nutrients_select
     on public.nutrition_food_nutrients
     to authenticated
@@ -197,7 +189,6 @@ alter policy nutrition_food_nutrients_select
         deleted_at is null
         and owner_id = ((select auth.uid())::text)
     );
-
 alter policy nutrition_food_components_select
     on public.nutrition_food_components
     to authenticated
@@ -205,10 +196,8 @@ alter policy nutrition_food_components_select
         deleted_at is null
         and owner_id = ((select auth.uid())::text)
     );
-
 revoke execute on function public.get_nutrition_read_v1(text) from anon;
 revoke execute on function public.get_nutrition_read_v2(text) from anon;
-
 create or replace function public.bump_nutrition_food_revision()
 returns trigger
 language plpgsql
@@ -271,7 +260,6 @@ begin
     return new;
 end;
 $$;
-
 create or replace function public.guard_product_nutrition_link_update()
 returns trigger
 language plpgsql
@@ -351,7 +339,6 @@ begin
     return new;
 end;
 $$;
-
 alter policy product_nutrition_links_insert
     on public.product_nutrition_links
     with check (
@@ -372,11 +359,9 @@ alter policy product_nutrition_links_insert
               and food.deleted_at is null
         )
     );
-
 revoke execute on function public.set_product_nutrition_publication_v1(
     text, uuid, boolean
 ) from public, anon, authenticated;
-
 create or replace function public.set_product_nutrition_publication_v2(
     p_owner_id text,
     p_nutrition_food_id text,
@@ -612,18 +597,15 @@ begin
         v_food.updated_at;
 end;
 $$;
-
 revoke all on function public.set_product_nutrition_publication_v2(
     text, text, uuid, uuid, numeric, text, integer, text, boolean
 ) from public, anon, authenticated;
 grant execute on function public.set_product_nutrition_publication_v2(
     text, text, uuid, uuid, numeric, text, integer, text, boolean
 ) to service_role;
-
 comment on function public.set_product_nutrition_publication_v2(
     text, text, uuid, uuid, numeric, text, integer, text, boolean
 ) is 'Service-role-only publication boundary. Exact catalog identity and specification must come from a server-verified PriceTrace product-read.v1 response.';
-
 create or replace function public.get_public_product_nutrition_v1(
     p_namespace text,
     p_catalog_product_id uuid
@@ -706,6 +688,5 @@ as $$
     order by food.published_at desc, link.reviewed_at desc, link.created_at desc
     limit 1;
 $$;
-
 comment on function public.get_public_product_nutrition_v1(text, uuid) is
     'Public nutrition-read.v1 projection. Owner-authored source references are redacted.';

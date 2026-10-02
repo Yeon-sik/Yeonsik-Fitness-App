@@ -470,3 +470,4 @@ comment on function public.import_canonical_nutrition_v2(
     jsonb, boolean, jsonb, jsonb
 ) is
     'Authenticated canonical Nutrition import boundary. Requires the exact seven required nutrient/provenance keys, stores owner-scoped provenance, and projects through a namespaced legacy v1 idempotency key.';
+;

@@ -71,7 +71,7 @@ public final class NutritionVerifiedImportContractTest {
         return new String(
                 Files.readAllBytes(findPath(
                         "supabase", "nutrition", "supabase", "migrations",
-                        "20260827090000_nutrition_verified_import.sql"
+                        "20260920091249_nutrition_verified_import.sql"
                 )),
                 StandardCharsets.UTF_8
         );

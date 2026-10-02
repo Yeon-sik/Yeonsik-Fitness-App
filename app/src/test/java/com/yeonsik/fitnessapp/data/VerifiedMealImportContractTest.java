@@ -79,10 +79,10 @@ public final class VerifiedMealImportContractTest {
     public void keepsExistingNutritionImportRpcContractsMealFree() throws Exception {
         String verifiedNutrition = readMigration(
                 "supabase", "nutrition", "supabase", "migrations",
-                "20260827090000_nutrition_verified_import.sql");
+                "20260920091249_nutrition_verified_import.sql");
         String canonicalNutrition = readMigration(
                 "supabase", "nutrition", "supabase", "migrations",
-                "20260827103000_nutrition_canonical_provenance_v2.sql");
+                "20260920091256_nutrition_canonical_provenance_v2.sql");
 
         assertFalse(verifiedNutrition.contains("insert into public.meal_records"));
         assertFalse(canonicalNutrition.contains("insert into public.meal_records"));
@@ -95,7 +95,7 @@ public final class VerifiedMealImportContractTest {
     private static String readMealMigration() throws Exception {
         return readMigration(
                 "supabase", "nutrition", "supabase", "migrations",
-                "20260906090000_verified_meal_ingest_v1.sql");
+                "20260920091328_verified_meal_ingest_v1.sql");
     }
 
     private static String readMigration(String... parts) throws Exception {

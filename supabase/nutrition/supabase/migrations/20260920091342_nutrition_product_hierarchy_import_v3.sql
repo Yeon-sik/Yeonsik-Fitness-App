@@ -599,3 +599,4 @@ comment on function public.import_canonical_nutrition_v3(
     jsonb, boolean, jsonb, jsonb, text, text, text, text
 ) is
     'Authenticated canonical Nutrition v3 import. Preserves v2 nutrient/provenance validation, stores explicit packaged-product hierarchy, rejects hierarchy on restaurant estimates, and fingerprints hierarchy for idempotency.';
+;

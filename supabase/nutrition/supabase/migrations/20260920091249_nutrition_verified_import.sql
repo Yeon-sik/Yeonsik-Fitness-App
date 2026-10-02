@@ -583,3 +583,4 @@ comment on table public.nutrition_verified_imports is
     'Immutable-ish audit and idempotency record for user-verified OCR Nutrition imports.';
 comment on table public.nutrition_estimation_evidence is
     'Restaurant estimate confidence and uncertainty evidence; point values are copied to nutrition_foods but range evidence remains here.';
+;

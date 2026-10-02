@@ -18,10 +18,9 @@ begin
         'v_catalog_key, v_catalog_product_id, null, v_link_created;',
         'v_catalog_key, v_catalog_product_id, null::uuid, v_link_created;'
     );
-    -- Some local histories do not have this remote external-reference branch.
-    -- In that case there is no result to repair.
-    if v_repaired <> v_original then
-        execute v_repaired;
+    if v_repaired = v_original then
+        raise exception 'Untyped external-reference result was not found in public.import_verified_nutrition_v1';
     end if;
+    execute v_repaired;
 end
 $type_verified_nutrition_external_result$;

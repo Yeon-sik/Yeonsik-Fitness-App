@@ -1113,3 +1113,4 @@ comment on table public.meal_record_items is
     'Immutable consumed Nutrition snapshots. nutrition_food_id is traceability only; displayed and aggregated values are the snapshot columns.';
 comment on table public.meal_verified_imports is
     'Authenticated Meal ingest audit and idempotency bindings.';
+;
