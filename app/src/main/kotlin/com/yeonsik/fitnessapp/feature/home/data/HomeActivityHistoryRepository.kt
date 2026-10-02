@@ -20,6 +20,8 @@ class WorkoutHomeActivityReadSource(private val read: WorkoutReadApi) : HomeActi
         read.completedSessionSummaries(scope, date, date)
             .filter { it.date == date }
             .map { summary ->
+                val bodyParts = summary.projectionMuscleLabels.ifEmpty { summary.muscleLabels }
+                    .distinct()
                 HomeActivityRecordSummary(
                     kind = kind,
                     name = summary.title.ifBlank {
@@ -28,7 +30,8 @@ class WorkoutHomeActivityReadSource(private val read: WorkoutReadApi) : HomeActi
                             "strength" -> "근력 운동"
                             else -> "운동 기록"
                         }
-                    }
+                    },
+                    category = bodyParts.joinToString(" · ").takeIf(String::isNotBlank)
                 )
             }
 }

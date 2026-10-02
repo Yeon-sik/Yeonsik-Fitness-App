@@ -10,10 +10,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -24,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,11 +39,16 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntRect
+import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupPositionProvider
 import androidx.compose.ui.window.PopupProperties
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
@@ -60,6 +66,7 @@ import com.yeonsik.fitnessapp.feature.home.model.HomeActivityWindow
 import com.yeonsik.fitnessapp.feature.home.model.HomeActivityWindowPolicy
 
 private val HomeActivityCoverageColor = Color(FitnessUiTokens.COLOR_HOME_ACTIVITY_FULL_COVERAGE)
+private val HomeActivitySelectionColor = Color(0xFFFFD54F)
 
 /** Plain state/callback rendering; loading, paging and cache ownership stay in HomeViewModel. */
 @Composable
@@ -250,10 +257,11 @@ private fun ActivityCell(
                         Offset(size.width * 0.7f, size.height * 0.3f), strokeWidth = 1.dp.toPx())
                 }
             } else Modifier)
+            .then(if (selected) Modifier.border(2.5.dp, HomeActivitySelectionColor, shape) else Modifier)
             .clickable(enabled = cell.state == HomeActivityCellState.TRACKED, onClick = onClick)
             .testTag("home-activity-cell-${cell.date}")
             .semantics {
-                contentDescription = cell.contentDescription
+                contentDescription = cell.contentDescription + if (selected) ", 선택됨" else ""
                 if (cell.state != HomeActivityCellState.TRACKED) disabled()
             }
     ) {
@@ -270,17 +278,18 @@ private fun ActivityDayBubble(
     details: HomeActivityDayDetails?,
     preferredMassUnit: MassUnit
 ) {
+    val positionProvider = remember(date) { ActivityDayBubblePositionProvider() }
     Popup(
-        alignment = Alignment.BottomCenter,
-        offset = androidx.compose.ui.unit.IntOffset.Zero,
+        popupPositionProvider = positionProvider,
         onDismissRequest = {},
         properties = PopupProperties(focusable = false)
     ) {
         Column(
-            modifier = Modifier.testTag("home-activity-day-bubble-$date"),
+            modifier = Modifier.width(180.dp).testTag("home-activity-day-bubble-$date"),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Surface(
+                modifier = Modifier.fillMaxWidth(),
                 color = Color.White,
                 contentColor = Color(0xFF202124),
                 shape = RoundedCornerShape(8.dp),
@@ -288,11 +297,10 @@ private fun ActivityDayBubble(
                 tonalElevation = 0.dp
             ) {
                 Column(
-                    Modifier.widthIn(min = 126.dp, max = 220.dp)
-                        .padding(horizontal = 10.dp, vertical = 7.dp),
+                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 7.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
-                    Text(date, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF202124))
+                    Text(date, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = Color(0xFF202124))
                     when {
                         state is HomeActivityDayDetailsUiState.Loading && state.date == date ->
                             BubbleLine("기록을 불러오는 중", color = Color(0xFF5F6368))
@@ -312,11 +320,14 @@ private fun ActivityDayBubble(
                     }
                 }
             }
-            Canvas(Modifier.size(width = 12.dp, height = 6.dp)) {
+            Canvas(Modifier.fillMaxWidth().height(6.dp)) {
+                val arrowHalfWidth = 6.dp.toPx()
+                val arrowCenter = positionProvider.arrowCenterX.toFloat()
+                    .coerceIn(arrowHalfWidth, size.width - arrowHalfWidth)
                 val pointer = Path().apply {
-                    moveTo(0f, 0f)
-                    lineTo(size.width / 2f, size.height)
-                    lineTo(size.width, 0f)
+                    moveTo(arrowCenter - arrowHalfWidth, 0f)
+                    lineTo(arrowCenter, size.height)
+                    lineTo(arrowCenter + arrowHalfWidth, 0f)
                     close()
                 }
                 drawPath(pointer, Color.White)
@@ -330,8 +341,8 @@ private fun BubbleLine(text: String, color: Color) {
     Text(
         text,
         color = color,
-        fontSize = 10.sp,
-        lineHeight = 13.sp,
+        fontSize = 11.sp,
+        lineHeight = 14.sp,
         maxLines = 1,
         overflow = TextOverflow.Ellipsis
     )
@@ -344,7 +355,11 @@ private fun activitySummary(
 ): String {
     val labels = records.take(2).mapNotNull { record ->
         when (kind) {
-            HomeActivityKind.EXERCISE -> record.name?.takeIf(String::isNotBlank)
+            HomeActivityKind.EXERCISE -> {
+                val routineName = record.name?.takeIf(String::isNotBlank) ?: "운동 기록"
+                val bodyPart = record.category?.takeIf(String::isNotBlank)
+                if (bodyPart == null) routineName else "$routineName ($bodyPart)"
+            }
             HomeActivityKind.WEIGHT -> record.weightKg?.let { MassFormatter.withUnit(it, preferredMassUnit) }
             HomeActivityKind.MEAL -> listOfNotNull(
                 record.category?.takeIf(String::isNotBlank),
@@ -360,6 +375,25 @@ private fun activitySummary(
     }
     val summary = if (labels.isEmpty()) "기록 ${records.size}건" else labels.joinToString(", ")
     return "$label · $summary" + if (more > 0) " 외 ${more}건" else ""
+}
+
+internal class ActivityDayBubblePositionProvider : PopupPositionProvider {
+    var arrowCenterX: Int = 0
+        private set
+
+    override fun calculatePosition(
+        anchorBounds: IntRect,
+        windowSize: IntSize,
+        layoutDirection: LayoutDirection,
+        popupContentSize: IntSize
+    ): IntOffset {
+        val anchorCenterX = anchorBounds.left + (anchorBounds.right - anchorBounds.left) / 2
+        val maxPopupLeft = (windowSize.width - popupContentSize.width).coerceAtLeast(0)
+        val popupLeft = (anchorCenterX - popupContentSize.width / 2).coerceIn(0, maxPopupLeft)
+        arrowCenterX = (anchorCenterX - popupLeft).coerceIn(0, popupContentSize.width)
+        val popupTop = (anchorBounds.top - popupContentSize.height).coerceAtLeast(0)
+        return IntOffset(popupLeft, popupTop)
+    }
 }
 
 @Composable

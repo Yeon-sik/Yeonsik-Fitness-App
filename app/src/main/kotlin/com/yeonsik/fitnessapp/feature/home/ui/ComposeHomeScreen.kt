@@ -125,20 +125,44 @@ private val HomeBodyMetricIcon = ImageVector.Builder(
         strokeLineCap = StrokeCap.Round,
         strokeLineJoin = StrokeJoin.Round
     ) {
-        moveTo(12f, 2.8f)
-        curveTo(10.5f, 2.8f, 9.3f, 4f, 9.3f, 5.5f)
-        curveTo(9.3f, 7f, 10.5f, 8.2f, 12f, 8.2f)
-        curveTo(13.5f, 8.2f, 14.7f, 7f, 14.7f, 5.5f)
-        curveTo(14.7f, 4f, 13.5f, 2.8f, 12f, 2.8f)
+        moveTo(12f, 1.8f)
+        curveTo(9.7f, 1.8f, 8.2f, 3.5f, 8.2f, 5.7f)
+        curveTo(8.2f, 7.9f, 9.7f, 9.2f, 12f, 9.2f)
+        curveTo(14.3f, 9.2f, 15.8f, 7.8f, 15.8f, 5.5f)
+        curveTo(15.8f, 3.3f, 14.3f, 1.8f, 12f, 1.8f)
         close()
-        moveTo(3.5f, 9.6f)
-        horizontalLineTo(20.5f)
-        moveTo(12f, 9.6f)
-        verticalLineTo(15.4f)
-        moveTo(12f, 15.4f)
-        lineTo(7.7f, 20.7f)
-        moveTo(12f, 15.4f)
-        lineTo(16.3f, 20.7f)
+    }
+    path(
+        stroke = SolidColor(Color.Black),
+        strokeLineWidth = 1.9f,
+        strokeLineCap = StrokeCap.Round,
+        strokeLineJoin = StrokeJoin.Round
+    ) {
+        moveTo(10.5f, 7.5f)
+        curveTo(9.5f, 7.3f, 8.8f, 8.1f, 7.9f, 8.4f)
+        lineTo(3.5f, 7.2f)
+        curveTo(2.4f, 6.9f, 1.7f, 7.5f, 1.8f, 8.4f)
+        curveTo(1.9f, 9.2f, 2.5f, 9.6f, 3.4f, 9.8f)
+        lineTo(8.7f, 11f)
+        curveTo(8.3f, 12.6f, 8.4f, 14.7f, 8.7f, 15.9f)
+        curveTo(8.9f, 16.7f, 8.6f, 17.4f, 8.1f, 18.1f)
+        lineTo(6.6f, 20.3f)
+        curveTo(6.1f, 21.1f, 6.4f, 21.9f, 7.2f, 22f)
+        curveTo(7.9f, 22.1f, 8.6f, 21.8f, 9.2f, 21.1f)
+        lineTo(10.9f, 19.2f)
+        curveTo(11.5f, 18.6f, 11.8f, 17.8f, 11.8f, 17f)
+        lineTo(12f, 13.8f)
+        lineTo(13.2f, 17.5f)
+        curveTo(13.6f, 18.5f, 14.3f, 19.8f, 15f, 20.9f)
+        curveTo(15.5f, 21.7f, 16.3f, 22.1f, 17f, 21.8f)
+        curveTo(17.8f, 21.5f, 18f, 20.7f, 17.6f, 19.9f)
+        lineTo(16f, 16.1f)
+        curveTo(15.5f, 14.7f, 15.4f, 12.8f, 14.9f, 11f)
+        lineTo(20.6f, 9.8f)
+        curveTo(21.5f, 9.6f, 22.1f, 9.1f, 22.1f, 8.4f)
+        curveTo(22.1f, 7.6f, 21.4f, 7f, 20.5f, 7.2f)
+        lineTo(15.5f, 8.3f)
+        curveTo(14.4f, 8.6f, 13.5f, 7.7f, 12.7f, 7.5f)
     }
 }.build()
 

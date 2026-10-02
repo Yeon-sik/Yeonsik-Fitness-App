@@ -147,7 +147,11 @@ class HomeActivityHistoryUiTest {
         val date = "2026-09-30"
         val selectedDates = mutableListOf<String>()
         val details = HomeActivityDayDetails(date, listOf(
-            HomeActivityRecordSummary(HomeActivityKind.EXERCISE, name = "하체 근력 운동"),
+            HomeActivityRecordSummary(
+                HomeActivityKind.EXERCISE,
+                name = "하체 루틴",
+                category = "하체"
+            ),
             HomeActivityRecordSummary(HomeActivityKind.WEIGHT, weightKg = 62.4),
             HomeActivityRecordSummary(HomeActivityKind.MEAL, name = "현미밥", category = "점심")
         ))
@@ -164,8 +168,13 @@ class HomeActivityHistoryUiTest {
 
         compose.onNodeWithTag("home-activity-cell-$date").performClick()
         compose.onNodeWithTag("home-activity-day-bubble-$date").assertExists()
+        assertTrue(
+            compose.onNodeWithTag("home-activity-cell-$date").fetchSemanticsNode().config
+                .getOrNull(SemanticsProperties.ContentDescription)
+                .orEmpty().any { it.endsWith("선택됨") }
+        )
         compose.onNodeWithText(date).assertExists()
-        compose.onNodeWithText("운동 · 하체 근력 운동").assertExists()
+        compose.onNodeWithText("운동 · 하체 루틴 (하체)").assertExists()
         compose.onNodeWithText("체중 · 62.4kg").assertExists()
         compose.onNodeWithText("식단 · 점심 현미밥").assertExists()
         assertEquals(listOf(date), selectedDates)
