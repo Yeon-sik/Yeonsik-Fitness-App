@@ -335,12 +335,13 @@ public final class CardioTrackingService extends Service {
         if (destroyed) {
             return;
         }
-        Notification notification = buildNotification(snapshot);
         int notificationStartId = trackingStartId;
         mainHandler.post(() -> {
-            // Serialize publication with onDestroy and foreground/stop commands.
+            // PendingIntent creation updates shared extras too; keep it behind the
+            // same lifecycle guard as publication, onDestroy and foreground/stop.
             if (!destroyed && latestStartId == notificationStartId) {
-                getSystemService(NotificationManager.class).notify(NOTIFICATION_ID, notification);
+                getSystemService(NotificationManager.class)
+                        .notify(NOTIFICATION_ID, buildNotification(snapshot));
             }
         });
     }
