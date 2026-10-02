@@ -410,13 +410,14 @@ function estimatePayload(idempotencyKey, name, documentRef = idempotencyKey) {
     'food_image_estimate',
     'menu_reference'
   ];
-  const range = Object.fromEntries(REQUIRED_NUTRIENTS.map((key) => ({
-    [key]: {
+  const range = Object.fromEntries(REQUIRED_NUTRIENTS.map((key) => [
+    key,
+    {
       min: Math.max(0, values[key] * 0.8),
       point: values[key],
       max: values[key] * 1.25
     }
-  })));
+  ]));
   return {
     p_idempotency_key: idempotencyKey,
     p_input_contract: 'food-estimate.v1',
@@ -978,7 +979,16 @@ async function runCanonicalV3ContractMatrix(ownerA, ownerB) {
   for (const row of estimateProvenance) {
     assertEqual(row.value_status, 'estimated', `estimate status for ${row.nutrient_code}`);
     assertEqual(row.confidence, estimate.p_estimation_evidence.confidence, `estimate confidence for ${row.nutrient_code}`);
-    assert(row.uncertainty_range, `estimate uncertainty range for ${row.nutrient_code}`);
+    const expectedRange = estimate.p_estimation_evidence.range[row.nutrient_code];
+    assert(expectedRange, `estimate payload range for ${row.nutrient_code}`);
+    assert(row.uncertainty_range, `persisted estimate uncertainty range for ${row.nutrient_code}`);
+    for (const bound of ['min', 'point', 'max']) {
+      assertEqual(
+        row.uncertainty_range[bound],
+        expectedRange[bound],
+        `estimate ${bound} provenance for ${row.nutrient_code}`
+      );
+    }
   }
   const estimateReplay = await callCanonicalV3(ownerA, estimate);
   assertEqual(estimateReplay.canonical_import_id, estimateResult.canonical_import_id, 'estimate v3 replay import id');
