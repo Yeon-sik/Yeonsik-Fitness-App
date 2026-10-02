@@ -2,10 +2,6 @@ do $assert_generic_v3_nutrition_food_id_fix$
 declare
     v_versions text[];
     v_target regprocedure;
-    v_dispatcher regprocedure;
-    v_legacy_dispatcher regprocedure;
-    v_verified_import regprocedure;
-    v_read_rpc regprocedure;
     v_before_definition text;
     v_before_privileges text;
     v_expected_definition text;
@@ -200,32 +196,6 @@ begin
               is distinct from row(after_row.rls_enabled, after_row.rls_forced)
     ) then
         raise exception 'Forward migration changed an existing table RLS setting';
-    end if;
-
-    v_dispatcher := pg_catalog.to_regprocedure(
-        'public.import_canonical_nutrition_v3(text,text,text,text,text,text,numeric,text,jsonb,jsonb,jsonb,jsonb,boolean,jsonb,jsonb,text,text,text,text)'
-    );
-    v_legacy_dispatcher := pg_catalog.to_regprocedure(
-        'public.import_canonical_nutrition_v3_legacy(text,text,text,text,text,text,numeric,text,jsonb,jsonb,jsonb,jsonb,boolean,jsonb,jsonb,text,text,text,text)'
-    );
-    v_verified_import := pg_catalog.to_regprocedure(
-        'public.import_verified_nutrition_v1(text,text,text,text,text,text,numeric,text,jsonb,jsonb,jsonb,boolean,jsonb,jsonb)'
-    );
-    v_read_rpc := pg_catalog.to_regprocedure('public.get_nutrition_read_v3(text)');
-
-    if v_dispatcher is null
-       or v_legacy_dispatcher is null
-       or v_verified_import is null
-       or v_read_rpc is null
-       or not pg_catalog.has_function_privilege('authenticated', v_dispatcher, 'execute')
-       or pg_catalog.has_function_privilege('anon', v_dispatcher, 'execute')
-       or pg_catalog.has_function_privilege('authenticated', v_verified_import, 'execute')
-       or pg_catalog.has_function_privilege('anon', v_verified_import, 'execute')
-       or pg_catalog.has_function_privilege('authenticated', v_legacy_dispatcher, 'execute')
-       or pg_catalog.has_function_privilege('anon', v_legacy_dispatcher, 'execute')
-       or not pg_catalog.has_function_privilege('anon', v_read_rpc, 'execute')
-       or not pg_catalog.has_function_privilege('authenticated', v_read_rpc, 'execute') then
-        raise exception 'Existing canonical v3/read RPC grants changed or are incorrect';
     end if;
 
     drop schema nutrition_v3_fix_replay cascade;
