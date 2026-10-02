@@ -71,6 +71,35 @@ begin
             'Synthetic Product'
         );
 
+        -- The initial import succeeds after the nutrition_food_id fix; retry the
+        -- identical key/payload to exercise its idempotent replay branch.
+        select *
+        into v_result
+        from public.import_canonical_nutrition_v3(
+            'followup-ambiguity-' || v_owner_id::text,
+            'nutrition-label.v1',
+            'https://example.test/replay/nutrition-label-followup',
+            'Synthetic Follow-up Ambiguity Label',
+            'Synthetic Brand',
+            'processed',
+            100,
+            'g',
+            v_required,
+            v_nutrient_provenance,
+            '{}'::jsonb,
+            '{}'::jsonb,
+            true,
+            jsonb_build_object(
+                'namespace', 'pricetrace',
+                'catalog_product_id', v_catalog_product_id
+            ),
+            null,
+            'Synthetic Manufacturer',
+            'Synthetic Brand',
+            'Synthetic Sub-brand',
+            'Synthetic Product'
+        );
+
         raise exception 'Expected to capture the follow-up generic v3 ambiguity.';
     exception
         when sqlstate '42702' then
