@@ -41,7 +41,9 @@ data class WorkoutReadSessionSummary(
     val completedSetCount: Int,
     val muscleLabels: List<String>,
     /** Body areas with completed sets, matching the v2 Personal OS summary fields. */
-    val projectionMuscleLabels: List<String> = emptyList()
+    val projectionMuscleLabels: List<String> = emptyList(),
+    /** Exact completion timestamp when the stored workout metadata contains one. */
+    val completedAt: String? = null
 )
 
 /** Workout-owned completed-set facts for cross-feature performance trends. */
@@ -80,7 +82,11 @@ data class WorkoutExerciseDetail(
     val recentVolumes: List<WorkoutVolumePoint> = emptyList(),
     val allowedLoadStates: Map<String, List<LoadState>> = emptyMap(),
     val volumeFormula: String = "",
-    val volumeBySetId: Map<String, Double> = emptyMap()
+    val volumeBySetId: Map<String, Double> = emptyMap(),
+    /** The selected record plus up to four earlier completed records, oldest first. */
+    val recentHistories: List<WorkoutExerciseHistory> = emptyList(),
+    val personalBests: WorkoutExercisePersonalBests? = null,
+    val currentRecordDate: String = ""
 )
 
 data class WorkoutSessionSnapshot(
@@ -96,7 +102,9 @@ data class WorkoutSessionSnapshot(
     /** Stable routine identity captured in the workout record metadata, when available. */
     val routineId: String? = null,
     /** Read-only comparison facts from the previous completed session of the same routine. */
-    val previousRoutine: WorkoutRoutineComparison? = null
+    val previousRoutine: WorkoutRoutineComparison? = null,
+    /** Exact persisted completion time; absent for unfinished or legacy sessions. */
+    val completedAt: String? = null
 )
 
 data class WorkoutRoutineComparison(
@@ -130,7 +138,16 @@ data class WorkoutVolumePoint(
 data class WorkoutExerciseHistory(
     @JvmField val date: String,
     @JvmField val totalVolumeKg: Double,
-    @JvmField val sets: List<WorkoutSet>
+    @JvmField val sets: List<WorkoutSet>,
+    @JvmField val recordId: String = "",
+    @JvmField val estimatedOneRepMaxKg: Double? = null
+)
+
+data class WorkoutExercisePersonalBests(
+    val estimatedOneRepMaxKg: Double?,
+    val estimatedOneRepMaxDate: String?,
+    val totalVolumeKg: Double?,
+    val totalVolumeDate: String?
 )
 
 data class WorkoutExerciseBests(

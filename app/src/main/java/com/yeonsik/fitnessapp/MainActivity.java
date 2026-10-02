@@ -2,7 +2,10 @@ package com.yeonsik.fitnessapp;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Insets;
@@ -26,6 +29,7 @@ import android.widget.Toast;
 import androidx.activity.ComponentActivity;
 import androidx.compose.ui.platform.ComposeView;
 import androidx.compose.ui.platform.ViewCompositionStrategy;
+import androidx.core.content.ContextCompat;
 import androidx.lifecycle.ViewModelProvider;
 
 import com.yeonsik.fitnessapp.app.AppContainer;
@@ -119,6 +123,19 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private MealViewModel mealViewModel;
     private OnBackInvokedCallback backInvokedCallback;
     private AppNavigationViewModel navigationViewModel;
+    private boolean dateChangeReceiverRegistered;
+    private final BroadcastReceiver dateChangeReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent == null) return;
+            String action = intent.getAction();
+            if (Intent.ACTION_DATE_CHANGED.equals(action)
+                    || Intent.ACTION_TIME_CHANGED.equals(action)
+                    || Intent.ACTION_TIMEZONE_CHANGED.equals(action)) {
+                refreshTodayIfChanged();
+            }
+        }
+    };
 
     private ComposeView rootView;
 
@@ -322,8 +339,26 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
+    protected void onStart() {
+        super.onStart();
+        IntentFilter filter = new IntentFilter(Intent.ACTION_DATE_CHANGED);
+        filter.addAction(Intent.ACTION_TIME_CHANGED);
+        filter.addAction(Intent.ACTION_TIMEZONE_CHANGED);
+        // These actions are protected system broadcasts; listen only while the UI is visible.
+        ContextCompat.registerReceiver(this, dateChangeReceiver, filter, ContextCompat.RECEIVER_EXPORTED);
+        dateChangeReceiverRegistered = true;
+    }
+
+    @Override
+    protected void onStop() {
+        if (dateChangeReceiverRegistered) {
+            unregisterReceiver(dateChangeReceiver);
+            dateChangeReceiverRegistered = false;
+        }
+        super.onStop();
+    }
+
+    private void refreshTodayIfChanged() {
         String currentDate = today();
         if (navigationViewModel != null) {
             String knownDate = navigationViewModel.getUiState().getValue() == null
@@ -333,6 +368,12 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                 navigationViewModel.updateToday(currentDate);
             }
         }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshTodayIfChanged();
         if (waitingForLocationSettings && locationServicesEnabled()) {
             waitingForLocationSettings = false;
             continuePendingCardioAction();

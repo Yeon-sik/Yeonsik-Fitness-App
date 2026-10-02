@@ -58,7 +58,8 @@ class RecordsReadRepository(
                         durationSeconds = session.durationSeconds,
                         totalVolumeKg = session.totalVolumeKg,
                         completedSetCount = session.completedSetCount,
-                        muscleLabels = session.muscleLabels
+                        muscleLabels = session.muscleLabels,
+                        completedAt = session.completedAt
                     )
                 },
                 bodyMetrics = bodyByDate[date].orEmpty(),

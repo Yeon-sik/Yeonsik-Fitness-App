@@ -6,7 +6,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
@@ -18,20 +21,27 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.routine.ui.*
@@ -88,12 +98,14 @@ internal fun WorkoutOverview(
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         WorkoutOverviewAction(
             "무산소 운동",
+            FitnessStrengthIcon,
             { if (strengthInProgress) actions.continueWorkout() else actions.navigate(FitnessScreen.STRENGTH) },
             entrance, order++, Modifier.weight(1f),
             supportingText = if (strengthInProgress) "운동 진행중 >" else null
         )
         WorkoutOverviewAction(
             "유산소 운동",
+            FitnessCardioIcon,
             { if (cardioInProgress) actions.continueWorkout() else actions.navigate(FitnessScreen.CARDIO) },
             entrance, order++, Modifier.weight(1f),
             supportingText = if (cardioInProgress) "운동 진행중 >" else null
@@ -101,10 +113,10 @@ internal fun WorkoutOverview(
     }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         WorkoutOverviewAction(
-            "체중 기록", actions::showBodyMetric, entrance, order++, Modifier.weight(1f)
+            "체중 기록", FitnessBodyMetricIcon, actions::showBodyMetric, entrance, order++, Modifier.weight(1f)
         )
         WorkoutOverviewAction(
-            "식단 기록", actions::openMeals, entrance, order, Modifier.weight(1f)
+            "식단 기록", FitnessMealIcon, actions::openMeals, entrance, order, Modifier.weight(1f)
         )
     }
 }
@@ -112,23 +124,65 @@ internal fun WorkoutOverview(
 @Composable
 private fun WorkoutOverviewAction(
     label: String,
+    icon: ImageVector,
     onClick: () -> Unit,
     entrance: TopLevelEntranceMotion,
     order: Int,
     modifier: Modifier = Modifier,
     supportingText: String? = null
 ) {
+    val colors = LocalFitnessColors.current
     TopLevelEntranceContent(entrance, order, modifier.aspectRatio(1f)) {
-        AppButton(onClick = onClick, modifier = Modifier.fillMaxSize()) {
-            if (supportingText == null) {
-                Text(label, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-            } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+        Button(
+            onClick = onClick,
+            modifier = Modifier.fillMaxSize(),
+            shape = FitnessShape.card,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = colors.action,
+                contentColor = colors.onAction
+            ),
+            contentPadding = PaddingValues(horizontal = FitnessSpacing.micro * 4, vertical = AppSpacing.card)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.Start,
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(label, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
-                    Text(supportingText, style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+                    Icon(icon, contentDescription = null, modifier = Modifier.size(32.dp))
+                    Icon(
+                        FitnessActionNextIcon,
+                        contentDescription = null,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 28.dp),
+                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        label,
+                        modifier = Modifier.alignByBaseline(),
+                        style = MaterialTheme.typography.titleSmall,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    if (supportingText != null) {
+                        Text(
+                            supportingText,
+                            modifier = Modifier.weight(1f).alignByBaseline(),
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, lineHeight = 20.sp),
+                            maxLines = 1,
+                            softWrap = false,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
             }
         }
@@ -316,6 +370,15 @@ internal fun WorkoutDetailScreen(
     val detail = ready.detail
     val orderedExercises = stableWorkoutExercises(detail.exercises)
     val activeIndex = orderedExercises.indexOfFirst { it.id == detail.activeExercise.id }
+    var selectedRecordTab by rememberSaveable(detail.activeExercise.id) {
+        mutableStateOf(EXERCISE_RECORDS_TAB)
+    }
+    if (ready.readOnly) {
+        WorkoutExerciseRecordTabs(
+            selected = selectedRecordTab,
+            onSelected = { selectedRecordTab = it }
+        )
+    }
     WorkoutExerciseImage(
         exerciseId = detail.activeExercise.exerciseId,
         identity = detail.activeExercise.familyIdentity,
@@ -336,8 +399,15 @@ internal fun WorkoutDetailScreen(
         label = if (ready.readOnly) "완료된 기록 · 읽기 전용" else "진행 중 · 입력 가능",
         modifier = Modifier.fillMaxWidth()
     )
+    if (ready.readOnly) {
+        when (selectedRecordTab) {
+            EXERCISE_TRENDS_TAB -> WorkoutExerciseTrendsTab(detail, unit)
+            else -> WorkoutExerciseRecordsTab(detail, unit)
+        }
+        return
+    }
     detail.lastHistory?.let { history ->
-        WorkoutPreviousHistory(detail, history, unit, ready.readOnly, actions)
+        WorkoutPreviousHistory(detail, history, unit, readOnly = false, actions = actions)
     }
     if (detail.recentVolumes.isNotEmpty()) {
         FitnessSection("최근 종목 볼륨") {
@@ -368,10 +438,6 @@ internal fun WorkoutDetailScreen(
                 )
             }
         }
-    }
-    if (ready.readOnly) {
-        WorkoutReadOnlyDetail(detail, unit)
-        return
     }
     FitnessSection("세트 기록") {
         detail.sets.forEach { set ->
@@ -426,49 +492,337 @@ internal fun WorkoutDetailScreen(
     }
 }
 
+private const val EXERCISE_RECORDS_TAB = "records"
+private const val EXERCISE_TRENDS_TAB = "trends"
+
 @Composable
-private fun WorkoutReadOnlyDetail(
-    detail: WorkoutExerciseDetail,
-    unit: MassUnit
+private fun WorkoutExerciseRecordTabs(
+    selected: String,
+    onSelected: (String) -> Unit
 ) {
-    val completedSets = detail.sets.filter { it.isCompleted }
-    FitnessSection("완료 세트") {
-        if (completedSets.isEmpty()) {
+    Row(
+        Modifier
+            .padding(horizontal = 24.dp, vertical = FitnessSpacing.small)
+            .widthIn(max = 400.dp)
+            .fillMaxWidth()
+            .clip(androidx.compose.foundation.shape.CircleShape)
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(FitnessSpacing.micro)
+            .selectableGroup()
+    ) {
+        listOf(EXERCISE_RECORDS_TAB to "종목 기록", EXERCISE_TRENDS_TAB to "종목 변화")
+            .forEach { (tab, label) ->
+                val isSelected = selected == tab
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .heightIn(min = FitnessSpacing.touch)
+                        .clip(androidx.compose.foundation.shape.CircleShape)
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                            else Color.Transparent
+                        )
+                        .selectable(
+                            selected = isSelected,
+                            role = Role.Tab,
+                            onClick = { onSelected(tab) }
+                        )
+                        .padding(vertical = FitnessSpacing.micro),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        label,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                        else MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                    )
+                }
+            }
+    }
+}
+
+@Composable
+private fun WorkoutExerciseRecordsTab(detail: WorkoutExerciseDetail, unit: MassUnit) {
+    FitnessSection("운동 기록") {
+        val latestFirst = detail.recentHistories.asReversed()
+        if (latestFirst.isEmpty()) {
             FitnessStatusMessage(
                 status = FitnessSemanticStatus.UNKNOWN,
-                title = "완료 세트 없음",
-                message = "이 기록에는 완료된 세트가 없습니다."
+                title = "운동 기록 없음",
+                message = "이 종목의 완료된 세트 기록이 없습니다."
             )
         } else {
-            completedSets.forEach { set ->
-                FitnessCard(Modifier.fillMaxWidth()) {
-                    Column(
-                        Modifier.padding(FitnessSpacing.card),
-                        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
-                    ) {
-                        Text("${set.setIndex}세트", fontWeight = FontWeight.Bold)
-                        Text(
-                            WorkoutSetPresentation.completedSetSummary(
-                                detail.activeExercise.recordType,
-                                set.weightKg,
-                                set.actualReps,
-                                set.durationSeconds,
-                                set.assistedWeightKg,
-                                set.addedWeightKg,
-                                set.loadState,
-                                unit
-                            ),
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        detail.volumeBySetId[set.id]?.takeIf { it.isFinite() }?.let { volume ->
-                            Text("볼륨 ${MassFormatter.withUnit(volume, unit)}")
+            LazyRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
+                contentPadding = PaddingValues(horizontal = AppSpacing.small)
+            ) {
+                items(latestFirst, key = { it.recordId }) { history ->
+                    AppCard(Modifier.width(320.dp)) {
+                        Column(
+                            Modifier.padding(AppSpacing.card),
+                            verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+                        ) {
+                            Text(
+                                history.date.ifBlank { "날짜 미상" },
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Text(
+                                "총 볼륨 ${MassFormatter.withUnit(history.totalVolumeKg, unit)}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            WorkoutExerciseSetTable(
+                                sets = history.sets,
+                                recordType = detail.activeExercise.recordType,
+                                unit = unit,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
                     }
                 }
             }
         }
     }
+    FitnessSection("개인 최고 기록") {
+        val bests = detail.personalBests
+        val bestOneRepMax = bests?.estimatedOneRepMaxKg?.takeIf { it.isFinite() && it > 0.0 }
+        val bestVolume = bests?.totalVolumeKg?.takeIf { it.isFinite() && it > 0.0 }
+        if (bestOneRepMax == null && bestVolume == null) {
+            FitnessStatusMessage(
+                status = FitnessSemanticStatus.UNKNOWN,
+                title = "개인 최고 기록 없음",
+                message = "중량 기반 1RM 또는 운동 볼륨을 계산할 수 있는 완료 기록이 없습니다."
+            )
+        } else {
+            FitnessFactRow(
+                first = {
+                    FitnessFactCard(
+                        "최고 추정 1RM",
+                        bestOneRepMax?.let { MassFormatter.withUnit(it, unit) } ?: "기록 없음",
+                        bests.estimatedOneRepMaxDate ?: ""
+                    )
+                },
+                second = {
+                    FitnessFactCard(
+                        "최고 종목 볼륨",
+                        bestVolume?.let { MassFormatter.withUnit(it, unit) } ?: "기록 없음",
+                        bests.totalVolumeDate ?: ""
+                    )
+                }
+            )
+        }
+    }
 }
+
+@Composable
+private fun WorkoutExerciseTrendsTab(detail: WorkoutExerciseDetail, unit: MassUnit) {
+    FitnessSection("최근 5회 추세") {
+        val points = workoutExerciseTrendPoints(detail.recentHistories)
+        if (points.isEmpty()) {
+            FitnessStatusMessage(
+                status = FitnessSemanticStatus.UNKNOWN,
+                title = "추세 데이터 없음",
+                message = "완료된 운동 기록이 쌓이면 1RM과 종목 볼륨 추세를 표시합니다."
+            )
+        } else {
+            WorkoutExerciseDualTrendChart(points, unit, Modifier.fillMaxWidth())
+            if (points.size < 2) {
+                Text(
+                    "기록이 더 쌓이면 추세선이 이어집니다.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkoutExerciseSetTable(
+    sets: List<WorkoutSet>,
+    recordType: String,
+    unit: MassUnit,
+    modifier: Modifier = Modifier
+) {
+    val completedSets = sets.filter { it.isCompleted }.sortedBy { it.setIndex }
+    if (completedSets.isEmpty()) {
+        Text("완료 세트 없음", modifier, style = MaterialTheme.typography.bodySmall)
+        return
+    }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
+        Text(
+            "${completedSets.size}세트",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        workoutHistorySetBatches(completedSets).forEachIndexed { batchIndex, batch ->
+            if (batchIndex > 0) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            val rows = workoutSetTableRows(recordType, batch, unit)
+            WorkoutExerciseSetTableRow(rows.upperLabel, rows.upperValues)
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            WorkoutExerciseSetTableRow(rows.lowerLabel, rows.lowerValues)
+        }
+    }
+}
+
+@Composable
+private fun WorkoutExerciseSetTableRow(
+    label: String,
+    values: List<WorkoutSetTableCell>
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            modifier = Modifier.width(50.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1
+        )
+        values.forEach { cell ->
+            Text(
+                cell.visibleValue,
+                modifier = Modifier.weight(1f).semantics {
+                    contentDescription = cell.spokenValue
+                },
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontFeatureSettings = "tnum"),
+                color = MaterialTheme.colorScheme.onSurface,
+                textAlign = TextAlign.Start,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        repeat((WORKOUT_HISTORY_SET_COLUMNS - values.size).coerceAtLeast(0)) {
+            Spacer(Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun WorkoutExerciseDualTrendChart(
+    points: List<WorkoutExerciseTrendPoint>,
+    unit: MassUnit,
+    modifier: Modifier = Modifier
+) {
+    val oneRepMaxValues = points.mapNotNull { it.estimatedOneRepMaxKg }
+    val volumeValues = points.map { it.totalVolumeKg }.filter { it.isFinite() && it > 0.0 }
+    val oneRepColor = MaterialTheme.colorScheme.primary
+    val volumeColor = MaterialTheme.colorScheme.tertiary
+    val outlineColor = MaterialTheme.colorScheme.outlineVariant
+    val spokenSummary = points.joinToString(separator = "; ") { point ->
+        val e1rm = point.estimatedOneRepMaxKg?.let { MassFormatter.withUnit(it, unit) } ?: "1RM 미기록"
+        "${point.date}, $e1rm, 볼륨 ${MassFormatter.withUnit(point.totalVolumeKg, unit)}"
+    }
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+        Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
+            WorkoutExerciseTrendLegend(
+                color = oneRepColor,
+                label = "1RM · ${metricRange(oneRepMaxValues, unit)}",
+                circular = true
+            )
+            WorkoutExerciseTrendLegend(
+                color = volumeColor,
+                label = "볼륨 · ${metricRange(volumeValues, unit)}",
+                circular = false
+            )
+        }
+        Canvas(
+            modifier = Modifier.fillMaxWidth().height(160.dp).semantics {
+                contentDescription = "최근 운동 선 그래프. 원은 추정 1RM, 사각형은 운동 볼륨입니다. $spokenSummary"
+            }
+        ) {
+            val left = 8.dp.toPx()
+            val right = size.width - 8.dp.toPx()
+            val top = 8.dp.toPx()
+            val bottom = size.height - 8.dp.toPx()
+            val plotHeight = (bottom - top).coerceAtLeast(1f)
+            val plotWidth = (right - left).coerceAtLeast(1f)
+            for (step in 0..2) {
+                val y = top + plotHeight * step / 2f
+                drawLine(
+                    color = outlineColor,
+                    start = Offset(left, y),
+                    end = Offset(right, y),
+                    strokeWidth = 1.dp.toPx()
+                )
+            }
+
+            fun drawSeries(values: List<Double?>, color: Color, circular: Boolean) {
+                val numeric = values.filterNotNull().filter { it.isFinite() }
+                if (numeric.isEmpty()) return
+                val minimum = numeric.minOrNull() ?: return
+                val maximum = numeric.maxOrNull() ?: return
+                val range = (maximum - minimum).takeIf { it > 0.0 } ?: 1.0
+                val plotted = values.mapIndexedNotNull { index, value ->
+                    value?.takeIf { it.isFinite() }?.let {
+                        val ratio = if (maximum == minimum) 0.5f
+                        else ((it - minimum) / range).toFloat().coerceIn(0f, 1f)
+                        val x = if (points.size == 1) left + plotWidth / 2f
+                        else left + plotWidth * index / (points.size - 1).toFloat()
+                        index to Offset(x, bottom - plotHeight * ratio)
+                    }
+                }
+                plotted.zipWithNext().forEach { (start, end) ->
+                    if (end.first == start.first + 1) {
+                        drawLine(color, start.second, end.second, strokeWidth = 2.dp.toPx())
+                    }
+                }
+                plotted.forEach { (_, point) ->
+                    if (circular) {
+                        drawCircle(color, radius = 4.dp.toPx(), center = point)
+                    } else {
+                        val side = 8.dp.toPx()
+                        drawRect(color, topLeft = Offset(point.x - side / 2f, point.y - side / 2f), size = Size(side, side))
+                    }
+                }
+            }
+
+            drawSeries(points.map { it.estimatedOneRepMaxKg }, oneRepColor, circular = true)
+            drawSeries(points.map { it.totalVolumeKg.takeIf { volume -> volume.isFinite() && volume > 0.0 } }, volumeColor, circular = false)
+        }
+        Row(Modifier.fillMaxWidth()) {
+            points.forEach { point ->
+                Text(
+                    point.date.takeLast(5),
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkoutExerciseTrendLegend(color: Color, label: String, circular: Boolean) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            Modifier
+                .size(9.dp)
+                .clip(if (circular) androidx.compose.foundation.shape.CircleShape else FitnessShape.input)
+                .background(color)
+        )
+        Text(label, style = MaterialTheme.typography.labelMedium)
+    }
+}
+
+private fun metricRange(values: List<Double>, unit: MassUnit): String =
+    if (values.isEmpty()) {
+        "계산 불가"
+    } else {
+        "${MassFormatter.withUnit(values.minOrNull() ?: 0.0, unit)}–${MassFormatter.withUnit(values.maxOrNull() ?: 0.0, unit)}"
+    }
 
 @Composable
 private fun WorkoutPreviousHistory(
@@ -972,52 +1326,78 @@ internal fun WorkoutSummaryScreen(
         } else {
             orderedExercises.forEach { exercise ->
                 AppCard(Modifier.fillMaxWidth().clickable { onExercise(exercise.id) }) {
-                    Row(
-                        Modifier.fillMaxWidth().padding(AppSpacing.card),
-                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
-                        verticalAlignment = Alignment.Top
+                    Column(
+                        Modifier.fillMaxWidth().padding(AppSpacing.card * 0.6f),
+                        verticalArrangement = Arrangement.spacedBy(AppSpacing.small * 0.6f)
                     ) {
-                        if (activity != null) {
-                            val identity = exercise.familyIdentity
-                            if (identity != null) {
-                                FitnessExerciseIllustration(
-                                    activity = activity,
-                                    identity = identity,
-                                    exactVariant = true,
-                                    modifier = Modifier.size(72.dp),
-                                    contentDescription = exercise.name,
-                                    fallback = { Text("이미지 없음") }
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap * 0.6f),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            if (activity != null) {
+                                val identity = exercise.familyIdentity
+                                if (identity != null) {
+                                    FitnessExerciseIllustration(
+                                        activity = activity,
+                                        identity = identity,
+                                        exactVariant = true,
+                                        modifier = Modifier.size(72.dp),
+                                        contentDescription = exercise.name,
+                                        fallback = { Text("이미지 없음") }
+                                    )
+                                } else {
+                                    FitnessExerciseIllustration(
+                                        activity = activity,
+                                        exerciseId = exercise.exerciseId,
+                                        modifier = Modifier.size(72.dp),
+                                        contentDescription = exercise.name,
+                                        fallback = { Text("이미지 없음") }
+                                    )
+                                }
+                            }
+                            Column(
+                                Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(AppSpacing.small * 0.6f)
+                            ) {
+                                Text(exercise.name, style = MaterialTheme.typography.titleSmall)
+                                Text(
+                                    listOfNotNull(
+                                        exercise.uiPart.takeIf { it.isNotBlank() },
+                                        exercise.primarySubPart?.takeIf { it.isNotBlank() },
+                                        exercise.equipment.takeIf { it.isNotBlank() },
+                                        exercise.recordTypeLabel.takeIf { it.isNotBlank() }
+                                    ).joinToString(" · "),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
-                            } else {
-                                FitnessExerciseIllustration(
-                                    activity = activity,
-                                    exerciseId = exercise.exerciseId,
-                                    modifier = Modifier.size(72.dp),
-                                    contentDescription = exercise.name,
-                                    fallback = { Text("이미지 없음") }
-                                )
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.semantics {
+                                        contentDescription =
+                                            "완료 세트 ${exercise.completedSetCount}/${exercise.totalSetCount}, 완료 상태"
+                                    }
+                                ) {
+                                    Text(
+                                        FitnessSemanticStatus.SUCCESS.glyph(),
+                                        color = LocalFitnessColors.current.success,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                    Text(
+                                        "완료 세트 ${exercise.completedSetCount}/${exercise.totalSetCount}",
+                                        color = LocalFitnessColors.current.success,
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
                             }
                         }
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                            Text(exercise.name, style = MaterialTheme.typography.titleMedium)
-                            Text(
-                                listOfNotNull(
-                                    exercise.uiPart.takeIf { it.isNotBlank() },
-                                    exercise.primarySubPart?.takeIf { it.isNotBlank() },
-                                    exercise.equipment.takeIf { it.isNotBlank() },
-                                    exercise.recordTypeLabel.takeIf { it.isNotBlank() }
-                                ).joinToString(" · "),
-                                style = MaterialTheme.typography.bodySmall
-                            )
-                            FitnessStatusBadge(
-                                status = FitnessSemanticStatus.SUCCESS,
-                                label = "완료 세트 ${exercise.completedSetCount}/${exercise.totalSetCount}",
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            completedSetSummaryLines(exercise, unit).forEach { summary ->
-                                Text(summary, style = MaterialTheme.typography.bodyMedium)
-                            }
-                        }
+                        WorkoutExerciseSetTable(
+                            sets = exercise.completedSets,
+                            recordType = exercise.recordType,
+                            unit = unit,
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
                 }
             }
@@ -1140,7 +1520,7 @@ private fun AppWorkoutSessionContent(
             else -> FitnessSemanticStatus.UNKNOWN
         },
         label = when (session.status) {
-            "completed" -> "완료된 운동"
+            "completed" -> workoutCompletionStatusLabel(session.completedAt)
             "in_progress" -> "진행 중"
             else -> "상태 미상"
         },
@@ -1176,12 +1556,12 @@ private fun AppWorkoutSessionContent(
                 onClick = { onExercise(exercise.id) }
             ) {
                 Column(
-                    Modifier.padding(FitnessSpacing.card),
-                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
+                    Modifier.padding(FitnessSpacing.card * 0.6f),
+                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small * 0.6f)
                 ) {
                     Row(
                         Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
+                        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap * 0.6f),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         WorkoutExerciseImage(
@@ -1190,24 +1570,25 @@ private fun AppWorkoutSessionContent(
                             contentDescription = "${exercise.name} 운동 이미지",
                             modifier = Modifier.size(64.dp)
                         )
-                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
-                            Text(exercise.name, style = MaterialTheme.typography.titleMedium)
-                            Text(exercise.recordTypeLabel, style = MaterialTheme.typography.bodySmall)
+                        Column(
+                            Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+                        ) {
+                            Text(exercise.name, style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                exercise.recordTypeLabel,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            WorkoutExerciseProgressCompact(exercise)
                         }
                     }
-                    FitnessStatusBadge(
-                        status = when {
-                            exercise.totalSetCount > 0 && exercise.completedSetCount >= exercise.totalSetCount -> FitnessSemanticStatus.SUCCESS
-                            exercise.completedSetCount > 0 -> FitnessSemanticStatus.INFO
-                            else -> FitnessSemanticStatus.UNKNOWN
-                        },
-                        label = "세트 ${workoutExerciseProgress(exercise).label}",
+                    WorkoutExerciseSetTable(
+                        sets = exercise.completedSets,
+                        recordType = exercise.recordType,
+                        unit = unit,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    FitnessProgressBar(workoutExerciseProgress(exercise), title = "종목 진행")
-                    completedSetSummaryLines(exercise, unit).forEach { summary ->
-                        Text(summary, style = MaterialTheme.typography.bodyMedium)
-                    }
                 }
             }
         }
@@ -1229,6 +1610,46 @@ private fun AppWorkoutSessionContent(
                 insufficientLabel = "이전 운동 볼륨 기록이 부족합니다."
             )
         }
+    }
+}
+
+@Composable
+private fun WorkoutExerciseProgressCompact(exercise: WorkoutSessionExercise) {
+    val progress = workoutExerciseProgress(exercise)
+    val fraction = progress.fraction.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 0f
+    val status = when {
+        exercise.totalSetCount > 0 && exercise.completedSetCount >= exercise.totalSetCount ->
+            FitnessSemanticStatus.SUCCESS
+        exercise.completedSetCount > 0 -> FitnessSemanticStatus.INFO
+        else -> FitnessSemanticStatus.UNKNOWN
+    }
+    val statusColor = when (status) {
+        FitnessSemanticStatus.SUCCESS -> LocalFitnessColors.current.success
+        FitnessSemanticStatus.WARNING -> LocalFitnessColors.current.warning
+        FitnessSemanticStatus.ERROR -> MaterialTheme.colorScheme.error
+        FitnessSemanticStatus.INFO -> MaterialTheme.colorScheme.primary
+        FitnessSemanticStatus.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Column(
+        Modifier.fillMaxWidth().semantics {
+            contentDescription = "종목 진행, 세트 ${progress.label}"
+            progressBarRangeInfo = ProgressBarRangeInfo(fraction, 0f..1f)
+        },
+        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(status.glyph(), color = statusColor, style = MaterialTheme.typography.labelSmall)
+            Text("세트 ${progress.label}", color = statusColor, style = MaterialTheme.typography.labelSmall)
+        }
+        LinearProgressIndicator(
+            progress = { fraction },
+            modifier = Modifier.fillMaxWidth().height(3.dp),
+            color = statusColor,
+            trackColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     }
 }
 

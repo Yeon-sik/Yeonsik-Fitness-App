@@ -24,7 +24,9 @@ data class RecordsWorkoutSummary(
     val durationSeconds: Int,
     val totalVolumeKg: Double,
     val completedSetCount: Int,
-    val muscleLabels: List<String>
+    val muscleLabels: List<String>,
+    /** Stored local/offset completion timestamp; null means time is unknown. */
+    val completedAt: String? = null
 )
 
 data class RecordsDayDetail(

@@ -35,7 +35,8 @@ class RecordsReadRepositoryTest {
                     totalVolumeKg = 1200.0,
                     completedSetCount = 12,
                     muscleLabels = listOf("등"),
-                    projectionMuscleLabels = listOf("등", "삼두")
+                    projectionMuscleLabels = listOf("등", "삼두"),
+                    completedAt = "2024-02-05T04:35:00Z"
                 )
             )
         )
@@ -73,6 +74,7 @@ class RecordsReadRepositoryTest {
         val workoutDetail = snapshot.dayDetailsByDate.getValue("2024-02-05")
         assertEquals(1, workoutDetail.workouts.size)
         assertEquals("workout-1", workoutDetail.workouts.single().id)
+        assertEquals("2024-02-05T04:35:00Z", workoutDetail.workouts.single().completedAt)
         assertEquals(2, workoutDetail.bodyMetrics.size)
         assertTrue(workoutDetail.meals.isEmpty())
         assertEquals("2024-02-07", snapshot.dayDetailsByDate.getValue("2024-02-07").meals.single().date)

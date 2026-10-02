@@ -2,8 +2,12 @@ package com.yeonsik.fitnessapp.feature.settings.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -12,48 +16,72 @@ import com.yeonsik.fitnessapp.BuildConfig
 import com.yeonsik.fitnessapp.config.SupabaseConfig
 import com.yeonsik.fitnessapp.core.ui.AppCard
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
+import com.yeonsik.fitnessapp.core.ui.FitnessStatusBadge
+import com.yeonsik.fitnessapp.ui.UiState
 import com.yeonsik.fitnessapp.ui.SettingsUiPolicy
 
 @Composable
-internal fun SettingsAccountStatusCard(config: SupabaseConfig) {
-    val status = when {
-        config.isConfigured -> "연결됨 · 로그인됨"
-        config.isConnectionConfigured -> "연결됨 · 로그인 필요"
-        else -> "연결 안 됨 · 로컬 전용"
+internal fun SettingsStatusCard(
+    config: SupabaseConfig,
+    state: SettingsUiState,
+    modifier: Modifier = Modifier
+) {
+    val (accountLabel, accountStatus, connectionDetail) = when {
+        config.isConfigured -> Triple("로그인됨", FitnessSemanticStatus.SUCCESS, "연결됨")
+        config.isConnectionConfigured -> Triple("로그인 필요", FitnessSemanticStatus.WARNING, "연결됨")
+        else -> Triple("로컬 전용", FitnessSemanticStatus.INFO, "연결 안 됨")
     }
-    AppCard(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.padding(AppSpacing.card),
-            verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
-        ) {
-            Text("계정 상태", style = MaterialTheme.typography.titleMedium)
-            Text("Personal OS 공통 계정 · " + status, style = MaterialTheme.typography.bodyMedium)
-            if (config.isConfigured && config.email.isNotBlank()) {
-                Text("로그인 계정 · " + config.email, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            SettingsSupportingText("계정 상태와 동기화 상태는 별도로 표시합니다.")
-        }
-    }
-}
-
-@Composable
-internal fun SettingsSyncStatusCard(state: SettingsUiState) {
     val label = SettingsUiPolicy.syncStatusLabel(state.syncLabel)
-    val category = SettingsUiPolicy.syncStateForLabel(state.syncLabel).label()
-    AppCard(Modifier.fillMaxWidth()) {
+    val syncStatus = semanticStatusForSync(state.syncLabel)
+    AppCard(modifier.fillMaxWidth()) {
         Column(
             Modifier.padding(AppSpacing.card),
             verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
         ) {
-            Text("동기화 상태", style = MaterialTheme.typography.titleMedium)
-            Text(label, style = MaterialTheme.typography.bodyMedium)
-            SettingsSupportingText("상태 분류 · " + category)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text("계정 상태", style = MaterialTheme.typography.titleSmall)
+                    Text("Personal OS 공통 계정 · $connectionDetail", style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                FitnessStatusBadge(accountStatus, accountLabel, Modifier.width(IntrinsicSize.Max))
+            }
+            if (config.isConfigured && config.email.isNotBlank()) {
+                SettingsSupportingText("로그인 계정 · ${config.email}")
+            }
+            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap),
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
+            ) {
+                Text("동기화 상태", style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f))
+                FitnessStatusBadge(syncStatus, label, Modifier.width(IntrinsicSize.Max))
+            }
             SettingsSupportingText(syncDetailForDisplay(state))
             SettingsSupportingText("동기화 여부와 관계없이 로컬 기록을 먼저 보관합니다.")
         }
     }
 }
+
+internal fun semanticStatusForSync(label: String): FitnessSemanticStatus =
+    when (SettingsUiPolicy.syncStateForLabel(label)) {
+        UiState.SUCCESS -> FitnessSemanticStatus.SUCCESS
+        UiState.LOADING,
+        UiState.PERMISSION_REQUIRED,
+        UiState.SYNC_DELAYED -> FitnessSemanticStatus.WARNING
+        UiState.SERVER_ERROR -> FitnessSemanticStatus.ERROR
+        UiState.OFFLINE -> FitnessSemanticStatus.INFO
+        UiState.EMPTY,
+        UiState.VALIDATION_ERROR,
+        UiState.DESTRUCTIVE_CONFIRMATION -> FitnessSemanticStatus.UNKNOWN
+    }
 
 @Composable
 internal fun SettingsPrivacyCard() {
@@ -92,7 +120,7 @@ internal fun SettingsSupportingText(text: String) {
 
 internal fun themeModeLabel(mode: String): String = when (mode) {
     "light" -> "밝은 테마"
-    "dark" -> "어두운 테마"
+    "dark" -> "어두운 테마(권장)"
     "system" -> "기기 설정 따르기"
     else -> "기본 테마"
 }

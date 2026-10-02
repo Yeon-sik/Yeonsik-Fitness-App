@@ -39,6 +39,8 @@ import com.yeonsik.fitnessapp.core.ui.AppDataRow
 import com.yeonsik.fitnessapp.core.ui.AppHeader
 import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
+import com.yeonsik.fitnessapp.core.ui.FitnessStatusBadge
 import com.yeonsik.fitnessapp.core.ui.ThinkingOrb
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.FitnessCalendarDayCell
@@ -64,7 +66,6 @@ import java.text.NumberFormat
 import java.util.Locale
 
 private val recordsLoadingMessages = listOf("기록을 불러오는 중")
-
 interface RecordsScreenActions {
     fun selectDate(date: String)
     fun previousMonth()
