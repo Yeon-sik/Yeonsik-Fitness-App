@@ -21,7 +21,7 @@ const remote = [
   '20260920091328', '20260920091342', '20260920091351', '20260924130855',
   '20260924131958', '20260924132515', '20260924132818'
 ];
-const pending = ['20260927120000', '20261002120000'];
+const pending = ['20260927120000', '20261002120000', '20261002130000'];
 const excluded = [
   'realtime', 'storage-api', 'imgproxy', 'studio', 'mailpit',
   'postgres-meta', 'edge-runtime', 'logflare', 'vector', 'supavisor'
@@ -100,6 +100,12 @@ function inventory() {
     .replace(/\/\*[\s\S]*?\*\//g, '');
   if (/\bpg_get_functiondef\s*\(|\bexecute\s+(?!on\b)/i.test(extSql)) {
     throw new Error('Dynamic function patch found; add exact unique anchor and fail-closed assertions before replay.');
+  }
+  const genericFixSql = readFileSync(migration('20261002130000'), 'utf8');
+  if (!genericFixSql.includes('pg_get_functiondef')
+      || !genericFixSql.includes('v_anchor_count <> 1')
+      || !genericFixSql.includes('execute v_repaired')) {
+    throw new Error('Generic v3 patch must use pg_get_functiondef with an exact unique anchor and fail closed.');
   }
   const oldSql = readFileSync(migration('20260814065823'), 'utf8');
   const ids = Array.from(oldSql.matchAll(/catalog_product_id\s*=\s*'([0-9a-f-]{36})'::uuid/gi), match => match[1]);
@@ -272,8 +278,13 @@ async function replay(label, final, kaguriId) {
     const status = await run(cli, ['status', '--output', 'env'], { cwd: project.dir, timeout: 60000 });
     await canonicalIntegration(project, status, 'generic-v3-ambiguity-repro');
     await sql(container, readFileSync(path.join(replayDir, 'reproduce_generic_v3_ambiguity.sql'), 'utf8'));
-    await canonicalIntegration(project, status, 'external-reference-only');
-    console.log('PASS final fresh replay (27 recovered migrations plus both pending migrations)');
+    await sql(container, readFileSync(path.join(replayDir, 'snapshot_before_generic_v3_fix.sql'), 'utf8'));
+    stage('20261002130000', project.migrationsDir);
+    console.log('Applying pending generic v3 ambiguity forward fix locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, readFileSync(path.join(replayDir, 'assert_generic_v3_fix.sql'), 'utf8'));
+    await canonicalIntegration(project, status, 'canonical-v3-contract-matrix');
+    console.log('PASS final fresh replay (27 recovered migrations plus all three pending migrations)');
   } finally {
     if (startAttempted) {
       try {
@@ -289,7 +300,7 @@ async function replay(label, final, kaguriId) {
 
 async function main() {
   const kaguriId = inventory();
-  console.log('Verified exactly 27 remote migration files and 2 pending migration files.');
+  console.log('Verified exactly 27 remote migration files and 3 pending migration files.');
   const fixture = readFileSync(path.join(replayDir, 'pre_20260814065823_kaguri.sql'), 'utf8');
   const selectorToken = '{{KAGURI_PRODUCT_UUID_FROM_HISTORICAL_SQL}}';
   if (fixture.split(selectorToken).length !== 2) {

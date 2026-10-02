@@ -82,6 +82,11 @@ begin
             if v_message <> 'column reference "nutrition_food_id" is ambiguous' then
                 raise exception 'Unexpected ambiguous-column error during reproduction: %', v_message;
             end if;
+            if pg_catalog.strpos(v_context, 'public.import_verified_nutrition_v1_legacy') = 0
+               or pg_catalog.strpos(v_context, 'line 392 at SQL statement') = 0 then
+                raise exception 'Ambiguity did not originate at the expected legacy projection SQL statement: %',
+                    coalesce(v_context, '<none>');
+            end if;
 
             raise notice 'PASS generic v3 SQLSTATE 42702; message=%; detail=%; context=%',
                 v_message,
