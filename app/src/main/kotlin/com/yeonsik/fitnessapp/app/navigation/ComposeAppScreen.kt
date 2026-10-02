@@ -1633,6 +1633,8 @@ private fun AppDestination(
     val mealState by viewModels.getMeal().uiState.observeAsState(MealUiState.Idle)
     val mealPriceTraceState by viewModels.getMeal().priceTraceState
         .observeAsState(PriceTraceUiState.Idle)
+    val mealNutritionPublicationState by viewModels.getMeal().nutritionPublicationState
+        .observeAsState(NutritionPublicationUiState())
     val supplementState by viewModels.getSupplement().uiState
         .observeAsState(SupplementUiState.Idle)
     val exercisePickerState by viewModels.getExercisePicker().uiState
@@ -1798,6 +1800,20 @@ private fun AppDestination(
             viewModels.getMeal().searchPriceTraceRestaurants()
         override fun loadPriceTraceRestaurant(restaurantId: String) =
             viewModels.getMeal().loadPriceTraceRestaurant(restaurantId)
+        override fun openNutritionPublication() =
+            viewModels.getMeal().openNutritionPublication()
+        override fun closeNutritionPublication() =
+            viewModels.getMeal().closeNutritionPublication()
+        override fun selectNutritionPublicationMenu(foodId: String) =
+            viewModels.getMeal().selectNutritionPublicationMenu(foodId)
+        override fun syncNutritionPublicationCatalog() =
+            viewModels.getMeal().syncNutritionPublicationCatalog()
+        override fun publishNutritionMenu(locationId: String, menuId: String, catalogProductId: String) =
+            viewModels.getMeal().publishNutritionMenuForPriceTraceSelection(
+                locationId,
+                menuId,
+                catalogProductId
+            )
         override fun applyPriceTraceSelection(
             restaurantId: String,
             restaurantName: String,
@@ -2187,6 +2203,7 @@ private fun AppDestination(
                 homeState,
                 mealState,
                 mealPriceTraceState,
+                mealNutritionPublicationState,
                 ownerId,
                 today,
                 mealActions
