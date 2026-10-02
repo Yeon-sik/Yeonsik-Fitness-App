@@ -290,9 +290,9 @@ begin
             v_existing.projection_source_type,
             v_existing.projection_import_id,
             null::uuid,
-            (select estimation_evidence_id
-             from public.nutrition_verified_imports
-             where id = v_existing.projection_import_id),
+            (select verified_import.estimation_evidence_id
+             from public.nutrition_verified_imports as verified_import
+             where verified_import.id = v_existing.projection_import_id),
             'private',
             v_existing.request_payload ->> 'manufacturer_name',
             v_existing.request_payload ->> 'brand_name',
