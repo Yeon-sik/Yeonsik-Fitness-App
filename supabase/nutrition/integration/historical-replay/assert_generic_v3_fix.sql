@@ -9,8 +9,8 @@ declare
     v_before_definition text;
     v_before_privileges text;
     v_expected_definition text;
-    v_anchor text := E'select nutrition_food_id into v_food_id\n    from public.nutrition_verified_catalog_keys\n    where owner_id = v_user_id and catalog_key = v_catalog_key\n    for update;';
-    v_qualified text := E'select catalog_mapping.nutrition_food_id into v_food_id\n    from public.nutrition_verified_catalog_keys as catalog_mapping\n    where catalog_mapping.owner_id = v_user_id and catalog_mapping.catalog_key = v_catalog_key\n    for update;';
+    v_anchor text := E'select * into v_existing_link\n        from public.product_nutrition_links\n        where owner_id = v_user_id\n          and nutrition_food_id = v_food_id\n          and status = ''approved''\n          and deleted_at is null\n        order by created_at desc\n        limit 1\n        for update;';
+    v_qualified text := E'select * into v_existing_link\n        from public.product_nutrition_links as existing_link\n        where existing_link.owner_id = v_user_id\n          and existing_link.nutrition_food_id = v_food_id\n          and existing_link.status = ''approved''\n          and existing_link.deleted_at is null\n        order by existing_link.created_at desc\n        limit 1\n        for update;';
     v_target_count integer;
     v_public_function_count integer;
     v_before_function_count integer;
@@ -46,11 +46,11 @@ begin
         - pg_catalog.length(pg_catalog.replace(v_before_definition, v_anchor, ''))
     ) / pg_catalog.length(v_anchor);
     if v_target_count <> 1 then
-        raise exception 'Pre-fix runtime function must contain exactly one ambiguous lookup; found %', v_target_count;
+        raise exception 'Pre-fix runtime function must contain exactly one ambiguous approved-link lookup; found %', v_target_count;
     end if;
     v_expected_definition := pg_catalog.replace(v_before_definition, v_anchor, v_qualified);
     if pg_catalog.pg_get_functiondef(v_target::oid) is distinct from v_expected_definition then
-        raise exception 'Forward migration changed more than the exact nutrition_food_id qualifier';
+        raise exception 'Forward migration changed more than the exact approved-link query qualifier';
     end if;
     if (select procedure.proacl::text from pg_catalog.pg_proc as procedure where procedure.oid = v_target::oid)
        is distinct from v_before_privileges then
