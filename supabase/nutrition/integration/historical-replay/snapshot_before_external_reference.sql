@@ -37,12 +37,7 @@ where namespace.nspname = 'public';
 
 create table nutrition_replay_test.public_functions_before_external_reference as
 select
-    pg_catalog.format(
-        '%I.%I(%s)',
-        namespace.nspname,
-        procedure.proname,
-        pg_catalog.pg_get_function_identity_arguments(procedure.oid)
-    ) as identity,
+    procedure.oid as function_oid,
     procedure.proname as function_name,
     pg_catalog.pg_get_functiondef(procedure.oid) as definition,
     procedure.proacl::text as privileges

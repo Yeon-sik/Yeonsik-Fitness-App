@@ -177,7 +177,7 @@ begin
         select 1
         from nutrition_replay_test.public_functions_before_external_reference as before_row
         left join pg_catalog.pg_proc as procedure
-          on procedure.oid = pg_catalog.to_regprocedure(before_row.identity)
+          on procedure.oid = before_row.function_oid
         where procedure.oid is null
            or (
                before_row.function_name <> 'import_canonical_nutrition_v3'
@@ -208,7 +208,7 @@ begin
       and not exists (
           select 1
           from nutrition_replay_test.public_functions_before_external_reference as before_row
-          where pg_catalog.to_regprocedure(before_row.identity) = procedure.oid
+          where before_row.function_oid = procedure.oid
       );
 
     if v_new_count <> 1
@@ -225,7 +225,7 @@ begin
         select 1
         from nutrition_replay_test.public_functions_before_external_reference as before_row
         join pg_catalog.pg_proc as procedure
-          on procedure.oid = pg_catalog.to_regprocedure(before_row.identity)
+          on procedure.oid = before_row.function_oid
         where before_row.function_name = 'import_canonical_nutrition_v3_legacy'
           and before_row.definition is distinct from pg_catalog.pg_get_functiondef(procedure.oid)
     ) then
