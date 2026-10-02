@@ -168,8 +168,9 @@ async function sql(container, text) {
     'exec', '-i', container, 'psql', '-X', '-v', 'ON_ERROR_STOP=1',
     '-U', 'postgres', '-d', 'postgres'
   ], { input: text, timeout: 3 * 60 * 1000 });
-  for (const line of result.stdout.split(/\r?\n/)) {
-    if (/^PASS /.test(line.trim())) console.log(line.trim());
+  for (const line of (result.stdout + '\n' + result.stderr).split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (/^(?:NOTICE:\s*)?PASS /.test(trimmed)) console.log(trimmed.replace(/^NOTICE:\s*/, ''));
   }
 }
 
@@ -220,7 +221,8 @@ async function canonicalIntegration(project, status, mode) {
     path.join(integrationDir, 'canonical-import.integration.mjs')
   ], { cwd: integrationDir, env, timeout: 10 * 60 * 1000 });
   for (const line of result.stdout.split(/\r?\n/)) {
-    if (/^PASS /.test(line.trim())) console.log(line.trim());
+    const trimmed = line.trim();
+    if (/^(?:PASS |DIAG )/.test(trimmed)) console.log(trimmed);
   }
 }
 

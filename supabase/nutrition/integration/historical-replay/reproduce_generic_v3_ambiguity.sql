@@ -1,8 +1,12 @@
 -- Run only against the disposable pre-fix replay database. The nested exception
--- block rolls back any writes from the failing RPC and preserves its call stack.
+-- block and outer transaction roll back writes while preserving the call stack.
+begin;
+set local role authenticated;
+
 do $reproduce_generic_v3_ambiguity$
 declare
     v_owner_id uuid := gen_random_uuid();
+    v_catalog_product_id uuid := gen_random_uuid();
     v_required jsonb := jsonb_build_object(
         'calories_kcal', 240,
         'carbs_grams', 44,
@@ -56,7 +60,10 @@ begin
             '{}'::jsonb,
             '{}'::jsonb,
             true,
-            null,
+            jsonb_build_object(
+                'namespace', 'pricetrace',
+                'catalog_product_id', v_catalog_product_id
+            ),
             null,
             'Synthetic Manufacturer',
             'Synthetic Brand',
@@ -83,3 +90,5 @@ begin
     end;
 end
 $reproduce_generic_v3_ambiguity$;
+
+rollback;
