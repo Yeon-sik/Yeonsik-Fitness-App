@@ -4,7 +4,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.toPixelMap
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
-import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import com.yeonsik.fitnessapp.feature.records.ui.RecordsCalendarLegend
 import org.junit.Assert.*
 import org.junit.Rule
@@ -158,10 +159,13 @@ class HomeTodayHeroUiTest {
         compose.onNodeWithContentDescription("오늘 1/3 영역 기록").assertExists()
     }
 
-    @Test fun opaqueHeroKeepsTheSameBackgroundInBothColorSchemes() {
+    @Test fun heroBackgroundMatchesQuickActionIconColorInBothColorSchemes() {
         val mode = mutableStateOf(false)
+        var quickActionIconColor = Color.Unspecified
         compose.setContent {
             FitnessComposeTheme(mode.value) {
+                val primaryColor = MaterialTheme.colorScheme.primary
+                SideEffect { quickActionIconColor = primaryColor }
                 HomeTodayHero(HomeTodayHeroStatus(listOf(
                     domain("workout", "운동", "완료", true),
                     domain("meal", "식단", "아직"), domain("body", "체중", "아직")
@@ -174,7 +178,7 @@ class HomeTodayHeroUiTest {
             compose.onNodeWithText("오늘").assertExists()
             compose.onNodeWithText("완료").assertExists()
             val pixels = compose.onNodeWithTag("home-today-hero").captureToImage().toPixelMap()
-            assertColorNear(Color(FitnessUiTokens.COLOR_BLUE_CONTAINER), pixels[pixels.width / 2, 2])
+            assertColorNear(quickActionIconColor, pixels[pixels.width / 2, 2])
         }
     }
 
