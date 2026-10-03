@@ -1821,6 +1821,8 @@ private fun AppDestination(
                 menuId,
                 catalogProductId
             )
+        override fun verifyNutritionMenu(locationId: String, menuId: String, catalogProductId: String) =
+            viewModels.getMeal().verifyNutritionMenuForPriceTraceSelection(locationId, menuId, catalogProductId)
         override fun applyPriceTraceSelection(
             restaurantId: String,
             restaurantName: String,
