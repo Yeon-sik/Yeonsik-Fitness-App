@@ -94,6 +94,7 @@ import com.yeonsik.fitnessapp.feature.development.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.meal.ui.*
+import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionEditorState
 import com.yeonsik.fitnessapp.feature.records.ui.*
 import com.yeonsik.fitnessapp.feature.statistics.ui.*
 import com.yeonsik.fitnessapp.feature.routine.ui.*
@@ -1635,6 +1636,8 @@ private fun AppDestination(
         .observeAsState(PriceTraceUiState.Idle)
     val mealNutritionPublicationState by viewModels.getMeal().nutritionPublicationState
         .observeAsState(NutritionPublicationUiState())
+    val nutritionEditorState by viewModels.getMeal().nutritionEditor.uiState
+        .observeAsState(NutritionEditorState())
     val supplementState by viewModels.getSupplement().uiState
         .observeAsState(SupplementUiState.Idle)
     val exercisePickerState by viewModels.getExercisePicker().uiState
@@ -1782,6 +1785,10 @@ private fun AppDestination(
         override fun saveReusableDiningOutMenu() =
             viewModels.getMeal().saveReusableDiningOutMenu(AccountScope(ownerId)) { }
         override fun updateQuantity(value: String) = viewModels.getMeal().updateQuantity(value)
+        override fun updateFoodQuantity(foodId: String, value: String) = viewModels.getMeal().updateFoodQuantity(foodId, value)
+        override fun removeFood(foodId: String) = viewModels.getMeal().removeFood(foodId)
+        override fun updateDiningPortion(value: String) = viewModels.getMeal().updateDiningPortion(value)
+        override fun openNutritionEditor() = viewModels.getMeal().nutritionEditor.open()
         override fun updateTime(value: String) = viewModels.getMeal().updateTime(value)
         override fun saveFood() = viewModels.getMeal().saveFood(AccountScope(ownerId)) { }
         override fun updateStore(value: String) = viewModels.getMeal().updateStore(value)
@@ -2207,7 +2214,10 @@ private fun AppDestination(
                 mealNutritionPublicationState,
                 ownerId,
                 today,
-                mealActions
+                mealActions,
+                nutritionEditorState = nutritionEditorState,
+                nutritionEditorActions = viewModels.getMeal().nutritionEditor,
+                onUseComposition = viewModels.getMeal()::useComposition
             )
             FitnessScreen.SUPPLEMENTS -> SupplementScreen(
                 supplementState,

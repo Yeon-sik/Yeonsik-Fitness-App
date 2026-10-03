@@ -126,7 +126,8 @@ internal fun AppTextField(
     singleLine: Boolean = true,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions? = null,
-    visualTransformation: VisualTransformation = VisualTransformation.None
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    enabled: Boolean = true
 ) {
     OutlinedTextField(
         value,
@@ -134,6 +135,7 @@ internal fun AppTextField(
         modifier,
         label = label,
         singleLine = singleLine,
+        enabled = enabled,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions ?: KeyboardActions.Default,
         visualTransformation = visualTransformation,
