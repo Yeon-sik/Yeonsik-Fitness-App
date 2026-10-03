@@ -24,6 +24,8 @@ import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionUnit;
+import com.yeonsik.fitnessapp.feature.meal.model.FoodPortionInput;
+import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMealInput;
 import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import org.junit.Test;
@@ -32,6 +34,9 @@ import org.junit.runner.RunWith;
 import java.io.File;
 import java.time.LocalDate;
 import java.util.Collections;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -63,7 +68,7 @@ public final class MealRecordRepositoryTest {
             );
             FitnessDatabaseConnection database = FitnessDatabaseConnection.fromLegacy(helper);
             MealRecordRepository repository = new MealRecordRepository(
-                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER
+                    room, catalog, OWNER
             );
 
             String recordId = repository.saveFoodMeal(
@@ -120,7 +125,7 @@ public final class MealRecordRepositoryTest {
                     "v1"
             );
             MealRecordRepository repository = new MealRecordRepository(
-                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER);
+                    room, catalog, OWNER);
             repository.setUserId("meal-owner-b");
 
             assertThrows(IllegalStateException.class, () -> repository.saveFoodMeal(
@@ -170,7 +175,7 @@ public final class MealRecordRepositoryTest {
                     ))
             );
             MealRecordRepository repository = new MealRecordRepository(
-                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER
+                    room, catalog, OWNER
             );
             String recordId = repository.saveComplexDiningOutMeal(
                     new AccountScope(OWNER),
@@ -236,7 +241,7 @@ public final class MealRecordRepositoryTest {
                     new Object[]{menu.id}
             );
             com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead reloaded =
-                    new MealReadRepository(FitnessRoomDatabaseProvider.get(context))
+                    new MealReadRepository(room)
                             .mealSnapshot(new AccountScope(OWNER), recordId);
             assertNotNull(reloaded);
             assertEquals("세트 메뉴", reloaded.getItems().get(0).getFoodName());
@@ -277,9 +282,9 @@ public final class MealRecordRepositoryTest {
                     "v1"
             );
             MealRecordRepository repository = new MealRecordRepository(
-                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER);
+                    room, catalog, OWNER);
             MealReadRepository readRepository = new MealReadRepository(
-                    FitnessRoomDatabaseProvider.get(context));
+                    room);
             AccountScope scope = new AccountScope(OWNER);
             String today = LocalDate.now().toString();
             String yesterday = LocalDate.now().minusDays(1).toString();
@@ -321,6 +326,104 @@ public final class MealRecordRepositoryTest {
             room.close();
             helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void multipleFoodsCreateOneMealWithOrderedSnapshots() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
+        try {
+            NutritionCatalogRepository catalog = catalog(room, context, "nutrition-owner");
+            NutritionFood first = catalog.saveFood("밥", NutritionFood.KIND_INGREDIENT, 100d, NutritionUnit.GRAM,
+                    NutritionFood.PREP_AS_SERVED, requiredProfile(), "test", null, "v1");
+            NutritionFood second = catalog.saveFood("닭", NutritionFood.KIND_INGREDIENT, 100d, NutritionUnit.GRAM,
+                    NutritionFood.PREP_AS_SERVED, requiredProfile(), "test", null, "v1");
+            MealRecordRepository repository = new MealRecordRepository(room, catalog, OWNER);
+            AccountScope scope = new AccountScope(OWNER);
+            String date = LocalDate.now().toString();
+            String id = repository.saveFoodComposition(scope, date, "19:00", Arrays.asList(
+                    new FoodPortionInput(first.id, 150d), new FoodPortionInput(second.id, 50d)));
+            MealReadRepository read = new MealReadRepository(room);
+            assertEquals(1, read.mealCount(scope, date));
+            assertEquals(400, read.meals(scope, date).get(0).getCalories());
+            assertEquals(2, read.mealSnapshot(scope, id).getItems().size());
+            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromLegacy(helper);
+            try (Cursor rows = database.rawQuery(
+                    "SELECT food_id,quantity,sodium_mg,user_id FROM meal_record_items WHERE meal_record_id=? ORDER BY order_index",
+                    new String[]{id})) {
+                assertTrue(rows.moveToFirst());
+                assertEquals(first.id, rows.getString(0));
+                assertEquals(150d, rows.getDouble(1), 0.001d);
+                assertEquals(750d, rows.getDouble(2), 0.001d);
+                assertEquals(OWNER, rows.getString(3));
+                assertTrue(rows.moveToNext());
+                assertEquals(second.id, rows.getString(0));
+                assertEquals(50d, rows.getDouble(1), 0.001d);
+            }
+            assertThrows(IllegalArgumentException.class, () -> repository.saveFoodComposition(scope, date, "20:00",
+                    Arrays.asList(new FoodPortionInput(first.id, 100d), new FoodPortionInput("missing-food", 100d))));
+            assertEquals(1, read.mealCount(scope, date));
+        } finally {
+            room.close(); helper.close(); context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void registrationOrderContinuesBeyondFiveAndSurvivesTimeChanges() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
+        try {
+            NutritionCatalogRepository catalog = catalog(room, context, OWNER);
+            NutritionFood food = catalog.saveFood("순서 식품", NutritionFood.KIND_INGREDIENT, 100d, NutritionUnit.GRAM,
+                    NutritionFood.PREP_AS_SERVED, requiredProfile(), "test", null, "v1");
+            MealRecordRepository repository = new MealRecordRepository(room, catalog, OWNER);
+            MealReadRepository read = new MealReadRepository(room);
+            AccountScope scope = new AccountScope(OWNER);
+            String date = LocalDate.now().toString();
+            List<String> ids = new ArrayList<>();
+            for (int index = 0; index < 6; index++) {
+                ids.add(repository.saveFoodMeal(scope, date, (18 - index) + ":00", food.id, 100d));
+            }
+            for (int index = 0; index < 6; index++) {
+                assertEquals(ids.get(index), read.meals(scope, date).get(index).getId());
+                assertEquals((index + 1) + "끼", read.meals(scope, date).get(index).getMealLabel());
+            }
+            assertTrue(repository.updateMealTime(scope, ids.get(0), "23:00"));
+            assertEquals(ids.get(0), read.meals(scope, date).get(0).getId());
+            repository.saveFoodMeal(scope, date, "07:00", food.id, 100d);
+            assertEquals("7끼", read.meals(scope, date).get(6).getMealLabel());
+            assertEquals(0, read.mealCount(scope, LocalDate.now().minusDays(1).toString()));
+        } finally {
+            room.close(); helper.close(); context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void diningPortionPersistsItsQuantityAndUnknownExtendedNutrition() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
+        try {
+            NutritionCatalogRepository catalog = catalog(room, context, OWNER);
+            MealRecordRepository repository = new MealRecordRepository(room, catalog, OWNER);
+            String id = repository.saveDiningOutPortion(new AccountScope(OWNER), LocalDate.now().toString(), "13:00",
+                    new DiningOutMealInput("식당", "", "메뉴", 0.5d, 600, 40d, 80d, 20d,
+                            null, null, null, null, null, null, null));
+            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromLegacy(helper);
+            try (Cursor item = database.rawQuery(
+                    "SELECT quantity,calories,protein_grams,sodium_mg FROM meal_record_items WHERE meal_record_id=?",
+                    new String[]{id})) {
+                assertTrue(item.moveToFirst());
+                assertEquals(0.5d, item.getDouble(0), 0.001d);
+                assertEquals(300d, item.getDouble(1), 0.001d);
+                assertEquals(20d, item.getDouble(2), 0.001d);
+                assertTrue(item.isNull(3));
+            }
+        } finally {
+            room.close(); helper.close(); context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
     }
 

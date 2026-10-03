@@ -127,6 +127,50 @@ public final class NutritionCatalogRepository implements
     }
 
     @Override
+    public String currentOwnerId() {
+        return userId;
+    }
+
+    @Override
+    public NutritionFood registerFood(
+            String ownerId,
+            com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput input
+    ) {
+        if (!userId.equals(ownerId)) {
+            throw new IllegalStateException("계정이 변경되었습니다. 식품 등록을 다시 여세요.");
+        }
+        if (input == null || !Double.isFinite(input.getBasisAmount()) || input.getBasisAmount() <= 0d) {
+            throw new IllegalArgumentException("기준량은 0보다 큰 숫자로 입력하세요.");
+        }
+        String source = input.getSourceType();
+        if (!"manual".equals(source) && !"manual_estimate".equals(source)) {
+            throw new IllegalArgumentException("영양정보 출처를 선택하세요.");
+        }
+        NutritionFood food = NutritionFood.builder()
+                .id(UUID.randomUUID().toString())
+                .ownerId(ownerId)
+                .name(requireName(input.getName()))
+                .brand(emptyToNull(input.getBrand()))
+                .kind(NutritionFood.KIND_INGREDIENT)
+                .category(NutritionFood.CATEGORY_OTHER)
+                .basis(input.getBasisAmount(), NutritionUnit.requireSupported(input.getBasisUnit()))
+                .prepState(NutritionFood.PREP_AS_SERVED)
+                .profile(requireRequiredNutrients(input.getProfile()))
+                .source(source, null)
+                .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
+                .build();
+        String timestamp = now();
+        roomDatabase.runInTransaction(() -> {
+            if (!userId.equals(ownerId)) {
+                throw new IllegalStateException("계정이 변경되었습니다. 식품 등록을 다시 여세요.");
+            }
+            nutritionDao.insertFood(foodEntity(food, timestamp));
+            replaceMicronutrientsRoom(food);
+        });
+        return food;
+    }
+
+    @Override
     public void reconcileVerifiedFoodCatalog() {
         if (applicationContext == null) {
             throw new IllegalStateException("Nutrition catalog context is required for seed.");

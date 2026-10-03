@@ -5,9 +5,17 @@ import com.yeonsik.fitnessapp.data.DiningOutIdentity
 import com.yeonsik.fitnessapp.data.ProductNutritionLink
 import com.yeonsik.fitnessapp.data.ProductReadV1
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRecipeComponent
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput
 
 /** Read port for the local-first nutrition catalog. */
 interface NutritionCatalogRepositoryApi {
+    /** Nutrition identity remains independent from the Fitness intake owner. */
+    fun currentOwnerId(): String = "local-user"
+
+    /** Registers a private catalog food without creating an intake record. */
+    fun registerFood(ownerId: String, input: NutritionFoodInput): NutritionFood =
+        throw UnsupportedOperationException("식품 등록을 지원하지 않습니다.")
+
     fun searchFoods(query: String): List<NutritionFood>
     fun findFoodById(foodId: String): NutritionFood?
 
