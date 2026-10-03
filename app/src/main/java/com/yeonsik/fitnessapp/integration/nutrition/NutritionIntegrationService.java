@@ -160,6 +160,12 @@ public final class NutritionIntegrationService {
         return syncCatalog(nutritionConfig);
     }
 
+    public SyncResult syncCurrentCatalog(String expectedNutritionOwner) throws Exception {
+        SupabaseConfig captured = nutritionConfig;
+        requireExpectedOwner(captured, expectedNutritionOwner);
+        return syncCatalog(captured);
+    }
+
     public PublicationResult publishNutrition(
             SupabaseConfig configuredNutrition,
             String nutritionFoodId,
@@ -208,13 +214,24 @@ public final class NutritionIntegrationService {
             String nutritionFoodId,
             DiningOutIdentity selectedIdentity
     ) throws Exception {
+        return publishDiningOutForExistingMenu(nutritionFoodId, selectedIdentity, nutritionCatalog.currentOwnerId());
+    }
+
+    public PublicationResult publishDiningOutForExistingMenu(
+            String nutritionFoodId,
+            DiningOutIdentity selectedIdentity,
+            String expectedNutritionOwner
+    ) throws Exception {
         if (selectedIdentity == null) {
             throw new IllegalArgumentException("연결할 PriceTrace 식당·지점·메뉴를 선택하세요.");
         }
-        SupabaseConfig activeNutrition = requireNutritionAccount(nutritionConfig);
+        SupabaseConfig captured = nutritionConfig;
+        requireExpectedOwner(captured, expectedNutritionOwner);
+        SupabaseConfig activeNutrition = requireNutritionAccount(captured);
         SupabaseConfig activePriceTrace = requirePriceTraceAccount(priceTraceConfig);
+        requireExpectedOwner(activeNutrition, expectedNutritionOwner);
         NutritionFood food = nutritionCatalog.findFoodById(nutritionFoodId);
-        if (food == null || !food.isDiningOutMenu()) {
+        if (food == null || !food.isDiningOutMenu() || !expectedNutritionOwner.equals(food.ownerId)) {
             throw new IllegalArgumentException("공개할 Nutrition 외식 메뉴를 찾을 수 없습니다.");
         }
 
@@ -230,17 +247,31 @@ public final class NutritionIntegrationService {
             throw new IOException("Nutrition 공개 RPC가 공개 상태를 반환하지 않았습니다.");
         }
 
-        PublicProductNutrition verified = loadPublicProductNutrition(
-                selectedIdentity.catalogProductId
-        );
-        if (verified == null
-                || !selectedIdentity.catalogProductId.equals(verified.catalogProductId)
-                || !nutritionFoodId.equals(verified.nutritionFoodId)) {
+        if (!verifyDiningOutForExistingMenu(nutritionFoodId, selectedIdentity.catalogProductId)) {
             throw new IOException(
                     "공개 발행 응답은 받았지만 PT 공개 조회에서 같은 Nutrition 행을 확인하지 못했습니다."
             );
         }
         return new PublicationResult(activeNutrition, activePriceTrace, state);
+    }
+
+    private void requireExpectedOwner(SupabaseConfig configured, String expectedOwner) {
+        if (!expectedOwner.equals(nutritionCatalog.currentOwnerId())
+                || (configured != null && configured.isConfigured()
+                && !expectedOwner.equals(configured.effectiveUserId()))) {
+            throw new IllegalStateException("영양정보 계정이 변경되었습니다. 메뉴 목록을 다시 불러오세요.");
+        }
+    }
+
+    /** Read-only recovery when a publish response or its follow-up lookup was interrupted. */
+    public boolean verifyDiningOutForExistingMenu(String nutritionFoodId, String catalogProductId) throws Exception {
+        if (nutritionFoodId == null || nutritionFoodId.trim().isEmpty()
+                || catalogProductId == null || catalogProductId.trim().isEmpty()) {
+            throw new IllegalArgumentException("확인할 영양정보와 식당 메뉴를 선택하세요.");
+        }
+        PublicProductNutrition verified = loadPublicProductNutrition(catalogProductId);
+        return verified != null && catalogProductId.equals(verified.catalogProductId)
+                && nutritionFoodId.equals(verified.nutritionFoodId);
     }
 
     private void applyLocalPublication(
