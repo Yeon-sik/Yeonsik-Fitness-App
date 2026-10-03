@@ -30,15 +30,16 @@ fun FitnessExerciseIllustration(
     modifier: Modifier = Modifier,
     dark: Boolean = isSystemInDarkTheme(),
     contentDescription: String? = null,
-    fallback: (@Composable () -> Unit)? = null
+    fallback: (@Composable () -> Unit)? = null,
+    exactVariant: Boolean = false
 ) {
     val preview = rememberExerciseIllustrationPreview(activity, dark)
-    val imageView = remember(preview, exerciseId) {
-        preview.create(exerciseId)
+    val imageView = remember(preview, exerciseId, exactVariant) {
+        if (exactVariant) preview.createExact(exerciseId) else preview.create(exerciseId)
     }
     FitnessIllustrationView(
         imageView = imageView,
-        viewKey = listOf(preview, exerciseId),
+        viewKey = listOf(preview, exerciseId, exactVariant),
         modifier = modifier,
         contentDescription = contentDescription,
         fallback = fallback
@@ -67,6 +68,29 @@ fun FitnessExerciseIllustration(
     FitnessIllustrationView(
         imageView = imageView,
         viewKey = listOf(preview, identityKey, exactVariant),
+        modifier = modifier,
+        contentDescription = contentDescription,
+        fallback = fallback
+    )
+}
+
+/** Shows only the representative illustration assigned to an exercise family. */
+@Composable
+fun FitnessExerciseFamilyIllustration(
+    activity: Activity,
+    familyId: String,
+    modifier: Modifier = Modifier,
+    dark: Boolean = isSystemInDarkTheme(),
+    contentDescription: String? = null,
+    fallback: (@Composable () -> Unit)? = null
+) {
+    val preview = rememberExerciseIllustrationPreview(activity, dark)
+    val imageView = remember(preview, familyId) {
+        preview.createFamilyDefault(familyId)
+    }
+    FitnessIllustrationView(
+        imageView = imageView,
+        viewKey = listOf(preview, familyId),
         modifier = modifier,
         contentDescription = contentDescription,
         fallback = fallback

@@ -252,14 +252,7 @@ private fun RoutineExerciseImage(activity: Activity?, exercise: RoutineExerciseI
             exactVariant = true,
             modifier = modifier,
             contentDescription = description,
-            fallback = {
-                FitnessExerciseIllustration(
-                    activity = activity,
-                    identity = identity,
-                    modifier = modifier,
-                    contentDescription = description
-                ) { RoutineImageFallback() }
-            }
+            fallback = { RoutineImageFallback(modifier) }
         )
     } else {
         FitnessExerciseIllustration(
@@ -267,7 +260,8 @@ private fun RoutineExerciseImage(activity: Activity?, exercise: RoutineExerciseI
             exerciseId = exercise.exerciseId,
             modifier = modifier,
             contentDescription = description,
-            fallback = { RoutineImageFallback() }
+            fallback = { RoutineImageFallback(modifier) },
+            exactVariant = true
         )
     }
 }

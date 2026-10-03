@@ -36,6 +36,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
+import com.yeonsik.fitnessapp.core.ui.FitnessOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 import com.yeonsik.fitnessapp.core.ui.LocalFitnessColors
 import kotlinx.coroutines.Dispatchers
@@ -47,7 +48,8 @@ import kotlin.math.roundToInt
 @Composable
 internal fun ExerciseMuscleMap(
     state: ExercisePickerUiState.Ready,
-    onSelect: (String) -> Unit
+    onSelect: (String) -> Unit,
+    onClearSelection: () -> Unit
 ) {
     val context = LocalContext.current.applicationContext
     val loaded by produceState<Result<MuscleMapAssets>?>(initialValue = null, context) {
@@ -104,11 +106,18 @@ internal fun ExerciseMuscleMap(
                     }
                 }
             }
-            Text(
-                "선택된 부위: ${selectedLabel ?: "없음"}",
-                Modifier.padding(FitnessSpacing.card),
-                style = MaterialTheme.typography.labelLarge
-            )
+            Row(
+                Modifier.fillMaxWidth().padding(FitnessSpacing.card),
+                horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "선택된 부위: ${selectedLabel ?: "없음"}",
+                    Modifier.weight(1f),
+                    style = MaterialTheme.typography.labelLarge
+                )
+                FitnessOutlinedButton(onClick = onClearSelection) { Text("초기화") }
+            }
         }
     }
 }

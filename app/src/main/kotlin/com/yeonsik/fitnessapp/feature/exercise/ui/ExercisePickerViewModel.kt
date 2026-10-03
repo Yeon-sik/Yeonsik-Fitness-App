@@ -217,6 +217,17 @@ class ExercisePickerViewModel @JvmOverloads constructor(
         publishCurrentIfLoaded()
     }
 
+    fun clearBodyPartSelection() {
+        synchronized(lock) {
+            bodyPart = null
+            primarySubPart = null
+            savedStateHandle[KEY_BODY_PART] = null
+            savedStateHandle[KEY_PRIMARY_SUB_PART] = null
+            clearSelectionLocked()
+        }
+        publishCurrentIfLoaded()
+    }
+
     fun setPrimarySubPart(primarySubPart: String?) {
         val normalized = primarySubPart?.trim()?.takeIf { it.isNotEmpty() }
         synchronized(lock) {

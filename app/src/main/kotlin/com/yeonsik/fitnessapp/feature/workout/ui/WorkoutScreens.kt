@@ -1352,6 +1352,7 @@ internal fun WorkoutSummaryScreen(
                                         exerciseId = exercise.exerciseId,
                                         modifier = Modifier.size(72.dp),
                                         contentDescription = exercise.name,
+                                        exactVariant = true,
                                         fallback = { Text("이미지 없음") }
                                     )
                                 }

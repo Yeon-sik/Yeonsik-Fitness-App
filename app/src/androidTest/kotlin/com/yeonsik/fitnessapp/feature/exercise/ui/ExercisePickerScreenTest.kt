@@ -351,6 +351,14 @@ class ExercisePickerScreenTest {
         override fun setBodyPart(bodyPart: BodyPart?) = Unit
         override fun setPrimarySubPart(primarySubPart: String?) = Unit
         override fun selectMuscleGroup(groupId: String) = Unit
+        override fun clearBodyPartSelection() {
+            state.value = state.value.copy(
+                bodyPart = null,
+                primarySubPart = null,
+                selectedFamilyId = null,
+                selectedPresetId = null
+            )
+        }
         override fun setEquipmentCategory(category: UiEquipmentCategory?) = Unit
         override fun setSortOrder(order: RuntimeExercisePicker.SortOrder) = Unit
         override fun resetFilters() = Unit
