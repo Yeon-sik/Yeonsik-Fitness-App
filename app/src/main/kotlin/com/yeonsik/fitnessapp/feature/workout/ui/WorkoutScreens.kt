@@ -692,7 +692,8 @@ private fun WorkoutExerciseSetTableRow(
                     contentDescription = cell.spokenValue
                 },
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontFeatureSettings = "tnum"),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = if (cell.isLoadValue) MaterialTheme.colorScheme.onPrimaryContainer
+                else MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Start,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
