@@ -20,6 +20,8 @@ import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseBests;
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail;
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory;
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionExercise;
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot;
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput;
 import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
@@ -45,6 +47,59 @@ import static org.junit.Assert.assertTrue;
 public final class WorkoutRoomReadCorrectnessTest {
     private static final String OWNER_ID = "room-read-owner";
     private static final String OTHER_OWNER_ID = "room-read-other-owner";
+
+    @Test
+    public void completedSessionIncludesPerExerciseVolumeAndLatestMatchingHistory() throws Exception {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = null;
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            helper.getWritableDatabase();
+            room = FitnessRoomTestDatabase.open(context);
+            WorkoutRoomStorage storage = new WorkoutRoomStorage(
+                    room, context, new RoomTransactionRunner(room)
+            );
+            AccountScope owner = new AccountScope(OWNER_ID);
+            ExerciseFamilyIdentity canonical = ExerciseFamilyCatalog.load(context)
+                    .identityForStorageExerciseId("chest_machine_pec_deck_fly");
+            assertNotNull(canonical);
+
+            runDb(executor, () -> createWorkout(
+                    storage, owner, "2026-09-09", "older", canonical,
+                    LoadState.EXTERNAL_LOAD, 40d, null, 5, true
+            ));
+            runDb(executor, () -> createWorkout(
+                    storage, owner, "2026-09-10", "previous", canonical,
+                    LoadState.EXTERNAL_LOAD, 60d, null, 6, true
+            ));
+            Fixture current = runDb(executor, () -> createWorkout(
+                    storage, owner, "2026-09-11", "current", canonical,
+                    LoadState.EXTERNAL_LOAD, 50d, null, 8, true
+            ));
+
+            WorkoutRepositoryImplementation repository =
+                    new WorkoutRepositoryImplementation(room, context);
+            WorkoutSessionSnapshot session = runDb(
+                    executor, () -> repository.loadSession(owner, current.recordId)
+            );
+
+            assertNotNull(session);
+            assertEquals(1, session.getExercises().size());
+            WorkoutSessionExercise exercise = session.getExercises().get(0);
+            assertEquals(400d, exercise.getTotalVolumeKg(), 0.001d);
+            assertNotNull(exercise.getPreviousTotalVolumeKg());
+            assertEquals(360d, exercise.getPreviousTotalVolumeKg(), 0.001d);
+        } finally {
+            if (room != null) {
+                room.close();
+            }
+            helper.close();
+            executor.shutdownNow();
+            executor.awaitTermination(5, TimeUnit.SECONDS);
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
 
     @Test
     public void productionRoomReadsPreserveOwnershipCompletionDeletionAndStableIdentity() throws Exception {

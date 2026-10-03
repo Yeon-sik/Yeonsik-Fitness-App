@@ -1362,7 +1362,32 @@ internal fun WorkoutSummaryScreen(
                                 Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(AppSpacing.small * 0.6f)
                             ) {
-                                Text(exercise.name, style = MaterialTheme.typography.titleSmall)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        exercise.name,
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            "총 볼륨",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            MassFormatter.withUnit(exercise.totalVolumeKg, unit),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
                                 Text(
                                     listOfNotNull(
                                         exercise.uiPart.takeIf { it.isNotBlank() },
@@ -1372,6 +1397,17 @@ internal fun WorkoutSummaryScreen(
                                     ).joinToString(" · "),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    workoutExerciseVolumeChangeLabel(
+                                        exercise.previousTotalVolumeKg,
+                                        exercise.totalVolumeKg,
+                                        unit
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro),

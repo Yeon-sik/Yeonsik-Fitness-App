@@ -12,6 +12,7 @@ import java.time.Duration
 import java.time.Instant
 import java.time.OffsetDateTime
 import java.util.LinkedHashMap
+import kotlin.math.abs
 import kotlin.math.max
 
 /** Stable presentation order; the persisted exercise id is only a deterministic tie-breaker. */
@@ -101,6 +102,23 @@ internal fun workoutSummaryChangeLabel(
 ): String = previousVolumeKg?.let {
     WorkoutSummaryAnalytics.formatChangePercent(it, currentVolumeKg)
 } ?: "비교할 이전 기록 없음"
+
+internal fun workoutExerciseVolumeChangeLabel(
+    previousVolumeKg: Double?,
+    currentVolumeKg: Double,
+    unit: MassUnit
+): String {
+    val previous = previousVolumeKg ?: return "이전 기록 없음"
+    if (!previous.isFinite() || !currentVolumeKg.isFinite()) return "변화 계산 불가"
+
+    val differenceKg = currentVolumeKg - previous
+    if (differenceKg == 0.0) return "직전 대비 변화 없음"
+
+    val difference = MassFormatter.withUnit(abs(differenceKg), unit)
+    val signedDifference = if (differenceKg > 0.0) "+$difference" else "−$difference"
+    val percentage = workoutSummaryChangeLabel(previous, currentVolumeKg)
+    return "직전 대비 $signedDifference ($percentage)"
+}
 
 internal fun formatWorkoutElapsedSeconds(seconds: Int): String {
     val safeSeconds = seconds.coerceAtLeast(0)

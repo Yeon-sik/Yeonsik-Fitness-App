@@ -101,6 +101,12 @@ class WorkoutRepositoryImplementation(
         val exercises = storage.exercises(scope, recordId)
         val mappedExercises = exercises.map { exercise ->
             val sets = storage.sets(scope, exercise.id)
+            val completedSets = sets.filter { it.isCompleted }
+            val previousTotalVolumeKg = if (info.status == "completed") {
+                storage.lastExerciseHistory(scope, exercise, recordId)?.totalVolumeKg
+            } else {
+                null
+            }
             WorkoutSessionExercise(
                 exercise.id,
                 exercise.exerciseId,
@@ -111,10 +117,12 @@ class WorkoutRepositoryImplementation(
                 exercise.recordType,
                 FitnessRecordContract.displayRecordTypeKo(exercise.recordType),
                 exercise.familyIdentity,
-                sets.count { it.isCompleted },
+                completedSets.size,
                 sets.size,
-                sets.filter { it.isCompleted }.map { it.toFeatureModel() },
-                exercise.primarySubPart
+                completedSets.map { it.toFeatureModel() },
+                exercise.primarySubPart,
+                totalVolumeKg = completedSets.sumOf { storage.volumeForSet(exercise, it) },
+                previousTotalVolumeKg = previousTotalVolumeKg
             )
         }
         val metrics = storage.metrics(scope, recordId)
