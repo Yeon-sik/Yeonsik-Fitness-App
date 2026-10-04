@@ -1,5 +1,6 @@
 package com.yeonsik.fitnessapp.app.navigation;
 
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioStartViewModel;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
 import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel;
 import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel;
@@ -25,6 +26,7 @@ public final class AppViewModels {
     private final BodyMetricsViewModel bodyMetrics;
     private final WorkoutExerciseDetailViewModel workoutExerciseDetail;
     private final CardioSessionViewModel cardioSession;
+    private final CardioStartViewModel cardioStart;
     private final RoutineEntryViewModel routineEntry;
     private final HomeViewModel home;
     private final RecordsViewModel records;
@@ -40,6 +42,7 @@ public final class AppViewModels {
             BodyMetricsViewModel bodyMetrics,
             WorkoutExerciseDetailViewModel workoutExerciseDetail,
             CardioSessionViewModel cardioSession,
+            CardioStartViewModel cardioStart,
             RoutineEntryViewModel routineEntry,
             HomeViewModel home,
             RecordsViewModel records,
@@ -54,6 +57,7 @@ public final class AppViewModels {
         this.bodyMetrics = bodyMetrics;
         this.workoutExerciseDetail = workoutExerciseDetail;
         this.cardioSession = cardioSession;
+        this.cardioStart = cardioStart;
         this.routineEntry = routineEntry;
         this.home = home;
         this.records = records;
@@ -76,6 +80,8 @@ public final class AppViewModels {
     public WorkoutExerciseDetailViewModel getWorkoutExerciseDetail() {
         return workoutExerciseDetail;
     }
+
+    public CardioStartViewModel getCardioStart() { return cardioStart; }
 
     public CardioSessionViewModel getCardioSession() {
         return cardioSession;

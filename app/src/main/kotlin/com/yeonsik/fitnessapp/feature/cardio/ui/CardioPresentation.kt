@@ -89,3 +89,16 @@ internal fun cardioSpeedDisplay(elapsedSeconds: Int, distanceMeters: Double): St
     val formatted = CardioMetrics.formatAverageSpeed(elapsedSeconds.coerceAtLeast(0), safeDistanceMeters)
     return if (formatted == "--") "미측정" else "$formatted km/h"
 }
+
+internal fun cardioMeasurementExplanation(
+    session: com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot,
+    elapsedSeconds: Int
+): String = if (session.usesGps) {
+    cardioMeasurementExplanation(elapsedSeconds, session.distanceMeters, session.acceptedPointCount)
+} else if (session.manualDistanceMeters != null) {
+    "위치를 사용하지 않는 운동입니다. 거리와 평균값은 직접 입력한 기구 거리를 기준으로 계산합니다."
+} else if (session.canInputManualDistance) {
+    "GPS 없이 운동 시간을 기록합니다. 완료할 때 기구 거리와 평균 심박수를 선택 입력할 수 있습니다."
+} else {
+    "GPS 없이 운동 시간을 기록합니다. 평균 심박수는 측정한 값이 있을 때 선택 입력할 수 있습니다."
+}

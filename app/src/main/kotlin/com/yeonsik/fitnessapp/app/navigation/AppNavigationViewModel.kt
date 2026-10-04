@@ -236,6 +236,15 @@ class AppNavigationViewModel(
 
     fun currentScreen(): FitnessScreen = history.current()
 
+    /** Returns the two workout start screens to their shared selector without pushing a back-stack loop. */
+    fun returnToWorkoutSelection() {
+        while (history.current() != FitnessScreen.WORKOUT && history.canBack()) history.back()
+        if (history.current() != FitnessScreen.WORKOUT) history.replace(FitnessScreen.WORKOUT)
+        topLevelEntrance = null
+        topLevelTabScrollReset = null
+        publish()
+    }
+
     fun canBack(): Boolean = history.canBack()
 
     fun savedScreenNames(): ArrayList<String> = history.savedScreenNames()

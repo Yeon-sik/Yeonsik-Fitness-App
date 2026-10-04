@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.savedstate.SavedStateRegistryOwner
 import com.yeonsik.fitnessapp.app.navigation.AppNavigationViewModel
 import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioStartViewModel
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel
 import com.yeonsik.fitnessapp.feature.development.ui.DevelopmentViewModel
 import com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerViewModel
@@ -73,6 +74,8 @@ class AppViewModelFactory(
                     container.getWorkoutWriteExecutor(),
                     false,
                 )
+            modelClass.isAssignableFrom(CardioStartViewModel::class.java) ->
+                CardioStartViewModel(handle, container.cardioRepositoryApi)
             modelClass.isAssignableFrom(CardioSessionViewModel::class.java) ->
                 CardioSessionViewModel(
                     handle,

@@ -199,7 +199,8 @@ internal fun StrengthScreen(
     val ready = home as? HomeUiState.Ready
     val routineReady = routine as? RoutineEntryUiState.Ready
     var newRoutineName by rememberSaveable { mutableStateOf("") }
-    AppHeader("무산소", "루틴을 선택해 운동을 시작하세요.")
+    FitnessHeader("무산소", "루틴을 선택해 운동을 시작하세요.",
+        back = { actions.navigate(FitnessScreen.WORKOUT) })
     if (ready == null || ready.snapshot.ownerId != ownerId || routineReady?.ownerId != ownerId) {
         Text("루틴을 불러오는 중입니다.")
         return
