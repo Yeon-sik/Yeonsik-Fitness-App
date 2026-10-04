@@ -15,6 +15,7 @@ import com.yeonsik.fitnessapp.cardio.CardioMetrics
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
 
 interface CardioHeartRateEditorActions {
+    fun updateDistanceInput(value: String)
     fun updateInput(value: String)
     fun save(value: String)
     fun dismiss()
@@ -42,11 +43,23 @@ fun CardioHeartRateEditorDialog(
                 verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
             ) {
                 Text(
-                    "${CardioMetrics.formatDistanceKilometers(ready.session.distanceMeters)}km · " +
+                    (ready.session.recordedDistanceMeters?.let { "${CardioMetrics.formatDistanceKilometers(it)}km · " } ?: "") +
                         CardioMetrics.formatElapsed(
                             ready.session.elapsedSeconds(System.currentTimeMillis())
                         )
                 )
+                if (ready.finishAfterSave && ready.session.canInputManualDistance) {
+                    OutlinedTextField(
+                        value = ready.distanceInput,
+                        onValueChange = actions::updateDistanceInput,
+                        label = { Text("기구 거리 km (선택)") },
+                        isError = ready.distanceErrorMessage != null,
+                        supportingText = ready.distanceErrorMessage?.let { message -> { Text(message) } },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        singleLine = true, modifier = Modifier.fillMaxWidth()
+                    )
+                    Text("기구에 표시된 거리를 입력하세요. 비워두면 미측정으로 저장합니다.")
+                }
                 OutlinedTextField(
                     value = ready.input,
                     onValueChange = actions::updateInput,

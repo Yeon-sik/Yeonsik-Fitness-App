@@ -7,7 +7,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 object FitnessDatabaseContract {
     const val NAME = "fitness_mvp.db"
     const val LEGACY_VERSION = 50
-    const val ROOM_VERSION = 51
+    const val ROOM_HANDOFF_VERSION = 51
+    const val ROOM_VERSION = 52
 
     val tableNames: Set<String> = linkedSetOf(
         "body_profiles",

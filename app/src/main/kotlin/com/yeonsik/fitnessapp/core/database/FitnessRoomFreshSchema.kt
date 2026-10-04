@@ -107,5 +107,6 @@ internal object FitnessRoomFreshSchema {
     fun createBeforeRoom(database: SupportSQLiteDatabase) {
         tableSql.forEach(database::execSQL)
         indexSql.forEach(database::execSQL)
+        FitnessRoomMigrations.V51_TO_V52.migrate(database)
     }
 }

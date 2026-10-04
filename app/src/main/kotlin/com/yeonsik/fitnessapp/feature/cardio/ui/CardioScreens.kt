@@ -18,16 +18,6 @@ import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 import kotlinx.coroutines.delay
 
 @Composable
-internal fun CardioStartScreen(actions: CardioScreenActions) {
-    AppHeader("유산소")
-    CardioActivityType.values().forEach { type ->
-        AppOutlinedButton(onClick = { actions.start(type) }, Modifier.fillMaxWidth()) {
-            Text(type.labelKo())
-        }
-    }
-}
-
-@Composable
 internal fun CardioSessionScreen(
     state: CardioSessionUiState,
     ownerId: String,
@@ -43,7 +33,7 @@ internal fun CardioSessionScreen(
     }
     AppHeader(ready?.session?.activityLabel ?: "유산소 진행", back = actions::back)
     if (ready == null || ready.ownerId != ownerId) {
-        Text("GPS 기록을 불러오는 중입니다.")
+        Text("운동 기록을 불러오는 중입니다.")
         return
     }
     val session = ready.session
@@ -55,29 +45,13 @@ internal fun CardioSessionScreen(
         label = sessionStatus.label,
         modifier = Modifier.fillMaxWidth()
     )
-    FitnessFactRow(
-        first = { FitnessFactCard("시간", CardioMetrics.formatElapsed(elapsedSeconds), "진행 시간") },
-        second = {
-            FitnessFactCard(
-                "거리",
-                "${CardioMetrics.formatDistanceKilometers(session.distanceMeters)} km",
-                session.activityLabel
-            )
-        }
-    )
-    FitnessFactRow(
-        first = { FitnessFactCard("평균 페이스", cardioPaceDisplay(elapsedSeconds, session.distanceMeters), "수락된 GPS 기준") },
-        second = { FitnessFactCard("평균 속도", cardioSpeedDisplay(elapsedSeconds, session.distanceMeters), "수락된 GPS 기준") }
-    )
-    FitnessStatusBadge(
-        status = gpsStatus.status,
-        label = "${gpsStatus.label} · 수락된 지점 ${session.acceptedPointCount}개",
-        modifier = Modifier.fillMaxWidth()
-    )
+    CardioSessionFacts(session, elapsedSeconds)
+    if (session.usesGps) {
+        FitnessStatusBadge(gpsStatus.status, gpsStatus.label, Modifier.fillMaxWidth())
+    }
     FitnessStatusMessage(
-        status = if (session.acceptedPointCount > 0) FitnessSemanticStatus.INFO else FitnessSemanticStatus.UNKNOWN,
-        title = "측정 안내",
-        message = cardioMeasurementExplanation(elapsedSeconds, session.distanceMeters, session.acceptedPointCount)
+        status = FitnessSemanticStatus.INFO, title = "측정 안내",
+        message = cardioMeasurementExplanation(session, elapsedSeconds)
     )
     if (session.status == CardioSessionSnapshot.STATUS_TRACKING) {
         FitnessButton(onClick = actions::pause, Modifier.fillMaxWidth()) { Text("일시정지") }
@@ -111,8 +85,8 @@ internal fun CardioSummaryScreen(
         return
     }
     val session = ready.session
-    LaunchedEffect(session.recordId) {
-        actions.loadRoute(session.recordId)
+    LaunchedEffect(session.recordId, session.usesGps) {
+        if (session.usesGps) actions.loadRoute(session.recordId)
     }
     val elapsedSeconds = session.elapsedSeconds(System.currentTimeMillis())
     val sessionStatus = cardioSessionStatusPresentation(session.status)
@@ -120,23 +94,10 @@ internal fun CardioSummaryScreen(
     Text(session.activityLabel, fontWeight = FontWeight.Bold)
     FitnessStatusBadge(
         status = sessionStatus.status,
-        label = "${sessionStatus.label} · ${gpsStatus.label}",
+        label = "${sessionStatus.label} · ${if (session.usesGps) gpsStatus.label else session.environment.labelKo}",
         modifier = Modifier.fillMaxWidth()
     )
-    FitnessFactRow(
-        first = { FitnessFactCard("시간", CardioMetrics.formatElapsed(elapsedSeconds), "완료 기록") },
-        second = {
-            FitnessFactCard(
-                "거리",
-                "${CardioMetrics.formatDistanceKilometers(session.distanceMeters)} km",
-                "완료 기록"
-            )
-        }
-    )
-    FitnessFactRow(
-        first = { FitnessFactCard("평균 페이스", cardioPaceDisplay(elapsedSeconds, session.distanceMeters), "수락된 GPS 기준") },
-        second = { FitnessFactCard("평균 속도", cardioSpeedDisplay(elapsedSeconds, session.distanceMeters), "수락된 GPS 기준") }
-    )
+    CardioSessionFacts(session, elapsedSeconds)
     if (CardioMetrics.hasAverageHeartRate(session.averageHeartRateBpm)) {
         FitnessStatusMessage(
             status = FitnessSemanticStatus.SUCCESS,
@@ -153,7 +114,7 @@ internal fun CardioSummaryScreen(
     FitnessStatusMessage(
         status = if (session.acceptedPointCount > 0) FitnessSemanticStatus.INFO else FitnessSemanticStatus.UNKNOWN,
         title = "측정 안내",
-        message = cardioMeasurementExplanation(elapsedSeconds, session.distanceMeters, session.acceptedPointCount)
+        message = cardioMeasurementExplanation(session, elapsedSeconds)
     )
     val route = (routeState as? CardioRouteUiState.Ready)
         ?.takeIf { it.ownerId == ownerId && it.recordId == session.recordId }
@@ -161,7 +122,7 @@ internal fun CardioSummaryScreen(
     val routeError = (routeState as? CardioRouteUiState.Error)
         ?.takeIf { it.ownerId == ownerId && it.recordId == session.recordId }
         ?.message
-    FitnessSection("GPS 경로") {
+    if (session.usesGps) FitnessSection("GPS 경로") {
         when {
             routeError != null -> FitnessStatusMessage(
                 status = FitnessSemanticStatus.ERROR,
@@ -191,3 +152,27 @@ internal fun CardioSummaryScreen(
     }
 }
 
+
+/** Common record facts adapt to available values rather than assuming every activity collects GPS. */
+@Composable
+private fun CardioSessionFacts(session: CardioSessionSnapshot, elapsedSeconds: Int) {
+    FitnessFactRow(
+        first = { FitnessFactCard("시간", CardioMetrics.formatElapsed(elapsedSeconds), "운동 시간") },
+        second = { FitnessFactCard("평균 심박수",
+            if (CardioMetrics.hasAverageHeartRate(session.averageHeartRateBpm))
+                "${CardioMetrics.formatAverageHeartRate(session.averageHeartRateBpm)} bpm" else "미측정",
+            "직접 입력 · 선택") }
+    )
+    if (session.usesGps || session.canInputManualDistance) {
+        val distance = session.recordedDistanceMeters
+        val source = if (session.usesGps) "GPS 기준" else "기구 표시값 · 직접 입력"
+        FitnessFactRow(
+            first = { FitnessFactCard("거리",
+                if (distance != null && (!session.usesGps || session.acceptedPointCount > 0))
+                    "${CardioMetrics.formatDistanceKilometers(distance)} km" else "미측정", source) },
+            second = { FitnessFactCard("평균 페이스",
+                cardioPaceDisplay(elapsedSeconds, distance ?: 0.0), source) }
+        )
+        FitnessFactCard("평균 속도", cardioSpeedDisplay(elapsedSeconds, distance ?: 0.0), source)
+    }
+}

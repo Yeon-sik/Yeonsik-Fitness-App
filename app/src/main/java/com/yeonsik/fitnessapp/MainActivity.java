@@ -47,6 +47,7 @@ import com.yeonsik.fitnessapp.feature.body.ui.BodyMetricsViewModel;
 import com.yeonsik.fitnessapp.ui.AppUiActions;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutExerciseDetailViewModel;
 import com.yeonsik.fitnessapp.feature.workout.ui.WorkoutSessionViewModel;
+import com.yeonsik.fitnessapp.feature.cardio.ui.CardioStartViewModel;
 import com.yeonsik.fitnessapp.feature.cardio.ui.CardioSessionViewModel;
 import com.yeonsik.fitnessapp.feature.routine.ui.RoutineEntryViewModel;
 import com.yeonsik.fitnessapp.feature.home.ui.HomeViewModel;
@@ -111,6 +112,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
     private WorkoutSessionViewModel workoutSessionViewModel;
     private WorkoutExerciseDetailViewModel workoutExerciseDetailViewModel;
     private CardioSessionViewModel cardioSessionViewModel;
+    private CardioStartViewModel cardioStartViewModel;
     private RoutineEntryViewModel routineEntryViewModel;
     private HomeViewModel homeViewModel;
     private RecordsViewModel recordsViewModel;
@@ -210,6 +212,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
         workoutSessionViewModel = provider.get(WorkoutSessionViewModel.class);
         workoutExerciseDetailViewModel = provider.get(WorkoutExerciseDetailViewModel.class);
         cardioSessionViewModel = provider.get(CardioSessionViewModel.class);
+        cardioStartViewModel = provider.get(CardioStartViewModel.class);
         routineEntryViewModel = provider.get(RoutineEntryViewModel.class);
         homeViewModel = provider.get(HomeViewModel.class);
         recordsViewModel = provider.get(RecordsViewModel.class);
@@ -576,6 +579,7 @@ public final class MainActivity extends ComponentActivity implements AppUiAction
                         bodyMetricsViewModel,
                         workoutExerciseDetailViewModel,
                         cardioSessionViewModel,
+                        cardioStartViewModel,
                         routineEntryViewModel,
                         homeViewModel,
                         recordsViewModel,

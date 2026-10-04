@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.feature.cardio.ui
 
+import android.os.Handler
+import android.os.Looper
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioEnvironment
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
@@ -95,7 +98,9 @@ sealed interface CardioHeartRateEditorUiState {
         val finishAfterSave: Boolean,
         val session: CardioSessionSnapshot,
         val input: String,
-        val errorMessage: String? = null
+        val errorMessage: String? = null,
+        val distanceInput: String = "",
+        val distanceErrorMessage: String? = null
     ) : CardioHeartRateEditorUiState
 }
 
@@ -115,6 +120,9 @@ class CardioSessionViewModel @JvmOverloads constructor(
     private val sessionApplicationService: CardioSessionApplicationService? = null,
     private val executor: ExecutorService = Executors.newSingleThreadExecutor()
 ) : ViewModel() {
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val mutableActionPending = MutableLiveData(false)
+    val actionPending: LiveData<Boolean> = mutableActionPending
     private val mutableState = MutableLiveData<CardioSessionUiState>(CardioSessionUiState.Idle)
     val uiState: LiveData<CardioSessionUiState> = mutableState
     private val mutableActionState = MutableLiveData<CardioSessionActionEvent>()
@@ -163,7 +171,14 @@ class CardioSessionViewModel @JvmOverloads constructor(
         load(scope, recordId, requestVersion)
     }
 
-    fun prepareStart(scope: AccountScope, activityType: CardioActivityType, date: String) {
+    fun prepareStart(scope: AccountScope, activityType: CardioActivityType, date: String,
+                     environment: CardioEnvironment = activityType.defaultEnvironment) {
+        if (mutableActionPending.value == true || hasPendingPermissionAction()) return
+        require(activityType.supportsEnvironment(environment))
+        savedStateHandle[KEY_PENDING_START_TYPE] = activityType.id
+        savedStateHandle[KEY_PENDING_START_DATE] = date
+        savedStateHandle[KEY_PENDING_START_ENVIRONMENT] = environment.id
+        savedStateHandle[KEY_PENDING_START_OWNER] = scope.ownerId
         executeAction(scope, CardioSessionAction.PREPARE_START) {
             val service = requireService()
             val existingRecordId = service.latestInProgress(scope)
@@ -179,8 +194,6 @@ class CardioSessionViewModel @JvmOverloads constructor(
                     cardioSession
                 )
             } else {
-                savedStateHandle[KEY_PENDING_START_TYPE] = activityType.id()
-                savedStateHandle[KEY_PENDING_START_DATE] = date
                 ActionResult(
                     CardioSessionActionOutcome.START_READY,
                     null,
@@ -199,19 +212,31 @@ class CardioSessionViewModel @JvmOverloads constructor(
         return runCatching { CardioActivityType.fromId(id) }.getOrNull()
     }
 
+    fun pendingStartEnvironment(): CardioEnvironment? = runCatching {
+        CardioEnvironment.fromId(savedStateHandle[KEY_PENDING_START_ENVIRONMENT])
+    }.getOrNull()
+
     fun startAfterPermissions(scope: AccountScope) {
         val activityType = pendingStartActivityType()
         val date: String? = savedStateHandle[KEY_PENDING_START_DATE]
-        if (activityType == null || date.isNullOrBlank()) {
+        val environment = pendingStartEnvironment() ?: activityType?.defaultEnvironment
+        val pendingOwner: String? = savedStateHandle[KEY_PENDING_START_OWNER]
+        if (pendingOwner != null && pendingOwner != scope.ownerId) {
+            clearPendingPermissionAction()
+            return
+        }
+        if (activityType == null || environment == null || date.isNullOrBlank()) {
             return
         }
         clearPendingStart()
-        start(scope, activityType, date)
+        start(scope, activityType, date, environment)
     }
 
     fun clearPendingStart() {
         savedStateHandle.remove<String>(KEY_PENDING_START_TYPE)
         savedStateHandle.remove<String>(KEY_PENDING_START_DATE)
+        savedStateHandle.remove<String>(KEY_PENDING_START_ENVIRONMENT)
+        savedStateHandle.remove<String>(KEY_PENDING_START_OWNER)
     }
 
     fun rememberPendingResume(recordId: String) {
@@ -261,9 +286,10 @@ class CardioSessionViewModel @JvmOverloads constructor(
         }
     }
 
-    fun start(scope: AccountScope, activityType: CardioActivityType, date: String) {
+    fun start(scope: AccountScope, activityType: CardioActivityType, date: String,
+              environment: CardioEnvironment = activityType.defaultEnvironment) {
         executeAction(scope, CardioSessionAction.START) {
-            val session = requireService().start(scope, activityType, date)
+            val session = requireService().start(scope, activityType, date, environment)
             if (session == null) {
                 ActionResult(CardioSessionActionOutcome.NOT_FOUND, null, null, null, false,
                     "유산소 기록을 시작하지 못했습니다.")
@@ -359,9 +385,10 @@ class CardioSessionViewModel @JvmOverloads constructor(
         }
     }
 
-    fun finish(scope: AccountScope, recordId: String, averageHeartRateBpm: Int?) {
+    fun finish(scope: AccountScope, recordId: String, averageHeartRateBpm: Int?,
+               manualDistanceMeters: Double? = null) {
         executeAction(scope, CardioSessionAction.FINISH) {
-            val session = requireService().finish(scope, recordId, averageHeartRateBpm)
+            val session = requireService().finish(scope, recordId, averageHeartRateBpm, manualDistanceMeters)
             if (session == null) {
                 ActionResult(CardioSessionActionOutcome.NOT_FOUND, recordId, null, null, false,
                     "평균 심박수를 저장하지 못했습니다.")
@@ -374,7 +401,7 @@ class CardioSessionViewModel @JvmOverloads constructor(
     fun prepareAverageHeartRateEdit(scope: AccountScope, recordId: String) {
         executeAction(scope, CardioSessionAction.PREPARE_HEART_RATE_EDIT) {
             val session = requireService().load(scope, recordId)
-            if (session == null || session.status != CardioSessionSnapshot.STATUS_COMPLETED) {
+            if (session == null) {
                 ActionResult(CardioSessionActionOutcome.NOT_FOUND, recordId, null, null, false,
                     "수정할 유산소 기록을 찾지 못했습니다.")
             } else {
@@ -427,6 +454,12 @@ class CardioSessionViewModel @JvmOverloads constructor(
         mutableHeartRateEditorState.value = current.copy(input = value, errorMessage = null)
     }
 
+    fun updateDistanceInput(value: String) {
+        val current = mutableHeartRateEditorState.value as? CardioHeartRateEditorUiState.Ready ?: return
+        savedStateHandle[KEY_DISTANCE_INPUT] = value
+        mutableHeartRateEditorState.value = current.copy(distanceInput = value, distanceErrorMessage = null)
+    }
+
     fun submitHeartRate(scope: AccountScope, value: String) {
         val current = mutableHeartRateEditorState.value as? CardioHeartRateEditorUiState.Ready
             ?: return
@@ -442,8 +475,15 @@ class CardioSessionViewModel @JvmOverloads constructor(
             return
         }
         savedStateHandle[KEY_HEART_RATE_INPUT] = value
+        val distance = if (current.finishAfterSave && current.session.canInputManualDistance) {
+            try { CardioManualDistanceInput.parseKilometers(current.distanceInput) }
+            catch (error: IllegalArgumentException) {
+                mutableHeartRateEditorState.value = current.copy(distanceErrorMessage = error.message)
+                return
+            }
+        } else null
         if (current.finishAfterSave) {
-            finish(scope, current.recordId, bpm)
+            finish(scope, current.recordId, bpm, distance)
         } else {
             updateAverageHeartRate(scope, current.recordId, bpm)
         }
@@ -549,6 +589,7 @@ class CardioSessionViewModel @JvmOverloads constructor(
         operation: () -> ActionResult
     ) {
         val request = ++actionVersion
+        mutableActionPending.value = true
         executor.execute {
             try {
                 val result = operation()
@@ -582,6 +623,10 @@ class CardioSessionViewModel @JvmOverloads constructor(
                         error.message ?: "유산소 작업을 완료하지 못했습니다."
                     )
                 )
+            } finally {
+                mainHandler.post {
+                    if (request == actionVersion) mutableActionPending.value = false
+                }
             }
         }
     }
@@ -595,6 +640,10 @@ class CardioSessionViewModel @JvmOverloads constructor(
         finishAfterSave: Boolean,
         session: CardioSessionSnapshot
     ) {
+        if (Looper.myLooper() != Looper.getMainLooper()) {
+            mainHandler.post { publishHeartRateEditor(scope, recordId, finishAfterSave, session) }
+            return
+        }
         val savedOwnerId: String? = savedStateHandle[KEY_EDITOR_OWNER_ID]
         val savedRecordId: String? = savedStateHandle[KEY_EDITOR_RECORD_ID]
         val savedFinish: Boolean? = savedStateHandle[KEY_EDITOR_FINISH]
@@ -610,6 +659,10 @@ class CardioSessionViewModel @JvmOverloads constructor(
         } else {
             ""
         }
+        val distanceInput = if (savedOwnerId == scope.ownerId && savedRecordId == recordId
+            && savedFinish == finishAfterSave) savedStateHandle.get<String>(KEY_DISTANCE_INPUT).orEmpty()
+            else session.manualDistanceMeters?.let { CardioMetrics.formatDistanceKilometers(it) }.orEmpty()
+        savedStateHandle[KEY_DISTANCE_INPUT] = distanceInput
         savedStateHandle[KEY_EDITOR_OWNER_ID] = scope.ownerId
         savedStateHandle[KEY_EDITOR_RECORD_ID] = recordId
         savedStateHandle[KEY_EDITOR_FINISH] = finishAfterSave
@@ -619,7 +672,8 @@ class CardioSessionViewModel @JvmOverloads constructor(
             recordId,
             finishAfterSave,
             session,
-            input
+            input,
+            distanceInput = distanceInput
         )
     }
 
@@ -633,8 +687,8 @@ class CardioSessionViewModel @JvmOverloads constructor(
         mutableCancelConfirmationState.value = CardioCancelConfirmationUiState.Ready(
             scope.ownerId,
             recordId,
-            "현재 ${CardioMetrics.formatDistanceKilometers(session.distanceMeters)}km 기록을 저장하지 않습니다.\n"
-                + "이 기기에 저장된 GPS 좌표도 함께 삭제됩니다."
+            "입력한 값과 운동 시간을 저장하지 않고 취소합니다." +
+                if (session.usesGps) "\n이 기기의 GPS 좌표도 함께 삭제됩니다." else ""
         )
     }
 
@@ -660,6 +714,7 @@ class CardioSessionViewModel @JvmOverloads constructor(
         savedStateHandle[KEY_EDITOR_RECORD_ID] = null
         savedStateHandle[KEY_EDITOR_FINISH] = null
         savedStateHandle[KEY_HEART_RATE_INPUT] = null
+        savedStateHandle[KEY_DISTANCE_INPUT] = null
     }
 
     private data class ActionResult(
@@ -706,6 +761,9 @@ class CardioSessionViewModel @JvmOverloads constructor(
         const val KEY_CANCEL_RECORD_ID = "cardio_cancel.record_id"
         const val KEY_PENDING_START_TYPE = "cardio_pending_start.activity_type"
         const val KEY_PENDING_START_DATE = "cardio_pending_start.date"
+        const val KEY_PENDING_START_ENVIRONMENT = "cardio_pending_start.environment"
+        const val KEY_PENDING_START_OWNER = "cardio_pending_start.owner"
+        const val KEY_DISTANCE_INPUT = "cardio_metrics.distance_input"
         const val KEY_PENDING_RESUME_RECORD_ID = "cardio_pending_resume.record_id"
         const val KEY_PENDING_FINISH_REQUEST = "cardio_pending_finish.requested"
     }

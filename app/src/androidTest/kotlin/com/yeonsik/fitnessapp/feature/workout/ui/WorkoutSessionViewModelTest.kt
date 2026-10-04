@@ -39,8 +39,10 @@ class WorkoutSessionViewModelTest {
         val stateObserver = Observer<WorkoutSessionUiState> { state -> state?.let { states += it } }
         val terminalObserver = Observer<WorkoutSessionTerminalEvent> { event -> event?.let { terminalEvents += it } }
 
-        viewModel.uiState.observeForever(stateObserver)
-        viewModel.terminalEvents.observeForever(terminalObserver)
+        onMain {
+            viewModel.uiState.observeForever(stateObserver)
+            viewModel.terminalEvents.observeForever(terminalObserver)
+        }
         try {
             onMain { viewModel.enter(scope, "old-record") }
             assertTrue(firstStarted.await(5, TimeUnit.SECONDS))
@@ -75,7 +77,7 @@ class WorkoutSessionViewModelTest {
         val states = Collections.synchronizedList(mutableListOf<WorkoutSessionUiState>())
         val stateObserver = Observer<WorkoutSessionUiState> { state -> state?.let { states += it } }
 
-        viewModel.uiState.observeForever(stateObserver)
+        onMain { viewModel.uiState.observeForever(stateObserver) }
         try {
             onMain { viewModel.enter(scope, "old-record") }
             assertTrue(firstStarted.await(5, TimeUnit.SECONDS))
@@ -96,11 +98,154 @@ class WorkoutSessionViewModelTest {
         }
     }
 
+    @Test
+    fun cancellingAStartedWorkoutWithCompletedSetsDeletesWithoutCompletingIt() {
+        val repository = BlockingSessionRepository(
+            CountDownLatch(0), CountDownLatch(0), "in_progress", completedSetCount = 2
+        )
+        val executor = Executors.newSingleThreadExecutor()
+        val viewModel = viewModel(repository, executor)
+        try {
+            onMain { viewModel.cancel(scope, "draft-with-sets") }
+            executor.shutdown()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+            onMain { }
+            assertEquals(1, repository.deleteCalls)
+            assertEquals(0, repository.completeCalls)
+            assertEquals(scope.ownerId, repository.deletedOwnerId)
+            assertEquals("draft-with-sets", repository.deletedRecordId)
+            assertEquals(WorkoutSessionTerminalOutcome.CANCELLED, viewModel.terminalEvents.value?.outcome)
+            assertTrue(viewModel.uiState.value is WorkoutSessionUiState.Cancelled)
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun failedCancellationPreservesTheInputScreenAndPublishesFailure() {
+        val repository = BlockingSessionRepository(
+            CountDownLatch(0), CountDownLatch(0), "in_progress", deleteSucceeds = false
+        )
+        val executor = Executors.newSingleThreadExecutor()
+        val viewModel = viewModel(repository, executor)
+        val loaded = CountDownLatch(1)
+        val observer = Observer<WorkoutSessionUiState> {
+            if (it is WorkoutSessionUiState.Ready) loaded.countDown()
+        }
+        onMain { viewModel.uiState.observeForever(observer); viewModel.enter(scope, "draft") }
+        try {
+            assertTrue(loaded.await(5, TimeUnit.SECONDS))
+            onMain { viewModel.cancel(scope, "draft") }
+            executor.shutdown()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+            onMain { }
+            assertTrue(viewModel.uiState.value is WorkoutSessionUiState.Ready)
+            assertEquals(WorkoutSessionTerminalOutcome.FAILURE, viewModel.terminalEvents.value?.outcome)
+            assertEquals(0, repository.completeCalls)
+        } finally {
+            onMain { viewModel.uiState.removeObserver(observer) }
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun completedWorkoutCannotBeRemovedByTheCancelAction() {
+        val repository = BlockingSessionRepository(CountDownLatch(0), CountDownLatch(0))
+        val executor = Executors.newSingleThreadExecutor()
+        val viewModel = viewModel(repository, executor)
+        try {
+            onMain { viewModel.cancel(scope, "completed-record") }
+            executor.shutdown()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+            onMain { }
+            assertEquals(0, repository.deleteCalls)
+            assertEquals(WorkoutSessionTerminalOutcome.FAILURE, viewModel.terminalEvents.value?.outcome)
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun cancelConfirmationCanBeDismissedAndRejectsADifferentOwner() {
+        val repository = BlockingSessionRepository(CountDownLatch(0), CountDownLatch(0), "in_progress")
+        val executor = Executors.newSingleThreadExecutor()
+        val viewModel = viewModel(repository, executor)
+        try {
+            onMain {
+                viewModel.openCancelConfirmation(scope, "draft")
+                viewModel.confirmDelete(AccountScope("another-owner"))
+                val prompt = viewModel.deleteConfirmationState.value as WorkoutDeleteConfirmationUiState.Ready
+                assertTrue(prompt.cancelWorkout)
+                viewModel.dismissDeleteConfirmation()
+                viewModel.confirmDelete(scope)
+            }
+            executor.shutdown()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+            assertEquals(0, repository.deleteCalls)
+            assertEquals(WorkoutDeleteConfirmationUiState.Idle, viewModel.deleteConfirmationState.value)
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun cancellationConfirmationRestoresItsIntentAfterRecreation() {
+        val repository = BlockingSessionRepository(CountDownLatch(0), CountDownLatch(0), "in_progress")
+        val executor = Executors.newSingleThreadExecutor()
+        val handle = SavedStateHandle()
+        val first = viewModel(repository, executor, handle)
+        try {
+            onMain { first.openCancelConfirmation(scope, "draft") }
+            val restored = viewModel(repository, executor, handle)
+            onMain {
+                val prompt = restored.deleteConfirmationState.value as WorkoutDeleteConfirmationUiState.Ready
+                assertTrue(prompt.cancelWorkout)
+                restored.confirmDelete(scope)
+            }
+            executor.shutdown()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+            onMain { }
+            assertEquals(WorkoutSessionTerminalOutcome.CANCELLED, restored.terminalEvents.value?.outcome)
+            assertEquals(1, repository.deleteCalls)
+            assertEquals(0, repository.completeCalls)
+        } finally {
+            executor.shutdownNow()
+        }
+    }
+
+    @Test
+    fun repeatedCancelAndFinishWhileCancellingCannotCompleteOrDeleteTwice() {
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val repository = BlockingSessionRepository(started, release, "in_progress")
+        val executor = Executors.newSingleThreadExecutor()
+        val viewModel = viewModel(repository, executor)
+        try {
+            onMain { viewModel.cancel(scope, "draft") }
+            assertTrue(started.await(5, TimeUnit.SECONDS))
+            onMain {
+                viewModel.cancel(scope, "draft")
+                viewModel.finish(scope, "draft")
+            }
+            release.countDown()
+            executor.shutdown()
+            assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+            onMain { }
+            assertEquals(1, repository.deleteCalls)
+            assertEquals(0, repository.completeCalls)
+            assertEquals(WorkoutSessionTerminalOutcome.CANCELLED, viewModel.terminalEvents.value?.outcome)
+        } finally {
+            release.countDown()
+            executor.shutdownNow()
+        }
+    }
+
     private fun viewModel(
         repository: WorkoutRepositoryApi,
-        executor: ExecutorService
+        executor: ExecutorService,
+        handle: SavedStateHandle = SavedStateHandle()
     ) = WorkoutSessionViewModel(
-        SavedStateHandle(),
+        handle,
         repository,
         CompleteWorkout(repository),
         executor = executor,
@@ -113,9 +258,16 @@ class WorkoutSessionViewModelTest {
 
     private class BlockingSessionRepository(
         private val firstStarted: CountDownLatch,
-        private val releaseFirst: CountDownLatch
+        private val releaseFirst: CountDownLatch,
+        private val sessionStatus: String = "completed",
+        private val completedSetCount: Int = 0,
+        private val deleteSucceeds: Boolean = true
     ) : WorkoutRepositoryApi {
         private var calls = 0
+        var deleteCalls = 0
+        var completeCalls = 0
+        var deletedOwnerId: String? = null
+        var deletedRecordId: String? = null
 
         override fun loadSession(
             scope: AccountScope,
@@ -133,11 +285,11 @@ class WorkoutSessionViewModelTest {
             return WorkoutSessionSnapshot(
                 recordId = recordId,
                 title = recordId,
-                status = "completed",
+                status = sessionStatus,
                 startedAt = "",
                 durationSeconds = 0,
                 totalVolumeKg = 0.0,
-                completedSetCount = 0,
+                completedSetCount = completedSetCount,
                 exercises = emptyList(),
                 recentVolumes = emptyList()
             )
@@ -151,8 +303,17 @@ class WorkoutSessionViewModelTest {
 
         override fun ensureInitialSet(scope: AccountScope, recordId: String, exerciseId: String) = false
 
-        override fun completeIfEligible(scope: AccountScope, recordId: String) =
-            WorkoutCompletion.NO_COMPLETED_SETS
+        override fun completeIfEligible(scope: AccountScope, recordId: String): WorkoutCompletion {
+            completeCalls += 1
+            return WorkoutCompletion.NO_COMPLETED_SETS
+        }
+
+        override fun deleteSession(scope: AccountScope, recordId: String): Boolean {
+            deleteCalls += 1
+            deletedOwnerId = scope.ownerId
+            deletedRecordId = recordId
+            return deleteSucceeds
+        }
 
         override fun discard(scope: AccountScope, recordId: String) = Unit
 

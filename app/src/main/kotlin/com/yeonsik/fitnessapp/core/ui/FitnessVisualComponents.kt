@@ -4,12 +4,15 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -18,25 +21,42 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import java.time.YearMonth
 import java.util.Locale
+import kotlin.math.roundToInt
 
 @Composable
 private fun fitnessStatusColor(status: FitnessSemanticStatus): Color = when (status) {
@@ -227,6 +247,8 @@ private fun FitnessTrendPlot(
     val lineColor = LocalFitnessColors.current.action
     val axisColor = MaterialTheme.colorScheme.outlineVariant
     val currentRingColor = MaterialTheme.colorScheme.onSurface
+    val density = LocalDensity.current
+    var selectedPointIndex by remember(model, unit) { mutableStateOf<Int?>(null) }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         Row(
@@ -249,62 +271,77 @@ private fun FitnessTrendPlot(
                 softWrap = true
             )
         }
-        Canvas(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(FitnessUiTokens.TREND_CHART_HEIGHT_DP.dp)
+                .height(FitnessUiTokens.TREND_CHART_HEIGHT_DP.dp * density.fontScale.coerceAtLeast(1f))
+                .semantics {
+                    customActions = points.mapIndexed { index, point ->
+                        CustomAccessibilityAction(
+                            label = "${point.detailLabel}, ${formatFitnessTrendValue(point.value ?: Double.NaN, unit)} 자세히 보기",
+                            action = { selectedPointIndex = index; true }
+                        )
+                    }
+                    selectedPointIndex?.let { index ->
+                        stateDescription = "${points[index].detailLabel}, ${formatFitnessTrendValue(points[index].value ?: Double.NaN, unit)}"
+                    }
+                }
         ) {
-            val left = FitnessSpacing.small.toPx()
-            val right = size.width - FitnessSpacing.small.toPx()
-            val top = FitnessSpacing.small.toPx()
-            val bottom = size.height - FitnessSpacing.small.toPx()
-            val ySpan = (bottom - top).coerceAtLeast(1f)
-            val xSpan = (right - left).coerceAtLeast(1f)
-
-            drawLine(
-                color = axisColor,
-                start = androidx.compose.ui.geometry.Offset(left, bottom),
-                end = androidx.compose.ui.geometry.Offset(right, bottom),
-                strokeWidth = 1.dp.toPx()
-            )
-
-            val path = Path()
-            points.forEachIndexed { index, point ->
-                val x = if (points.size == 1) {
-                    left + xSpan / 2f
-                } else {
-                    left + xSpan * index / (points.size - 1).toFloat()
-                }
-                val normalized = model.range.normalize(point.value ?: Double.NaN)
-                val y = bottom - ySpan * normalized
-                if (index == 0) path.moveTo(x, y) else path.lineTo(x, y)
+            val padding = with(density) { (FitnessSpacing.touch / 2).toPx() }
+            val plotSize = with(density) { Size(maxWidth.toPx(), maxHeight.toPx()) }
+            val offsets = remember(model, plotSize, padding) {
+                fitnessTrendPointOffsets(model, plotSize, padding)
             }
-
-            if (points.size > 1) {
-                drawPath(
-                    path = path,
-                    color = lineColor,
-                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+            Canvas(
+                Modifier.fillMaxSize().pointerInput(model, unit, offsets, padding) {
+                    detectTapGestures { tap ->
+                        val index = fitnessTrendHitTest(offsets, tap, padding)
+                        selectedPointIndex = if (index == selectedPointIndex) null else index
+                    }
+                }
+            ) {
+                val bottom = size.height - padding
+                drawLine(
+                    color = axisColor,
+                    start = Offset(padding, bottom),
+                    end = Offset(size.width - padding, bottom),
+                    strokeWidth = 1.dp.toPx()
                 )
-            }
 
-            points.forEachIndexed { index, point ->
-                val x = if (points.size == 1) {
-                    left + xSpan / 2f
-                } else {
-                    left + xSpan * index / (points.size - 1).toFloat()
+                val path = Path()
+                offsets.forEachIndexed { index, offset ->
+                    if (index == 0) path.moveTo(offset.x, offset.y)
+                    else path.lineTo(offset.x, offset.y)
                 }
-                val normalized = model.range.normalize(point.value ?: Double.NaN)
-                val y = bottom - ySpan * normalized
-                drawCircle(color = lineColor, radius = 4.dp.toPx(), center = androidx.compose.ui.geometry.Offset(x, y))
-                if (model.currentPointIndex == model.finitePointIndices.getOrNull(index)) {
-                    drawCircle(
-                        color = currentRingColor,
-                        radius = 7.dp.toPx(),
-                        center = androidx.compose.ui.geometry.Offset(x, y),
-                        style = Stroke(width = 2.dp.toPx())
+
+                if (points.size > 1) {
+                    drawPath(
+                        path = path,
+                        color = lineColor,
+                        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
                     )
                 }
+
+                offsets.forEachIndexed { index, offset ->
+                    drawCircle(color = lineColor, radius = 4.dp.toPx(), center = offset)
+                    if (model.currentPointIndex == model.finitePointIndices.getOrNull(index) ||
+                        selectedPointIndex == index) {
+                        drawCircle(
+                            color = currentRingColor,
+                            radius = 7.dp.toPx(),
+                            center = offset,
+                            style = Stroke(width = 2.dp.toPx())
+                        )
+                    }
+                }
+            }
+            selectedPointIndex?.let { index ->
+                FitnessTrendTooltip(
+                    point = points[index],
+                    unit = unit,
+                    anchor = offsets[index],
+                    modifier = Modifier.matchParentSize()
+                )
             }
         }
         Row(
@@ -327,6 +364,76 @@ private fun FitnessTrendPlot(
                 textAlign = TextAlign.End,
                 softWrap = true
             )
+        }
+    }
+}
+
+/** Measure the bubble before placing it so edge points and larger text stay inside the plot. */
+@Composable
+private fun FitnessTrendTooltip(
+    point: FitnessTrendPoint,
+    unit: String,
+    anchor: Offset,
+    modifier: Modifier = Modifier
+) {
+    val bubbleColor = MaterialTheme.colorScheme.inverseSurface
+    Layout(
+        modifier = modifier.semantics(mergeDescendants = true) {
+            liveRegion = LiveRegionMode.Polite
+        },
+        content = {
+            Surface(
+                shape = FitnessShape.input,
+                color = bubbleColor,
+                contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                shadowElevation = 4.dp
+            ) {
+                Column(
+                    Modifier.padding(horizontal = FitnessSpacing.gap, vertical = FitnessSpacing.small),
+                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+                ) {
+                    Text(point.detailLabel, style = MaterialTheme.typography.labelMedium)
+                    Text(
+                        formatFitnessTrendValue(point.value ?: Double.NaN, unit),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            Canvas(Modifier.size(width = 12.dp, height = 6.dp)) {
+                drawPath(Path().apply {
+                    moveTo(0f, 0f)
+                    lineTo(size.width, 0f)
+                    lineTo(size.width / 2f, size.height)
+                    close()
+                }, bubbleColor)
+            }
+        }
+    ) { measurables, constraints ->
+        val margin = FitnessSpacing.small.roundToPx()
+        val gap = FitnessSpacing.micro.roundToPx()
+        val body = measurables[0].measure(constraints.copy(
+            minWidth = 0,
+            minHeight = 0,
+            maxWidth = (constraints.maxWidth - 2 * margin).coerceAtLeast(0)
+        ))
+        val caret = measurables[1].measure(constraints.copy(minWidth = 0, minHeight = 0))
+        val width = constraints.maxWidth
+        val height = constraints.maxHeight
+        val above = anchor.y >= body.height + caret.height + gap
+        val bodyX = (anchor.x - body.width / 2f).roundToInt().coerceIn(
+            margin, (width - body.width - margin).coerceAtLeast(margin)
+        )
+        val desiredY = if (above) anchor.y - gap - caret.height - body.height
+        else anchor.y + gap + caret.height
+        val bodyY = desiredY.roundToInt().coerceIn(0, (height - body.height).coerceAtLeast(0))
+        val caretX = (anchor.x - caret.width / 2f).roundToInt().coerceIn(
+            bodyX + gap, (bodyX + body.width - caret.width - gap).coerceAtLeast(bodyX + gap)
+        )
+        val caretY = if (above) bodyY + body.height else bodyY - caret.height
+        layout(width, height) {
+            body.place(bodyX, bodyY)
+            caret.placeWithLayer(caretX, caretY) { rotationZ = if (above) 0f else 180f }
         }
     }
 }

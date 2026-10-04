@@ -545,6 +545,12 @@ private fun AppRoot(
                 host.toast("운동을 완료했습니다.")
                 navigation.replace(FitnessScreen.WORKOUT_SUMMARY)
             }
+            WorkoutSessionTerminalOutcome.CANCELLED -> {
+                viewModels.getWorkoutSession().stopRestTimer()
+                event.recordId?.let { clearActiveWorkout(viewModels, it) }
+                host.toast(event.message ?: "운동을 취소했습니다.")
+                navigation.replace(FitnessScreen.STRENGTH)
+            }
             WorkoutSessionTerminalOutcome.DISCARDED_EMPTY -> {
                 event.recordId?.let { clearActiveWorkout(viewModels, it) }
                 host.toast(event.message ?: "수행한 세트가 없어 운동을 저장하지 않았습니다.")
@@ -561,6 +567,10 @@ private fun AppRoot(
             return@LaunchedEffect
         }
         val cardioViewModel = viewModels.getCardioSession()
+        if (event.action == CardioSessionAction.PREPARE_START &&
+            event.outcome != CardioSessionActionOutcome.START_READY) {
+            cardioViewModel.clearPendingPermissionAction()
+        }
         if (event.outcome != CardioSessionActionOutcome.FAILURE &&
             event.outcome != CardioSessionActionOutcome.NOT_FOUND
         ) {
@@ -585,7 +595,10 @@ private fun AppRoot(
                         if (activityType == null) {
                             host.toast("유산소 기록을 시작할 준비를 하지 못했습니다.")
                         } else {
-                            host.requestCardioStart(activityType)
+                            if (activityType.usesGps(cardioViewModel.pendingStartEnvironment()
+                                    ?: activityType.defaultEnvironment)) {
+                                host.requestCardioStart(activityType)
+                            } else cardioViewModel.startAfterPermissions(AccountScope(ownerId))
                         }
                     }
                     CardioSessionActionOutcome.EXISTING_WORKOUT -> {
@@ -595,7 +608,7 @@ private fun AppRoot(
                         } else if (event.existingCardioSession && event.session != null) {
                             cardioViewModel.rememberActiveRecord(existingId)
                             event.message?.let(host::toast)
-                            if (event.session.status == com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot.STATUS_TRACKING) {
+                            if (event.session.usesGps && event.session.status == com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot.STATUS_TRACKING) {
                                 host.startCardioTracking(existingId)
                             }
                             navigation.navigate(
@@ -622,7 +635,7 @@ private fun AppRoot(
                 if (session.status == com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot.STATUS_COMPLETED) {
                     navigation.navigate(FitnessScreen.CARDIO_SUMMARY)
                 } else {
-                    if (session.status == com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot.STATUS_TRACKING) {
+                    if (session.usesGps && session.status == com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot.STATUS_TRACKING) {
                         host.startCardioTracking(recordId)
                     }
                     navigation.navigate(FitnessScreen.CARDIO_SESSION)
@@ -637,7 +650,7 @@ private fun AppRoot(
                     return@LaunchedEffect
                 }
                 cardioViewModel.rememberActiveRecord(recordId)
-                host.startCardioTracking(recordId)
+                if (session.usesGps) host.startCardioTracking(recordId)
                 host.toast("${session.activityLabel} 기록을 시작했습니다.")
                 navigation.navigate(FitnessScreen.CARDIO_SESSION)
             }
@@ -649,7 +662,8 @@ private fun AppRoot(
                 val activityType = runCatching {
                     CardioActivityType.fromId(session.activityId)
                 }.getOrDefault(CardioActivityType.WALKING)
-                host.requestCardioResume(activityType, recordId)
+                if (session.usesGps) host.requestCardioResume(activityType, recordId)
+                else cardioViewModel.continueAfterPermissions(AccountScope(ownerId))
             }
             CardioSessionAction.RESUME -> {
                 if (recordId == null) {
@@ -657,14 +671,14 @@ private fun AppRoot(
                     return@LaunchedEffect
                 }
                 cardioViewModel.rememberActiveRecord(recordId)
-                host.resumeCardioTracking(recordId)
-                host.toast("GPS 기록을 재개했습니다.")
+                if (session?.usesGps == true) host.resumeCardioTracking(recordId)
+                host.toast("운동 기록을 재개했습니다.")
                 navigation.navigate(FitnessScreen.CARDIO_SESSION)
             }
             CardioSessionAction.PAUSE -> {
                 if (recordId == null) return@LaunchedEffect
-                host.pauseCardioTracking(recordId)
-                host.toast("GPS 기록을 일시정지했습니다.")
+                if (session?.usesGps == true) host.pauseCardioTracking(recordId)
+                host.toast("운동 기록을 일시정지했습니다.")
                 cardioViewModel.refresh(AccountScope(ownerId), recordId)
             }
             CardioSessionAction.PREPARE_FINISH -> {
@@ -672,7 +686,7 @@ private fun AppRoot(
                     if (recordId != null) cardioViewModel.rememberActiveRecord(recordId)
                     navigation.navigate(FitnessScreen.CARDIO_SUMMARY)
                 } else if (recordId != null && session != null) {
-                    if (event.pausedByFinish) host.pauseCardioTracking(recordId)
+                    if (event.pausedByFinish && session.usesGps) host.pauseCardioTracking(recordId)
                     cardioViewModel.openHeartRateEditor(
                         AccountScope(ownerId), recordId, true, session
                     )
@@ -960,7 +974,7 @@ private fun AppRoot(
                                 } else Modifier
                             )
                             .then(
-                                if (isExercisePickerDestination(pageScreen)) {
+                                if (isExercisePickerDestination(pageScreen) || pageScreen == FitnessScreen.CARDIO) {
                                     Modifier
                                 } else {
                                     Modifier.verticalScroll(contentScrollState)
@@ -1094,6 +1108,9 @@ private fun AppRoot(
         val cardioEditorActions = object : CardioHeartRateEditorActions {
             override fun updateInput(value: String) =
                 viewModels.getCardioSession().updateHeartRateInput(value)
+
+            override fun updateDistanceInput(value: String) =
+                viewModels.getCardioSession().updateDistanceInput(value)
 
             override fun save(value: String) = viewModels.getCardioSession().submitHeartRate(
                 AccountScope(ownerId), value
@@ -1723,6 +1740,11 @@ private fun AppDestination(
             viewModels.getHome().enter(AccountScope(ownerId), today)
         }
     }
+    val cardioStartState by viewModels.getCardioStart().uiState.observeAsState(CardioStartUiState())
+    val cardioStarting by viewModels.getCardioSession().actionPending.observeAsState(false)
+    LaunchedEffect(screen, ownerId, isActualActive) {
+        if (screen == FitnessScreen.CARDIO && isActualActive) viewModels.getCardioStart().enter(AccountScope(ownerId))
+    }
     val cardioRecordId = (cardioState as? CardioSessionUiState.Ready)?.session?.recordId
         ?: viewModels.getCardioSession().activeRecordId()
     val cardioActions = object : CardioScreenActions {
@@ -1994,7 +2016,10 @@ private fun AppDestination(
                     override fun showPastWorkout() = viewModels.getWorkoutSession()
                         .openManualPastEditor(AccountScope(ownerId))
                     override fun selectRoutine(routineId: String) = navigation.selectRoutine(routineId)
-                    override fun navigate(screen: FitnessScreen) = navigation.navigate(screen)
+                    override fun navigate(screen: FitnessScreen) {
+                        if (screen == FitnessScreen.WORKOUT) navigation.returnToWorkoutSelection()
+                        else navigation.navigate(screen)
+                    }
                     override fun startRoutineWorkout(
                         routineId: String?,
                         title: String,
@@ -2004,7 +2029,16 @@ private fun AppDestination(
                     )
                 }
             )
-            FitnessScreen.CARDIO -> CardioStartScreen(cardioActions)
+            FitnessScreen.CARDIO -> CardioStartContent(
+                state = cardioStartState.takeIf { it.ownerId == ownerId } ?: CardioStartUiState(),
+                onSearch = viewModels.getCardioStart()::search,
+                onSelectActivity = viewModels.getCardioStart()::selectActivity,
+                onSelectEnvironment = viewModels.getCardioStart()::selectEnvironment,
+                onStart = { type, environment -> viewModels.getCardioSession()
+                    .prepareStart(AccountScope(ownerId), type, today, environment) },
+                onBack = navigation::returnToWorkoutSelection,
+                starting = cardioStarting
+            )
             FitnessScreen.RECORDS -> RecordsScreen(
                 recordsState,
                 ownerId,
@@ -2070,6 +2104,13 @@ private fun AppDestination(
                 { exerciseId ->
                     viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
                     navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+                },
+                onCancel = {
+                    viewModels.getWorkoutSession().activeRecordId()?.let { recordId ->
+                        viewModels.getWorkoutSession().openCancelConfirmation(
+                            AccountScope(ownerId), recordId
+                        )
+                    }
                 }
             )
             FitnessScreen.WORKOUT_EXERCISE_DETAIL -> WorkoutDetailScreen(

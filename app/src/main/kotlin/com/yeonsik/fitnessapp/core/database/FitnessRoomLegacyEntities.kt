@@ -148,7 +148,7 @@ data class ExercisePickerPreferencesRoomEntity(
 )
 
 @Entity(tableName = "cardio_sessions", indices = [Index(name = "cardio_sessions_user_status_started_idx", value = ["user_id", "status", "started_at_epoch_ms"])])
-data class CardioSessionsRoomEntity(
+data class CardioSessionsRoomEntity @JvmOverloads constructor(
     @PrimaryKey @ColumnInfo(name = "record_id") val recordId: String,
     @ColumnInfo(name = "user_id") val userId: String,
     @ColumnInfo(name = "activity_type") val activityType: String,
@@ -163,7 +163,9 @@ data class CardioSessionsRoomEntity(
     @ColumnInfo(name = "last_location_time_ms") val lastLocationTimeMs: Long?,
     @ColumnInfo(name = "last_accuracy_meters") val lastAccuracyMeters: Double?,
     @ColumnInfo(name = "gps_status", defaultValue = "'searching'") val gpsStatus: String,
-    @ColumnInfo(name = "updated_at_epoch_ms") val updatedAtEpochMs: Long
+    @ColumnInfo(name = "updated_at_epoch_ms") val updatedAtEpochMs: Long,
+    @ColumnInfo(name = "environment", defaultValue = "'outdoor'") val environment: String = "outdoor",
+    @ColumnInfo(name = "manual_distance_meters") val manualDistanceMeters: Double? = null
 )
 
 @Entity(tableName = "cardio_route_points", indices = [Index(name = "cardio_route_points_record_time_idx", value = ["record_id", "captured_at_epoch_ms"])])

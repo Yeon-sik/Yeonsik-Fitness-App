@@ -33,6 +33,7 @@ object FitnessRoomMigrations {
                 })
             }
             add(V50_TO_V51)
+            add(V51_TO_V52)
         }.toTypedArray()
     }
 
@@ -43,7 +44,7 @@ object FitnessRoomMigrations {
      */
     val V50_TO_V51: Migration = object : Migration(
         FitnessDatabaseContract.LEGACY_VERSION,
-        FitnessDatabaseContract.ROOM_VERSION
+        FitnessDatabaseContract.ROOM_HANDOFF_VERSION
     ) {
         override fun migrate(db: SupportSQLiteDatabase) {
             FitnessDatabaseContract.requireV50Schema(db)
@@ -71,6 +72,14 @@ object FitnessRoomMigrations {
                     "ON dining_out_menu_add_on_links(user_id, add_on_food_id, deleted_at)"
             )
             FitnessPrimaryKeyCompatibility.normalizeNullablePrimaryKeys(db)
+        }
+    }
+
+    /** Additive migration: existing GPS sessions remain outdoor and every recorded value survives. */
+    val V51_TO_V52: Migration = object : Migration(51, 52) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE cardio_sessions ADD COLUMN environment TEXT NOT NULL DEFAULT 'outdoor'")
+            db.execSQL("ALTER TABLE cardio_sessions ADD COLUMN manual_distance_meters REAL")
         }
     }
 }

@@ -55,7 +55,7 @@ public final class CompleteCardio {
                     snapshot.getActivityId(),
                     activityLabel,
                     durationSeconds,
-                    snapshot.getDistanceMeters(),
+                    snapshot.getRecordedDistanceMeters(),
                     averageHeartRateBpm
             );
             if (!workoutCompleted) {

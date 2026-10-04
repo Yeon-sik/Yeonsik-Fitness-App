@@ -154,6 +154,12 @@ public final class CardioTrackingService extends Service {
             return;
         }
 
+        CardioRepository.SessionSnapshot requestedSession = cardioRepository.session(currentRecordId);
+        if (requestedSession == null || !requestedSession.usesGps()) {
+            stopTrackingService();
+            return;
+        }
+
         if (!foregroundAllowed) {
             cardioRepository.pause(currentRecordId);
             cardioRepository.setGpsStatus(currentRecordId, CardioRepository.GPS_PERMISSION_MISSING);

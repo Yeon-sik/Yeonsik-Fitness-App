@@ -48,7 +48,7 @@ interface WorkoutRepositoryApi {
         activityId: String,
         activityLabel: String,
         durationSeconds: Int,
-        distanceMeters: Double,
+        distanceMeters: Double?,
         averageHeartRateBpm: Int?
     ): Boolean = false
 

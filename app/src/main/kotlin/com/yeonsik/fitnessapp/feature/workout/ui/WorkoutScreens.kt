@@ -199,7 +199,8 @@ internal fun StrengthScreen(
     val ready = home as? HomeUiState.Ready
     val routineReady = routine as? RoutineEntryUiState.Ready
     var newRoutineName by rememberSaveable { mutableStateOf("") }
-    AppHeader("무산소", "루틴을 선택해 운동을 시작하세요.")
+    FitnessHeader("무산소", "루틴을 선택해 운동을 시작하세요.",
+        back = { actions.navigate(FitnessScreen.WORKOUT) })
     if (ready == null || ready.snapshot.ownerId != ownerId || routineReady?.ownerId != ownerId) {
         Text("루틴을 불러오는 중입니다.")
         return
@@ -319,7 +320,8 @@ internal fun WorkoutSessionScreen(
     state: WorkoutSessionUiState,
     ownerId: String,
     unit: MassUnit,
-    onExercise: (String) -> Unit
+    onExercise: (String) -> Unit,
+    onCancel: () -> Unit
 ) {
     val ready = state as? WorkoutSessionUiState.Ready
     if (ready == null || ready.ownerId != ownerId) {
@@ -333,12 +335,13 @@ internal fun WorkoutSessionScreen(
             message = when (state) {
                 is WorkoutSessionUiState.Error -> state.message
                 is WorkoutSessionUiState.Missing -> "운동 기록을 찾지 못했습니다."
+                is WorkoutSessionUiState.Cancelling -> "운동을 취소하는 중입니다."
                 else -> "운동을 불러오는 중입니다."
             }
         )
         return
     }
-    AppWorkoutSessionContent(ready.session, unit, onExercise)
+    AppWorkoutSessionContent(ready.session, unit, onExercise, onCancel)
 }
 
 @Composable
@@ -1445,7 +1448,8 @@ internal fun WorkoutSummaryScreen(
         val trendPoints = session.recentVolumes.map {
             FitnessTrendPoint(
                 label = it.label.ifBlank { it.date },
-                value = MassUnit.fromKg(it.volumeKg, unit)
+                value = MassUnit.fromKg(it.volumeKg, unit),
+                detailLabel = it.date
             )
         } + FitnessTrendPoint(
             label = session.title.ifBlank { "현재" },
@@ -1488,7 +1492,8 @@ internal fun WorkoutSummaryScreen(
 private fun AppWorkoutSessionContent(
     session: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot,
     unit: MassUnit,
-    onExercise: (String) -> Unit
+    onExercise: (String) -> Unit,
+    onCancel: () -> Unit
 ) {
     val orderedExercises = stableWorkoutSessionExercises(session.exercises)
     val sessionProgress = workoutSessionProgress(orderedExercises)
@@ -1543,6 +1548,11 @@ private fun AppWorkoutSessionContent(
         MassFormatter.withUnit(session.totalVolumeKg, unit),
         "저장 기준 kg · 표시 ${unit.symbol()}"
     )
+    if (session.status == "in_progress") {
+        FitnessOutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+            Text("운동 취소", color = MaterialTheme.colorScheme.error)
+        }
+    }
     FitnessSection("운동 종목") {
         if (orderedExercises.isEmpty()) {
             FitnessStatusMessage(
@@ -1601,7 +1611,8 @@ private fun AppWorkoutSessionContent(
                     session.recentVolumes.map {
                         FitnessTrendPoint(
                             label = it.label.ifBlank { it.date },
-                            value = MassUnit.fromKg(it.volumeKg, unit)
+                            value = MassUnit.fromKg(it.volumeKg, unit),
+                            detailLabel = it.date
                         )
                     },
                     minimumPoints = 2

@@ -25,7 +25,9 @@ sealed interface WorkoutSessionUiState {
     data class Ready(val ownerId: String, val session: WorkoutSessionSnapshot) : WorkoutSessionUiState
     data class Missing(val ownerId: String, val recordId: String) : WorkoutSessionUiState
     data class Completing(val ownerId: String, val recordId: String) : WorkoutSessionUiState
+    data class Cancelling(val ownerId: String, val recordId: String) : WorkoutSessionUiState
     data class Completed(val ownerId: String, val recordId: String) : WorkoutSessionUiState
+    data class Cancelled(val ownerId: String, val recordId: String) : WorkoutSessionUiState
     data class DiscardedEmptySession(val ownerId: String, val recordId: String) : WorkoutSessionUiState
     data class Error(val ownerId: String, val message: String) : WorkoutSessionUiState
 }
@@ -38,7 +40,11 @@ sealed interface ManualPastWorkoutUiState {
 
 sealed interface WorkoutDeleteConfirmationUiState {
     data object Idle : WorkoutDeleteConfirmationUiState
-    data class Ready(val ownerId: String, val recordId: String) :
+    data class Ready(
+        val ownerId: String,
+        val recordId: String,
+        val cancelWorkout: Boolean = false
+    ) :
         WorkoutDeleteConfirmationUiState
 }
 
@@ -71,6 +77,7 @@ enum class WorkoutSessionActionOutcome {
 enum class WorkoutSessionTerminalOutcome {
     MISSING,
     COMPLETED,
+    CANCELLED,
     DISCARDED_EMPTY,
     FAILURE
 }
@@ -197,7 +204,8 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     }
 
     fun finish(scope: AccountScope, recordId: String) {
-        if (mutableState.value is WorkoutSessionUiState.Completing) return
+        if (mutableState.value is WorkoutSessionUiState.Completing ||
+            mutableState.value is WorkoutSessionUiState.Cancelling) return
         val request = ++requestVersion
         activeReadRequest = SessionReadRequest(request, scope.ownerId, recordId)
         mutableState.value = WorkoutSessionUiState.Completing(scope.ownerId, recordId)
@@ -249,6 +257,44 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
                         WorkoutSessionTerminalOutcome.FAILURE,
                         recordId,
                         error.message ?: "운동을 완료하지 못했습니다."
+                    )
+                )
+            }
+        }
+    }
+
+    /** Cancelling removes the draft and its sets without running workout completion. */
+    fun cancel(scope: AccountScope, recordId: String) {
+        if (mutableState.value is WorkoutSessionUiState.Completing ||
+            mutableState.value is WorkoutSessionUiState.Cancelling) return
+        val previous = (mutableState.value as? WorkoutSessionUiState.Ready)?.takeIf {
+            it.ownerId == scope.ownerId && it.session.recordId == recordId
+        }
+        val request = ++requestVersion
+        activeReadRequest = SessionReadRequest(request, scope.ownerId, recordId)
+        mutableState.value = WorkoutSessionUiState.Cancelling(scope.ownerId, recordId)
+        executor.execute {
+            try {
+                val session = repository.loadSession(scope, recordId)
+                    ?: error("취소할 운동 기록을 찾지 못했습니다.")
+                check(session.status == "in_progress") { "진행 중인 운동만 취소할 수 있습니다." }
+                check(repository.deleteSession(scope, recordId)) { "운동을 취소하지 못했습니다." }
+                publishIfCurrent(request, WorkoutSessionUiState.Cancelled(scope.ownerId, recordId))
+                publishTerminalIfCurrent(
+                    request,
+                    WorkoutSessionTerminalEvent(
+                        request, scope.ownerId, WorkoutSessionTerminalOutcome.CANCELLED,
+                        recordId, "운동을 취소했습니다."
+                    )
+                )
+            } catch (error: Exception) {
+                val message = error.message ?: "운동을 취소하지 못했습니다."
+                publishIfCurrent(request, previous ?: WorkoutSessionUiState.Error(scope.ownerId, message))
+                publishTerminalIfCurrent(
+                    request,
+                    WorkoutSessionTerminalEvent(
+                        request, scope.ownerId, WorkoutSessionTerminalOutcome.FAILURE,
+                        recordId, message
                     )
                 )
             }
@@ -412,12 +458,26 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     }
 
     fun openDeleteConfirmation(scope: AccountScope, recordId: String) {
+        openRemovalConfirmation(scope, recordId, cancelWorkout = false)
+    }
+
+    fun openCancelConfirmation(scope: AccountScope, recordId: String) {
+        openRemovalConfirmation(scope, recordId, cancelWorkout = true)
+    }
+
+    private fun openRemovalConfirmation(
+        scope: AccountScope,
+        recordId: String,
+        cancelWorkout: Boolean
+    ) {
         if (recordId.isBlank()) return
         savedStateHandle[KEY_DELETE_OWNER_ID] = scope.ownerId
         savedStateHandle[KEY_DELETE_RECORD_ID] = recordId
+        savedStateHandle[KEY_DELETE_CANCEL_WORKOUT] = cancelWorkout
         mutableDeleteConfirmationState.value = WorkoutDeleteConfirmationUiState.Ready(
             scope.ownerId,
-            recordId
+            recordId,
+            cancelWorkout
         )
     }
 
@@ -426,12 +486,14 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
             as? WorkoutDeleteConfirmationUiState.Ready ?: return
         if (current.ownerId != scope.ownerId) return
         dismissDeleteConfirmation()
-        delete(scope, current.recordId)
+        if (current.cancelWorkout) cancel(scope, current.recordId)
+        else delete(scope, current.recordId)
     }
 
     fun dismissDeleteConfirmation() {
         savedStateHandle.remove<String>(KEY_DELETE_OWNER_ID)
         savedStateHandle.remove<String>(KEY_DELETE_RECORD_ID)
+        savedStateHandle.remove<Boolean>(KEY_DELETE_CANCEL_WORKOUT)
         mutableDeleteConfirmationState.value = WorkoutDeleteConfirmationUiState.Idle
     }
 
@@ -487,7 +549,9 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         val ownerId: String? = savedStateHandle[KEY_DELETE_OWNER_ID]
         val recordId: String? = savedStateHandle[KEY_DELETE_RECORD_ID]
         return if (!ownerId.isNullOrBlank() && !recordId.isNullOrBlank()) {
-            WorkoutDeleteConfirmationUiState.Ready(ownerId, recordId)
+            WorkoutDeleteConfirmationUiState.Ready(
+                ownerId, recordId, savedStateHandle[KEY_DELETE_CANCEL_WORKOUT] ?: false
+            )
         } else {
             WorkoutDeleteConfirmationUiState.Idle
         }
@@ -565,7 +629,11 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
                 active?.ownerId == state.ownerId && active.recordId == state.recordId
             is WorkoutSessionUiState.Completing ->
                 active?.ownerId == state.ownerId && active.recordId == state.recordId
+            is WorkoutSessionUiState.Cancelling ->
+                active?.ownerId == state.ownerId && active.recordId == state.recordId
             is WorkoutSessionUiState.Completed ->
+                active?.ownerId == state.ownerId && active.recordId == state.recordId
+            is WorkoutSessionUiState.Cancelled ->
                 active?.ownerId == state.ownerId && active.recordId == state.recordId
             is WorkoutSessionUiState.DiscardedEmptySession ->
                 active?.ownerId == state.ownerId && active.recordId == state.recordId
@@ -601,6 +669,7 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         const val KEY_REST_TOTAL_SECONDS = "workout_rest.total_seconds"
         const val KEY_DELETE_OWNER_ID = "workout_delete.owner_id"
         const val KEY_DELETE_RECORD_ID = "workout_delete.record_id"
+        const val KEY_DELETE_CANCEL_WORKOUT = "workout_delete.cancel_workout"
         const val KEY_MANUAL_PAST_OWNER_ID = "workout_manual_past.owner_id"
         const val DEFAULT_REST_SECONDS = 90
     }
