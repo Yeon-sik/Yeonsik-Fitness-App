@@ -320,8 +320,7 @@ internal fun WorkoutSessionScreen(
     state: WorkoutSessionUiState,
     ownerId: String,
     unit: MassUnit,
-    onExercise: (String) -> Unit,
-    onCancel: () -> Unit
+    onExercise: (String) -> Unit
 ) {
     val ready = state as? WorkoutSessionUiState.Ready
     if (ready == null || ready.ownerId != ownerId) {
@@ -341,7 +340,7 @@ internal fun WorkoutSessionScreen(
         )
         return
     }
-    AppWorkoutSessionContent(ready.session, unit, onExercise, onCancel)
+    AppWorkoutSessionContent(ready.session, unit, onExercise)
 }
 
 @Composable
@@ -1492,8 +1491,7 @@ internal fun WorkoutSummaryScreen(
 private fun AppWorkoutSessionContent(
     session: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot,
     unit: MassUnit,
-    onExercise: (String) -> Unit,
-    onCancel: () -> Unit
+    onExercise: (String) -> Unit
 ) {
     val orderedExercises = stableWorkoutSessionExercises(session.exercises)
     val sessionProgress = workoutSessionProgress(orderedExercises)
@@ -1548,11 +1546,6 @@ private fun AppWorkoutSessionContent(
         MassFormatter.withUnit(session.totalVolumeKg, unit),
         "저장 기준 kg · 표시 ${unit.symbol()}"
     )
-    if (session.status == "in_progress") {
-        FitnessOutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
-            Text("운동 취소", color = MaterialTheme.colorScheme.error)
-        }
-    }
     FitnessSection("운동 종목") {
         if (orderedExercises.isEmpty()) {
             FitnessStatusMessage(

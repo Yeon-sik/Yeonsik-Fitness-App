@@ -85,6 +85,7 @@ import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.body.model.BodyProfile
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.AppUiActions
@@ -1056,6 +1057,8 @@ private fun AppRoot(
             ) {
                 if (screen == FitnessScreen.WORKOUT_SESSION) {
                     SessionTopBar(navigation, viewModels, ownerId, workoutState)
+                } else if (screen == FitnessScreen.CARDIO_SESSION) {
+                    CardioSessionTopBar(navigation, viewModels, ownerId, cardioState)
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     if (topLevelSwipeEnabled) {
@@ -1208,21 +1211,26 @@ private fun SessionTopBar(
     state: WorkoutSessionUiState
 ) {
     val recordId = viewModels.getWorkoutSession().activeRecordId()
-    val canEdit = (state as? WorkoutSessionUiState.Ready)?.let { ready -> ready.ownerId == ownerId && ready.session.status != "completed" } == true
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
-            .padding(horizontal = FitnessSpacing.gap, vertical = FitnessSpacing.small),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        TextButton(
-            onClick = {
-                if (!navigation.back()) navigation.replace(FitnessScreen.STRENGTH)
+    val ready = state as? WorkoutSessionUiState.Ready
+    val canEdit = ready?.let {
+        it.ownerId == ownerId && it.session.status != "completed"
+    } == true
+    FitnessSessionTopBar(
+        title = "운동 세션",
+        canCancel = ready?.let {
+            it.ownerId == ownerId && it.session.status == "in_progress"
+        } == true,
+        onBack = {
+            if (!navigation.back()) navigation.replace(FitnessScreen.STRENGTH)
+        },
+        onCancel = {
+            recordId?.let {
+                viewModels.getWorkoutSession().openCancelConfirmation(
+                    AccountScope(ownerId), it
+                )
             }
-        ) { Text("←", style = MaterialTheme.typography.headlineSmall) }
-        Text("운동 세션", style = MaterialTheme.typography.titleMedium)
-        androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
+        }
+    ) {
         if (canEdit) {
             TextButton(onClick = {
                 navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
@@ -1237,6 +1245,32 @@ private fun SessionTopBar(
             ) { Text("완료") }
         }
     }
+}
+
+@Composable
+private fun CardioSessionTopBar(
+    navigation: AppNavigationViewModel,
+    viewModels: AppViewModels,
+    ownerId: String,
+    state: CardioSessionUiState
+) {
+    val ready = state as? CardioSessionUiState.Ready
+    val session = ready?.session
+    val canCancel = ready?.let {
+        it.ownerId == ownerId && it.session.status != CardioSessionSnapshot.STATUS_COMPLETED
+    } == true
+    FitnessSessionTopBar(
+        title = session?.activityLabel ?: "유산소 진행",
+        canCancel = canCancel,
+        onBack = {
+            if (!navigation.back()) navigation.replace(FitnessScreen.CARDIO)
+        },
+        onCancel = {
+            session?.recordId?.let { recordId ->
+                viewModels.getCardioSession().prepareCancel(AccountScope(ownerId), recordId)
+            }
+        }
+    )
 }
 
 @Composable
@@ -1778,11 +1812,6 @@ private fun AppDestination(
                 viewModels.getCardioSession().prepareFinish(AccountScope(ownerId), it)
             }
         }
-        override fun cancel() {
-            cardioRecordId?.let {
-                viewModels.getCardioSession().prepareCancel(AccountScope(ownerId), it)
-            }
-        }
         override fun loadRoute(recordId: String) {
             viewModels.getCardioSession().loadRoute(AccountScope(ownerId), recordId)
         }
@@ -2104,13 +2133,6 @@ private fun AppDestination(
                 { exerciseId ->
                     viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
                     navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
-                },
-                onCancel = {
-                    viewModels.getWorkoutSession().activeRecordId()?.let { recordId ->
-                        viewModels.getWorkoutSession().openCancelConfirmation(
-                            AccountScope(ownerId), recordId
-                        )
-                    }
                 }
             )
             FitnessScreen.WORKOUT_EXERCISE_DETAIL -> WorkoutDetailScreen(

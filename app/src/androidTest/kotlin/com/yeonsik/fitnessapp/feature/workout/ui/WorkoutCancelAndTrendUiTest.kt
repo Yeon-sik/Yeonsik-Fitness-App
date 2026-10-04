@@ -2,9 +2,13 @@ package com.yeonsik.fitnessapp.feature.workout.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -27,20 +31,34 @@ class WorkoutCancelAndTrendUiTest {
     @get:Rule val compose = createComposeRule()
 
     @Test
-    fun cancellationIsExplicitAndOnlyShownForAnInProgressWorkout() {
+    fun cancelActionStaysInTheTopBarWhileSessionContentScrolls() {
         val status = mutableStateOf("in_progress")
         var cancelRequests = 0
         compose.setContent {
             FitnessComposeTheme(false) {
-                Column(Modifier.verticalScroll(rememberScrollState())) {
-                    WorkoutSessionScreen(
-                        WorkoutSessionUiState.Ready("owner", session(status.value)),
-                        "owner", MassUnit.KG, {}, { cancelRequests++ }
+                Column(Modifier.fillMaxSize()) {
+                    FitnessSessionTopBar(
+                        title = "운동 세션",
+                        canCancel = status.value == "in_progress",
+                        onBack = {},
+                        onCancel = { cancelRequests++ }
                     )
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                        WorkoutSessionScreen(
+                            WorkoutSessionUiState.Ready("owner", session(status.value)),
+                            "owner",
+                            MassUnit.KG,
+                            onExercise = {}
+                        )
+                        Spacer(Modifier.height(900.dp))
+                        Text("세션 맨 아래")
+                    }
                 }
             }
         }
-        compose.onNodeWithText("운동 취소").performScrollTo().performClick()
+        compose.onAllNodesWithText("운동 취소").assertCountEquals(1)
+        compose.onNodeWithText("세션 맨 아래").performScrollTo()
+        compose.onNodeWithText("운동 취소").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(1, cancelRequests); status.value = "completed" }
         compose.onNodeWithText("운동 취소").assertDoesNotExist()
     }

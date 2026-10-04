@@ -11,6 +11,5 @@ internal interface CardioScreenActions {
     fun resume()
     fun editAverageHeartRate()
     fun finish()
-    fun cancel()
     fun loadRoute(recordId: String)
 }
