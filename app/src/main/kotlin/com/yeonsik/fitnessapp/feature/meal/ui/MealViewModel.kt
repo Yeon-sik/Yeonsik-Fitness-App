@@ -11,6 +11,9 @@ import org.json.JSONObject
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
+import com.yeonsik.fitnessapp.integration.nutrition.DiningProposalApi
+import com.yeonsik.fitnessapp.integration.nutrition.DiningProposal
+import com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts
 import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.api.NutritionAnalysisApi
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionAnalysisReport
@@ -90,11 +93,17 @@ data class NutritionPublicationUiState(
     val loading: Boolean = false,
     val syncing: Boolean = false,
     val publishing: Boolean = false,
+    val proposing: Boolean = false,
+    val remoteAvailable: Boolean = false,
+    val proposals: List<DiningProposal> = emptyList(),
+    val privateFoodIds: Set<String> = emptySet(),
     val error: String? = null,
     val notice: String? = null
 ) {
     val selectedFood: NutritionFood?
         get() = menus.firstOrNull { it.id == selectedFoodId }
+    val allowsExistingMenuPublication: Boolean
+        get() = selectedFoodId != null && proposals.none { it.nutritionFoodId == selectedFoodId }
 }
 
 /** Owns meal editor/search state; Compose only renders state and emits actions. */
@@ -104,7 +113,8 @@ class MealViewModel @JvmOverloads constructor(
     private val nutritionCatalog: NutritionCatalogRepositoryApi,
     private val nutritionIntegration: NutritionIntegrationService,
     private val nutritionAnalysisApi: NutritionAnalysisApi? = null,
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor(),
+    private val diningProposals: DiningProposalApi? = null
 ) : ViewModel() {
     private val mutableState = MutableLiveData<MealUiState>(MealUiState.Idle)
     val uiState: LiveData<MealUiState> = mutableState
@@ -399,12 +409,20 @@ class MealViewModel @JvmOverloads constructor(
             try {
                 val menus = nutritionCatalog.savedDiningOutMenus()
                     .filter { it.isDiningOutMenu() }
+                val proposals = menus.mapNotNull { it.ownerId }.distinct()
+                    .flatMap { diningProposals?.list(it).orEmpty() }
+                val privateIds = menus.filter { it.ownerId != null
+                    && nutritionCatalog.isPrivateDiningOutMenu(it.id, it.ownerId) }
+                    .map { it.id }.toSet()
                 if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
                     mutableNutritionPublicationState.postValue(
                         nutritionPublicationReady().copy(
                             ownerId = requestedOwner,
                             open = true,
                             menus = menus,
+                            proposals = proposals,
+                            privateFoodIds = privateIds,
+                            remoteAvailable = menus.any { it.ownerId != null && diningProposals?.available(it.ownerId) == true },
                             selectedFoodId = current.selectedFoodId
                                 ?.takeIf { id -> menus.any { it.id == id } },
                             loading = false,
@@ -451,13 +469,81 @@ class MealViewModel @JvmOverloads constructor(
             ?: sourceValue(source, "restaurant_name")
         val query = restaurantName.ifBlank { food.name }
         updatePriceTraceQuery(query)
-        searchPriceTraceRestaurants()
+        if (state.remoteAvailable) searchPriceTraceRestaurants()
+    }
+
+    fun proposeDiningMerchant(facts: DiningMerchantFacts) = runProposalAction { api, owner, food ->
+        api.submitMerchant(owner, food, facts)
+    }
+
+    fun proposeDiningMenu(locationId: String?, merchantCandidateId: String?, menuName: String) {
+        val detail = priceTraceReady().detail
+        if (merchantCandidateId == null && (detail == null
+                || detail.locations.none { it.restaurantLocationId == locationId })) {
+            mutableNutritionPublicationState.value = nutritionPublicationReady().copy(error = "PT 지점을 다시 선택하세요.")
+            return
+        }
+        runProposalAction { api, owner, food ->
+            api.submitMenu(owner, food, if (merchantCandidateId == null) detail!!.restaurantId else null,
+                if (merchantCandidateId == null) locationId else null, merchantCandidateId, menuName)
+        }
+    }
+
+    fun refreshDiningProposals() = runProposalAction { api, owner, _ -> api.refresh(owner) }
+
+    fun publishApprovedDiningProposal() = runProposalAction(publish = true) { api, owner, food ->
+        val identity = api.approvedIdentity(owner, food)
+        nutritionIntegration.publishDiningOutForExistingMenu(food, identity)
+        api.list(owner)
+    }
+
+    /** Only explicit proposal/publication actions reach remote integration; ordinary save never calls this. */
+    private fun runProposalAction(publish: Boolean = false,
+        operation: (DiningProposalApi, String, String) -> List<DiningProposal>) {
+        val state = nutritionPublicationReady()
+        val api = diningProposals
+        val food = state.selectedFood ?: return
+        if (!state.open || state.loading || state.syncing || state.publishing || state.proposing) return
+        val nutritionOwner = food.ownerId
+        if (api == null || nutritionOwner.isNullOrBlank() || !api.available(nutritionOwner)) {
+            mutableNutritionPublicationState.value = state.copy(error = "Nutrition·PT 계정 연결이 필요합니다. 식사와 운동은 기기에 저장할 수 있습니다.")
+            return
+        }
+        val requestedOwner = ownerId
+        val request = ++nutritionPublicationRequestVersion
+        mutableNutritionPublicationState.value = state.copy(proposing = !publish, publishing = publish,
+            error = null, notice = null)
+        executor.execute {
+            try {
+                val proposals = operation(api, nutritionOwner, food.id)
+                val menus = nutritionCatalog.savedDiningOutMenus().filter { it.isDiningOutMenu() }
+                val privateIds = menus.filter { it.ownerId != null
+                    && nutritionCatalog.isPrivateDiningOutMenu(it.id, it.ownerId) }
+                    .map { it.id }.toSet()
+                if (request == nutritionPublicationRequestVersion && requestedOwner == ownerId) {
+                    mutableNutritionPublicationState.postValue(nutritionPublicationReady().copy(
+                        proposals = proposals, menus = menus, privateFoodIds = privateIds,
+                        proposing = false, publishing = false,
+                        notice = if (publish) "공개 연결 완료 · PT 공개 조회에서 영양 행을 확인했습니다."
+                            else "제안 상태를 저장했습니다. 승인 후에도 공개 연결은 직접 선택해야 합니다."))
+                }
+            } catch (error: Exception) {
+                // A timed-out submission still has a durable idempotency reservation. Show it
+                // immediately so an uncertain request cannot look like an unsubmitted menu.
+                val proposals = runCatching { api.list(nutritionOwner) }.getOrDefault(state.proposals)
+                if (request == nutritionPublicationRequestVersion && requestedOwner == ownerId) {
+                    mutableNutritionPublicationState.postValue(nutritionPublicationReady().copy(
+                        proposals = proposals, proposing = false, publishing = false,
+                        error = error.message ?: "PT 제안을 처리하지 못했습니다."))
+                }
+            }
+        }
     }
 
     /** Runs the existing Nutrition catalog sync, then refreshes the owner-scoped menu list. */
     fun syncNutritionPublicationCatalog() {
         val state = nutritionPublicationReady()
-        if (!state.open || state.syncing || state.publishing) return
+        if (!state.open || state.syncing || state.publishing || state.proposing) return
         val request = ++nutritionPublicationRequestVersion
         val requestedOwner = ownerId
         mutableNutritionPublicationState.value = state.copy(
@@ -470,11 +556,17 @@ class MealViewModel @JvmOverloads constructor(
                 val result = nutritionIntegration.syncCurrentCatalog()
                 val menus = nutritionCatalog.savedDiningOutMenus()
                     .filter { it.isDiningOutMenu() }
+                val proposals = menus.mapNotNull { it.ownerId }.distinct().flatMap { diningProposals?.list(it).orEmpty() }
+                val privateIds = menus.filter { it.ownerId != null && nutritionCatalog.isPrivateDiningOutMenu(it.id, it.ownerId) }
+                    .map { it.id }.toSet()
                 if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
                     mutableNutritionPublicationState.postValue(
                         nutritionPublicationReady().copy(
                             ownerId = requestedOwner,
                             menus = menus,
+                            proposals = proposals,
+                            privateFoodIds = privateIds,
+                            remoteAvailable = menus.any { it.ownerId != null && diningProposals?.available(it.ownerId) == true },
                             selectedFoodId = state.selectedFoodId
                                 ?.takeIf { id -> menus.any { it.id == id } },
                             syncing = false,
@@ -504,7 +596,13 @@ class MealViewModel @JvmOverloads constructor(
     ) {
         val state = nutritionPublicationReady()
         val food = state.selectedFood
-        if (!state.open || food == null || state.publishing || state.syncing) return
+        if (!state.open || food == null || state.publishing || state.syncing || state.proposing) return
+        if (!state.allowsExistingMenuPublication) {
+            mutableNutritionPublicationState.value = state.copy(
+                error = "등록 제안은 승인 후 ‘PT에 공개 연결’ 버튼에서 공개하세요. 검토 중이거나 거절된 제안은 공개할 수 없습니다."
+            )
+            return
+        }
         val detail = priceTraceReady().detail
         if (detail == null) {
             mutableNutritionPublicationState.value = state.copy(
@@ -552,17 +650,27 @@ class MealViewModel @JvmOverloads constructor(
         )
         executor.execute {
             try {
+                // Check the durable state again: the displayed list can predate a timeout or
+                // an account change. Every tracked proposal must use its approved identity.
+                val proposals = food.ownerId?.let { diningProposals?.list(it) }.orEmpty()
+                check(proposals.none { it.nutritionFoodId == food.id }) {
+                    "등록 제안은 승인 후 ‘PT에 공개 연결’ 버튼에서 공개하세요."
+                }
                 val result = nutritionIntegration.publishDiningOutForExistingMenu(food.id, identity)
                 if (!result.state.isPublic || result.state.catalogProductId != catalogProductId) {
                     throw IllegalStateException("선택한 PT 메뉴의 공개 영양정보를 확인하지 못했습니다.")
                 }
                 val menus = nutritionCatalog.savedDiningOutMenus()
                     .filter { it.isDiningOutMenu() }
+                val privateIds = menus.filter { it.ownerId != null
+                    && nutritionCatalog.isPrivateDiningOutMenu(it.id, it.ownerId) }
+                    .map { it.id }.toSet()
                 if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
                     mutableNutritionPublicationState.postValue(
                         nutritionPublicationReady().copy(
                             ownerId = requestedOwner,
                             menus = menus,
+                            privateFoodIds = privateIds,
                             selectedFoodId = food.id,
                             publishing = false,
                             notice = "공개 완료 · ${menu.menuName} · PT 공개 조회에서 이 영양 행의 연결을 확인했습니다.",

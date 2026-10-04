@@ -127,6 +127,11 @@ public final class NutritionCatalogRepository implements
     }
 
     @Override
+    public boolean isPrivateDiningOutMenu(String foodId, String ownerId) {
+        return nutritionDao.privateDiningOutMenuCount(foodId, ownerId) == 1;
+    }
+
+    @Override
     public void reconcileVerifiedFoodCatalog() {
         if (applicationContext == null) {
             throw new IllegalStateException("Nutrition catalog context is required for seed.");

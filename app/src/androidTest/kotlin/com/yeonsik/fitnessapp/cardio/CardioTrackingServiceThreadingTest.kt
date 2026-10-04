@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicReference
 /**
  * Opt-in emulator regression for the real foreground service with Room's main-thread guard enabled.
  * Build the app and instrumentation with FITNESS_SURFACE=test-friends, then opt in with
- * -e cardioServiceThreadingQa true. Fine/coarse location permission must already be granted
+ * -e cardioServiceThreadingQa true. Fine/coarse location and notification permissions must be granted
  * on the emulator. No account preference is written and no
  * persistent database is opened: the provider is temporarily pointed at an in-memory fixture.
  */
@@ -87,6 +87,12 @@ class CardioTrackingServiceThreadingTest {
                 PackageManager.PERMISSION_GRANTED &&
                 context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
                 PackageManager.PERMISSION_GRANTED
+        )
+        assumeTrue(
+            "Grant notification permission on Android 13+ before checking foreground notifications.",
+            Build.VERSION.SDK_INT < 33 ||
+                context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) ==
+                    PackageManager.PERMISSION_GRANTED
         )
 
         // The test-friends surface has no managed rebind. Read the service's same effective owner.

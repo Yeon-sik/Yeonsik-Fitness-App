@@ -228,6 +228,11 @@ public final class FitnessRoomHandoffMigrationTest {
                     null
             );
             createVersionEightFixture(legacy);
+            String originalWeight;
+            try (Cursor cursor = legacy.rawQuery("SELECT weight_kg FROM workout_sets WHERE id = 'set-1'", null)) {
+                assertTrue(cursor.moveToFirst());
+                originalWeight = cursor.getString(0);
+            }
             legacy.execSQL("INSERT INTO meal_records (id, user_id, date, menu, calories, protein_grams, " +
                     "carbs_grams, fat_grams, created_at, is_backfilled, updated_at, device_id, source_app, " +
                     "scope, metadata) VALUES ('meal-v8', 'local-user', '2026-08-08', 'legacy meal', 550, 30, " +
@@ -248,7 +253,7 @@ public final class FitnessRoomHandoffMigrationTest {
             SupportSQLiteDatabase database = room.getOpenHelper().getWritableDatabase();
 
             assertEquals(FitnessDatabaseContract.ROOM_VERSION, database.getVersion());
-            assertEquals("80.0", scalar(database,
+            assertEquals(originalWeight, scalar(database,
                     "SELECT weight_kg FROM workout_sets WHERE id = 'set-1'"));
             assertNull(nullableScalar(database,
                     "SELECT input_load_value FROM workout_sets WHERE id = 'set-1'"));

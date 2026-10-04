@@ -12,7 +12,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
 import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.FitnessDatabaseConnection;
-import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabaseProvider;
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
 import com.yeonsik.fitnessapp.data.DiningOutConsumption;
@@ -46,7 +45,6 @@ public final class MealRecordRepositoryTest {
     @Test
     public void foodMealWritesAnOwnerScopedImmutableSnapshot() {
         IsolatedDatabaseContext context = isolatedContext();
-        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
         FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = catalog(room, context, OWNER);
@@ -61,9 +59,9 @@ public final class MealRecordRepositoryTest {
                     null,
                     "v1"
             );
-            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromLegacy(helper);
+            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromRoom(room);
             MealRecordRepository repository = new MealRecordRepository(
-                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER
+                    room, catalog, OWNER
             );
 
             String recordId = repository.saveFoodMeal(
@@ -96,7 +94,6 @@ public final class MealRecordRepositoryTest {
             }
         } finally {
             room.close();
-            helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
     }
@@ -104,7 +101,6 @@ public final class MealRecordRepositoryTest {
     @Test
     public void staleAccountScopeCannotWriteAfterAccountSwitch() {
         IsolatedDatabaseContext context = isolatedContext();
-        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
         FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = catalog(room, context, OWNER);
@@ -120,14 +116,13 @@ public final class MealRecordRepositoryTest {
                     "v1"
             );
             MealRecordRepository repository = new MealRecordRepository(
-                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER);
+                    room, catalog, OWNER);
             repository.setUserId("meal-owner-b");
 
             assertThrows(IllegalStateException.class, () -> repository.saveFoodMeal(
                     new AccountScope(OWNER), LocalDate.now().toString(), "18:00", food.id, 1d));
         } finally {
             room.close();
-            helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
     }
@@ -135,7 +130,6 @@ public final class MealRecordRepositoryTest {
     @Test
     public void complexDiningOutMealCopiesMenusComponentsServingAndConsumptionSnapshot() {
         IsolatedDatabaseContext context = isolatedContext();
-        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
         FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = catalog(room, context, OWNER);
@@ -170,7 +164,7 @@ public final class MealRecordRepositoryTest {
                     ))
             );
             MealRecordRepository repository = new MealRecordRepository(
-                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER
+                    room, catalog, OWNER
             );
             String recordId = repository.saveComplexDiningOutMeal(
                     new AccountScope(OWNER),
@@ -185,7 +179,7 @@ public final class MealRecordRepositoryTest {
                     DiningOutConsumption.manual(2, 0.5d)
             );
 
-            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromLegacy(helper);
+            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromRoom(room);
             try (Cursor record = database.rawQuery(
                     "SELECT composition_template_id, composition_template_revision, "
                             + "fulfillment_mode, metadata FROM meal_records WHERE id = ?",
@@ -236,7 +230,7 @@ public final class MealRecordRepositoryTest {
                     new Object[]{menu.id}
             );
             com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead reloaded =
-                    new MealReadRepository(FitnessRoomDatabaseProvider.get(context))
+                    new MealReadRepository(room)
                             .mealSnapshot(new AccountScope(OWNER), recordId);
             assertNotNull(reloaded);
             assertEquals("세트 메뉴", reloaded.getItems().get(0).getFoodName());
@@ -253,7 +247,6 @@ public final class MealRecordRepositoryTest {
             }
         } finally {
             room.close();
-            helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
     }
@@ -261,7 +254,6 @@ public final class MealRecordRepositoryTest {
     @Test
     public void historicalMealCanBeRetimedAndDeletedWithoutChangingAnotherDate() {
         IsolatedDatabaseContext context = isolatedContext();
-        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
         FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
         try {
             NutritionCatalogRepository catalog = catalog(room, context, OWNER);
@@ -277,9 +269,9 @@ public final class MealRecordRepositoryTest {
                     "v1"
             );
             MealRecordRepository repository = new MealRecordRepository(
-                    FitnessRoomDatabaseProvider.get(context), catalog, OWNER);
+                    room, catalog, OWNER);
             MealReadRepository readRepository = new MealReadRepository(
-                    FitnessRoomDatabaseProvider.get(context));
+                    room);
             AccountScope scope = new AccountScope(OWNER);
             String today = LocalDate.now().toString();
             String yesterday = LocalDate.now().minusDays(1).toString();
@@ -301,7 +293,7 @@ public final class MealRecordRepositoryTest {
             assertEquals(0, readRepository.mealCount(scope, yesterday));
             assertEquals(1, readRepository.mealCount(scope, today));
 
-            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromLegacy(helper);
+            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromRoom(room);
             try (Cursor record = database.rawQuery(
                     "SELECT deleted_at FROM meal_records WHERE id = ?",
                     new String[]{yesterdayId}
@@ -319,7 +311,6 @@ public final class MealRecordRepositoryTest {
             assertNotNull(todayId);
         } finally {
             room.close();
-            helper.close();
             context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
     }

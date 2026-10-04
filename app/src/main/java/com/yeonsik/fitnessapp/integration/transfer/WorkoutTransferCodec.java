@@ -219,19 +219,34 @@ public final class WorkoutTransferCodec {
         String inputLoadUnit = version >= V2
                 ? optionalString(object, "inputLoadUnit")
                 : null;
+        Double weightKg = optionalDouble(object, "weightKg");
+        Double assistedWeightKg = optionalDouble(object, "assistedWeightKg");
+        Double addedWeightKg = optionalDouble(object, "addedWeightKg");
+        String loadState = optionalString(object, "loadState");
+        // Normalize only inbound legacy absence. Keep conflicting canonical loads visible
+        // to validate(), whose invariant remains unchanged for every load state.
+        if (LoadState.BODYWEIGHT == LoadState.fromId(loadState)
+                && assistedWeightKg == null && addedWeightKg == null) {
+            if (weightKg != null && weightKg == 0d) weightKg = null;
+            if (inputLoadUnit != null && MassUnit.parse(inputLoadUnit) != null
+                    && (inputLoadValue == null || inputLoadValue == 0d)) {
+                inputLoadValue = null;
+                inputLoadUnit = null;
+            }
+        }
         return new SetData(
                 optionalString(object, "sourceSetId"),
                 requiredInt(object, "setIndex", "index"),
                 optionalInteger(object, "targetReps"),
                 optionalInteger(object, "reps", "actualReps"),
-                optionalDouble(object, "weightKg"),
+                weightKg,
                 optionalDouble(object, "volumeKg"),
                 optionalInteger(object, "durationSeconds"),
                 optionalDouble(object, "distanceMeters"),
                 optionalInteger(object, "restSeconds"),
-                optionalDouble(object, "assistedWeightKg"),
-                optionalDouble(object, "addedWeightKg"),
-                optionalString(object, "loadState"),
+                assistedWeightKg,
+                addedWeightKg,
+                loadState,
                 optionalBoolean(object, false, "completed", "isCompleted"),
                 optionalInteger(object, "rpe"),
                 optionalInteger(object, "rir"),

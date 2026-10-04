@@ -34,6 +34,7 @@ object FitnessRoomMigrations {
             }
             add(V50_TO_V51)
             add(V51_TO_V52)
+            add(V52_TO_V53)
         }.toTypedArray()
     }
 
@@ -80,6 +81,23 @@ object FitnessRoomMigrations {
         override fun migrate(db: SupportSQLiteDatabase) {
             db.execSQL("ALTER TABLE cardio_sessions ADD COLUMN environment TEXT NOT NULL DEFAULT 'outdoor'")
             db.execSQL("ALTER TABLE cardio_sessions ADD COLUMN manual_distance_meters REAL")
+        }
+    }
+
+    /** Proposal IDs never replace verified menu IDs or alter any existing food/meal row. */
+    val V52_TO_V53: Migration = object : Migration(52, 53) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Historical SQLite migrations already created this index. Declare/preserve it in
+            // Room too; fresh v51/v52 installations need it added before v53 validation.
+            db.execSQL("CREATE INDEX IF NOT EXISTS meal_records_dining_out_identity_idx " +
+                "ON meal_records(user_id, restaurant_id, restaurant_location_id, restaurant_menu_id)")
+            db.execSQL("CREATE TABLE IF NOT EXISTS dining_identity_proposals (" +
+                "owner_id TEXT NOT NULL, nutrition_food_id TEXT NOT NULL, kind TEXT NOT NULL, " +
+                "remote_scope TEXT NOT NULL, idempotency_key TEXT NOT NULL, request_json TEXT NOT NULL, " +
+                "candidate_id TEXT, status TEXT NOT NULL, restaurant_id TEXT, restaurant_location_id TEXT, " +
+                "restaurant_menu_id TEXT, catalog_product_id TEXT, review_note TEXT, " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, " +
+                "PRIMARY KEY(owner_id, nutrition_food_id, kind, remote_scope))")
         }
     }
 }

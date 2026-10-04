@@ -1865,6 +1865,12 @@ private fun AppDestination(
                 menuId,
                 catalogProductId
             )
+        override fun proposeDiningMerchant(facts: com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts) =
+            viewModels.getMeal().proposeDiningMerchant(facts)
+        override fun proposeDiningMenu(locationId: String?, merchantCandidateId: String?, menuName: String) =
+            viewModels.getMeal().proposeDiningMenu(locationId, merchantCandidateId, menuName)
+        override fun refreshDiningProposals() = viewModels.getMeal().refreshDiningProposals()
+        override fun publishApprovedDiningProposal() = viewModels.getMeal().publishApprovedDiningProposal()
         override fun applyPriceTraceSelection(
             restaurantId: String,
             restaurantName: String,
