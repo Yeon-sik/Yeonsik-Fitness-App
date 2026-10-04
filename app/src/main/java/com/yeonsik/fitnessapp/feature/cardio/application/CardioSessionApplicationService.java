@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.feature.cardio.application;
 
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioEnvironment;
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioRouteProjection;
 import com.yeonsik.fitness.shared.core.account.AccountScope;
 import com.yeonsik.fitnessapp.core.database.RoomTransactionRunner;
@@ -66,16 +67,32 @@ public final class CardioSessionApplicationService {
             CardioActivityType activityType,
             String date
     ) {
+        return start(scope, activityType, date, activityType.getDefaultEnvironment());
+    }
+
+    public CardioSessionSnapshot start(AccountScope scope, CardioActivityType activityType,
+                                      String date, CardioEnvironment environment) {
         requireScope(scope);
+        if (activityType == null || environment == null || !activityType.supportsEnvironment(environment)) {
+            throw new IllegalArgumentException("지원하는 운동 환경을 선택하세요.");
+        }
         final String[] recordId = new String[1];
         transactionRunner.run(() -> {
+            String existingId = workoutRepository.latestInProgressSession(scope);
+            if (existingId != null) {
+                if (!repository.isCardioSession(scope, existingId)) {
+                    throw new IllegalStateException("진행 중인 운동을 먼저 이어가세요.");
+                }
+                recordId[0] = existingId;
+                return;
+            }
             recordId[0] = workoutRepository.createCardioSession(
                     scope,
                     date,
                     activityType.id(),
-                    activityType.labelKo()
+                    activityType.sessionLabel(environment)
             );
-            if (!repository.startSession(scope, recordId[0], activityType)) {
+            if (!repository.startSession(scope, recordId[0], activityType, environment)) {
                 throw new IllegalStateException("GPS 유산소 세션을 시작하지 못했습니다.");
             }
         });
@@ -103,6 +120,25 @@ public final class CardioSessionApplicationService {
             return null;
         }
         completeCardio.execute(scope, snapshot, averageHeartRateBpm);
+        return repository.loadSession(scope, recordId);
+    }
+
+    public CardioSessionSnapshot finish(AccountScope scope, String recordId,
+                                        Integer averageHeartRateBpm, Double manualDistanceMeters) {
+        requireScope(scope);
+        transactionRunner.run(() -> {
+            CardioSessionSnapshot snapshot = repository.loadSession(scope, recordId);
+            if (snapshot == null) throw new IllegalStateException("유산소 기록을 찾지 못했습니다.");
+            if (CardioSessionSnapshot.STATUS_COMPLETED.equals(snapshot.getStatus())) return;
+            if (manualDistanceMeters != null && !snapshot.getCanInputManualDistance()) {
+                throw new IllegalArgumentException("이 운동에는 기구 거리를 입력할 수 없습니다.");
+            }
+            if (snapshot.getCanInputManualDistance()
+                    && !repository.updateManualDistance(scope, recordId, manualDistanceMeters)) {
+                throw new IllegalStateException("기구 거리를 저장하지 못했습니다.");
+            }
+            completeCardio.execute(scope, repository.loadSession(scope, recordId), averageHeartRateBpm);
+        });
         return repository.loadSession(scope, recordId);
     }
 

@@ -12,12 +12,16 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
 import com.yeonsik.fitnessapp.data.FitnessDatabaseHelper;
-import com.yeonsik.fitnessapp.data.FitnessDatabaseMigrationTest;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 import java.io.File;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -223,13 +227,7 @@ public final class FitnessRoomHandoffMigrationTest {
                     0,
                     null
             );
-            FitnessDatabaseMigrationTest.createVersionEightSchema(legacy);
-            legacy.execSQL("CREATE TABLE meal_records (" +
-                    "id TEXT PRIMARY KEY, user_id TEXT NOT NULL, date TEXT NOT NULL, menu TEXT NOT NULL, " +
-                    "calories INTEGER NOT NULL, protein_grams REAL NOT NULL, carbs_grams REAL, fat_grams REAL, " +
-                    "created_at TEXT NOT NULL, is_backfilled INTEGER NOT NULL, updated_at TEXT NOT NULL, " +
-                    "deleted_at TEXT, device_id TEXT NOT NULL, source_app TEXT NOT NULL, scope TEXT NOT NULL, " +
-                    "metadata TEXT NOT NULL)");
+            createVersionEightFixture(legacy);
             legacy.execSQL("INSERT INTO meal_records (id, user_id, date, menu, calories, protein_grams, " +
                     "carbs_grams, fat_grams, created_at, is_backfilled, updated_at, device_id, source_app, " +
                     "scope, metadata) VALUES ('meal-v8', 'local-user', '2026-08-08', 'legacy meal', 550, 30, " +
@@ -270,6 +268,24 @@ public final class FitnessRoomHandoffMigrationTest {
                 room.close();
             }
             context.deleteDatabase(FitnessDatabaseContract.NAME);
+        }
+    }
+
+    /** Uses the complete shipped v8 schema so Room validates a real historical database. */
+    private static void createVersionEightFixture(SQLiteDatabase database) {
+        StringBuilder sql = new StringBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                InstrumentationRegistry.getInstrumentation().getContext().getAssets()
+                        .open("database/fitness-v8.sql"), StandardCharsets.UTF_8))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                if (!line.trim().startsWith("--")) sql.append(line).append('\n');
+            }
+        } catch (IOException error) {
+            throw new AssertionError("Cannot read the shipped v8 schema fixture", error);
+        }
+        for (String statement : sql.toString().split(";")) {
+            if (!statement.trim().isEmpty()) database.execSQL(statement);
         }
     }
 

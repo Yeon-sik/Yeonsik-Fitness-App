@@ -2,15 +2,40 @@ package com.yeonsik.fitness.shared.feature.cardio.model
 
 import kotlin.jvm.JvmStatic
 
-/** Minimum cardio activity types that can be tracked by GPS. */
+/** Stable activity identities; recording behavior is driven by capabilities, not UI branches. */
 enum class CardioActivityType(
     val id: String,
     val labelKo: String,
-    val maxPlausibleSpeedMetersPerSecond: Double
+    val maxPlausibleSpeedMetersPerSecond: Double,
+    val supportsOutdoorGps: Boolean,
+    val supportsManualDistance: Boolean,
+    val description: String,
+    val searchAliases: List<String>
 ) {
-    WALKING("walking", "걷기", 5.0),
-    RUNNING("running", "달리기", 12.0),
-    CYCLING("cycling", "자전거", 35.0);
+    WALKING("walking", "걷기", 5.0, true, true,
+        "편안한 속도로 걷는 운동입니다.", listOf("walk", "워킹", "러닝머신", "트레드밀")),
+    RUNNING("running", "달리기", 12.0, true, true,
+        "달리며 시간과 이동 거리를 기록하는 운동입니다.", listOf("run", "러닝", "런닝", "조깅", "러닝머신", "트레드밀")),
+    CYCLING("cycling", "자전거", 35.0, true, true,
+        "자전거 또는 실내 사이클로 하는 운동입니다.", listOf("cycle", "사이클", "싸이클", "스피닝")),
+    STAIR_STEPPER("stair_stepper", "스텝밀", 0.0, false, false,
+        "계단을 오르는 기구로 하는 운동입니다.", listOf("계단", "천국의 계단", "스텝퍼", "stepper")),
+    ROWING("rowing", "로잉머신", 0.0, false, true,
+        "노를 젓는 동작으로 하는 실내 기구 운동입니다.", listOf("로잉", "rowing", "조정")),
+    ELLIPTICAL("elliptical", "일립티컬", 0.0, false, true,
+        "페달과 손잡이를 함께 움직이는 실내 기구 운동입니다.", listOf("엘립티컬", "elliptical", "크로스트레이너"));
+
+    val defaultEnvironment: CardioEnvironment
+        get() = if (supportsOutdoorGps) CardioEnvironment.OUTDOOR else CardioEnvironment.INDOOR
+
+    fun supportsEnvironment(environment: CardioEnvironment): Boolean =
+        environment == CardioEnvironment.INDOOR || supportsOutdoorGps
+
+    fun usesGps(environment: CardioEnvironment): Boolean =
+        supportsOutdoorGps && environment == CardioEnvironment.OUTDOOR
+
+    fun sessionLabel(environment: CardioEnvironment): String =
+        if (supportsOutdoorGps) "${environment.labelKo} $labelKo" else labelKo
 
     fun id(): String = id
 
@@ -25,6 +50,16 @@ enum class CardioActivityType(
             return entries.firstOrNull { it.id == normalized }
                 ?: throw IllegalArgumentException("지원하지 않는 유산소 유형입니다: $value")
         }
+    }
+}
+
+enum class CardioEnvironment(val id: String, val labelKo: String) {
+    INDOOR("indoor", "실내"), OUTDOOR("outdoor", "실외");
+
+    companion object {
+        @JvmStatic
+        fun fromId(value: String?): CardioEnvironment = entries.firstOrNull { it.id == value }
+            ?: throw IllegalArgumentException("운동 환경을 선택하세요.")
     }
 }
 

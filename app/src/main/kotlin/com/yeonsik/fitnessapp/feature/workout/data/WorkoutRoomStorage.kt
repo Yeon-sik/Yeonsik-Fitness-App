@@ -264,7 +264,7 @@ class WorkoutRoomStorage(
         activityId: String,
         activityLabel: String,
         durationSeconds: Int,
-        distanceMeters: Double,
+        distanceMeters: Double?,
         averageHeartRateBpm: Int?
     ): Boolean {
         require(averageHeartRateBpm == null || averageHeartRateBpm > 0) {
@@ -1258,7 +1258,7 @@ class WorkoutRoomStorage(
         activityId: String,
         endedAt: String,
         durationSeconds: Int,
-        distanceMeters: Double,
+        distanceMeters: Double?,
         averageHeartRateBpm: Int?,
         existing: String = "{}"
     ): String = try {
@@ -1268,11 +1268,11 @@ class WorkoutRoomStorage(
             put("ended_at", endedAt)
             put("duration_seconds", durationSeconds)
             put("active_duration_seconds", durationSeconds)
-            put("distance_meters", distanceMeters)
+            put("distance_meters", distanceMeters ?: JSONObject.NULL)
             put("average_heart_rate", averageHeartRateBpm ?: JSONObject.NULL)
             put(
                 "average_pace_seconds_per_km",
-                if (distanceMeters <= 0) JSONObject.NULL
+                if (distanceMeters == null || distanceMeters <= 0) JSONObject.NULL
                 else kotlin.math.round(durationSeconds / (distanceMeters / 1000.0)).toLong()
             )
             put("contract_version", FitnessRecordContract.VERSION)

@@ -1,6 +1,6 @@
 package com.yeonsik.fitness.shared.feature.cardio.model
 
-data class CardioSessionSnapshot(
+data class CardioSessionSnapshot @JvmOverloads constructor(
     val recordId: String,
     val activityId: String,
     val activityLabel: String,
@@ -11,8 +11,17 @@ data class CardioSessionSnapshot(
     val distanceMeters: Double,
     val acceptedPointCount: Int,
     val gpsStatus: String,
-    val averageHeartRateBpm: Double?
+    val averageHeartRateBpm: Double?,
+    val environment: CardioEnvironment = CardioEnvironment.OUTDOOR,
+    val manualDistanceMeters: Double? = null
 ) {
+    val activityType: CardioActivityType get() = CardioActivityType.fromId(activityId)
+    val usesGps: Boolean get() = activityType.usesGps(environment)
+    val canInputManualDistance: Boolean
+        get() = !usesGps && activityType.supportsManualDistance
+    val recordedDistanceMeters: Double?
+        get() = if (usesGps) distanceMeters else manualDistanceMeters
+
     fun elapsedSeconds(nowEpochMillis: Long): Int {
         val activeMillis = activeDurationMillis + if (status == STATUS_TRACKING
             && lastResumedAtEpochMillis != null) {

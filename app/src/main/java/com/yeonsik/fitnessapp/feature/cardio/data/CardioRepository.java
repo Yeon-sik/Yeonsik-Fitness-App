@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.feature.cardio.data;
 
 import com.yeonsik.fitnessapp.config.SupabaseConfig;
+import com.yeonsik.fitness.shared.feature.cardio.model.CardioEnvironment;
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioDistanceFilter;
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioLocationSample;
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioRouteProjection;
@@ -15,6 +16,8 @@ import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 /**
  * GPS 유산소의 실행 상태와 원시 좌표를 로컬 Room 데이터베이스에 저장한다.
@@ -31,6 +34,7 @@ public final class CardioRepository implements CardioRepositoryApi {
     public static final String GPS_PERMISSION_MISSING = "permission_missing";
     public static final String GPS_UNAVAILABLE = "unavailable";
     public static final String GPS_STOPPED = "stopped";
+    public static final String GPS_NOT_USED = "not_used";
 
     private final CardioRoomDao cardioDao;
     private final RoomTransactionRunner transactionRunner;
@@ -81,8 +85,16 @@ public final class CardioRepository implements CardioRepositoryApi {
             String recordId,
             CardioActivityType activityType
     ) {
+        if (activityType == null) return false;
+        return startSession(scope, recordId, activityType, activityType.getDefaultEnvironment());
+    }
+
+    @Override
+    public boolean startSession(AccountScope scope, String recordId, CardioActivityType activityType,
+                                CardioEnvironment environment) {
         requireScope(scope);
-        if (recordId == null || recordId.trim().isEmpty() || activityType == null) {
+        if (recordId == null || recordId.trim().isEmpty() || activityType == null
+                || environment == null || !activityType.supportsEnvironment(environment)) {
             return false;
         }
         SessionSnapshot existing = session(recordId);
@@ -93,11 +105,16 @@ public final class CardioRepository implements CardioRepositoryApi {
         if (active != null && !recordId.equals(active.recordId)) {
             return false;
         }
-        startSessionInTransaction(recordId, activityType);
+        startSessionInTransaction(recordId, activityType, environment);
         return true;
     }
 
     private void startSessionInTransaction(String recordId, CardioActivityType activityType) {
+        startSessionInTransaction(recordId, activityType, activityType.getDefaultEnvironment());
+    }
+
+    private void startSessionInTransaction(String recordId, CardioActivityType activityType,
+                                           CardioEnvironment environment) {
         long now = System.currentTimeMillis();
         cardioDao.insertSession(new CardioSessionsRoomEntity(
                 recordId,
@@ -113,8 +130,10 @@ public final class CardioRepository implements CardioRepositoryApi {
                 null,
                 null,
                 null,
-                GPS_SEARCHING,
-                now
+                activityType.usesGps(environment) ? GPS_SEARCHING : GPS_NOT_USED,
+                now,
+                environment.getId(),
+                null
         ));
     }
 
@@ -153,7 +172,9 @@ public final class CardioRepository implements CardioRepositoryApi {
                 row.getDistanceMeters(),
                 safeInt(row.getAcceptedPointCount()),
                 row.getGpsStatus(),
-                row.getAverageHeartRate()
+                row.getAverageHeartRate(),
+                CardioEnvironment.fromId(row.getEnvironment()),
+                row.getManualDistanceMeters()
         );
     }
 
@@ -167,7 +188,7 @@ public final class CardioRepository implements CardioRepositoryApi {
         return new CardioSessionSnapshot(
                 snapshot.recordId,
                 snapshot.activityType.id(),
-                snapshot.activityType.labelKo(),
+                snapshot.activityType.sessionLabel(snapshot.environment),
                 snapshot.status,
                 snapshot.startedAtEpochMillis,
                 snapshot.lastResumedAtEpochMillis,
@@ -175,8 +196,31 @@ public final class CardioRepository implements CardioRepositoryApi {
                 snapshot.distanceMeters,
                 snapshot.acceptedPointCount,
                 snapshot.gpsStatus,
-                snapshot.averageHeartRateBpm
+                snapshot.averageHeartRateBpm,
+                snapshot.environment,
+                snapshot.manualDistanceMeters
         );
+    }
+
+    @Override
+    public Map<String, Long> lastStartedAtByActivity(AccountScope scope) {
+        requireScope(scope);
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (CardioRoomDao.ActivityUseRow row : cardioDao.lastStartedAtByActivity(scope.getOwnerId())) {
+            result.put(row.getActivityType(), row.getLastStartedAt());
+        }
+        return result;
+    }
+
+    @Override
+    public boolean updateManualDistance(AccountScope scope, String recordId, Double distanceMeters) {
+        requireScope(scope);
+        SessionSnapshot snapshot = session(recordId);
+        if (snapshot == null || snapshot.usesGps() || !snapshot.activityType.getSupportsManualDistance()) return false;
+        if (distanceMeters != null && (!Double.isFinite(distanceMeters) || distanceMeters <= 0)) {
+            throw new IllegalArgumentException("거리는 0보다 큰 값으로 입력하세요.");
+        }
+        return cardioDao.updateManualDistance(recordId, scope.getOwnerId(), distanceMeters, System.currentTimeMillis()) == 1;
     }
 
     /**
@@ -259,7 +303,9 @@ public final class CardioRepository implements CardioRepositoryApi {
             CardioLocationSample candidate
     ) {
         CardioRoomDao.SessionRow state = cardioDao.session(recordId, userId());
-        if (state == null || !STATUS_TRACKING.equals(state.getStatus())) {
+        if (state == null || !STATUS_TRACKING.equals(state.getStatus())
+                || !CardioActivityType.fromId(state.getActivityType()).usesGps(
+                    CardioEnvironment.fromId(state.getEnvironment()))) {
             return CardioDistanceFilter.Result.rejected(CardioDistanceFilter.Reason.INVALID);
         }
 
@@ -446,6 +492,10 @@ public final class CardioRepository implements CardioRepositoryApi {
         public final int acceptedPointCount;
         public final String gpsStatus;
         public final Double averageHeartRateBpm;
+        public final CardioEnvironment environment;
+        public final Double manualDistanceMeters;
+
+        public boolean usesGps() { return activityType.usesGps(environment); }
 
         SessionSnapshot(
                 String recordId,
@@ -457,7 +507,9 @@ public final class CardioRepository implements CardioRepositoryApi {
                 double distanceMeters,
                 int acceptedPointCount,
                 String gpsStatus,
-                Double averageHeartRateBpm
+                Double averageHeartRateBpm,
+                CardioEnvironment environment,
+                Double manualDistanceMeters
         ) {
             this.recordId = recordId;
             this.activityType = activityType;
@@ -469,6 +521,8 @@ public final class CardioRepository implements CardioRepositoryApi {
             this.acceptedPointCount = acceptedPointCount;
             this.gpsStatus = gpsStatus;
             this.averageHeartRateBpm = averageHeartRateBpm;
+            this.environment = environment;
+            this.manualDistanceMeters = manualDistanceMeters;
         }
 
         public long elapsedDurationMillis(long nowEpochMillis) {

@@ -1189,7 +1189,7 @@ interface WorkoutRoomDao {
             "WHERE id=:setId AND user_id=:userId AND deleted_at IS NULL"
     )
     fun updateCardioSet(
-        setId: String, userId: String, durationSeconds: Int, distanceMeters: Double, updatedAt: String
+        setId: String, userId: String, durationSeconds: Int, distanceMeters: Double?, updatedAt: String
     ): Int
 
     @Query(
@@ -1346,7 +1346,9 @@ interface CardioRoomDao {
         @ColumnInfo(name = "last_location_time_ms") val lastLocationTimeMs: Long?,
         @ColumnInfo(name = "last_accuracy_meters") val lastAccuracyMeters: Double?,
         @ColumnInfo(name = "gps_status") val gpsStatus: String,
-        @ColumnInfo(name = "average_heart_rate") val averageHeartRate: Double?
+        @ColumnInfo(name = "average_heart_rate") val averageHeartRate: Double?,
+        val environment: String,
+        @ColumnInfo(name = "manual_distance_meters") val manualDistanceMeters: Double?
     )
 
     data class RoutePointRow(
@@ -1371,12 +1373,28 @@ interface CardioRoomDao {
             "cs.last_latitude AS last_latitude, cs.last_longitude AS last_longitude, " +
             "cs.last_location_time_ms AS last_location_time_ms, " +
             "cs.last_accuracy_meters AS last_accuracy_meters, cs.gps_status AS gps_status, " +
-            "wr.average_heart_rate AS average_heart_rate " +
+            "wr.average_heart_rate AS average_heart_rate, cs.environment AS environment, " +
+            "cs.manual_distance_meters AS manual_distance_meters " +
             "FROM cardio_sessions cs LEFT JOIN workout_records wr " +
             "ON wr.id=cs.record_id AND wr.user_id=cs.user_id " +
             "WHERE cs.record_id=:recordId AND cs.user_id=:userId LIMIT 1"
     )
     fun session(recordId: String, userId: String): SessionRow?
+
+    data class ActivityUseRow(val activityType: String, val lastStartedAt: Long)
+
+    @Query(
+        "SELECT cs.activity_type AS activityType, MAX(cs.started_at_epoch_ms) AS lastStartedAt " +
+            "FROM cardio_sessions cs JOIN workout_records wr ON wr.id=cs.record_id AND wr.user_id=cs.user_id " +
+            "WHERE cs.user_id=:userId AND wr.deleted_at IS NULL GROUP BY cs.activity_type"
+    )
+    fun lastStartedAtByActivity(userId: String): List<ActivityUseRow>
+
+    @Query(
+        "UPDATE cardio_sessions SET manual_distance_meters=:distanceMeters, updated_at_epoch_ms=:updatedAt " +
+            "WHERE record_id=:recordId AND user_id=:userId AND environment='indoor'"
+    )
+    fun updateManualDistance(recordId: String, userId: String, distanceMeters: Double?, updatedAt: Long): Int
 
     @Query("SELECT 1 FROM cardio_sessions WHERE record_id=:recordId AND user_id=:userId LIMIT 1")
     fun ownsSession(recordId: String, userId: String): Int?
@@ -1423,7 +1441,7 @@ interface CardioRoomDao {
     @Query(
         "UPDATE cardio_sessions SET status='tracking', last_resumed_at_epoch_ms=:lastResumedAtEpochMs, " +
             "last_latitude=NULL, last_longitude=NULL, last_location_time_ms=NULL, " +
-            "last_accuracy_meters=NULL, gps_status='searching', updated_at_epoch_ms=:updatedAtEpochMs " +
+            "last_accuracy_meters=NULL, gps_status=CASE WHEN environment='outdoor' THEN 'searching' ELSE 'not_used' END, updated_at_epoch_ms=:updatedAtEpochMs " +
             "WHERE record_id=:recordId AND user_id=:userId AND status='paused'"
     )
     fun resume(recordId: String, userId: String, lastResumedAtEpochMs: Long, updatedAtEpochMs: Long): Int
