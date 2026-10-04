@@ -1,6 +1,6 @@
 package com.yeonsik.fitness.shared.feature.cardio.model
 
-data class CardioSessionSnapshot @JvmOverloads constructor(
+data class CardioSessionSnapshot constructor(
     val recordId: String,
     val activityId: String,
     val activityLabel: String,
