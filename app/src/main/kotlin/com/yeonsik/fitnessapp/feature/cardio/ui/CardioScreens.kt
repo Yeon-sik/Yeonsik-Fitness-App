@@ -31,7 +31,6 @@ internal fun CardioSessionScreen(
             actions.refresh()
         }
     }
-    AppHeader(ready?.session?.activityLabel ?: "유산소 진행", back = actions::back)
     if (ready == null || ready.ownerId != ownerId) {
         Text("운동 기록을 불러오는 중입니다.")
         return
@@ -63,11 +62,6 @@ internal fun CardioSessionScreen(
             Text("평균 심박수")
         }
         FitnessButton(onClick = actions::finish, Modifier.fillMaxWidth()) { Text("완료") }
-        FitnessOutlinedButton(
-            onClick = actions::cancel,
-            modifier = Modifier.fillMaxWidth(),
-            destructive = true
-        ) { Text("취소") }
     }
 }
 
