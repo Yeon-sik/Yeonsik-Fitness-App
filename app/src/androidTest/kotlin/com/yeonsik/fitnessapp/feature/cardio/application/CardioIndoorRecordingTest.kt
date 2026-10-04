@@ -90,6 +90,17 @@ class CardioIndoorRecordingTest {
         assertTrue(service.load(scope, session.recordId)!!.distanceMeters > 0)
         assertFalse(cardio.updateManualDistance(scope, session.recordId, 500.0))
         assertEquals(2, cardio.routeProjection(scope, session.recordId).rawPointCount)
+        assertTrue(service.pause(scope, session.recordId))
+        assertFalse(cardio.acceptLocation(session.recordId,
+            sample(session.startedAtEpochMillis + 21000L, 37.0004)).accepted)
+        assertTrue(service.resume(scope, session.recordId))
+        val measured = service.load(scope, session.recordId)!!.distanceMeters
+        val completed = service.finish(scope, session.recordId, null, null)!!
+        assertEquals(measured, completed.recordedDistanceMeters!!, 0.0)
+        val record = room.workoutRoomDao().visibleRecord(session.recordId, scope.ownerId)!!
+        assertEquals(measured, JSONObject(record.metadata).getDouble("distance_meters"), 0.0)
+        val exercise = room.workoutRoomDao().visibleExercises(session.recordId, scope.ownerId).single()
+        assertEquals(measured, room.workoutRoomDao().visibleSets(exercise.id, scope.ownerId).single().distanceMeters!!, 0.0)
     }
 
     @Test fun recentUseIsAccountScopedAndExcludesDeletedWorkouts() {
