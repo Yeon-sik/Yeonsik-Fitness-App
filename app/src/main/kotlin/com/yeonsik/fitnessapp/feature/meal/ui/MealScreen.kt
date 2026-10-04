@@ -78,6 +78,10 @@ interface MealScreenActions {
     fun selectNutritionPublicationMenu(foodId: String)
     fun syncNutritionPublicationCatalog()
     fun publishNutritionMenu(locationId: String, menuId: String, catalogProductId: String)
+    fun proposeDiningMerchant(facts: com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts) {}
+    fun proposeDiningMenu(locationId: String?, merchantCandidateId: String?, menuName: String) {}
+    fun refreshDiningProposals() {}
+    fun publishApprovedDiningProposal() {}
     fun applyPriceTraceSelection(
         restaurantId: String,
         restaurantName: String,
@@ -568,7 +572,7 @@ private fun NutritionPublicationDialog(
     var pendingTarget by remember { mutableStateOf<Triple<String, String, String>?>(null) }
     val priceTrace = priceTraceState as? PriceTraceUiState.Ready
     val selectedNutritionFood = state.selectedFood
-    val busy = state.loading || state.syncing || state.publishing
+    val busy = state.loading || state.syncing || state.publishing || state.proposing
     val visibleMenus = state.menus.filter { food ->
         val query = menuQuery.trim()
         query.isEmpty() || food.displayName().contains(query, ignoreCase = true)
@@ -587,6 +591,7 @@ private fun NutritionPublicationDialog(
             ) {
                 Text("Nutrition에 저장된 외식 영양정보를 기존 PriceTrace 식당·지점·메뉴에 연결합니다.")
                 Text("영양 값은 외식 메뉴 추정값입니다. 공개 전에 선택한 메뉴와 지점을 확인하세요.")
+                if (!state.remoteAvailable) Text("Nutrition·PT 계정 연결이 없어 등록 제안과 공개 연결을 사용할 수 없습니다. 식사·운동 기록은 기기에 저장됩니다.")
 
                 when {
                     state.loading -> Text("Nutrition 외식 메뉴를 불러오는 중입니다.")
@@ -635,7 +640,7 @@ private fun NutritionPublicationDialog(
                             AppButton(
                                 onClick = actions::searchPriceTraceRestaurants,
                                 modifier = Modifier.fillMaxWidth(),
-                                enabled = !busy && !priceTrace?.query.isNullOrBlank()
+                                enabled = !busy && state.remoteAvailable && !priceTrace?.query.isNullOrBlank()
                             ) { Text("PriceTrace 식당 다시 검색") }
                             if (priceTrace?.loading == true) Text("PriceTrace 식당·메뉴를 불러오는 중입니다.")
                             priceTrace?.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -662,13 +667,14 @@ private fun NutritionPublicationDialog(
                                                 )
                                             },
                                             modifier = Modifier.fillMaxWidth(),
-                                            enabled = !busy
+                                            enabled = !busy && state.remoteAvailable && state.allowsExistingMenuPublication
                                         ) {
                                             Text("${detail.restaurantName} · ${location.branchName.ifBlank { "본점" }} · ${menu.menuName}")
                                         }
                                     }
                                 }
                             }
+                            DiningProposalControls(state, priceTrace, actions, busy)
                         }
                     }
                 }
@@ -718,4 +724,109 @@ private fun NutritionPublicationDialog(
             }
         )
     }
+}
+
+private data class DiningProposalTarget(val merchant: Boolean,
+    val locationId: String? = null, val merchantCandidateId: String? = null)
+
+@Composable
+private fun DiningProposalControls(state: NutritionPublicationUiState, priceTrace: PriceTraceUiState.Ready?,
+    actions: MealScreenActions, busy: Boolean) {
+    val food = state.selectedFood ?: return
+    val proposals = state.proposals.filter { it.nutritionFoodId == food.id }
+    val privateMenu = food.id in state.privateFoodIds
+    val enabled = state.remoteAvailable && !busy && privateMenu
+    var target by remember(food.id) { mutableStateOf<DiningProposalTarget?>(null) }
+    var publishConfirmation by remember(food.id) { mutableStateOf(false) }
+    val merchant = proposals.lastOrNull { it.kind == "merchant" }
+    val menu = proposals.lastOrNull { it.kind == "menu" }
+
+    Text("등록 제안과 공개", fontWeight = FontWeight.Bold)
+    Text("현재 PriceTrace에 이 가게 또는 메뉴가 없습니다. 등록을 제안할 수 있습니다. 관리자 승인 전까지 영양정보는 비공개로 유지됩니다.",
+        style = MaterialTheme.typography.bodySmall)
+    if (merchant == null && menu == null) {
+        AppOutlinedButton(onClick = { target = DiningProposalTarget(merchant = true) }, enabled = enabled,
+            modifier = Modifier.fillMaxWidth()) { Text("가게 등록 제안") }
+    }
+    if (menu == null) {
+        priceTrace?.detail?.locations?.forEach { location ->
+            AppOutlinedButton(onClick = { target = DiningProposalTarget(false, location.restaurantLocationId) },
+                enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                Text("${location.branchName.ifBlank { "본점" }} · 메뉴 등록 제안")
+            }
+        }
+    }
+    proposals.forEach { proposal ->
+        Text((if (proposal.kind == "merchant") "가게" else "메뉴") + " · " + when (proposal.status) {
+            "pending" -> "관리자 검토 중 · 영양정보 비공개"
+            "rejected" -> "등록 제안 거절 · 영양정보 비공개"
+            "accepted" -> "승인됨 · 공개는 직접 선택해야 합니다"
+            else -> "전송 확인 필요 · 새로고침으로 재시도"
+        })
+        proposal.reviewNote?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    }
+    if (merchant?.status == "accepted" && merchant.restaurantId != null && menu == null) {
+        AppButton(onClick = { target = DiningProposalTarget(false, merchantCandidateId = merchant.candidateId) },
+            enabled = enabled, modifier = Modifier.fillMaxWidth()) { Text("가게 승인됨 · 메뉴 등록 제안") }
+    }
+    if (menu?.canPublish == true && privateMenu) {
+        AppButton(onClick = { publishConfirmation = true }, enabled = enabled,
+            modifier = Modifier.fillMaxWidth()) { Text("승인됨 · PT에 공개 연결") }
+    }
+    if (proposals.isNotEmpty()) {
+        AppOutlinedButton(onClick = actions::refreshDiningProposals,
+            enabled = state.remoteAvailable && !busy, modifier = Modifier.fillMaxWidth()) { Text("제안 상태 새로고침") }
+    }
+    target?.let { selected ->
+        DiningProposalConfirmation(food, selected, priceTrace?.detail?.restaurantName.orEmpty(),
+            busy, onDismiss = { target = null }, onSubmit = { facts, menuName ->
+                if (selected.merchant) actions.proposeDiningMerchant(facts)
+                else actions.proposeDiningMenu(selected.locationId, selected.merchantCandidateId, menuName)
+                target = null
+            })
+    }
+    if (publishConfirmation) {
+        AlertDialog(onDismissRequest = { if (!busy) publishConfirmation = false },
+            title = { Text("승인된 메뉴에 공개 연결") },
+            text = { Text("${food.displayName()}의 추정 영양정보를 승인된 PT 메뉴에 공개합니다. 식사 기록은 공개되지 않습니다.") },
+            confirmButton = { TextButton(enabled = enabled, onClick = {
+                actions.publishApprovedDiningProposal(); publishConfirmation = false
+            }) { Text("공개 연결") } },
+            dismissButton = { TextButton(enabled = !busy, onClick = { publishConfirmation = false }) { Text("취소") } })
+    }
+}
+
+@Composable
+private fun DiningProposalConfirmation(food: NutritionFood, target: DiningProposalTarget,
+    restaurantName: String, busy: Boolean, onDismiss: () -> Unit,
+    onSubmit: (com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts, String) -> Unit) {
+    var name by remember { mutableStateOf(food.brand.orEmpty()) }
+    var branch by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var businessNumber by remember { mutableStateOf("") }
+    var menuName by remember { mutableStateOf(food.name) }
+    AlertDialog(onDismissRequest = { if (!busy) onDismiss() },
+        title = { Text(if (target.merchant) "가게 등록 제안" else "메뉴 등록 제안") },
+        text = {
+            Column(Modifier.heightIn(max = 450.dp).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                Text("직접 확인한 정보만 입력하세요. 모르는 항목은 비워두세요. 제안에는 영양 값과 식사 기록을 보내지 않습니다.")
+                if (target.merchant) {
+                    AppTextField(value = name, onValueChange = { name = it }, label = { Text("가게명 · 필수") })
+                    AppTextField(value = branch, onValueChange = { branch = it }, label = { Text("지점명 · 선택") })
+                    AppTextField(value = address, onValueChange = { address = it }, label = { Text("주소 · 선택") })
+                    AppTextField(value = phone, onValueChange = { phone = it }, label = { Text("전화번호 · 선택") })
+                    AppTextField(value = businessNumber, onValueChange = { businessNumber = it }, label = { Text("사업자등록번호 · 선택") })
+                } else {
+                    if (restaurantName.isNotBlank() && target.merchantCandidateId == null) Text(restaurantName)
+                    AppTextField(value = menuName, onValueChange = { menuName = it }, label = { Text("메뉴명 · 필수") })
+                }
+                Text("확인한 정보를 PT에 제안합니다. 관리자 승인 후에도 공개 연결은 직접 선택해야 합니다.")
+            }
+        },
+        confirmButton = { TextButton(enabled = !busy && (if (target.merchant) name.isNotBlank() else menuName.isNotBlank()),
+            onClick = { onSubmit(com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts(
+                name, branch, address, phone, businessNumber), menuName) }) { Text("확인한 정보로 PT에 등록 제안") } },
+        dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("취소") } })
 }
