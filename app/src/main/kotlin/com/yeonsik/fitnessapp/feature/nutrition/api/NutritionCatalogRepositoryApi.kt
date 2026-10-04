@@ -10,6 +10,8 @@ import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRecipeComponent
 interface NutritionCatalogRepositoryApi {
     fun searchFoods(query: String): List<NutritionFood>
     fun findFoodById(foodId: String): NutritionFood?
+    /** Explicit owner/visibility check for remote proposals; unknown implementations fail closed. */
+    fun isPrivateDiningOutMenu(foodId: String, ownerId: String): Boolean = false
 
     /** Searches reusable packaged products without exposing storage rows to Meal UI. */
     fun searchPackagedFoods(query: String, limit: Int): List<NutritionFood> = emptyList()

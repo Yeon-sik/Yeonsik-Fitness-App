@@ -103,7 +103,7 @@ data class SyncStateRoomEntity(
     @ColumnInfo(name = "updated_at") val updatedAt: String
 )
 
-@Entity(tableName = "meal_records", indices = [Index(name = "meal_records_user_scope_date_idx", value = ["user_id", "scope", "date"]), Index(name = "meal_records_user_kind_date_idx", value = ["user_id", "meal_kind", "date"]), Index(name = "meal_records_user_sync_push_idx", value = ["user_id", "updated_at", "id"])])
+@Entity(tableName = "meal_records", indices = [Index(name = "meal_records_user_scope_date_idx", value = ["user_id", "scope", "date"]), Index(name = "meal_records_user_kind_date_idx", value = ["user_id", "meal_kind", "date"]), Index(name = "meal_records_user_sync_push_idx", value = ["user_id", "updated_at", "id"]), Index(name = "meal_records_dining_out_identity_idx", value = ["user_id", "restaurant_id", "restaurant_location_id", "restaurant_menu_id"])])
 data class MealRecordsRoomEntity(
     @PrimaryKey val id: String,
     @ColumnInfo(name = "user_id") val userId: String,
