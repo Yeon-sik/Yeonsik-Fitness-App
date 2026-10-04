@@ -1,11 +1,6 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
@@ -13,11 +8,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -27,6 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionEntryFrame
 import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionFormSection
+import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionChoiceList
 
 @Composable
 internal fun NutritionPublicationDialog(
@@ -135,7 +129,7 @@ internal fun NutritionPublicationDialog(
                     TextButton(onClick = { menuQuery = "" }, enabled = !state.busy) { Text("검색어 지우기") }
                 }
                 visibleMenus.isNotEmpty() -> {
-                    PublicationChoiceList(
+                    NutritionChoiceList(
                         items = visibleMenus, itemKey = { it.id }, selectedKey = food?.id,
                         onSelect = { actions.selectNutritionPublicationMenu(it.id) }, enabled = !state.busy,
                         modifier = Modifier.fillMaxWidth().heightIn(max = 288.dp).testTag("saved-dining-menus")
@@ -200,7 +194,7 @@ internal fun NutritionPublicationDialog(
                             style = MaterialTheme.typography.bodyMedium)
                 }
                 if (!prices?.restaurants.isNullOrEmpty()) {
-                    PublicationChoiceList(
+                    NutritionChoiceList(
                         items = prices.restaurants, itemKey = { it.restaurantId }, selectedKey = prices.selectedRestaurantId,
                         onSelect = { focus.clearFocus(); actions.loadPriceTraceRestaurant(it.restaurantId) }, enabled = enabled,
                         modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp).testTag("publication-restaurants")
@@ -230,7 +224,7 @@ internal fun NutritionPublicationDialog(
                                 }
                             }
                             Text("메뉴 ${restaurant.menus.size}개", style = MaterialTheme.typography.labelLarge)
-                            PublicationChoiceList(
+                            NutritionChoiceList(
                                 items = restaurant.menus, itemKey = { it.restaurantMenuId + ":" + it.catalogProductId },
                                 selectedKey = menu?.let { it.restaurantMenuId + ":" + it.catalogProductId },
                                 onSelect = { menuId = it.restaurantMenuId; productId = it.catalogProductId }, enabled = enabled,
@@ -276,38 +270,6 @@ internal fun NutritionPublicationDialog(
             },
             dismissButton = { TextButton(onClick = { confirmation = false }) { Text("취소") } }
         )
-    }
-}
-
-/** Finite height is supplied by the caller so this list can live inside the form scroll. */
-@Composable
-private fun <T> PublicationChoiceList(
-    items: List<T>,
-    itemKey: (T) -> String,
-    selectedKey: String?,
-    onSelect: (T) -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    itemContent: @Composable ColumnScope.(T) -> Unit
-) {
-    val shape = MaterialTheme.shapes.medium
-    LazyColumn(modifier.clip(shape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, shape)) {
-        // An index suffix prevents malformed duplicate server IDs from crashing the form.
-        itemsIndexed(items, key = { index, item -> itemKey(item) + "#" + index }) { index, item ->
-            val selected = itemKey(item) == selectedKey
-            Row(
-                Modifier.fillMaxWidth()
-                    .background(if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface)
-                    .selectable(selected = selected, enabled = enabled, role = Role.RadioButton, onClick = { onSelect(item) })
-                    .heightIn(min = 64.dp).padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) { itemContent(item) }
-                Text(if (selected) "선택됨" else "선택", style = MaterialTheme.typography.labelMedium,
-                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            if (index < items.lastIndex) HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        }
     }
 }
 

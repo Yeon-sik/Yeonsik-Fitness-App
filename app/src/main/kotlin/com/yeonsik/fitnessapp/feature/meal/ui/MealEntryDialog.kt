@@ -7,6 +7,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
@@ -21,12 +25,13 @@ import java.util.Locale
 internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Ready, priceTraceState: PriceTraceUiState, mealLabel: String) {
     val totals = if (editor.diningOut) diningNutritionTotals(editor) else foodPortionTotals(editor.foodPortions)
     val inputEnabled = !editor.saving && !editor.draftLoading
+    val diningEditor = rememberDiningOutEditorState(editor, priceTraceState)
     NutritionEntryFrame(
         "$mealLabel 기록", actions::closeDraft, subtitle = editor.date, closeEnabled = !editor.saving,
         footer = {
             NutritionTotalPreview(totals, label = if (editor.diningOut) "${editor.diningPortion}인분 · 추정" else "식품 ${editor.foodPortions.size}개")
             editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-            AppButton(if (editor.diningOut) actions::saveDiningOut else actions::saveFood, Modifier.fillMaxWidth(),
+            AppButton(if (editor.diningOut) actions::saveDiningOut else actions::saveFood, Modifier.fillMaxWidth().testTag("meal-entry-save"),
                 enabled = inputEnabled && (editor.diningOut || editor.foodPortions.isNotEmpty())) {
                 Text(if (editor.saving) "저장 중…" else "$mealLabel 기록하기")
             }
@@ -40,8 +45,8 @@ internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Rea
             AppOutlinedButton(actions::chooseDiningOut, Modifier.weight(1f), enabled = inputEnabled, selected = editor.diningOut) { Text("외식") }
         }
         if (editor.draftLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        editor.notice?.let { Text(it, color = MaterialTheme.colorScheme.onPrimaryContainer) }
-        if (editor.diningOut) DiningOutEditor(actions, editor, priceTraceState) else FoodMealEditor(actions, editor)
+        editor.notice?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, color = MaterialTheme.colorScheme.onPrimaryContainer) }
+        if (editor.diningOut) DiningOutEditor(actions, editor, priceTraceState, diningEditor) else FoodMealEditor(actions, editor)
     }
 }
 

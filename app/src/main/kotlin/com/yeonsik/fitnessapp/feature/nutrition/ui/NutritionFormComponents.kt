@@ -1,7 +1,8 @@
 package com.yeonsik.fitnessapp.feature.nutrition.ui
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
@@ -10,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -93,8 +93,9 @@ internal fun FoodPortionList(
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        portions.forEach { portion ->
+    if (portions.isEmpty()) return
+    LazyColumn(modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(portions, key = { it.food.id }) { portion ->
             val food = portion.food
             val amount = portion.amount
             val step = food.basisAmount / 4.0
@@ -118,33 +119,6 @@ internal fun FoodPortionList(
                 }
                 TextButton(onClick = { onRemove(food.id) }, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp)
                     .semantics { contentDescription = "${food.displayName()} 구성에서 삭제" }) { Text("구성에서 삭제", color = MaterialTheme.colorScheme.error) }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun FoodSearchResults(
-    foods: List<NutritionFood>,
-    onAdd: (NutritionFood) -> Unit,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true
-) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        foods.take(30).forEach { food ->
-            AppCard(Modifier.fillMaxWidth().clickable(enabled = enabled, role = Role.Button,
-                onClickLabel = "${food.displayName()} 추가") { onAdd(food) }) {
-                Row(Modifier.padding(16.dp).heightIn(min = 48.dp), horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(if (food.isPackagedFood()) food.packagedProductLabel() else food.displayName(),
-                            style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
-                        Text(if (food.isPackagedFood()) food.packagedVariantLabel() else food.basisLabel(),
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(food.nutritionLabel(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    Text("추가", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurface)
-                }
             }
         }
     }

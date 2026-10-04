@@ -20,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
@@ -366,19 +367,14 @@ internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Read
     AppOutlinedButton(actions::openNutritionEditor, Modifier.fillMaxWidth(), enabled = !editor.saving && !editor.draftLoading) {
         Text("내 식단에서 불러오기 · 구성 관리")
     }
-    Text("한 끼 구성", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+    Text("한 끼 구성 · 식품 ${editor.foodPortions.size}개", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     if (editor.foodPortions.isEmpty() && !editor.draftLoading) {
         NutritionFormSection("식품을 추가하세요", Modifier.fillMaxWidth(), "함께 먹은 식품을 모아 한 끼로 기록합니다.") {}
     }
-    FoodPortionList(editor.foodPortions, actions::updateFoodQuantity, actions::removeFood, Modifier.fillMaxWidth(),
+    FoodPortionList(editor.foodPortions, actions::updateFoodQuantity, actions::removeFood, Modifier.fillMaxWidth().testTag("meal-food-portions"),
         enabled = !editor.saving && !editor.draftLoading)
     NutritionFormSection("식품 추가", Modifier.fillMaxWidth()) {
-        AppTextField(editor.query, actions::searchFood, Modifier.fillMaxWidth(), label = { Text("식품 이름 검색") }, enabled = !editor.saving)
-        FoodSearchResults(editor.searchResults, actions::selectFood, Modifier.fillMaxWidth(), enabled = !editor.saving && !editor.draftLoading)
-        if (editor.query.isNotBlank() && editor.searchResults.isEmpty() && !editor.draftLoading) {
-            Text("검색 결과가 없으면 내 식단 · 식품 관리에서 식품을 등록하세요.", style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
+        MealCatalogSearch(actions, editor, Modifier.fillMaxWidth())
     }
 }
 
@@ -387,13 +383,10 @@ internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Read
 internal fun DiningOutEditor(
     actions: MealScreenActions,
     editor: MealUiState.Ready,
-    priceTraceState: PriceTraceUiState
+    priceTraceState: PriceTraceUiState,
+    controls: DiningOutEditorState
 ) {
     val draft = editor.draft
-    var showPriceTrace by rememberSaveable { mutableStateOf(false) }
-    var editMenu by rememberSaveable(editor.selectedFood?.id) { mutableStateOf(editor.selectedFood == null) }
-    var editNutrition by rememberSaveable(editor.selectedFood?.id) { mutableStateOf(editor.selectedFood == null) }
-    var additional by rememberSaveable { mutableStateOf(false) }
     val selectedMenuRequester = remember { BringIntoViewRequester() }
     LaunchedEffect(editor.selectedFood?.id) {
         if (editor.selectedFood != null) selectedMenuRequester.bringIntoView()
@@ -402,14 +395,14 @@ internal fun DiningOutEditor(
         SavedDiningOutMenuPicker(actions, editor, selectedMenuRequester)
     }
     AppOutlinedButton(
-        onClick = { showPriceTrace = !showPriceTrace },
-        modifier = Modifier.fillMaxWidth()
-    ) { Text(if (showPriceTrace) "식당 검색 닫기" else "식당 · 메뉴 검색") }
-    if (showPriceTrace) {
-        PriceTraceDiningOutPicker(actions, editor, priceTraceState)
+        onClick = { controls.showPriceTrace = !controls.showPriceTrace },
+        modifier = Modifier.fillMaxWidth(), enabled = !editor.saving && !editor.draftLoading
+    ) { Text(if (controls.showPriceTrace) "식당 검색 닫기" else "식당 · 메뉴 검색") }
+    if (controls.showPriceTrace) {
+        PriceTraceDiningOutPicker(actions, editor, priceTraceState, controls)
     }
-    TextButton({ editMenu = !editMenu }, enabled = !editor.saving) { Text(if (editMenu) "메뉴 정보 접기" else "메뉴 정보 직접 수정") }
-    if (editMenu) {
+    TextButton({ controls.editMenu = !controls.editMenu }, enabled = !editor.saving) { Text(if (controls.editMenu) "메뉴 정보 접기" else "메뉴 정보 직접 수정") }
+    if (controls.editMenu) {
         NutritionFormSection("식당과 메뉴", Modifier.fillMaxWidth()) {
             AppTextField(draft.store, actions::updateStore, Modifier.fillMaxWidth(), { Text("상호명") }, enabled = !editor.saving)
             AppTextField(draft.branch, actions::updateBranch, Modifier.fillMaxWidth(), { Text("지점명 (선택)") }, enabled = !editor.saving)
@@ -427,8 +420,8 @@ internal fun DiningOutEditor(
             enabled = !editor.saving, showError = editor.diningPortion.isNotBlank(), positive = true)
     }
     NutritionFormSection("영양정보 · 1인분 기준", Modifier.fillMaxWidth(), "외식 · 추정 영양정보") {
-        TextButton({ editNutrition = !editNutrition }, enabled = !editor.saving) { Text(if (editNutrition) "영양정보 접기" else "영양정보 직접 수정") }
-        if (editNutrition || editor.error != null) {
+        TextButton({ controls.editNutrition = !controls.editNutrition }, enabled = !editor.saving) { Text(if (controls.editNutrition) "영양정보 접기" else "영양정보 직접 수정") }
+        if (controls.editNutrition || editor.error != null) {
             val values = mapOf(FoodEntryField.CALORIES to draft.calories, FoodEntryField.PROTEIN to draft.protein,
                 FoodEntryField.CARBS to draft.carbs, FoodEntryField.FAT to draft.fat, FoodEntryField.SODIUM to draft.sodium,
                 FoodEntryField.SUGARS to draft.sugars, FoodEntryField.SATURATED_FAT to draft.saturatedFat)
@@ -446,8 +439,8 @@ internal fun DiningOutEditor(
             }
             NutritionFieldGrid(listOf(FoodEntryField.CALORIES, FoodEntryField.PROTEIN, FoodEntryField.CARBS, FoodEntryField.FAT),
                 { values[it].orEmpty() }, change, enabled = !editor.saving, submitted = editor.error != null)
-            TextButton({ additional = !additional }, enabled = !editor.saving) { Text(if (additional) "추가 영양정보 접기" else "추가 영양정보 (선택)") }
-            if (additional) {
+            TextButton({ controls.additional = !controls.additional }, enabled = !editor.saving) { Text(if (controls.additional) "추가 영양정보 접기" else "추가 영양정보 (선택)") }
+            if (controls.additional) {
                 Text("모르는 값은 비워 두세요.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 NutritionFieldGrid(listOf(FoodEntryField.SODIUM, FoodEntryField.SUGARS, FoodEntryField.SATURATED_FAT),
                     { values[it].orEmpty() }, change, enabled = !editor.saving, required = false, submitted = editor.error != null)
@@ -466,66 +459,13 @@ private fun SavedDiningOutMenuPicker(
     editor: MealUiState.Ready,
     requester: BringIntoViewRequester
 ) {
-    AppTextField(
-        editor.query,
-        actions::searchFood,
-        Modifier.fillMaxWidth(),
-        label = { Text("저장된 외식 메뉴 검색") }, enabled = !editor.saving
-    )
-    FoodSearchResults(editor.searchResults, actions::useDiningOutFood, Modifier.fillMaxWidth(), enabled = !editor.saving)
+    MealCatalogSearch(actions, editor, Modifier.fillMaxWidth())
     editor.selectedFood?.let { food ->
         AppCard(Modifier.fillMaxWidth().bringIntoViewRequester(requester)) {
             Column(Modifier.padding(AppSpacing.card)) {
+                Text("불러온 메뉴", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(food.displayName(), fontWeight = FontWeight.Bold)
                 Text(food.extendedNutritionLabel())
-            }
-        }
-    }
-}
-
-@Composable
-private fun PriceTraceDiningOutPicker(
-    actions: MealScreenActions,
-    editor: MealUiState.Ready,
-    priceTraceState: PriceTraceUiState
-) {
-    val state = priceTraceState as? PriceTraceUiState.Ready
-    val query = state?.query ?: editor.priceTraceQuery
-
-    AppTextField(query, actions::updatePriceTraceQuery, Modifier.fillMaxWidth(), label = { Text("식당 이름 검색") }, enabled = !editor.saving)
-    AppButton(
-        onClick = actions::searchPriceTraceRestaurants,
-        enabled = query.isNotBlank(),
-        modifier = Modifier.fillMaxWidth()
-    ) { Text("검색") }
-    if (state?.loading == true) Text("식당 정보를 불러오는 중입니다.")
-    state?.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-    state?.restaurants.orEmpty().forEach { restaurant ->
-        AppOutlinedButton(
-            onClick = { actions.loadPriceTraceRestaurant(restaurant.restaurantId) },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text(restaurant.restaurantName) }
-    }
-    state?.detail?.let { restaurant ->
-        Text("${restaurant.restaurantName} 메뉴", fontWeight = FontWeight.Bold)
-        restaurant.menus.forEach { menu ->
-            restaurant.locations.forEach { location ->
-                AppOutlinedButton(
-                    onClick = {
-                        actions.applyPriceTraceSelection(
-                            restaurant.restaurantId,
-                            restaurant.restaurantName,
-                            location.restaurantLocationId,
-                            location.branchName,
-                            menu.restaurantMenuId,
-                            menu.menuName,
-                            menu.catalogProductId
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text("${restaurant.restaurantName} · ${location.branchName.ifBlank { "본점" }} · ${menu.menuName}")
-                }
             }
         }
     }

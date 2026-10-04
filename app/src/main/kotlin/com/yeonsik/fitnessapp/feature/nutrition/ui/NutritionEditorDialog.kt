@@ -81,7 +81,9 @@ private fun CompositionEditorContent(state: NutritionEditorState, actions: Nutri
     FoodPortionList(state.portions, actions::updateAmount, actions::removeFood, Modifier.fillMaxWidth(), enabled = !state.saving && !state.loading)
     NutritionFormSection("식품 추가", Modifier.fillMaxWidth()) {
         AppTextField(state.query, actions::search, Modifier.fillMaxWidth(), label = { Text("식품 이름 검색") }, enabled = !state.saving)
-        FoodSearchResults(state.results, actions::addFood, Modifier.fillMaxWidth(), enabled = !state.saving && !state.loading)
+        if (state.results.isNotEmpty()) Text("식품 ${state.results.size}개 · 목록 안에서 스크롤", style = MaterialTheme.typography.labelLarge)
+        FoodSearchResults(state.results, actions::addFood, Modifier.fillMaxWidth(), enabled = !state.saving && !state.loading,
+            includedFoodIds = state.portions.map { it.food.id }.toSet())
         if (state.portions.isEmpty() && state.results.isEmpty() && !state.loading) Text("함께 먹는 식품을 검색해 추가하세요.", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     NutritionFormSection("다시 찾기 쉽게", Modifier.fillMaxWidth()) {
