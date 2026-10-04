@@ -42,10 +42,17 @@ data class MealReadSummary(
 )
 
 data class MealNutritionReadSummary(
-    val proteinGrams: Double,
+    /** Known subtotal; null means no known protein value, never an observed zero. */
+    val proteinGrams: Double?,
     val recordedDays: Int,
     val mealCount: Int,
-    val estimatedMealCount: Int
+    val estimatedMealCount: Int,
+    val proteinKnownMealCount: Int = 0,
+    val proteinMissingMealCount: Int = 0,
+    val proteinEstimatedMealCount: Int = 0,
+    val proteinUnknownProvenanceMealCount: Int = 0,
+    /** Days whose recorded meals all have complete protein amounts. */
+    val proteinCompleteDays: Int = 0
 )
 
 /** Immutable read projection rebuilt only from Meal-owned intake snapshot rows. */

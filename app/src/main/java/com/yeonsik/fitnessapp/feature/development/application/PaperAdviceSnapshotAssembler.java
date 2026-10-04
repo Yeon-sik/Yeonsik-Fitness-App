@@ -74,8 +74,10 @@ public final class PaperAdviceSnapshotAssembler {
                 scope, decisionStart.toString(), safeDate.toString()
         );
         Double proteinGPerKg = null;
-        if (nutrition.getRecordedDays() > 0 && bodyWeightKg != null && bodyWeightKg > 0) {
-            double loggedDayAverage = nutrition.getProteinGrams() / nutrition.getRecordedDays();
+        if (nutrition.getProteinGrams() != null && nutrition.getProteinMissingMealCount() == 0
+                && nutrition.getProteinUnknownProvenanceMealCount() == 0
+                && nutrition.getProteinCompleteDays() > 0 && bodyWeightKg != null && bodyWeightKg > 0) {
+            double loggedDayAverage = nutrition.getProteinGrams() / nutrition.getProteinCompleteDays();
             proteinGPerKg = loggedDayAverage / bodyWeightKg;
         }
         DevelopmentCheckInSummary checkIn = development.checkInSummary(
@@ -97,6 +99,7 @@ public final class PaperAdviceSnapshotAssembler {
                 .goal(normalizeGoal(goal))
                 .bodyWeightKg(bodyWeightKg)
                 .proteinGPerKg(proteinGPerKg)
+                .proteinEvidence(nutrition)
                 .proteinRecordedDays(nutrition.getRecordedDays())
                 .proteinWindowDays(DECISION_WINDOW_DAYS)
                 .mealCount(nutrition.getMealCount())
