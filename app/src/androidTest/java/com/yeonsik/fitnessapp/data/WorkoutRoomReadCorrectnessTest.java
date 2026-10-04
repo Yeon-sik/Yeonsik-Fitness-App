@@ -38,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /** Regression coverage for the production Room-backed workout read path. */
@@ -134,6 +135,49 @@ public final class WorkoutRoomReadCorrectnessTest {
             if (room != null) {
                 room.close();
             }
+            helper.close();
+            executor.shutdownNow();
+            executor.awaitTermination(5, TimeUnit.SECONDS);
+            context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void deletingAnInProgressWorkoutRemovesItsExercisesAndSetsWithinItsOwner() throws Exception {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessDatabaseHelper helper = new FitnessDatabaseHelper(context);
+        FitnessRoomDatabase room = null;
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            helper.getWritableDatabase();
+            room = FitnessRoomTestDatabase.open(context);
+            WorkoutRoomStorage storage = new WorkoutRoomStorage(
+                    room, context, new RoomTransactionRunner(room)
+            );
+            AccountScope owner = new AccountScope(OWNER_ID);
+            AccountScope otherOwner = new AccountScope(OTHER_OWNER_ID);
+            ExerciseFamilyIdentity identity = ExerciseFamilyCatalog.load(context)
+                    .identityForStorageExerciseId("chest_machine_pec_deck_fly");
+            Fixture draft = runDb(executor, () -> createWorkout(
+                    storage, owner, "2026-10-04", "cancel draft", identity,
+                    LoadState.EXTERNAL_LOAD, 50d, null, 8, false
+            ));
+            Fixture otherDraft = runDb(executor, () -> createWorkout(
+                    storage, otherOwner, "2026-10-04", "other owner's draft", identity,
+                    LoadState.EXTERNAL_LOAD, 30d, null, 10, false
+            ));
+            WorkoutRepositoryImplementation repository = new WorkoutRepositoryImplementation(room, context);
+            assertEquals("in_progress", runDb(executor,
+                    () -> repository.loadSession(owner, draft.recordId)).getStatus());
+            assertFalse(runDb(executor, () -> repository.deleteSession(otherOwner, draft.recordId)));
+            assertTrue(runDb(executor, () -> repository.deleteSession(owner, draft.recordId)));
+            assertNull(runDb(executor, () -> repository.loadSession(owner, draft.recordId)));
+            assertNull(runDb(executor, () -> repository.latestInProgressSession(owner)));
+            assertTrue(runDb(executor, () -> storage.exercises(owner, draft.recordId)).isEmpty());
+            assertTrue(runDb(executor, () -> storage.sets(owner, draft.exerciseId)).isEmpty());
+            assertNotNull(runDb(executor, () -> repository.loadSession(otherOwner, otherDraft.recordId)));
+        } finally {
+            if (room != null) room.close();
             helper.close();
             executor.shutdownNow();
             executor.awaitTermination(5, TimeUnit.SECONDS);

@@ -147,7 +147,9 @@ fun FitnessTrendState.label(): String = when (this) {
 
 data class FitnessTrendPoint(
     val label: String = "",
-    val value: Double?
+    val value: Double?,
+    /** Full date or other detail text; axis labels can remain compact. */
+    val detailLabel: String = label
 )
 
 data class FitnessTrendRange(
@@ -253,7 +255,7 @@ fun fitnessTrendAccessibilityDescription(
     FitnessTrendState.EMPTY -> "추세 데이터 없음"
     FitnessTrendState.INSUFFICIENT -> "추세 데이터 부족"
     FitnessTrendState.READY -> model.finitePoints.mapIndexed { index, point ->
-        val label = point.label.ifBlank { "포인트 ${index + 1}" }
+        val label = point.detailLabel.ifBlank { "포인트 ${index + 1}" }
         "$label ${formatFitnessTrendValue(point.value ?: Double.NaN, unit)}"
     }.joinToString(", ")
 }

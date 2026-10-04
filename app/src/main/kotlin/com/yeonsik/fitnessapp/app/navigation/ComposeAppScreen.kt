@@ -545,6 +545,12 @@ private fun AppRoot(
                 host.toast("운동을 완료했습니다.")
                 navigation.replace(FitnessScreen.WORKOUT_SUMMARY)
             }
+            WorkoutSessionTerminalOutcome.CANCELLED -> {
+                viewModels.getWorkoutSession().stopRestTimer()
+                event.recordId?.let { clearActiveWorkout(viewModels, it) }
+                host.toast(event.message ?: "운동을 취소했습니다.")
+                navigation.replace(FitnessScreen.STRENGTH)
+            }
             WorkoutSessionTerminalOutcome.DISCARDED_EMPTY -> {
                 event.recordId?.let { clearActiveWorkout(viewModels, it) }
                 host.toast(event.message ?: "수행한 세트가 없어 운동을 저장하지 않았습니다.")
@@ -2070,6 +2076,13 @@ private fun AppDestination(
                 { exerciseId ->
                     viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
                     navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+                },
+                onCancel = {
+                    viewModels.getWorkoutSession().activeRecordId()?.let { recordId ->
+                        viewModels.getWorkoutSession().openCancelConfirmation(
+                            AccountScope(ownerId), recordId
+                        )
+                    }
                 }
             )
             FitnessScreen.WORKOUT_EXERCISE_DETAIL -> WorkoutDetailScreen(
