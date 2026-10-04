@@ -14,6 +14,66 @@ import static org.junit.Assert.fail;
 
 public final class WorkoutTransferCodecTest {
     @Test
+    public void bodyweightLegacyAbsenceIsCanonicalizedOnlyDuringDecode() {
+        for (String fields : new String[]{
+                "\"weightKg\":0,\"inputLoadValue\":0,\"inputLoadUnit\":\"kg\"",
+                "\"inputLoadUnit\":\"kg\"",
+                "\"weightKg\":0,\"inputLoadValue\":0,\"inputLoadUnit\":\"lb\""}) {
+            WorkoutTransferCodec.Document document = WorkoutTransferCodec.decode(
+                    setJson("bodyweight", fields));
+            WorkoutTransferCodec.SetData set = document.sessions.get(0).exercises.get(0).sets.get(0);
+            assertNull(set.weightKg);
+            assertNull(set.inputLoadValue);
+            assertNull(set.inputLoadUnit);
+            WorkoutTransferCodec.validate(document);
+            assertEquals(WorkoutTransferCodec.encode(document), WorkoutTransferCodec.encode(
+                    WorkoutTransferCodec.decode(WorkoutTransferCodec.encode(document))));
+        }
+    }
+
+    @Test
+    public void bodyweightContradictionsAndOtherLoadStatesRemainStrict() {
+        for (String fields : new String[]{
+                "\"weightKg\":1", "\"inputLoadValue\":1,\"inputLoadUnit\":\"kg\"",
+                "\"weightKg\":0,\"addedWeightKg\":2",
+                "\"weightKg\":0,\"assistedWeightKg\":0",
+                "\"inputLoadValue\":0", "\"inputLoadUnit\":\"invalid\""}) {
+            expectIllegalArgument(() -> WorkoutTransferCodec.decode(setJson("bodyweight", fields)));
+        }
+        for (String state : new String[]{"external_load", "added_weight", "assisted", "invalid"}) {
+            expectIllegalArgument(() -> WorkoutTransferCodec.decode(setJson(state, "\"reps\":8")));
+        }
+        expectIllegalArgument(() -> WorkoutTransferCodec.decode(setJson("band", "\"weightKg\":0")));
+        expectIllegalArgument(() -> WorkoutTransferCodec.decode(
+                setJson("external_load", "\"weightKg\":3,\"addedWeightKg\":3")));
+    }
+
+    @Test
+    public void canonicalValidatorDoesNotNormalizeBodyweight() {
+        WorkoutTransferCodec.SetData set = new WorkoutTransferCodec.SetData(
+                1, null, 8, 0d, null, null, null, null, null, null,
+                "bodyweight", true, null, null, null, 0d, "kg");
+        WorkoutTransferCodec.Document document = new WorkoutTransferCodec.Document(
+                WorkoutTransferCodec.V2, "test.app", "2026-09-05T00:00:00Z",
+                java.util.Collections.singletonList(new WorkoutTransferCodec.Session(
+                        "fitness", "strict-bodyweight", "2026-09-05", "Strict", "strength",
+                        "가슴", null, null, null,
+                        java.util.Collections.singletonList(new WorkoutTransferCodec.Exercise(
+                                "push_up", null, null, "푸시업", 1, "weight_reps", "가슴", "맨몸",
+                                java.util.Collections.singletonList(set))))));
+        expectIllegalArgument(() -> WorkoutTransferCodec.validate(document));
+        expectIllegalArgument(() -> WorkoutTransferCodec.encode(document));
+    }
+
+    private static String setJson(String state, String fields) {
+        return "{\"format\":\"yeonsik.workout-transfer\",\"formatVersion\":2,"
+                + "\"sourceApp\":\"test.app\",\"sessions\":[{\"sourceApp\":\"fitness\","
+                + "\"sourceRecordId\":\"bodyweight\",\"date\":\"2026-09-05\",\"startedAt\":\"2026-09-05T00:00:00Z\",\"exercises\":[{"
+                + "\"exerciseId\":\"push_up\",\"orderIndex\":1,\"recordType\":\"weight_reps\","
+                + "\"sets\":[{\"setIndex\":1,\"loadState\":\"" + state + "\"," + fields + "}]}]}]}";
+    }
+
+    @Test
     public void v2RoundTripsMixedUnitsWithinOneExercise() {
         WorkoutTransferCodec.Document decoded = WorkoutTransferCodec.decode(mixedV2Json());
         WorkoutTransferCodec.SetData first = decoded.sessions.get(0).exercises.get(0).sets.get(0);
