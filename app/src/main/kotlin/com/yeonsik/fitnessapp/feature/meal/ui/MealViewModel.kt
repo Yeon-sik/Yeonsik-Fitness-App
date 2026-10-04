@@ -490,6 +490,13 @@ class MealViewModel @JvmOverloads constructor(
     }
 
     fun refreshDiningProposals() = runProposalAction { api, owner, _ -> api.refresh(owner) }
+    fun resubmitDiningMerchant(previousCandidateId: String, facts: DiningMerchantFacts, userVerified: Boolean) =
+        runProposalAction { api, owner, food -> api.resubmitMerchant(owner, food, previousCandidateId, facts, userVerified) }
+
+    fun resubmitDiningMenu(previousCandidateId: String, restaurantId: String?, locationId: String?,
+        merchantCandidateId: String?, menuName: String, userVerified: Boolean) = runProposalAction { api, owner, food ->
+        api.resubmitMenu(owner, food, previousCandidateId, restaurantId, locationId, merchantCandidateId, menuName, userVerified)
+    }
 
     fun publishApprovedDiningProposal() = runProposalAction(publish = true) { api, owner, food ->
         val identity = api.approvedIdentity(owner, food)

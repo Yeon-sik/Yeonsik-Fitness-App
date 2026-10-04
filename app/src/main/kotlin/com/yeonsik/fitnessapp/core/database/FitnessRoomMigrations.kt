@@ -35,6 +35,7 @@ object FitnessRoomMigrations {
             add(V50_TO_V51)
             add(V51_TO_V52)
             add(V52_TO_V53)
+            add(V53_TO_V54)
         }.toTypedArray()
     }
 
@@ -98,6 +99,21 @@ object FitnessRoomMigrations {
                 "restaurant_menu_id TEXT, catalog_product_id TEXT, review_note TEXT, " +
                 "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, " +
                 "PRIMARY KEY(owner_id, nutrition_food_id, kind, remote_scope))")
+        }
+    }
+    /** Preserve every v53 request as version 1, then allow append-only request history. */
+    val V53_TO_V54: Migration = object : Migration(53, 54) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE dining_identity_proposals_v54 (" +
+                "owner_id TEXT NOT NULL, nutrition_food_id TEXT NOT NULL, kind TEXT NOT NULL, " +
+                "remote_scope TEXT NOT NULL, idempotency_key TEXT NOT NULL, request_json TEXT NOT NULL, " +
+                "candidate_id TEXT, status TEXT NOT NULL, restaurant_id TEXT, restaurant_location_id TEXT, " +
+                "restaurant_menu_id TEXT, catalog_product_id TEXT, review_note TEXT, " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL, request_version INTEGER NOT NULL DEFAULT 1, " +
+                "PRIMARY KEY(owner_id, nutrition_food_id, kind, remote_scope, request_version))")
+            db.execSQL("INSERT INTO dining_identity_proposals_v54 SELECT *, 1 FROM dining_identity_proposals")
+            db.execSQL("DROP TABLE dining_identity_proposals")
+            db.execSQL("ALTER TABLE dining_identity_proposals_v54 RENAME TO dining_identity_proposals")
         }
     }
 }

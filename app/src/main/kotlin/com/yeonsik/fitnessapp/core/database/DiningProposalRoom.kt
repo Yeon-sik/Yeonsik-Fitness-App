@@ -10,7 +10,7 @@ import com.yeonsik.fitnessapp.integration.nutrition.DiningProposal
 import com.yeonsik.fitnessapp.integration.nutrition.DiningProposalStore
 
 @Entity(tableName = "dining_identity_proposals",
-    primaryKeys = ["owner_id", "nutrition_food_id", "kind", "remote_scope"])
+    primaryKeys = ["owner_id", "nutrition_food_id", "kind", "remote_scope", "request_version"])
 data class DiningProposalRoomEntity(
     @ColumnInfo(name = "owner_id") val ownerId: String,
     @ColumnInfo(name = "nutrition_food_id") val nutritionFoodId: String,
@@ -26,26 +26,31 @@ data class DiningProposalRoomEntity(
     @ColumnInfo(name = "catalog_product_id") val catalogProductId: String?,
     @ColumnInfo(name = "review_note") val reviewNote: String?,
     @ColumnInfo(name = "created_at") val createdAt: String,
-    @ColumnInfo(name = "updated_at") val updatedAt: String
+    @ColumnInfo(name = "updated_at") val updatedAt: String,
+    @ColumnInfo(name = "request_version", defaultValue = "1") val requestVersion: Int = 1
 ) {
     fun model() = DiningProposal(ownerId, nutritionFoodId, kind, remoteScope, idempotencyKey,
         requestJson, candidateId, status, restaurantId, restaurantLocationId, restaurantMenuId,
-        catalogProductId, reviewNote, createdAt, updatedAt)
+        catalogProductId, reviewNote, createdAt, updatedAt, requestVersion)
 }
 
 @Dao
 interface DiningProposalRoomDao {
-    @Query("SELECT * FROM dining_identity_proposals WHERE owner_id = :ownerId ORDER BY created_at")
+    @Query("SELECT * FROM dining_identity_proposals WHERE owner_id = :ownerId ORDER BY created_at, request_version")
     fun list(ownerId: String): List<DiningProposalRoomEntity>
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun save(proposal: DiningProposalRoomEntity)
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun reserve(proposal: DiningProposalRoomEntity)
 }
 
 class RoomDiningProposalStore(private val dao: DiningProposalRoomDao) : DiningProposalStore {
     override fun list(ownerId: String) = dao.list(ownerId).map { it.model() }
-    override fun save(proposal: DiningProposal) = with(proposal) {
-        dao.save(DiningProposalRoomEntity(ownerId, nutritionFoodId, kind, remoteScope,
+    override fun save(proposal: DiningProposal) = dao.save(entity(proposal))
+    override fun reserve(proposal: DiningProposal) = dao.reserve(entity(proposal))
+    private fun entity(proposal: DiningProposal) = with(proposal) {
+        DiningProposalRoomEntity(ownerId, nutritionFoodId, kind, remoteScope,
             idempotencyKey, requestJson, candidateId, status, restaurantId, restaurantLocationId,
-            restaurantMenuId, catalogProductId, reviewNote, createdAt, updatedAt))
+            restaurantMenuId, catalogProductId, reviewNote, createdAt, updatedAt, requestVersion)
     }
 }

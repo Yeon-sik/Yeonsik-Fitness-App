@@ -16,8 +16,10 @@ interface DiningProposalRemote {
 class DiningProposalClient : DiningProposalRemote {
     override fun submit(config: SupabaseConfig, kind: String, request: JSONObject): JSONObject =
         JSONObject(post(config, when (kind) {
-            "merchant" -> "submit_merchant_identity_candidate_v1"
-            "menu" -> "submit_restaurant_menu_candidate_v1"
+            "merchant" -> if (request.has("p_previous_candidate_id")) "resubmit_dining_merchant_candidate_v1"
+                else "submit_merchant_identity_candidate_v1"
+            "menu" -> if (request.has("p_previous_candidate_id")) "resubmit_restaurant_menu_candidate_v1"
+                else "submit_restaurant_menu_candidate_v1"
             else -> error("지원하지 않는 PT 제안 종류입니다.")
         }, request))
 
