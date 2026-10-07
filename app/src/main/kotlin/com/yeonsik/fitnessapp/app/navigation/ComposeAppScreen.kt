@@ -379,16 +379,17 @@ private fun AppRoot(
         }
     }
 
-    LaunchedEffect(workoutAction, workoutTerminalEvent, bodyEditorState, mealState) {
+    val mealRecordNotice = (mealState as? MealUiState.Ready)?.notice
+    LaunchedEffect(workoutAction, workoutTerminalEvent, bodyEditorState, mealRecordNotice) {
         val recordsChanged = workoutAction != null || workoutTerminalEvent != null ||
             bodyEditorState is BodyMetricsEditorUiState.Saved ||
             bodyEditorState is BodyMetricsEditorUiState.Deleted ||
-            (mealState as? MealUiState.Ready)?.notice != null
+            mealRecordNotice != null
         if (recordsChanged) {
             viewModels.getRecords().markStale()
             viewModels.getStatistics().markStale()
             viewModels.getDevelopment().markStale()
-            if ((mealState as? MealUiState.Ready)?.notice != null) {
+            if (mealRecordNotice != null) {
                 viewModels.getHome().markStale()
                 if (destinationScreen == FitnessScreen.HOME) {
                     viewModels.getHome().enterIfNeeded(AccountScope(ownerId), navigationState.today)
@@ -1835,6 +1836,10 @@ private fun AppDestination(
         override fun updateQuantity(value: String) = viewModels.getMeal().updateQuantity(value)
         override fun updateTime(value: String) = viewModels.getMeal().updateTime(value)
         override fun saveFood() = viewModels.getMeal().saveFood(AccountScope(ownerId)) { }
+        override fun openManualFood() = viewModels.getMeal().openManualFood()
+        override fun closeManualFood() = viewModels.getMeal().closeManualFood()
+        override fun updateManualFood(draft: ManualFoodDraft) = viewModels.getMeal().updateManualFood(draft)
+        override fun saveManualFood() = viewModels.getMeal().saveManualFood(AccountScope(ownerId))
         override fun updateStore(value: String) = viewModels.getMeal().updateStore(value)
         override fun updateBranch(value: String) = viewModels.getMeal().updateBranch(value)
         override fun updateMenu(value: String) = viewModels.getMeal().updateMenu(value)

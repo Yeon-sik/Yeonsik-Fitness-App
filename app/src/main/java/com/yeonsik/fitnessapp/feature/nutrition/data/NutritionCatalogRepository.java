@@ -127,6 +127,11 @@ public final class NutritionCatalogRepository implements
     }
 
     @Override
+    public String activeOwnerId() {
+        return userId;
+    }
+
+    @Override
     public boolean isPrivateDiningOutMenu(String foodId, String ownerId) {
         return nutritionDao.privateDiningOutMenuCount(foodId, ownerId) == 1;
     }
@@ -1032,6 +1037,57 @@ public final class NutritionCatalogRepository implements
                 .dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN)
                 .build();
 
+        String timestamp = now();
+        roomDatabase.runInTransaction(() -> {
+            nutritionDao.insertFood(foodEntity(food, timestamp));
+            replaceMicronutrientsRoom(food);
+        });
+        return food;
+    }
+
+    /** Meal's manual entry uses the existing nullable nutrient columns and private catalog. */
+    @Override
+    public NutritionFood saveManualFood(
+            com.yeonsik.fitness.shared.core.account.AccountScope scope,
+            String name,
+            String brand,
+            double basisAmount,
+            String basisUnit,
+            NutritionProfile profile
+    ) {
+        String owner = scope.getOwnerId();
+        if (!owner.equals(userId)) {
+            throw new IllegalStateException("식품 등록 계정이 변경되었습니다. 다시 입력하세요.");
+        }
+        String normalizedName = requireName(name);
+        String normalizedUnit = NutritionUnit.requireSupported(basisUnit);
+        if (!Double.isFinite(basisAmount) || basisAmount <= 0) {
+            throw new IllegalArgumentException("기준량을 0보다 크게 입력하세요.");
+        }
+        NutritionProfile safeProfile = profile == null ? NutritionProfile.empty() : profile;
+        for (String key : new String[]{NutritionProfile.CALORIES_KCAL, NutritionProfile.PROTEIN_GRAMS,
+                NutritionProfile.CARBS_GRAMS, NutritionProfile.FAT_GRAMS}) {
+            if (!safeProfile.isKnown(key)) {
+                throw new IllegalArgumentException(NutritionProfile.labelOf(key) + "을 입력하세요.");
+            }
+        }
+        for (Double value : safeProfile.asMap().values()) {
+            if (!Double.isFinite(value) || value < 0) {
+                throw new IllegalArgumentException("영양정보를 0 이상 숫자로 입력하세요.");
+            }
+        }
+        NutritionFood food = NutritionFood.builder()
+                .id(UUID.randomUUID().toString())
+                .ownerId(owner)
+                .name(normalizedName)
+                .brand(emptyToNull(brand))
+                .kind(NutritionFood.KIND_INGREDIENT)
+                .basis(basisAmount, normalizedUnit)
+                .profile(safeProfile)
+                .source("manual", null)
+                .dataVersion(safeProfile.hasAllRequired()
+                        ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN : NutritionFood.DATA_VERSION_MACROS_ONLY)
+                .build();
         String timestamp = now();
         roomDatabase.runInTransaction(() -> {
             nutritionDao.insertFood(foodEntity(food, timestamp));
