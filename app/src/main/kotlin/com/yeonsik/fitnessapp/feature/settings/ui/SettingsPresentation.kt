@@ -130,5 +130,8 @@ internal fun syncDetailForDisplay(state: SettingsUiState): String = when (state.
         .takeIf { it.startsWith("마지막 동기화") }
         ?: SettingsUiPolicy.safeSyncDetailForSurface(state.syncLabel)
     "configured", "login required", "local-only" -> state.syncDetail
+    "authentication failed" -> state.authenticationErrorDetail.ifBlank {
+        SettingsUiPolicy.safeSyncDetailForSurface(state.syncLabel)
+    }
     else -> SettingsUiPolicy.safeSyncDetailForSurface(state.syncLabel)
 }

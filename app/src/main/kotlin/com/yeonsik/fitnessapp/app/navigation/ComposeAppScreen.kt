@@ -88,6 +88,7 @@ import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
+import com.yeonsik.fitnessapp.config.LauncherIconController
 import com.yeonsik.fitnessapp.ui.AppUiActions
 import com.yeonsik.fitnessapp.feature.body.ui.*
 import com.yeonsik.fitnessapp.feature.cardio.ui.*
@@ -235,6 +236,10 @@ private fun AppRoot(
             androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
                 android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
                 android.content.res.Configuration.UI_MODE_NIGHT_YES)
+    val launcherContext = LocalContext.current.applicationContext
+    LaunchedEffect(launcherContext, dark) {
+        LauncherIconController.synchronize(launcherContext, dark)
+    }
     val routeDate = when (destinationScreen) {
         FitnessScreen.MEALS -> navigationState.selectedMealDate
         FitnessScreen.RECORDS -> navigationState.selectedRecordsDate
@@ -379,16 +384,17 @@ private fun AppRoot(
         }
     }
 
-    LaunchedEffect(workoutAction, workoutTerminalEvent, bodyEditorState, mealState) {
+    val mealRecordNotice = (mealState as? MealUiState.Ready)?.notice
+    LaunchedEffect(workoutAction, workoutTerminalEvent, bodyEditorState, mealRecordNotice) {
         val recordsChanged = workoutAction != null || workoutTerminalEvent != null ||
             bodyEditorState is BodyMetricsEditorUiState.Saved ||
             bodyEditorState is BodyMetricsEditorUiState.Deleted ||
-            (mealState as? MealUiState.Ready)?.notice != null
+            mealRecordNotice != null
         if (recordsChanged) {
             viewModels.getRecords().markStale()
             viewModels.getStatistics().markStale()
             viewModels.getDevelopment().markStale()
-            if ((mealState as? MealUiState.Ready)?.notice != null) {
+            if (mealRecordNotice != null) {
                 viewModels.getHome().markStale()
                 if (destinationScreen == FitnessScreen.HOME) {
                     viewModels.getHome().enterIfNeeded(AccountScope(ownerId), navigationState.today)
@@ -893,7 +899,7 @@ private fun AppRoot(
                     if (state.editor == RecoveryEditorKind.NUTRITION_GOAL) {
                         "영양 목표를 저장했습니다."
                     } else {
-                        "회복 체크인을 저장했습니다."
+                        "임시저장 완료"
                     }
                 )
                 viewModels.getDevelopment().dismissRecoveryEditor()
@@ -1835,6 +1841,10 @@ private fun AppDestination(
         override fun updateQuantity(value: String) = viewModels.getMeal().updateQuantity(value)
         override fun updateTime(value: String) = viewModels.getMeal().updateTime(value)
         override fun saveFood() = viewModels.getMeal().saveFood(AccountScope(ownerId)) { }
+        override fun openManualFood() = viewModels.getMeal().openManualFood()
+        override fun closeManualFood() = viewModels.getMeal().closeManualFood()
+        override fun updateManualFood(draft: ManualFoodDraft) = viewModels.getMeal().updateManualFood(draft)
+        override fun saveManualFood() = viewModels.getMeal().saveManualFood(AccountScope(ownerId))
         override fun updateStore(value: String) = viewModels.getMeal().updateStore(value)
         override fun updateBranch(value: String) = viewModels.getMeal().updateBranch(value)
         override fun updateMenu(value: String) = viewModels.getMeal().updateMenu(value)
@@ -1869,6 +1879,13 @@ private fun AppDestination(
             viewModels.getMeal().proposeDiningMerchant(facts)
         override fun proposeDiningMenu(locationId: String?, merchantCandidateId: String?, menuName: String) =
             viewModels.getMeal().proposeDiningMenu(locationId, merchantCandidateId, menuName)
+        override fun resubmitDiningMerchant(previousCandidateId: String,
+            facts: com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts, userVerified: Boolean) =
+            viewModels.getMeal().resubmitDiningMerchant(previousCandidateId, facts, userVerified)
+        override fun resubmitDiningMenu(previousCandidateId: String, restaurantId: String?, locationId: String?,
+            merchantCandidateId: String?, menuName: String, userVerified: Boolean) =
+            viewModels.getMeal().resubmitDiningMenu(previousCandidateId, restaurantId, locationId,
+                merchantCandidateId, menuName, userVerified)
         override fun refreshDiningProposals() = viewModels.getMeal().refreshDiningProposals()
         override fun publishApprovedDiningProposal() = viewModels.getMeal().publishApprovedDiningProposal()
         override fun applyPriceTraceSelection(

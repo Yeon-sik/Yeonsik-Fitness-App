@@ -75,15 +75,10 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
         startDate: String,
         endDate: String
     ): MealNutritionReadSummary {
-        val rows = mealDao.visibleMealReadRowsBetween(scope.ownerId, startDate, endDate)
-        val protein = rows.sumOf { it.proteinGrams ?: 0.0 }
-        val recordedDays = rows.map { it.date }.toSet().size
-        val estimatedMealCount = rows.count { row ->
-            val metadata = row.metadata
-            metadata.contains("\"estimated\":true") ||
-                metadata.contains("\"nutrition_status\":\"estimated\"")
-        }
-        return MealNutritionReadSummary(protein, recordedDays, rows.size, estimatedMealCount)
+        return MealNutritionSummaryCalculator.calculate(
+            java.time.LocalDate.parse(startDate), java.time.LocalDate.parse(endDate),
+            mealSnapshots(scope, startDate, endDate)
+        )
     }
 
     override fun mealSnapshots(

@@ -2064,6 +2064,9 @@ interface NutritionRoomDao {
     @Query("SELECT revision, updated_at FROM nutrition_foods WHERE id=:id LIMIT 1")
     fun foodSyncVersion(id: String): SyncVersionRow?
 
+    @Query("SELECT * FROM nutrition_foods WHERE id=:id LIMIT 1")
+    fun foodForSync(id: String): NutritionFoodsRoomEntity?
+
     @Query("SELECT NULL AS revision, updated_at FROM nutrition_food_nutrients WHERE id=:id LIMIT 1")
     fun nutrientSyncVersion(id: String): SyncVersionRow?
 

@@ -440,6 +440,11 @@ public final class WorkoutTransferRepositoryTest {
         }
 
         @Override
+        public Context getApplicationContext() {
+            return this;
+        }
+
+        @Override
         public File getDatabasePath(String name) {
             return super.getDatabasePath(prefix + name);
         }

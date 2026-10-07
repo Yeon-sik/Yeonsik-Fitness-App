@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
 import com.yeonsik.fitnessapp.integration.nutrition.DiningProposal
+import com.yeonsik.fitnessapp.integration.nutrition.latestDiningProposal
 import org.junit.Assert.*
 import org.junit.Test
 
@@ -20,5 +21,16 @@ class DiningProposalConsentTest {
             createdAt = "now", updatedAt = "now")
         assertTrue(NutritionPublicationUiState(selectedFoodId = "food", proposals = listOf(proposal))
             .allowsExistingMenuPublication)
+    }
+    @Test fun latestVersionOverridesOlderApprovalRegardlessOfListOrRefreshOrder() {
+        val accepted = DiningProposal("owner", "food", "menu", "scope", "old-key", "{}",
+            status = "accepted", restaurantId = "r", restaurantLocationId = "l", restaurantMenuId = "m",
+            catalogProductId = "c", createdAt = "old", updatedAt = "newest-refresh")
+        val pending = accepted.copy(idempotencyKey = "new-key", status = "pending", requestVersion = 2)
+        for (history in listOf(listOf(accepted, pending), listOf(pending, accepted))) {
+            assertEquals(pending, history.latestDiningProposal("food", "menu"))
+            assertFalse(history.latestDiningProposal("food", "menu")!!.canPublish)
+            assertFalse(NutritionPublicationUiState(selectedFoodId = "food", proposals = history).allowsExistingMenuPublication)
+        }
     }
 }

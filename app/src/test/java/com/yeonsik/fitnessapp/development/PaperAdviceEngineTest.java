@@ -4,6 +4,7 @@ import org.junit.Test;
 
 import java.time.LocalDate;
 import java.util.List;
+import com.yeonsik.fitness.shared.feature.meal.model.MealNutritionReadSummary;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -27,6 +28,7 @@ public final class PaperAdviceEngineTest {
                 .referenceDate(LocalDate.of(2026, 8, 14)).goal("hypertrophy")
                 .sleepHours(6.2).sleepRecordedDays(3)
                 .proteinGPerKg(1.2).proteinRecordedDays(7)
+                .proteinEvidence(new MealNutritionReadSummary(672.0, 7, 7, 0, 7, 0, 0, 0, 7))
                 .resistanceTrainingSessionsPerWeek(2)
                 .recentDataDays(7).build());
         assertEquals(2, advice.size());

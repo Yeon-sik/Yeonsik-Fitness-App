@@ -88,6 +88,14 @@ public final class PaperAdviceEngine {
     }
 
     private static void addProteinAdvice(PaperAdviceInput input, List<PaperAdvice> advice) {
+        // Recorded dates alone say nothing about nutrient coverage. Missing amounts are a
+        // lower bound, so they cannot demonstrate insufficient total intake.
+        if (input.proteinEvidence == null
+                || input.proteinEvidence.getProteinKnownMealCount() == 0
+                || input.proteinEvidence.getProteinMissingMealCount() > 0
+                || input.proteinEvidence.getProteinUnknownProvenanceMealCount() > 0
+                || input.proteinEvidence.getProteinCompleteDays() < input.proteinWindowDays) return;
+        boolean estimated = input.proteinEvidence.getProteinEstimatedMealCount() > 0;
         boolean belowReviewPoint = input.proteinGPerKg != null
                 && input.proteinRecordedDays >= input.proteinWindowDays
                 && input.resistanceTrainingSessionsPerWeek > 0
@@ -97,10 +105,13 @@ public final class PaperAdviceEngine {
         if (!belowReviewPoint || !relevantGoal) return;
         advice.add(new PaperAdvice(
                 "NUT_PRO_001", "nutrition", "총 단백질 섭취량을 검토할 후보가 있습니다",
-                String.format("현재 입력 단백질은 %.2fg/kg/day이며 목표는 %s입니다.", input.proteinGPerKg, input.goal),
+                String.format("현재 %s 단백질은 %.2fg/kg/day이며 목표는 %s입니다.",
+                        estimated ? "추정값이 포함된" : "기록값 기반", input.proteinGPerKg, input.goal),
                 "식단 기록의 누락과 에너지 섭취를 먼저 확인한 뒤 총 단백질을 높일 수 있는지 검토하세요. 보충제만으로 해결한다고 가정하지 않습니다.",
                 "1.6g/kg/day는 meta-analysis의 평균적 포화점 추정치에 가깝고 개인의 절대 최소량이나 보장된 목표량이 아닙니다.",
-                "high", PaperAdvice.Status.ACTIONABLE, Arrays.asList("08#1", "08#2")
+                estimated ? "low" : "high",
+                estimated ? PaperAdvice.Status.INFORMATIONAL : PaperAdvice.Status.ACTIONABLE,
+                Arrays.asList("08#1", "08#2")
         ));
     }
 

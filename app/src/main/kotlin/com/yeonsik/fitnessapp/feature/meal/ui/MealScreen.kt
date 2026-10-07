@@ -45,6 +45,10 @@ import com.yeonsik.fitnessapp.feature.workout.ui.*
 import com.yeonsik.fitnessapp.state.FitnessScreen
 import com.yeonsik.fitnessapp.ui.*
 import java.time.LocalDate
+import com.yeonsik.fitnessapp.integration.nutrition.DiningProposal
+import com.yeonsik.fitnessapp.integration.nutrition.latestDiningProposal
+import org.json.JSONObject
+import kotlinx.coroutines.launch
 
 interface MealScreenActions {
     fun back()
@@ -60,6 +64,10 @@ interface MealScreenActions {
     fun updateQuantity(value: String)
     fun updateTime(value: String)
     fun saveFood()
+    fun openManualFood()
+    fun closeManualFood()
+    fun updateManualFood(draft: ManualFoodDraft)
+    fun saveManualFood()
     fun updateStore(value: String)
     fun updateBranch(value: String)
     fun updateMenu(value: String)
@@ -80,6 +88,10 @@ interface MealScreenActions {
     fun publishNutritionMenu(locationId: String, menuId: String, catalogProductId: String)
     fun proposeDiningMerchant(facts: com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts) {}
     fun proposeDiningMenu(locationId: String?, merchantCandidateId: String?, menuName: String) {}
+    fun resubmitDiningMerchant(previousCandidateId: String,
+        facts: com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts, userVerified: Boolean) {}
+    fun resubmitDiningMenu(previousCandidateId: String, restaurantId: String?, locationId: String?,
+        merchantCandidateId: String?, menuName: String, userVerified: Boolean) {}
     fun refreshDiningProposals() {}
     fun publishApprovedDiningProposal() {}
     fun applyPriceTraceSelection(
@@ -120,7 +132,13 @@ internal fun MealScreen(
     today: String,
     actions: MealScreenActions
 ) {
-    val ready = homeState as? HomeUiState.Ready
+    val currentReady = (homeState as? HomeUiState.Ready)?.takeIf {
+        it.snapshot.ownerId == ownerId && it.snapshot.today == today
+    }
+    // History refresh must not dispose the editor's text fields or their IME connection.
+    var retainedReady by remember(ownerId, today) { mutableStateOf<HomeUiState.Ready?>(null) }
+    SideEffect { if (currentReady != null) retainedReady = currentReady }
+    val ready = currentReady ?: retainedReady
     val editor = editorState as? MealUiState.Ready
     var deleteTargetId by rememberSaveable { mutableStateOf<String?>(null) }
     val editorScrollTarget = mealEditorScrollTarget(editor)
@@ -138,9 +156,8 @@ internal fun MealScreen(
     }
 
     AppHeader("식단", back = actions::back)
-    if (ready == null || ready.snapshot.ownerId != ownerId || ready.snapshot.today != today) {
-        Text("식단 기록을 불러오는 중입니다.")
-        return
+    if (homeState is HomeUiState.Loading || ready == null) {
+        Text("식단 기록을 불러오는 중입니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
     AppOutlinedButton(
         onClick = actions::openNutritionPublication,
@@ -154,8 +171,8 @@ internal fun MealScreen(
         )
     }
 
-    val snapshot = ready.snapshot
-    val totals = snapshot.mealNutritionTotals[today]
+    val snapshot = ready?.snapshot
+    val totals = snapshot?.mealNutritionTotals?.get(today)
     val selectedDate = runCatching { LocalDate.parse(today) }.getOrNull()
     if (selectedDate != null) {
         val largeText = LocalDensity.current.fontScale >= 1.35f
@@ -204,7 +221,7 @@ internal fun MealScreen(
         ) { Text("오늘로 이동") }
     }
     Spacer(Modifier.height(AppSpacing.gap))
-    MealOverviewGlassSurface {
+    if (snapshot != null) MealOverviewGlassSurface {
         Text(
             if (selectedDate == LocalDate.now()) "오늘의 식단" else "이날의 식단",
             style = MaterialTheme.typography.titleMedium,
@@ -221,32 +238,34 @@ internal fun MealScreen(
         )
     }
     Spacer(Modifier.height(AppSpacing.gap))
-    snapshot.todayMeals.forEach { meal ->
-        AppCard(Modifier.fillMaxWidth()) {
-            Column(
-                Modifier.padding(AppSpacing.card),
-                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
-            ) {
-                Text(meal.previewTitle, style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold)
-                Text(meal.previewSubtitle(), style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams}g",
-                    style = MaterialTheme.typography.bodyMedium)
-                Row(
-                    Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)
+    snapshot?.todayMeals.orEmpty().forEach { meal ->
+        key(meal.id) {
+            AppCard(Modifier.fillMaxWidth()) {
+                Column(
+                    Modifier.padding(AppSpacing.card),
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
                 ) {
-                    AppOutlinedButton(
-                        onClick = { actions.editMeal(meal) },
-                        modifier = Modifier.weight(1f),
-                        enabled = meal.timeEditable
-                    ) { Text("수정") }
-                    AppOutlinedButton(
-                        onClick = { deleteTargetId = meal.id },
-                        modifier = Modifier.weight(1f),
-                        destructive = true
-                    ) { Text("삭제") }
+                    Text(meal.previewTitle, style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold)
+                    Text(meal.previewSubtitle(), style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams}g",
+                        style = MaterialTheme.typography.bodyMedium)
+                    Row(
+                        Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)
+                    ) {
+                        AppOutlinedButton(
+                            onClick = { actions.editMeal(meal) },
+                            modifier = Modifier.weight(1f),
+                            enabled = meal.timeEditable
+                        ) { Text("수정") }
+                        AppOutlinedButton(
+                            onClick = { deleteTargetId = meal.id },
+                            modifier = Modifier.weight(1f),
+                            destructive = true
+                        ) { Text("삭제") }
+                    }
                 }
             }
         }
@@ -269,12 +288,14 @@ internal fun MealScreen(
             AppOutlinedButton(
                 onClick = actions::chooseFood,
                 modifier = Modifier.weight(1f),
-                selected = !editor.diningOut
-            ) { Text("식단") }
+                selected = !editor.diningOut,
+                enabled = !editor.saving
+            ) { Text("식품") }
             AppOutlinedButton(
                 onClick = actions::chooseDiningOut,
                 modifier = Modifier.weight(1f),
-                selected = editor.diningOut
+                selected = editor.diningOut,
+                enabled = !editor.saving
             ) { Text("외식") }
         }
         if (editor.diningOut) {
@@ -284,7 +305,7 @@ internal fun MealScreen(
         }
     }
 
-    val deleteTarget = deleteTargetId?.let { id -> snapshot.todayMeals.firstOrNull { it.id == id } }
+    val deleteTarget = deleteTargetId?.let { id -> snapshot?.todayMeals?.firstOrNull { it.id == id } }
     if (deleteTarget != null) {
         AlertDialog(
             onDismissRequest = { deleteTargetId = null },
@@ -380,18 +401,34 @@ private fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready
         editor.query,
         actions::searchFood,
         Modifier.fillMaxWidth(),
-        label = { Text("식품 검색") }
+        label = { Text("식품 검색") },
+        enabled = !editor.saving
     )
+    MealSearchStatus(editor)
+    AppOutlinedButton(
+        onClick = if (editor.manualFoodEntry) actions::closeManualFood else actions::openManualFood,
+        modifier = Modifier.fillMaxWidth(),
+        selected = editor.manualFoodEntry,
+        enabled = !editor.saving
+    ) { Text(if (editor.manualFoodEntry) "직접 입력 닫기" else "영양정보 직접 입력") }
+    if (editor.manualFoodEntry) {
+        ManualFoodEditor(editor.manualFoodDraft, actions::updateManualFood,
+            actions::saveManualFood, actions::closeManualFood, editor.saving, editor.error)
+        return
+    }
     editor.searchResults.forEach { food ->
-        AppCard(Modifier.fillMaxWidth().clickable { actions.selectFood(food) }) {
-            Column(Modifier.padding(AppSpacing.card)) {
-                val displayName = if (food.isPackagedFood()) food.packagedProductLabel() else food.displayName()
-                val variantLabel = if (food.isPackagedFood()) food.packagedVariantLabel() else food.basisLabel()
-                Text(displayName, fontWeight = FontWeight.Bold)
-                Text("${NutritionFood.kindLabel(food.kind)} · $variantLabel · ${food.extendedNutritionLabel()}")
+        key(food.id) {
+            AppCard(Modifier.fillMaxWidth().clickable { actions.selectFood(food) }) {
+                Column(Modifier.padding(AppSpacing.card)) {
+                    val displayName = if (food.isPackagedFood()) food.packagedProductLabel() else food.displayName()
+                    val variantLabel = if (food.isPackagedFood()) food.packagedVariantLabel() else food.basisLabel()
+                    Text(displayName, fontWeight = FontWeight.Bold)
+                    Text("${NutritionFood.kindLabel(food.kind)} · $variantLabel · ${food.extendedNutritionLabel()}")
+                }
             }
         }
     }
+    editor.catalogNotice?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     editor.selectedFood?.let { food ->
         AppCard(Modifier.fillMaxWidth().bringIntoViewRequester(selectedFoodRequester)) {
             Column(Modifier.padding(AppSpacing.card)) {
@@ -403,7 +440,7 @@ private fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready
             editor.quantity,
             actions::updateQuantity,
             Modifier.fillMaxWidth(),
-            label = { Text("섭취량 ${food.basisUnit}") },
+            label = { Text("섭취량 ${mealQuantityUnitLabel(food.basisUnit)}") },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
         )
     }
@@ -438,11 +475,14 @@ private fun DiningOutEditor(
     val draft = editor.draft
     var showPriceTrace by rememberSaveable { mutableStateOf(false) }
     val selectedMenuRequester = remember { BringIntoViewRequester() }
+    val manualEntryRequester = remember { BringIntoViewRequester() }
+    val compositionScope = rememberCoroutineScope()
     LaunchedEffect(editor.selectedFood?.id) {
         if (editor.selectedFood != null) selectedMenuRequester.bringIntoView()
     }
-    Text("외식 직접 등록", style = MaterialTheme.typography.titleMedium)
-    SavedDiningOutMenuPicker(actions, editor, selectedMenuRequester)
+    SavedDiningOutMenuPicker(actions, editor, selectedMenuRequester) {
+        compositionScope.launch { manualEntryRequester.bringIntoView() }
+    }
     AppOutlinedButton(
         onClick = { showPriceTrace = !showPriceTrace },
         modifier = Modifier.fillMaxWidth()
@@ -450,6 +490,10 @@ private fun DiningOutEditor(
     if (showPriceTrace) {
         PriceTraceDiningOutPicker(actions, editor, priceTraceState)
     }
+    Text("외식 영양정보 직접 입력", modifier = Modifier.bringIntoViewRequester(manualEntryRequester),
+        style = MaterialTheme.typography.titleMedium)
+    Text("검색에 없는 메뉴도 등록할 수 있습니다. 아래 영양정보는 이번에 먹은 양 기준으로 입력하세요.",
+        style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     AppTextField(draft.store, actions::updateStore, Modifier.fillMaxWidth(), { Text("상호명") })
     AppTextField(draft.branch, actions::updateBranch, Modifier.fillMaxWidth(), { Text("지점명 (선택)") })
     AppTextField(draft.menu, actions::updateMenu, Modifier.fillMaxWidth(), { Text("메뉴명") })
@@ -461,6 +505,12 @@ private fun DiningOutEditor(
     AppTextField(draft.sodium, actions::updateSodium, Modifier.fillMaxWidth(), { Text("나트륨 mg (선택)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
     AppTextField(draft.sugars, actions::updateSugars, Modifier.fillMaxWidth(), { Text("당류 g (선택)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
     AppTextField(draft.saturatedFat, actions::updateSaturatedFat, Modifier.fillMaxWidth(), { Text("포화지방 g (선택)") }, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
+    AppOutlinedButton(
+        onClick = actions::saveReusableDiningOutMenu,
+        modifier = Modifier.fillMaxWidth(),
+        enabled = !editor.saving
+    ) { Text("내 메뉴로 저장 · 다음에 재사용") }
+    editor.catalogNotice?.let { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     Row(horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         AppOutlinedButton(
@@ -472,7 +522,7 @@ private fun DiningOutEditor(
             onClick = actions::saveDiningOut,
             modifier = Modifier.weight(1f),
             enabled = !editor.saving
-        ) { Text(if (editor.saving) "저장 중" else "외식만 기록") }
+        ) { Text(if (editor.saving) "저장 중" else "외식 기록하기") }
     }
 }
 
@@ -481,20 +531,28 @@ private fun DiningOutEditor(
 private fun SavedDiningOutMenuPicker(
     actions: MealScreenActions,
     editor: MealUiState.Ready,
-    requester: BringIntoViewRequester
+    requester: BringIntoViewRequester,
+    onDirectEntry: () -> Unit
 ) {
     Text("저장된 외식 메뉴 재사용", style = MaterialTheme.typography.titleMedium)
     AppTextField(
         editor.query,
         actions::searchFood,
         Modifier.fillMaxWidth(),
-        label = { Text("저장된 외식 메뉴 검색") }
+        label = { Text("저장된 외식 메뉴 검색") },
+        enabled = !editor.saving
     )
+    MealSearchStatus(editor)
+    AppOutlinedButton(onClick = onDirectEntry, modifier = Modifier.fillMaxWidth(), enabled = !editor.saving) {
+        Text("영양정보 직접 입력")
+    }
     editor.searchResults.forEach { food ->
-        AppCard(Modifier.fillMaxWidth().clickable { actions.useDiningOutFood(food) }) {
-            Column(Modifier.padding(AppSpacing.card)) {
-                Text(food.displayName(), fontWeight = FontWeight.Bold)
-                Text(food.extendedNutritionLabel())
+        key(food.id) {
+            AppCard(Modifier.fillMaxWidth().clickable { actions.useDiningOutFood(food) }) {
+                Column(Modifier.padding(AppSpacing.card)) {
+                    Text(food.displayName(), fontWeight = FontWeight.Bold)
+                    Text(food.extendedNutritionLabel())
+                }
             }
         }
     }
@@ -506,11 +564,18 @@ private fun SavedDiningOutMenuPicker(
             }
         }
     }
-    AppOutlinedButton(
-        onClick = actions::saveReusableDiningOutMenu,
-        modifier = Modifier.fillMaxWidth(),
-        enabled = !editor.saving
-    ) { Text("Nutrition 재사용 메뉴로 저장") }
+}
+
+@Composable
+private fun MealSearchStatus(editor: MealUiState.Ready) {
+    val message = when {
+        editor.searching -> "검색 중…"
+        editor.query.isNotBlank() && editor.searchResults.isEmpty() ->
+            "검색 결과가 없습니다. 영양정보를 직접 입력할 수 있습니다."
+        else -> null
+    }
+    message?.let { Text(it, style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant) }
 }
 
 @Composable
@@ -727,19 +792,21 @@ private fun NutritionPublicationDialog(
 }
 
 private data class DiningProposalTarget(val merchant: Boolean,
-    val locationId: String? = null, val merchantCandidateId: String? = null)
+    val locationId: String? = null, val merchantCandidateId: String? = null,
+    val restaurantId: String? = null, val previous: DiningProposal? = null)
 
 @Composable
-private fun DiningProposalControls(state: NutritionPublicationUiState, priceTrace: PriceTraceUiState.Ready?,
+internal fun DiningProposalControls(state: NutritionPublicationUiState, priceTrace: PriceTraceUiState.Ready?,
     actions: MealScreenActions, busy: Boolean) {
     val food = state.selectedFood ?: return
     val proposals = state.proposals.filter { it.nutritionFoodId == food.id }
     val privateMenu = food.id in state.privateFoodIds
     val enabled = state.remoteAvailable && !busy && privateMenu
-    var target by remember(food.id) { mutableStateOf<DiningProposalTarget?>(null) }
-    var publishConfirmation by remember(food.id) { mutableStateOf(false) }
-    val merchant = proposals.lastOrNull { it.kind == "merchant" }
-    val menu = proposals.lastOrNull { it.kind == "menu" }
+    // Changing account/project/history invalidates an open confirmation, including publication.
+    var target by remember(food.id, food.ownerId, proposals) { mutableStateOf<DiningProposalTarget?>(null) }
+    var publishConfirmation by remember(food.id, food.ownerId, proposals) { mutableStateOf(false) }
+    val merchant = proposals.latestDiningProposal(food.id, "merchant")
+    val menu = proposals.latestDiningProposal(food.id, "menu")
 
     Text("등록 제안과 공개", fontWeight = FontWeight.Bold)
     Text("현재 PriceTrace에 이 가게 또는 메뉴가 없습니다. 등록을 제안할 수 있습니다. 관리자 승인 전까지 영양정보는 비공개로 유지됩니다.",
@@ -757,13 +824,35 @@ private fun DiningProposalControls(state: NutritionPublicationUiState, priceTrac
         }
     }
     proposals.forEach { proposal ->
-        Text((if (proposal.kind == "merchant") "가게" else "메뉴") + " · " + when (proposal.status) {
+        Text((if (proposal.kind == "merchant") "가게" else "메뉴") + " · 요청 ${proposal.requestVersion} · " + when (proposal.status) {
             "pending" -> "관리자 검토 중 · 영양정보 비공개"
             "rejected" -> "등록 제안 거절 · 영양정보 비공개"
             "accepted" -> "승인됨 · 공개는 직접 선택해야 합니다"
             else -> "전송 확인 필요 · 새로고침으로 재시도"
         })
         proposal.reviewNote?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+    }
+    listOfNotNull(merchant, menu).filter { it.status == "rejected" && it.candidateId != null }.forEach { rejected ->
+        val request = remember(rejected.requestJson) { JSONObject(rejected.requestJson) }
+        fun requestId(key: String) = request.optString(key).takeIf { !request.isNull(key) && it.isNotBlank() }
+        AppOutlinedButton(onClick = { target = DiningProposalTarget(rejected.kind == "merchant",
+            requestId("p_restaurant_location_id"), requestId("p_merchant_candidate_id"),
+            requestId("p_restaurant_id"), rejected) }, enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+            Text(if (rejected.kind == "merchant") "거절된 가게 제안 수정" else "거절된 메뉴 제안 수정")
+        }
+        if (rejected.kind == "menu") priceTrace?.detail?.locations?.forEach { location ->
+            AppOutlinedButton(onClick = { target = DiningProposalTarget(false,
+                location.restaurantLocationId, restaurantId = priceTrace.detail.restaurantId, previous = rejected) },
+                enabled = enabled, modifier = Modifier.fillMaxWidth()) {
+                Text("${location.branchName.ifBlank { "본점" }} · 지점 변경 후 재제출")
+            }
+        }
+        if (rejected.kind == "menu" && merchant?.status == "accepted" && merchant.candidateId != null
+            && merchant.candidateId != requestId("p_merchant_candidate_id")) {
+            AppOutlinedButton(onClick = { target = DiningProposalTarget(false,
+                merchantCandidateId = merchant.candidateId, previous = rejected) }, enabled = enabled,
+                modifier = Modifier.fillMaxWidth()) { Text("수정된 가게 제안에 메뉴 재제출") }
+        }
     }
     if (merchant?.status == "accepted" && merchant.restaurantId != null && menu == null) {
         AppButton(onClick = { target = DiningProposalTarget(false, merchantCandidateId = merchant.candidateId) },
@@ -778,9 +867,16 @@ private fun DiningProposalControls(state: NutritionPublicationUiState, priceTrac
             enabled = state.remoteAvailable && !busy, modifier = Modifier.fillMaxWidth()) { Text("제안 상태 새로고침") }
     }
     target?.let { selected ->
-        DiningProposalConfirmation(food, selected, priceTrace?.detail?.restaurantName.orEmpty(),
-            busy, onDismiss = { target = null }, onSubmit = { facts, menuName ->
-                if (selected.merchant) actions.proposeDiningMerchant(facts)
+        val selectedRestaurantName = priceTrace?.detail?.takeIf {
+            selected.previous == null || selected.restaurantId == it.restaurantId
+        }?.restaurantName.orEmpty()
+        DiningProposalConfirmation(food, selected, selectedRestaurantName,
+            busy, onDismiss = { target = null }, onSubmit = { facts, menuName, verified ->
+                if (selected.previous != null && selected.merchant)
+                    actions.resubmitDiningMerchant(selected.previous.candidateId!!, facts, verified)
+                else if (selected.previous != null) actions.resubmitDiningMenu(selected.previous.candidateId!!,
+                    selected.restaurantId, selected.locationId, selected.merchantCandidateId, menuName, verified)
+                else if (selected.merchant) actions.proposeDiningMerchant(facts)
                 else actions.proposeDiningMenu(selected.locationId, selected.merchantCandidateId, menuName)
                 target = null
             })
@@ -799,15 +895,19 @@ private fun DiningProposalControls(state: NutritionPublicationUiState, priceTrac
 @Composable
 private fun DiningProposalConfirmation(food: NutritionFood, target: DiningProposalTarget,
     restaurantName: String, busy: Boolean, onDismiss: () -> Unit,
-    onSubmit: (com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts, String) -> Unit) {
-    var name by remember { mutableStateOf(food.brand.orEmpty()) }
-    var branch by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
-    var businessNumber by remember { mutableStateOf("") }
-    var menuName by remember { mutableStateOf(food.name) }
+    onSubmit: (com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts, String, Boolean) -> Unit) {
+    val request = remember(target) { target.previous?.let { JSONObject(it.requestJson) } }
+    val merchant = request?.optJSONObject("p_merchant")
+    var name by remember(target) { mutableStateOf(merchant?.optString("merchant_name") ?: food.brand.orEmpty()) }
+    var branch by remember(target) { mutableStateOf(merchant?.optString("branch_name").orEmpty()) }
+    var address by remember(target) { mutableStateOf(merchant?.optString("address").orEmpty()) }
+    var phone by remember(target) { mutableStateOf(merchant?.optString("phone").orEmpty()) }
+    var businessNumber by remember(target) { mutableStateOf(merchant?.optString("business_registration_number").orEmpty()) }
+    var menuName by remember(target) { mutableStateOf(request?.optString("p_menu_name") ?: food.name) }
+    var reconfirmed by remember(target, name, branch, address, phone, businessNumber, menuName) { mutableStateOf(false) }
     AlertDialog(onDismissRequest = { if (!busy) onDismiss() },
-        title = { Text(if (target.merchant) "가게 등록 제안" else "메뉴 등록 제안") },
+        title = { Text(if (target.previous != null) "거절된 제안 수정·재확인"
+            else if (target.merchant) "가게 등록 제안" else "메뉴 등록 제안") },
         text = {
             Column(Modifier.heightIn(max = 450.dp).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
@@ -820,13 +920,26 @@ private fun DiningProposalConfirmation(food: NutritionFood, target: DiningPropos
                     AppTextField(value = businessNumber, onValueChange = { businessNumber = it }, label = { Text("사업자등록번호 · 선택") })
                 } else {
                     if (restaurantName.isNotBlank() && target.merchantCandidateId == null) Text(restaurantName)
+                    if (target.previous != null && restaurantName.isBlank() && target.merchantCandidateId == null)
+                        Text("이전에 제출한 가게·지점을 사용합니다. 지점을 바꾸려면 조회한 PT 지점에서 재제출을 선택하세요.")
                     AppTextField(value = menuName, onValueChange = { menuName = it }, label = { Text("메뉴명 · 필수") })
                 }
                 Text("확인한 정보를 PT에 제안합니다. 관리자 승인 후에도 공개 연결은 직접 선택해야 합니다.")
+                if (target.previous != null) {
+                    Text("이전 거절 이력은 보존됩니다. 수정한 정보로 새 검토 요청을 제출합니다.")
+                    Row(Modifier.fillMaxWidth().toggleable(value = reconfirmed,
+                        onValueChange = { reconfirmed = it }, role = Role.Checkbox),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = reconfirmed, onCheckedChange = null)
+                        Text("수정한 정보를 직접 확인했습니다")
+                    }
+                }
             }
         },
-        confirmButton = { TextButton(enabled = !busy && (if (target.merchant) name.isNotBlank() else menuName.isNotBlank()),
+        confirmButton = { TextButton(enabled = !busy && (target.previous == null || reconfirmed)
+            && (if (target.merchant) name.isNotBlank() else menuName.isNotBlank()),
             onClick = { onSubmit(com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts(
-                name, branch, address, phone, businessNumber), menuName) }) { Text("확인한 정보로 PT에 등록 제안") } },
+                name, branch, address, phone, businessNumber), menuName, reconfirmed) }) {
+                Text(if (target.previous == null) "확인한 정보로 PT에 등록 제안" else "수정·재확인한 정보로 재제출") } },
         dismissButton = { TextButton(enabled = !busy, onClick = onDismiss) { Text("취소") } })
 }

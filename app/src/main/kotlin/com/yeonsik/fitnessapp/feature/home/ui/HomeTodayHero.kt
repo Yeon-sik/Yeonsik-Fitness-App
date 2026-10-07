@@ -18,7 +18,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -38,8 +40,8 @@ import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.yeonsik.fitnessapp.core.ui.FitnessButton
 import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
+import com.yeonsik.fitnessapp.core.ui.FitnessShape
 import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 
 private const val HERO_STATUS_MOTION_MILLIS = 220
@@ -50,27 +52,60 @@ internal fun HomeHeroContent(
     onContinue: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val ink = LocalContentColor.current
+    val colors = MaterialTheme.colorScheme
     Column(
         modifier.padding(FitnessSpacing.hero),
-        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
+        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.card)
     ) {
-        Text("오늘", style = MaterialTheme.typography.displaySmall, modifier = Modifier.testTag("home-hero-title"))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.card),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("오늘", style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.testTag("home-hero-title"))
+            HorizontalDivider(Modifier.weight(1f), color = colors.onPrimary.copy(alpha = 0.18f))
+        }
+        Row(
+            Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
+        ) {
             status.domains.forEach { domain ->
                 HeroDomainStatus(domain, Modifier.weight(1f))
             }
         }
+        HeroRecordSummary(status)
+        if (status.showContinue) {
+            Button(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch),
+                shape = FitnessShape.button,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = colors.onPrimary,
+                    contentColor = colors.primary
+                )
+            ) {
+                Text("운동 이어가기")
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeroRecordSummary(status: HomeTodayHeroStatus) {
+    val colors = MaterialTheme.colorScheme
+    Column(verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)) {
         Row(
             Modifier.fillMaxWidth().testTag("home-hero-progress").semantics {
                 contentDescription = "오늘 ${status.completedDomainCount}/3 영역 기록"
                 progressBarRangeInfo = ProgressBarRangeInfo(status.completedDomainCount / 3f, 0f..1f, 2)
             },
-            horizontalArrangement = Arrangement.spacedBy(3.dp)
+            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
         ) {
             status.domains.forEach { domain ->
                 val fill = animateColorAsState(
-                    if (domain.recorded) MaterialTheme.colorScheme.primary else ink.copy(alpha = 0.18f),
+                    if (domain.recorded) FitnessRecordMarkerColors.byKey.getValue(domain.key)
+                    else colors.onPrimary.copy(alpha = 0.18f),
                     animationSpec = tween(HERO_STATUS_MOTION_MILLIS), label = "home-progress-${domain.key}"
                 )
                 Box(Modifier.weight(1f).height(4.dp).testTag("home-hero-segment-${domain.key}").drawBehind {
@@ -80,14 +115,14 @@ internal fun HomeHeroContent(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
             status.domains.forEach { domain ->
-                Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro, Alignment.CenterHorizontally)) {
                     val progress = animateFloatAsState(
                         if (domain.recorded) 1f else 0f,
                         animationSpec = tween(HERO_STATUS_MOTION_MILLIS), label = "home-marker-${domain.key}"
                     )
                     val marker = FitnessRecordMarkerColors.byKey.getValue(domain.key)
-                    val outline = ink.copy(alpha = 0.55f)
+                    val outline = colors.onPrimary.copy(alpha = 0.55f)
                     Box(Modifier.size(10.dp).testTag("home-hero-marker-${domain.key}")
                         .semantics {
                             contentDescription = "${domain.label} 기록 표시"
@@ -103,13 +138,8 @@ internal fun HomeHeroContent(
                                 radius = size.minDimension / 2 - 0.5.dp.toPx(),
                                 style = Stroke(1.dp.toPx()))
                         })
-                    Text(domain.label, style = MaterialTheme.typography.labelSmall, color = ink.copy(alpha = 0.8f))
+                    Text(domain.label, style = MaterialTheme.typography.labelSmall, color = colors.onPrimary)
                 }
-            }
-        }
-        if (status.showContinue) {
-            FitnessButton(onClick = onContinue, modifier = Modifier.fillMaxWidth().padding(top = FitnessSpacing.small)) {
-                Text("운동 이어가기")
             }
         }
     }
@@ -117,7 +147,7 @@ internal fun HomeHeroContent(
 
 @Composable
 private fun HeroDomainStatus(domain: HomeHeroDomainStatus, modifier: Modifier = Modifier) {
-    val ink = LocalContentColor.current
+    val muted = MaterialTheme.colorScheme.onPrimary
     val typography = MaterialTheme.typography
     val valueHeight = with(LocalDensity.current) {
         typography.titleLarge.lineHeight.toDp() + typography.bodySmall.lineHeight.toDp()
@@ -129,7 +159,7 @@ private fun HeroDomainStatus(domain: HomeHeroDomainStatus, modifier: Modifier = 
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
     ) {
-        Text(domain.label, style = typography.labelMedium, color = ink.copy(alpha = 0.8f),
+        Text(domain.label, style = typography.labelMedium, color = muted,
             maxLines = 1, overflow = TextOverflow.Ellipsis)
         AnimatedContent(
             targetState = domain.value to domain.detail,
@@ -142,9 +172,10 @@ private fun HeroDomainStatus(domain: HomeHeroDomainStatus, modifier: Modifier = 
         ) { (value, detail) ->
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
-                Text(value, style = typography.titleLarge, modifier = Modifier.testTag("home-hero-value-${domain.key}"), maxLines = 1, softWrap = false,
+                Text(value, style = typography.titleLarge.copy(fontFeatureSettings = "tnum"),
+                    modifier = Modifier.testTag("home-hero-value-${domain.key}"), maxLines = 1, softWrap = false,
                     overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                if (detail != null) Text(detail, style = typography.bodySmall,
+                if (detail != null) Text(detail, style = typography.bodySmall, color = muted,
                     modifier = Modifier.testTag("home-hero-detail-${domain.key}"), maxLines = 1, softWrap = false,
                     overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
             }

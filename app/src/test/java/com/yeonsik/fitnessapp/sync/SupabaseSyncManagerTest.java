@@ -54,6 +54,7 @@ public final class SupabaseSyncManagerTest {
     @Test
     public void keepsDiningOutIdentityColumnsOutOfSharedPayloadUntilMigrationIsVerified() {
         assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "meal_kind"));
+        assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "fulfillment_mode"));
         assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "store_name"));
         assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "branch_name"));
         assertFalse(SupabaseSyncManager.shouldSyncColumn("meal_records", "menu_name"));
