@@ -2179,6 +2179,7 @@ public final class NutritionCatalogRepository implements
                 String kind = NutritionFood.normalizeKind(
                         emptyToDefault(row.getKind(), NutritionFood.KIND_EXTERNAL_MENU)
                 );
+                NutritionFoodsRoomEntity localFood = nutritionDao.foodForSync(row.getId());
                 nutritionDao.upsertFood(new NutritionFoodsRoomEntity(
                         row.getId(),
                         row.getOwnerId(),
@@ -2188,9 +2189,10 @@ public final class NutritionCatalogRepository implements
                         row.getBrandName(),
                         row.getSubBrandName(),
                         row.getProductName(),
-                        row.getPackageAmount(),
-                        row.getPackageUnit(),
-                        row.getPackageCount(),
+                        // The current remote contract does not own local package metadata.
+                        localFood == null ? row.getPackageAmount() : localFood.getPackageAmount(),
+                        localFood == null ? row.getPackageUnit() : localFood.getPackageUnit(),
+                        localFood == null ? row.getPackageCount() : localFood.getPackageCount(),
                         kind,
                         NutritionFood.normalizeCategory(
                                 emptyToDefault(row.getCategory(), NutritionFood.categoryForKind(kind))
