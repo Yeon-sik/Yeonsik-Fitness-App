@@ -531,6 +531,7 @@ public final class LegacyFitnessSyncAdapter {
         }
         if ("meal_records".equals(table)
                 && ("meal_kind".equals(column)
+                || "fulfillment_mode".equals(column)
                 || "store_name".equals(column)
                 || "branch_name".equals(column)
                 || "menu_name".equals(column)

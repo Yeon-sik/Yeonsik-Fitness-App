@@ -4,6 +4,7 @@ import com.yeonsik.fitnessapp.integration.personalos.SupabaseSyncManager;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.ContextWrapper;
 import android.database.Cursor;
@@ -71,6 +72,12 @@ public final class SupabaseSyncManagerLocalPreservationTest {
                     Collections.emptyList()
             );
 
+            ContentValues localMealFields = new ContentValues();
+            localMealFields.put("fulfillment_mode", "takeout");
+            helper.getWritableDatabase().update(
+                    "meal_records", localMealFields, "id = ?", new String[]{recordId}
+            );
+
             JSONObject remoteRow = new JSONObject();
             remoteRow.put("id", recordId);
             remoteRow.put("user_id", USER_ID);
@@ -87,6 +94,8 @@ public final class SupabaseSyncManagerLocalPreservationTest {
 
             assertEquals(1, applied);
             SQLiteDatabase database = helper.getReadableDatabase();
+            assertEquals("takeout", scalar(database,
+                    "SELECT fulfillment_mode FROM meal_records WHERE id = '" + recordId + "'"));
             assertEquals("로컬 지점", scalar(database,
                     "SELECT branch_name FROM meal_records WHERE id = '" + recordId + "'"));
             assertEquals("로컬 메뉴", scalar(database,
