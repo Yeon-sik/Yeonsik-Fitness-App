@@ -1965,6 +1965,7 @@ private fun AppDestination(
             .openDeleteConfirmation(AccountScope(ownerId), recordId)
         override fun showBodyMetric(date: String, recordId: String?) =
             viewModels.getBodyMetrics().open(AccountScope(ownerId), date, recordId)
+        override fun addMeal(date: String) = navigation.openMealForDate(date)
     }
     val supplementActions = object : SupplementScreenActions {
         override fun back() { navigation.back() }

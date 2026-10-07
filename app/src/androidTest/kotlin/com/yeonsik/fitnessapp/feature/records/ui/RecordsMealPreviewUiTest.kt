@@ -175,6 +175,7 @@ class RecordsMealPreviewUiTest {
         override fun openRecord(recordId: String) = Unit
         override fun deleteRecord(recordId: String) = Unit
         override fun showBodyMetric(date: String, recordId: String?) = Unit
+        override fun addMeal(date: String) = Unit
     }
 
     private companion object { const val DATE = "2026-10-02" }

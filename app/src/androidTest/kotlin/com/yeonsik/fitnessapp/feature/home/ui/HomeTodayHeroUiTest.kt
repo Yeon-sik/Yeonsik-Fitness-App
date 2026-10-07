@@ -42,6 +42,10 @@ class HomeTodayHeroUiTest {
     @Test fun emptyHeroHasThreeHollowMarkersAndAZeroProgressBar() {
         showHero()
         compose.onNodeWithText("오늘").assertExists()
+        listOf("운동", "식단", "체중").forEach { label ->
+            compose.onAllNodesWithText(label, useUnmergedTree = true).assertCountEquals(1)
+            compose.onNodeWithContentDescription("$label 기록 표시", useUnmergedTree = true).assertExists()
+        }
         compose.onAllNodesWithText("아직", useUnmergedTree = true).assertCountEquals(3)
         compose.onNodeWithContentDescription("오늘 0/3 영역 기록").assertExists()
         listOf("workout", "meal", "body").forEach { key ->
