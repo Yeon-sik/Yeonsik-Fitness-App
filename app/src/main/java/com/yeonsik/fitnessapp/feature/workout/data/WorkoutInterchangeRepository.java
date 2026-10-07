@@ -76,7 +76,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
                     record.getExerciseName(),
                     record.getWorkoutType(),
                     record.getCategory(),
-                    nullableInt(record.getDurationSeconds()),
+                    nullableInteger(record.getDurationSeconds()),
                     metadataValue(metadata, "status"),
                     metadataValue(metadata, "started_at"),
                     metadataValue(metadata, "ended_at"),
@@ -134,19 +134,19 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
             sets.add(new WorkoutTransferCodec.SetData(
                     set.getId(),
                     safeInt(set.getSetIndex()),
-                    nullableInt(set.getTargetReps()),
-                    nullableInt(set.getActualReps()),
+                    nullableInteger(set.getTargetReps()),
+                    nullableInteger(set.getActualReps()),
                     set.getWeightKg(),
                     set.getVolumeKg(),
-                    nullableInt(set.getDurationSeconds()),
+                    nullableInteger(set.getDurationSeconds()),
                     set.getDistanceMeters(),
-                    nullableInt(set.getRestSeconds()),
+                    nullableInteger(set.getRestSeconds()),
                     set.getAssistedWeightKg(),
                     set.getAddedWeightKg(),
                     set.getLoadState(),
                     set.isCompleted() == 1L,
-                    nullableInt(set.getRpe()),
-                    nullableInt(set.getRir()),
+                    nullableInteger(set.getRpe()),
+                    nullableInteger(set.getRir()),
                     set.getMemo(),
                     set.getInputLoadValue(),
                     inputUnit
@@ -267,7 +267,7 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
                     for (WorkoutTransferCodec.SetData set : exercise.sets) {
                         TransferSetInput input = TransferSetInput.from(set);
                         LoadState state = resolveLoadState(recordType, input, identity);
-                        validateSetInput(recordType, input, identity, state);
+                        validateTransferredSetValues(input, state);
                         double volume = volume(identity, recordType, input, state);
                         if (set.volumeKg != null && !massValuesMatch(set.volumeKg, volume)) {
                             throw new IllegalArgumentException(
@@ -583,10 +583,9 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
         return state;
     }
 
-    private static void validateSetInput(
-            String recordType,
+    /** Historical transfer snapshots may contain completed sets with zero or missing measurements. */
+    private static void validateTransferredSetValues(
             TransferSetInput input,
-            ExerciseFamilyIdentity identity,
             LoadState state
     ) {
         validateNonNegative(input.weightKg, "중량");
@@ -606,6 +605,15 @@ public final class WorkoutInterchangeRepository implements WorkoutInterchangeApi
             throw new IllegalArgumentException("RIR는 0부터 5 사이여야 합니다.");
         }
         validateProvenance(input, state);
+    }
+
+    private static void validateSetInput(
+            String recordType,
+            TransferSetInput input,
+            ExerciseFamilyIdentity identity,
+            LoadState state
+    ) {
+        validateTransferredSetValues(input, state);
         if (!input.completed) {
             return;
         }
