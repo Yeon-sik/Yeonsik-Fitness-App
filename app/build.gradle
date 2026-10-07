@@ -10,32 +10,6 @@ if (localPropertiesFile.exists()) {
     localPropertiesFile.withInputStream { stream -> localProperties.load(stream) }
 }
 
-def dotenvValues = [:]
-def dotenvFile = rootProject.file("supabase/.env")
-if (dotenvFile.exists()) {
-    dotenvFile.eachLine { line ->
-        def matcher = line =~ /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/
-        if (matcher.matches()) {
-            String value = matcher.group(2)
-            if ((value.startsWith('"') && value.endsWith('"'))
-                    || (value.startsWith("'") && value.endsWith("'"))) {
-                value = value.substring(1, value.length() - 1)
-            }
-            dotenvValues[matcher.group(1)] = value
-        }
-    }
-}
-
-def dotenvValue = { String... keys ->
-    for (String key : keys) {
-        String value = dotenvValues.get(key)
-        if (value) {
-            return value
-        }
-    }
-    return ""
-}
-
 def buildConfigString = { String value ->
     '"' + value.replace('\\', '\\\\').replace('"', '\\"') + '"'
 }
@@ -63,7 +37,6 @@ if (configuredFitnessSurface != null && !(fitnessSurface in allowedFitnessSurfac
                     + "Allowed values: personal, test-friends, commercial."
     )
 }
-def allowManagedSupabaseDefaults = fitnessSurface == "personal"
 
 // The QA keystore is intentionally supplied outside the repository. Keep one
 // per application and move it between trusted build machines when needed.
@@ -76,46 +49,6 @@ def qaStorePath = localOrEnvironment("FITNESS_QA_STORE_FILE", "FITNESS_QA_STORE_
 def qaStorePassword = localOrEnvironment("FITNESS_QA_STORE_PASSWORD", "FITNESS_QA_STORE_PASSWORD")
 def qaKeyAlias = localOrEnvironment("FITNESS_QA_KEY_ALIAS", "FITNESS_QA_KEY_ALIAS")
 def qaKeyPassword = localOrEnvironment("FITNESS_QA_KEY_PASSWORD", "FITNESS_QA_KEY_PASSWORD")
-
-// Personal records use the shared Personal OS project. Nutrition catalog data
-// uses an independent FitnessApp-only Supabase project and session.
-def supabaseUrl = localProperties.getProperty("SUPABASE_URL")
-        ?: System.getenv("SUPABASE_URL")
-        ?: System.getenv("VITE_SUPABASE_URL")
-        ?: dotenvValue("SUPABASE_URL", "VITE_SUPABASE_URL", "ORIGINAL_DB_URL")
-        ?: ""
-def supabaseAnonKey = localProperties.getProperty("SUPABASE_ANON_KEY")
-        ?: System.getenv("SUPABASE_ANON_KEY")
-        ?: System.getenv("VITE_SUPABASE_ANON_KEY")
-        ?: dotenvValue("SUPABASE_ANON_KEY", "VITE_SUPABASE_ANON_KEY", "ORIGINAL_DB_ANON")
-        ?: ""
-def nutritionSupabaseUrl = localProperties.getProperty("NUTRITION_SUPABASE_URL")
-        ?: System.getenv("NUTRITION_SUPABASE_URL")
-        ?: dotenvValue("NUTRITION_SUPABASE_URL", "NUTRITION_DB_URL")
-        ?: ""
-def nutritionSupabaseAnonKey = localProperties.getProperty("NUTRITION_SUPABASE_ANON_KEY")
-        ?: System.getenv("NUTRITION_SUPABASE_ANON_KEY")
-        ?: dotenvValue(
-                "NUTRITION_SUPABASE_ANON_KEY",
-                "NUTRITION_DB_ANON_KEY",
-                "NUTRITION_DB_ANON"
-        )
-        ?: ""
-def priceTraceSupabaseUrl = localProperties.getProperty("PRICETRACE_SUPABASE_URL")
-        ?: System.getenv("PRICETRACE_SUPABASE_URL")
-        ?: dotenvValue("PRICETRACE_SUPABASE_URL", "PRICETRACE_DB_URL")
-        ?: ""
-def priceTraceSupabaseAnonKey = localProperties.getProperty("PRICETRACE_SUPABASE_ANON_KEY")
-        ?: localProperties.getProperty("PRICETRACE_SUPABASE_ANON")
-        ?: System.getenv("PRICETRACE_SUPABASE_ANON_KEY")
-        ?: System.getenv("PRICETRACE_SUPABASE_ANON")
-        ?: dotenvValue(
-                "PRICETRACE_SUPABASE_ANON_KEY",
-                "PRICETRACE_SUPABASE_ANON",
-                "PRICETRACE_DB_ANON_KEY",
-                "PRICETRACE_DB_ANON"
-        )
-        ?: ""
 
 def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")
 def exerciseMuscleAssetsDir = file("$buildDir/generated/exercise-muscle-assets")
@@ -164,14 +97,15 @@ android {
         manifestPlaceholders = [MAPS_API_KEY: mapsApiKey]
         buildConfigField "boolean", "MAPS_API_KEY_CONFIGURED", mapsApiKey ? "true" : "false"
         buildConfigField "String", "FITNESS_SURFACE", buildConfigString(fitnessSurface)
-        buildConfigField "boolean", "ALLOW_MANAGED_SUPABASE_DEFAULTS",
-                allowManagedSupabaseDefaults ? "true" : "false"
-        buildConfigField "String", "SUPABASE_URL", buildConfigString(supabaseUrl)
-        buildConfigField "String", "SUPABASE_ANON_KEY", buildConfigString(supabaseAnonKey)
-        buildConfigField "String", "NUTRITION_SUPABASE_URL", buildConfigString(nutritionSupabaseUrl)
-        buildConfigField "String", "NUTRITION_SUPABASE_ANON_KEY", buildConfigString(nutritionSupabaseAnonKey)
-        buildConfigField "String", "PRICETRACE_SUPABASE_URL", buildConfigString(priceTraceSupabaseUrl)
-        buildConfigField "String", "PRICETRACE_SUPABASE_ANON_KEY", buildConfigString(priceTraceSupabaseAnonKey)
+        // All variants use device-saved connections entered in Settings.
+        // Keep the fields for compatibility, but never package DB environment values.
+        buildConfigField "boolean", "ALLOW_MANAGED_SUPABASE_DEFAULTS", "false"
+        buildConfigField "String", "SUPABASE_URL", buildConfigString("")
+        buildConfigField "String", "SUPABASE_ANON_KEY", buildConfigString("")
+        buildConfigField "String", "NUTRITION_SUPABASE_URL", buildConfigString("")
+        buildConfigField "String", "NUTRITION_SUPABASE_ANON_KEY", buildConfigString("")
+        buildConfigField "String", "PRICETRACE_SUPABASE_URL", buildConfigString("")
+        buildConfigField "String", "PRICETRACE_SUPABASE_ANON_KEY", buildConfigString("")
     }
 
     signingConfigs {

@@ -88,6 +88,7 @@ import com.yeonsik.fitness.shared.feature.cardio.model.CardioActivityType
 import com.yeonsik.fitness.shared.feature.cardio.model.CardioSessionSnapshot
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.state.FitnessScreen
+import com.yeonsik.fitnessapp.config.LauncherIconController
 import com.yeonsik.fitnessapp.ui.AppUiActions
 import com.yeonsik.fitnessapp.feature.body.ui.*
 import com.yeonsik.fitnessapp.feature.cardio.ui.*
@@ -235,6 +236,10 @@ private fun AppRoot(
             androidx.compose.ui.platform.LocalConfiguration.current.uiMode and
                 android.content.res.Configuration.UI_MODE_NIGHT_MASK ==
                 android.content.res.Configuration.UI_MODE_NIGHT_YES)
+    val launcherContext = LocalContext.current.applicationContext
+    LaunchedEffect(launcherContext, dark) {
+        LauncherIconController.synchronize(launcherContext, dark)
+    }
     val routeDate = when (destinationScreen) {
         FitnessScreen.MEALS -> navigationState.selectedMealDate
         FitnessScreen.RECORDS -> navigationState.selectedRecordsDate
@@ -894,7 +899,7 @@ private fun AppRoot(
                     if (state.editor == RecoveryEditorKind.NUTRITION_GOAL) {
                         "영양 목표를 저장했습니다."
                     } else {
-                        "회복 체크인을 저장했습니다."
+                        "임시저장 완료"
                     }
                 )
                 viewModels.getDevelopment().dismissRecoveryEditor()

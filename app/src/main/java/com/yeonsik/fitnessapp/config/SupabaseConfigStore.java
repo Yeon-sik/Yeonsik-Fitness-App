@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 
 import com.yeonsik.fitnessapp.BuildConfig;
+import java.net.URI;
 
 public class SupabaseConfigStore {
     private static final String KEY_URL = "supabase_url";
@@ -87,14 +88,26 @@ public class SupabaseConfigStore {
         return SupabaseConfig.APP_MANAGED_SOURCE.equals(load().sourceLabel);
     }
 
-    public SupabaseConfig saveConnection(String supabaseUrl, String supabaseAnonKey) {
+    public synchronized SupabaseConfig saveConnection(String supabaseUrl, String supabaseAnonKey) {
         String normalizedUrl = normalize(supabaseUrl);
         String normalizedAnonKey = normalize(supabaseAnonKey);
         if (normalizedUrl.isEmpty() != normalizedAnonKey.isEmpty()) {
             throw new IllegalArgumentException("Supabase URL과 anon key를 함께 입력하거나 모두 비워 주세요.");
         }
-        if (!normalizedUrl.isEmpty() && !normalizedUrl.startsWith("https://")) {
-            throw new IllegalArgumentException("Supabase URL은 HTTPS여야 합니다.");
+        if (!normalizedUrl.isEmpty()) {
+            URI address;
+            try { address = URI.create(normalizedUrl); }
+            catch (IllegalArgumentException invalid) { throw new IllegalArgumentException("올바른 DB URL을 입력하세요."); }
+            if (!"https".equalsIgnoreCase(address.getScheme()) || address.getHost() == null
+                    || address.getRawUserInfo() != null || address.getRawQuery() != null || address.getRawFragment() != null) {
+                throw new IllegalArgumentException("DB URL은 사용자 정보나 쿼리가 없는 HTTPS 주소여야 합니다.");
+            }
+            if (address.getPath().startsWith("/rest/v1") || address.getPath().startsWith("/auth/v1")) {
+                throw new IllegalArgumentException("API 경로 대신 프로젝트의 기본 DB URL을 입력하세요.");
+            }
+            if (normalizedAnonKey.startsWith("sb_secret_")) {
+                throw new IllegalArgumentException("공개 anon 또는 publishable 키를 입력하세요.");
+            }
         }
         SupabaseConfig current = load();
         boolean connectionChanged = !current.supabaseUrl.equals(normalizedUrl)
@@ -134,6 +147,22 @@ public class SupabaseConfigStore {
         );
     }
 
+    /** An old request must not attach its session to a newly selected remote project. */
+    public synchronized SupabaseConfig saveSessionForConnection(
+            SupabaseConfig expectedConnection, String userId, String email,
+            String accessToken, String refreshToken
+    ) {
+        SupabaseConfig current = load();
+        if (!current.supabaseUrl.equals(expectedConnection.supabaseUrl)
+                || !current.supabaseAnonKey.equals(expectedConnection.supabaseAnonKey)) {
+            throw new IllegalStateException("DB 연결이 변경되었습니다. 새 연결에서 다시 로그인하세요.");
+        }
+        if (!current.userId.isEmpty() && !current.userId.equals(userId)) {
+            throw new IllegalStateException("로컬 기록이 다른 계정에 연결되어 있습니다.");
+        }
+        return saveSession(userId, email, accessToken, refreshToken);
+    }
+
     public SupabaseConfig clearSession() {
         SupabaseConfig current = load();
         tokenStore.clear();
@@ -145,13 +174,14 @@ public class SupabaseConfigStore {
     }
 
     private void replaceConnectionAndClearSession(String url, String anonKey) {
-        tokenStore.clear();
-        preferences.edit()
+        boolean saved = preferences.edit()
                 .putString(KEY_URL, normalize(url))
                 .putString(KEY_ANON, normalize(anonKey))
                 .remove(KEY_USER)
                 .remove(KEY_EMAIL)
                 .commit();
+        if (!saved) throw new IllegalStateException("DB 연결 설정을 저장하지 못했습니다.");
+        tokenStore.clear();
     }
 
     private static String normalize(String value) {
