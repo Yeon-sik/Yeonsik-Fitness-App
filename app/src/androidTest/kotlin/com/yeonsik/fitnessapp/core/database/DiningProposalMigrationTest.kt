@@ -55,7 +55,7 @@ class DiningProposalMigrationTest {
                     "VALUES ('meal-history','owner','2026-10-01','private meal',500,20,'created',0,'updated','device','fitness','fitness','{}',1)")
             }
             val room = Room.databaseBuilder(context, FitnessRoomDatabase::class.java, name)
-                .addMigrations(FitnessRoomMigrations.V53_TO_V54).build()
+                .addMigrations(FitnessRoomMigrations.V53_TO_V54, FitnessRoomMigrations.V54_TO_V55).build()
             try {
                 val store = RoomDiningProposalStore(room.diningProposalRoomDao())
                 assertEquals(listOf(old), store.list("owner").filter { it.remoteScope == old.remoteScope })
@@ -68,7 +68,7 @@ class DiningProposalMigrationTest {
                     assertEquals(1, cursor.count); assertTrue(cursor.moveToFirst())
                     assertEquals("meal-history", cursor.getString(0)); assertEquals("private meal", cursor.getString(1))
                 }
-                assertEquals(54, room.openHelper.writableDatabase.version)
+                assertEquals(FitnessDatabaseContract.ROOM_VERSION, room.openHelper.writableDatabase.version)
             } finally { room.close() }
         } finally { context.deleteDatabase(name) }
     }

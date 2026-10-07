@@ -402,6 +402,14 @@ internal fun WorkoutDetailScreen(
         modifier = Modifier.fillMaxWidth()
     )
     if (ready.readOnly) {
+        if (detail.activeExercise.exerciseId == "manual") {
+            detail.activeExercise.familyIdentity?.let { identity ->
+                Text("연결된 정식 운동: ${identity.presetNameKo}",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            FitnessOutlinedButton(onClick = { actions.linkManualExercise(detail.activeExercise.id) },
+                modifier = Modifier.fillMaxWidth()) { Text("정식 운동에 연결") }
+        }
         when (selectedRecordTab) {
             EXERCISE_TRENDS_TAB -> WorkoutExerciseTrendsTab(detail, unit)
             else -> WorkoutExerciseRecordsTab(detail, unit)

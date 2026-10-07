@@ -192,6 +192,9 @@ interface DeviceRoomDao {
 
 @Dao
 interface AccountOwnershipRoomDao {
+    @Query("UPDATE workout_manual_exercise_links SET user_id=:nextUserId WHERE user_id=:sourceUserId")
+    fun claimManualExerciseLinks(sourceUserId: String, nextUserId: String): Int
+
     @Query("UPDATE workout_records SET user_id=:nextUserId WHERE user_id=:sourceUserId")
     fun claimWorkoutRecords(sourceUserId: String, nextUserId: String): Int
 
@@ -839,6 +842,14 @@ interface SupplementRoomDao {
 
 @Dao
 interface WorkoutRoomDao {
+    @Query("SELECT ml.* FROM workout_manual_exercise_links ml INNER JOIN workout_exercises we " +
+        "ON we.id=ml.id AND we.user_id=ml.user_id WHERE we.record_id=:recordId " +
+        "AND ml.user_id=:userId AND we.exercise_id='manual' AND we.deleted_at IS NULL")
+    fun manualExerciseLinks(recordId: String, userId: String): List<WorkoutManualExerciseLinkRoomEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun saveManualExerciseLink(link: WorkoutManualExerciseLinkRoomEntity)
+
     data class SummarySetCount(
         @ColumnInfo(name = "ui_part") val uiPart: String?,
         @ColumnInfo(name = "primary_sub_part_snapshot") val primarySubPart: String?,
@@ -951,6 +962,8 @@ interface WorkoutRoomDao {
 
     data class BestSetRow(
         @ColumnInfo(name = "record_id") val recordId: String,
+        @ColumnInfo(name = "workout_exercise_id") val workoutExerciseId: String,
+        @ColumnInfo(name = "stored_volume_kg") val storedVolumeKg: Double,
         val date: String,
         @ColumnInfo(name = "weight_kg") val weightKg: Double?,
         @ColumnInfo(name = "actual_reps") val actualReps: Long?,
@@ -1026,7 +1039,9 @@ interface WorkoutRoomDao {
 
     @Query(
         "SELECT we.record_id AS record_id, wr.date AS date, wr.exercise_name AS exercise_name " +
-            "FROM workout_exercises we INNER JOIN workout_records wr ON wr.id=we.record_id " +
+            "FROM workout_exercises we LEFT JOIN workout_manual_exercise_links ml " +
+            "ON ml.id=we.id AND ml.user_id=we.user_id AND we.exercise_id='manual' " +
+            "INNER JOIN workout_records wr ON wr.id=we.record_id " +
             "AND wr.deleted_at IS NULL WHERE wr.user_id=:userId AND we.user_id=:userId " +
             "AND we.deleted_at IS NULL AND we.record_id != :currentRecordId " +
             "AND wr.scope IN ('fitness','both') " +
@@ -1036,11 +1051,12 @@ interface WorkoutRoomDao {
             "AND ((:familyId IS NOT NULL AND " +
             "((we.family_id=:familyId " +
             "AND (:canonicalVariantKey IS NULL OR we.canonical_variant_key=:canonicalVariantKey)) " +
+            "OR (ml.family_id=:familyId AND (:canonicalVariantKey IS NULL OR ml.canonical_variant_key=:canonicalVariantKey)) " +
             "OR (we.family_id IS NULL AND we.preset_id IS NULL " +
             "AND we.canonical_variant_key IS NULL AND we.visual_variant_key IS NULL " +
             "AND we.exercise_id IN (:legacyExerciseIds)))) " +
             "OR (:familyId IS NULL AND :canonicalVariantKey IS NULL AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
-            "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName)))) " +
+            "OR (we.exercise_id='manual' AND ml.id IS NULL AND we.exercise_name_snapshot=:exerciseName)))) " +
             "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 100"
     )
     fun exerciseHistoryCandidates(
@@ -1050,7 +1066,9 @@ interface WorkoutRoomDao {
 
     @Query(
         "SELECT we.id AS record_id, wr.date AS date, wr.exercise_name AS exercise_name " +
-            "FROM workout_exercises we INNER JOIN workout_records wr ON wr.id=we.record_id " +
+            "FROM workout_exercises we LEFT JOIN workout_manual_exercise_links ml " +
+            "ON ml.id=we.id AND ml.user_id=we.user_id AND we.exercise_id='manual' " +
+            "INNER JOIN workout_records wr ON wr.id=we.record_id " +
             "AND wr.deleted_at IS NULL WHERE wr.user_id=:userId AND we.user_id=:userId " +
             "AND we.deleted_at IS NULL AND we.record_id != :currentRecordId " +
             "AND wr.scope IN ('fitness','both') " +
@@ -1060,11 +1078,12 @@ interface WorkoutRoomDao {
             "AND ((:familyId IS NOT NULL AND " +
             "((we.family_id=:familyId " +
             "AND (:canonicalVariantKey IS NULL OR we.canonical_variant_key=:canonicalVariantKey)) " +
+            "OR (ml.family_id=:familyId AND (:canonicalVariantKey IS NULL OR ml.canonical_variant_key=:canonicalVariantKey)) " +
             "OR (we.family_id IS NULL AND we.preset_id IS NULL " +
             "AND we.canonical_variant_key IS NULL AND we.visual_variant_key IS NULL " +
             "AND we.exercise_id IN (:legacyExerciseIds)))) " +
             "OR (:familyId IS NULL AND :canonicalVariantKey IS NULL AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
-            "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName)))) " +
+            "OR (we.exercise_id='manual' AND ml.id IS NULL AND we.exercise_name_snapshot=:exerciseName)))) " +
             "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 1"
     )
     fun lastExerciseCandidate(
@@ -1073,11 +1092,13 @@ interface WorkoutRoomDao {
     ): ExerciseHistoryCandidate?
 
     @Query(
-        "SELECT we.record_id AS record_id, wr.date AS date, ws.weight_kg AS weight_kg, " +
+        "SELECT we.record_id AS record_id, wr.date AS date, ws.workout_exercise_id AS workout_exercise_id, " +
+            "ws.volume_kg AS stored_volume_kg, ws.weight_kg AS weight_kg, " +
             "ws.actual_reps AS actual_reps, ws.added_weight_kg AS added_weight_kg, " +
             "ws.assisted_weight_kg AS assisted_weight_kg, ws.load_state AS load_state " +
             "FROM workout_sets ws INNER JOIN workout_exercises we ON we.id=ws.workout_exercise_id " +
-            "INNER JOIN workout_records wr ON wr.id=we.record_id WHERE wr.user_id=:userId " +
+            "LEFT JOIN workout_manual_exercise_links ml ON ml.id=we.id AND ml.user_id=we.user_id " +
+            "AND we.exercise_id='manual' INNER JOIN workout_records wr ON wr.id=we.record_id WHERE wr.user_id=:userId " +
             "AND we.user_id=:userId AND ws.user_id=:userId AND we.record_id != :currentRecordId " +
             "AND wr.deleted_at IS NULL AND we.deleted_at IS NULL AND ws.deleted_at IS NULL " +
             "AND wr.scope IN ('fitness','both') AND (wr.source_app='os' OR wr.metadata LIKE '%\"status\":\"completed\"%') " +
@@ -1085,11 +1106,12 @@ interface WorkoutRoomDao {
             "AND ((:familyId IS NOT NULL AND " +
             "((we.family_id=:familyId " +
             "AND (:canonicalVariantKey IS NULL OR we.canonical_variant_key=:canonicalVariantKey)) " +
+            "OR (ml.family_id=:familyId AND (:canonicalVariantKey IS NULL OR ml.canonical_variant_key=:canonicalVariantKey)) " +
             "OR (we.family_id IS NULL AND we.preset_id IS NULL " +
             "AND we.canonical_variant_key IS NULL AND we.visual_variant_key IS NULL " +
             "AND we.exercise_id IN (:legacyExerciseIds)))) " +
             "OR (:familyId IS NULL AND :canonicalVariantKey IS NULL AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
-            "OR (we.exercise_id='manual' AND we.exercise_name_snapshot=:exerciseName))))"
+            "OR (we.exercise_id='manual' AND ml.id IS NULL AND we.exercise_name_snapshot=:exerciseName))))"
     )
     fun bestSetRows(
         userId: String, currentRecordId: String, exerciseId: String, exerciseName: String,
@@ -2207,6 +2229,7 @@ interface NutritionRoomDao {
         DevicesRoomEntity::class,
         WorkoutRecordsRoomEntity::class,
         WorkoutExercisesRoomEntity::class,
+        WorkoutManualExerciseLinkRoomEntity::class,
         WorkoutSetsRoomEntity::class,
         SyncStateRoomEntity::class,
         MealRecordsRoomEntity::class,

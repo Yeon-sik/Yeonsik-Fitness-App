@@ -37,6 +37,7 @@ internal interface WorkoutDetailActions {
     fun back()
     fun refresh()
     fun openExercise(exerciseId: String)
+    fun linkManualExercise(exerciseId: String)
     fun deleteExercise(recordId: String, exerciseId: String, onResult: (Boolean) -> Unit)
     fun applyPreviousHistory(
         recordId: String,

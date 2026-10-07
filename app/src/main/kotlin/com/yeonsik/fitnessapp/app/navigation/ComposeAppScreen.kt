@@ -473,8 +473,12 @@ private fun AppRoot(
                     readOnly = workoutReadOnly
                 )
             }
-            if (state.selectionMode == com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerSelectionMode.WORKOUT_REPLACE) {
+            if (state.selectionMode in listOf(
+                com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerSelectionMode.WORKOUT_REPLACE,
+                com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerSelectionMode.WORKOUT_LINK_MANUAL
+            )) {
                 viewModels.getExercisePicker().clearReplacementExercise()
+                viewModels.getStatistics().markStale()
             }
         }
         navigation.back()
@@ -1755,8 +1759,7 @@ private fun AppDestination(
                         activeRecordId,
                         replacementId,
                         navigation.selectedRoutineId(),
-                        com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerSelectionMode
-                            .forTarget(screen, replacementId)
+                        picker.selectionModeForTarget(screen, replacementId)
                     )
                 }
             else -> Unit
@@ -2006,7 +2009,10 @@ private fun AppDestination(
         )
     }
     val exercisePickerActions = object : ExercisePickerScreenActions {
-        override fun back() { navigation.back() }
+        override fun back() {
+            viewModels.getExercisePicker().clearReplacementExercise()
+            navigation.back()
+        }
         override fun search(query: String) = viewModels.getExercisePicker().search(query)
         override fun setBodyPart(bodyPart: com.yeonsik.fitness.shared.feature.exercise.model.BodyPart?) =
             viewModels.getExercisePicker().setBodyPart(bodyPart)
@@ -2026,6 +2032,8 @@ private fun AppDestination(
             viewModels.getExercisePicker().selectPreset(familyId, presetId)
         override fun choose(preset: com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset) =
             viewModels.getExercisePicker().choose(preset)
+        override fun chooseManual(exercise: com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise) =
+            viewModels.getExercisePicker().chooseManual(exercise)
     }
     Column(
         Modifier.fillMaxWidth().then(
@@ -2181,6 +2189,10 @@ private fun AppDestination(
                     override fun openExercise(exerciseId: String) {
                         viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
                         navigation.replace(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+                    }
+                    override fun linkManualExercise(exerciseId: String) {
+                        viewModels.getExercisePicker().rememberManualLinkExercise(exerciseId)
+                        navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
                     }
                     override fun deleteExercise(
                         recordId: String,

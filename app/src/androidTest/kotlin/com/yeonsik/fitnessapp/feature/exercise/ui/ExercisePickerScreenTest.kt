@@ -374,5 +374,6 @@ class ExercisePickerScreenTest {
         override fun choose(preset: RuntimeExercisePreset) {
             chosenPresetId = preset.presetId
         }
+        override fun chooseManual(exercise: com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise) = Unit
     }
 }

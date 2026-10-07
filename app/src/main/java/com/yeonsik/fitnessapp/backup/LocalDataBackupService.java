@@ -534,7 +534,7 @@ public final class LocalDataBackupService {
             }
 
             int databaseVersion = root.getInt("databaseVersion");
-            if (databaseVersion > FitnessDatabaseHelper.DATABASE_VERSION) {
+            if (databaseVersion > com.yeonsik.fitnessapp.core.database.FitnessDatabaseContract.ROOM_VERSION) {
                 throw new IllegalArgumentException("Backup database version is newer than this app.");
             }
 
@@ -633,6 +633,9 @@ public final class LocalDataBackupService {
         }
         Set<String> expected = new LinkedHashSet<>(TABLE_ORDER);
         Set<String> required = new LinkedHashSet<>(expected);
+        if (databaseVersion < 55) {
+            required.remove("workout_manual_exercise_links");
+        }
         if (databaseVersion < 15) {
             required.remove("meal_record_item_components");
             required.remove("meal_record_item_component_nutrients");
@@ -1100,6 +1103,7 @@ public final class LocalDataBackupService {
         List<String> tables = new ArrayList<>();
         tables.add("workout_records");
         tables.add("workout_exercises");
+        tables.add("workout_manual_exercise_links");
         tables.add("workout_sets");
         tables.add("meal_records");
         tables.add("weight_records");

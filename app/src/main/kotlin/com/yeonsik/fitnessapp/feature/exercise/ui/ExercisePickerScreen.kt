@@ -57,6 +57,7 @@ import com.yeonsik.fitnessapp.core.ui.FitnessTextField
 import com.yeonsik.fitnessapp.core.ui.FitnessSemanticStatus
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
+import com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePicker
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset
@@ -80,6 +81,7 @@ interface ExercisePickerScreenActions {
     fun selectFamily(familyId: String)
     fun selectPreset(familyId: String, presetId: String)
     fun choose(preset: RuntimeExercisePreset)
+    fun chooseManual(exercise: ManualWorkoutExercise)
 }
 
 @Composable
@@ -140,6 +142,9 @@ private fun ExercisePickerReady(
     actions: ExercisePickerScreenActions
 ) {
     val listState = rememberLazyListState()
+    var showManualEntry by rememberSaveable(state.ownerId, state.recordId, state.selectionMode) {
+        mutableStateOf(false)
+    }
     val searchFocusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -176,6 +181,19 @@ private fun ExercisePickerReady(
             }
             item {
                 ExercisePickerFilters(state, actions)
+            }
+            if (state.selectionMode == ExercisePickerSelectionMode.WORKOUT_ADD) {
+                item {
+                    FitnessOutlinedButton(onClick = { showManualEntry = true }, Modifier.fillMaxWidth()) {
+                        Text("목록에 없는 운동 직접 추가")
+                    }
+                }
+            }
+            if (state.selectionMode == ExercisePickerSelectionMode.WORKOUT_LINK_MANUAL) {
+                item {
+                    Text("연결할 정식 운동을 선택하세요. 당시 운동명과 세트 기록은 보존됩니다.",
+                        style = MaterialTheme.typography.bodySmall)
+                }
             }
             item {
                 Row(
@@ -217,6 +235,12 @@ private fun ExercisePickerReady(
 
         selectedFamily?.let { result ->
             ExercisePickerVariantSheet(result, state, actions)
+        }
+        if (showManualEntry) {
+            ManualWorkoutExerciseDialog(state.query, onDismiss = { showManualEntry = false }) { exercise ->
+                showManualEntry = false
+                actions.chooseManual(exercise)
+            }
         }
     }
 }
@@ -477,7 +501,8 @@ private fun ExercisePickerVariantSheet(
                 enabled = selectedPreset != null,
                 selected = selectedPreset != null
             ) {
-                Text("이 변형으로 선택")
+                Text(if (state.selectionMode == ExercisePickerSelectionMode.WORKOUT_LINK_MANUAL)
+                    "이 운동에 연결" else "이 변형으로 선택")
             }
         }
     }
@@ -595,6 +620,7 @@ private fun pickerTitle(
 ): String = when (selectionMode) {
     ExercisePickerSelectionMode.ROUTINE_ADD -> "루틴 종목 추가"
     ExercisePickerSelectionMode.WORKOUT_REPLACE -> "운동 종목 교체"
+    ExercisePickerSelectionMode.WORKOUT_LINK_MANUAL -> "정식 운동에 연결"
     ExercisePickerSelectionMode.WORKOUT_ADD -> "운동 종목 추가"
     null -> if (screen == FitnessScreen.ROUTINE_ADD) "루틴 종목 추가" else "운동 종목 선택"
 }

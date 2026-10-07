@@ -8,6 +8,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
+import com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise
 import com.yeonsik.fitnessapp.exercise.ExerciseMasterAdapter
 import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePicker
@@ -322,8 +323,19 @@ class ExercisePickerViewModel @JvmOverloads constructor(
         synchronized(lock) {
             currentReplacementId = normalized
             savedStateHandle[KEY_REPLACEMENT_ID] = normalized
+            savedStateHandle[KEY_MANUAL_LINK] = false
         }
     }
+
+    fun rememberManualLinkExercise(exerciseId: String) {
+        rememberReplacementExercise(exerciseId)
+        savedStateHandle[KEY_MANUAL_LINK] = true
+    }
+
+    fun selectionModeForTarget(screen: FitnessScreen, replacementId: String?): ExercisePickerSelectionMode =
+        if (screen == FitnessScreen.WORKOUT_EXERCISE_ADD && !replacementId.isNullOrBlank() &&
+            savedStateHandle.get<Boolean>(KEY_MANUAL_LINK) == true) ExercisePickerSelectionMode.WORKOUT_LINK_MANUAL
+        else ExercisePickerSelectionMode.forTarget(screen, replacementId)
 
     fun clearReplacementExercise() {
         rememberReplacementExercise(null)
@@ -362,18 +374,23 @@ class ExercisePickerViewModel @JvmOverloads constructor(
             if (!requestGate.accepts(choice.token, choice.key)) return@execute
             try {
                 val saved = when (choice.selectionMode) {
+                    ExercisePickerSelectionMode.WORKOUT_LINK_MANUAL ->
+                        if (choice.recordId == null || choice.replacementId == null) false else
+                            workoutRepository.linkManualExerciseToCanonical(
+                                choice.scope, choice.recordId, choice.replacementId, choice.preset!!.canonicalPresetId
+                            )
                     ExercisePickerSelectionMode.ROUTINE_ADD ->
                         routineRepository.addExercise(
                             choice.scope,
                             choice.routineId ?: routineRepository.activeRoutineId(choice.scope),
-                            ExerciseMasterAdapter.toRoutineExerciseDraft(choice.preset)
+                            ExerciseMasterAdapter.toRoutineExerciseDraft(choice.preset!!)
                         )
                     ExercisePickerSelectionMode.WORKOUT_ADD ->
                         choice.recordId?.let {
                             workoutRepository.addExercise(
                                 choice.scope,
                                 it,
-                                ExerciseMasterAdapter.toWorkoutExerciseReplacement(choice.preset)
+                                ExerciseMasterAdapter.toWorkoutExerciseReplacement(choice.preset!!)
                             )
                         } ?: false
                     ExercisePickerSelectionMode.WORKOUT_REPLACE ->
@@ -384,7 +401,7 @@ class ExercisePickerViewModel @JvmOverloads constructor(
                                 choice.scope,
                                 choice.recordId,
                                 choice.replacementId,
-                                ExerciseMasterAdapter.toWorkoutExerciseReplacement(choice.preset)
+                                ExerciseMasterAdapter.toWorkoutExerciseReplacement(choice.preset!!)
                             )
                         }
                 }
@@ -398,6 +415,25 @@ class ExercisePickerViewModel @JvmOverloads constructor(
                     choice,
                     error.message ?: "운동 종목을 저장하지 못했습니다."
                 )
+            }
+        }
+    }
+
+    fun chooseManual(exercise: ManualWorkoutExercise) {
+        val choice = synchronized(lock) {
+            if (!loaded || currentSelectionMode != ExercisePickerSelectionMode.WORKOUT_ADD ||
+                currentKey == null || currentScope == null || currentRecordId == null) return
+            PickerChoice(currentToken, currentKey!!, currentScope!!, currentSelectionMode,
+                currentRecordId, null, null, null)
+        }
+        executor.execute {
+            if (!requestGate.accepts(choice.token, choice.key)) return@execute
+            try {
+                if (workoutRepository.addManualExercise(choice.scope, choice.recordId!!, exercise)) {
+                    postSavedIfCurrent(choice)
+                } else postErrorIfCurrent(choice, "수동 운동을 추가하지 못했습니다.")
+            } catch (error: Exception) {
+                postErrorIfCurrent(choice, error.message ?: "수동 운동을 추가하지 못했습니다.")
             }
         }
     }
@@ -537,7 +573,7 @@ class ExercisePickerViewModel @JvmOverloads constructor(
         val recordId: String?,
         val replacementId: String?,
         val routineId: String?,
-        val preset: RuntimeExercisePreset
+        val preset: RuntimeExercisePreset?
     )
 
     private companion object {
@@ -545,6 +581,7 @@ class ExercisePickerViewModel @JvmOverloads constructor(
         const val KEY_SELECTION_MODE = "exercise_picker.selection_mode"
         const val KEY_RECORD_ID = "exercise_picker.record_id"
         const val KEY_REPLACEMENT_ID = "exercise_picker.replacement_id"
+        const val KEY_MANUAL_LINK = "exercise_picker.manual_link"
         const val KEY_ROUTINE_ID = "exercise_picker.routine_id"
         const val KEY_QUERY = "exercise_picker.query"
         const val KEY_BODY_PART = "exercise_picker.body_part"
