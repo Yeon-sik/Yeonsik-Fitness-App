@@ -54,6 +54,11 @@ public final class NutritionTemplateRepository implements NutritionTemplateRepos
     }
 
     @Override
+    public String currentOwnerId() {
+        return userId;
+    }
+
+    @Override
     public CompositionTemplate findTemplate(String templateId) {
         String normalizedId = normalizeNullable(templateId);
         if (normalizedId == null) {
@@ -75,20 +80,24 @@ public final class NutritionTemplateRepository implements NutritionTemplateRepos
 
     @Override
     public String saveTemplate(CompositionTemplate template) {
+        final String ownerId = userId;
         if (template == null) {
             throw new IllegalArgumentException("Composition template is required.");
         }
-        if (!userId.equals(template.userId)) {
+        if (!ownerId.equals(template.userId)) {
             throw new IllegalArgumentException("Composition template belongs to another user.");
         }
         String now = OffsetDateTime.now().toString();
         roomDatabase.runInTransaction(() -> {
-            templateDao.tombstoneMembers(template.id, userId, now, now);
-            templateDao.tombstoneGroups(template.id, userId, now, now);
-            templateDao.tombstoneTemplate(template.id, userId, now, now);
+            if (!ownerId.equals(userId)) {
+                throw new IllegalStateException("계정이 변경되었습니다. 식단 구성을 다시 여세요.");
+            }
+            templateDao.tombstoneMembers(template.id, ownerId, now, now);
+            templateDao.tombstoneGroups(template.id, ownerId, now, now);
+            templateDao.tombstoneTemplate(template.id, ownerId, now, now);
             templateDao.replaceTemplate(new CompositionTemplatesRoomEntity(
                     template.id,
-                    userId,
+                    ownerId,
                     template.name,
                     template.kind,
                     template.rootFoodId,
@@ -102,7 +111,7 @@ public final class NutritionTemplateRepository implements NutritionTemplateRepos
             for (CompositionGroup group : template.groups) {
                 templateDao.replaceGroup(new CompositionGroupsRoomEntity(
                         group.id,
-                        userId,
+                        ownerId,
                         template.id,
                         group.key,
                         group.groupType,
@@ -119,7 +128,7 @@ public final class NutritionTemplateRepository implements NutritionTemplateRepos
                 for (CompositionMember member : group.members) {
                     templateDao.replaceMember(new CompositionMembersRoomEntity(
                             member.id,
-                            userId,
+                            ownerId,
                             template.id,
                             group.id,
                             member.nutritionFoodId,

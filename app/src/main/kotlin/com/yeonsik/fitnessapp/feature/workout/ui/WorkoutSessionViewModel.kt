@@ -510,6 +510,7 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
     }
 
     fun startRestTimer(ownerId: String, restSeconds: Int?) {
+        if (restSeconds == 0) return
         val seconds = restSeconds?.takeIf { it > 0 } ?: DEFAULT_REST_SECONDS
         val endsAtMillis = System.currentTimeMillis() + seconds * 1000L
         savedStateHandle[KEY_REST_OWNER_ID] = ownerId

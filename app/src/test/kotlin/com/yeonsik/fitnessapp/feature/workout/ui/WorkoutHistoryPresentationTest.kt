@@ -5,7 +5,9 @@ import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class WorkoutHistoryPresentationTest {
@@ -28,7 +30,9 @@ class WorkoutHistoryPresentationTest {
         assertEquals("중량(${MassUnit.KG.symbol()})", rows.upperLabel)
         assertEquals("횟수", rows.lowerLabel)
         assertEquals("80.1", rows.upperValues.single().visibleValue)
+        assertTrue(rows.upperValues.single().isLoadValue)
         assertEquals("8", rows.lowerValues.single().visibleValue)
+        assertFalse(rows.lowerValues.single().isLoadValue)
         assertEquals("1세트, 횟수 8회", rows.lowerValues.single().spokenValue)
     }
 

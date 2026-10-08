@@ -3,6 +3,7 @@ package com.yeonsik.fitness.shared.feature.workout.api
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail
+import com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
@@ -76,6 +77,8 @@ interface WorkoutRepositoryApi {
     fun discard(scope: AccountScope, recordId: String)
 
     fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: WorkoutSetInput): Boolean
+    fun updateExerciseRestSeconds(scope: AccountScope, recordId: String,
+                                  exerciseId: String, seconds: Int): Boolean = false
     fun addTypedSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int,
                     input: WorkoutSetInput): Boolean
     fun deleteSet(scope: AccountScope, recordId: String, setId: String): Boolean
@@ -84,6 +87,13 @@ interface WorkoutRepositoryApi {
                     exercise: WorkoutExerciseReplacement): Boolean
     fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String,
                         replacement: WorkoutExerciseReplacement): Boolean
+
+    fun addManualExercise(scope: AccountScope, recordId: String,
+                          exercise: ManualWorkoutExercise): Boolean = false
+
+    /** Links a completed manual occurrence without changing its original event or set snapshots. */
+    fun linkManualExerciseToCanonical(scope: AccountScope, recordId: String,
+                                     exerciseId: String, canonicalPresetId: String): Boolean = false
 }
 
 enum class WorkoutCompletion {

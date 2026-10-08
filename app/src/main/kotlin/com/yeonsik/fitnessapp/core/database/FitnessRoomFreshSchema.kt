@@ -110,5 +110,6 @@ internal object FitnessRoomFreshSchema {
         FitnessRoomMigrations.V51_TO_V52.migrate(database)
         FitnessRoomMigrations.V52_TO_V53.migrate(database)
         FitnessRoomMigrations.V53_TO_V54.migrate(database)
+        FitnessRoomMigrations.V54_TO_V55.migrate(database)
     }
 }

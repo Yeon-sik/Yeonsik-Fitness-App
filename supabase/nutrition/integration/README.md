@@ -4,7 +4,8 @@
 through Auth, PostgREST, and the canonical import RPCs. It verifies owner-scoped
 RLS, anonymous rejection, the v1/v2 evidence contracts, the authoritative v3
 endpoint with the existing `nutrition-label.v1` and `food-estimate.v1` input
-semantics, all four explicit packaged-product hierarchy fields, seven
+semantics plus the `external-reference.v1` public-source contract, all four
+explicit packaged-product hierarchy fields, seven
 provenance rows, replay/collision behavior including changed hierarchy,
 v1/v2 idempotency namespace separation, exact product↔Nutrition links,
 restaurant hierarchy rejection and null read round-trip, strict `p_brand` /
@@ -13,7 +14,11 @@ restaurant hierarchy rejection and null read round-trip, strict `p_brand` /
 publication RPC: private canonical import, all four required PriceTrace IDs,
 owner/product-label rejection, stored identity conflict rejection, atomic
 success, approved link, publication event, same-key replay, changed-payload
-conflict, and the existing manual publication RPC.
+conflict, and the existing manual publication RPC. It also verifies the
+external source with the OCR-App
+`yeonsik-ocr.v2.packaged-product.text-lookup.example.json` fixture, including
+the public URL, `external-nutrition-lookup.v1`, unchanged basis amount/unit,
+observed seven-nutrient provenance, cross-owner isolation, and idempotent replay.
 
 The v3 endpoint does not accept `nutrition-label.v3`, `food-estimate.v3`, or a
 `p_category_hierarchy` array. Packaged-product callers send
@@ -57,8 +62,8 @@ temporary users and remove them after the run.
 
 The historical-replay/replay.mjs runner starts two uniquely named local Supabase projects with Docker and no linked project reference:
 
-- a historical replay that runs all 27 recovered remote migrations from an empty database;
-- a second fresh replay that runs those same 27 migrations, applies both pending migrations, verifies the final schema and grants, runs the rollback fixture, and runs the authenticated `external-reference-only` integration mode.
+- a historical replay that runs all 28 recovered migrations from an empty database;
+- a second fresh replay that runs those same 28 migrations, applies all three pending migrations, verifies the final schema and grants, runs the rollback fixture, and runs the authenticated `external-reference-only` integration mode.
 
 The runner first applies the real SQL through 20260814065526_product_nutrition_link_pricetrace_metadata.sql. It then loads historical-replay/pre_20260814065823_kaguri.sql, a disposable-only synthetic prerequisite, and applies unchanged historical SQL from 20260814065823 onward. The runner derives the one selector UUID from that original migration; the fixture contains no production owner or Nutrition row data and is not part of normal seed configuration.
 

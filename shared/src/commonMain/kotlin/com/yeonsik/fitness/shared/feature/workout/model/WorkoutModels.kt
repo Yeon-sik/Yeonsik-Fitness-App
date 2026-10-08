@@ -86,7 +86,9 @@ data class WorkoutExerciseDetail(
     /** The selected record plus up to four earlier completed records, oldest first. */
     val recentHistories: List<WorkoutExerciseHistory> = emptyList(),
     val personalBests: WorkoutExercisePersonalBests? = null,
-    val currentRecordDate: String = ""
+    val currentRecordDate: String = "",
+    /** One timer setting for this occurrence; historical per-set rest snapshots remain intact. */
+    val exerciseRestSeconds: Int? = null
 )
 
 data class WorkoutSessionSnapshot(
@@ -126,7 +128,11 @@ data class WorkoutSessionExercise(
     val completedSetCount: Int,
     val totalSetCount: Int,
     val completedSets: List<WorkoutSet> = emptyList(),
-    val primarySubPart: String? = null
+    val primarySubPart: String? = null,
+    /** Volume from completed sets, calculated with the session's existing volume formula. */
+    val totalVolumeKg: Double = 0.0,
+    /** Latest earlier completed volume for this exercise identity, when one exists. */
+    val previousTotalVolumeKg: Double? = null
 )
 
 data class WorkoutVolumePoint(

@@ -9,6 +9,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
@@ -21,6 +23,7 @@ import com.yeonsik.fitnessapp.state.FitnessScreen
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.abs
@@ -40,8 +43,182 @@ class ExercisePickerScreenTest {
                 putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, "가슴")
             }))
             await { findNode { it.isEditable && it.isFocused && it.text?.contains("가슴") == true } != null }
-            scenario.onActivity { assertEquals("가슴", fixture.state.value.query) }
+            scenario.onActivity {
+                assertEquals("", fixture.state.value.query)
+                assertEquals(0, fixture.actions.searchCount)
+            }
         }
+    }
+
+    @Test
+    fun typingDoesNotSearchUntilTheSearchButtonIsPressed() {
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            val fixture = showPicker(scenario, ExercisePickerSelectionMode.WORKOUT_ADD)
+            listOf("덤", "덤벨", "덤벨 레터럴", "덤벨 레터럴 레이즈").forEach { query ->
+                setSearchText(query)
+                scenario.onActivity {
+                    assertEquals("", fixture.state.value.query)
+                    assertEquals(0, fixture.actions.searchCount)
+                }
+            }
+            click(requireNotNull(findNode { it.text?.toString() == "검색" }))
+            await { fixture.actions.searchCount == 1 }
+            scenario.onActivity { assertEquals("덤벨 레터럴 레이즈", fixture.state.value.query) }
+            setSearchText("")
+            scenario.onActivity {
+                assertEquals("덤벨 레터럴 레이즈", fixture.state.value.query)
+                assertEquals(1, fixture.actions.searchCount)
+            }
+            click(requireNotNull(findNode { it.text?.toString() == "검색" }))
+            await { fixture.actions.searchCount == 2 }
+            scenario.onActivity { assertEquals("", fixture.state.value.query) }
+        }
+    }
+
+    @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 30)
+    fun keyboardSearchSubmitsTheFinishedNameOnce() {
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            val fixture = showPicker(scenario, ExercisePickerSelectionMode.ROUTINE_ADD)
+            await { findNode { it.isEditable && it.isFocused } != null }
+            setSearchText("바벨 OHP")
+            val editor = requireNotNull(findNode { it.isEditable && it.isFocused })
+            assertTrue(editor.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_IME_ENTER.id))
+            await { fixture.actions.searchCount == 1 }
+            scenario.onActivity { assertEquals("바벨 OHP", fixture.state.value.query) }
+        }
+    }
+
+    @Test
+    fun filterResetClearsUnsubmittedText() {
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            val fixture = showPicker(scenario, ExercisePickerSelectionMode.WORKOUT_ADD)
+            setSearchText("입력 중")
+            click(scrollMainToText("필터 초기화"))
+            scrollBackToSearch()
+            await { findNode { it.isEditable && it.text?.contains("입력 중") == true } == null }
+            scenario.onActivity {
+                assertEquals("", fixture.state.value.query)
+                assertEquals(0, fixture.actions.searchCount)
+            }
+        }
+    }
+
+    @Test
+    fun singlePresetCardUsesItsOwnImageSlotInsteadOfTheFamilyRepresentative() {
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            val catalog = com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog.load(instrumentation.targetContext)
+            val result = RuntimeExercisePicker(catalog.runtimeCatalog()).search("펙덱 플라이").single()
+            val preset = result.presets.single()
+            showPicker(scenario, ExercisePickerSelectionMode.WORKOUT_ADD,
+                families = listOf(result))
+            findMainButton("${preset.displayName()} 선택")
+            // The native preview is decorative to accessibility. Inspect its actual bitmap and
+            // measured slot instead of treating a missing accessibility node as a missing image.
+            scenario.onActivity { activity ->
+                val preview = com.yeonsik.fitnessapp.ui.ExerciseIllustrationPreview(activity,
+                    com.yeonsik.fitnessapp.ui.FitnessUi(activity, java.util.function.BooleanSupplier { false }))
+                val expected = (requireNotNull(preview.createExact(preset.storageExerciseId)).drawable
+                    as android.graphics.drawable.BitmapDrawable).bitmap
+                fun imageViews(view: android.view.View): List<android.widget.ImageView> = when (view) {
+                    is android.widget.ImageView -> listOf(view)
+                    is android.view.ViewGroup -> (0 until view.childCount).flatMap { imageViews(view.getChildAt(it)) }
+                    else -> emptyList()
+                }
+                val rendered = imageViews(activity.window.decorView).firstOrNull { image ->
+                    image.isShown && (image.drawable as? android.graphics.drawable.BitmapDrawable)
+                        ?.bitmap?.sameAs(expected) == true
+                }
+                assertNotNull("Card must render the selected preset's export", rendered)
+                val image = requireNotNull(rendered)
+                assertEquals(android.widget.ImageView.ScaleType.FIT_CENTER, image.scaleType)
+                assertTrue("Image must stay in its square slot", abs(image.width - image.height) <= 1)
+                assertTrue(image.width > 0 && image.height > 0)
+            }
+            val screenshot = automation.takeScreenshot()
+            java.io.File(instrumentation.targetContext.cacheDir, "exercise-picker-export.png").outputStream().use {
+                screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+            screenshot.recycle()
+        }
+    }
+
+    @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    fun newExportImageRendersWithWrappedContextAndInsideTheVariantSheet() {
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            val catalog = com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog.load(instrumentation.targetContext)
+            val result = RuntimeExercisePicker(catalog.runtimeCatalog()).search("스쿼트")
+                .first { family -> family.presets.any { it.storageExerciseId == "legs_dumbbell_sumo_squat" } }
+            assertTrue(result.presets.size > 1)
+            val preset = result.presets.first { it.storageExerciseId == "legs_dumbbell_sumo_squat" }
+            val fixture = showPicker(scenario, ExercisePickerSelectionMode.WORKOUT_ADD,
+                families = listOf(result), wrappedContext = true)
+            click(scrollMainToDescription("${result.family.displayName()} 변형 선택"))
+            await { fixture.state.value.selectedFamilyId == result.family.familyId }
+            val buttonDescription = "${preset.displayName()} 선택"
+            await { findNode { it.contentDescription?.toString() == "${result.family.displayName()} 변형 목록" } != null }
+            scrollSheetToPreset(buttonDescription,
+                FixtureFamily(result.family.familyId, result.family.displayName(),
+                    result.family.displayName(), result.presets.size))
+            scenario.onActivity { activity ->
+                val preview = com.yeonsik.fitnessapp.ui.ExerciseIllustrationPreview(activity,
+                    com.yeonsik.fitnessapp.ui.FitnessUi(activity, java.util.function.BooleanSupplier { false }))
+                val expected = (requireNotNull(preview.createExact(preset.storageExerciseId)).drawable
+                    as android.graphics.drawable.BitmapDrawable).bitmap
+                fun containsImage(view: android.view.View): Boolean = when (view) {
+                    is android.widget.ImageView -> view.isShown &&
+                        (view.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.sameAs(expected) == true
+                    is android.view.ViewGroup -> (0 until view.childCount).any { containsImage(view.getChildAt(it)) }
+                    else -> false
+                }
+                // ModalBottomSheet has its own window, unlike a main-list card.
+                val roots = android.view.inspector.WindowInspector.getGlobalWindowViews()
+                assertTrue("The new export must render in the sheet", roots.any(::containsImage))
+            }
+        }
+    }
+
+    private fun scrollMainToDescription(description: String): AccessibilityNodeInfo {
+        repeat(40) {
+            findNode { it.contentDescription?.toString() == description && it.isVisibleToUser }?.let { return it }
+            assertTrue(requireNotNull(findNode { it.isScrollable })
+                .performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD))
+            instrumentation.waitForIdleSync()
+            SystemClock.sleep(100)
+        }
+        throw AssertionError("Could not scroll to $description")
+    }
+
+    private fun setSearchText(query: String) {
+        val editor = requireNotNull(findNode { it.isEditable })
+        assertTrue(editor.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, Bundle().apply {
+            putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, query)
+        }))
+        instrumentation.waitForIdleSync()
+        await { findNode { it.isEditable && it.text?.toString() == query } != null }
+    }
+
+    private fun scrollMainToText(text: String): AccessibilityNodeInfo {
+        repeat(40) {
+            findNode { it.text?.toString() == text && it.isVisibleToUser }?.let { return it }
+            assertTrue(requireNotNull(findNode { it.isScrollable })
+                .performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD))
+            instrumentation.waitForIdleSync()
+            SystemClock.sleep(100)
+        }
+        throw AssertionError("Could not scroll to $text")
+    }
+
+    private fun scrollBackToSearch() {
+        repeat(40) {
+            if (findNode { it.isEditable && it.isVisibleToUser } != null) return
+            assertTrue(requireNotNull(findNode { it.isScrollable })
+                .performAction(AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD))
+            instrumentation.waitForIdleSync()
+            SystemClock.sleep(100)
+        }
+        throw AssertionError("Could not scroll back to search")
     }
 
     @Test
@@ -135,7 +312,9 @@ class ExercisePickerScreenTest {
         scenario: ActivityScenario<ComponentActivity>,
         mode: ExercisePickerSelectionMode,
         selectedFamilyId: String? = null,
-        selectedPresetId: String? = null
+        selectedPresetId: String? = null,
+        families: List<RuntimeExercisePicker.FamilyResult> = fixtureFamilies(),
+        wrappedContext: Boolean = false
     ): PickerFixture {
         val screen = if (mode == ExercisePickerSelectionMode.ROUTINE_ADD) {
             FitnessScreen.ROUTINE_ADD
@@ -145,14 +324,18 @@ class ExercisePickerScreenTest {
             recordId = "fixture-record", replacementId = null, routineId = "fixture-routine",
             query = "", bodyPart = null, primarySubPart = null, equipmentCategory = null,
             sortOrder = RuntimeExercisePicker.SortOrder.RECENT,
-            families = fixtureFamilies(), availablePrimarySubParts = emptyList(),
+            families = families, availablePrimarySubParts = emptyList(),
             selectedFamilyId = selectedFamilyId, selectedPresetId = selectedPresetId
         ))
         val actions = FixtureActions(state)
         scenario.onActivity { activity ->
             activity.setContent {
                 FitnessComposeTheme(dark = false) {
-                    ExercisePickerScreen(state.value, "fixture-owner", screen, actions)
+                    val context = if (wrappedContext) android.view.ContextThemeWrapper(activity,
+                        android.R.style.Theme_Material_Light_NoActionBar) else activity
+                    CompositionLocalProvider(LocalContext provides context) {
+                        ExercisePickerScreen(state.value, "fixture-owner", screen, actions)
+                    }
                 }
             }
         }
@@ -345,9 +528,14 @@ class ExercisePickerScreenTest {
     private class FixtureActions(private val state: MutableState<ExercisePickerUiState.Ready>) : ExercisePickerScreenActions {
         var chosenPresetId: String? = null
             private set
+        var searchCount: Int = 0
+            private set
 
         override fun back() = Unit
-        override fun search(query: String) { state.value = state.value.copy(query = query) }
+        override fun search(query: String) {
+            searchCount++
+            state.value = state.value.copy(query = query)
+        }
         override fun setBodyPart(bodyPart: BodyPart?) = Unit
         override fun setPrimarySubPart(primarySubPart: String?) = Unit
         override fun selectMuscleGroup(groupId: String) = Unit
@@ -374,5 +562,6 @@ class ExercisePickerScreenTest {
         override fun choose(preset: RuntimeExercisePreset) {
             chosenPresetId = preset.presetId
         }
+        override fun chooseManual(exercise: com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise) = Unit
     }
 }

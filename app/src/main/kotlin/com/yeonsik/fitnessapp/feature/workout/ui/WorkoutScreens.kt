@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -31,6 +32,13 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
@@ -49,6 +57,7 @@ import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.exercise.ExercisePrimaryMuscleLabel
+import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup
 import com.yeonsik.fitness.shared.feature.workout.model.*
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType
@@ -352,7 +361,10 @@ internal fun WorkoutDetailScreen(
 ) {
     val drafts = rememberSaveableStateHolder()
     val ready = state as? WorkoutExerciseDetailUiState.Ready
-    FitnessHeader(ready?.detail?.activeExercise?.name ?: "운동 종목", back = actions::back)
+    val titleStyle = MaterialTheme.typography.headlineLarge
+    FitnessHeader(ready?.detail?.activeExercise?.name ?: "운동 종목", back = actions::back,
+        titleStyle = titleStyle.copy(fontSize = titleStyle.fontSize * 0.7f,
+            lineHeight = titleStyle.lineHeight * 0.7f))
     if (ready == null || ready.ownerId != ownerId) {
         FitnessStatusMessage(
             status = when (state) {
@@ -385,7 +397,7 @@ internal fun WorkoutDetailScreen(
         exerciseId = detail.activeExercise.exerciseId,
         identity = detail.activeExercise.familyIdentity,
         contentDescription = "${detail.activeExercise.name} 운동 이미지",
-        modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp, max = 180.dp)
+        modifier = Modifier.fillMaxWidth().height(360.dp)
     )
     Text(
         workoutExerciseMetadata(detail.activeExercise),
@@ -395,6 +407,9 @@ internal fun WorkoutDetailScreen(
         softWrap = false,
         overflow = TextOverflow.Ellipsis
     )
+    if (!ready.readOnly) {
+        WorkoutSetRecordCard(detail, ownerId, unit, actions, drafts)
+    }
     WorkoutExerciseNavigation(orderedExercises, activeIndex, actions::openExercise)
     FitnessStatusBadge(
         status = if (ready.readOnly) FitnessSemanticStatus.SUCCESS else FitnessSemanticStatus.INFO,
@@ -402,6 +417,14 @@ internal fun WorkoutDetailScreen(
         modifier = Modifier.fillMaxWidth()
     )
     if (ready.readOnly) {
+        if (detail.activeExercise.exerciseId == "manual") {
+            detail.activeExercise.familyIdentity?.let { identity ->
+                Text("연결된 정식 운동: ${identity.presetNameKo}",
+                    style = MaterialTheme.typography.bodySmall)
+            }
+            FitnessOutlinedButton(onClick = { actions.linkManualExercise(detail.activeExercise.id) },
+                modifier = Modifier.fillMaxWidth()) { Text("정식 운동에 연결") }
+        }
         when (selectedRecordTab) {
             EXERCISE_TRENDS_TAB -> WorkoutExerciseTrendsTab(detail, unit)
             else -> WorkoutExerciseRecordsTab(detail, unit)
@@ -441,31 +464,6 @@ internal fun WorkoutDetailScreen(
             }
         }
     }
-    FitnessSection("세트 기록") {
-        detail.sets.forEach { set ->
-            drafts.SaveableStateProvider("$ownerId:${detail.recordId}:${set.id}") {
-                WorkoutSetEditor(
-                    actions,
-                    detail.recordId,
-                    detail.activeExercise.recordType,
-                    detail.allowedLoadStates[detail.activeExercise.id].orEmpty(),
-                    set,
-                    unit
-                )
-            }
-        }
-        FitnessOutlinedButton(onClick = {
-            val next = (detail.sets.maxOfOrNull { it.setIndex } ?: 0) + 1
-            actions.addSet(
-                detail.recordId,
-                detail.activeExercise.id,
-                next,
-                WorkoutSetInput(null, null, null, null, null, null, null, 90, false, null, null, unit)
-            ) { ok -> if (ok) actions.refresh() else actions.toast("세트를 추가하지 못했습니다.") }
-        }, Modifier.fillMaxWidth()) {
-            Text("+ 세트 추가", modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
-        }
-    }
     var confirmDelete by rememberSaveable(detail.recordId, detail.activeExercise.id) {
         mutableStateOf(false)
     }
@@ -491,6 +489,80 @@ internal fun WorkoutDetailScreen(
                 TextButton(onClick = { confirmDelete = false }) { Text("취소") }
             }
         )
+    }
+}
+
+/** One box per exercise occurrence. Adding a set appends a row inside this box. */
+@Composable
+private fun WorkoutSetRecordCard(
+    detail: WorkoutExerciseDetail,
+    ownerId: String,
+    unit: MassUnit,
+    actions: WorkoutDetailActions,
+    drafts: SaveableStateHolder
+) {
+    val restSeconds = detail.exerciseRestSeconds ?: 90
+    var restDraft by rememberSaveable(ownerId, detail.recordId, detail.activeExercise.id, restSeconds) {
+        mutableStateOf(restSeconds.toString())
+    }
+    var applyingRest by remember { mutableStateOf(false) }
+    var addingSet by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
+    val applyRest: () -> Unit = {
+        val seconds = restDraft.toIntOrNull()?.takeIf { it >= 0 }
+        if (seconds == null) actions.toast("휴식 시간을 0 이상의 초로 입력하세요.")
+        else if (!applyingRest) {
+            applyingRest = true
+            actions.updateExerciseRestSeconds(detail.recordId, detail.activeExercise.id, seconds) { ok ->
+                applyingRest = false
+                if (ok) { focus.clearFocus(); actions.refresh() }
+                else actions.toast("운동 휴식 시간을 저장하지 못했습니다.")
+            }
+        }
+    }
+    FitnessCard(Modifier.fillMaxWidth().testTag("workout-set-record-box")) {
+        Column(Modifier.padding(FitnessSpacing.small),
+            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+            Text("세트 기록", style = MaterialTheme.typography.titleMedium)
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+                Text("운동 휴식", Modifier.weight(1f), style = MaterialTheme.typography.labelLarge)
+                OutlinedTextField(
+                    value = restDraft, onValueChange = { restDraft = it }, singleLine = true,
+                    modifier = Modifier.width(100.dp).testTag("exercise-rest-seconds"),
+                    suffix = { Text("초") },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(onDone = { applyRest() }),
+                    enabled = !applyingRest,
+                    textStyle = MaterialTheme.typography.bodyMedium,
+                    label = { Text("휴식 시간") }
+                )
+                TextButton(onClick = applyRest, enabled = !applyingRest) { Text("적용") }
+            }
+            detail.sets.sortedBy { it.setIndex }.forEachIndexed { index, set ->
+                drafts.SaveableStateProvider("$ownerId:${detail.recordId}:${set.id}") {
+                    WorkoutSetEditor(actions, detail.recordId, detail.activeExercise.recordType,
+                        detail.allowedLoadStates[detail.activeExercise.id].orEmpty(), set, unit,
+                        restSeconds, showLabels = index == 0 ||
+                            editableMassUnit(set.inputLoadUnit, unit) !=
+                            editableMassUnit(detail.sets.first().inputLoadUnit, unit))
+                }
+            }
+            Row(Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
+                .clickable(enabled = !addingSet, role = Role.Button) {
+                    addingSet = true
+                    val next = (detail.sets.maxOfOrNull { it.setIndex } ?: 0) + 1
+                    actions.addSet(detail.recordId, detail.activeExercise.id, next,
+                        WorkoutSetInput(null, null, null, null, null, null, null, null, false, null, null, unit)) { ok ->
+                        addingSet = false
+                        if (ok) actions.refresh() else actions.toast("세트를 추가하지 못했습니다.")
+                    }
+                }.testTag("workout-add-set"),
+                horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                Text("+ 세트 추가", color = MaterialTheme.colorScheme.primary,
+                    style = MaterialTheme.typography.labelLarge)
+            }
+        }
     }
 }
 
@@ -664,7 +736,9 @@ private fun WorkoutExerciseSetTable(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
             val rows = workoutSetTableRows(recordType, batch, unit)
-            WorkoutExerciseSetTableRow(rows.upperLabel, rows.upperValues)
+            WorkoutExerciseSetTableRow(rows.upperLabel, rows.upperValues,
+                if (FitnessRecordContract.normalizeRecordType(recordType) == FitnessRecordContract.TIME)
+                    MaterialTheme.colorScheme.onSurface else workoutWeightTextColor(MaterialTheme.colorScheme.surface))
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             WorkoutExerciseSetTableRow(rows.lowerLabel, rows.lowerValues)
         }
@@ -674,7 +748,8 @@ private fun WorkoutExerciseSetTable(
 @Composable
 private fun WorkoutExerciseSetTableRow(
     label: String,
-    values: List<WorkoutSetTableCell>
+    values: List<WorkoutSetTableCell>,
+    valueColor: Color = MaterialTheme.colorScheme.onSurface
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -684,7 +759,7 @@ private fun WorkoutExerciseSetTableRow(
             label,
             modifier = Modifier.width(50.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = valueColor,
             maxLines = 1
         )
         values.forEach { cell ->
@@ -694,7 +769,7 @@ private fun WorkoutExerciseSetTableRow(
                     contentDescription = cell.spokenValue
                 },
                 style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontFeatureSettings = "tnum"),
-                color = MaterialTheme.colorScheme.onSurface,
+                color = valueColor,
                 textAlign = TextAlign.Start,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -705,6 +780,9 @@ private fun WorkoutExerciseSetTableRow(
         }
     }
 }
+
+internal fun workoutWeightTextColor(surface: Color): Color =
+    if (surface.luminance() > 0.5f) Color(0xFF9A6700) else Color(0xFFFACC15)
 
 @Composable
 private fun WorkoutExerciseDualTrendChart(
@@ -909,8 +987,12 @@ private fun WorkoutExerciseImage(
     contentDescription: String,
     modifier: Modifier = Modifier
 ) {
-    val activity = LocalActivity.current
-    if (activity == null) {
+    val context = LocalContext.current
+    val resolution = remember(context, exerciseId, identity) {
+        if (identity != null) ExerciseIllustrationLookup.resolve(context, identity)
+        else ExerciseIllustrationLookup.resolve(context, exerciseId)
+    }
+    if (resolution.isPlaceholder) {
         FitnessStatusBadge(
             status = FitnessSemanticStatus.UNKNOWN,
             label = "운동 이미지 없음",
@@ -918,43 +1000,22 @@ private fun WorkoutExerciseImage(
         )
         return
     }
-    if (identity != null) {
-        FitnessExerciseIllustration(
-            activity = activity,
-            identity = identity,
-            exactVariant = true,
-            modifier = modifier,
-            contentDescription = contentDescription,
-            fallback = {
-                FitnessExerciseIllustration(
-                    activity = activity,
-                    identity = identity,
-                    modifier = modifier,
-                    contentDescription = contentDescription,
-                    fallback = {
-                        FitnessStatusBadge(
-                            status = FitnessSemanticStatus.UNKNOWN,
-                            label = "운동 이미지 없음",
-                            modifier = modifier
-                        )
+    key(resolution.illustrationKey, resolution.drawables.toList()) {
+        var frame by remember { mutableIntStateOf(0) }
+        val lifecycleOwner = LocalLifecycleOwner.current
+        LaunchedEffect(lifecycleOwner, resolution) {
+            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                if (resolution.drawables.size > 1) {
+                    while (isActive) {
+                        delay((resolution.durationsMs.getOrNull(frame) ?: 1000).coerceAtLeast(1).toLong())
+                        frame = (frame + 1) % resolution.drawables.size
                     }
-                )
+                }
             }
-        )
-    } else {
-        FitnessExerciseIllustration(
-            activity = activity,
-            exerciseId = exerciseId,
-            modifier = modifier,
-            contentDescription = contentDescription,
-            fallback = {
-                FitnessStatusBadge(
-                    status = FitnessSemanticStatus.UNKNOWN,
-                    label = "운동 이미지 없음",
-                    modifier = modifier
-                )
-            }
-        )
+        }
+        // Preserve the shared A/B canvas, camera and anchors; do not crop each pose separately.
+        Image(painterResource(resolution.drawables[frame]), contentDescription,
+            modifier.testTag("workout-exercise-frame-$frame"), contentScale = ContentScale.Fit)
     }
 }
 
@@ -975,7 +1036,9 @@ private fun WorkoutSetEditor(
     rawRecordType: String,
     allowedLoadStates: List<com.yeonsik.fitness.shared.feature.exercise.model.LoadState>,
     set: WorkoutSet,
-    unit: MassUnit
+    unit: MassUnit,
+    exerciseRestSeconds: Int,
+    showLabels: Boolean
 ) {
     val recordType = FitnessRecordContract.normalizeRecordType(rawRecordType)
     val inputUnit = editableMassUnit(set.inputLoadUnit, unit)
@@ -994,7 +1057,6 @@ private fun WorkoutSetEditor(
     var assisted by rememberSaveable(set.id, inputUnit) { mutableStateOf(initialLoad) }
     var added by rememberSaveable(set.id, inputUnit) { mutableStateOf(initialLoad) }
     var rir by rememberSaveable(set.id) { mutableStateOf(set.rir?.toString().orEmpty()) }
-    var rest by rememberSaveable(set.id) { mutableStateOf(set.restSeconds?.toString().orEmpty()) }
     var loadState by rememberSaveable(set.id) { mutableStateOf(set.loadState) }
     var completed by rememberSaveable(set.id) { mutableStateOf(set.isCompleted) }
     val focus = LocalFocusManager.current
@@ -1055,19 +1117,20 @@ private fun WorkoutSetEditor(
             canonicalAssisted,
             canonicalAdded,
             if (FitnessRecordContract.supportsRir(recordType)) rir.toIntOrNull() else set.rir,
-            rest.toIntOrNull(), completed, loadState,
+            set.restSeconds, completed, loadState,
             enteredLoad,
             enteredLoad?.let { inputUnit }
         )
         actions.updateSet(recordId, set.id, input) { ok ->
             if (ok) {
-                if (completed) actions.startRestTimer(rest.toIntOrNull())
+                if (completed) actions.startRestTimer(exerciseRestSeconds)
                 actions.refresh()
             } else actions.toast("세트를 저장하지 못했습니다.")
         }
     }
 
-    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+    Column(Modifier.fillMaxWidth().testTag("workout-set-${set.id}"),
+        verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val tableWidth = maxWidth.coerceAtLeast(320.dp)
             Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())) {
@@ -1077,12 +1140,12 @@ private fun WorkoutSetEditor(
                         horizontalArrangement = Arrangement.spacedBy(2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        WorkoutSetFieldColumn("세트", Modifier.width(40.dp)) {
+                        WorkoutSetFieldColumn("세트", Modifier.width(40.dp), showLabels) {
                             Box(Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch), contentAlignment = Alignment.Center) {
                                 Text(set.setIndex.toString(), style = MaterialTheme.typography.bodySmall)
                             }
                         }
-                        WorkoutSetFieldColumn(mainFieldLabel, Modifier.weight(1f)) {
+                        WorkoutSetFieldColumn(mainFieldLabel, Modifier.weight(1f), showLabels) {
                             when (recordType) {
                                 FitnessRecordContract.REPS_ONLY -> WorkoutSetValueField(reps, { reps = it }, mainFieldLabel, numberOptions, nextAction)
                                 FitnessRecordContract.TIME -> WorkoutSetValueField(duration, { duration = it }, mainFieldLabel, numberOptions, nextAction)
@@ -1096,7 +1159,7 @@ private fun WorkoutSetEditor(
                             }
                         }
                         if (hasSecondField) {
-                            WorkoutSetFieldColumn(secondFieldLabel, Modifier.width(48.dp)) {
+                            WorkoutSetFieldColumn(secondFieldLabel, Modifier.width(48.dp), showLabels) {
                                 if (recordType == FitnessRecordContract.WEIGHT_TIME) {
                                     WorkoutSetValueField(duration, { duration = it }, secondFieldLabel, numberOptions, nextAction)
                                 } else {
@@ -1105,20 +1168,11 @@ private fun WorkoutSetEditor(
                             }
                         }
                         if (hasRirField) {
-                            WorkoutSetFieldColumn("RIR", Modifier.width(44.dp)) {
+                            WorkoutSetFieldColumn("RIR", Modifier.width(44.dp), showLabels) {
                                 WorkoutSetValueField(rir, { rir = it }, "RIR", numberOptions, nextAction)
                             }
                         }
-                        WorkoutSetFieldColumn("휴식", Modifier.width(56.dp)) {
-                            WorkoutSetValueField(
-                                rest,
-                                { rest = it },
-                                "휴식 초",
-                                KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                                KeyboardActions(onDone = { focus.clearFocus() })
-                            )
-                        }
-                        WorkoutSetFieldColumn("완료", Modifier.width(48.dp)) {
+                        WorkoutSetFieldColumn("완료", Modifier.width(48.dp), showLabels) {
                             Checkbox(
                                 checked = completed,
                                 onCheckedChange = { completed = it },
@@ -1182,10 +1236,11 @@ private fun WorkoutSetEditor(
 private fun WorkoutSetFieldColumn(
     label: String,
     modifier: Modifier = Modifier,
+    showLabel: Boolean = true,
     content: @Composable () -> Unit
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
+        if (showLabel) Text(
             label,
             modifier = Modifier.fillMaxWidth().semantics { contentDescription = label },
             style = MaterialTheme.typography.labelSmall,
@@ -1363,7 +1418,32 @@ internal fun WorkoutSummaryScreen(
                                 Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(AppSpacing.small * 0.6f)
                             ) {
-                                Text(exercise.name, style = MaterialTheme.typography.titleSmall)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        exercise.name,
+                                        modifier = Modifier.weight(1f),
+                                        style = MaterialTheme.typography.titleSmall,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Column(horizontalAlignment = Alignment.End) {
+                                        Text(
+                                            "총 볼륨",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        Text(
+                                            MassFormatter.withUnit(exercise.totalVolumeKg, unit),
+                                            style = MaterialTheme.typography.labelLarge,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            maxLines = 1
+                                        )
+                                    }
+                                }
                                 Text(
                                     listOfNotNull(
                                         exercise.uiPart.takeIf { it.isNotBlank() },
@@ -1373,6 +1453,17 @@ internal fun WorkoutSummaryScreen(
                                     ).joinToString(" · "),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    workoutExerciseVolumeChangeLabel(
+                                        exercise.previousTotalVolumeKg,
+                                        exercise.totalVolumeKg,
+                                        unit
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro),

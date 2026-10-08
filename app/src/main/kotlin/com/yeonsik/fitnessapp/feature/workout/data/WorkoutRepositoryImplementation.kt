@@ -8,6 +8,7 @@ import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercise
+import com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseBests
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
@@ -101,6 +102,12 @@ class WorkoutRepositoryImplementation(
         val exercises = storage.exercises(scope, recordId)
         val mappedExercises = exercises.map { exercise ->
             val sets = storage.sets(scope, exercise.id)
+            val completedSets = sets.filter { it.isCompleted }
+            val previousTotalVolumeKg = if (info.status == "completed") {
+                storage.lastExerciseHistory(scope, exercise, recordId)?.totalVolumeKg
+            } else {
+                null
+            }
             WorkoutSessionExercise(
                 exercise.id,
                 exercise.exerciseId,
@@ -111,10 +118,12 @@ class WorkoutRepositoryImplementation(
                 exercise.recordType,
                 FitnessRecordContract.displayRecordTypeKo(exercise.recordType),
                 exercise.familyIdentity,
-                sets.count { it.isCompleted },
+                completedSets.size,
                 sets.size,
-                sets.filter { it.isCompleted }.map { it.toFeatureModel() },
-                exercise.primarySubPart
+                completedSets.map { it.toFeatureModel() },
+                exercise.primarySubPart,
+                totalVolumeKg = completedSets.sumOf { storage.volumeForSet(exercise, it) },
+                previousTotalVolumeKg = previousTotalVolumeKg
             )
         }
         val metrics = storage.metrics(scope, recordId)
@@ -218,7 +227,8 @@ class WorkoutRepositoryImplementation(
                     session.date
                 } else bests.highestTotalVolume?.date
             ),
-            currentRecordDate = session.date
+            currentRecordDate = session.date,
+            exerciseRestSeconds = storage.exerciseRestSeconds(scope, recordId, active.id)
         )
     }
 
@@ -239,6 +249,10 @@ class WorkoutRepositoryImplementation(
         setId: String,
         input: WorkoutSetInput
     ): Boolean = storage.updateSet(scope, recordId, setId, input)
+
+    override fun updateExerciseRestSeconds(scope: AccountScope, recordId: String,
+                                            exerciseId: String, seconds: Int): Boolean =
+        storage.updateExerciseRestSeconds(scope, recordId, exerciseId, seconds)
 
     override fun addTypedSet(
         scope: AccountScope,
@@ -264,6 +278,14 @@ class WorkoutRepositoryImplementation(
         exerciseId: String,
         replacement: WorkoutExerciseReplacement
     ): Boolean = storage.replaceExercise(scope, recordId, exerciseId, replacement)
+
+    override fun addManualExercise(scope: AccountScope, recordId: String,
+                                   exercise: ManualWorkoutExercise): Boolean =
+        storage.addManualExercise(scope, recordId, exercise)
+
+    override fun linkManualExerciseToCanonical(scope: AccountScope, recordId: String,
+                                              exerciseId: String, canonicalPresetId: String): Boolean =
+        storage.linkManualExerciseToCanonical(scope, recordId, exerciseId, canonicalPresetId)
 
     private fun WorkoutRoomStorage.ExerciseRow.toFeatureModel() = WorkoutExercise(
         id, exerciseId, orderIndex, name, uiPart, equipment, recordType, familyIdentity

@@ -3,12 +3,17 @@ package com.yeonsik.fitnessapp.feature.records.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
@@ -23,6 +28,39 @@ import org.junit.Test
 
 class RecordsLoadingUiTest {
     @get:Rule val compose = createComposeRule()
+
+    @Test
+    fun addWeightAndMealUseTheSelectedPastOrFutureDateAndWeightIsAlwaysNew() {
+        val date = mutableStateOf("2020-01-02")
+        val weights = mutableListOf<Pair<String, String?>>()
+        val meals = mutableListOf<String>()
+        val addActions = object : RecordsScreenActions by actions {
+            override fun showBodyMetric(date: String, recordId: String?) { weights += date to recordId }
+            override fun addMeal(date: String) { meals += date }
+        }
+        compose.setContent {
+            FitnessComposeTheme(false) {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    val selected = date.value
+                    RecordsScreen(RecordsUiState.Ready(RecordsSnapshot("owner-a", selected.take(7), selected,
+                        listOf(RecordsCalendarDay(selected, false, false, false)),
+                        mapOf(selected to RecordsDayDetail(selected, emptyList(), emptyList(), emptyList())), emptyList())),
+                        "owner-a", "2026-10-08", MassUnit.KG, selected, addActions)
+                }
+            }
+        }
+        for (selected in listOf("2020-01-02", "2030-12-31")) {
+            compose.runOnIdle { date.value = selected }
+            compose.onNodeWithTag("records-add").performScrollTo().performClick()
+            compose.onNode(hasText("체중") and hasClickAction()).performClick()
+            compose.onNodeWithTag("records-add").performClick()
+            compose.onNode(hasText("식단") and hasClickAction()).performClick()
+        }
+        compose.runOnIdle {
+            assertEquals(listOf("2020-01-02" to null, "2030-12-31" to null), weights)
+            assertEquals(listOf("2020-01-02", "2030-12-31"), meals)
+        }
+    }
 
     @Test
     fun calendarAndDetailEnterWhileHeaderMonthAndTodayControlsStayFixed() {
@@ -103,5 +141,6 @@ class RecordsLoadingUiTest {
         override fun openRecord(recordId: String) = Unit
         override fun deleteRecord(recordId: String) = Unit
         override fun showBodyMetric(date: String, recordId: String?) = Unit
+        override fun addMeal(date: String) = Unit
     }
 }

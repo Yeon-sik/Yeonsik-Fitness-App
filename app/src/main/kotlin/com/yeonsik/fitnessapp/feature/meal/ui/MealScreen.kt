@@ -20,8 +20,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
@@ -38,6 +41,8 @@ import com.yeonsik.fitnessapp.feature.cardio.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
+import com.yeonsik.fitnessapp.feature.nutrition.ui.*
+import com.yeonsik.fitnessapp.feature.nutrition.model.foodPortionTotals
 import com.yeonsik.fitnessapp.feature.routine.ui.*
 import com.yeonsik.fitnessapp.feature.supplement.ui.*
 import com.yeonsik.fitness.shared.feature.workout.model.*
@@ -64,6 +69,8 @@ interface MealScreenActions {
     fun updateQuantity(value: String)
     fun updateFoodQuantity(itemId: String, value: String)
     fun removeFood(itemId: String)
+    fun updateDiningPortion(value: String) {}
+    fun openNutritionEditor() {}
     fun updateTime(value: String)
     fun saveFood()
     fun openManualFood()
@@ -85,9 +92,11 @@ interface MealScreenActions {
     fun loadPriceTraceRestaurant(restaurantId: String)
     fun openNutritionPublication()
     fun closeNutritionPublication()
+    fun createDiningOutMenu() {}
     fun selectNutritionPublicationMenu(foodId: String)
     fun syncNutritionPublicationCatalog()
     fun publishNutritionMenu(locationId: String, menuId: String, catalogProductId: String)
+    fun verifyNutritionMenu(locationId: String, menuId: String, catalogProductId: String) {}
     fun proposeDiningMerchant(facts: com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts) {}
     fun proposeDiningMenu(locationId: String?, merchantCandidateId: String?, menuName: String) {}
     fun resubmitDiningMerchant(previousCandidateId: String,
@@ -132,7 +141,10 @@ internal fun MealScreen(
     nutritionPublicationState: NutritionPublicationUiState,
     ownerId: String,
     today: String,
-    actions: MealScreenActions
+    actions: MealScreenActions,
+    nutritionEditorState: NutritionEditorState = NutritionEditorState(),
+    nutritionEditorActions: NutritionEditorActions? = null,
+    onUseComposition: (String) -> Unit = {}
 ) {
     val currentReady = (homeState as? HomeUiState.Ready)?.takeIf {
         it.snapshot.ownerId == ownerId && it.snapshot.today == today
@@ -143,19 +155,6 @@ internal fun MealScreen(
     val ready = currentReady ?: retainedReady
     val editor = editorState as? MealUiState.Ready
     var deleteTargetId by rememberSaveable { mutableStateOf<String?>(null) }
-    val editorScrollTarget = mealEditorScrollTarget(editor)
-    val editorStartRequester = remember { BringIntoViewRequester() }
-    var previousEditorScrollTarget by remember {
-        mutableStateOf<MealEditorScrollTarget?>(null)
-    }
-    LaunchedEffect(editorScrollTarget) {
-        val targetChanged = previousEditorScrollTarget != null &&
-            previousEditorScrollTarget != editorScrollTarget
-        previousEditorScrollTarget = editorScrollTarget
-        if (targetChanged && editorScrollTarget?.editing == true) {
-            editorStartRequester.bringIntoView()
-        }
-    }
 
     AppHeader("식단", back = actions::back)
     if (homeState is HomeUiState.Loading || ready == null) {
@@ -249,32 +248,21 @@ internal fun MealScreen(
             Text(if (hasMealRegistrationDraft(editor)) "작성 중인 식단 이어서" else "식단 기록하기")
         }
     } else {
-        Text("식단 기록", style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold)
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .bringIntoViewRequester(editorStartRequester),
-            horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)
-        ) {
-            AppOutlinedButton(
-                onClick = actions::chooseFood,
-                modifier = Modifier.weight(1f),
-                selected = !editor.diningOut,
-                enabled = !editor.saving
-            ) { Text("음식 선택") }
-            AppOutlinedButton(
-                onClick = actions::chooseDiningOut,
-                modifier = Modifier.weight(1f),
-                selected = editor.diningOut,
-                enabled = !editor.saving
-            ) { Text("외식 입력") }
+        MealEntryDialog(actions, editor, priceTraceState, mealLabel = "식단")
+    }
+    AppOutlinedButton(actions::openNutritionEditor, Modifier.fillMaxWidth()) { Text("내 식단 · 식품 관리") }
+    TextButton(actions::openNutritionPublication, modifier = Modifier.fillMaxWidth()) { Text("외식 영양정보 관리") }
+    if (nutritionPublicationState.ownerId == ownerId && !nutritionPublicationState.open) {
+        val publicationMessage = nutritionPublicationState.progressLabel
+            ?: nutritionPublicationState.error ?: nutritionPublicationState.notice
+        publicationMessage?.let {
+            Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (nutritionPublicationState.error != null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        if (editor.diningOut) {
-            DiningOutEditor(actions, editor, priceTraceState)
-        } else {
-            FoodMealEditor(actions, editor)
-        }
+    }
+    if (nutritionEditorActions != null) {
+        NutritionEditorDialog(nutritionEditorState, nutritionEditorActions, onUseComposition)
     }
 
     Spacer(Modifier.height(AppSpacing.section))
@@ -410,7 +398,7 @@ private fun MealMacroMetric(label: String, value: String, modifier: Modifier = M
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
-private fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready) {
+internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready) {
     val focusManager = LocalFocusManager.current
     var addingFood by rememberSaveable(editor.ownerId, editor.date) {
         mutableStateOf(false)
@@ -425,6 +413,11 @@ private fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         Text("한 끼에 먹은 음식", style = MaterialTheme.typography.titleMedium)
         MealInputNotice("밥, 반찬, 음료를 함께 담으세요. 음식마다 먹은 양을 바꿀 수 있어요.")
+        AppOutlinedButton(
+            onClick = actions::openNutritionEditor,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !editor.saving && !editor.draftLoading
+        ) { Text("저장한 식단 구성 불러오기") }
         AppOutlinedButton(
             onClick = { if (editor.manualFoodEntry) actions.closeManualFood() else actions.openManualFood() },
             modifier = Modifier.fillMaxWidth(),
@@ -483,18 +476,8 @@ private fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready
                 }
             }
         }
-        MealTimeField(editor.draft.time, actions::updateTime, Modifier.fillMaxWidth(), enabled = !editor.saving)
-        editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         val saveHint = foodMealRegistrationError(editor)
         saveHint?.let { MealInputNotice(it) }
-        MealEditorActions(
-            onLater = actions::closeDraft,
-            onSave = actions::saveFood,
-            saving = editor.saving,
-            canSave = saveHint == null,
-            label = "한 끼 저장",
-            modifier = Modifier.fillMaxWidth()
-        )
         }
     }
 }
@@ -565,13 +548,13 @@ private fun MealFoodDraftCard(
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
-private fun DiningOutEditor(
+internal fun DiningOutEditor(
     actions: MealScreenActions,
     editor: MealUiState.Ready,
-    priceTraceState: PriceTraceUiState
+    priceTraceState: PriceTraceUiState,
+    controls: DiningOutEditorState
 ) {
     val draft = editor.draft
-    var showPriceTrace by rememberSaveable(editor.ownerId, editor.date) { mutableStateOf(false) }
     var showExtraNutrition by rememberSaveable(editor.ownerId, editor.date) {
         mutableStateOf(listOf(draft.sodium, draft.sugars, draft.saturatedFat).any { it.isNotBlank() })
     }
@@ -582,16 +565,18 @@ private fun DiningOutEditor(
         if (editor.selectedFood != null) selectedMenuRequester.bringIntoView()
     }
     val nutritionError = diningOutRegistrationError(draft)
-    val saveHint = nutritionError ?: mealTimeError(draft.time)
+    val portionError = if (editor.diningPortion.trim().toDoubleOrNull()
+        ?.let { it.isFinite() && it > 0.0 } == true) null else "먹은 양을 0보다 큰 숫자로 입력하세요."
+    val saveHint = nutritionError ?: mealTimeError(draft.time) ?: portionError
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         MealInputNotice("먹은 메뉴와 영양정보를 입력하세요. 저장된 메뉴를 고르면 입력값이 채워져요.")
         SavedDiningOutMenuPicker(actions, editor, selectedMenuRequester)
         AppOutlinedButton(
-            onClick = { showPriceTrace = !showPriceTrace },
+            onClick = { controls.showPriceTrace = !controls.showPriceTrace },
             modifier = Modifier.fillMaxWidth(),
             enabled = !editor.saving
-        ) { Text(if (showPriceTrace) "식당 목록 닫기" else "식당·메뉴 목록에서 선택") }
-        if (showPriceTrace) PriceTraceDiningOutPicker(actions, editor, priceTraceState)
+        ) { Text(if (controls.showPriceTrace) "식당 목록 닫기" else "식당·메뉴 목록에서 선택") }
+        if (controls.showPriceTrace) PriceTraceDiningOutPicker(actions, editor, priceTraceState)
         Text("먹은 메뉴", style = MaterialTheme.typography.titleSmall)
         AppTextField(draft.store, actions::updateStore, Modifier.fillMaxWidth(), { Text("상호명 (필수)") },
             enabled = !editor.saving,
@@ -602,9 +587,10 @@ private fun DiningOutEditor(
         AppTextField(draft.menu, actions::updateMenu, Modifier.fillMaxWidth(), { Text("먹은 메뉴 (필수)") },
             enabled = !editor.saving,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done))
-        MealTimeField(draft.time, actions::updateTime, Modifier.fillMaxWidth(), enabled = !editor.saving)
-        Text("먹은 양의 영양정보 (필수)", style = MaterialTheme.typography.titleSmall)
-        MealInputNotice("실제로 먹은 양에 해당하는 값을 입력하세요. 0인 값은 0으로 입력해 주세요.")
+        Text("먹은 양과 1인분 영양정보", style = MaterialTheme.typography.titleSmall)
+        MealInputNotice("영양정보는 1인분 기준으로 입력하세요. 먹은 양을 바꾸면 끼니 합계가 자동 계산돼요.")
+        MealNutritionField(editor.diningPortion, actions::updateDiningPortion, "먹은 양", "인분", Modifier.fillMaxWidth(), !editor.saving)
+        if (portionError != null) MealInputNotice(portionError)
         MealNutritionField(draft.calories, actions::updateCalories, "칼로리", "kcal", Modifier.fillMaxWidth(), !editor.saving)
         MealNutritionField(draft.carbs, actions::updateCarbs, "탄수화물", "g", Modifier.fillMaxWidth(), !editor.saving)
         MealNutritionField(draft.protein, actions::updateProtein, "단백질", "g", Modifier.fillMaxWidth(), !editor.saving)
@@ -621,10 +607,7 @@ private fun DiningOutEditor(
             MealNutritionField(draft.saturatedFat, actions::updateSaturatedFat, "포화지방", "g", Modifier.fillMaxWidth(), !editor.saving, required = false)
         }
         editor.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-        editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         saveHint?.let { MealInputNotice(it) }
-        MealEditorActions(actions::closeDraft, actions::saveDiningOut, editor.saving, saveHint == null,
-            "외식 저장", Modifier.fillMaxWidth())
         AppOutlinedButton(
             onClick = actions::saveReusableDiningOutMenu,
             modifier = Modifier.fillMaxWidth(),
@@ -733,170 +716,6 @@ private fun PriceTraceDiningOutPicker(
     }
 }
 
-
-@Composable
-private fun NutritionPublicationDialog(
-    state: NutritionPublicationUiState,
-    priceTraceState: PriceTraceUiState,
-    actions: MealScreenActions
-) {
-    var menuQuery by remember { mutableStateOf("") }
-    var pendingTarget by remember { mutableStateOf<Triple<String, String, String>?>(null) }
-    val priceTrace = priceTraceState as? PriceTraceUiState.Ready
-    val selectedNutritionFood = state.selectedFood
-    val busy = state.loading || state.syncing || state.publishing || state.proposing
-    val visibleMenus = state.menus.filter { food ->
-        val query = menuQuery.trim()
-        query.isEmpty() || food.displayName().contains(query, ignoreCase = true)
-                || food.name.contains(query, ignoreCase = true)
-    }
-
-    AlertDialog(
-        onDismissRequest = { if (!busy) actions.closeNutritionPublication() },
-        title = { Text("외식 영양정보 연결 · 공개") },
-        text = {
-            Column(
-                Modifier
-                    .heightIn(max = 560.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
-            ) {
-                Text("Nutrition에 저장된 외식 영양정보를 기존 PriceTrace 식당·지점·메뉴에 연결합니다.")
-                Text("영양 값은 외식 메뉴 추정값입니다. 공개 전에 선택한 메뉴와 지점을 확인하세요.")
-                if (!state.remoteAvailable) Text("Nutrition·PT 계정 연결이 없어 등록 제안과 공개 연결을 사용할 수 없습니다. 식사·운동 기록은 기기에 저장됩니다.")
-
-                when {
-                    state.loading -> Text("Nutrition 외식 메뉴를 불러오는 중입니다.")
-                    state.menus.isEmpty() -> {
-                        Text("저장된 외식 메뉴가 없습니다. OCR 등록 자료가 원격 Nutrition에 있다면 먼저 동기화해야 할 수 있습니다.")
-                        Text("동기화는 현재 Nutrition 계정의 기존 push/pull 규칙으로 카탈로그 전체를 처리합니다.", style = MaterialTheme.typography.bodySmall)
-                        AppButton(
-                            onClick = actions::syncNutritionPublicationCatalog,
-                            modifier = Modifier.fillMaxWidth(),
-                            enabled = !busy
-                        ) { Text(if (state.syncing) "Nutrition 동기화 중" else "Nutrition 동기화 후 목록 불러오기") }
-                    }
-                    else -> {
-                        AppTextField(
-                            value = menuQuery,
-                            onValueChange = { menuQuery = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("등록된 Nutrition 외식 메뉴 검색") }
-                        )
-                        visibleMenus.forEach { food ->
-                            val selected = food.id == state.selectedFoodId
-                            AppOutlinedButton(
-                                onClick = { actions.selectNutritionPublicationMenu(food.id) },
-                                modifier = Modifier.fillMaxWidth(),
-                                selected = selected,
-                                enabled = !busy
-                            ) {
-                                Text("${food.displayName()} · 추정 영양정보")
-                            }
-                        }
-                        state.selectedFood?.let { food ->
-                            AppCard(Modifier.fillMaxWidth()) {
-                                Column(Modifier.padding(AppSpacing.card)) {
-                                    Text("선택된 Nutrition 행", fontWeight = FontWeight.Bold)
-                                    Text(food.displayName())
-                                    Text(food.extendedNutritionLabel())
-                                    Text("출처 유형 · ${food.sourceType}", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                            AppTextField(
-                                value = priceTrace?.query.orEmpty(),
-                                onValueChange = actions::updatePriceTraceQuery,
-                                modifier = Modifier.fillMaxWidth(),
-                                label = { Text("PriceTrace 식당 검색") }
-                            )
-                            AppButton(
-                                onClick = actions::searchPriceTraceRestaurants,
-                                modifier = Modifier.fillMaxWidth(),
-                                enabled = !busy && state.remoteAvailable && !priceTrace?.query.isNullOrBlank()
-                            ) { Text("PriceTrace 식당 다시 검색") }
-                            if (priceTrace?.loading == true) Text("PriceTrace 식당·메뉴를 불러오는 중입니다.")
-                            priceTrace?.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                            priceTrace?.restaurants.orEmpty().forEach { restaurant ->
-                                AppOutlinedButton(
-                                    onClick = { actions.loadPriceTraceRestaurant(restaurant.restaurantId) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    enabled = !busy
-                                ) { Text(restaurant.restaurantName) }
-                            }
-                            priceTrace?.detail?.let { detail ->
-                                Text("${detail.restaurantName} · 지점과 기존 메뉴를 선택하세요", fontWeight = FontWeight.Bold)
-                                if (detail.locations.isEmpty() || detail.menus.isEmpty()) {
-                                    Text("선택할 수 있는 PriceTrace 지점 또는 메뉴가 없습니다.")
-                                }
-                                detail.locations.forEach { location ->
-                                    detail.menus.forEach { menu ->
-                                        AppOutlinedButton(
-                                            onClick = {
-                                                pendingTarget = Triple(
-                                                    location.restaurantLocationId,
-                                                    menu.restaurantMenuId,
-                                                    menu.catalogProductId
-                                                )
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            enabled = !busy && state.remoteAvailable && state.allowsExistingMenuPublication
-                                        ) {
-                                            Text("${detail.restaurantName} · ${location.branchName.ifBlank { "본점" }} · ${menu.menuName}")
-                                        }
-                                    }
-                                }
-                            }
-                            DiningProposalControls(state, priceTrace, actions, busy)
-                        }
-                    }
-                }
-                state.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
-                state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = actions::closeNutritionPublication, enabled = !busy) {
-                Text(if (state.publishing) "공개 중" else "닫기")
-            }
-        }
-    )
-
-    val target = pendingTarget
-    val detail = priceTrace?.detail
-    val selectedLocation = target?.let { pending ->
-        detail?.locations?.singleOrNull { it.restaurantLocationId == pending.first }
-    }
-    val selectedMenu = target?.let { pending ->
-        detail?.menus?.singleOrNull {
-            it.restaurantMenuId == pending.second && it.catalogProductId == pending.third
-        }
-    }
-    if (target != null && selectedNutritionFood != null && selectedLocation != null && selectedMenu != null) {
-        AlertDialog(
-            onDismissRequest = { if (!busy) pendingTarget = null },
-            title = { Text("공개 연결 확인") },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                    Text("${selectedNutritionFood.displayName()}의 추정 영양정보를 공개합니다.")
-                    Text("PriceTrace · ${detail?.restaurantName} · ${selectedLocation.branchName.ifBlank { "본점" }} · ${selectedMenu.menuName}")
-                    Text("공개하면 Fitness와 PriceTrace 공개 조회에서 이 메뉴의 영양정보를 확인할 수 있습니다.")
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        actions.publishNutritionMenu(target.first, target.second, target.third)
-                        pendingTarget = null
-                    },
-                    enabled = !busy
-                ) { Text("공개 연결") }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingTarget = null }, enabled = !busy) { Text("취소") }
-            }
-        )
-    }
-}
 
 private data class DiningProposalTarget(val merchant: Boolean,
     val locationId: String? = null, val merchantCandidateId: String? = null,

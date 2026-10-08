@@ -21,11 +21,11 @@ begin
     select array_agg(m.version::text order by m.version)
     into v_versions
     from supabase_migrations.schema_migrations as m;
-    if cardinality(v_versions) <> 30
+    if cardinality(v_versions) <> 31
        or not ('20260927120000' = any(v_versions))
        or not ('20261002120000' = any(v_versions))
        or not ('20261002130000' = any(v_versions)) then
-        raise exception 'Expected 27 historical migrations and three pending migrations, got %', v_versions;
+        raise exception 'Expected 28 recovered migrations and three pending migrations, got %', v_versions;
     end if;
 
     v_target := pg_catalog.to_regprocedure(

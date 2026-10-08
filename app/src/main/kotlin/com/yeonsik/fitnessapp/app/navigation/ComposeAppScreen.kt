@@ -96,6 +96,7 @@ import com.yeonsik.fitnessapp.feature.development.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.meal.ui.*
+import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionEditorState
 import com.yeonsik.fitnessapp.feature.records.ui.*
 import com.yeonsik.fitnessapp.feature.statistics.ui.*
 import com.yeonsik.fitnessapp.feature.routine.ui.*
@@ -473,8 +474,12 @@ private fun AppRoot(
                     readOnly = workoutReadOnly
                 )
             }
-            if (state.selectionMode == com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerSelectionMode.WORKOUT_REPLACE) {
+            if (state.selectionMode in listOf(
+                com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerSelectionMode.WORKOUT_REPLACE,
+                com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerSelectionMode.WORKOUT_LINK_MANUAL
+            )) {
                 viewModels.getExercisePicker().clearReplacementExercise()
+                viewModels.getStatistics().markStale()
             }
         }
         navigation.back()
@@ -1692,6 +1697,8 @@ private fun AppDestination(
         .observeAsState(PriceTraceUiState.Idle)
     val mealNutritionPublicationState by viewModels.getMeal().nutritionPublicationState
         .observeAsState(NutritionPublicationUiState())
+    val nutritionEditorState by viewModels.getMeal().nutritionEditor.uiState
+        .observeAsState(NutritionEditorState())
     val supplementState by viewModels.getSupplement().uiState
         .observeAsState(SupplementUiState.Idle)
     val exercisePickerState by viewModels.getExercisePicker().uiState
@@ -1755,8 +1762,7 @@ private fun AppDestination(
                         activeRecordId,
                         replacementId,
                         navigation.selectedRoutineId(),
-                        com.yeonsik.fitnessapp.feature.exercise.ui.ExercisePickerSelectionMode
-                            .forTarget(screen, replacementId)
+                        picker.selectionModeForTarget(screen, replacementId)
                     )
                 }
             else -> Unit
@@ -1842,6 +1848,8 @@ private fun AppDestination(
         override fun updateFoodQuantity(itemId: String, value: String) =
             viewModels.getMeal().updateFoodQuantity(itemId, value)
         override fun removeFood(itemId: String) = viewModels.getMeal().removeFood(itemId)
+        override fun updateDiningPortion(value: String) = viewModels.getMeal().updateDiningPortion(value)
+        override fun openNutritionEditor() = viewModels.getMeal().nutritionEditor.open()
         override fun updateTime(value: String) = viewModels.getMeal().updateTime(value)
         override fun saveFood() = viewModels.getMeal().saveFood(AccountScope(ownerId)) { }
         override fun openManualFood() = viewModels.getMeal().openManualFood()
@@ -1868,6 +1876,7 @@ private fun AppDestination(
             viewModels.getMeal().openNutritionPublication()
         override fun closeNutritionPublication() =
             viewModels.getMeal().closeNutritionPublication()
+        override fun createDiningOutMenu() = viewModels.getMeal().createDiningOutMenu()
         override fun selectNutritionPublicationMenu(foodId: String) =
             viewModels.getMeal().selectNutritionPublicationMenu(foodId)
         override fun syncNutritionPublicationCatalog() =
@@ -1878,6 +1887,8 @@ private fun AppDestination(
                 menuId,
                 catalogProductId
             )
+        override fun verifyNutritionMenu(locationId: String, menuId: String, catalogProductId: String) =
+            viewModels.getMeal().verifyNutritionMenuForPriceTraceSelection(locationId, menuId, catalogProductId)
         override fun proposeDiningMerchant(facts: com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts) =
             viewModels.getMeal().proposeDiningMerchant(facts)
         override fun proposeDiningMenu(locationId: String?, merchantCandidateId: String?, menuName: String) =
@@ -1968,6 +1979,7 @@ private fun AppDestination(
             .openDeleteConfirmation(AccountScope(ownerId), recordId)
         override fun showBodyMetric(date: String, recordId: String?) =
             viewModels.getBodyMetrics().open(AccountScope(ownerId), date, recordId)
+        override fun addMeal(date: String) = navigation.openMealForDate(date)
     }
     val supplementActions = object : SupplementScreenActions {
         override fun back() { navigation.back() }
@@ -2008,7 +2020,10 @@ private fun AppDestination(
         )
     }
     val exercisePickerActions = object : ExercisePickerScreenActions {
-        override fun back() { navigation.back() }
+        override fun back() {
+            viewModels.getExercisePicker().clearReplacementExercise()
+            navigation.back()
+        }
         override fun search(query: String) = viewModels.getExercisePicker().search(query)
         override fun setBodyPart(bodyPart: com.yeonsik.fitness.shared.feature.exercise.model.BodyPart?) =
             viewModels.getExercisePicker().setBodyPart(bodyPart)
@@ -2028,6 +2043,8 @@ private fun AppDestination(
             viewModels.getExercisePicker().selectPreset(familyId, presetId)
         override fun choose(preset: com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset) =
             viewModels.getExercisePicker().choose(preset)
+        override fun chooseManual(exercise: com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise) =
+            viewModels.getExercisePicker().chooseManual(exercise)
     }
     Column(
         Modifier.fillMaxWidth().then(
@@ -2184,6 +2201,10 @@ private fun AppDestination(
                         viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
                         navigation.replace(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
                     }
+                    override fun linkManualExercise(exerciseId: String) {
+                        viewModels.getExercisePicker().rememberManualLinkExercise(exerciseId)
+                        navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
+                    }
                     override fun deleteExercise(
                         recordId: String,
                         exerciseId: String,
@@ -2246,6 +2267,13 @@ private fun AppDestination(
 
                     override fun startRestTimer(restSeconds: Int?) =
                         viewModels.getWorkoutSession().startRestTimer(ownerId, restSeconds)
+                    override fun updateExerciseRestSeconds(recordId: String, exerciseId: String,
+                                                          seconds: Int, onResult: (Boolean) -> Unit) {
+                        viewModels.getWorkoutExerciseDetail().updateExerciseRestSeconds(
+                            AccountScope(ownerId), recordId, exerciseId, seconds,
+                            java.util.function.Consumer { onResult(it) }
+                        )
+                    }
                     override fun toast(message: String) = host.toast(message)
                 }
             )
@@ -2296,7 +2324,10 @@ private fun AppDestination(
                 mealNutritionPublicationState,
                 ownerId,
                 today,
-                mealActions
+                mealActions,
+                nutritionEditorState = nutritionEditorState,
+                nutritionEditorActions = viewModels.getMeal().nutritionEditor,
+                onUseComposition = viewModels.getMeal()::useComposition
             )
             FitnessScreen.SUPPLEMENTS -> SupplementScreen(
                 supplementState,

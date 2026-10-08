@@ -36,6 +36,7 @@ object FitnessRoomMigrations {
             add(V51_TO_V52)
             add(V52_TO_V53)
             add(V53_TO_V54)
+            add(V54_TO_V55)
         }.toTypedArray()
     }
 
@@ -101,6 +102,18 @@ object FitnessRoomMigrations {
                 "PRIMARY KEY(owner_id, nutrition_food_id, kind, remote_scope))")
         }
     }
+    /** Only link metadata is new; all original workout snapshots and sets stay byte-for-byte intact. */
+    val V54_TO_V55: Migration = object : Migration(54, 55) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("CREATE TABLE workout_manual_exercise_links (" +
+                "id TEXT NOT NULL PRIMARY KEY, user_id TEXT NOT NULL, canonical_preset_id TEXT NOT NULL, " +
+                "family_id TEXT NOT NULL, canonical_variant_key TEXT NOT NULL, " +
+                "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)")
+            db.execSQL("CREATE INDEX workout_manual_links_identity_idx ON " +
+                "workout_manual_exercise_links(user_id, family_id, canonical_variant_key)")
+        }
+    }
+
     /** Preserve every v53 request as version 1, then allow append-only request history. */
     val V53_TO_V54: Migration = object : Migration(53, 54) {
         override fun migrate(db: SupportSQLiteDatabase) {

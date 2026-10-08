@@ -138,7 +138,6 @@ private fun HeroRecordSummary(status: HomeTodayHeroStatus) {
                                 radius = size.minDimension / 2 - 0.5.dp.toPx(),
                                 style = Stroke(1.dp.toPx()))
                         })
-                    Text(domain.label, style = MaterialTheme.typography.labelSmall, color = colors.onPrimary)
                 }
             }
         }

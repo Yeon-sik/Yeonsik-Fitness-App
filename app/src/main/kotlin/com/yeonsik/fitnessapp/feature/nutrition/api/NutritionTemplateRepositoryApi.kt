@@ -4,6 +4,8 @@ import com.yeonsik.fitnessapp.data.CompositionTemplate
 
 /** Public owner-scoped boundary for reusable nutrition/menu definitions. */
 interface NutritionTemplateRepositoryApi {
+    fun currentOwnerId(): String = "local-user"
+
     fun findTemplate(templateId: String): CompositionTemplate?
 
     fun listTemplates(kind: String? = null): List<CompositionTemplate>
