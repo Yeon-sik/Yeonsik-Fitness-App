@@ -1,6 +1,6 @@
 package com.yeonsik.fitnessapp.feature.exercise.ui
 
-import android.app.Activity
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,7 +40,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
@@ -593,11 +592,11 @@ private fun ExercisePickerPresetText(
 
 @Composable
 private fun ExercisePickerFamilyImage(familyId: String, name: String) {
-    val context = LocalContext.current
+    val activity = LocalActivity.current
     val modifier = Modifier.size(PICKER_IMAGE_SIZE)
-    if (context is Activity) {
+    if (activity != null) {
         FitnessExerciseFamilyIllustration(
-            activity = context,
+            activity = activity,
             familyId = familyId,
             modifier = modifier,
             contentDescription = "$name 대표 운동 이미지"
@@ -609,14 +608,14 @@ private fun ExercisePickerFamilyImage(familyId: String, name: String) {
 
 @Composable
 private fun ExercisePickerImage(preset: RuntimeExercisePreset, exactVariant: Boolean = true) {
-    val context = LocalContext.current
+    val activity = LocalActivity.current
     val identity = remember(preset) {
         ExerciseFamilyCatalog.empty().identityForPreset(preset)
     }
     val modifier = Modifier.size(PICKER_IMAGE_SIZE)
-    if (context is Activity && identity != null) {
+    if (activity != null && identity != null) {
         FitnessExerciseIllustration(
-            activity = context,
+            activity = activity,
             identity = identity,
             exactVariant = exactVariant,
             modifier = modifier,

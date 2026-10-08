@@ -9,6 +9,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalContext
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
@@ -141,6 +143,53 @@ class ExercisePickerScreenTest {
         }
     }
 
+    @Test
+    @androidx.test.filters.SdkSuppress(minSdkVersion = 29)
+    fun newExportImageRendersWithWrappedContextAndInsideTheVariantSheet() {
+        ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
+            val catalog = com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog.load(instrumentation.targetContext)
+            val result = RuntimeExercisePicker(catalog.runtimeCatalog()).search("스쿼트")
+                .first { family -> family.presets.any { it.storageExerciseId == "legs_dumbbell_sumo_squat" } }
+            assertTrue(result.presets.size > 1)
+            val preset = result.presets.first { it.storageExerciseId == "legs_dumbbell_sumo_squat" }
+            val fixture = showPicker(scenario, ExercisePickerSelectionMode.WORKOUT_ADD,
+                families = listOf(result), wrappedContext = true)
+            click(scrollMainToDescription("${result.family.displayName()} 변형 선택"))
+            await { fixture.state.value.selectedFamilyId == result.family.familyId }
+            val buttonDescription = "${preset.displayName()} 선택"
+            await { findNode { it.contentDescription?.toString() == "${result.family.displayName()} 변형 목록" } != null }
+            scrollSheetToPreset(buttonDescription,
+                FixtureFamily(result.family.familyId, result.family.displayName(),
+                    result.family.displayName(), result.presets.size))
+            scenario.onActivity { activity ->
+                val preview = com.yeonsik.fitnessapp.ui.ExerciseIllustrationPreview(activity,
+                    com.yeonsik.fitnessapp.ui.FitnessUi(activity, java.util.function.BooleanSupplier { false }))
+                val expected = (requireNotNull(preview.createExact(preset.storageExerciseId)).drawable
+                    as android.graphics.drawable.BitmapDrawable).bitmap
+                fun containsImage(view: android.view.View): Boolean = when (view) {
+                    is android.widget.ImageView -> view.isShown &&
+                        (view.drawable as? android.graphics.drawable.BitmapDrawable)?.bitmap?.sameAs(expected) == true
+                    is android.view.ViewGroup -> (0 until view.childCount).any { containsImage(view.getChildAt(it)) }
+                    else -> false
+                }
+                // ModalBottomSheet has its own window, unlike a main-list card.
+                val roots = android.view.inspector.WindowInspector.getGlobalWindowViews()
+                assertTrue("The new export must render in the sheet", roots.any(::containsImage))
+            }
+        }
+    }
+
+    private fun scrollMainToDescription(description: String): AccessibilityNodeInfo {
+        repeat(40) {
+            findNode { it.contentDescription?.toString() == description && it.isVisibleToUser }?.let { return it }
+            assertTrue(requireNotNull(findNode { it.isScrollable })
+                .performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD))
+            instrumentation.waitForIdleSync()
+            SystemClock.sleep(100)
+        }
+        throw AssertionError("Could not scroll to $description")
+    }
+
     private fun setSearchText(query: String) {
         val editor = requireNotNull(findNode { it.isEditable })
         assertTrue(editor.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, Bundle().apply {
@@ -264,7 +313,8 @@ class ExercisePickerScreenTest {
         mode: ExercisePickerSelectionMode,
         selectedFamilyId: String? = null,
         selectedPresetId: String? = null,
-        families: List<RuntimeExercisePicker.FamilyResult> = fixtureFamilies()
+        families: List<RuntimeExercisePicker.FamilyResult> = fixtureFamilies(),
+        wrappedContext: Boolean = false
     ): PickerFixture {
         val screen = if (mode == ExercisePickerSelectionMode.ROUTINE_ADD) {
             FitnessScreen.ROUTINE_ADD
@@ -281,7 +331,11 @@ class ExercisePickerScreenTest {
         scenario.onActivity { activity ->
             activity.setContent {
                 FitnessComposeTheme(dark = false) {
-                    ExercisePickerScreen(state.value, "fixture-owner", screen, actions)
+                    val context = if (wrappedContext) android.view.ContextThemeWrapper(activity,
+                        android.R.style.Theme_Material_Light_NoActionBar) else activity
+                    CompositionLocalProvider(LocalContext provides context) {
+                        ExercisePickerScreen(state.value, "fixture-owner", screen, actions)
+                    }
                 }
             }
         }
