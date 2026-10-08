@@ -52,17 +52,13 @@ public final class ExerciseIllustrationLookup {
         if (identity == null) {
             return IllustrationResolution.placeholder(null);
         }
-        ExerciseFamilyCatalog catalog = familyCatalog(context);
-
-        ExerciseFamilyCatalog.ImageAssetRef exact = catalog.imageVariantFor(identity);
-        IllustrationResolution exactResolution = refResolution(exact, "exact_visual_variant");
-        if (exactResolution != null) {
+        IllustrationResolution exactResolution = resolveExact(context, identity);
+        if (!exactResolution.isPlaceholder()) {
             return exactResolution;
         }
 
-        ExerciseFamilyCatalog.ImageAssetRef familyDefault = catalog.familyDefaultFor(identity.familyId);
-        IllustrationResolution defaultResolution = refResolution(familyDefault, "family_default");
-        if (defaultResolution != null) {
+        IllustrationResolution defaultResolution = resolveFamilyDefault(context, identity.familyId);
+        if (!defaultResolution.isPlaceholder()) {
             return defaultResolution;
         }
 
@@ -82,6 +78,12 @@ public final class ExerciseIllustrationLookup {
     ) {
         if (identity == null) {
             return IllustrationResolution.placeholder(null);
+        }
+        // The export manifest is the source of truth for each exercise's A/B slots. Its exact
+        // storage ID must win over the older family registry, which can lag behind new exports.
+        IllustrationResolution exported = legacyResolution(identity.legacyExerciseId, "exact_visual_variant");
+        if (!exported.isPlaceholder()) {
+            return exported;
         }
         ExerciseFamilyCatalog catalog = familyCatalog(context);
         IllustrationResolution exact = refResolution(
@@ -105,15 +107,28 @@ public final class ExerciseIllustrationLookup {
                 : resolveExact(context, identity);
     }
 
-    /** Returns only the representative image registered for the family. */
+    /** Returns a registered representative, or an exported member for a group's preview. */
     public static IllustrationResolution resolveFamilyDefault(Context context, String familyId) {
+        ExerciseFamilyCatalog catalog = familyCatalog(context);
         IllustrationResolution familyDefault = refResolution(
-                familyCatalog(context).familyDefaultFor(familyId),
+                catalog.familyDefaultFor(familyId),
                 "family_default"
         );
-        return familyDefault == null
-                ? IllustrationResolution.placeholder(null)
-                : familyDefault;
+        if (familyDefault != null) {
+            return familyDefault;
+        }
+        // A group without a registered representative may use an exported member. This fallback
+        // is confined to group previews; resolveExact never substitutes another preset's image.
+        RuntimeExerciseFamily family = catalog.runtimeCatalog().family(familyId);
+        if (family != null) {
+            for (RuntimeExercisePreset preset : family.presets) {
+                IllustrationResolution member = legacyResolution(preset.storageExerciseId, "family_default");
+                if (!member.isPlaceholder()) {
+                    return member;
+                }
+            }
+        }
+        return IllustrationResolution.placeholder(null);
     }
 
     /** Lookup without requiring callers to construct a legacy exercise object. */
@@ -123,6 +138,17 @@ public final class ExerciseIllustrationLookup {
             String visualVariantKey
     ) {
         ExerciseFamilyCatalog catalog = familyCatalog(context);
+        RuntimeExerciseFamily family = catalog.runtimeCatalog().family(familyId);
+        if (family != null && visualVariantKey != null) {
+            for (RuntimeExercisePreset preset : family.presets) {
+                if (visualVariantKey.equals(preset.visualVariantKey)) {
+                    IllustrationResolution exported = resolveExact(context, catalog.identityForPreset(preset));
+                    if (!exported.isPlaceholder()) {
+                        return exported;
+                    }
+                }
+            }
+        }
         IllustrationResolution exact = refResolution(
                 catalog.imageVariantFor(familyId, visualVariantKey),
                 "exact_visual_variant"
@@ -130,13 +156,7 @@ public final class ExerciseIllustrationLookup {
         if (exact != null) {
             return exact;
         }
-        IllustrationResolution familyDefault = refResolution(
-                catalog.familyDefaultFor(familyId),
-                "family_default"
-        );
-        return familyDefault == null
-                ? IllustrationResolution.placeholder(null)
-                : familyDefault;
+        return resolveFamilyDefault(context, familyId);
     }
 
     private static IllustrationResolution refResolution(

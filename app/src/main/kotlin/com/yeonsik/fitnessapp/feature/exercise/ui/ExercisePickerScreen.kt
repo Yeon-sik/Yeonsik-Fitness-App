@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
@@ -44,6 +46,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
@@ -148,6 +151,15 @@ private fun ExercisePickerReady(
     val searchFocusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    // Unsubmitted text is form state. Only an explicit search changes the catalog query/results.
+    var queryDraft by rememberSaveable(
+        state.ownerId, state.recordId, state.routineId, state.selectionMode, state.query
+    ) { mutableStateOf(state.query) }
+    val submitSearch = {
+        focusManager.clearFocus()
+        keyboard?.hide()
+        actions.search(queryDraft)
+    }
     LaunchedEffect(state.ownerId, state.routineId, state.selectionMode) {
         if (state.selectionMode == ExercisePickerSelectionMode.ROUTINE_ADD) {
             listState.scrollToItem(0)
@@ -172,12 +184,21 @@ private fun ExercisePickerReady(
                 FitnessHeader(title, back = actions::back)
             }
             item {
-                FitnessTextField(
-                    value = state.query,
-                    onValueChange = actions::search,
-                    label = { Text("종목 검색") },
-                    modifier = Modifier.fillMaxWidth().focusRequester(searchFocusRequester)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FitnessTextField(
+                        value = queryDraft,
+                        onValueChange = { queryDraft = it },
+                        label = { Text("종목 검색") },
+                        modifier = Modifier.weight(1f).focusRequester(searchFocusRequester),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { submitSearch() })
+                    )
+                    FitnessOutlinedButton(onClick = submitSearch) { Text("검색") }
+                }
             }
             item {
                 ExercisePickerFilters(state, actions)
@@ -206,7 +227,10 @@ private fun ExercisePickerReady(
                         style = MaterialTheme.typography.labelLarge,
                         modifier = Modifier.weight(1f)
                     )
-                    FitnessOutlinedButton(onClick = actions::resetFilters) {
+                    FitnessOutlinedButton(onClick = {
+                        queryDraft = ""
+                        actions.resetFilters()
+                    }) {
                         Text("필터 초기화")
                     }
                 }
@@ -237,7 +261,7 @@ private fun ExercisePickerReady(
             ExercisePickerVariantSheet(result, state, actions)
         }
         if (showManualEntry) {
-            ManualWorkoutExerciseDialog(state.query, onDismiss = { showManualEntry = false }) { exercise ->
+            ManualWorkoutExerciseDialog(queryDraft, onDismiss = { showManualEntry = false }) { exercise ->
                 showManualEntry = false
                 actions.chooseManual(exercise)
             }
@@ -405,7 +429,11 @@ private fun ExerciseFamilyPickerCard(
                 horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                ExercisePickerFamilyImage(family.familyId, family.displayName().orEmpty())
+                if (singlePreset != null) {
+                    ExercisePickerImage(singlePreset)
+                } else {
+                    ExercisePickerFamilyImage(family.familyId, family.displayName().orEmpty())
+                }
                 Column(Modifier.weight(1f)) {
                     Text(
                         text = title,
