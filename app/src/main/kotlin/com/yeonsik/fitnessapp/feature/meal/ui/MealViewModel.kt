@@ -1268,6 +1268,7 @@ class MealViewModel @JvmOverloads constructor(
         }
         cancelSearch()
         update { it.copy(saving = true, searching = false, error = null, catalogNotice = null) }
+        val requestedCatalogOwner = nutritionCatalog.currentOwnerId()
         executor.execute {
             val result = runCatching {
                 check(nutritionCatalog.currentOwnerId() == requestedCatalogOwner) { "영양정보 계정이 변경되었습니다. 메뉴를 다시 여세요." }
@@ -1284,23 +1285,27 @@ class MealViewModel @JvmOverloads constructor(
                     draft.branch.takeIf { it.isNotBlank() },
                     identityFromDraft(draft)
                 ) ?: throw IllegalStateException("내 메뉴로 저장하지 못했습니다.")
-                mainExecutor.execute {
-                    if (ownerId == scope.ownerId && date == state.date) {
-                        selectedFood = saved
-                        savedStateHandle[KEY_FOOD_ID] = saved.id
-                        savedStateHandle[KEY_QUERY] = ""
-                        update { it.copy(saving = false, selectedFood = saved, query = "",
-                            searchResults = emptyList(), error = null, notice = null,
-                            catalogNotice = "내 메뉴로 저장했습니다. 다음 외식 기록에서 검색할 수 있습니다.") }
-                        onSaved(true)
-                    }
-                }
-            } catch (error: Exception) {
-                mainExecutor.execute {
-                    if (ownerId == scope.ownerId && date == state.date) {
-                        update { it.copy(saving = false, error = error.message ?: "내 메뉴로 저장하지 못했습니다.") }
+            }
+            mainExecutor.execute {
+                if (ownerId == scope.ownerId && date == state.date) {
+                    if (nutritionCatalog.currentOwnerId() != requestedCatalogOwner) {
+                        update { it.copy(saving = false, error = "영양정보 계정이 변경되었습니다. 메뉴를 다시 여세요.") }
                         onSaved(false)
-                    }
+                    } else result.fold(
+                        onSuccess = { saved ->
+                            selectedFood = saved
+                            savedStateHandle[KEY_FOOD_ID] = saved.id
+                            savedStateHandle[KEY_QUERY] = ""
+                            update { it.copy(saving = false, selectedFood = saved, query = "",
+                                searchResults = emptyList(), error = null, notice = null,
+                                catalogNotice = "내 메뉴로 저장했습니다. 다음 외식 기록에서 검색할 수 있습니다.") }
+                            onSaved(true)
+                        },
+                        onFailure = { error ->
+                            update { it.copy(saving = false, error = error.message ?: "내 메뉴로 저장하지 못했습니다.") }
+                            onSaved(false)
+                        }
+                    )
                 }
             }
         }
