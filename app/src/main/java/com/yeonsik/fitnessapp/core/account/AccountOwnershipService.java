@@ -71,6 +71,7 @@ public final class AccountOwnershipService {
         String sourceOwnerId = SupabaseConfig.DEFAULT_USER_ID;
         ownershipDao.claimWorkoutRecords(sourceOwnerId, nextOwnerId);
         ownershipDao.claimWorkoutExercises(sourceOwnerId, nextOwnerId);
+        ownershipDao.claimManualExerciseLinks(sourceOwnerId, nextOwnerId);
         ownershipDao.claimWorkoutSets(sourceOwnerId, nextOwnerId);
         ownershipDao.claimMealRecords(sourceOwnerId, nextOwnerId);
         ownershipDao.claimDiningOutMenuComponentLinks(sourceOwnerId, nextOwnerId);

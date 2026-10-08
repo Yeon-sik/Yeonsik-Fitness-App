@@ -7,7 +7,8 @@ import com.yeonsik.fitnessapp.state.FitnessScreen
 enum class ExercisePickerSelectionMode {
     ROUTINE_ADD,
     WORKOUT_ADD,
-    WORKOUT_REPLACE;
+    WORKOUT_REPLACE,
+    WORKOUT_LINK_MANUAL;
 
     companion object {
         fun forTarget(screen: FitnessScreen, replacementId: String?): ExercisePickerSelectionMode =

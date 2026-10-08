@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -119,7 +120,7 @@ public final class RuntimeExerciseCatalogTest {
         assertEquals(103, runtime.familyCount());
         assertEquals(340, catalog.size());
         assertEquals(340, runtime.presetsByLegacyId.size());
-        assertEquals(363, runtime.presetCount());
+        assertEquals(364, runtime.presetCount());
 
         RuntimeExercisePreset flatDumbbellPress = runtime.presetForStorageExerciseId(
                 "chest_dumbbell_flat_bench_press");
@@ -164,7 +165,8 @@ public final class RuntimeExerciseCatalogTest {
                 "barbell_clean",
                 "barbell_power_clean",
                 "barbell_snatch",
-                "barbell_power_snatch"
+                "barbell_power_snatch",
+                "legs_kettlebell_sumo_squat"
         ));
         int approvedCount = 0;
         for (RuntimeExercisePreset preset : runtime.presetsById.values()) {
@@ -203,7 +205,7 @@ public final class RuntimeExerciseCatalogTest {
         RuntimeExercisePicker picker = new RuntimeExercisePicker(runtime);
         assertSinglePresetSearch(picker, "펙덱 플라이", "chest_fly", "machine_chest_fly");
         assertSinglePresetSearch(
-                picker, "중량 푸쉬업", "push_up", "chest_bodyweight_weighted_push_up"
+                picker, "중량 푸쉬업", "push_up", "chest_bodyweight_push_up"
         );
         assertSinglePresetSearch(
                 picker, "중량 풀업", "pull_up", "back_bodyweight_pull_up"
@@ -228,7 +230,8 @@ public final class RuntimeExerciseCatalogTest {
                 ExerciseIllustrationLookup.resolve(context, pullUp).source
         );
         assertEquals(
-                "family_default",
+                ExerciseIllustrationCatalog.detailDrawablesFor("back_bodyweight_chin_up").length > 0
+                        ? "exact_visual_variant" : "family_default",
                 ExerciseIllustrationLookup.resolve(context, chinUp).source
         );
         assertEquals(
@@ -249,12 +252,57 @@ public final class RuntimeExerciseCatalogTest {
                 "exact_visual_variant",
                 ExerciseIllustrationLookup.resolveExact(context, pullUp).source
         );
-        assertTrue(ExerciseIllustrationLookup.resolveExact(context, chinUp).isPlaceholder());
-        assertTrue(ExerciseIllustrationLookup.resolveExactForStorageExerciseId(
+        boolean chinUpExported = ExerciseIllustrationCatalog.detailDrawablesFor("back_bodyweight_chin_up").length > 0;
+        assertEquals(!chinUpExported, ExerciseIllustrationLookup.resolveExact(context, chinUp).isPlaceholder());
+        assertEquals(!chinUpExported, ExerciseIllustrationLookup.resolveExactForStorageExerciseId(
                 context, "back_bodyweight_chin_up").isPlaceholder());
+        assertTrue(ExerciseIllustrationLookup.resolveExactForStorageExerciseId(
+                context, "ring_pull_up").isPlaceholder());
         assertEquals("exact_visual_variant", ExerciseIllustrationLookup.resolveExactForStorageExerciseId(
                 context, "back_bodyweight_pull_up").source);
         assertTrue(ExerciseIllustrationLookup.resolveFamilyDefault(context, "unknown_family").isPlaceholder());
+    }
+
+    @Test
+    public void everyBundledExportUsesItsOwnExactAAndBSlots() throws Exception {
+        android.content.Context context = ApplicationProvider.getApplicationContext();
+        ExerciseFamilyCatalog catalog = ExerciseFamilyCatalog.load(context);
+        int checked = 0;
+        for (java.lang.reflect.Field field : ExerciseIllustrationCatalog.class.getFields()) {
+            if (field.getType() != String.class || !field.getName().endsWith("_ID")) continue;
+            String exerciseId = (String) field.get(null);
+            ExerciseFamilyIdentity identity = catalog.identityForStorageExerciseId(exerciseId);
+            assertNotNull("Missing catalog identity: " + exerciseId, identity);
+            int[] expected = ExerciseIllustrationCatalog.detailDrawablesFor(exerciseId);
+            assertEquals(exerciseId, 2, expected.length);
+            ExerciseIllustrationLookup.IllustrationResolution exact =
+                    ExerciseIllustrationLookup.resolveExactForStorageExerciseId(context, exerciseId);
+            assertEquals(exerciseId, "exact_visual_variant", exact.source);
+            assertArrayEquals(exerciseId, expected, exact.drawables);
+            assertArrayEquals(exerciseId, expected, ExerciseIllustrationLookup.resolve(context, identity).drawables);
+            assertArrayEquals(ExerciseIllustrationCatalog.frameDurationsMsFor(exerciseId), exact.durationsMs);
+            assertEquals(ExerciseIllustrationCatalog.preferredHeightDp(exerciseId), exact.preferredHeightDp);
+            assertEquals(expected[0], ExerciseIllustrationLookup.listPreviewDrawableFor(context, exerciseId));
+            checked++;
+        }
+        assertTrue("Expected bundled exercise exports", checked > 0);
+    }
+
+    @Test
+    public void groupsWithExportedPresetsHaveRepresentativesWithoutSubstitutingExactVariants() {
+        android.content.Context context = ApplicationProvider.getApplicationContext();
+        ExerciseFamilyCatalog catalog = ExerciseFamilyCatalog.load(context);
+        for (RuntimeExerciseFamily family : catalog.runtimeCatalog().families) {
+            for (RuntimeExercisePreset preset : family.presets) {
+                if (ExerciseIllustrationCatalog.detailDrawablesFor(preset.storageExerciseId).length > 0) {
+                    assertFalse(family.familyId, ExerciseIllustrationLookup.resolveFamilyDefault(
+                            context, family.familyId).isPlaceholder());
+                    ExerciseFamilyIdentity identity = catalog.identityForPreset(preset);
+                    assertArrayEquals(ExerciseIllustrationCatalog.detailDrawablesFor(preset.storageExerciseId),
+                            ExerciseIllustrationLookup.resolve(context, family.familyId, identity.visualVariantKey).drawables);
+                }
+            }
+        }
     }
 
     @Test

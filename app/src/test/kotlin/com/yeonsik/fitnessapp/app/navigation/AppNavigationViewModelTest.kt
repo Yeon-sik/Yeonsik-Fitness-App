@@ -31,6 +31,26 @@ class AppNavigationViewModelTest {
     }
 
     @Test
+    fun recordDateMealEntryPreservesPastFutureAndRestorationWithoutChangingRecordsDate() {
+        listOf("2020-01-02", "2030-12-31").forEach { date ->
+            val saved = SavedStateHandle()
+            val navigation = AppNavigationViewModel(saved)
+            navigation.updateToday("2026-10-08")
+            navigation.navigate(FitnessScreen.RECORDS)
+            navigation.selectRecordsDate(date)
+            navigation.openMealForDate(date)
+
+            assertEquals(FitnessScreen.MEALS, navigation.currentScreen())
+            assertEquals(date, navigation.selectedMealDate())
+            assertEquals(date, navigation.selectedRecordsDate())
+            assertEquals(date, AppNavigationViewModel(saved).selectedMealDate())
+            assertTrue(navigation.back())
+            assertEquals(FitnessScreen.RECORDS, navigation.currentScreen())
+            assertEquals(date, navigation.selectedRecordsDate())
+        }
+    }
+
+    @Test
     fun dayRolloverRefreshesTodayWithoutGeneratingEntranceOrScrollReset() {
         val navigation = AppNavigationViewModel(SavedStateHandle())
         navigation.updateToday("2026-10-02")

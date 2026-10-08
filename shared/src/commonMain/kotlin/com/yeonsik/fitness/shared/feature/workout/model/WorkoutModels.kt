@@ -86,7 +86,9 @@ data class WorkoutExerciseDetail(
     /** The selected record plus up to four earlier completed records, oldest first. */
     val recentHistories: List<WorkoutExerciseHistory> = emptyList(),
     val personalBests: WorkoutExercisePersonalBests? = null,
-    val currentRecordDate: String = ""
+    val currentRecordDate: String = "",
+    /** One timer setting for this occurrence; historical per-set rest snapshots remain intact. */
+    val exerciseRestSeconds: Int? = null
 )
 
 data class WorkoutSessionSnapshot(

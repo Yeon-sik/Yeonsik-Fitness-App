@@ -54,7 +54,13 @@ def exerciseMasterAssetsDir = file("$buildDir/generated/exercise-master-assets")
 def exerciseMuscleAssetsDir = file("$buildDir/generated/exercise-muscle-assets")
 def exerciseRuntimeFallbackAssetsDir = file("$projectDir/src/main/assets-fallback")
 
+tasks.register("generateExerciseCatalog", Exec) {
+    workingDir rootProject.projectDir
+    commandLine "node", "scripts/generate-exercise-catalog.mjs"
+}
+
 tasks.register("copyExerciseMasterAssets", Copy) {
+    dependsOn("generateExerciseCatalog")
     from(rootProject.file("Fitness_Index.json"))
     from(rootProject.file("Fitness_Weight.json"))
     from(new File(exerciseRuntimeFallbackAssetsDir, "exercise_family_mapping_v1.json")) {

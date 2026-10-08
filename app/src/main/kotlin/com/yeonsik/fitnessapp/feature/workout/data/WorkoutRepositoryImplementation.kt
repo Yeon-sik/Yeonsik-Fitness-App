@@ -8,6 +8,7 @@ import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutCompletion
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercise
+import com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseBests
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
@@ -218,7 +219,8 @@ class WorkoutRepositoryImplementation(
                     session.date
                 } else bests.highestTotalVolume?.date
             ),
-            currentRecordDate = session.date
+            currentRecordDate = session.date,
+            exerciseRestSeconds = storage.exerciseRestSeconds(scope, recordId, active.id)
         )
     }
 
@@ -239,6 +241,10 @@ class WorkoutRepositoryImplementation(
         setId: String,
         input: WorkoutSetInput
     ): Boolean = storage.updateSet(scope, recordId, setId, input)
+
+    override fun updateExerciseRestSeconds(scope: AccountScope, recordId: String,
+                                            exerciseId: String, seconds: Int): Boolean =
+        storage.updateExerciseRestSeconds(scope, recordId, exerciseId, seconds)
 
     override fun addTypedSet(
         scope: AccountScope,
@@ -264,6 +270,14 @@ class WorkoutRepositoryImplementation(
         exerciseId: String,
         replacement: WorkoutExerciseReplacement
     ): Boolean = storage.replaceExercise(scope, recordId, exerciseId, replacement)
+
+    override fun addManualExercise(scope: AccountScope, recordId: String,
+                                   exercise: ManualWorkoutExercise): Boolean =
+        storage.addManualExercise(scope, recordId, exercise)
+
+    override fun linkManualExerciseToCanonical(scope: AccountScope, recordId: String,
+                                              exerciseId: String, canonicalPresetId: String): Boolean =
+        storage.linkManualExerciseToCanonical(scope, recordId, exerciseId, canonicalPresetId)
 
     private fun WorkoutRoomStorage.ExerciseRow.toFeatureModel() = WorkoutExercise(
         id, exerciseId, orderIndex, name, uiPart, equipment, recordType, familyIdentity

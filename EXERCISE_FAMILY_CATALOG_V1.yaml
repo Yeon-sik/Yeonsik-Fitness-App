@@ -230,6 +230,7 @@ canonicalAliasMerges:
   familyId: rear_delt_fly
   aliases:
   - 리버스 펙덱
+  - 리버스 펙덱 플라이
   reason: Same reverse-fly machine task.
 - canonicalPresetId: dumbbell_rear_delt_fly
   legacyIds:
@@ -256,6 +257,138 @@ searchPresetAliases:
   familyId: pull_up
   targetPreset: back_bodyweight_chin_up
   defaultLoadState: added_weight
+- alias: 덤벨 레터럴 레이즈
+  familyId: lateral_raise
+  targetPreset: shoulders_dumbbell_lateral_raise
+  defaultLoadState: external_load
+- alias: 사이드 레터럴 레이즈
+  familyId: lateral_raise
+  targetPreset: shoulders_dumbbell_lateral_raise
+  defaultLoadState: external_load
+- alias: 사레레
+  familyId: lateral_raise
+  targetPreset: shoulders_dumbbell_lateral_raise
+  defaultLoadState: external_load
+- alias: 아웃타이 머신
+  familyId: hip_abduction
+  targetPreset: legs_machine_hip_abduction
+  defaultLoadState: external_load
+- alias: 힙 어브덕터 머신
+  familyId: hip_abduction
+  targetPreset: legs_machine_hip_abduction
+  defaultLoadState: external_load
+- alias: 이너타이 머신
+  familyId: hip_adduction
+  targetPreset: legs_machine_hip_adduction
+  defaultLoadState: external_load
+- alias: 힙 어덕터 머신
+  familyId: hip_adduction
+  targetPreset: legs_machine_hip_adduction
+  defaultLoadState: external_load
+- alias: 니 익스텐션
+  familyId: leg_extension
+  targetPreset: legs_machine_leg_extension
+  defaultLoadState: external_load
+- alias: 원레그 니 익스텐션
+  familyId: leg_extension
+  targetPreset: legs_machine_single_leg_extension
+  defaultLoadState: external_load
+- alias: 바벨 OHP
+  familyId: overhead_press
+  targetPreset: shoulders_barbell_overhead_press
+  defaultLoadState: external_load
+- alias: 라잉 햄스트링 컬
+  familyId: leg_curl
+  targetPreset: legs_machine_lying_leg_curl
+  defaultLoadState: external_load
+- alias: 스탠딩 햄스트링 컬
+  familyId: leg_curl
+  targetPreset: legs_machine_standing_leg_curl
+  defaultLoadState: external_load
+- alias: 시티드 햄스트링 컬
+  familyId: leg_curl
+  targetPreset: legs_machine_seated_leg_curl
+  defaultLoadState: external_load
+- alias: 덤벨 RDL
+  familyId: romanian_deadlift
+  targetPreset: legs_dumbbell_romanian_deadlift
+  defaultLoadState: external_load
+- alias: Dumbbell RDL
+  familyId: romanian_deadlift
+  targetPreset: legs_dumbbell_romanian_deadlift
+  defaultLoadState: external_load
+- alias: 원레그 덤벨 RDL
+  familyId: romanian_deadlift
+  targetPreset: legs_dumbbell_single_leg_romanian_deadlift
+  defaultLoadState: external_load
+- alias: Single-Leg Dumbbell RDL
+  familyId: romanian_deadlift
+  targetPreset: legs_dumbbell_single_leg_romanian_deadlift
+  defaultLoadState: external_load
+- alias: 바벨 RDL
+  familyId: romanian_deadlift
+  targetPreset: legs_barbell_romanian_deadlift
+  defaultLoadState: external_load
+- alias: Barbell RDL
+  familyId: romanian_deadlift
+  targetPreset: legs_barbell_romanian_deadlift
+  defaultLoadState: external_load
+- alias: 스미스머신 RDL
+  familyId: romanian_deadlift
+  targetPreset: legs_smith_romanian_deadlift
+  defaultLoadState: external_load
+- alias: Smith Machine RDL
+  familyId: romanian_deadlift
+  targetPreset: legs_smith_romanian_deadlift
+  defaultLoadState: external_load
+- alias: 케이블 햄스트링 컬
+  familyId: leg_curl
+  targetPreset: legs_cable_leg_curl
+  defaultLoadState: external_load
+- alias: 밴드 햄스트링 컬
+  familyId: leg_curl
+  targetPreset: legs_band_leg_curl
+  defaultLoadState: band_resisted
+- alias: 머신 스콧 컬
+  familyId: biceps_curl
+  targetPreset: arms_machine_preacher_curl
+  defaultLoadState: external_load
+- alias: 덤벨 스콧 컬
+  familyId: biceps_curl
+  targetPreset: arms_dumbbell_preacher_curl
+  defaultLoadState: external_load
+- alias: 이지바 스콧 컬
+  familyId: biceps_curl
+  targetPreset: arms_barbell_preacher_curl
+  defaultLoadState: external_load
+- alias: 케이블 스콧 컬
+  familyId: biceps_curl
+  targetPreset: arms_cable_preacher_curl
+  defaultLoadState: external_load
+- alias: 원암 케이블 스콧 컬
+  familyId: biceps_curl
+  targetPreset: arms_cable_single_arm_preacher_curl
+  defaultLoadState: external_load
+- alias: 원암 케이블 프레스다운
+  familyId: triceps_pushdown
+  targetPreset: arms_cable_single_arm_pushdown
+  defaultLoadState: external_load
+- alias: 케이블 로프 프레스다운
+  familyId: triceps_pushdown
+  targetPreset: arms_cable_rope_pushdown
+  defaultLoadState: external_load
+- alias: 케이블 리버스 그립 프레스다운
+  familyId: triceps_pushdown
+  targetPreset: arms_cable_reverse_grip_pushdown
+  defaultLoadState: external_load
+- alias: 원암 케이블 리버스 그립 프레스다운
+  familyId: triceps_pushdown
+  targetPreset: arms_cable_single_arm_reverse_grip_pushdown
+  defaultLoadState: external_load
+- alias: 케이블 스트레이트바 프레스다운
+  familyId: triceps_pushdown
+  targetPreset: arms_cable_triceps_pushdown_straight_bar
+  defaultLoadState: external_load
 families:
   push_up:
     nameKo: 푸쉬업
@@ -1807,6 +1940,26 @@ families:
     - external_load
     notes: Approved Olympic-lift family.
 approvedNewPresets:
+- presetId: legs_kettlebell_sumo_squat
+  familyId: squat
+  nameKo: 케틀벨 스모 스쿼트
+  nameEn: Kettlebell Sumo Squat
+  defaultUiPart: legs
+  primarySubPart: adductors
+  primarySubPartNameKo: 내전근
+  secondarySubParts:
+  - glutes
+  - quads
+  secondarySubPartNamesKo:
+  - 둔근
+  - 대퇴사두
+  equipmentNameKo: 케틀벨
+  variant:
+    equipment: kettlebell
+    stance: sumo
+    laterality: bilateral
+  defaultLoadState: external_load
+  recordType: weight_reps
 - presetId: knee_push_up
   familyId: push_up
   nameKo: 니 푸쉬업

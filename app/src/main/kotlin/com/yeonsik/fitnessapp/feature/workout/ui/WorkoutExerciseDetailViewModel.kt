@@ -182,6 +182,10 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
         }
     }
 
+    fun updateExerciseRestSeconds(scope: AccountScope, recordId: String, exerciseId: String,
+                                  seconds: Int, callback: Consumer<Boolean>) =
+        executeWrite(callback) { repository.updateExerciseRestSeconds(scope, recordId, exerciseId, seconds) }
+
     private fun executeWrite(callback: Consumer<Boolean>, work: () -> Boolean) {
         executor.execute {
             try {

@@ -25,10 +25,18 @@ public final class RuntimeExercisePicker {
     public List<FamilyResult> search(Filter filter) {
         Filter applied = filter == null ? Filter.empty() : filter;
         String normalizedQuery = normalize(applied.query);
+        RuntimeExercisePreset exactAlias = catalog.presetForSearchAlias(applied.query);
+        if (exactAlias != null && exactAlias.searchAliases.stream()
+                .noneMatch(alias -> normalizedQuery.equals(normalize(alias)))) {
+            exactAlias = null;
+        }
         List<FamilyResult> results = new ArrayList<>();
         for (RuntimeExerciseFamily family : catalog.families) {
             List<PresetResult> matchingPresets = new ArrayList<>();
             for (RuntimeExercisePreset preset : family.presets) {
+                if (exactAlias != null && !exactAlias.identityId().equals(preset.identityId())) {
+                    continue;
+                }
                 if (!applied.matches(preset, family)) {
                     continue;
                 }
@@ -39,7 +47,7 @@ public final class RuntimeExercisePicker {
             }
 
             int familyScore = familyScore(family, normalizedQuery);
-            if (!normalizedQuery.isEmpty() && familyScore > 0 && matchingPresets.isEmpty()) {
+            if (exactAlias == null && !normalizedQuery.isEmpty() && familyScore > 0 && matchingPresets.isEmpty()) {
                 for (RuntimeExercisePreset preset : family.presets) {
                     if (applied.matches(preset, family)) {
                         matchingPresets.add(new PresetResult(preset, familyScore));

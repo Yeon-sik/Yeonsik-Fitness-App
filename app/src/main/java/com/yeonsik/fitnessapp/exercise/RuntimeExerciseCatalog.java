@@ -26,6 +26,7 @@ public final class RuntimeExerciseCatalog {
             Collections.emptyMap(),
             Collections.emptyMap(),
             Collections.emptyMap(),
+            Collections.emptyMap(),
             Collections.emptyList()
     );
 
@@ -34,18 +35,21 @@ public final class RuntimeExerciseCatalog {
     public final Map<String, RuntimeExercisePreset> presetsById;
     public final Map<String, RuntimeExercisePreset> presetsByLegacyId;
     public final List<LoadState> allowedLoadStates;
+    private final Map<String, String> searchAliasTargets;
 
     private RuntimeExerciseCatalog(
             List<RuntimeExerciseFamily> families,
             Map<String, RuntimeExerciseFamily> familyById,
             Map<String, RuntimeExercisePreset> presetsById,
             Map<String, RuntimeExercisePreset> presetsByLegacyId,
+            Map<String, String> searchAliasTargets,
             List<LoadState> allowedLoadStates
     ) {
         this.families = immutableList(families);
         this.familyById = Collections.unmodifiableMap(new LinkedHashMap<>(familyById));
         this.presetsById = Collections.unmodifiableMap(new LinkedHashMap<>(presetsById));
         this.presetsByLegacyId = Collections.unmodifiableMap(new LinkedHashMap<>(presetsByLegacyId));
+        this.searchAliasTargets = Collections.unmodifiableMap(new LinkedHashMap<>(searchAliasTargets));
         this.allowedLoadStates = immutableList(allowedLoadStates);
     }
 
@@ -117,7 +121,8 @@ public final class RuntimeExerciseCatalog {
             }
         }
 
-        addSearchAliases(document.optJSONArray("searchPresetAliases"), builders, presetIdByLegacyId);
+        Map<String, String> searchAliasTargets = addSearchAliases(
+                document.optJSONArray("searchPresetAliases"), builders, presetIdByLegacyId);
 
         Map<String, RuntimeExercisePreset> presetsById = new LinkedHashMap<>();
         Map<String, List<RuntimeExercisePreset>> presetsByFamily = new LinkedHashMap<>();
@@ -160,6 +165,7 @@ public final class RuntimeExerciseCatalog {
                 familyById,
                 presetsById,
                 presetsByLegacyId,
+                searchAliasTargets,
                 parseLoadStates(document.optJSONArray("allowedLoadStates") == null
                         ? document.optJSONArray("loadStates")
                         : document.optJSONArray("allowedLoadStates"))
@@ -212,6 +218,15 @@ public final class RuntimeExerciseCatalog {
         return match;
     }
 
+    /** Explicit catalog aliases win in search without changing stored legacy identities. */
+    public RuntimeExercisePreset presetForSearchAlias(String name) {
+        String normalized = RuntimeExercisePicker.normalize(name);
+        if (searchAliasTargets.containsKey(normalized)) {
+            return preset(searchAliasTargets.get(normalized));
+        }
+        return presetForExactName(name);
+    }
+
     public int familyCount() {
         return families.size();
     }
@@ -258,13 +273,14 @@ public final class RuntimeExerciseCatalog {
         return result;
     }
 
-    private static void addSearchAliases(
+    private static Map<String, String> addSearchAliases(
             JSONArray array,
             Map<String, PresetBuilder> builders,
             Map<String, String> presetIdByLegacyId
     ) {
+        Map<String, String> targets = new LinkedHashMap<>();
         if (array == null) {
-            return;
+            return targets;
         }
         for (int index = 0; index < array.length(); index += 1) {
             JSONObject item = array.optJSONObject(index);
@@ -286,8 +302,15 @@ public final class RuntimeExerciseCatalog {
             PresetBuilder builder = resolvedPresetId == null ? null : builders.get(resolvedPresetId);
             if (builder != null) {
                 builder.addAlias(alias, LoadState.fromId(nullableString(item, "defaultLoadState")));
+                String normalized = RuntimeExercisePicker.normalize(alias);
+                if (targets.containsKey(normalized) && !resolvedPresetId.equals(targets.get(normalized))) {
+                    targets.put(normalized, null);
+                } else if (!targets.containsKey(normalized)) {
+                    targets.put(normalized, resolvedPresetId);
+                }
             }
         }
+        return targets;
     }
 
     private static List<LoadState> parseLoadStates(JSONArray array) {

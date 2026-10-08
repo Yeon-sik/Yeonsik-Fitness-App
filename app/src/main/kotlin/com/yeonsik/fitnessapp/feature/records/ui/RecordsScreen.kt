@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -74,6 +76,7 @@ interface RecordsScreenActions {
     fun openRecord(recordId: String)
     fun deleteRecord(recordId: String)
     fun showBodyMetric(date: String, recordId: String?)
+    fun addMeal(date: String)
 }
 
 @Composable
@@ -278,8 +281,26 @@ private fun RecordsDayDetailSection(
     onSelectMeal: (String) -> Unit
 ) {
     var order = 2
+    var showAddMenu by rememberSaveable(detail.date) { mutableStateOf(false) }
     TopLevelEntranceContent(entrance, order++) {
-        Text("${detail.date} 상세", style = MaterialTheme.typography.titleMedium)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("${detail.date} 상세", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+            Box {
+                TextButton(onClick = { showAddMenu = true }, Modifier.testTag("records-add")) {
+                    Text("기록 추가")
+                }
+                DropdownMenu(expanded = showAddMenu, onDismissRequest = { showAddMenu = false }) {
+                    DropdownMenuItem(text = { Text("체중") }, onClick = {
+                        showAddMenu = false
+                        actions.showBodyMetric(detail.date, null)
+                    })
+                    DropdownMenuItem(text = { Text("식단") }, onClick = {
+                        showAddMenu = false
+                        actions.addMeal(detail.date)
+                    })
+                }
+            }
+        }
     }
     if (!detail.hasAnyRecord) {
         TopLevelEntranceContent(entrance, order++) {

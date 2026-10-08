@@ -131,6 +131,11 @@ class AppNavigationViewModel(
         publish()
     }
 
+    fun openMealForDate(date: String) {
+        selectMealDate(date)
+        navigate(FitnessScreen.MEALS)
+    }
+
     fun selectRecordsDate(date: String) {
         if (date.isBlank()) return
         savedStateHandle[KEY_RECORDS_DATE] = date

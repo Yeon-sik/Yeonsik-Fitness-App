@@ -37,6 +37,7 @@ internal interface WorkoutDetailActions {
     fun back()
     fun refresh()
     fun openExercise(exerciseId: String)
+    fun linkManualExercise(exerciseId: String)
     fun deleteExercise(recordId: String, exerciseId: String, onResult: (Boolean) -> Unit)
     fun applyPreviousHistory(
         recordId: String,
@@ -60,5 +61,7 @@ internal interface WorkoutDetailActions {
     )
     fun deleteSet(recordId: String, setId: String, onResult: (Boolean) -> Unit)
     fun startRestTimer(restSeconds: Int?)
+    fun updateExerciseRestSeconds(recordId: String, exerciseId: String, seconds: Int,
+                                  onResult: (Boolean) -> Unit)
     fun toast(message: String)
 }
