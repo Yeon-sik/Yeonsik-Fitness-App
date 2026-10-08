@@ -1572,35 +1572,35 @@ async function run() {
   );
   console.log('PASS atomic OCR dining-out publication, idempotency, owner, identity, and legacy publication checks');
 
-  const externalReference = {
+  const externalReferencePublicationPayload = {
     ...JSON.parse(JSON.stringify(EXTERNAL_REFERENCE_FIXTURE)),
     p_idempotency_key: uniqueId('external-reference')
   };
-  const externalReferenceResult = await callCanonicalV3(ownerA, externalReference);
+  const externalReferencePublicationResult = await callCanonicalV3(ownerA, externalReferencePublicationPayload);
   await verifyExternalReference(
     ownerA,
-    externalReferenceResult,
-    externalReference,
-    externalReference.p_food_name
+    externalReferencePublicationResult,
+    externalReferencePublicationPayload,
+    externalReferencePublicationPayload.p_food_name
   );
-  await verifyOwnerIsolation(ownerA, ownerB, externalReferenceResult);
-  await verifyV3ReadIsolation(ownerB, externalReference.p_food_name);
+  await verifyOwnerIsolation(ownerA, ownerB, externalReferencePublicationResult);
+  await verifyV3ReadIsolation(ownerB, externalReferencePublicationPayload.p_food_name);
 
-  const externalReferenceReplay = await callCanonicalV3(ownerA, externalReference);
+  const externalReferenceReplay = await callCanonicalV3(ownerA, externalReferencePublicationPayload);
   assertEqual(
     externalReferenceReplay.canonical_import_id,
-    externalReferenceResult.canonical_import_id,
+    externalReferencePublicationResult.canonical_import_id,
     'external replay id'
   );
   assertEqual(
     externalReferenceReplay.nutrition_food_id,
-    externalReferenceResult.nutrition_food_id,
+    externalReferencePublicationResult.nutrition_food_id,
     'external replay food id'
   );
   assertEqual(externalReferenceReplay.idempotent_replay, true, 'external replay flag');
   assertEqual(
     (await getRows(ownerA, 'nutrition_food_nutrient_provenance', {
-      canonical_import_id: externalReferenceResult.canonical_import_id
+      canonical_import_id: externalReferencePublicationResult.canonical_import_id
     })).length,
     7,
     'external replay must not add provenance rows'
@@ -1608,14 +1608,14 @@ async function run() {
   console.log('PASS external-reference.v1 idempotency replay');
 
   const externalSourceMismatch = {
-    ...JSON.parse(JSON.stringify(externalReference)),
+    ...JSON.parse(JSON.stringify(externalReferencePublicationPayload)),
     p_idempotency_key: uniqueId('external-source-mismatch'),
     p_provenance: {
-      ...externalReference.p_provenance,
+      ...externalReferencePublicationPayload.p_provenance,
       source_type: 'product_label_ocr'
     },
     p_nutrient_provenance: Object.fromEntries(
-      Object.entries(externalReference.p_nutrient_provenance).map(([key, value]) => [
+      Object.entries(externalReferencePublicationPayload.p_nutrient_provenance).map(([key, value]) => [
         key,
         { ...value, source_type: 'product_label_ocr' }
       ])
@@ -1627,11 +1627,11 @@ async function run() {
   );
 
   const externalBlankReference = {
-    ...JSON.parse(JSON.stringify(externalReference)),
+    ...JSON.parse(JSON.stringify(externalReferencePublicationPayload)),
     p_idempotency_key: uniqueId('external-blank-reference'),
     p_source_document_ref: ' ',
     p_provenance: {
-      ...externalReference.p_provenance,
+      ...externalReferencePublicationPayload.p_provenance,
       source_reference: ' '
     }
   };
@@ -1641,7 +1641,7 @@ async function run() {
   );
 
   const externalMissingNutrient = {
-    ...JSON.parse(JSON.stringify(externalReference)),
+    ...JSON.parse(JSON.stringify(externalReferencePublicationPayload)),
     p_idempotency_key: uniqueId('external-missing-nutrient')
   };
   delete externalMissingNutrient.p_required_nutrients.sodium_mg;
@@ -1651,7 +1651,7 @@ async function run() {
   );
 
   const externalPriceTraceIdentity = {
-    ...JSON.parse(JSON.stringify(externalReference)),
+    ...JSON.parse(JSON.stringify(externalReferencePublicationPayload)),
     p_idempotency_key: uniqueId('external-pricetrace-authority'),
     p_pricetrace_identity: { catalog_product_id: crypto.randomUUID() }
   };
@@ -1709,11 +1709,11 @@ async function run() {
     () => callCanonicalV3(ownerA, externalBlankSource)
   );
 
-  const externalMissingNutrient = externalReferencePayloadFromOcrFixture(uniqueId('external-missing-nutrient'));
-  delete externalMissingNutrient.p_required_nutrients.sodium_mg;
+  const externalOcrMissingNutrient = externalReferencePayloadFromOcrFixture(uniqueId('external-missing-nutrient'));
+  delete externalOcrMissingNutrient.p_required_nutrients.sodium_mg;
   await assertFunctionRejected(
     'external-reference missing required nutrient rejection',
-    () => callCanonicalV3(ownerA, externalMissingNutrient)
+    () => callCanonicalV3(ownerA, externalOcrMissingNutrient)
   );
 
   const invalidExternalContract = externalReferencePayloadFromOcrFixture(uniqueId('external-invalid-contract'));

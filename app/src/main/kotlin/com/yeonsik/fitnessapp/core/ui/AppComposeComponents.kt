@@ -143,7 +143,6 @@ internal fun AppTextField(
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions ?: KeyboardActions.Default,
         visualTransformation = visualTransformation,
-        enabled = enabled,
         isError = isError,
         supportingText = supportingText,
         placeholder = placeholder,

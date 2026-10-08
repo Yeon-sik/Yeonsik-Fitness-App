@@ -724,71 +724,63 @@ class MealViewModel @JvmOverloads constructor(
     /** Syncs the Nutrition catalog without creating or editing intake records. */
     fun syncNutritionPublicationCatalog() {
         val state = nutritionPublicationReady()
-        if (!state.open || state.syncing || state.publishing || state.proposing) return
+        if (!state.open || state.busy) return
         val request = ++nutritionPublicationRequestVersion
         val requestedOwner = ownerId
-        val requestedNutritionOwner = current.nutritionOwnerId
-        mutableNutritionPublicationState.value = current.copy(syncing = true, error = null, notice = null, failure = null)
+        val requestedNutritionOwner = state.nutritionOwnerId
+        mutableNutritionPublicationState.value = state.copy(syncing = true, error = null, notice = null, failure = null)
         executor.execute {
-            try {
-                val result = nutritionIntegration.syncCurrentCatalog()
-                val menus = nutritionCatalog.savedDiningOutMenus()
-                    .filter { it.isDiningOutMenu() }
-                val proposals = menus.mapNotNull { it.ownerId }.distinct().flatMap { diningProposals?.list(it).orEmpty() }
-                val privateIds = menus.filter { it.ownerId != null && nutritionCatalog.isPrivateDiningOutMenu(it.id, it.ownerId) }
-                    .map { it.id }.toSet()
-                if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
-                    mutableNutritionPublicationState.postValue(
-                        nutritionPublicationReady().copy(
-                            ownerId = requestedOwner,
-                            menus = menus,
-                            proposals = proposals,
-                            privateFoodIds = privateIds,
-                            remoteAvailable = menus.any { it.ownerId != null && diningProposals?.available(it.ownerId) == true },
-                            selectedFoodId = state.selectedFoodId
-                                ?.takeIf { id -> menus.any { it.id == id } },
-                            syncing = false,
-                            notice = "Nutrition 동기화 완료 · 가져옴 ${result.pulledRows}건 · 보냄 ${result.pushedRows}건",
-                            error = null
-                        )
+            val result = runCatching {
+                check(nutritionCatalog.currentOwnerId() == requestedNutritionOwner) { "영양정보 계정이 변경되었습니다." }
+                val synced = nutritionIntegration.syncCurrentCatalog(requestedNutritionOwner)
+                val menus = nutritionCatalog.savedDiningOutMenus().filter { it.isDiningOutMenu() }
+                val proposals = menus.mapNotNull { it.ownerId }.distinct()
+                    .flatMap { diningProposals?.list(it).orEmpty() }
+                val privateIds = menus.filter { it.ownerId != null
+                    && nutritionCatalog.isPrivateDiningOutMenu(it.id, it.ownerId) }.map { it.id }.toSet()
+                Triple(synced, menus, proposals to privateIds)
+            }
+            applyPublicationResult(request, requestedOwner, requestedNutritionOwner) { current ->
+                result.fold({ (synced, menus, proposalSnapshot) ->
+                    val (proposals, privateIds) = proposalSnapshot
+                    val selected = current.selectedFoodId?.takeIf { id -> menus.any { it.id == id } }
+                    savedStateHandle[KEY_PUBLICATION_FOOD] = selected
+                    current.copy(
+                        menus = menus,
+                        proposals = proposals,
+                        privateFoodIds = privateIds,
+                        remoteAvailable = menus.any { it.ownerId != null && diningProposals?.available(it.ownerId) == true },
+                        selectedFoodId = selected,
+                        syncing = false,
+                        notice = "Nutrition 동기화 완료 · 가져옴 ${synced.pulledRows}건 · 보냄 ${synced.pushedRows}건",
+                        lastTarget = current.lastTarget?.takeIf { it.foodId == selected },
+                        verifiedTarget = current.verifiedTarget?.takeIf { it.foodId == selected },
+                        error = null,
+                        failure = null
                     )
-                }
-            } catch (error: Exception) {
-                if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
-                    mutableNutritionPublicationState.postValue(
-                        nutritionPublicationReady().copy(
-                            syncing = false,
-                            error = error.message ?: "Nutrition 동기화에 실패했습니다."
-                        )
-                    )
-                }
+                }, { error -> current.copy(
+                    syncing = false,
+                    failure = NutritionPublicationFailure.SYNC,
+                    error = nutritionPublicationError(error, "동기화를 완료하지 못했어요. 저장된 메뉴를 확인하고 다시 시도해 주세요.")
+                ) })
             }
         }
     }
 
-    /** Validates selected UUIDs against the loaded PriceTrace detail before writing. */
-    fun publishNutritionMenuForPriceTraceSelection(
-        locationId: String,
-        menuId: String,
-        catalogProductId: String
-    ) {
-        val state = nutritionPublicationReady()
-        val food = state.selectedFood
-        if (!state.open || food == null || state.publishing || state.syncing || state.proposing) return
-        if (!state.allowsExistingMenuPublication) {
-            mutableNutritionPublicationState.value = state.copy(
-                error = "등록 제안은 승인 후 ‘PT에 공개 연결’ 버튼에서 공개하세요. 검토 중이거나 거절된 제안은 공개할 수 없습니다."
-            )
-            return
-        }
-        val detail = priceTraceReady().detail
-        if (detail == null) {
-            mutableNutritionPublicationState.value = state.copy(
-                error = "PriceTrace 식당 상세를 다시 불러오세요."
-            )
-            return
+    /** Resolves only IDs from the currently loaded restaurant, before any remote action. */
+    private fun selectedPublicationTarget(
+        locationId: String, menuId: String, catalogProductId: String
+    ): Pair<NutritionPublicationTarget, DiningOutIdentity>? {
+        val current = nutritionPublicationReady()
+        if (!current.open || current.busy) return null
+        fun reject(message: String): Nothing? {
+            mutableNutritionPublicationState.value = current.copy(error = message, failure = NutritionPublicationFailure.SELECTION)
+            return null
         }
         val food = current.selectedFood ?: return reject("공개할 외식 영양정보를 먼저 선택해 주세요.")
+        if (!current.allowsExistingMenuPublication) {
+            return reject("등록 제안은 승인 후 ‘PT에 공개 연결’ 버튼에서 공개하세요. 검토 중이거나 거절된 제안은 공개할 수 없습니다.")
+        }
         if (current.nutritionOwnerId != nutritionCatalog.currentOwnerId()) {
             return reject("영양정보 계정이 바뀌었어요. 메뉴 목록을 다시 불러와 주세요.")
         }
@@ -809,59 +801,51 @@ class MealViewModel @JvmOverloads constructor(
 
     fun publishNutritionMenuForPriceTraceSelection(locationId: String, menuId: String, catalogProductId: String) {
         val (target, identity) = selectedPublicationTarget(locationId, menuId, catalogProductId) ?: return
+        val state = nutritionPublicationReady()
+        val food = state.selectedFood ?: return
         val request = ++nutritionPublicationRequestVersion
         val requestedOwner = ownerId
-        mutableNutritionPublicationState.value = nutritionPublicationReady().copy(publishing = true, error = null,
+        mutableNutritionPublicationState.value = state.copy(publishing = true, error = null,
             notice = null, failure = null, lastTarget = target, verifiedTarget = null, needsVerification = false)
         executor.execute {
-            try {
-                // Check the durable state again: the displayed list can predate a timeout or
-                // an account change. Every tracked proposal must use its approved identity.
-                val proposals = food.ownerId?.let { diningProposals?.list(it) }.orEmpty()
-                check(proposals.none { it.nutritionFoodId == food.id }) {
+            val result = runCatching {
+                check(nutritionCatalog.currentOwnerId() == target.nutritionOwnerId) { "영양정보 계정이 변경되었습니다." }
+                val proposals = diningProposals?.list(target.nutritionOwnerId)
+                check(proposals.orEmpty().none { it.nutritionFoodId == target.foodId }) {
                     "등록 제안은 승인 후 ‘PT에 공개 연결’ 버튼에서 공개하세요."
                 }
-                val result = nutritionIntegration.publishDiningOutForExistingMenu(food.id, identity)
-                if (!result.state.isPublic || result.state.catalogProductId != catalogProductId) {
-                    throw IllegalStateException("선택한 PT 메뉴의 공개 영양정보를 확인하지 못했습니다.")
+                val published = nutritionIntegration.publishDiningOutForExistingMenu(
+                    target.foodId, identity, target.nutritionOwnerId
+                )
+                if (!published.state.isPublic || published.state.catalogProductId != target.catalogProductId) {
+                    throw java.io.IOException("공개 연결 결과를 확인하지 못했습니다.")
                 }
-                val menus = nutritionCatalog.savedDiningOutMenus()
-                    .filter { it.isDiningOutMenu() }
-                val privateIds = menus.filter { it.ownerId != null
-                    && nutritionCatalog.isPrivateDiningOutMenu(it.id, it.ownerId) }
-                    .map { it.id }.toSet()
-                if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
-                    mutableNutritionPublicationState.postValue(
-                        nutritionPublicationReady().copy(
-                            ownerId = requestedOwner,
-                            menus = menus,
-                            privateFoodIds = privateIds,
-                            selectedFoodId = food.id,
-                            publishing = false,
-                            notice = "공개 완료 · ${menu.menuName} · PT 공개 조회에서 이 영양 행의 연결을 확인했습니다.",
-                            error = null
-                        )
-                    )
-                }
-            } catch (error: Exception) {
-                if (request == nutritionPublicationRequestVersion && ownerId == requestedOwner) {
-                    mutableNutritionPublicationState.postValue(
-                        nutritionPublicationReady().copy(
-                            publishing = false,
-                            error = error.message ?: "외식 영양정보를 연결하거나 공개하지 못했습니다."
-                        )
-                    )
-                }
-                // A failed local refresh must not turn a verified server result into a failed publication.
-                runCatching { nutritionCatalog.savedDiningOutMenus().filter { it.isDiningOutMenu() } }.getOrNull()
+                val refreshed = runCatching {
+                    val menus = nutritionCatalog.savedDiningOutMenus().filter { it.isDiningOutMenu() }
+                    val privateIds = menus.filter { it.ownerId != null
+                        && nutritionCatalog.isPrivateDiningOutMenu(it.id, it.ownerId) }.map { it.id }.toSet()
+                    Triple(menus, privateIds, proposals)
+                }.getOrNull()
+                refreshed
             }
-            applyPublicationResult(request, requestedOwner, target.nutritionOwnerId) { state ->
-                result.fold({ menus -> state.copy(menus = menus ?: state.menus, publishing = false, verifiedTarget = target,
+            applyPublicationResult(request, requestedOwner, target.nutritionOwnerId) { current ->
+                result.fold({ refreshed -> current.copy(
+                    menus = refreshed?.first ?: current.menus,
+                    privateFoodIds = refreshed?.second ?: current.privateFoodIds,
+                    proposals = refreshed?.third ?: current.proposals,
+                    publishing = false,
+                    verifiedTarget = target,
                     notice = "${target.label}의 영양정보 공개 연결을 확인했습니다." +
-                        if (menus == null) " 메뉴 목록은 새로고침해 주세요." else "", error = null, failure = null)
-                }, { error -> state.copy(publishing = false, failure = NutritionPublicationFailure.PUBLISH,
-                    needsVerification = generateSequence<Throwable>(error) { it.cause }.take(6).any { it is java.io.IOException },
-                    error = nutritionPublicationError(error, "공개 연결을 완료하지 못했어요. 선택한 메뉴와 계정을 확인해 주세요.", publishing = true)) })
+                        if (refreshed == null) " 메뉴 목록은 새로고침해 주세요." else "",
+                    error = null,
+                    failure = null
+                ) }, { error -> current.copy(
+                    publishing = false,
+                    failure = NutritionPublicationFailure.PUBLISH,
+                    needsVerification = generateSequence<Throwable>(error) { it.cause }.take(6)
+                        .any { it is java.io.IOException },
+                    error = nutritionPublicationError(error, "공개 연결을 완료하지 못했어요. 선택한 메뉴와 계정을 확인해 주세요.", publishing = true)
+                ) })
             }
         }
     }

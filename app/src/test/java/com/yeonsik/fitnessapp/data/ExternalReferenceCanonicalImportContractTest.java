@@ -41,7 +41,7 @@ public final class ExternalReferenceCanonicalImportContractTest {
     private static String readMigration() throws Exception {
         Path path = Paths.get(
                 "supabase", "nutrition", "supabase", "migrations",
-                "20260919120000_external_reference_canonical_import_v1.sql"
+                "20260920091351_external_reference_canonical_import_v1.sql"
         );
         if (!Files.exists(path)) {
             path = Paths.get("..", path.toString()).normalize();
