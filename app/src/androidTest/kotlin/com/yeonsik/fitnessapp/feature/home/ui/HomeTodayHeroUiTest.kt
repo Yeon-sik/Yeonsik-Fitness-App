@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
+import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import com.yeonsik.fitnessapp.feature.records.ui.RecordsCalendarLegend
 import org.junit.Assert.*
 import org.junit.Rule
