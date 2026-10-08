@@ -1804,6 +1804,9 @@ private fun AppDestination(
         override fun saveReusableDiningOutMenu() =
             viewModels.getMeal().saveReusableDiningOutMenu(AccountScope(ownerId)) { }
         override fun updateQuantity(value: String) = viewModels.getMeal().updateQuantity(value)
+        override fun updateFoodQuantity(itemId: String, value: String) =
+            viewModels.getMeal().updateFoodQuantity(itemId, value)
+        override fun removeFood(itemId: String) = viewModels.getMeal().removeFood(itemId)
         override fun updateTime(value: String) = viewModels.getMeal().updateTime(value)
         override fun saveFood() = viewModels.getMeal().saveFood(AccountScope(ownerId)) { }
         override fun updateStore(value: String) = viewModels.getMeal().updateStore(value)

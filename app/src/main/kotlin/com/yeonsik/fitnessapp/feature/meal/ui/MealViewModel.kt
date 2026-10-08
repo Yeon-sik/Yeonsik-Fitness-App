@@ -1,11 +1,14 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.NutritionFood
+import com.yeonsik.fitnessapp.data.MealCompositionItem
 import com.yeonsik.fitnessapp.data.DiningOutIdentity
 import org.json.JSONObject
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi
@@ -18,6 +21,13 @@ import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.UUID
+
+data class MealFoodDraftItem(
+    val id: String,
+    val food: NutritionFood,
+    val quantity: String
+)
 
 data class DiningOutDraft(
     val store: String = "",
@@ -66,7 +76,11 @@ sealed interface MealUiState {
         val recordActionSaving: Boolean = false,
         val nutritionAnalysis: NutritionAnalysisReport? = null,
         val nutritionAnalysisLoading: Boolean = false,
-        val nutritionAnalysisError: String? = null
+        val nutritionAnalysisError: String? = null,
+        val searchLoading: Boolean = false,
+        val searchCompleted: Boolean = false,
+        val searchError: String? = null,
+        val foodItems: List<MealFoodDraftItem> = emptyList()
     ) : MealUiState
 }
 
@@ -114,11 +128,12 @@ class MealViewModel @JvmOverloads constructor(
     val nutritionPublicationState: LiveData<NutritionPublicationUiState> = mutableNutritionPublicationState
     private var ownerId = ""
     private var date = ""
-    private var requestVersion = 0L
+    @Volatile private var requestVersion = 0L
     private var priceTraceRequestVersion = 0L
     private var nutritionPublicationRequestVersion = 0L
     private var nutritionAnalysisRequestVersion = 0L
     private var selectedFood: NutritionFood? = null
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     fun enter(scope: AccountScope, date: String) {
         val dateChanged = ownerId != scope.ownerId || this.date != date
@@ -134,6 +149,7 @@ class MealViewModel @JvmOverloads constructor(
         if (dateChanged) {
             selectedFood = null
             clearDraftStorage()
+            mutableState.value = MealUiState.Idle
         }
         mutableState.value = ready().copy(
             ownerId = scope.ownerId,
@@ -144,7 +160,8 @@ class MealViewModel @JvmOverloads constructor(
             notice = null,
             nutritionAnalysis = null,
             nutritionAnalysisLoading = nutritionAnalysisApi != null,
-            nutritionAnalysisError = null
+            nutritionAnalysisError = null,
+            searchLoading = false
         )
         loadNutritionAnalysis(scope, date)
         mutablePriceTraceState.value = PriceTraceUiState.Ready(
@@ -163,25 +180,46 @@ class MealViewModel @JvmOverloads constructor(
         }
     }
 
-    fun startDraft() = update { it.copy(editing = true, notice = null, error = null) }
-    fun closeDraft() = update { it.copy(editing = false, diningOut = false, error = null) }
+    fun startDraft() {
+        val state = ready()
+        if (state.saving) return
+        if (!savedStateHandle.contains(KEY_TIME)) {
+            savedStateHandle[KEY_TIME] = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
+        }
+        update { it.copy(editing = true, draft = savedDraft(), notice = null, error = null) }
+        if (state.selectedFood == null && !state.diningOut) search(state.query)
+    }
+
+    fun closeDraft() {
+        if (ready().saving) return
+        ++requestVersion
+        update { it.copy(editing = false, searchLoading = false, error = null) }
+    }
+
     fun chooseFood() {
+        val state = ready()
+        if (state.saving || state.editing && !state.diningOut) return
         ++requestVersion
         savedStateHandle[KEY_QUERY] = ""
         savedStateHandle.remove<String>(KEY_FOOD_ID)
         savedStateHandle.remove<String>(KEY_QUANTITY)
         selectedFood = null
-        update { it.copy(editing = true, diningOut = false, query = "", searchResults = emptyList(), selectedFood = null, error = null) }
+        update { it.copy(editing = true, diningOut = false, query = "", searchResults = emptyList(), selectedFood = null, quantity = "", error = null, notice = null, searchLoading = false, searchCompleted = false, searchError = null) }
+        search("")
     }
     fun chooseDiningOut() {
+        val state = ready()
+        if (state.saving || state.editing && state.diningOut) return
         ++requestVersion
+        savedStateHandle[KEY_QUERY] = ""
         savedStateHandle.remove<String>(KEY_FOOD_ID)
         savedStateHandle.remove<String>(KEY_QUANTITY)
         selectedFood = null
-        update { it.copy(editing = true, diningOut = true, query = "", searchResults = emptyList(), selectedFood = null, error = null) }
+        update { it.copy(editing = true, diningOut = true, query = "", searchResults = emptyList(), selectedFood = null, quantity = "", error = null, notice = null, searchLoading = false, searchCompleted = false, searchError = null) }
         search("")
     }
     fun resetDraft() {
+        if (ready().saving) return
         savedStateHandle.remove<String>(KEY_STORE)
         savedStateHandle.remove<String>(KEY_BRANCH)
         savedStateHandle.remove<String>(KEY_MENU)
@@ -203,7 +241,9 @@ class MealViewModel @JvmOverloads constructor(
         savedStateHandle.remove<String>(KEY_SOURCE_NAMESPACE)
         savedStateHandle.remove<String>(KEY_SOURCE_LOCATION_CODE)
         selectedFood = null
-        mutableState.value = ready().copy(editing = true, diningOut = true, draft = DiningOutDraft())
+        mutableState.value = ready().copy(editing = true, diningOut = true,
+            draft = DiningOutDraft(), foodItems = emptyList(), selectedFood = null,
+            quantity = "", error = null, notice = null)
     }
 
     fun updateStore(value: String) = draft(KEY_STORE, value)
@@ -592,6 +632,7 @@ class MealViewModel @JvmOverloads constructor(
         menuName: String,
         catalogProductId: String
     ) {
+        if (ready().saving) return
         ++requestVersion
         savedStateHandle[KEY_RESTAURANT_ID] = restaurantId
         savedStateHandle[KEY_RESTAURANT_LOCATION_ID] = locationId
@@ -605,16 +646,31 @@ class MealViewModel @JvmOverloads constructor(
         savedStateHandle.remove<String>(KEY_SOURCE_LOCATION_CODE)
         selectedFood = null
         savedStateHandle.remove<String>(KEY_QUANTITY)
-        update { it.copy(editing = true, diningOut = true, draft = savedDraft(), query = "", searchResults = emptyList(), selectedFood = null, quantity = "", error = null, notice = null) }
+        savedStateHandle[KEY_QUERY] = ""
+        update { it.copy(editing = true, diningOut = true, draft = savedDraft(), query = "", searchResults = emptyList(), selectedFood = null, quantity = "", error = null, notice = null, searchLoading = false, searchCompleted = false, searchError = null) }
     }
 
     fun search(value: String) {
+        val state = ready()
+        if (!state.editing || state.saving) return
+        val requestedOwner = ownerId
+        val requestedDate = date
+        val diningOut = state.diningOut
         savedStateHandle[KEY_QUERY] = value
         val request = ++requestVersion
-        update { it.copy(query = value, error = null) }
-        val diningOut = ready().diningOut
+        update { it.copy(query = value, searchResults = emptyList(), searchLoading = true, searchCompleted = false, searchError = null) }
+        fun deliver(results: List<NutritionFood>, error: String?) {
+            mainHandler.post {
+                if (request == requestVersion && ownerId == requestedOwner && date == requestedDate
+                    && ready().editing && ready().diningOut == diningOut) {
+                    update { it.copy(query = value, searchResults = results, searchLoading = false,
+                        searchCompleted = true, searchError = error) }
+                }
+            }
+        }
         executor.execute {
             try {
+                if (request != requestVersion) return@execute
                 val results = if (diningOut) {
                     val term = value.trim()
                     nutritionCatalog.savedDiningOutMenus().filter { food ->
@@ -631,70 +687,131 @@ class MealViewModel @JvmOverloads constructor(
                     val packaged = nutritionCatalog.searchPackagedFoods(value, 50)
                     (standard + packaged).distinctBy { it.id }
                 }
-                if (request == requestVersion) mutableState.postValue(ready().copy(query = value, searchResults = results))
+                deliver(results, null)
             } catch (error: Exception) {
-                if (request == requestVersion) mutableState.postValue(ready().copy(error = error.message ?: "식품을 검색하지 못했습니다."))
+                deliver(emptyList(), error.message ?: "음식을 찾지 못했어요. 다시 시도해 주세요.")
             }
         }
     }
 
     fun selectFood(food: NutritionFood) {
+        val state = ready()
+        if (state.saving || state.diningOut) return
+        if (!food.basisAmount.isFinite() || food.basisAmount <= 0.0) {
+            update { it.copy(error = "이 음식의 기준량을 확인할 수 없어요. 다른 음식을 선택하세요.") }
+            return
+        }
         ++requestVersion
         selectedFood = food
         savedStateHandle[KEY_FOOD_ID] = food.id
-        savedStateHandle[KEY_QUANTITY] = number(food.basisAmount)
+        savedStateHandle[KEY_QUERY] = ""
+        savedStateHandle[KEY_QUANTITY] = mealQuantityText(food.basisAmount)
         update {
             it.copy(
                 selectedFood = food,
-                quantity = number(food.basisAmount),
+                quantity = mealQuantityText(food.basisAmount),
                 query = "",
                 searchResults = emptyList(),
-                error = null
+                error = null,
+                searchLoading = false,
+                searchCompleted = false,
+                searchError = null,
+                foodItems = it.foodItems + MealFoodDraftItem(
+                    UUID.randomUUID().toString(), food, mealQuantityText(food.basisAmount)
+                )
             )
         }
     }
 
     fun updateQuantity(value: String) {
+        val state = ready()
+        if (state.saving) return
+        if (!state.diningOut) {
+            state.foodItems.lastOrNull()?.let { updateFoodQuantity(it.id, value) }
+            return
+        }
         savedStateHandle[KEY_QUANTITY] = value
         update { it.copy(quantity = value, error = null, notice = null) }
     }
 
+    fun updateFoodQuantity(itemId: String, value: String) {
+        val state = ready()
+        if (state.saving || state.diningOut) return
+        if (state.foodItems.lastOrNull()?.id == itemId) savedStateHandle[KEY_QUANTITY] = value
+        update { state ->
+            state.copy(foodItems = state.foodItems.map { item ->
+                if (item.id == itemId) item.copy(quantity = value) else item
+            }, quantity = if (state.foodItems.lastOrNull()?.id == itemId) value else state.quantity,
+                error = null, notice = null)
+        }
+    }
+
+    fun removeFood(itemId: String) {
+        val state = ready()
+        if (state.saving || state.diningOut) return
+        val remaining = state.foodItems.filterNot { it.id == itemId }
+        val lastItem = remaining.lastOrNull()
+        selectedFood = lastItem?.food
+        if (lastItem == null) {
+            savedStateHandle.remove<String>(KEY_FOOD_ID)
+            savedStateHandle.remove<String>(KEY_QUANTITY)
+        } else {
+            savedStateHandle[KEY_FOOD_ID] = lastItem.food.id
+            savedStateHandle[KEY_QUANTITY] = lastItem.quantity
+        }
+        update { it.copy(foodItems = remaining, selectedFood = lastItem?.food,
+            quantity = lastItem?.quantity.orEmpty(), error = null, notice = null) }
+    }
+
     fun saveFood(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         val state = ready()
-        if (scope.ownerId != ownerId || state.saving) return
-        val food = state.selectedFood
-        val quantity = state.quantity.toDoubleOrNull()
-        if (food?.id.isNullOrBlank() || quantity == null || quantity <= 0) {
-            mutableState.value = state.copy(error = "식품과 0보다 큰 섭취량을 입력하세요.")
+        if (scope.ownerId != ownerId || state.saving || state.diningOut) return
+        val inputError = foodMealRegistrationError(state)
+        if (inputError != null) {
+            mutableState.value = state.copy(error = inputError)
             onSaved(false)
             return
         }
+        val items = try {
+            state.foodItems.map { MealCompositionItem.from(it.food, requireNotNull(mealQuantityValue(it.quantity))) }
+        } catch (error: IllegalArgumentException) {
+            update { it.copy(error = error.message ?: "음식별 먹은 양을 확인하세요.") }
+            onSaved(false)
+            return
+        }
+        ++requestVersion
         mutableState.value = state.copy(saving = true, error = null)
         executor.execute {
             try {
-                mealRepository.saveFoodMeal(scope, date, state.draft.time, food.id, quantity)
-                resetSavedDraft()
-                selectedFood = null
-                mutableState.postValue(ready().copy(
-                    editing = false,
-                    diningOut = false,
-                    query = "",
-                    searchResults = emptyList(),
-                    selectedFood = null,
-                    quantity = "",
-                    saving = false,
-                    notice = "식단 기록을 저장했습니다."
-                ))
-                loadNutritionAnalysis(scope, date)
-                onSaved(true)
+                mealRepository.saveFoodMealItems(scope, state.date, state.draft.time, items)
+                mainHandler.post {
+                    if (ownerId == scope.ownerId && date == state.date) {
+                        resetSavedDraft()
+                        selectedFood = null
+                        update { it.copy(
+                            editing = false, diningOut = false, query = "", searchResults = emptyList(),
+                            selectedFood = null, quantity = "", foodItems = emptyList(),
+                            draft = DiningOutDraft(), saving = false,
+                            notice = "음식 ${items.size}개를 한 끼로 저장했습니다."
+                        ) }
+                        loadNutritionAnalysis(scope, state.date)
+                    }
+                    onSaved(true)
+                }
             } catch (error: Exception) {
-                mutableState.postValue(ready().copy(saving = false, error = error.message ?: "식단 기록을 저장하지 못했습니다."))
-                onSaved(false)
+                mainHandler.post {
+                    if (ownerId == scope.ownerId && date == state.date) {
+                        update { it.copy(saving = false, error = error.message ?: "식단 기록을 저장하지 못했습니다.") }
+                    }
+                    onSaved(false)
+                }
             }
         }
     }
     fun useDiningOutFood(food: NutritionFood) {
+        if (ready().saving) return
         ++requestVersion
+        savedStateHandle[KEY_QUERY] = ""
         val source = food.sourceReference?.let { sourceReference ->
             runCatching { JSONObject(sourceReference) }.getOrNull()
         }
@@ -719,7 +836,7 @@ class MealViewModel @JvmOverloads constructor(
         savedStateHandle[KEY_SOURCE_LOCATION_CODE] = sourceValue(source, "source_location_code")
         selectedFood = food
         savedStateHandle[KEY_FOOD_ID] = food.id
-        mutableState.value = ready().copy(editing = true, diningOut = true, query = "", searchResults = emptyList(), draft = savedDraft(), selectedFood = food, error = null, notice = null)
+        mutableState.value = ready().copy(editing = true, diningOut = true, query = "", searchResults = emptyList(), draft = savedDraft(), selectedFood = food, error = null, notice = null, searchLoading = false, searchCompleted = false, searchError = null)
     }
 
     fun saveReusableDiningOutMenu(
@@ -771,6 +888,11 @@ class MealViewModel @JvmOverloads constructor(
         val state = ready()
         if (scope.ownerId != ownerId || state.saving) return
         val draft = state.draft
+        mealTimeError(draft.time)?.let { error ->
+            mutableState.value = state.copy(error = error)
+            onSaved(false)
+            return
+        }
         val parsed = runCatching { parseDining(draft) }.getOrElse { error ->
             mutableState.value = state.copy(error = error.message ?: "칼로리와 필수 영양정보를 확인하세요.")
             onSaved(false)
@@ -790,6 +912,7 @@ class MealViewModel @JvmOverloads constructor(
                 resetSavedDraft()
                 mutableState.postValue(ready().copy(
                     selectedFood = null,
+                    foodItems = emptyList(),
                     editing = false,
                     diningOut = false,
                     query = "",
@@ -850,34 +973,36 @@ class MealViewModel @JvmOverloads constructor(
     private fun loadNutritionAnalysis(scope: AccountScope, requestedDate: String) {
         val api = nutritionAnalysisApi ?: return
         val request = ++nutritionAnalysisRequestVersion
-        mutableState.postValue(
-            ready().copy(
-                nutritionAnalysis = null,
-                nutritionAnalysisLoading = true,
-                nutritionAnalysisError = null
-            )
-        )
+        mainHandler.post {
+            if (request == nutritionAnalysisRequestVersion && ownerId == scope.ownerId && date == requestedDate) {
+                update { it.copy(
+                    nutritionAnalysis = null,
+                    nutritionAnalysisLoading = true,
+                    nutritionAnalysisError = null
+                ) }
+            }
+        }
         executor.execute {
             try {
                 val report = api.analyzeDay(scope, requestedDate)
-                if (request == nutritionAnalysisRequestVersion && ownerId == scope.ownerId && date == requestedDate) {
-                    mutableState.postValue(
-                        ready().copy(
+                mainHandler.post {
+                    if (request == nutritionAnalysisRequestVersion && ownerId == scope.ownerId && date == requestedDate) {
+                        update { it.copy(
                             nutritionAnalysis = report,
                             nutritionAnalysisLoading = false,
                             nutritionAnalysisError = null
-                        )
-                    )
+                        ) }
+                    }
                 }
             } catch (error: Exception) {
-                if (request == nutritionAnalysisRequestVersion && ownerId == scope.ownerId && date == requestedDate) {
-                    mutableState.postValue(
-                        ready().copy(
+                mainHandler.post {
+                    if (request == nutritionAnalysisRequestVersion && ownerId == scope.ownerId && date == requestedDate) {
+                        update { it.copy(
                             nutritionAnalysis = null,
                             nutritionAnalysisLoading = false,
                             nutritionAnalysisError = error.message ?: "영양 분석을 불러오지 못했습니다."
-                        )
-                    )
+                        ) }
+                    }
                 }
             }
         }
@@ -931,17 +1056,24 @@ class MealViewModel @JvmOverloads constructor(
             .forEach { savedStateHandle.remove<String>(it) }
     }
 
-    override fun onCleared() { executor.shutdownNow() }
+    override fun onCleared() {
+        ++requestVersion
+        mainHandler.removeCallbacksAndMessages(null)
+        executor.shutdownNow()
+    }
 
-    private fun parseDining(draft: DiningOutDraft): ParsedDining = ParsedDining(
-        requiredNumber(draft.calories, "칼로리").toInt(),
-        requiredNumber(draft.protein, "단백질"),
-        requiredNumber(draft.carbs, "탄수화물"),
-        requiredNumber(draft.fat, "지방"),
-        optionalNumber(draft.sodium, "나트륨"),
-        optionalNumber(draft.sugars, "당류"),
-        optionalNumber(draft.saturatedFat, "포화지방")
-    )
+    private fun parseDining(draft: DiningOutDraft): ParsedDining {
+        diningOutRegistrationError(draft)?.let { throw IllegalArgumentException(it) }
+        return ParsedDining(
+            requiredNumber(draft.calories, "칼로리").toInt(),
+            requiredNumber(draft.protein, "단백질"),
+            requiredNumber(draft.carbs, "탄수화물"),
+            requiredNumber(draft.fat, "지방"),
+            optionalNumber(draft.sodium, "나트륨"),
+            optionalNumber(draft.sugars, "당류"),
+            optionalNumber(draft.saturatedFat, "포화지방")
+        )
+    }
     private fun requiredNumber(value: String, label: String): Double {
         val parsed = value.trim().toDoubleOrNull()
         if (parsed == null || !parsed.isFinite() || parsed < 0.0) {
