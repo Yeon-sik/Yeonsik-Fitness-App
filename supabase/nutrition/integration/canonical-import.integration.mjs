@@ -681,6 +681,26 @@ async function verifyExternalReference(owner, result, payload, readQuery = paylo
     payload.p_basis_unit,
     'external audit basis unit'
   );
+  assertEqual(
+    imports[0].request_payload.manufacturer_name,
+    payload.p_manufacturer_name,
+    'external audit manufacturer'
+  );
+  assertEqual(
+    imports[0].request_payload.brand_name,
+    payload.p_brand_name,
+    'external audit brand'
+  );
+  assertEqual(
+    imports[0].request_payload.sub_brand_name,
+    payload.p_sub_brand_name,
+    'external audit sub-brand'
+  );
+  assertEqual(
+    imports[0].request_payload.product_name,
+    payload.p_product_name,
+    'external audit product'
+  );
 
   const foods = await getRows(
     owner,
@@ -831,43 +851,6 @@ async function verifyV3NullHierarchy(owner, result, expectedLegacyBrand, readQue
   assertEqual(read.sub_brand_name, null, 'null hierarchy read sub-brand');
   assertEqual(read.product_name, null, 'null hierarchy read product');
   console.log('PASS v3 partial hierarchy blank-to-null behavior');
-}
-
-async function verifyExternalReference(owner, result, payload) {
-  await verifyCanonicalResult(owner, result, 'external-reference.v1', 'external_reference');
-
-  const imports = await getRows(owner, 'nutrition_canonical_imports', {
-    id: result.canonical_import_id
-  }, 'input_contract,nutrient_provenance,request_payload');
-  assertEqual(imports.length, 1, 'external-reference canonical audit row');
-  assertEqual(imports[0].input_contract, 'external-reference.v1', 'external-reference audit contract');
-  assertEqual(imports[0].request_payload.manufacturer_name, payload.p_manufacturer_name, 'external manufacturer');
-  assertEqual(imports[0].request_payload.brand_name, payload.p_brand_name, 'external brand');
-  assertEqual(imports[0].request_payload.sub_brand_name, payload.p_sub_brand_name, 'external sub-brand');
-  assertEqual(imports[0].request_payload.product_name, payload.p_product_name, 'external product');
-
-  const foods = await getRows(owner, 'nutrition_foods', { id: result.nutrition_food_id },
-    'source_type,manufacturer_name,brand_name,sub_brand_name,product_name');
-  assertEqual(foods.length, 1, 'external-reference food projection');
-  assertEqual(foods[0].source_type, 'external_reference', 'external food source type');
-  assertEqual(foods[0].manufacturer_name, payload.p_manufacturer_name, 'stored external manufacturer');
-  assertEqual(foods[0].brand_name, payload.p_brand_name, 'stored external brand');
-  assertEqual(foods[0].sub_brand_name, payload.p_sub_brand_name, 'stored external sub-brand');
-  assertEqual(foods[0].product_name, payload.p_product_name, 'stored external product');
-
-  const provenance = await getRows(owner, 'nutrition_food_nutrient_provenance', {
-    canonical_import_id: result.canonical_import_id
-  }, 'nutrient_code,value,value_status,source_type,evidence_refs');
-  assertEqual(provenance.length, 7, 'external-reference seven provenance rows');
-  for (const row of provenance) {
-    assertEqual(row.value_status, 'observed', `external status for ${row.nutrient_code}`);
-    assertEqual(row.source_type, 'external_reference', `external source for ${row.nutrient_code}`);
-    assert(row.evidence_refs.every((ref) => /^https?:\/\/[^\s]+$/.test(ref)),
-      `public URL evidence for ${row.nutrient_code}`);
-    assert(row.evidence_refs[0].includes('manufacturer.example'),
-      `preserved public URL evidence for ${row.nutrient_code}`);
-  }
-  console.log('PASS external-reference provenance, URL preservation, and hierarchy');
 }
 
 async function verifyOwnerIsolation(ownerA, ownerB, result) {
