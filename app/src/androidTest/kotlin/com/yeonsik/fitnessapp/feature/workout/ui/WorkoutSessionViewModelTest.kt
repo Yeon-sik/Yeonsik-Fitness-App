@@ -252,6 +252,24 @@ class WorkoutSessionViewModelTest {
         shutdownExecutorOnCleared = false
     )
 
+    @Test fun exerciseRestDurationIsUsedAndZeroDoesNotStartATimer() {
+        val executor = Executors.newSingleThreadExecutor()
+        val repository = BlockingSessionRepository(CountDownLatch(0), CountDownLatch(0))
+        val viewModel = viewModel(repository, executor)
+        try {
+            onMain {
+                viewModel.startRestTimer(scope.ownerId, 150)
+                assertEquals(150, (viewModel.restTimerState.value as WorkoutRestTimerState.Active).totalSeconds)
+                viewModel.stopRestTimer()
+                viewModel.startRestTimer(scope.ownerId, 0)
+                assertEquals(WorkoutRestTimerState.Inactive, viewModel.restTimerState.value)
+                viewModel.startRestTimer(scope.ownerId, null)
+                assertEquals(90, (viewModel.restTimerState.value as WorkoutRestTimerState.Active).totalSeconds)
+                viewModel.stopRestTimer()
+            }
+        } finally { executor.shutdownNow() }
+    }
+
     private fun onMain(action: () -> Unit) {
         InstrumentationRegistry.getInstrumentation().runOnMainSync { action() }
     }

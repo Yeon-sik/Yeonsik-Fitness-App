@@ -77,6 +77,8 @@ interface WorkoutRepositoryApi {
     fun discard(scope: AccountScope, recordId: String)
 
     fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: WorkoutSetInput): Boolean
+    fun updateExerciseRestSeconds(scope: AccountScope, recordId: String,
+                                  exerciseId: String, seconds: Int): Boolean = false
     fun addTypedSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int,
                     input: WorkoutSetInput): Boolean
     fun deleteSet(scope: AccountScope, recordId: String, setId: String): Boolean

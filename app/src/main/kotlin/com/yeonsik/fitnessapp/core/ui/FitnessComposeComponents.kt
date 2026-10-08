@@ -36,19 +36,21 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun FitnessHeader(title: String, subtitle: String? = null, back: (() -> Unit)? = null) {
+fun FitnessHeader(title: String, subtitle: String? = null, back: (() -> Unit)? = null,
+                  titleStyle: TextStyle = MaterialTheme.typography.headlineLarge) {
     Column(Modifier.fillMaxWidth().padding(bottom = FitnessSpacing.small),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)) {
         if (back != null) {
             TextButton(onClick = back, contentPadding = PaddingValues(horizontal = 0.dp),
                 modifier = Modifier.heightIn(min = FitnessSpacing.touch)) { Text("‹ 뒤로") }
         }
-        Text(title, Modifier.semantics { heading() }, style = MaterialTheme.typography.headlineLarge)
+        Text(title, Modifier.semantics { heading() }, style = titleStyle)
         if (!subtitle.isNullOrBlank()) {
             Text(subtitle, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)

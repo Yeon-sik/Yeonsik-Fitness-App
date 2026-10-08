@@ -2256,6 +2256,13 @@ private fun AppDestination(
 
                     override fun startRestTimer(restSeconds: Int?) =
                         viewModels.getWorkoutSession().startRestTimer(ownerId, restSeconds)
+                    override fun updateExerciseRestSeconds(recordId: String, exerciseId: String,
+                                                          seconds: Int, onResult: (Boolean) -> Unit) {
+                        viewModels.getWorkoutExerciseDetail().updateExerciseRestSeconds(
+                            AccountScope(ownerId), recordId, exerciseId, seconds,
+                            java.util.function.Consumer { onResult(it) }
+                        )
+                    }
                     override fun toast(message: String) = host.toast(message)
                 }
             )

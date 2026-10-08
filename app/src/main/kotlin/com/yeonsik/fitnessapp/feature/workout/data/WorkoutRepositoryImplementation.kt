@@ -219,7 +219,8 @@ class WorkoutRepositoryImplementation(
                     session.date
                 } else bests.highestTotalVolume?.date
             ),
-            currentRecordDate = session.date
+            currentRecordDate = session.date,
+            exerciseRestSeconds = storage.exerciseRestSeconds(scope, recordId, active.id)
         )
     }
 
@@ -240,6 +241,10 @@ class WorkoutRepositoryImplementation(
         setId: String,
         input: WorkoutSetInput
     ): Boolean = storage.updateSet(scope, recordId, setId, input)
+
+    override fun updateExerciseRestSeconds(scope: AccountScope, recordId: String,
+                                            exerciseId: String, seconds: Int): Boolean =
+        storage.updateExerciseRestSeconds(scope, recordId, exerciseId, seconds)
 
     override fun addTypedSet(
         scope: AccountScope,

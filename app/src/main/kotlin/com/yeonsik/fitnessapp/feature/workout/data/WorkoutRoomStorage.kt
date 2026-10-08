@@ -983,6 +983,27 @@ class WorkoutRoomStorage(
         return true
     }
 
+    fun exerciseRestSeconds(scope: AccountScope, recordId: String, exerciseId: String): Int? = try {
+        val record = workoutDao.visibleRecord(recordId, scope.ownerId)
+        JSONObject(record?.metadata.orEmpty()).optJSONObject("exercise_rest_seconds")
+            ?.opt(exerciseId)?.toString()?.toIntOrNull()?.takeIf { it >= 0 }
+    } catch (_: Exception) { null }
+
+    /** Configuration belongs to an owned in-progress occurrence, never to historical set facts. */
+    fun updateExerciseRestSeconds(scope: AccountScope, recordId: String, exerciseId: String, seconds: Int): Boolean {
+        if (seconds < 0) return false
+        return transactionRunner.call {
+            val record = workoutDao.visibleRecord(recordId, scope.ownerId) ?: return@call false
+            if (metadataValue(record.metadata, "status") != "in_progress" ||
+                workoutDao.ownsExercise(exerciseId, recordId, scope.ownerId) == null) return@call false
+            val metadata = JSONObject(record.metadata)
+            val settings = metadata.optJSONObject("exercise_rest_seconds") ?: JSONObject()
+            settings.put(exerciseId, seconds)
+            metadata.put("exercise_rest_seconds", settings)
+            workoutDao.updateRecord(record.copy(metadata = metadata.toString(), updatedAt = now())) > 0
+        }
+    }
+
     fun addSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int, input: WorkoutSetInput): Boolean {
         requireOwnedExercise(scope, recordId, exerciseId)
         val exercise = exerciseById(scope, exerciseId) ?: return false

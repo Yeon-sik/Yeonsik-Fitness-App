@@ -61,5 +61,7 @@ internal interface WorkoutDetailActions {
     )
     fun deleteSet(recordId: String, setId: String, onResult: (Boolean) -> Unit)
     fun startRestTimer(restSeconds: Int?)
+    fun updateExerciseRestSeconds(recordId: String, exerciseId: String, seconds: Int,
+                                  onResult: (Boolean) -> Unit)
     fun toast(message: String)
 }
