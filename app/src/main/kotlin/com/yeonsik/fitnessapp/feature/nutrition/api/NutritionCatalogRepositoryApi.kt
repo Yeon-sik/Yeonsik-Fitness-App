@@ -4,12 +4,18 @@ import com.yeonsik.fitnessapp.data.NutritionFood
 import com.yeonsik.fitnessapp.data.DiningOutIdentity
 import com.yeonsik.fitnessapp.data.ProductNutritionLink
 import com.yeonsik.fitnessapp.data.ProductReadV1
+import com.yeonsik.fitnessapp.data.NutritionProfile
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRecipeComponent
 
-/** Read port for the local-first nutrition catalog. */
+/** Local-first nutrition catalog reads and explicit owner-scoped writes. */
 interface NutritionCatalogRepositoryApi {
     fun searchFoods(query: String): List<NutritionFood>
     fun findFoodById(foodId: String): NutritionFood?
+    /** Nutrition and Fitness may use different accounts; writes capture the Nutrition owner. */
+    fun activeOwnerId(): String? = null
+    /** Explicit owner/visibility check for remote proposals; unknown implementations fail closed. */
+    fun isPrivateDiningOutMenu(foodId: String, ownerId: String): Boolean = false
 
     /** Searches reusable packaged products without exposing storage rows to Meal UI. */
     fun searchPackagedFoods(query: String, limit: Int): List<NutritionFood> = emptyList()
@@ -54,6 +60,16 @@ interface NutritionCatalogRepositoryApi {
 
     /** Returns the current owner's reusable dining-out menu masters. */
     fun savedDiningOutMenus(): List<NutritionFood> = emptyList()
+
+    /** Saves a private reusable food, preserving unknown optional nutrients as null. */
+    fun saveManualFood(
+        scope: AccountScope,
+        name: String,
+        brand: String?,
+        basisAmount: Double,
+        basisUnit: String,
+        profile: NutritionProfile
+    ): NutritionFood? = null
 
     /** Explicitly saves a reusable Nutrition dining-out master; it never creates a Meal record. */
     fun saveDiningOutMenuWithNutrition(

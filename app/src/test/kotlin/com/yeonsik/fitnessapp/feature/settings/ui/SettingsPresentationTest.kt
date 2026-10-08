@@ -36,6 +36,14 @@ class SettingsPresentationTest {
         assertEquals(state.syncDetail, syncDetailForDisplay(state))
     }
 
+    @Test
+    fun authenticationShowsControlledDetailAndHidesRawServerText() {
+        val raw = state("authentication failed", "access_token=private")
+        assertEquals("로그인 정보를 확인한 뒤 다시 시도하세요.", syncDetailForDisplay(raw))
+        val controlled = raw.copy(authenticationErrorDetail = "공통 DB · 이메일 인증이 필요합니다.")
+        assertEquals(controlled.authenticationErrorDetail, syncDetailForDisplay(controlled))
+    }
+
     private fun state(label: String, detail: String) = SettingsUiState(
         themeMode = "light",
         preferredMassUnit = MassUnit.KG,

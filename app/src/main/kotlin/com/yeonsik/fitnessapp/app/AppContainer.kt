@@ -252,6 +252,12 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         priceTraceAuthManager,
         nutritionSupabaseConfig
     ).also { it.setPriceTraceConfig(priceTraceSupabaseConfig) }
+    val diningProposalService = com.yeonsik.fitnessapp.integration.nutrition.DiningProposalService(
+        nutritionCatalogRepository,
+        nutritionIntegrationService,
+        com.yeonsik.fitnessapp.core.database.RoomDiningProposalStore(roomDatabase.diningProposalRoomDao()),
+        nutritionIntegrationService::loadRestaurant
+    )
     val syncApplicationService = SyncApplicationService(
         supabaseAuthManager,
         syncManager,

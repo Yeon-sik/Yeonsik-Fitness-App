@@ -17,6 +17,7 @@ import com.yeonsik.fitnessapp.integration.sync.SyncApplicationService
 import com.yeonsik.fitnessapp.integration.transfer.LocalDataTransferApplicationService
 import com.yeonsik.fitnessapp.feature.settings.application.SettingsSessionCoordinator
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager
+import com.yeonsik.fitnessapp.sync.SupabaseAuthErrors
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.ExecutorService
@@ -45,7 +46,10 @@ data class SettingsUiState(
     val nutritionConnectionManaged: Boolean,
     val priceTraceConfig: SupabaseConfig,
     val priceTraceConnectionManaged: Boolean,
-    val developerSurfaceAllowed: Boolean
+    val developerSurfaceAllowed: Boolean,
+    val isAccountOperationInProgress: Boolean = false,
+    /** Only controlled, user-facing authentication messages; never a server response body. */
+    val authenticationErrorDetail: String = ""
 )
 
 sealed class SettingsEvent {
@@ -101,6 +105,7 @@ class SettingsViewModel @JvmOverloads constructor(
     val uiState: LiveData<SettingsUiState> = mutableState
     private val mutableEvents = MutableLiveData<SettingsEvent>()
     val events: LiveData<SettingsEvent> = mutableEvents
+    private val accountOperationRunning = AtomicBoolean(false)
 
     fun enter() {
         mutableState.value = snapshot()
@@ -148,32 +153,33 @@ class SettingsViewModel @JvmOverloads constructor(
     }
 
     fun saveConnection(connection: SettingsConnection, url: String, anonKey: String) {
+        if (!beginAccountOperation()) return
         executor.execute {
             try {
                 val config = store(connection).saveConnection(url, anonKey)
                 sessionCoordinator.apply(connection, config, false)
+                mutableState.postValue(snapshot(preserveSyncStatus = false))
                 mutableEvents.postValue(
                     SettingsEvent.ConfigSaved(connection, config, connectionSavedMessage(connection))
                 )
-                mutableState.postValue(snapshot())
             } catch (error: Exception) {
+                mutableState.postValue(snapshot(preserveSyncStatus = false))
                 fail(error.message ?: "연결 설정을 저장하지 못했습니다.")
+            } finally {
+                accountOperationRunning.set(false)
             }
         }
     }
 
     fun signIn(connection: SettingsConnection, email: String, password: String) {
-        val store = store(connection)
-        val config = store.load()
-        if (!config.isConnectionConfigured) {
-            fail(connectionRequiredMessage(connection))
-            return
-        }
-        setAuthenticationState("authenticating", authenticatingMessage(connection))
+        if (!beginAccountOperation("authenticating", authenticatingMessage(connection))) return
         executor.execute {
             try {
+                // Read after earlier saves on this executor, rather than capturing an old project.
+                val config = store(connection).load()
                 val authenticated = auth(connection).signIn(config, email, password)
                 applyAuthenticatedConfig(connection, authenticated)
+                mutableState.postValue(snapshot(preserveSyncStatus = false))
                 mutableEvents.postValue(
                     SettingsEvent.Authenticated(
                         connection,
@@ -182,27 +188,27 @@ class SettingsViewModel @JvmOverloads constructor(
                         authenticationSuccessMessage(connection)
                     )
                 )
-                mutableState.postValue(snapshot())
             } catch (error: Exception) {
                 failAuthentication(error, connection)
+            } finally {
+                accountOperationRunning.set(false)
             }
         }
     }
 
     fun signUp(connection: SettingsConnection, email: String, password: String) {
-        val store = store(connection)
-        val config = store.load()
-        if (!config.isConnectionConfigured) {
-            fail(connectionRequiredMessage(connection))
-            return
-        }
-        setAuthenticationState("authenticating", signupMessage(connection))
+        if (!beginAccountOperation("authenticating", signupMessage(connection))) return
         executor.execute {
             try {
+                val config = store(connection).load()
                 val result = auth(connection).signUp(config, email, password)
                 if (!result.emailConfirmationRequired) {
                     applyAuthenticatedConfig(connection, result.config)
                 }
+                val completed = snapshot(preserveSyncStatus = false)
+                mutableState.postValue(if (result.emailConfirmationRequired) {
+                    completed.copy(syncLabel = "confirmation required", syncDetail = confirmationMessage(connection))
+                } else completed)
                 mutableEvents.postValue(
                     SettingsEvent.Authenticated(
                         connection,
@@ -215,29 +221,38 @@ class SettingsViewModel @JvmOverloads constructor(
                         }
                     )
                 )
-                mutableState.postValue(snapshot())
             } catch (error: Exception) {
                 failAuthentication(error, connection)
+            } finally {
+                accountOperationRunning.set(false)
             }
         }
     }
 
     fun signOut(connection: SettingsConnection) {
+        if (!beginAccountOperation()) return
         executor.execute {
             try {
                 val config = store(connection).clearSession()
                 sessionCoordinator.apply(connection, config, false)
+                mutableState.postValue(snapshot(preserveSyncStatus = false))
                 mutableEvents.postValue(
                     SettingsEvent.SignedOut(connection, config, signoutMessage(connection))
                 )
-                mutableState.postValue(snapshot())
             } catch (error: Exception) {
+                mutableState.postValue(snapshot(preserveSyncStatus = false))
                 fail(error.message ?: "로그아웃하지 못했습니다.")
+            } finally {
+                accountOperationRunning.set(false)
             }
         }
     }
 
     fun runManualSync() {
+        if (accountOperationRunning.get()) {
+            fail("계정 연결 처리가 끝난 뒤 동기화하세요.")
+            return
+        }
         val sharedConfig = sharedConfigStore.load()
         if (!sharedConfig.isConfigured) {
             fail("Supabase 연결 설정을 저장하고 계정에 로그인하세요.")
@@ -390,7 +405,7 @@ class SettingsViewModel @JvmOverloads constructor(
         }
     }
 
-    private fun snapshot(): SettingsUiState {
+    private fun snapshot(preserveSyncStatus: Boolean = true): SettingsUiState {
         val shared = sharedConfigStore.load()
         val nutrition = nutritionConfigStore.load()
         val priceTrace = priceTraceConfigStore.load()
@@ -414,13 +429,16 @@ class SettingsViewModel @JvmOverloads constructor(
             }
         }
         val current = mutableState.value
+        val retainedStatus = current?.takeIf {
+            preserveSyncStatus && (it.isManualSyncing || it.syncLabel in setOf(
+                "authenticating", "authentication failed", "confirmation required", "sync failed", "partial"
+            ))
+        }
         return SettingsUiState(
             themeMode = themeMode(),
             preferredMassUnit = massUnitPreferences.preferredMassUnit(),
-            syncLabel = current?.syncLabel?.takeIf { current.isManualSyncing || it == "authenticating" || it == "authentication failed" || it == "sync failed" }
-                ?: syncLabel,
-            syncDetail = current?.syncDetail?.takeIf { current.isManualSyncing || it == "authenticating" || it == "authentication failed" || it == "sync failed" }
-                ?: syncDetail,
+            syncLabel = retainedStatus?.syncLabel ?: syncLabel,
+            syncDetail = retainedStatus?.syncDetail ?: syncDetail,
             isManualSyncing = current?.isManualSyncing ?: false,
             isDataImporting = current?.isDataImporting ?: false,
             dataImportDetail = current?.dataImportDetail ?: "",
@@ -432,7 +450,9 @@ class SettingsViewModel @JvmOverloads constructor(
             nutritionConnectionManaged = nutritionConfigStore.isConnectionManaged(),
             priceTraceConfig = priceTrace,
             priceTraceConnectionManaged = priceTraceConfigStore.isConnectionManaged(),
-            developerSurfaceAllowed = AppSurfacePolicy.allowsDeveloperSurface()
+            developerSurfaceAllowed = AppSurfacePolicy.allowsDeveloperSurface(),
+            isAccountOperationInProgress = preserveSyncStatus && (current?.isAccountOperationInProgress ?: false),
+            authenticationErrorDetail = retainedStatus?.authenticationErrorDetail ?: ""
         )
     }
 
@@ -450,16 +470,31 @@ class SettingsViewModel @JvmOverloads constructor(
         SettingsConnection.PRICE_TRACE -> priceTraceAuth
     }
 
-    private fun setAuthenticationState(label: String, detail: String) {
-        mutableState.value = currentState().copy(syncLabel = label, syncDetail = detail)
+    private fun beginAccountOperation(label: String? = null, detail: String? = null): Boolean {
+        if (currentState().isManualSyncing || !accountOperationRunning.compareAndSet(false, true)) return false
+        mutableState.value = currentState().copy(
+            syncLabel = label ?: currentState().syncLabel,
+            syncDetail = detail ?: currentState().syncDetail,
+            isAccountOperationInProgress = true,
+            authenticationErrorDetail = ""
+        )
+        return true
     }
 
     private fun failAuthentication(error: Exception, connection: SettingsConnection) {
-        setAuthenticationState(
-            "authentication failed",
-            error.message ?: authenticationFailureMessage(connection)
-        )
-        mutableEvents.postValue(SettingsEvent.Failure(authenticationFailureMessage(connection)))
+        val title = when (connection) {
+            SettingsConnection.SHARED -> "공통 DB"
+            SettingsConnection.NUTRITION -> "영양 DB"
+            SettingsConnection.PRICE_TRACE -> "PriceTrace DB"
+        }
+        val message = "$title · ${SupabaseAuthErrors.messageFor(error)}"
+        // This runs on the executor. setValue here throws before the failure reaches the UI.
+        mutableState.postValue(snapshot(preserveSyncStatus = false).copy(
+            syncLabel = "authentication failed",
+            syncDetail = message,
+            authenticationErrorDetail = message
+        ))
+        mutableEvents.postValue(SettingsEvent.Failure(message))
     }
 
     private fun applyAuthenticatedConfig(connection: SettingsConnection, config: SupabaseConfig) {

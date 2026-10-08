@@ -716,9 +716,7 @@ public final class NutritionCatalogSyncClient {
             putNullable(value, "brand_name", row.getBrandName());
             putNullable(value, "sub_brand_name", row.getSubBrandName());
             putNullable(value, "product_name", row.getProductName());
-            putNullable(value, "package_amount", row.getPackageAmount());
-            putNullable(value, "package_unit", row.getPackageUnit());
-            putNullable(value, "package_count", row.getPackageCount());
+            // Package metadata stays local until the remote catalog schema supports it.
             value.put("kind", row.getKind());
             value.put("category", row.getCategory());
             value.put("basis_amount", row.getBasisAmount());

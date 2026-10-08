@@ -1808,6 +1808,9 @@ interface RecoveryRoomDao {
 
 @Dao
 interface NutritionRoomDao {
+    @Query("SELECT COUNT(*) FROM nutrition_foods WHERE id=:foodId AND owner_id=:ownerId " +
+        "AND kind='external_menu' AND visibility='private' AND deleted_at IS NULL")
+    fun privateDiningOutMenuCount(foodId: String, ownerId: String): Int
     data class ApprovedLinkClaimRow(
         val sourceId: String,
         @ColumnInfo(name = "source_updated_at") val sourceUpdatedAt: String,
@@ -2061,6 +2064,9 @@ interface NutritionRoomDao {
     @Query("SELECT revision, updated_at FROM nutrition_foods WHERE id=:id LIMIT 1")
     fun foodSyncVersion(id: String): SyncVersionRow?
 
+    @Query("SELECT * FROM nutrition_foods WHERE id=:id LIMIT 1")
+    fun foodForSync(id: String): NutritionFoodsRoomEntity?
+
     @Query("SELECT NULL AS revision, updated_at FROM nutrition_food_nutrients WHERE id=:id LIMIT 1")
     fun nutrientSyncVersion(id: String): SyncVersionRow?
 
@@ -2209,6 +2215,7 @@ interface NutritionRoomDao {
         CardioRoutePointsRoomEntity::class,
         MealMenuPresetsRoomEntity::class,
         NutritionFoodsRoomEntity::class,
+        DiningProposalRoomEntity::class,
         NutritionFoodNutrientsRoomEntity::class,
         NutritionFoodComponentsRoomEntity::class,
         MealRecordItemsRoomEntity::class,
@@ -2237,6 +2244,7 @@ interface NutritionRoomDao {
     exportSchema = true
 )
 abstract class FitnessRoomDatabase : RoomDatabase() {
+    abstract fun diningProposalRoomDao(): DiningProposalRoomDao
     abstract fun bodyRoomDao(): BodyRoomDao
     abstract fun deviceRoomDao(): DeviceRoomDao
     abstract fun accountOwnershipRoomDao(): AccountOwnershipRoomDao

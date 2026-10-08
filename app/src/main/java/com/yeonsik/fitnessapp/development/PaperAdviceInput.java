@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import com.yeonsik.fitness.shared.feature.meal.model.MealNutritionReadSummary;
 
 /** 최근 앱 기록을 논문 기반 조언 엔진이 읽는 정규화된 입력 snapshot. */
 public final class PaperAdviceInput {
@@ -12,6 +13,7 @@ public final class PaperAdviceInput {
     public final Integer trainingAgeMonths;
     public final Double bodyWeightKg;
     public final Double proteinGPerKg;
+    public final MealNutritionReadSummary proteinEvidence;
     public final int proteinRecordedDays;
     public final int proteinWindowDays;
     public final int mealCount;
@@ -39,6 +41,7 @@ public final class PaperAdviceInput {
         this.trainingAgeMonths = builder.trainingAgeMonths;
         this.bodyWeightKg = builder.bodyWeightKg;
         this.proteinGPerKg = builder.proteinGPerKg;
+        this.proteinEvidence = builder.proteinEvidence;
         this.proteinRecordedDays = builder.proteinRecordedDays;
         this.proteinWindowDays = builder.proteinWindowDays;
         this.mealCount = builder.mealCount;
@@ -166,6 +169,7 @@ public final class PaperAdviceInput {
         private Integer trainingAgeMonths;
         private Double bodyWeightKg;
         private Double proteinGPerKg;
+        private MealNutritionReadSummary proteinEvidence;
         private int proteinRecordedDays;
         private int proteinWindowDays = 7;
         private int mealCount;
@@ -192,6 +196,7 @@ public final class PaperAdviceInput {
         public Builder trainingAgeMonths(Integer value) { this.trainingAgeMonths = value; return this; }
         public Builder bodyWeightKg(Double value) { this.bodyWeightKg = value; return this; }
         public Builder proteinGPerKg(Double value) { this.proteinGPerKg = value; return this; }
+        public Builder proteinEvidence(MealNutritionReadSummary value) { this.proteinEvidence = value; return this; }
         public Builder proteinRecordedDays(int value) { this.proteinRecordedDays = value; return this; }
         public Builder proteinWindowDays(int value) { this.proteinWindowDays = value; return this; }
         public Builder mealCount(int value) { this.mealCount = value; return this; }

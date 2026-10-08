@@ -16,9 +16,19 @@ import java.nio.charset.StandardCharsets;
 
 public final class SupabaseAuthManager {
     private final SupabaseConfigStore configStore;
+    private final ConnectionFactory connections;
+
+    interface ConnectionFactory {
+        HttpURLConnection open(URL url) throws IOException;
+    }
 
     public SupabaseAuthManager(SupabaseConfigStore configStore) {
+        this(configStore, url -> (HttpURLConnection) url.openConnection());
+    }
+
+    SupabaseAuthManager(SupabaseConfigStore configStore, ConnectionFactory connections) {
         this.configStore = configStore;
+        this.connections = connections;
     }
 
     public SupabaseConfig signIn(
@@ -27,11 +37,11 @@ public final class SupabaseAuthManager {
             String password
     ) throws Exception {
         if (!config.isConnectionConfigured()) {
-            throw new IllegalStateException("Supabase URL과 anon key를 먼저 저장하세요.");
+            throw new SupabaseAuthErrors.Failure(0, "connection_missing");
         }
         String normalizedEmail = normalize(email);
         if (normalizedEmail.isEmpty() || password == null || password.isEmpty()) {
-            throw new IllegalArgumentException("이메일과 비밀번호를 입력하세요.");
+            throw new SupabaseAuthErrors.Failure(0, "input_missing");
         }
 
         JSONObject body = new JSONObject();
@@ -51,28 +61,30 @@ public final class SupabaseAuthManager {
             String password
     ) throws Exception {
         if (!config.isConnectionConfigured()) {
-            throw new IllegalStateException("Supabase URL과 anon key를 먼저 저장하세요.");
+            throw new SupabaseAuthErrors.Failure(0, "connection_missing");
         }
         String normalizedEmail = normalize(email);
         if (normalizedEmail.isEmpty() || password == null || password.length() < 8) {
-            throw new IllegalArgumentException("이메일과 8자 이상의 비밀번호를 입력하세요.");
+            throw new SupabaseAuthErrors.Failure(0, "password_too_short");
         }
 
         JSONObject body = new JSONObject();
         body.put("email", normalizedEmail);
         body.put("password", password);
         JSONObject response = post(config, "/auth/v1/signup", body);
-        String accessToken = response.optString("access_token", "");
-        String refreshToken = response.optString("refresh_token", "");
+        String accessToken = responseString(response, "access_token", "");
+        String refreshToken = responseString(response, "refresh_token", "");
         JSONObject user = response.optJSONObject("user");
-        String userId = user == null ? "" : user.optString("id", "");
+        // Email-confirmation signup returns the user at the root, without a session.
+        if (user == null && response.has("id")) user = response;
+        String userId = user == null ? "" : responseString(user, "id", "");
         String responseEmail = user == null
                 ? normalizedEmail
-                : user.optString("email", normalizedEmail);
+                : responseString(user, "email", normalizedEmail);
 
-        if (accessToken.isEmpty() || refreshToken.isEmpty() || userId.isEmpty()) {
+        if (accessToken.isEmpty() && refreshToken.isEmpty()) {
             if (userId.isEmpty()) {
-                throw new IOException("Supabase 가입 응답에 사용자 정보가 없습니다.");
+                throw new SupabaseAuthErrors.Failure(0, "invalid_response");
             }
             return new SignUpResult(config, true, responseEmail);
         }
@@ -86,7 +98,7 @@ public final class SupabaseAuthManager {
 
     public SupabaseConfig refresh(SupabaseConfig config) throws Exception {
         if (!config.isConfigured() || config.refreshToken.isEmpty()) {
-            throw new IllegalStateException("로그인이 필요합니다.");
+            throw new SupabaseAuthErrors.Failure(0, "refresh_token_not_found");
         }
         JSONObject body = new JSONObject();
         body.put("refresh_token", config.refreshToken);
@@ -103,20 +115,18 @@ public final class SupabaseAuthManager {
             JSONObject response,
             String fallbackEmail
     ) throws Exception {
-        String accessToken = response.optString("access_token", "");
-        String refreshToken = response.optString("refresh_token", "");
+        String accessToken = responseString(response, "access_token", "");
+        String refreshToken = responseString(response, "refresh_token", "");
         JSONObject user = response.optJSONObject("user");
-        String userId = user == null ? "" : user.optString("id", "");
-        String email = user == null ? fallbackEmail : user.optString("email", fallbackEmail);
+        String userId = user == null ? "" : responseString(user, "id", "");
+        String email = user == null ? fallbackEmail : responseString(user, "email", fallbackEmail);
         if (accessToken.isEmpty() || refreshToken.isEmpty() || userId.isEmpty()) {
-            throw new IOException("Supabase 인증 응답에 필수 세션 값이 없습니다.");
+            throw new SupabaseAuthErrors.Failure(0, "invalid_response");
         }
         if (!config.userId.isEmpty() && !config.userId.equals(userId)) {
-            throw new IllegalStateException(
-                    "이 기기의 로컬 데이터는 다른 계정에 연결되어 있습니다. 계정 전환에는 별도 데이터 이전이 필요합니다."
-            );
+            throw new SupabaseAuthErrors.Failure(0, "account_mismatch");
         }
-        return configStore.saveSession(userId, email, accessToken, refreshToken);
+        return configStore.saveSessionForConnection(config, userId, email, accessToken, refreshToken);
     }
 
     private JSONObject post(
@@ -124,30 +134,40 @@ public final class SupabaseAuthManager {
             String path,
             JSONObject body
     ) throws Exception {
-        HttpURLConnection connection = (HttpURLConnection) new URL(
-                joinUrl(config.supabaseUrl, path)
-        ).openConnection();
-        connection.setRequestMethod("POST");
-        connection.setConnectTimeout(15000);
-        connection.setReadTimeout(20000);
-        connection.setRequestProperty("apikey", config.supabaseAnonKey);
-        connection.setRequestProperty("Content-Type", "application/json");
-        connection.setDoOutput(true);
+        HttpURLConnection connection = connections.open(new URL(joinUrl(config.supabaseUrl, path)));
+        try {
+            connection.setRequestMethod("POST");
+            connection.setInstanceFollowRedirects(false);
+            connection.setConnectTimeout(15000);
+            connection.setReadTimeout(20000);
+            connection.setRequestProperty("apikey", config.supabaseAnonKey);
+            connection.setRequestProperty("Content-Type", "application/json");
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setDoOutput(true);
 
-        try (OutputStream outputStream = connection.getOutputStream()) {
-            outputStream.write(body.toString().getBytes(StandardCharsets.UTF_8));
-        }
+            try (OutputStream outputStream = connection.getOutputStream()) {
+                outputStream.write(body.toString().getBytes(StandardCharsets.UTF_8));
+            }
 
-        int statusCode = connection.getResponseCode();
-        String responseBody = readStream(
-                statusCode >= 200 && statusCode < 300
-                        ? connection.getInputStream()
-                        : connection.getErrorStream()
-        );
-        if (statusCode < 200 || statusCode >= 300) {
-            throw new IOException("Supabase authentication failed (" + statusCode + ").");
+            int statusCode = connection.getResponseCode();
+            String responseBody = readStream(
+                    statusCode >= 200 && statusCode < 300
+                            ? connection.getInputStream()
+                            : connection.getErrorStream()
+            );
+            if (statusCode < 200 || statusCode >= 300) {
+                JSONObject error;
+                try { error = new JSONObject(responseBody); }
+                catch (Exception ignored) { error = new JSONObject(); }
+                throw SupabaseAuthErrors.responseFailure(statusCode,
+                        responseString(error, "error_code", responseString(error, "code", "")),
+                        responseString(error, "msg", responseString(error, "error_description", responseString(error, "message", ""))));
+            }
+            try { return new JSONObject(responseBody); }
+            catch (Exception invalidResponse) { throw new SupabaseAuthErrors.Failure(statusCode, "invalid_response"); }
+        } finally {
+            connection.disconnect();
         }
-        return new JSONObject(responseBody);
     }
 
     private static String readStream(InputStream stream) throws IOException {
@@ -175,6 +195,11 @@ public final class SupabaseAuthManager {
 
     private static String normalize(String value) {
         return value == null ? "" : value.trim();
+    }
+
+    private static String responseString(JSONObject value, String key, String fallback) {
+        Object field = value.opt(key);
+        return field instanceof String && !((String) field).isEmpty() ? (String) field : fallback;
     }
 
     public static final class SignUpResult {

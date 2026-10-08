@@ -7,6 +7,7 @@ import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.ProductReadV1;
 import com.yeonsik.fitnessapp.integration.pricetrace.ProductReadV1Client;
 import com.yeonsik.fitnessapp.integration.pricetrace.RestaurantMenuReadV1Client;
+import com.yeonsik.fitnessapp.integration.pricetrace.DiningProposalAccount;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogSyncStore;
 import com.yeonsik.fitnessapp.sync.SupabaseAuthManager;
@@ -23,7 +24,7 @@ import java.util.List;
  * accompany a PriceTrace read. MainActivity receives contract models, but never coordinates the
  * repository/client sequence itself.
  */
-public final class NutritionIntegrationService {
+public final class NutritionIntegrationService implements DiningProposalAccount {
     private final NutritionCatalogSyncStore nutritionCatalogSync;
     private final NutritionCatalogRepositoryApi nutritionCatalog;
     private final ProductReadV1Client productReadClient;
@@ -93,6 +94,27 @@ public final class NutritionIntegrationService {
         this.priceTraceConfig = priceTraceConfig == null
                 ? SupabaseConfig.empty()
                 : priceTraceConfig;
+    }
+
+    @Override
+    public boolean isDiningProposalConfigured(String ownerId) {
+        return nutritionConfig.isConfigured() && priceTraceConfig.isConfigured()
+                && nutritionConfig.effectiveUserId().equals(ownerId);
+    }
+
+    @Override
+    public String configuredDiningProposalScope(String ownerId) {
+        return isDiningProposalConfigured(ownerId)
+                ? priceTraceConfig.supabaseUrl.replaceAll("/+$", "") + "|" + priceTraceConfig.userId : null;
+    }
+
+    @Override
+    public SupabaseConfig requireDiningProposalAccount(String ownerId) throws Exception {
+        SupabaseConfig nutrition = requireNutritionAccount(nutritionConfig);
+        if (!nutrition.effectiveUserId().equals(ownerId)) {
+            throw new IllegalStateException("현재 Nutrition 소유자와 제안 소유자가 다릅니다.");
+        }
+        return requirePriceTraceAccount(priceTraceConfig);
     }
 
     public List<ProductReadV1> searchProducts(String query) throws Exception {

@@ -370,22 +370,25 @@ public final class NutritionCatalogRepositoryDiningOutTest {
             assertEquals(2, catalog.savedDiningOutMenus().size());
             assertEquals(70d, catalog.findFoodById(first.id).carbsGrams, 0.001d);
 
-            FitnessRepository records = new FitnessRepository(helper, USER_ID);
-            records.addDiningOutMealAtTimeWithOptionNutrition(
+            com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository records =
+                    new com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository(room, catalog, USER_ID);
+            records.saveManualDiningOut(
+                    new com.yeonsik.fitness.shared.core.account.AccountScope(USER_ID),
                     LocalDate.now().minusDays(1).toString(),
                     "12:00",
                     "표시 식당",
+                    "",
                     "표시 메뉴",
+                    100,
                     1d,
                     2d,
                     3d,
-                    null,
-                    Collections.emptyList()
+                    null, null, null, null, null, null, null
             );
             assertEquals(2, catalog.savedDiningOutMenus().size());
             assertEquals(70d, catalog.findFoodById(first.id).carbsGrams, 0.001d);
             assertEquals(
-                    "restaurant_id|rest-1|menu|제육 볶음",
+                    "store|지점 a|menu|제육 볶음",
                     NutritionCatalogRepository.canonicalDiningOutMenuKey(
                             "지점 A",
                             " 제육   볶음 ",

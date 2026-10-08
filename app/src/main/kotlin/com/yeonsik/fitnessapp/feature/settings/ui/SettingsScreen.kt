@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -60,7 +61,10 @@ interface SettingsScreenActions {
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
 internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActions) {
-    var advancedConnectionsVisible by rememberSaveable { mutableStateOf(false) }
+    var advancedConnectionsVisible by rememberSaveable {
+        mutableStateOf(!state.sharedConfig.isConnectionConfigured)
+    }
+    val accountControlsEnabled = !state.isAccountOperationInProgress && !state.isManualSyncing
     AppHeader("설정", "계정·동기화·데이터 안전·표시 환경")
     SettingsSectionTitle("상태")
     SettingsStatusCard(state.sharedConfig, state, Modifier.fillMaxWidth())
@@ -80,7 +84,7 @@ internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActio
         }
     }
     SettingsSectionTitle("데이터 안전")
-    AppButton(onClick = actions::runManualSync, enabled = !state.isManualSyncing,
+    AppButton(onClick = actions::runManualSync, enabled = accountControlsEnabled,
         modifier = Modifier.fillMaxWidth()) { Text(if (state.isManualSyncing) "동기화 중" else "지금 동기화") }
     SettingsSupportingText(syncDetailForDisplay(state))
     SettingsSectionTitle("가져오기·내보내기")
@@ -101,28 +105,27 @@ internal fun SettingsScreen(state: SettingsUiState, actions: SettingsScreenActio
     }
     SettingsPrivacyCard()
     SettingsAppInfoCard()
-    if (state.developerSurfaceAllowed) {
-        AppOutlinedButton(
-            onClick = { advancedConnectionsVisible = !advancedConnectionsVisible },
-            Modifier.fillMaxWidth()
-        ) { Text(if (advancedConnectionsVisible) "연결 설정 접기" else "연결 설정") }
-        if (advancedConnectionsVisible) {
-            ConnectionAccountSection(
-                "Personal OS 공통 DB", SettingsConnection.SHARED,
-                state.sharedConfig, state.sharedConnectionManaged, actions
-            )
-            ConnectionAccountSection(
-                "영양 전용 DB", SettingsConnection.NUTRITION,
-                state.nutritionConfig, state.nutritionConnectionManaged, actions
-            )
-            ConnectionAccountSection(
-                "PriceTrace DB", SettingsConnection.PRICE_TRACE,
-                state.priceTraceConfig, state.priceTraceConnectionManaged, actions
-            )
-        }
+    AppOutlinedButton(
+        onClick = { advancedConnectionsVisible = !advancedConnectionsVisible },
+        Modifier.fillMaxWidth()
+    ) { Text(if (advancedConnectionsVisible) "연결 설정 접기" else "연결 설정") }
+    if (advancedConnectionsVisible) {
+        SettingsSupportingText("DB URL과 공개 API 키를 저장한 뒤 각 DB 계정에 로그인하세요. 저장한 연결은 앱 업데이트 후에도 유지됩니다.")
+        ConnectionAccountSection(
+            "Personal OS 공통 DB", SettingsConnection.SHARED,
+            state.sharedConfig, actions, accountControlsEnabled
+        )
+        ConnectionAccountSection(
+            "영양 전용 DB", SettingsConnection.NUTRITION,
+            state.nutritionConfig, actions, accountControlsEnabled
+        )
+        ConnectionAccountSection(
+            "PriceTrace DB", SettingsConnection.PRICE_TRACE,
+            state.priceTraceConfig, actions, accountControlsEnabled
+        )
     } else {
         AccountControls(
-            state.sharedConfig, SettingsConnection.SHARED, actions
+            state.sharedConfig, SettingsConnection.SHARED, actions, accountControlsEnabled
         )
     }
 }
@@ -132,25 +135,28 @@ private fun ConnectionAccountSection(
     title: String,
     connection: SettingsConnection,
     config: com.yeonsik.fitnessapp.config.SupabaseConfig,
-    managed: Boolean,
-    actions: SettingsScreenActions
+    actions: SettingsScreenActions,
+    enabled: Boolean
 ) {
     var url by rememberSaveable(config.supabaseUrl) { mutableStateOf(config.supabaseUrl) }
     var key by rememberSaveable(config.supabaseAnonKey) { mutableStateOf(config.supabaseAnonKey) }
     SettingsSectionTitle(title)
     Text(if (config.isConfigured) "로그인됨 · ${config.email}" else if (config.isConnectionConfigured) "로그인 필요" else "연결 없음",
         style = MaterialTheme.typography.bodyMedium)
-    if (!managed) {
-        AppTextField(url, { url = it }, Modifier.fillMaxWidth(), label = { Text("DB URL") })
-        AppTextField(key, { key = it }, Modifier.fillMaxWidth(), label = { Text("DB anon key") })
-        AppOutlinedButton(
-            onClick = { actions.saveConnection(connection, url, key) },
-            Modifier.fillMaxWidth()
-        ) { Text("연결 저장") }
-    } else {
-        SettingsSupportingText("빌드 기본값으로 연결되었습니다.")
-    }
-    AccountControls(config, connection, actions)
+    AppTextField(url, { url = it }, Modifier.fillMaxWidth().testTag("settings-url-${connection.name}"),
+        label = { Text("DB URL") },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri, autoCorrectEnabled = false),
+        enabled = enabled)
+    AppTextField(key, { key = it }, Modifier.fillMaxWidth().testTag("settings-key-${connection.name}"),
+        label = { Text("공개 API 키 (anon / publishable)") },
+        visualTransformation = PasswordVisualTransformation(),
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+        enabled = enabled)
+    AppOutlinedButton(
+        onClick = { actions.saveConnection(connection, url, key) },
+        Modifier.fillMaxWidth().testTag("settings-save-${connection.name}"), enabled = enabled
+    ) { Text("연결 저장") }
+    AccountControls(config, connection, actions, enabled)
 }
 
 @Composable
@@ -163,29 +169,34 @@ private fun SettingsSectionTitle(title: String) {
 private fun AccountControls(
     config: com.yeonsik.fitnessapp.config.SupabaseConfig,
     connection: SettingsConnection,
-    actions: SettingsScreenActions
+    actions: SettingsScreenActions,
+    enabled: Boolean
 ) {
     var email by rememberSaveable(config.email) { mutableStateOf(config.email) }
-    var password by rememberSaveable(config.projectRef()) { mutableStateOf("") }
+    var password by remember(config.supabaseUrl, config.isConfigured) { mutableStateOf("") }
     if (config.isConfigured) {
         AppOutlinedButton(
             onClick = { actions.signOut(connection) },
-            Modifier.fillMaxWidth()
+            Modifier.fillMaxWidth(), enabled = enabled
         ) { Text("로그아웃") }
     } else if (config.isConnectionConfigured) {
-        AppTextField(email, { email = it }, Modifier.fillMaxWidth(), label = { Text("이메일") })
+        AppTextField(email, { email = it }, Modifier.fillMaxWidth().testTag("settings-email-${connection.name}"), label = { Text("이메일") },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, autoCorrectEnabled = false),
+            enabled = enabled)
         AppTextField(
-            password, { password = it }, Modifier.fillMaxWidth(), label = { Text("비밀번호") },
-            visualTransformation = PasswordVisualTransformation()
+            password, { password = it }, Modifier.fillMaxWidth().testTag("settings-password-${connection.name}"), label = { Text("비밀번호") },
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+            enabled = enabled
         )
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
             AppButton(
                 onClick = { actions.signIn(connection, email, password) },
-                Modifier.weight(1f)
+                Modifier.weight(1f).testTag("settings-login-${connection.name}"), enabled = enabled
             ) { Text("로그인") }
             AppOutlinedButton(
                 onClick = { actions.signUp(connection, email, password) },
-                Modifier.weight(1f)
+                Modifier.weight(1f), enabled = enabled
             ) { Text("계정 만들기") }
         }
     }

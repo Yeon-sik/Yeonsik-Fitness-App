@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.core.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -51,6 +53,41 @@ fun FitnessHeader(title: String, subtitle: String? = null, back: (() -> Unit)? =
             Text(subtitle, style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+@Composable
+internal fun FitnessSessionTopBar(
+    title: String,
+    canCancel: Boolean,
+    onBack: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {}
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surface)
+            .padding(horizontal = FitnessSpacing.gap, vertical = FitnessSpacing.small),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TextButton(onClick = onBack) {
+            Text("←", style = MaterialTheme.typography.headlineSmall)
+        }
+        Text(
+            title,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        if (canCancel) {
+            TextButton(onClick = onCancel) {
+                Text("운동 취소", color = MaterialTheme.colorScheme.error)
+            }
+        }
+        actions()
     }
 }
 
