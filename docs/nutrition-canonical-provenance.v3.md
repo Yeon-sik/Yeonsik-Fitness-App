@@ -245,9 +245,11 @@ so `get_nutrition_read_v3` exposes the external origin downstream. No
 `estimation_evidence` row or PriceTrace identity is created.
 
 Existing `import_verified_nutrition_v1`, `import_canonical_nutrition_v2`,
-`nutrition-label.v1`, and `food-estimate.v1` callers remain unchanged. The
-external reference branch is additive and does not accept
-`nutrition-label.v3`, `food-estimate.v3`, or `p_category_hierarchy`.
 `nutrition-label.v1`, and `food-estimate.v1` callers remain unchanged. The v3
-endpoint also accepts `external-reference.v1`; it does not accept
-`nutrition-label.v3`, `food-estimate.v3`, or `p_category_hierarchy`.
+endpoint accepts `external-reference.v1` under the source and evidence
+constraints described above; it does not accept `nutrition-label.v3`,
+`food-estimate.v3`, or `p_category_hierarchy`.
+
+The external producer or URL is evidence, not a verification authority. The
+existing `p_user_verified=true` import boundary remains authoritative. The four
+packaged-product hierarchy fields remain nullable without inference.
