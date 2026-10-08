@@ -13,11 +13,11 @@ begin
     into v_versions
     from supabase_migrations.schema_migrations as m;
 
-    if cardinality(v_versions) <> 31
+    if cardinality(v_versions) <> 30
        or not ('20260927120000' = any(v_versions))
        or not ('20261002120000' = any(v_versions))
-       or not ('20261002130000' = any(v_versions)) then
-        raise exception 'Final fresh replay expected all 28 recovered and 3 pending migrations, got %', v_versions;
+       or '20261002130000' = any(v_versions) then
+        raise exception 'Final fresh replay expected 28 recovered migrations and the first 2 pending migrations, got %', v_versions;
     end if;
 
     v_publication_table := 'public.nutrition_ocr_dining_out_publications'::regclass;
