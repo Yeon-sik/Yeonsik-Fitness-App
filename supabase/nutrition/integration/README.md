@@ -62,8 +62,8 @@ temporary users and remove them after the run.
 
 The historical-replay/replay.mjs runner starts two uniquely named local Supabase projects with Docker and no linked project reference:
 
-- a historical replay that runs all 27 recovered remote migrations from an empty database;
-- a second fresh replay that runs those same 27 migrations, applies both pending migrations, verifies the final schema and grants, runs the rollback fixture, and runs the authenticated `external-reference-only` integration mode.
+- a historical replay that runs all 29 recovered migrations from an empty database;
+- a second fresh replay that runs those same 29 migrations, applies all three pending migrations, verifies the final schema and grants, runs the rollback fixture, and runs the authenticated `external-reference-only` integration mode.
 
 The runner first applies the real SQL through 20260814065526_product_nutrition_link_pricetrace_metadata.sql. It then loads historical-replay/pre_20260814065823_kaguri.sql, a disposable-only synthetic prerequisite, and applies unchanged historical SQL from 20260814065823 onward. The runner derives the one selector UUID from that original migration; the fixture contains no production owner or Nutrition row data and is not part of normal seed configuration.
 
