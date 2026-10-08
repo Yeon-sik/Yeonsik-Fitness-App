@@ -2,10 +2,9 @@
 
 Fitness owns the authoritative `import_canonical_nutrition_v3` boundary. This
 is an additive endpoint for four explicit packaged-product hierarchy facts and
-the OCR-App V2 text nutrition lookup contract. The existing
-`nutrition-label.v1` and `food-estimate.v1` semantics remain unchanged; the
-dedicated `external-reference.v1` contract is accepted only for published
-external nutrition references.
+the OCR-App V2 text nutrition lookup contract. It accepts the existing
+`nutrition-label.v1` and `food-estimate.v1` inputs plus the dedicated
+`external-reference.v1` contract, with distinct source and evidence semantics.
 
 ## Endpoint
 
@@ -102,6 +101,28 @@ retain the public URL in `evidence_refs`. The shared request fixture is
 the normative cross-repo schema/version note is
 `contracts/fitness-external-reference.v1.md`.
 
+## Three input contract semantics
+
+| Contract | Source semantics | Required nutrient evidence | Projection meaning |
+| --- | --- | --- | --- |
+| `nutrition-label.v1` | Nutrition values read from a product label by OCR or equivalent label evidence | All seven values are `observed` with `source_type=product_label_ocr`; the contract is not estimated | `nutrition_foods.source_type=product_label_ocr`; the existing label semantics are unchanged |
+| `food-estimate.v1` | Restaurant/menu nutrition estimated from food or menu evidence | At least one value is `estimated`, with confidence/range evidence; product-label evidence is rejected | `nutrition_foods.source_type=food_image_estimate`; hierarchy remains empty and the existing estimate semantics are unchanged |
+| `external-reference.v1` | Nutrition values obtained from a public manufacturer, brand, or official distributor reference | All seven values are `observed` with `source_type=external_reference`; every nutrient evidence list carries the same public URL; it is not an estimate | `nutrition_foods.source_type=external_reference`, `source_reference` is the public URL, and `source_version` is `external-nutrition-lookup.v1` |
+
+For `external-reference.v1`, `p_provenance.source_reference` and
+`p_source_document_ref` must contain the same trimmed public HTTP(S) URL.
+The RPC preserves that URL and the parser/source version in the canonical audit,
+nutrition projection, legacy compatibility provenance, and per-nutrient
+provenance rows. It does not convert the basis to 100 g or 100 ml: the
+upstream `p_basis_amount` and `p_basis_unit` are stored as supplied.
+
+External-reference import still requires an explicit `p_user_verified=true`
+from the caller; Fitness does not promote an unreviewed external source to
+`user_verified`. It also rejects client-supplied PriceTrace identity for this
+contract, creates no consumption row, and does not resolve or create Product
+identity. Product-to-nutrition links remain under the existing
+PriceTrace/Fitness authority flow.
+
 ## Request examples
 
 A packaged-product label uses the existing nutrient contract plus explicit
@@ -156,6 +177,42 @@ The abbreviated objects in the restaurant example mean the unchanged v2
 nutrient/evidence objects, not a relaxed validation rule. All seven required
 nutrient keys and evidence rules still apply.
 
+An external reference uses the producer's public URL as the source document
+reference and preserves the lookup provenance:
+
+```json
+{
+  "p_idempotency_key": "ocr:text-lookup:external-test-cereal-1",
+  "p_input_contract": "external-reference.v1",
+  "p_source_document_ref": "https://nutrition.example.com/products/test-cereal",
+  "p_food_name": "Test cereal",
+  "p_brand": "Test brand",
+  "p_category": "processed",
+  "p_basis_amount": 100,
+  "p_basis_unit": "g",
+  "p_required_nutrients": { "calories_kcal": 380, "protein_grams": 10, "carbs_grams": 70, "fat_grams": 5, "sodium_mg": 100, "saturated_fat_grams": 1, "sugars_grams": 12 },
+  "p_nutrient_provenance": { "...": "seven observed external_reference entries, each referencing the same URL" },
+  "p_provenance": {
+    "parser_version": "external-nutrition-lookup.v1",
+    "source_type": "external_reference",
+    "source_reference": "https://nutrition.example.com/products/test-cereal",
+    "source_version": "external-nutrition-lookup.v1",
+    "canonical_input_contract": "external-reference.v1",
+    "estimated": false
+  },
+  "p_user_verified": true,
+  "p_manufacturer_name": "Test Foods",
+  "p_brand_name": "Test brand",
+  "p_sub_brand_name": null,
+  "p_product_name": "Test cereal"
+}
+```
+
+The seven nutrient values and basis fields above come from the OCR-App
+representative `yeonsik-ocr.v2` text-lookup fixture; the fixture's optional
+nutrients and nested producer shape are preserved in the Fitness integration
+test.
+
 ## Persistence, idempotency, and read contract
 
 The four normalized values travel through the following path without
@@ -177,7 +234,8 @@ inference:
 The read contract is versioned independently from input semantics. The RPC
 does not create or infer a PriceTrace UUID. An optional exact
 `catalog_product_id` remains a separate PriceTrace reference/link, with no
-cross-database foreign key or identity ownership transfer.
+cross-database foreign key or identity ownership transfer. For
+`external-reference.v1`, the RPC deliberately leaves that identity null.
 
 For `external-reference.v1`, the private `nutrition_foods` projection stores
 `source_type=external_reference`, the exact URL in `source_reference`, and
@@ -189,4 +247,7 @@ so `get_nutrition_read_v3` exposes the external origin downstream. No
 Existing `import_verified_nutrition_v1`, `import_canonical_nutrition_v2`,
 `nutrition-label.v1`, and `food-estimate.v1` callers remain unchanged. The
 external reference branch is additive and does not accept
+`nutrition-label.v3`, `food-estimate.v3`, or `p_category_hierarchy`.
+`nutrition-label.v1`, and `food-estimate.v1` callers remain unchanged. The v3
+endpoint also accepts `external-reference.v1`; it does not accept
 `nutrition-label.v3`, `food-estimate.v3`, or `p_category_hierarchy`.
