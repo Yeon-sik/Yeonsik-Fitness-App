@@ -127,7 +127,11 @@ internal fun AppTextField(
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     keyboardActions: KeyboardActions? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    isError: Boolean = false,
+    supportingText: @Composable (() -> Unit)? = null,
+    placeholder: @Composable (() -> Unit)? = null,
+    trailingIcon: @Composable (() -> Unit)? = null
 ) {
     OutlinedTextField(
         value,
@@ -139,6 +143,10 @@ internal fun AppTextField(
         keyboardActions = keyboardActions ?: KeyboardActions.Default,
         visualTransformation = visualTransformation,
         enabled = enabled,
+        isError = isError,
+        supportingText = supportingText,
+        placeholder = placeholder,
+        trailingIcon = trailingIcon,
         textStyle = MaterialTheme.typography.bodyLarge,
         shape = FitnessShape.input,
         colors = OutlinedTextFieldDefaults.colors(

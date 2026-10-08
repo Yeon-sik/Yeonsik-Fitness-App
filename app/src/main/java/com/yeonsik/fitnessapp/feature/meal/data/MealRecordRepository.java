@@ -22,6 +22,7 @@ import com.yeonsik.fitnessapp.data.MealItemSnapshot;
 import com.yeonsik.fitnessapp.data.MealMenuSelection;
 import com.yeonsik.fitnessapp.data.MealRecordKind;
 import com.yeonsik.fitnessapp.data.NutritionFood;
+import com.yeonsik.fitnessapp.data.NutritionCalculator;
 import com.yeonsik.fitnessapp.data.NutritionProfile;
 import com.yeonsik.fitnessapp.data.NutritionTotals;
 import com.yeonsik.fitnessapp.data.NutritionUnit;
@@ -69,13 +70,48 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
 
     @Override
     public String saveFoodMeal(AccountScope scope, String date, String mealTime, String foodId, double quantity) {
-        String ownerId = requireActiveOwner(scope);
+        requireActiveOwner(scope);
         NutritionFood food = nutritionCatalog.findFoodById(foodId);
         if (food == null) {
             throw new IllegalArgumentException("선택한 식품을 찾지 못했습니다.");
         }
         MealCompositionItem item = MealCompositionItem.from(food, quantity, food.basisUnit);
-        MealItemSnapshot snapshot = MealItemSnapshot.of(item, 0);
+        return saveFoodMealItems(scope, date, mealTime, Collections.singletonList(item));
+    }
+
+    @Override
+    public String saveFoodMealItems(
+            AccountScope scope, String date, String mealTime, List<MealCompositionItem> items
+    ) {
+        String ownerId = requireActiveOwner(scope);
+        if (items == null || items.isEmpty()) {
+            throw new IllegalArgumentException("끼니에 먹은 음식을 하나 이상 담으세요.");
+        }
+        List<MealCompositionItem> consumedItems = new ArrayList<>(items);
+        List<MealItemSnapshot> snapshots = new ArrayList<>();
+        for (int index = 0; index < consumedItems.size(); index++) {
+            MealCompositionItem item = consumedItems.get(index);
+            if (item == null || item.food == null || !Double.isFinite(item.quantity)
+                    || item.quantity <= 0d || !Double.isFinite(item.food.basisAmount)
+                    || item.food.basisAmount <= 0d) {
+                throw new IllegalArgumentException("음식별 먹은 양을 확인하세요.");
+            }
+            if (item.food.isDiningOutMenu() || item.food.isDiningOutComponent()) {
+                throw new IllegalArgumentException("외식 메뉴는 외식 입력에서 기록하세요.");
+            }
+            for (Double value : item.profile.asMap().values()) {
+                if (value != null && (!Double.isFinite(value) || value < 0d)) {
+                    throw new IllegalArgumentException("음식별 먹은 양이 너무 큽니다. 입력한 값을 확인하세요.");
+                }
+            }
+            snapshots.add(MealItemSnapshot.of(item, index));
+        }
+        NutritionTotals totals = NutritionCalculator.sum(consumedItems);
+        if (!Double.isFinite(totals.calories()) || totals.calories() > Integer.MAX_VALUE
+                || !Double.isFinite(totals.proteinGrams()) || !Double.isFinite(totals.carbsGrams())
+                || !Double.isFinite(totals.fatGrams())) {
+            throw new IllegalArgumentException("끼니의 영양정보 합계가 너무 큽니다. 먹은 양을 확인하세요.");
+        }
         LocalDate today = LocalDate.now();
         LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, today);
         String eatenAt = MealEntryPolicy.eatenAt(recordDate, mealTime, ZoneId.systemDefault());
@@ -85,12 +121,12 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         int mealIndex = safeInt(mealDao.mealCountForDate(ownerId, recordDate.toString()));
         String mealLabel = MealEntryPolicy.labelForIndex(mealIndex);
 
-        String metadata = foodMetadata(mealLabel, eatenAt);
+        String metadata = foodMetadata(mealLabel, eatenAt, snapshots.size());
         MealRecordsRoomEntity record = new MealRecordsRoomEntity(
                 recordId,
                 ownerId,
                 recordDate.toString(),
-                MealEntryPolicy.previewTitle(food.displayName(), 1, mealLabel + " 식사"),
+                MealEntryPolicy.previewTitle(consumedItems.get(0).food.displayName(), snapshots.size(), mealLabel + " 식사"),
                 MealRecordKind.FOOD,
                 null,
                 null,
@@ -103,10 +139,10 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                 null,
                 null,
                 null,
-                Math.round(item.calories),
-                item.proteinGrams,
-                item.carbsGrams,
-                item.fatGrams,
+                Math.round(totals.calories()),
+                totals.proteinGrams(),
+                totals.carbsGrams(),
+                totals.fatGrams(),
                 now,
                 backfilled ? 1L : 0L,
                 backfilled ? now : null,
@@ -121,8 +157,11 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         );
 
         roomDatabase.runInTransaction(() -> {
+            requireActiveOwner(scope);
             mealDao.insertRecord(record);
-            insertItemSnapshot(recordId, snapshot, now, ownerId);
+            for (MealItemSnapshot snapshot : snapshots) {
+                insertItemSnapshot(recordId, snapshot, now, ownerId);
+            }
         });
         return recordId;
     }
@@ -848,7 +887,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         }
     }
 
-    private String foodMetadata(String mealLabel, String eatenAt) {
+    private String foodMetadata(String mealLabel, String eatenAt, int itemCount) {
         try {
             JSONObject metadata = new JSONObject();
             metadata.put("item_type", "meal");
@@ -857,7 +896,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
             metadata.put("eaten_at", eatenAt);
             metadata.put("estimated", "false");
             metadata.put("composition_version", "2");
-            metadata.put("item_count", "1");
+            metadata.put("item_count", String.valueOf(itemCount));
             return metadata.toString();
         } catch (Exception error) {
             throw new IllegalStateException("식단 메타데이터를 만들지 못했습니다.", error);

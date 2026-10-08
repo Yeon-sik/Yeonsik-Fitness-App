@@ -4,6 +4,7 @@ import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.DiningOutConsumption
 import com.yeonsik.fitnessapp.data.DiningOutIdentity
 import com.yeonsik.fitnessapp.data.MealMenuSelection
+import com.yeonsik.fitnessapp.data.MealCompositionItem
 
 /** Meal write port used by the meal application layer. */
 interface MealRecordRepositoryApi {
@@ -15,6 +16,14 @@ interface MealRecordRepositoryApi {
         mealTime: String,
         foodId: String,
         quantity: Double
+    ): String
+
+    /** Copies all consumed foods into one meal in a single local transaction. */
+    fun saveFoodMealItems(
+        scope: AccountScope,
+        date: String,
+        mealTime: String,
+        items: List<MealCompositionItem>
     ): String
 
     fun saveManualDiningOut(
