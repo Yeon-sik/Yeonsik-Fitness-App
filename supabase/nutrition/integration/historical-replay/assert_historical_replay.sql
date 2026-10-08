@@ -8,14 +8,13 @@ begin
     into v_versions
     from supabase_migrations.schema_migrations as m;
 
-    if cardinality(v_versions) <> 29 then
-        raise exception 'Historical replay expected 29 recovered migrations, got %', cardinality(v_versions);
+    if cardinality(v_versions) <> 28 then
+        raise exception 'Historical replay expected 28 recovered migrations, got %', cardinality(v_versions);
     end if;
     if not ('20260814065823' = any(v_versions)) then
         raise exception 'Historical Kaguri migration was not recorded';
     end if;
-    if not ('20260919120000' = any(v_versions))
-       or not ('20260922152608' = any(v_versions))
+    if not ('20260922152608' = any(v_versions))
        or not ('20260924132818' = any(v_versions)) then
         raise exception 'Recovered Nutrition migration history is incomplete';
     end if;
@@ -63,9 +62,9 @@ begin
 
     if to_regclass('public.nutrition_ocr_dining_out_publications') is not null
        or to_regprocedure('public.publish_verified_ocr_dining_out_nutrition_v1(text,uuid,text,uuid,uuid,uuid,uuid)') is not null then
-        raise exception 'A pending OCR publication migration ran during the 29-migration historical replay';
+        raise exception 'A pending OCR publication migration ran during the 28-migration historical replay';
     end if;
 end;
 $$;
 
-select 'PASS 29-migration historical replay and synthetic Kaguri repair' as result;
+select 'PASS 28-migration historical replay and synthetic Kaguri repair' as result;

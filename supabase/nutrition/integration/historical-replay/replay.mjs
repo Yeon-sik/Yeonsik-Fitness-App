@@ -17,10 +17,9 @@ const remote = [
   '20260809100000', '20260809120000', '20260810100000', '20260810110000',
   '20260810120000', '20260813151754', '20260814065526', '20260814065823',
   '20260814161910', '20260817120000', '20260817133000', '20260818143000',
-  '20260919120000', '20260920091249', '20260920091256', '20260920091306',
-  '20260920091315', '20260920091328', '20260920091342', '20260920091351',
-  '20260922152608', '20260924130855', '20260924131958', '20260924132515',
-  '20260924132818'
+  '20260920091249', '20260920091256', '20260920091306', '20260920091315',
+  '20260920091328', '20260920091342', '20260920091351', '20260922152608',
+  '20260924130855', '20260924131958', '20260924132515', '20260924132818'
 ];
 const pending = ['20260927120000', '20261002120000', '20261002130000'];
 const excluded = [
@@ -258,11 +257,11 @@ async function replay(label, final, kaguriId) {
     await sql(container, fixture);
 
     for (const version of remote.slice(11)) stage(version, project.migrationsDir);
-    console.log('Applying the remaining 18 recovered migrations through migration up --local');
+    console.log('Applying the remaining 17 recovered migrations through migration up --local');
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 20 * 60 * 1000 });
     await sql(container, readFileSync(path.join(replayDir, 'assert_historical_replay.sql'), 'utf8'));
     if (!final) {
-      console.log('PASS standalone 29-migration historical replay');
+      console.log('PASS standalone 28-migration historical replay');
       return;
     }
 
@@ -287,7 +286,7 @@ async function replay(label, final, kaguriId) {
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
     await sql(container, readFileSync(path.join(replayDir, 'assert_generic_v3_fix.sql'), 'utf8'));
     await canonicalIntegration(project, status, 'canonical-v3-contract-matrix');
-    console.log('PASS final fresh replay (29 recovered migrations plus all three pending migrations)');
+    console.log('PASS final fresh replay (28 recovered migrations plus all three pending migrations)');
   } finally {
     if (startAttempted) {
       try {
@@ -303,7 +302,7 @@ async function replay(label, final, kaguriId) {
 
 async function main() {
   const kaguriId = inventory();
-  console.log('Verified exactly 29 recovered migration files and 3 pending migration files.');
+  console.log('Verified exactly 28 recovered migration files and 3 pending migration files.');
   const fixture = readFileSync(path.join(replayDir, 'pre_20260814065823_kaguri.sql'), 'utf8');
   const selectorToken = '{{KAGURI_PRODUCT_UUID_FROM_HISTORICAL_SQL}}';
   if (fixture.split(selectorToken).length !== 2) {
