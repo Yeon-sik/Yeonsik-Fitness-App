@@ -139,6 +139,7 @@ internal fun AppTextField(
         modifier,
         label = label,
         singleLine = singleLine,
+        enabled = enabled,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions ?: KeyboardActions.Default,
         visualTransformation = visualTransformation,

@@ -49,7 +49,6 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
     override fun meals(scope: AccountScope, date: String): List<MealReadSummary> =
         mealDao.visibleMealReadRows(scope.ownerId, date)
             .mapIndexed { index, row -> row.toReadSummary(index) }
-            .sortedWith(compareBy<MealReadSummary> { it.mealTime == "시간 미기록" }.thenBy { it.mealTime })
 
     override fun mealSummaries(
         scope: AccountScope,
@@ -59,7 +58,6 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
         scope.ownerId, startDate, endDate
     ).groupBy { it.date }.values.flatMap { rows ->
         rows.mapIndexed { index, row -> row.toReadSummary(index) }
-            .sortedWith(compareBy<MealReadSummary> { it.mealTime == "시간 미기록" }.thenBy { it.mealTime })
     }
 
     override fun recordedDays(scope: AccountScope, startDate: String, endDate: String): Int =

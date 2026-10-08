@@ -85,6 +85,30 @@ class WorkoutPresentationTest {
         assertEquals("+25%", workoutSummaryChangeLabel(80.0, 100.0))
     }
 
+    @Test
+    fun exerciseVolumeComparisonShowsAbsoluteAndPercentChange() {
+        assertEquals(
+            "직전 대비 +100kg (+25%)",
+            workoutExerciseVolumeChangeLabel(400.0, 500.0, MassUnit.KG)
+        )
+        assertEquals(
+            "직전 대비 −100kg (-25%)",
+            workoutExerciseVolumeChangeLabel(400.0, 300.0, MassUnit.KG)
+        )
+        assertEquals(
+            "직전 대비 변화 없음",
+            workoutExerciseVolumeChangeLabel(400.0, 400.0, MassUnit.KG)
+        )
+        assertEquals(
+            "직전 대비 +100kg (신규)",
+            workoutExerciseVolumeChangeLabel(0.0, 100.0, MassUnit.KG)
+        )
+        assertEquals(
+            "이전 기록 없음",
+            workoutExerciseVolumeChangeLabel(null, 100.0, MassUnit.KG)
+        )
+    }
+
     private fun sessionExercise(
         id: String,
         order: Int,

@@ -6,7 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -29,7 +31,6 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitnessapp.core.ui.FitnessComposeTheme
 import com.yeonsik.fitnessapp.core.ui.FitnessRecordMarkerColors
-import com.yeonsik.fitnessapp.core.ui.FitnessUiTokens
 import com.yeonsik.fitnessapp.feature.records.ui.RecordsCalendarLegend
 import org.junit.Assert.*
 import org.junit.Rule

@@ -128,7 +128,11 @@ data class WorkoutSessionExercise(
     val completedSetCount: Int,
     val totalSetCount: Int,
     val completedSets: List<WorkoutSet> = emptyList(),
-    val primarySubPart: String? = null
+    val primarySubPart: String? = null,
+    /** Volume from completed sets, calculated with the session's existing volume formula. */
+    val totalVolumeKg: Double = 0.0,
+    /** Latest earlier completed volume for this exercise identity, when one exists. */
+    val previousTotalVolumeKg: Double? = null
 )
 
 data class WorkoutVolumePoint(

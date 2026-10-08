@@ -96,6 +96,7 @@ import com.yeonsik.fitnessapp.feature.development.ui.*
 import com.yeonsik.fitnessapp.feature.exercise.ui.*
 import com.yeonsik.fitnessapp.feature.home.ui.*
 import com.yeonsik.fitnessapp.feature.meal.ui.*
+import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionEditorState
 import com.yeonsik.fitnessapp.feature.records.ui.*
 import com.yeonsik.fitnessapp.feature.statistics.ui.*
 import com.yeonsik.fitnessapp.feature.routine.ui.*
@@ -1696,6 +1697,8 @@ private fun AppDestination(
         .observeAsState(PriceTraceUiState.Idle)
     val mealNutritionPublicationState by viewModels.getMeal().nutritionPublicationState
         .observeAsState(NutritionPublicationUiState())
+    val nutritionEditorState by viewModels.getMeal().nutritionEditor.uiState
+        .observeAsState(NutritionEditorState())
     val supplementState by viewModels.getSupplement().uiState
         .observeAsState(SupplementUiState.Idle)
     val exercisePickerState by viewModels.getExercisePicker().uiState
@@ -1845,6 +1848,8 @@ private fun AppDestination(
         override fun updateFoodQuantity(itemId: String, value: String) =
             viewModels.getMeal().updateFoodQuantity(itemId, value)
         override fun removeFood(itemId: String) = viewModels.getMeal().removeFood(itemId)
+        override fun updateDiningPortion(value: String) = viewModels.getMeal().updateDiningPortion(value)
+        override fun openNutritionEditor() = viewModels.getMeal().nutritionEditor.open()
         override fun updateTime(value: String) = viewModels.getMeal().updateTime(value)
         override fun saveFood() = viewModels.getMeal().saveFood(AccountScope(ownerId)) { }
         override fun openManualFood() = viewModels.getMeal().openManualFood()
@@ -1871,6 +1876,7 @@ private fun AppDestination(
             viewModels.getMeal().openNutritionPublication()
         override fun closeNutritionPublication() =
             viewModels.getMeal().closeNutritionPublication()
+        override fun createDiningOutMenu() = viewModels.getMeal().createDiningOutMenu()
         override fun selectNutritionPublicationMenu(foodId: String) =
             viewModels.getMeal().selectNutritionPublicationMenu(foodId)
         override fun syncNutritionPublicationCatalog() =
@@ -1881,6 +1887,8 @@ private fun AppDestination(
                 menuId,
                 catalogProductId
             )
+        override fun verifyNutritionMenu(locationId: String, menuId: String, catalogProductId: String) =
+            viewModels.getMeal().verifyNutritionMenuForPriceTraceSelection(locationId, menuId, catalogProductId)
         override fun proposeDiningMerchant(facts: com.yeonsik.fitnessapp.integration.nutrition.DiningMerchantFacts) =
             viewModels.getMeal().proposeDiningMerchant(facts)
         override fun proposeDiningMenu(locationId: String?, merchantCandidateId: String?, menuName: String) =
@@ -2316,7 +2324,10 @@ private fun AppDestination(
                 mealNutritionPublicationState,
                 ownerId,
                 today,
-                mealActions
+                mealActions,
+                nutritionEditorState = nutritionEditorState,
+                nutritionEditorActions = viewModels.getMeal().nutritionEditor,
+                onUseComposition = viewModels.getMeal()::useComposition
             )
             FitnessScreen.SUPPLEMENTS -> SupplementScreen(
                 supplementState,

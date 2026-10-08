@@ -38,7 +38,8 @@ internal fun workoutCompletionStatusLabel(completedAt: String?): String =
 
 internal data class WorkoutSetTableCell(
     val visibleValue: String,
-    val spokenValue: String
+    val spokenValue: String,
+    val isLoadValue: Boolean = false
 )
 
 internal data class WorkoutSetTableRows(
@@ -88,7 +89,11 @@ internal fun workoutSetTableRows(
             WorkoutSetTableCell(seconds, "${set.setIndex}세트, 시간 ${seconds}초")
         } else {
             val load = setLoadLabel(set, normalizedType, unit)
-            WorkoutSetTableCell(load, "${set.setIndex}세트, 부하 $load $unitSymbol")
+            WorkoutSetTableCell(
+                load,
+                "${set.setIndex}세트, 부하 $load $unitSymbol",
+                isLoadValue = true
+            )
         }
     }
     val lowerValues = sets.map { set ->
