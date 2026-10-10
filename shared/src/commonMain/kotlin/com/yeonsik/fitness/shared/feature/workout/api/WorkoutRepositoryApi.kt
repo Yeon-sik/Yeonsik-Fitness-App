@@ -67,6 +67,9 @@ interface WorkoutRepositoryApi {
         activeExerciseId: String?
     ): WorkoutExerciseDetail?
 
+    /** Reads completed history for an exact routine exercise without creating a session or set. */
+    fun loadRoutineExerciseHistory(scope: AccountScope, exercise: RoutineExerciseInstance): WorkoutExerciseDetail? = null
+
     /** Explicit entry initialization; never call this while rendering a view. */
     fun ensureInitialSet(scope: AccountScope, recordId: String, exerciseId: String): Boolean
 

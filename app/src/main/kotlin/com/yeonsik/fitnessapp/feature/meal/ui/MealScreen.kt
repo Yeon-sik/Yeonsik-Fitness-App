@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.feature.meal.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.toggleable
@@ -17,14 +18,18 @@ import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
@@ -70,6 +75,13 @@ interface MealScreenActions {
     fun updateFoodQuantity(itemId: String, value: String)
     fun removeFood(itemId: String)
     fun updateDiningPortion(value: String) {}
+    fun updateFoodConsumedPercent(itemId: String, value: String) {}
+    fun updateDiningConsumedPercent(value: String) {}
+    fun addDiningMenu() {}
+    fun startAnotherDiningMenu(menuId: String) {}
+    fun clearCurrentDiningMenu() {}
+    fun updateDiningMenu(menu: MealDiningDraftItem) {}
+    fun removeDiningMenu(menuId: String) {}
     fun openNutritionEditor() {}
     fun updateTime(value: String)
     fun saveFood()
@@ -149,17 +161,17 @@ internal fun MealScreen(
     val currentReady = (homeState as? HomeUiState.Ready)?.takeIf {
         it.snapshot.ownerId == ownerId && it.snapshot.today == today
     }
-    // History refresh must not dispose the editor's text fields or their IME connection.
-    var retainedReady by remember(ownerId, today) { mutableStateOf<HomeUiState.Ready?>(null) }
+    // Keep the last displayed layout across date loads, but never across account changes.
+    // Only a result matching the selected date may replace it or enable record actions.
+    var retainedReady by remember(ownerId) { mutableStateOf<HomeUiState.Ready?>(null) }
     SideEffect { if (currentReady != null) retainedReady = currentReady }
     val ready = currentReady ?: retainedReady
-    val editor = editorState as? MealUiState.Ready
-    var deleteTargetId by rememberSaveable { mutableStateOf<String?>(null) }
+    val editor = (editorState as? MealUiState.Ready)?.takeIf {
+        it.ownerId == ownerId && it.date == today
+    }
+    var deleteTargetId by rememberSaveable(ownerId, today) { mutableStateOf<String?>(null) }
 
     AppHeader("식단", back = actions::back)
-    if (homeState is HomeUiState.Loading || ready == null) {
-        Text("식단 기록을 불러오는 중입니다.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
     if (nutritionPublicationState.open && nutritionPublicationState.ownerId == ownerId) {
         NutritionPublicationDialog(
             state = nutritionPublicationState,
@@ -169,7 +181,12 @@ internal fun MealScreen(
     }
 
     val snapshot = ready?.snapshot
-    val totals = snapshot?.mealNutritionTotals?.get(today)
+    val totals = snapshot?.mealNutritionTotals?.get(snapshot.today)
+    val loadError = (homeState as? HomeUiState.Error)?.takeIf {
+        it.ownerId == ownerId && (it.date == null || it.date == today)
+    }
+    val loadingOverview = loadError == null && currentReady == null
+    val hideOverviewMetrics = loadingOverview || loadError != null
     val selectedDate = runCatching { LocalDate.parse(today) }.getOrNull()
     if (selectedDate != null) {
         val largeText = LocalDensity.current.fontScale >= 1.35f
@@ -219,33 +236,67 @@ internal fun MealScreen(
         ) { Text("오늘로 이동") }
     }
     Spacer(Modifier.height(AppSpacing.gap))
-    if (snapshot != null) MealOverviewGlassSurface {
+    MealOverviewGlassSurface(Modifier.testTag("meal-day-overview")) {
         Text(
             if (selectedDate == LocalDate.now()) "오늘의 식단" else "이날의 식단",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold
         )
-        MealDailyMetrics(
-            count = snapshot.todayMeals.size,
-            calories = totals?.total("calories_kcal")?.describedValue() ?: "?"
-        )
-        MealMacroMetrics(
-            carbs = totals?.total("carbs_grams")?.describedValue() ?: "?",
-            protein = totals?.total("protein_grams")?.describedValue() ?: "?",
-            fat = totals?.total("fat_grams")?.describedValue() ?: "?"
-        )
+        Box(Modifier.fillMaxWidth()) {
+            // Keep the normal, font-scale-aware metric layout as the loading placeholder's size.
+            // Hidden values must also be absent from accessibility while a date is loading.
+            Column(
+                Modifier.fillMaxWidth()
+                    .alpha(if (hideOverviewMetrics) 0f else 1f)
+                    .then(if (hideOverviewMetrics) Modifier.clearAndSetSemantics {} else Modifier),
+                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
+            ) {
+                MealDailyMetrics(
+                    count = snapshot?.todayMeals?.size ?: 0,
+                    calories = totals?.total("calories_kcal")?.describedValue() ?: "?"
+                )
+                MealMacroMetrics(
+                    carbs = totals?.total("carbs_grams")?.describedValue() ?: "?",
+                    protein = totals?.total("protein_grams")?.describedValue() ?: "?",
+                    fat = totals?.total("fat_grams")?.describedValue() ?: "?"
+                )
+            }
+            if (loadingOverview) {
+                Column(
+                    Modifier.matchParentSize().testTag("meal-day-overview-loading")
+                        .semantics {
+                            liveRegion = LiveRegionMode.Polite
+                            progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small, Alignment.CenterVertically)
+                ) {
+                    ThinkingOrb()
+                    Text("불러오는 중", style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else if (loadError != null) {
+                Text(
+                    "식단을 불러오지 못했습니다.",
+                    modifier = Modifier.align(Alignment.Center)
+                        .semantics { liveRegion = LiveRegionMode.Polite },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
     }
     Spacer(Modifier.height(AppSpacing.gap))
-    if (editor == null || editor.ownerId != ownerId || editor.date != today) {
-        Text("식단 입력을 준비하는 중입니다.")
-    } else if (!editor.editing) {
-        editor.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+    if (editor?.editing != true) {
+        editor?.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
+        val hasDraft = editor?.let(::hasMealRegistrationDraft) == true
         MealInputNotice(
-            if (hasMealRegistrationDraft(editor)) "작성 중인 식단이 있어요. 이어서 입력할 수 있어요."
+            if (hasDraft) "작성 중인 식단이 있어요. 이어서 입력할 수 있어요."
             else "먹은 음식과 양을 기록해 보세요."
         )
-        AppButton(onClick = actions::startDraft, Modifier.fillMaxWidth()) {
-            Text(if (hasMealRegistrationDraft(editor)) "작성 중인 식단 이어서" else "식단 기록하기")
+        AppButton(onClick = actions::startDraft, Modifier.fillMaxWidth(), enabled = editor != null) {
+            Text(if (hasDraft) "작성 중인 식단 이어서" else "식단 기록하기")
         }
     } else {
         MealEntryDialog(actions, editor, priceTraceState, mealLabel = "식단")
@@ -266,39 +317,70 @@ internal fun MealScreen(
     }
 
     Spacer(Modifier.height(AppSpacing.section))
-    Text("기록한 식단", style = MaterialTheme.typography.titleMedium,
-        fontWeight = FontWeight.SemiBold)
-    if (snapshot?.todayMeals.isNullOrEmpty()) {
-        MealInputNotice("아직 기록한 식단이 없어요. 위에서 첫 식단을 기록해 보세요.")
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Text("기록한 식단", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold)
+        Text(snapshot?.today ?: today, style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
-    snapshot?.todayMeals.orEmpty().forEach { meal ->
-        AppCard(Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(AppSpacing.card),
-                verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                Text(meal.previewTitle, style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold)
-                if (meal.compositionCount > 0 && !MealRecordKind.isDiningOut(meal.mealKind)) {
-                    Text("${meal.mealLabel} · 음식 ${meal.compositionCount}개",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+    val recordActionsEnabled = currentReady != null && editor != null &&
+        !editor.saving && !editor.recordActionSaving
+    Box(Modifier.fillMaxWidth().testTag("meal-record-history")) {
+        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+            if (snapshot == null) {
+                Spacer(Modifier.height(FitnessSpacing.touch))
+            } else if (snapshot.todayMeals.isEmpty()) {
+                MealInputNotice("아직 기록한 식단이 없어요. 위에서 첫 식단을 기록해 보세요.")
+            }
+            snapshot?.todayMeals.orEmpty().forEach { meal ->
+                key(meal.id) {
+                    AppCard(Modifier.fillMaxWidth().testTag("meal-record-${meal.id}")) {
+                        Column(Modifier.padding(AppSpacing.card),
+                            verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                            Text(meal.previewTitle, style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold)
+                            if (meal.compositionCount > 0 && !MealRecordKind.isDiningOut(meal.mealKind)) {
+                                Text("${meal.mealLabel} · 음식 ${meal.compositionCount}개",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Text(meal.previewSubtitle(), style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams}g",
+                                style = MaterialTheme.typography.bodyMedium)
+                            Row(Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+                                AppOutlinedButton(
+                                    onClick = { actions.editMeal(meal) },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = meal.timeEditable && recordActionsEnabled
+                                ) { Text("수정") }
+                                AppOutlinedButton(
+                                    onClick = { deleteTargetId = meal.id },
+                                    modifier = Modifier.weight(1f),
+                                    enabled = recordActionsEnabled,
+                                    destructive = true
+                                ) { Text("삭제") }
+                            }
+                        }
+                    }
                 }
-                Text(meal.previewSubtitle(), style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("${meal.calories} kcal · 단백질 ${meal.proteinGrams}g",
-                    style = MaterialTheme.typography.bodyMedium)
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                    AppOutlinedButton(
-                        onClick = { actions.editMeal(meal) },
-                        modifier = Modifier.weight(1f),
-                        enabled = meal.timeEditable && editor?.saving != true && editor?.recordActionSaving != true
-                    ) { Text("수정") }
-                    AppOutlinedButton(
-                        onClick = { deleteTargetId = meal.id },
-                        modifier = Modifier.weight(1f),
-                        enabled = editor?.saving != true && editor?.recordActionSaving != true,
-                        destructive = true
-                    ) { Text("삭제") }
+            }
+        }
+        if (hideOverviewMetrics) {
+            Box(Modifier.matchParentSize().testTag("meal-record-history-pending")
+                .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.45f)),
+                contentAlignment = Alignment.Center) {
+                Surface(shape = FitnessShape.card, color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f)) {
+                    Text(
+                        if (loadError != null) "$today 식단을 불러오지 못했습니다."
+                        else "$today 식단 불러오는 중",
+                        Modifier.padding(AppSpacing.small).semantics { liveRegion = LiveRegionMode.Polite },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (loadError != null) MaterialTheme.colorScheme.error
+                            else MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center
+                    )
                 }
             }
         }
@@ -310,7 +392,8 @@ internal fun MealScreen(
         enabled = editor?.saving != true
     ) { Text("외식 영양정보 연결 · 공개") }
 
-    val deleteTarget = deleteTargetId?.let { id -> snapshot?.todayMeals?.firstOrNull { it.id == id } }
+    val deleteTarget = deleteTargetId?.takeIf { recordActionsEnabled }
+        ?.let { id -> currentReady?.snapshot?.todayMeals?.firstOrNull { it.id == id } }
     if (deleteTarget != null) {
         AlertDialog(
             onDismissRequest = { deleteTargetId = null },
@@ -400,19 +483,9 @@ private fun MealMacroMetric(label: String, value: String, modifier: Modifier = M
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready) {
     val focusManager = LocalFocusManager.current
-    var addingFood by rememberSaveable(editor.ownerId, editor.date) {
-        mutableStateOf(false)
-    }
-    val lastFoodRequester = remember { BringIntoViewRequester() }
-    val searchRequester = remember { BringIntoViewRequester() }
-    val lastFoodId = editor.foodItems.lastOrNull()?.id
-    LaunchedEffect(lastFoodId, addingFood) {
-        if (lastFoodId != null && !addingFood) lastFoodRequester.bringIntoView()
-        if (addingFood) searchRequester.bringIntoView()
-    }
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         Text("한 끼에 먹은 음식", style = MaterialTheme.typography.titleMedium)
-        MealInputNotice("밥, 반찬, 음료를 함께 담으세요. 음식마다 먹은 양을 바꿀 수 있어요.")
+        MealInputNotice("밥, 반찬, 음료를 함께 담으세요. 음식마다 전체 양과 먹은 비율을 따로 입력하세요.")
         AppOutlinedButton(
             onClick = actions::openNutritionEditor,
             modifier = Modifier.fillMaxWidth(),
@@ -428,41 +501,25 @@ internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Read
             ManualFoodEditor(editor.manualFoodDraft, actions::updateManualFood,
                 actions::saveManualFood, actions::closeManualFood, editor.saving, editor.error)
         } else {
-        editor.foodItems.forEach { item ->
-            key(item.id) {
-                MealFoodDraftCard(
-                    item = item,
-                    onQuantityChange = { actions.updateFoodQuantity(item.id, it) },
-                    onRemove = { focusManager.clearFocus(); actions.removeFood(item.id) },
-                    enabled = !editor.saving,
-                    modifier = if (item.id == lastFoodId) {
-                        Modifier.fillMaxWidth().bringIntoViewRequester(lastFoodRequester)
-                    } else Modifier.fillMaxWidth()
-                )
-            }
+        // Keep search before the growing selection so adding foods preserves its position.
+        MealCatalogSearch(actions, editor, Modifier.fillMaxWidth())
+        if (editor.foodPortions.isNotEmpty()) {
+            Text("담은 식품 ${editor.foodPortions.size}개", style = MaterialTheme.typography.titleMedium)
         }
-        if (editor.foodItems.isNotEmpty()) {
-            AppOutlinedButton(
-                onClick = { addingFood = !addingFood; focusManager.clearFocus(); if (addingFood) actions.searchFood("") },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !editor.saving
-            ) { Text(if (addingFood) "음식 검색 닫기" else "음식 더 담기") }
-        }
-        if (editor.foodItems.isEmpty() || addingFood) {
-            MealFoodSearch(
-                editor = editor,
-                onSearch = actions::searchFood,
-                onSelect = {
-                    addingFood = false
-                    actions.selectFood(it)
-                },
-                modifier = Modifier.fillMaxWidth().bringIntoViewRequester(searchRequester)
-            )
-        }
+        FoodPortionList(editor.foodPortions, actions::updateFoodQuantity,
+            onRemove = { focusManager.clearFocus(); actions.removeFood(it) },
+            modifier = Modifier.fillMaxWidth().testTag("meal-food-portions"), enabled = !editor.saving, amountLabel = "전체 양",
+            itemContent = { portion ->
+                val item = mealFoodItems(editor).first { it.food.id == portion.food.id }
+                MealConsumedPercentControl(item.consumedPercent, { actions.updateFoodConsumedPercent(item.id, it) },
+                    enabled = !editor.saving, tag = "meal-food-percent-${portion.food.id}")
+                val calories = mealFoodNutritionTotals(listOf(item)).total(NutritionProfile.CALORIES_KCAL)
+                Text("실제 섭취 · ${nutritionTotalText(calories)} kcal", style = MaterialTheme.typography.bodyMedium)
+            })
         mealDraftNutritionTotals(editor.foodItems)?.let { totals ->
             AppCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(AppSpacing.card), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                    Text("한 끼 합계 · 음식 ${editor.foodItems.size}개", style = MaterialTheme.typography.titleSmall)
+                    Text("섭취 합계 · 음식 ${editor.foodItems.size}개", style = MaterialTheme.typography.titleSmall)
                     Text(NutritionCalculator.describeTotal(totals.total(NutritionProfile.CALORIES_KCAL)) + " kcal",
                         style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                     listOf(
@@ -561,35 +618,40 @@ internal fun DiningOutEditor(
     val selectedMenuRequester = remember { BringIntoViewRequester() }
     val manualEntryRequester = remember { BringIntoViewRequester() }
     val compositionScope = rememberCoroutineScope()
-    LaunchedEffect(editor.selectedFood?.id) {
-        if (editor.selectedFood != null) selectedMenuRequester.bringIntoView()
-    }
     val nutritionError = diningOutRegistrationError(draft)
     val portionError = if (editor.diningPortion.trim().toDoubleOrNull()
         ?.let { it.isFinite() && it > 0.0 } == true) null else "먹은 양을 0보다 큰 숫자로 입력하세요."
     val saveHint = nutritionError ?: mealTimeError(draft.time) ?: portionError
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
-        MealInputNotice("먹은 메뉴와 영양정보를 입력하세요. 저장된 메뉴를 고르면 입력값이 채워져요.")
+        MealInputNotice("한 가게에서 먹은 메뉴를 여러 개 담을 수 있어요. 메뉴마다 영양정보와 먹은 비율을 입력하세요.")
         SavedDiningOutMenuPicker(actions, editor, selectedMenuRequester)
         AppOutlinedButton(
             onClick = { controls.showPriceTrace = !controls.showPriceTrace },
             modifier = Modifier.fillMaxWidth(),
             enabled = !editor.saving
-        ) { Text(if (controls.showPriceTrace) "식당 목록 닫기" else "식당·메뉴 목록에서 선택") }
-        if (controls.showPriceTrace) PriceTraceDiningOutPicker(actions, editor, priceTraceState)
-        Text("먹은 메뉴", style = MaterialTheme.typography.titleSmall)
+        ) { Text(if (controls.showPriceTrace) "식당 목록 닫기" else "식당 · 메뉴 검색") }
+        if (controls.showPriceTrace) PriceTraceDiningOutPicker(actions, editor, priceTraceState, controls)
+        DiningMenuDraftList(editor.diningMenus, actions::updateDiningMenu, actions::removeDiningMenu, enabled = !editor.saving,
+            onAddAtStore = { menuId ->
+                actions.startAnotherDiningMenu(menuId)
+                compositionScope.launch { withFrameNanos { }; manualEntryRequester.bringIntoView() }
+            })
+        Text("추가할 메뉴", style = MaterialTheme.typography.titleSmall)
         AppTextField(draft.store, actions::updateStore, Modifier.fillMaxWidth(), { Text("상호명 (필수)") },
             enabled = !editor.saving,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next))
         AppTextField(draft.branch, actions::updateBranch, Modifier.fillMaxWidth(), { Text("지점명 (선택)") },
             enabled = !editor.saving,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next))
-        AppTextField(draft.menu, actions::updateMenu, Modifier.fillMaxWidth(), { Text("먹은 메뉴 (필수)") },
+        AppTextField(draft.menu, actions::updateMenu, Modifier.fillMaxWidth().bringIntoViewRequester(manualEntryRequester)
+            .testTag("meal-dining-menu-name"), { Text("먹은 메뉴 (필수)") },
             enabled = !editor.saving,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done))
-        Text("먹은 양과 1인분 영양정보", style = MaterialTheme.typography.titleSmall)
-        MealInputNotice("영양정보는 1인분 기준으로 입력하세요. 먹은 양을 바꾸면 끼니 합계가 자동 계산돼요.")
-        MealNutritionField(editor.diningPortion, actions::updateDiningPortion, "먹은 양", "인분", Modifier.fillMaxWidth(), !editor.saving)
+        Text("전체 양과 1인분 영양정보", style = MaterialTheme.typography.titleSmall)
+        MealInputNotice("영양정보는 1인분을 모두 먹었을 때(100%) 기준으로 입력하세요. 전체 양과 먹은 비율에 맞춰 섭취 합계가 자동 계산돼요.")
+        MealNutritionField(editor.diningPortion, actions::updateDiningPortion, "전체 양", "인분", Modifier.fillMaxWidth(), !editor.saving)
+        MealConsumedPercentControl(editor.diningConsumedPercent, actions::updateDiningConsumedPercent,
+            enabled = !editor.saving, tag = "meal-dining-current-percent")
         if (portionError != null) MealInputNotice(portionError)
         MealNutritionField(draft.calories, actions::updateCalories, "칼로리", "kcal", Modifier.fillMaxWidth(), !editor.saving)
         MealNutritionField(draft.carbs, actions::updateCarbs, "탄수화물", "g", Modifier.fillMaxWidth(), !editor.saving)
@@ -613,7 +675,12 @@ internal fun DiningOutEditor(
             modifier = Modifier.fillMaxWidth(),
             enabled = !editor.saving && nutritionError == null
         ) { Text("다음에도 쓸 메뉴로 저장") }
-        MealInputNotice("메뉴 저장은 음식 목록에만 추가돼요. 먹은 기록은 ‘외식 저장’을 눌러 주세요.")
+        AppButton(actions::addDiningMenu, Modifier.fillMaxWidth().testTag("meal-dining-add"),
+            enabled = !editor.saving && diningMenuRegistrationError(currentDiningMenu(editor)) == null) { Text("이 메뉴를 끼니에 담기") }
+        if (hasCurrentDiningMenu(editor)) {
+            AppOutlinedButton(actions::clearCurrentDiningMenu, Modifier.fillMaxWidth(), enabled = !editor.saving) { Text("입력 중인 메뉴 취소") }
+        }
+        MealInputNotice("메뉴마다 영양정보와 먹은 비율을 입력해 담으세요. 아래 기록하기를 누르면 한 끼로 저장됩니다.")
     }
 }
 
@@ -631,12 +698,7 @@ private fun SavedDiningOutMenuPicker(
         enabled = !editor.saving
     ) { Text(if (choosingMenu) "저장된 메뉴 목록 닫기" else "저장된 메뉴에서 선택") }
     if (choosingMenu) {
-        MealFoodSearch(
-            editor = editor,
-            onSearch = actions::searchFood,
-            onSelect = { choosingMenu = false; actions.useDiningOutFood(it) },
-            modifier = Modifier.fillMaxWidth()
-        )
+        MealCatalogSearch(actions, editor, Modifier.fillMaxWidth())
     }
     editor.selectedFood?.let { food ->
         AppCard(Modifier.fillMaxWidth().bringIntoViewRequester(requester)) {
@@ -662,58 +724,6 @@ private fun MealSearchStatus(editor: MealUiState.Ready) {
     }
     message?.let { Text(it, style = MaterialTheme.typography.bodyMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant) }
-}
-
-@Composable
-private fun PriceTraceDiningOutPicker(
-    actions: MealScreenActions,
-    editor: MealUiState.Ready,
-    priceTraceState: PriceTraceUiState
-) {
-    val state = priceTraceState as? PriceTraceUiState.Ready
-    val query = state?.query ?: editor.priceTraceQuery
-
-    AppTextField(query, actions::updatePriceTraceQuery, Modifier.fillMaxWidth(),
-        label = { Text("식당 검색") }, enabled = !editor.saving,
-        placeholder = { Text("상호명으로 검색") })
-    AppButton(
-        onClick = actions::searchPriceTraceRestaurants,
-        enabled = query.isNotBlank() && state?.loading != true && !editor.saving,
-        modifier = Modifier.fillMaxWidth()
-    ) { Text("검색") }
-    if (state?.loading == true) Text("PriceTrace 정보를 불러오는 중입니다.")
-    state?.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-    state?.restaurants.orEmpty().forEach { restaurant ->
-        AppOutlinedButton(
-            onClick = { actions.loadPriceTraceRestaurant(restaurant.restaurantId) },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = state?.loading != true && !editor.saving
-        ) { Text(restaurant.restaurantName) }
-    }
-    state?.detail?.let { restaurant ->
-        Text("${restaurant.restaurantName} 메뉴", fontWeight = FontWeight.Bold)
-        restaurant.menus.forEach { menu ->
-            restaurant.locations.forEach { location ->
-                AppOutlinedButton(
-                    onClick = {
-                        actions.applyPriceTraceSelection(
-                            restaurant.restaurantId,
-                            restaurant.restaurantName,
-                            location.restaurantLocationId,
-                            location.branchName,
-                            menu.restaurantMenuId,
-                            menu.menuName,
-                            menu.catalogProductId
-                        )
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    enabled = state?.loading != true && !editor.saving
-                ) {
-                    Text("${restaurant.restaurantName} · ${location.branchName.ifBlank { "본점" }} · ${menu.menuName}")
-                }
-            }
-        }
-    }
 }
 
 

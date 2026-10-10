@@ -14,6 +14,7 @@ import com.yeonsik.fitnessapp.exercise.RuntimeExerciseCatalog
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePicker
 import com.yeonsik.fitnessapp.exercise.RuntimeExercisePreset
 import com.yeonsik.fitnessapp.exercise.UiEquipmentCategory
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseSelectionIdentity
 import com.yeonsik.fitnessapp.feature.exercise.api.ExerciseMasterRepositoryApi
 import com.yeonsik.fitness.shared.feature.routine.api.RoutineRepositoryApi
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
@@ -40,11 +41,23 @@ sealed interface ExercisePickerUiState {
         val families: List<RuntimeExercisePicker.FamilyResult>,
         val availablePrimarySubParts: List<ExercisePickerSubPartOption>,
         val selectedFamilyId: String?,
-        val selectedPresetId: String?
+        val selectedPresetId: String?,
+        val unavailableExercises: Set<WorkoutExerciseSelectionIdentity> = emptySet(),
+        val isSaving: Boolean = false,
+        val selectionError: String? = null,
+        val pendingPresets: List<RuntimeExercisePreset> = emptyList()
     ) : ExercisePickerUiState {
         /** Compatibility projection for existing callers; family grouping remains canonical. */
         val presets: List<RuntimeExercisePreset>
             get() = families.flatMap { it.presets }
+
+        fun isAlreadyAdded(preset: RuntimeExercisePreset): Boolean =
+            WorkoutExerciseSelectionIdentity.from(
+                ExerciseMasterAdapter.toWorkoutExerciseReplacement(preset)
+            ) in unavailableExercises
+
+        fun isPending(preset: RuntimeExercisePreset): Boolean =
+            pendingPresets.any { it.identityId() == preset.identityId() }
     }
 
     data class Saved(
@@ -98,6 +111,10 @@ class ExercisePickerViewModel @JvmOverloads constructor(
     private var picker: RuntimeExercisePicker? = null
     private var recentByPreset: Map<String, String> = emptyMap()
     private var availableSubParts: List<ExercisePickerSubPartOption> = emptyList()
+    private var unavailableExercises: Set<WorkoutExerciseSelectionIdentity> = emptySet()
+    private var savingSelection = false
+    private var selectionError: String? = null
+    private var pendingPresets: List<RuntimeExercisePreset> = emptyList()
 
     /**
      * Enters the existing route with an explicit selection contract. The default keeps callers
@@ -122,6 +139,9 @@ class ExercisePickerViewModel @JvmOverloads constructor(
             routineId = routineId
         )
         val token = requestGate.begin(key)
+        val restoredPendingIds = if (savedStateHandle.get<String>(KEY_SELECTION_TARGET) == key.toString()) {
+            savedStateHandle.get<ArrayList<String>>(KEY_PENDING_PRESET_IDS).orEmpty()
+        } else emptyList()
         synchronized(lock) {
             currentKey = key
             currentToken = token
@@ -155,6 +175,10 @@ class ExercisePickerViewModel @JvmOverloads constructor(
             picker = null
             recentByPreset = emptyMap()
             availableSubParts = emptyList()
+            unavailableExercises = emptySet()
+            savingSelection = false
+            selectionError = null
+            pendingPresets = emptyList()
         }
         savedStateHandle[KEY_MODE] = mode.name
         savedStateHandle[KEY_SELECTION_MODE] = selectionMode.name
@@ -168,12 +192,20 @@ class ExercisePickerViewModel @JvmOverloads constructor(
             try {
                 val catalog = masterRepository.runtimeCatalog()
                 val recent = workoutRepository.lastPerformedAtByCanonicalPreset(scope).toMap()
+                val unavailable = loadUnavailableExercises(scope, selectionMode, recordId, normalizedReplacementId)
                 synchronized(lock) {
                     if (requestGate.accepts(token, key)) {
                         loaded = true
                         picker = RuntimeExercisePicker(catalog)
                         recentByPreset = recent
                         availableSubParts = primarySubPartOptions(catalog)
+                        unavailableExercises = unavailable
+                        pendingPresets = if (selectionMode.isAddition) restoredPendingIds
+                            .mapNotNull(catalog::preset)
+                            .distinctBy { it.identityId() }
+                            .filter { WorkoutExerciseSelectionIdentity.from(
+                                ExerciseMasterAdapter.toWorkoutExerciseReplacement(it)) !in unavailable }
+                            else emptyList()
                     }
                 }
                 postReadyIfCurrent(token, key)
@@ -292,6 +324,9 @@ class ExercisePickerViewModel @JvmOverloads constructor(
                 it.family.familyId == familyId
             } ?: return
             val preset = result.presets.firstOrNull { it.presetId == presetId } ?: return
+            if (savingSelection || WorkoutExerciseSelectionIdentity.from(
+                    ExerciseMasterAdapter.toWorkoutExerciseReplacement(preset)
+                ) in unavailableExercises) return
             selectedFamilyId = result.family.familyId
             selectedPresetId = preset.presetId
             saveSelectionLocked()
@@ -342,8 +377,12 @@ class ExercisePickerViewModel @JvmOverloads constructor(
     }
 
     fun choose(preset: RuntimeExercisePreset) {
+        if (synchronized(lock) { currentSelectionMode.isAddition }) {
+            queuePreset(preset)
+            return
+        }
         val choice = synchronized(lock) {
-            if (!loaded || picker == null || currentKey == null || currentScope == null) {
+            if (!loaded || picker == null || currentKey == null || currentScope == null || savingSelection) {
                 return
             }
             val result = currentResultsLocked().firstOrNull { result ->
@@ -355,9 +394,14 @@ class ExercisePickerViewModel @JvmOverloads constructor(
             val canonicalPreset = result.presets.firstOrNull { it.presetId == preset.presetId }
                 ?: result.presets.firstOrNull { it.identityId() == preset.identityId() }
                 ?: return
+            if (WorkoutExerciseSelectionIdentity.from(
+                    ExerciseMasterAdapter.toWorkoutExerciseReplacement(canonicalPreset)
+                ) in unavailableExercises) return
             selectedFamilyId = result.family.familyId
             selectedPresetId = canonicalPreset.presetId
             saveSelectionLocked()
+            savingSelection = true
+            selectionError = null
             PickerChoice(
                 token = currentToken,
                 key = currentKey!!,
@@ -408,7 +452,16 @@ class ExercisePickerViewModel @JvmOverloads constructor(
                 if (saved) {
                     postSavedIfCurrent(choice)
                 } else {
-                    postErrorIfCurrent(choice, "운동 종목을 저장하지 못했습니다.")
+                    val unavailable = loadUnavailableExercises(choice.scope, choice.selectionMode,
+                        choice.recordId, choice.replacementId)
+                    val alreadyAdded = WorkoutExerciseSelectionIdentity.from(
+                        ExerciseMasterAdapter.toWorkoutExerciseReplacement(choice.preset!!)
+                    ) in unavailable
+                    synchronized(lock) {
+                        if (requestGate.accepts(choice.token, choice.key)) unavailableExercises = unavailable
+                    }
+                    postErrorIfCurrent(choice, if (alreadyAdded) "이미 추가된 운동입니다."
+                        else "운동 종목을 저장하지 못했습니다.")
                 }
             } catch (error: Exception) {
                 postErrorIfCurrent(
@@ -419,19 +472,127 @@ class ExercisePickerViewModel @JvmOverloads constructor(
         }
     }
 
+    private fun queuePreset(preset: RuntimeExercisePreset) {
+        synchronized(lock) {
+            if (!loaded || savingSelection || !currentSelectionMode.isAddition) return
+            val canonical = currentResultsLocked().flatMap { it.presets }
+                .firstOrNull { it.identityId() == preset.identityId() } ?: return
+            val identity = WorkoutExerciseSelectionIdentity.from(
+                ExerciseMasterAdapter.toWorkoutExerciseReplacement(canonical))
+            if (identity in unavailableExercises || pendingPresets.any { it.identityId() == canonical.identityId() }) return
+            pendingPresets = pendingPresets + canonical
+            selectedPresetId = null
+            selectionError = null
+        }
+        publishCurrentIfLoaded()
+    }
+
+    fun removePendingPreset(presetId: String) {
+        synchronized(lock) {
+            if (savingSelection) return
+            pendingPresets = pendingPresets.filterNot { it.presetId == presetId }
+        }
+        publishCurrentIfLoaded()
+    }
+
+    fun confirmPendingSelection() {
+        val choices = synchronized(lock) {
+            if (!loaded || savingSelection || !currentSelectionMode.isAddition ||
+                pendingPresets.isEmpty() || currentKey == null || currentScope == null) return
+            savingSelection = true
+            selectionError = null
+            pendingPresets.map { preset -> PickerChoice(currentToken, currentKey!!, currentScope!!,
+                currentSelectionMode, currentRecordId, null, currentRoutineId, preset) }
+        }
+        publishCurrentIfLoaded()
+        executor.execute {
+            val savedIds = mutableSetOf<String>()
+            val first = choices.first()
+            var message: String? = null
+            try {
+                val routineId = if (first.selectionMode == ExercisePickerSelectionMode.ROUTINE_ADD)
+                    first.routineId ?: routineRepository.activeRoutineId(first.scope) else null
+                for (choice in choices) {
+                    if (!requestGate.accepts(choice.token, choice.key)) return@execute
+                    val preset = choice.preset!!
+                    val saved = when (choice.selectionMode) {
+                        ExercisePickerSelectionMode.ROUTINE_ADD -> routineRepository.addExercise(
+                            choice.scope, requireNotNull(routineId), ExerciseMasterAdapter.toRoutineExerciseDraft(preset))
+                        ExercisePickerSelectionMode.WORKOUT_ADD -> choice.recordId?.let {
+                            workoutRepository.addExercise(choice.scope, it,
+                                ExerciseMasterAdapter.toWorkoutExerciseReplacement(preset))
+                        } ?: false
+                        else -> false
+                    }
+                    if (!saved) {
+                        message = "${preset.displayName()}을(를) 추가하지 못했습니다. 목록을 확인한 뒤 다시 시도하세요."
+                        break
+                    }
+                    savedIds += preset.presetId
+                }
+            } catch (error: Exception) {
+                message = error.message ?: "운동 종목을 추가하지 못했습니다."
+            }
+            val unavailable = try {
+                loadUnavailableExercises(first.scope, first.selectionMode, first.recordId, null)
+            } catch (_: Exception) {
+                synchronized(lock) { unavailableExercises }
+            }
+            val failureMessage = message
+            mainHandler.post {
+                if (!requestGate.accepts(first.token, first.key)) return@post
+                synchronized(lock) {
+                    pendingPresets = pendingPresets.filterNot { it.presetId in savedIds }
+                    unavailableExercises = unavailable
+                    saveSelectionLocked()
+                }
+                if (failureMessage == null) {
+                    postSavedIfCurrent(first)
+                } else {
+                    postErrorIfCurrent(first, failureMessage)
+                }
+            }
+        }
+    }
+
     fun chooseManual(exercise: ManualWorkoutExercise) {
         val choice = synchronized(lock) {
             if (!loaded || currentSelectionMode != ExercisePickerSelectionMode.WORKOUT_ADD ||
-                currentKey == null || currentScope == null || currentRecordId == null) return
+                currentKey == null || currentScope == null || currentRecordId == null || savingSelection) return
+            savingSelection = true
+            selectionError = null
             PickerChoice(currentToken, currentKey!!, currentScope!!, currentSelectionMode,
                 currentRecordId, null, null, null)
         }
+        publishCurrentIfLoaded()
         executor.execute {
             if (!requestGate.accepts(choice.token, choice.key)) return@execute
             try {
                 if (workoutRepository.addManualExercise(choice.scope, choice.recordId!!, exercise)) {
-                    postSavedIfCurrent(choice)
-                } else postErrorIfCurrent(choice, "수동 운동을 추가하지 못했습니다.")
+                    if (synchronized(lock) { pendingPresets.isEmpty() }) {
+                        postSavedIfCurrent(choice)
+                    } else {
+                        val unavailable = loadUnavailableExercises(choice.scope, choice.selectionMode,
+                            choice.recordId, choice.replacementId)
+                        mainHandler.post {
+                            if (!requestGate.accepts(choice.token, choice.key)) return@post
+                            synchronized(lock) {
+                                unavailableExercises = unavailable
+                                savingSelection = false
+                            }
+                            publishCurrentIfLoaded()
+                        }
+                    }
+                } else {
+                    val unavailable = loadUnavailableExercises(choice.scope, choice.selectionMode,
+                        choice.recordId, choice.replacementId)
+                    val alreadyAdded = WorkoutExerciseSelectionIdentity.from(exercise.toReplacement()) in unavailable
+                    synchronized(lock) {
+                        if (requestGate.accepts(choice.token, choice.key)) unavailableExercises = unavailable
+                    }
+                    postErrorIfCurrent(choice, if (alreadyAdded) "같은 이름과 기록 방식의 운동이 이미 추가되어 있습니다."
+                        else "수동 운동을 추가하지 못했습니다.")
+                }
             } catch (error: Exception) {
                 postErrorIfCurrent(choice, error.message ?: "수동 운동을 추가하지 못했습니다.")
             }
@@ -450,7 +611,11 @@ class ExercisePickerViewModel @JvmOverloads constructor(
         val validFamily = results.firstOrNull { it.family.familyId == selectedFamilyId }
         val validFamilyId = validFamily?.family?.familyId
         val validPresetId = selectedPresetId?.takeIf { presetId ->
-            validFamily?.presets?.any { it.presetId == presetId } == true
+            validFamily?.presets?.any {
+                it.presetId == presetId && WorkoutExerciseSelectionIdentity.from(
+                    ExerciseMasterAdapter.toWorkoutExerciseReplacement(it)
+                ) !in unavailableExercises
+            } == true
         }
         if (validFamilyId == null) {
             selectedFamilyId = null
@@ -474,8 +639,30 @@ class ExercisePickerViewModel @JvmOverloads constructor(
             families = results,
             availablePrimarySubParts = availableSubParts,
             selectedFamilyId = selectedFamilyId,
-            selectedPresetId = selectedPresetId
+            selectedPresetId = selectedPresetId,
+            unavailableExercises = unavailableExercises,
+            isSaving = savingSelection,
+            selectionError = selectionError,
+            pendingPresets = pendingPresets.toList()
         )
+    }
+
+    private fun loadUnavailableExercises(
+        scope: AccountScope,
+        selectionMode: ExercisePickerSelectionMode,
+        recordId: String?,
+        replacementId: String?
+    ): Set<WorkoutExerciseSelectionIdentity> {
+        if (recordId == null || selectionMode !in setOf(
+                ExercisePickerSelectionMode.WORKOUT_ADD, ExercisePickerSelectionMode.WORKOUT_REPLACE
+            )) return emptySet()
+        val session = checkNotNull(workoutRepository.loadSession(scope, recordId)) {
+            "운동 세션을 찾지 못했습니다."
+        }
+        return session.exercises
+            .filter { it.id != replacementId }
+            .map { WorkoutExerciseSelectionIdentity.from(it.exerciseId, it.name, it.recordType, it.familyIdentity) }
+            .toSet()
     }
 
     private fun currentResultsLocked(): List<RuntimeExercisePicker.FamilyResult> =
@@ -500,6 +687,7 @@ class ExercisePickerViewModel @JvmOverloads constructor(
     private fun saveSelectionLocked() {
         savedStateHandle[KEY_SELECTED_FAMILY_ID] = selectedFamilyId
         savedStateHandle[KEY_SELECTED_PRESET_ID] = selectedPresetId
+        savedStateHandle[KEY_PENDING_PRESET_IDS] = ArrayList(pendingPresets.map { it.presetId })
     }
 
     private fun postReadyIfCurrent(token: Long, key: ExercisePickerRequestKey) {
@@ -552,12 +740,12 @@ class ExercisePickerViewModel @JvmOverloads constructor(
     private fun postErrorIfCurrent(choice: PickerChoice, message: String) {
         mainHandler.post {
             if (!requestGate.accepts(choice.token, choice.key)) return@post
-            mutableState.value = ExercisePickerUiState.Error(
-                choice.scope.ownerId,
-                choice.key.screen,
-                choice.selectionMode,
-                message
-            )
+            val next = synchronized(lock) {
+                savingSelection = false
+                selectionError = message
+                readyStateLocked()
+            }
+            mutableState.value = next
         }
     }
 
@@ -591,6 +779,7 @@ class ExercisePickerViewModel @JvmOverloads constructor(
         const val KEY_SELECTION_TARGET = "exercise_picker.selection_target"
         const val KEY_SELECTED_FAMILY_ID = "exercise_picker.selected_family_id"
         const val KEY_SELECTED_PRESET_ID = "exercise_picker.selected_preset_id"
+        const val KEY_PENDING_PRESET_IDS = "exercise_picker.pending_preset_ids"
 
         fun equipmentCategoryOrNull(value: String): UiEquipmentCategory? =
             UiEquipmentCategory.values().firstOrNull { it.name == value }

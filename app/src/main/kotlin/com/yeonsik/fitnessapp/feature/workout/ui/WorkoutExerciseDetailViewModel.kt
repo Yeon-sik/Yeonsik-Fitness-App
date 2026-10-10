@@ -77,7 +77,13 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
             readOnly
         )
         activeRequest = request
-        mutableState.value = WorkoutExerciseDetailUiState.Loading
+        val previous = (mutableState.value as? WorkoutExerciseDetailUiState.Ready)?.takeIf {
+            it.ownerId == scope.ownerId && it.detail.recordId == recordId &&
+                it.detail.activeExercise.id == activeExerciseId && it.readOnly == readOnly
+        }
+        // A set write refreshes this occurrence in place. Loading would dispose its
+        // image, editors and focus even though the user has not left the screen.
+        if (previous == null) mutableState.value = WorkoutExerciseDetailUiState.Loading
         executor.execute {
             try {
                 var detail = repository.loadExerciseDetail(scope, recordId, activeExerciseId)
@@ -97,9 +103,20 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
                     publishIfCurrent(request, WorkoutExerciseDetailUiState.Missing(scope.ownerId, recordId))
                 } else {
                     savedStateHandle[KEY_EXERCISE_ID] = detail.activeExercise.id
+                    val refreshed = previous?.detail?.let { old ->
+                        val oldSets = old.sets.associateBy { it.id }
+                        detail.copy(
+                            activeExercise = old.activeExercise.takeIf { it == detail.activeExercise }
+                                ?: detail.activeExercise,
+                            exercises = old.exercises.takeIf { it == detail.exercises } ?: detail.exercises,
+                            sets = detail.sets.map { set -> oldSets[set.id]?.takeIf { it == set } ?: set },
+                            allowedLoadStates = old.allowedLoadStates.takeIf { it == detail.allowedLoadStates }
+                                ?: detail.allowedLoadStates
+                        )
+                    } ?: detail
                     publishIfCurrent(
                         request,
-                        WorkoutExerciseDetailUiState.Ready(scope.ownerId, detail, initialized, readOnly)
+                        WorkoutExerciseDetailUiState.Ready(scope.ownerId, refreshed, initialized, readOnly)
                     )
                 }
             } catch (error: Exception) {

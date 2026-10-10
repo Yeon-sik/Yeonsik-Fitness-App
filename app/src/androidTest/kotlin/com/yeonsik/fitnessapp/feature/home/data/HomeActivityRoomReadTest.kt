@@ -18,6 +18,13 @@ import java.util.concurrent.TimeUnit
 
 /** Exercises the production DAO/repository queries on isolated Room data, never the app database. */
 class HomeActivityRoomReadTest {
+    @Test fun oneMealStillCompletesActivityRecordingWithoutAProteinTarget() = withDatabase { room, _ ->
+        insert(room.openHelper.writableDatabase, "meal_records", "only-meal", "2026-10-09")
+        val repository = HomeActivityHistoryRepository(listOf(MealHomeActivityReadSource(MealReadRepository(room))))
+        assertEquals(mapOf("2026-10-09" to setOf(HomeActivityKind.MEAL)),
+            repository.recordedKindsByDate(AccountScope("a"), "2026-10-01", "2026-10-09"))
+    }
+
     @Test fun workoutEarliestMatchesCompletedDatesIncludingLegacyOsVisibility() = withDatabase { room, context ->
         val db = room.openHelper.writableDatabase
         insert(db, "workout_records", "other", "2025-01-01", owner = "b")

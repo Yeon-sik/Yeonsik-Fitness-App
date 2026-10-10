@@ -58,11 +58,11 @@ public final class ExerciseIllustrationCatalogTest {
         );
         assertArrayEquals(
                 new int[]{
-                        R.drawable.exercise_dumbbell_shoulder_press_a,
-                        R.drawable.exercise_dumbbell_shoulder_press_b
+                        R.drawable.exercise_shoulders_dumbbell_shoulder_press_a,
+                        R.drawable.exercise_shoulders_dumbbell_shoulder_press_b
                 },
                 ExerciseIllustrationCatalog.detailDrawablesFor(
-                        ExerciseIllustrationCatalog.DUMBBELL_SHOULDER_PRESS_ID
+                        ExerciseIllustrationCatalog.SHOULDERS_DUMBBELL_SHOULDER_PRESS_ID
                 )
         );
         assertArrayEquals(
@@ -78,8 +78,8 @@ public final class ExerciseIllustrationCatalogTest {
                 ExerciseIllustrationCatalog.detailDrawablesFor("pull-up")
         );
         assertArrayEquals(
-                ExerciseIllustrationCatalog.detailDrawablesFor(ExerciseIllustrationCatalog.DUMBBELL_CURL_ID),
-                ExerciseIllustrationCatalog.detailDrawablesFor("dumbbell-curl")
+                ExerciseIllustrationCatalog.detailDrawablesFor(ExerciseIllustrationCatalog.ARMS_DUMBBELL_CURL_ID),
+                ExerciseIllustrationCatalog.detailDrawablesFor("arms-dumbbell-curl")
         );
         assertArrayEquals(
                 ExerciseIllustrationCatalog.detailDrawablesFor(ExerciseIllustrationCatalog.BARBELL_BACK_SQUAT_ID),

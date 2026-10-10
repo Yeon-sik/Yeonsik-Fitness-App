@@ -4,10 +4,19 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitness.shared.feature.routine.api.RoutineRepositoryApi
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseDraft
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineSummary
+import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
+import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseDetail
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.CancellationException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -23,16 +32,53 @@ sealed interface RoutineEntryUiState {
     data class Error(val ownerId: String, val message: String) : RoutineEntryUiState
 }
 
+data class RoutineExerciseHistoryUiState(
+    val ownerId: String,
+    val exercise: RoutineExerciseInstance,
+    val loading: Boolean = true,
+    val detail: WorkoutExerciseDetail? = null,
+    val error: String? = null
+)
+
 /** Runs account-scoped routine reads and writes before Compose consumes the result. */
 class RoutineEntryViewModel @JvmOverloads constructor(
     @Suppress("unused") private val savedStateHandle: SavedStateHandle,
     private val repository: RoutineRepositoryApi,
-    private val executor: ExecutorService = Executors.newSingleThreadExecutor()
+    private val executor: ExecutorService = Executors.newSingleThreadExecutor(),
+    private val workoutRepository: WorkoutRepositoryApi? = null
 ) : ViewModel() {
     private val mutableState = MutableLiveData<RoutineEntryUiState>(RoutineEntryUiState.Idle)
     val uiState: LiveData<RoutineEntryUiState> = mutableState
     @Volatile private var requestVersion = 0L
     private var loadingOwnerId: String? = null
+    private val mutableHistoryState = MutableLiveData<RoutineExerciseHistoryUiState?>(null)
+    val exerciseHistoryState: LiveData<RoutineExerciseHistoryUiState?> = mutableHistoryState
+    private var historyJob: Job? = null
+
+    fun openExerciseHistory(scope: AccountScope, exercise: RoutineExerciseInstance) {
+        closeExerciseHistory()
+        val loading = RoutineExerciseHistoryUiState(scope.ownerId, exercise)
+        mutableHistoryState.value = loading
+        historyJob = viewModelScope.launch {
+            try {
+                val detail = withContext(Dispatchers.IO) {
+                    checkNotNull(workoutRepository).loadRoutineExerciseHistory(scope, exercise)
+                }
+                mutableHistoryState.value = loading.copy(loading = false, detail = detail)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (error: Exception) {
+                mutableHistoryState.value = loading.copy(loading = false,
+                    error = error.message ?: "종목 기록을 불러오지 못했습니다.")
+            }
+        }
+    }
+
+    fun closeExerciseHistory() {
+        historyJob?.cancel()
+        historyJob = null
+        mutableHistoryState.value = null
+    }
 
     fun enterIfNeeded(scope: AccountScope) {
         val current = mutableState.value

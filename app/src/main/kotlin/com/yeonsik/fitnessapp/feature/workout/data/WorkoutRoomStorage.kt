@@ -17,6 +17,7 @@ import com.yeonsik.fitnessapp.exercise.ExerciseVolumeCalculator
 import com.yeonsik.fitnessapp.exercise.ExercisePrimaryMuscleLabel
 import com.yeonsik.fitness.shared.feature.exercise.model.LoadState
 import com.yeonsik.fitnessapp.exercise.RoutineExercise
+import com.yeonsik.fitnessapp.feature.workout.model.WorkoutExerciseSelectionIdentity
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
@@ -806,6 +807,19 @@ class WorkoutRoomStorage(
     fun lastExerciseHistory(scope: AccountScope, exercise: ExerciseRow, currentRecordId: String): History? =
         recentExerciseHistories(scope, exercise, currentRecordId, limit = 1).lastOrNull()
 
+    /** Finds the latest completed occurrence using the same identity rules as workout detail. */
+    fun latestRoutineExerciseOccurrence(scope: AccountScope, exercise: RoutineExerciseInstance): Pair<String, String>? {
+        val target = ExerciseRow(exercise.id, exercise.exerciseId, exercise.order, exercise.nameKo,
+            exercise.uiPart, exercise.equipment, exercise.recordType,
+            exercise.familyIdentity ?: familyCatalog.identityForStorageExerciseId(exercise.exerciseId),
+            exercise.primarySubPart)
+        val history = recentExerciseHistories(scope, target, currentRecordId = "", limit = 1).lastOrNull()
+            ?: return null
+        val occurrence = exercises(scope, history.recordId).firstOrNull { sameExerciseIdentity(it, target) }
+            ?: return null
+        return history.recordId to occurrence.id
+    }
+
     /** Returns distinct completed exercise sessions in chronological order, bounded by limit. */
     fun recentExerciseHistories(
         scope: AccountScope,
@@ -1046,12 +1060,11 @@ class WorkoutRoomStorage(
     }
 
     fun addExercise(scope: AccountScope, recordId: String,
-                    exercise: WorkoutExerciseReplacement): Boolean {
-        check(workoutDao.ownsRecord(recordId, scope.ownerId) != null) {
-            "Workout record is not owned by the requested account."
-        }
+                    exercise: WorkoutExerciseReplacement): Boolean = transactionRunner.call {
+        if (sessionInfo(scope, recordId)?.status != "in_progress") return@call false
         val identity = exercise.familyIdentity
             ?: familyCatalog.identityForStorageExerciseId(exercise.masterExerciseId)
+        if (containsExercise(scope, recordId, exercise, identity)) return@call false
         val timestamp = now()
         val order = workoutDao.nextExerciseOrder(recordId, scope.ownerId)
         workoutDao.insertExercise(WorkoutExercisesRoomEntity(
@@ -1063,31 +1076,46 @@ class WorkoutRoomStorage(
             identity?.presetId, identity?.canonicalVariantKey, identity?.visualVariantKey, null,
             timestamp, timestamp, null, "android-local", FitnessRecordContract.VERSION.toLong()
         ))
-        return true
+        true
     }
-    fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String, replacement: WorkoutExerciseReplacement): Boolean {
-        if (sessionInfo(scope, recordId)?.status != "in_progress") return false
+    fun replaceExercise(scope: AccountScope, recordId: String, exerciseId: String,
+                        replacement: WorkoutExerciseReplacement): Boolean = transactionRunner.call {
+        if (sessionInfo(scope, recordId)?.status != "in_progress") return@call false
+        val identity = replacement.familyIdentity
+            ?: familyCatalog.identityForStorageExerciseId(replacement.masterExerciseId)
+        if (containsExercise(scope, recordId, replacement, identity, exerciseId)) return@call false
         val updated = workoutDao.replaceExercise(
             exerciseId, recordId, scope.ownerId,
             replacement.masterExerciseId.ifBlank { "manual" }, replacement.nameKo,
             replacement.bodyPart?.labelKo() ?: "other", replacement.primarySubPart.orEmpty(),
             replacement.equipmentType?.labelKo(), FitnessRecordContract.normalizeRecordType(replacement.recordType),
-            replacement.familyIdentity?.familyId, replacement.familyIdentity?.presetId,
-            replacement.familyIdentity?.canonicalVariantKey, replacement.familyIdentity?.visualVariantKey, now()
+            identity?.familyId, identity?.presetId,
+            identity?.canonicalVariantKey, identity?.visualVariantKey, now()
         )
         if (updated > 0) refreshRecordTotal(scope, recordId)
-        return updated > 0
+        updated > 0
     }
 
-    fun addManualExercise(scope: AccountScope, recordId: String, exercise: ManualWorkoutExercise): Boolean {
-        var added = false
-        transactionRunner.run {
-            if (sessionInfo(scope, recordId)?.status == "in_progress") {
-                added = addExercise(scope, recordId, exercise.toReplacement())
-            }
+    private fun containsExercise(
+        scope: AccountScope,
+        recordId: String,
+        candidate: WorkoutExerciseReplacement,
+        identity: ExerciseFamilyIdentity?,
+        excludedExerciseId: String? = null
+    ): Boolean {
+        val candidateIdentity = WorkoutExerciseSelectionIdentity.from(
+            candidate.masterExerciseId.ifBlank { "manual" }, candidate.nameKo,
+            candidate.recordType, identity
+        )
+        return exercises(scope, recordId).any { row ->
+            row.id != excludedExerciseId && candidateIdentity == WorkoutExerciseSelectionIdentity.from(
+                row.exerciseId, row.name, row.recordType, row.familyIdentity
+            )
         }
-        return added
     }
+
+    fun addManualExercise(scope: AccountScope, recordId: String, exercise: ManualWorkoutExercise): Boolean =
+        addExercise(scope, recordId, exercise.toReplacement())
 
     fun linkManualExerciseToCanonical(scope: AccountScope, recordId: String,
                                      exerciseId: String, canonicalPresetId: String): Boolean {

@@ -281,6 +281,10 @@ searchPresetAliases:
   familyId: hip_adduction
   targetPreset: legs_machine_hip_adduction
   defaultLoadState: external_load
+- alias: 인너타이 머신
+  familyId: hip_adduction
+  targetPreset: legs_machine_hip_adduction
+  defaultLoadState: external_load
 - alias: 힙 어덕터 머신
   familyId: hip_adduction
   targetPreset: legs_machine_hip_adduction

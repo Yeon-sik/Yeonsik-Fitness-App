@@ -6,6 +6,26 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class RoutinePresentationTest {
+    @Test fun majorityPartAndItsMostFrequentSubPartWinOverOtherMuscles() {
+        val exercises = listOf(
+            exercise("a", 0).copy(uiPart = "가슴", primarySubPart = "중부 대흉근"),
+            exercise("b", 1).copy(uiPart = "하체", primarySubPart = "대퇴사두근"),
+            exercise("c", 2).copy(uiPart = "legs", primarySubPart = "햄스트링"),
+            exercise("d", 3).copy(uiPart = "하체", primarySubPart = "대퇴사두근")
+        )
+        assertEquals("하체 - 대퇴사두근", routineDominantMuscleLabel(exercises))
+    }
+
+    @Test fun tiesUseSavedOrderAndUnknownSubPartsDoNotHideKnownMuscles() {
+        val exercises = listOf(
+            exercise("b", 2).copy(uiPart = "가슴", primarySubPart = "대흉근"),
+            exercise("a", 1).copy(uiPart = "하체", primarySubPart = "세부 부위 없음")
+        )
+        assertEquals("하체", routineDominantMuscleLabel(exercises))
+        assertEquals("부위 미설정", routineDominantMuscleLabel(emptyList()))
+        assertEquals("부위 미설정", routineDominantMuscleLabel(listOf(exercise("x", 0).copy(uiPart = ""))))
+    }
+
     @Test
     fun stableRoutineExercisesUsesStoredOrderAndIdentityTieBreak() {
         val exercises = listOf(

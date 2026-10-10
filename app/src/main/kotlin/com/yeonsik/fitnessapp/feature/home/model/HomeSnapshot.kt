@@ -19,5 +19,6 @@ data class HomeSnapshot(
     val todayWeight: HomeBodyMetric?,
     val todayBodyMetrics: List<HomeBodyMetric>,
     val todayMeals: List<HomeMealSummary>,
-    val todayWorkoutStatus: HomeTodayWorkoutStatus = HomeTodayWorkoutStatus()
+    val todayWorkoutStatus: HomeTodayWorkoutStatus = HomeTodayWorkoutStatus(),
+    val yesterdayWeight: HomeBodyMetric? = null
 )

@@ -29,6 +29,7 @@ import com.yeonsik.fitnessapp.data.NutritionUnit;
 import com.yeonsik.fitnessapp.feature.meal.api.MealRecordRepositoryApi;
 import com.yeonsik.fitnessapp.feature.meal.model.FoodPortionInput;
 import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMealInput;
+import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMenuIntake;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi;
 
 import org.json.JSONObject;
@@ -293,6 +294,65 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
     }
 
     @Override
+    public String saveDiningOutMenuItems(AccountScope scope, String date, String mealTime,
+                                        List<DiningOutMenuIntake> inputs) {
+        String ownerId = requireActiveOwner(scope);
+        if (inputs == null || inputs.isEmpty()) {
+            throw new IllegalArgumentException("외식 메뉴를 하나 이상 추가하세요.");
+        }
+        List<MealMenuSelection> menus = new ArrayList<>();
+        List<DiningOutConsumption> consumptions = new ArrayList<>();
+        NutritionTotals.Builder totals = NutritionTotals.builder();
+        for (DiningOutMenuIntake intake : inputs) {
+            DiningOutMealInput input = intake.getInput();
+            MealEntryPolicy.requireDiningOutStoreName(input.getStoreName());
+            MealEntryPolicy.requireDiningOutMenuName(input.getMenuName());
+            MealEntryPolicy.requireDiningOutMenuNutrition(intake.getCaloriesKcal(), input.getProteinGrams(),
+                    input.getCarbsGrams(), input.getFatGrams(), input.getSodiumMg(),
+                    input.getSugarsGrams(), input.getSaturatedFatGrams());
+            double quantity = requireNominalServings(input.getQuantity());
+            DiningOutConsumption consumption = DiningOutConsumption.manual(1, intake.getConsumedFraction());
+            NutritionProfile profile = NutritionProfile.builder()
+                    .value(NutritionProfile.CALORIES_KCAL, intake.getCaloriesKcal())
+                    .value(NutritionProfile.PROTEIN_GRAMS, input.getProteinGrams())
+                    .value(NutritionProfile.CARBS_GRAMS, input.getCarbsGrams())
+                    .value(NutritionProfile.FAT_GRAMS, input.getFatGrams())
+                    .value(NutritionProfile.SODIUM_MG, input.getSodiumMg())
+                    .value(NutritionProfile.SUGARS_GRAMS, input.getSugarsGrams())
+                    .value(NutritionProfile.SATURATED_FAT_GRAMS, input.getSaturatedFatGrams()).build();
+            JSONObject source = new JSONObject();
+            try {
+                source.put("restaurant_name", input.getStoreName());
+                source.put("branch_name", input.getBranchName());
+                putOptional(source, "restaurant_id", input.getRestaurantId());
+                putOptional(source, "restaurant_location_id", input.getRestaurantLocationId());
+                putOptional(source, "restaurant_menu_id", input.getRestaurantMenuId());
+                putOptional(source, "catalog_product_id", input.getCatalogProductId());
+            } catch (Exception error) {
+                throw new IllegalArgumentException("메뉴 식별정보를 저장하지 못했습니다.", error);
+            }
+            NutritionFood food = NutritionFood.builder().id(intake.getNutritionFoodId()).ownerId(ownerId)
+                    .name(input.getMenuName()).brand(input.getStoreName()).kind(NutritionFood.KIND_EXTERNAL_MENU)
+                    .basis(1d, NutritionUnit.SERVING).prepState(NutritionFood.PREP_AS_SERVED).profile(profile)
+                    .source("manual_estimate", source.toString()).dataVersion(NutritionFood.DATA_VERSION_REQUIRED_SEVEN).build();
+            MealCompositionItem menu = MealCompositionItem.from(food, quantity);
+            menus.add(MealMenuSelection.standalone(menu));
+            consumptions.add(consumption);
+            totals.add(menu.profile.scaled(consumption.consumedFraction));
+        }
+        NutritionTotals total = totals.build();
+        if (!Double.isFinite(total.calories()) || total.calories() > Integer.MAX_VALUE
+                || !Double.isFinite(total.proteinGrams()) || !Double.isFinite(total.carbsGrams())
+                || !Double.isFinite(total.fatGrams())) {
+            throw new IllegalArgumentException("메뉴 영양정보 합계가 너무 큽니다.");
+        }
+        DiningOutMealInput first = inputs.get(0).getInput();
+        return insertComplexDiningOutRecord(ownerId, date, mealTime, first.getStoreName(), first.getBranchName(),
+                null, null, menus, (int) Math.round(total.calories()), total.proteinGrams(), total.carbsGrams(),
+                total.fatGrams(), null, null, first.getQuantity(), consumptions.get(0), consumptions);
+    }
+
+    @Override
     public String saveComplexDiningOutMeal(
             AccountScope scope,
             String date,
@@ -363,7 +423,8 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                 templateId,
                 templateRevision,
                 normalizedNominalServings,
-                consumption
+                consumption,
+                null
         );
     }
 
@@ -383,7 +444,8 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
             String templateId,
             Integer templateRevision,
             double nominalServings,
-            DiningOutConsumption consumption
+            DiningOutConsumption consumption,
+            @Nullable List<DiningOutConsumption> menuConsumptions
     ) {
         LocalDate today = LocalDate.now();
         LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, today);
@@ -408,6 +470,19 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                 templateRevision,
                 consumption
         );
+        if (menuConsumptions != null) {
+            try {
+                JSONObject perMenu = new JSONObject(metadata);
+                perMenu.remove("consumed_fraction");
+                perMenu.remove("diner_count");
+                perMenu.remove("share_method");
+                perMenu.remove("confidence");
+                perMenu.put("consumption_scope", "per_menu");
+                metadata = perMenu.toString();
+            } catch (Exception error) {
+                throw new IllegalStateException("메뉴별 섭취정보를 만들지 못했습니다.", error);
+            }
+        }
         MealRecordsRoomEntity record = new MealRecordsRoomEntity(
                 recordId,
                 ownerId,
@@ -458,12 +533,14 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                         ownerId,
                         templateId,
                         templateRevision,
-                        nominalServings,
+                        menuConsumptions == null ? nominalServings : menu.menu.quantity,
                         menuOptions
                 );
                 menuItemIds.add(itemId);
             }
-            for (String itemId : menuItemIds) {
+            for (int index = 0; index < menuItemIds.size(); index++) {
+                String itemId = menuItemIds.get(index);
+                DiningOutConsumption itemConsumption = menuConsumptions == null ? consumption : menuConsumptions.get(index);
                 mealDao.insertConsumption(new MealRecordItemConsumptionsRoomEntity(
                         UUID.randomUUID().toString(),
                         ownerId,
@@ -471,10 +548,10 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                         itemId,
                         DiningOutConsumption.CONTRACT_VERSION,
                         DiningOutConsumption.CONSUMER_SCOPE_SELF,
-                        (long) consumption.dinerCount,
-                        consumption.consumedFraction,
-                        consumption.shareMethod,
-                        consumption.confidence,
+                        (long) itemConsumption.dinerCount,
+                        itemConsumption.consumedFraction,
+                        itemConsumption.shareMethod,
+                        itemConsumption.confidence,
                         now,
                         now,
                         null,

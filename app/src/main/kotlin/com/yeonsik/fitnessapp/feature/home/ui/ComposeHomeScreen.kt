@@ -167,7 +167,7 @@ internal fun HomeTodayHero(
         color = colors.primary,
         contentColor = colors.onPrimary
     ) {
-        HomeHeroContent(status, onContinue)
+        HomeHeroContent(status)
     }
 }
 
@@ -185,7 +185,7 @@ private fun HomeGlassWorkoutQuickActions(
             verticalAlignment = Alignment.CenterVertically
         ) {
             HomeQuickActionItem(
-                title = "근력 운동",
+                title = "무산소",
                 icon = FitnessStrengthIcon,
                 onClick = onStrength,
                 modifier = Modifier.weight(1f).testTag("home-quick-strength")

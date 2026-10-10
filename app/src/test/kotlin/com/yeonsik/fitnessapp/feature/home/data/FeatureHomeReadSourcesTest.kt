@@ -58,6 +58,17 @@ class FeatureHomeReadSourcesTest {
         assertFalse(status.hasCompletedCardio)
         assertTrue(status.muscleLabels.isEmpty())
         assertEquals(0L, status.cardioDurationSeconds)
+        assertEquals(0.0, status.completedStrengthVolumeKg, 0.0)
+    }
+
+    @Test fun volumeSumsOnlyTodaysCompletedStrengthSessions() {
+        val status = sources(listOf(
+            summary("first", volume = 1_200.0),
+            summary("second", volume = 650.5),
+            summary("cardio", type = "cardio", volume = 9_999.0),
+            summary("yesterday", date = "2026-09-30", volume = 8_888.0)
+        )).todayWorkoutStatus(AccountScope("owner"), TODAY)
+        assertEquals(1_850.5, status.completedStrengthVolumeKg, 0.0)
     }
 
     private fun sources(
@@ -81,8 +92,8 @@ class FeatureHomeReadSourcesTest {
         } as T
 
     private fun summary(id: String, type: String = "strength", seconds: Int = 0,
-        date: String = TODAY, projection: List<String> = listOf("등", "이두")) =
-        WorkoutReadSessionSummary(id, date, id, type, seconds, 0.0, 1,
+        date: String = TODAY, projection: List<String> = listOf("등", "이두"), volume: Double = 0.0) =
+        WorkoutReadSessionSummary(id, date, id, type, seconds, volume, 1,
             muscleLabels = listOf("raw-not-completed"), projectionMuscleLabels = projection)
 
     private companion object { const val TODAY = "2026-10-01" }

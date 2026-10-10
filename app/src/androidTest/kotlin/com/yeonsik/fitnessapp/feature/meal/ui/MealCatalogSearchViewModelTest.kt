@@ -76,12 +76,17 @@ class MealCatalogSearchViewModelTest {
 
     @Test fun aNewRestaurantMenuClearsOldNutritionButReloadingTheSameTargetKeepsUserInput() = withModel { vm, catalog, _ ->
         main {
-            vm.chooseDiningOut(); vm.useDiningOutFood(catalog.menu)
+            vm.chooseDiningOut(); vm.useDiningOutFood(catalog.menu); vm.updateDiningConsumedPercent("50")
+            vm.updateStore("이전 식당")
             vm.applyPriceTraceSelection("restaurant", "식당", "branch", "본점", "new-menu", "새 메뉴", "product")
             assertEquals("", state(vm).draft.calories); assertEquals("", state(vm).draft.protein); assertEquals("1", state(vm).diningPortion)
-            vm.updateCalories("450"); vm.updateProtein("25"); vm.updateDiningPortion("0.5")
+            assertEquals("100", state(vm).diningConsumedPercent)
+            assertEquals("비빔밥", state(vm).diningMenus.single().draft.menu)
+            assertEquals("50", state(vm).diningMenus.single().consumedPercent)
+            vm.updateCalories("450"); vm.updateProtein("25"); vm.updateDiningPortion("0.5"); vm.updateDiningConsumedPercent("75")
             vm.applyPriceTraceSelection("restaurant", "식당", "branch", "본점", "new-menu", "새 메뉴", "product")
             assertEquals("450", state(vm).draft.calories); assertEquals("25", state(vm).draft.protein); assertEquals("0.5", state(vm).diningPortion)
+            assertEquals("75", state(vm).diningConsumedPercent)
             vm.applyPriceTraceSelection("restaurant", "식당", "", "본점", "invalid-menu", "잘못된 메뉴", "product")
             assertEquals("new-menu", state(vm).draft.restaurantMenuId); assertNotNull(state(vm).error)
         }
@@ -96,7 +101,7 @@ class MealCatalogSearchViewModelTest {
         val integration = NutritionIntegrationService(catalog, sync, ProductReadV1Client(config), RestaurantMenuReadV1Client(config),
             SupabaseAuthManager(null), SupabaseAuthManager(null), config)
         lateinit var vm: MealViewModel
-        main { vm = MealViewModel(SavedStateHandle(), meals, catalog, integration, executor = queue); vm.enter(AccountScope("fitness-owner"), "2026-10-04") }
+        main { vm = MealViewModel(SavedStateHandle(), meals, catalog, integration, executor = queue, searchDelayMillis = 0); vm.enter(AccountScope("fitness-owner"), "2026-10-04") }
         try { work(vm, catalog, queue) } finally { queue.shutdownNow() }
     }
 

@@ -28,7 +28,7 @@ class MealSearchFocusUiTest {
     private val date = LocalDate.now().toString()
     private var hostView: View? = null
 
-    @Test fun foodSearchKeepsFocusAndTextDuringHistoryRefresh() = retainsSearch(false, "식품 검색")
+    @Test fun foodSearchKeepsFocusAndTextDuringHistoryRefresh() = retainsSearch(false, "식품 이름 검색")
 
     @Test fun diningSearchKeepsFocusAndTextDuringHistoryRefresh() = retainsSearch(true, "저장된 외식 메뉴 검색")
 
@@ -55,6 +55,9 @@ class MealSearchFocusUiTest {
                         NutritionPublicationUiState(), owner, date, actions)
                 }
             }
+        }
+        if (diningOut) {
+            compose.onNodeWithText("저장된 메뉴에서 선택").performScrollTo().performClick()
         }
         val search = compose.onNode(hasSetTextAction() and hasText(label))
         search.performScrollTo().performClick().performTextInput("김")
