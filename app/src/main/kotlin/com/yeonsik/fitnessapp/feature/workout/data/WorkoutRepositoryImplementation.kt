@@ -145,6 +145,11 @@ class WorkoutRepositoryImplementation(
         )
     }
 
+    override fun loadRoutineExerciseHistory(scope: AccountScope, exercise: RoutineExerciseInstance): WorkoutExerciseDetail? {
+        val (recordId, occurrenceId) = storage.latestRoutineExerciseOccurrence(scope, exercise) ?: return null
+        return loadExerciseDetail(scope, recordId, occurrenceId)
+    }
+
     override fun loadExerciseDetail(
         scope: AccountScope,
         recordId: String,

@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.feature.exercise.ui
 
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,6 +21,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.MaterialTheme
@@ -39,15 +41,23 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Velocity
 import com.yeonsik.fitnessapp.core.ui.FitnessCard
 import com.yeonsik.fitnessapp.core.ui.FitnessExerciseFamilyIllustration
 import com.yeonsik.fitnessapp.core.ui.FitnessExerciseIllustration
@@ -84,6 +94,8 @@ interface ExercisePickerScreenActions {
     fun selectPreset(familyId: String, presetId: String)
     fun choose(preset: RuntimeExercisePreset)
     fun chooseManual(exercise: ManualWorkoutExercise)
+    fun removePendingPreset(presetId: String) {}
+    fun confirmPendingSelection() {}
 }
 
 @Composable
@@ -172,10 +184,10 @@ private fun ExercisePickerReady(
             result.family.familyId == familyId && result.presets.size > 1
         }
     }
-    Box(Modifier.fillMaxWidth().fillMaxHeight()) {
+    Column(Modifier.fillMaxWidth().fillMaxHeight()) {
         LazyColumn(
             state = listState,
-            modifier = Modifier.fillMaxWidth().fillMaxHeight(),
+            modifier = Modifier.fillMaxWidth().weight(1f),
             contentPadding = PaddingValues(bottom = FitnessSpacing.card),
             verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
         ) {
@@ -204,7 +216,8 @@ private fun ExercisePickerReady(
             }
             if (state.selectionMode == ExercisePickerSelectionMode.WORKOUT_ADD) {
                 item {
-                    FitnessOutlinedButton(onClick = { showManualEntry = true }, Modifier.fillMaxWidth()) {
+                    FitnessOutlinedButton(onClick = { showManualEntry = true }, Modifier.fillMaxWidth(),
+                        enabled = !state.isSaving) {
                         Text("목록에 없는 운동 직접 추가")
                     }
                 }
@@ -213,6 +226,12 @@ private fun ExercisePickerReady(
                 item {
                     Text("연결할 정식 운동을 선택하세요. 당시 운동명과 세트 기록은 보존됩니다.",
                         style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            state.selectionError?.let { message ->
+                item {
+                    Text(message, color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodyMedium)
                 }
             }
             item {
@@ -255,6 +274,9 @@ private fun ExercisePickerReady(
                 }
             }
         }
+        if (state.selectionMode.isAddition && state.pendingPresets.isNotEmpty()) {
+            ExercisePickerPendingList(state, actions)
+        }
 
         selectedFamily?.let { result ->
             ExercisePickerVariantSheet(result, state, actions)
@@ -264,6 +286,29 @@ private fun ExercisePickerReady(
                 showManualEntry = false
                 actions.chooseManual(exercise)
             }
+        }
+    }
+}
+
+@Composable
+private fun ExercisePickerPendingList(state: ExercisePickerUiState.Ready, actions: ExercisePickerScreenActions) {
+    Column(Modifier.fillMaxWidth().padding(FitnessSpacing.small).testTag("exercise-picker-pending"),
+        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+        Text("추가할 운동 · ${state.pendingPresets.size}개", style = MaterialTheme.typography.titleSmall)
+        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 140.dp)) {
+            items(state.pendingPresets, key = { it.presetId }) { preset ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(preset.pickerDisplayName(), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = { actions.removePendingPreset(preset.presetId) }, enabled = !state.isSaving,
+                        modifier = Modifier.semantics { contentDescription = "${preset.displayName()} 목록에서 빼기" }) {
+                        Text("빼기")
+                    }
+                }
+            }
+        }
+        FitnessOutlinedButton(onClick = actions::confirmPendingSelection, modifier = Modifier.fillMaxWidth()
+            .testTag("exercise-picker-confirm"), enabled = !state.isSaving) {
+            Text(if (state.isSaving) "추가 중…" else "${state.pendingPresets.size}개 종목 추가")
         }
     }
 }
@@ -402,18 +447,22 @@ private fun ExerciseFamilyPickerCard(
     onSelectFamily: () -> Unit
 ) {
     val family = result.family
-    val selectedFamily = result.presets.size > 1 && state.selectedFamilyId == family.familyId
+    val focusManager = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val bodyPart = BodyPart.fromId(family.defaultUiPart)?.labelKo() ?: family.defaultUiPart.orEmpty()
     val singlePreset = result.presets.singleOrNull()
     val representative = family.presets.firstOrNull() ?: result.presets.first()
-    val title = singlePreset?.displayName().orEmpty().ifBlank { family.displayName().orEmpty() }
+    val title = singlePreset?.pickerDisplayName().orEmpty().ifBlank { family.displayName().orEmpty() }
     val metadata = if (singlePreset != null) {
         exercisePickerPresetMetadata(singlePreset)
     } else {
         listOfNotNull(bodyPart.takeIf { it.isNotBlank() }, "${result.presets.size}개 변형")
             .joinToString(" · ")
     }
-    val actionLabel = if (singlePreset != null) "선택" else "변형 선택"
+    val alreadyAdded = singlePreset?.let(state::isAlreadyAdded) == true
+    val pending = singlePreset?.let(state::isPending) == true
+    val actionLabel = if (alreadyAdded) "추가됨" else if (pending) "선택됨"
+        else if (singlePreset != null) "선택" else "변형 선택"
 
     FitnessCard(Modifier.fillMaxWidth()) {
         Column(
@@ -452,15 +501,23 @@ private fun ExerciseFamilyPickerCard(
                         )
                         FitnessOutlinedButton(
                             onClick = {
-                                if (singlePreset != null) actions.choose(singlePreset)
-                                else onSelectFamily()
+                                if (!alreadyAdded && !pending && !state.isSaving) {
+                                    if (singlePreset != null) {
+                                        focusManager.clearFocus()
+                                        keyboard?.hide()
+                                        actions.choose(singlePreset)
+                                    }
+                                    else onSelectFamily()
+                                }
                             },
                             modifier = Modifier.semantics {
                                 contentDescription = "$title $actionLabel"
+                                if (alreadyAdded || pending || state.isSaving) disabled()
                             },
                             selected = if (singlePreset != null) {
-                                state.selectedPresetId == singlePreset.presetId
-                            } else selectedFamily
+                                pending || state.selectedPresetId == singlePreset.presetId
+                            } else false,
+                            enabled = !alreadyAdded && !pending && !state.isSaving
                         ) { Text(actionLabel) }
                     }
                 }
@@ -482,14 +539,30 @@ private fun ExercisePickerVariantSheet(
     val selectedPreset = result.presets.firstOrNull { it.presetId == state.selectedPresetId }
     val screenHeight = LocalConfiguration.current.screenHeightDp.dp
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // Consume list overscroll before it reaches the sheet. The native handle and scrim
+    // still own dismissal; drags starting on content never move the sheet itself.
+    val contentScrollBoundary = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource) =
+                Offset(0f, available.y)
+
+            override suspend fun onPostFling(consumed: Velocity, available: Velocity) =
+                Velocity(0f, available.y)
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = { actions.selectFamily(familyId) },
-        sheetState = sheetState
+        sheetState = sheetState,
+        dragHandle = { BottomSheetDefaults.DragHandle(Modifier.testTag("exercise-variant-handle")) }
     ) {
         Column(
             modifier = Modifier.fillMaxWidth()
                 .heightIn(max = screenHeight * 0.84f)
+                .nestedScroll(contentScrollBoundary)
+                .pointerInput(familyId) {
+                    detectVerticalDragGestures { change, _ -> change.consume() }
+                }
                 .padding(horizontal = FitnessSpacing.card)
         ) {
             Text(
@@ -507,29 +580,45 @@ private fun ExercisePickerVariantSheet(
                 state = rememberLazyListState(),
                 modifier = Modifier.fillMaxWidth()
                     .heightIn(max = screenHeight * 0.56f)
+                    .testTag("exercise-variant-list")
                     .semantics { contentDescription = "$familyTitle 변형 목록" },
                 contentPadding = PaddingValues(bottom = FitnessSpacing.small),
                 verticalArrangement = Arrangement.spacedBy(FitnessSpacing.gap)
             ) {
                 items(result.presets, key = { preset -> preset.presetId }) { preset ->
-                    val selected = state.selectedPresetId == preset.presetId
+                    val pending = state.isPending(preset)
+                    val selected = pending || (!state.selectionMode.isAddition && state.selectedPresetId == preset.presetId)
+                    val alreadyAdded = state.isAlreadyAdded(preset)
                     ExercisePickerPresetRow(
                         preset = preset,
                         selected = selected,
-                        actionLabel = if (selected) "선택됨" else "선택",
-                        onClick = { actions.selectPreset(familyId, preset.presetId) }
+                        actionLabel = if (alreadyAdded) "추가됨" else if (selected) "선택됨" else "선택",
+                        enabled = !alreadyAdded && !state.isSaving && (state.selectionMode.isAddition || !pending),
+                        onClick = {
+                            if (state.selectionMode.isAddition) {
+                                if (pending) actions.removePendingPreset(preset.presetId) else actions.choose(preset)
+                            } else actions.selectPreset(familyId, preset.presetId)
+                        }
                     )
                 }
             }
-            FitnessOutlinedButton(
+            if (!state.selectionMode.isAddition) FitnessOutlinedButton(
                 onClick = { selectedPreset?.let(actions::choose) },
                 modifier = Modifier.fillMaxWidth()
                     .padding(top = FitnessSpacing.small, bottom = FitnessSpacing.card),
-                enabled = selectedPreset != null,
+                enabled = selectedPreset != null && !state.isAlreadyAdded(selectedPreset) &&
+                    !state.isPending(selectedPreset) && !state.isSaving,
                 selected = selectedPreset != null
             ) {
-                Text(if (state.selectionMode == ExercisePickerSelectionMode.WORKOUT_LINK_MANUAL)
-                    "이 운동에 연결" else "이 변형으로 선택")
+                Text(if (state.isSaving) "저장 중…"
+                    else if (state.selectionMode == ExercisePickerSelectionMode.WORKOUT_LINK_MANUAL)
+                    "이 운동에 연결" else if (state.selectionMode.isAddition) "추가할 목록에 담기"
+                    else "이 변형으로 선택")
+            }
+            if (state.selectionMode.isAddition) {
+                TextButton(onClick = { actions.selectFamily(familyId) }, modifier = Modifier.fillMaxWidth()) {
+                    Text("선택 완료 · ${state.pendingPresets.size}개 담김")
+                }
             }
         }
     }
@@ -540,6 +629,7 @@ private fun ExercisePickerPresetRow(
     preset: RuntimeExercisePreset,
     selected: Boolean,
     actionLabel: String,
+    enabled: Boolean,
     onClick: () -> Unit
 ) {
     Row(
@@ -552,9 +642,11 @@ private fun ExercisePickerPresetRow(
         FitnessOutlinedButton(
             onClick = onClick,
             modifier = Modifier.semantics {
-                contentDescription = "${preset.displayName()} $actionLabel"
+                contentDescription = "${preset.pickerDisplayName()} $actionLabel"
+                if (!enabled) disabled()
             },
-            selected = selected
+            selected = selected,
+            enabled = enabled
         ) {
             Text(actionLabel)
         }
@@ -576,7 +668,7 @@ private fun ExercisePickerPresetText(
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro * PICKER_ROW_SCALE)) {
         Text(
-            text = preset.displayName().orEmpty(),
+            text = preset.pickerDisplayName().orEmpty(),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.Bold
         )

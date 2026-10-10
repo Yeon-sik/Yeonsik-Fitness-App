@@ -2004,6 +2004,9 @@ private fun AppDestination(
     }
     val routineActions = object : RoutineDetailActions {
         override fun back() { navigation.back() }
+        override fun openExerciseHistory(exercise: com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance) =
+            viewModels.getRoutineEntry().openExerciseHistory(AccountScope(ownerId), exercise)
+        override fun closeExerciseHistory() = viewModels.getRoutineEntry().closeExerciseHistory()
         override fun rename(routineId: String, name: String) =
             viewModels.getRoutineEntry().renameRoutine(AccountScope(ownerId), routineId, name)
         override fun copy(routineId: String, name: String) =
@@ -2045,6 +2048,9 @@ private fun AppDestination(
             viewModels.getExercisePicker().choose(preset)
         override fun chooseManual(exercise: com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise) =
             viewModels.getExercisePicker().chooseManual(exercise)
+        override fun removePendingPreset(presetId: String) =
+            viewModels.getExercisePicker().removePendingPreset(presetId)
+        override fun confirmPendingSelection() = viewModels.getExercisePicker().confirmPendingSelection()
     }
     Column(
         Modifier.fillMaxWidth().then(
@@ -2182,99 +2188,101 @@ private fun AppDestination(
                 workoutDetailState,
                 ownerId,
                 unit,
-                object : WorkoutDetailActions {
-                    override fun back() {
-                        if (!navigation.back()) navigation.replace(FitnessScreen.STRENGTH)
-                    }
-                    override fun refresh() {
-                        activeRecordId?.let { recordId ->
-                            viewModels.getWorkoutSession().enter(AccountScope(ownerId), recordId)
-                            viewModels.getWorkoutExerciseDetail().enter(
-                                AccountScope(ownerId),
-                                recordId,
-                                viewModels.getWorkoutExerciseDetail().activeExerciseId(),
-                                readOnly = workoutReadOnly
+                remember(ownerId, activeRecordId, workoutReadOnly, viewModels, navigation, host) {
+                    object : WorkoutDetailActions {
+                        override fun back() {
+                            if (!navigation.back()) navigation.replace(FitnessScreen.STRENGTH)
+                        }
+                        override fun refresh() {
+                            activeRecordId?.let { recordId ->
+                                viewModels.getWorkoutSession().enter(AccountScope(ownerId), recordId)
+                                viewModels.getWorkoutExerciseDetail().enter(
+                                    AccountScope(ownerId),
+                                    recordId,
+                                    viewModels.getWorkoutExerciseDetail().activeExerciseId(),
+                                    readOnly = workoutReadOnly
+                                )
+                            }
+                        }
+                        override fun openExercise(exerciseId: String) {
+                            viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
+                            navigation.replace(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+                        }
+                        override fun linkManualExercise(exerciseId: String) {
+                            viewModels.getExercisePicker().rememberManualLinkExercise(exerciseId)
+                            navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
+                        }
+                        override fun deleteExercise(
+                            recordId: String,
+                            exerciseId: String,
+                            onResult: (Boolean) -> Unit
+                        ) {
+                            viewModels.getWorkoutExerciseDetail().deleteExercise(
+                                AccountScope(ownerId), recordId, exerciseId,
+                                java.util.function.Consumer { result -> onResult(result) }
                             )
                         }
-                    }
-                    override fun openExercise(exerciseId: String) {
-                        viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
-                        navigation.replace(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
-                    }
-                    override fun linkManualExercise(exerciseId: String) {
-                        viewModels.getExercisePicker().rememberManualLinkExercise(exerciseId)
-                        navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_ADD)
-                    }
-                    override fun deleteExercise(
-                        recordId: String,
-                        exerciseId: String,
-                        onResult: (Boolean) -> Unit
-                    ) {
-                        viewModels.getWorkoutExerciseDetail().deleteExercise(
-                            AccountScope(ownerId), recordId, exerciseId,
-                            java.util.function.Consumer { result -> onResult(result) }
-                        )
-                    }
 
-                    override fun applyPreviousHistory(
-                        recordId: String,
-                        exerciseId: String,
-                        currentSets: List<WorkoutSet>,
-                        history: WorkoutExerciseHistory,
-                        onResult: (Boolean) -> Unit
-                    ) {
-                        viewModels.getWorkoutExerciseDetail().applyPreviousHistory(
-                            AccountScope(ownerId), recordId, exerciseId, currentSets, history,
-                            java.util.function.Consumer { result -> onResult(result) }
-                        )
-                    }
+                        override fun applyPreviousHistory(
+                            recordId: String,
+                            exerciseId: String,
+                            currentSets: List<WorkoutSet>,
+                            history: WorkoutExerciseHistory,
+                            onResult: (Boolean) -> Unit
+                        ) {
+                            viewModels.getWorkoutExerciseDetail().applyPreviousHistory(
+                                AccountScope(ownerId), recordId, exerciseId, currentSets, history,
+                                java.util.function.Consumer { result -> onResult(result) }
+                            )
+                        }
 
-                    override fun addSet(
-                        recordId: String,
-                        exerciseId: String,
-                        setIndex: Int,
-                        input: WorkoutSetInput,
-                        onResult: (Boolean) -> Unit
-                    ) {
-                        viewModels.getWorkoutExerciseDetail().addTypedSet(
-                            AccountScope(ownerId), recordId, exerciseId, setIndex, input,
-                            java.util.function.Consumer { result -> onResult(result) }
-                        )
-                    }
+                        override fun addSet(
+                            recordId: String,
+                            exerciseId: String,
+                            setIndex: Int,
+                            input: WorkoutSetInput,
+                            onResult: (Boolean) -> Unit
+                        ) {
+                            viewModels.getWorkoutExerciseDetail().addTypedSet(
+                                AccountScope(ownerId), recordId, exerciseId, setIndex, input,
+                                java.util.function.Consumer { result -> onResult(result) }
+                            )
+                        }
 
-                    override fun updateSet(
-                        recordId: String,
-                        setId: String,
-                        input: WorkoutSetInput,
-                        onResult: (Boolean) -> Unit
-                    ) {
-                        viewModels.getWorkoutExerciseDetail().updateTypedSet(
-                            AccountScope(ownerId), recordId, setId, input,
-                            java.util.function.Consumer { result -> onResult(result) }
-                        )
-                    }
+                        override fun updateSet(
+                            recordId: String,
+                            setId: String,
+                            input: WorkoutSetInput,
+                            onResult: (Boolean) -> Unit
+                        ) {
+                            viewModels.getWorkoutExerciseDetail().updateTypedSet(
+                                AccountScope(ownerId), recordId, setId, input,
+                                java.util.function.Consumer { result -> onResult(result) }
+                            )
+                        }
 
-                    override fun deleteSet(
-                        recordId: String,
-                        setId: String,
-                        onResult: (Boolean) -> Unit
-                    ) {
-                        viewModels.getWorkoutExerciseDetail().deleteSet(
-                            AccountScope(ownerId), recordId, setId,
-                            java.util.function.Consumer { result -> onResult(result) }
-                        )
-                    }
+                        override fun deleteSet(
+                            recordId: String,
+                            setId: String,
+                            onResult: (Boolean) -> Unit
+                        ) {
+                            viewModels.getWorkoutExerciseDetail().deleteSet(
+                                AccountScope(ownerId), recordId, setId,
+                                java.util.function.Consumer { result -> onResult(result) }
+                            )
+                        }
 
-                    override fun startRestTimer(restSeconds: Int?) =
-                        viewModels.getWorkoutSession().startRestTimer(ownerId, restSeconds)
-                    override fun updateExerciseRestSeconds(recordId: String, exerciseId: String,
-                                                          seconds: Int, onResult: (Boolean) -> Unit) {
-                        viewModels.getWorkoutExerciseDetail().updateExerciseRestSeconds(
-                            AccountScope(ownerId), recordId, exerciseId, seconds,
-                            java.util.function.Consumer { onResult(it) }
-                        )
+                        override fun startRestTimer(restSeconds: Int?) =
+                            viewModels.getWorkoutSession().startRestTimer(ownerId, restSeconds)
+                        override fun updateExerciseRestSeconds(recordId: String, exerciseId: String,
+                                                              seconds: Int, onResult: (Boolean) -> Unit) {
+                            viewModels.getWorkoutExerciseDetail().updateExerciseRestSeconds(
+                                AccountScope(ownerId), recordId, exerciseId, seconds,
+                                java.util.function.Consumer { onResult(it) }
+                            )
+                        }
+                        override fun toast(message: String) = host.toast(message)
                     }
-                    override fun toast(message: String) = host.toast(message)
                 }
             )
             FitnessScreen.WORKOUT_SUMMARY -> WorkoutSummaryScreen(
@@ -2339,7 +2347,9 @@ private fun AppDestination(
                 homeState,
                 ownerId,
                 navigation.selectedRoutineId(),
-                routineActions
+                routineActions,
+                historyState = viewModels.getRoutineEntry().exerciseHistoryState.observeAsState().value,
+                unit = unit
             )
             FitnessScreen.ROUTINE_ADD,
             FitnessScreen.WORKOUT_EXERCISE_ADD -> ExercisePickerScreen(

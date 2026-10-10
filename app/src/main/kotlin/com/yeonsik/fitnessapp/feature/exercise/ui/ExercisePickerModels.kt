@@ -10,6 +10,8 @@ enum class ExercisePickerSelectionMode {
     WORKOUT_REPLACE,
     WORKOUT_LINK_MANUAL;
 
+    val isAddition: Boolean get() = this == ROUTINE_ADD || this == WORKOUT_ADD
+
     companion object {
         fun forTarget(screen: FitnessScreen, replacementId: String?): ExercisePickerSelectionMode =
             when (screen) {

@@ -2,6 +2,7 @@ package com.yeonsik.fitnessapp.feature.routine.ui
 
 import android.app.Activity
 import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -20,6 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.FitnessButton
@@ -37,6 +42,7 @@ import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitnessapp.feature.home.ui.HomeUiState
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitnessapp.state.FitnessScreen
+import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 
 interface RoutineDetailActions {
     fun back()
@@ -44,6 +50,8 @@ interface RoutineDetailActions {
     fun copy(routineId: String, name: String)
     fun delete(routineId: String)
     fun navigate(screen: FitnessScreen)
+    fun openExerciseHistory(exercise: RoutineExerciseInstance)
+    fun closeExerciseHistory()
     fun startWorkout(
         routineId: String,
         title: String,
@@ -56,7 +64,9 @@ internal fun RoutineDetailScreen(
     home: HomeUiState,
     ownerId: String,
     selectedRoutineId: String?,
-    actions: RoutineDetailActions
+    actions: RoutineDetailActions,
+    historyState: RoutineExerciseHistoryUiState? = null,
+    unit: MassUnit = MassUnit.KG
 ) {
     val ready = home as? HomeUiState.Ready
     if (ready == null || ready.snapshot.ownerId != ownerId) {
@@ -72,6 +82,14 @@ internal fun RoutineDetailScreen(
     val routineId = selectedRoutineId ?: ready.snapshot.activeRoutineId
     val routine = ready.snapshot.routines.firstOrNull { it.id == routineId }
     val exercises = stableRoutineExercises(ready.snapshot.routineExercises[routineId].orEmpty())
+    val closeHistory by rememberUpdatedState(actions::closeExerciseHistory)
+    DisposableEffect(ownerId, routineId) {
+        onDispose { closeHistory() }
+    }
+    if (historyState?.ownerId == ownerId) {
+        RoutineExerciseHistoryDialog(historyState, unit, actions::closeExerciseHistory,
+            onRetry = { actions.openExerciseHistory(historyState.exercise) })
+    }
     var editedName by rememberSaveable(routine?.id) { mutableStateOf(routine?.name.orEmpty()) }
     LaunchedEffect(routine?.id, routine?.name) {
         editedName = routine?.name.orEmpty()
@@ -109,7 +127,7 @@ internal fun RoutineDetailScreen(
             )
         } else {
             exercises.forEachIndexed { index, exercise ->
-                RoutineExerciseRow(index + 1, exercise)
+                RoutineExerciseRow(index + 1, exercise) { actions.openExerciseHistory(exercise) }
             }
         }
     }
@@ -207,9 +225,10 @@ private fun RoutineWorkoutActions(
 }
 
 @Composable
-private fun RoutineExerciseRow(displayOrder: Int, exercise: RoutineExerciseInstance) {
+private fun RoutineExerciseRow(displayOrder: Int, exercise: RoutineExerciseInstance, onClick: () -> Unit) {
     val activity = LocalActivity.current
-    FitnessCard(Modifier.fillMaxWidth()) {
+    FitnessCard(Modifier.fillMaxWidth().testTag("routine-exercise-${exercise.id}")
+        .clickable(role = Role.Button, onClickLabel = "종목 기록 보기", onClick = onClick)) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(FitnessSpacing.card),
             horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),

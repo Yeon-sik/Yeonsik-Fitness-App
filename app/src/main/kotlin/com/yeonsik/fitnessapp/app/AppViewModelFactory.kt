@@ -83,7 +83,8 @@ class AppViewModelFactory(
                     container.cardioSessionApplicationService,
                 )
             modelClass.isAssignableFrom(RoutineEntryViewModel::class.java) ->
-                RoutineEntryViewModel(handle, container.routineRepositoryApi)
+                RoutineEntryViewModel(handle, container.routineRepositoryApi,
+                    workoutRepository = container.workoutRepository)
             modelClass.isAssignableFrom(HomeViewModel::class.java) ->
                 HomeViewModel(handle, container.homeRepository, container.homeActivityHistory)
             modelClass.isAssignableFrom(RecordsViewModel::class.java) ->

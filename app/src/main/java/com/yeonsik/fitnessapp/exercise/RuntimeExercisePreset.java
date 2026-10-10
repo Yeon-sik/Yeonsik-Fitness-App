@@ -121,6 +121,21 @@ public final class RuntimeExercisePreset {
         return nameEn == null ? "운동" : nameEn;
     }
 
+    /** Picker-only aliases: stored names and canonical identity stay unchanged. */
+    public String pickerDisplayName() {
+        String name = displayName();
+        String nameKey = RuntimeExercisePicker.normalize(name).replaceAll("\\s+", "");
+        Map<String, String> aliases = new LinkedHashMap<>();
+        for (String alias : searchAliases) {
+            if (alias == null || !alias.matches(".*[가-힣].*")) continue;
+            LoadState aliasLoadState = searchAliasLoadState(alias);
+            if (aliasLoadState != null && aliasLoadState != defaultLoadState) continue;
+            String key = RuntimeExercisePicker.normalize(alias).replaceAll("\\s+", "");
+            if (!key.equals(nameKey)) aliases.putIfAbsent(key, alias.trim());
+        }
+        return aliases.isEmpty() ? name : name + " (" + String.join(" / ", aliases.values()) + ")";
+    }
+
     public String identityId() {
         return canonicalPresetId == null ? presetId : canonicalPresetId;
     }

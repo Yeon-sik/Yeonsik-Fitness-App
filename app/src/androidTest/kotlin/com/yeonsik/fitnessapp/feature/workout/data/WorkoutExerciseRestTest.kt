@@ -37,7 +37,7 @@ class WorkoutExerciseRestTest {
     @Test fun restIsScopedToOccurrenceAndSurvivesReloadWithoutChangingAnySetOrSnapshot() {
         val recordId = repository.createEmptySession(scope, "2026-10-01")
         assertTrue(repository.addManualExercise(scope, recordId, exercise))
-        assertTrue(repository.addManualExercise(scope, recordId, exercise))
+        assertTrue(repository.addManualExercise(scope, recordId, exercise.copy(name = "다른 수동 컬")))
         val occurrences = storage.exercises(scope, recordId)
         val first = occurrences[0].id
         val second = occurrences[1].id

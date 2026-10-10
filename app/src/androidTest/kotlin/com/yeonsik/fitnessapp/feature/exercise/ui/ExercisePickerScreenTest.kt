@@ -112,7 +112,7 @@ class ExercisePickerScreenTest {
             val preset = result.presets.single()
             showPicker(scenario, ExercisePickerSelectionMode.WORKOUT_ADD,
                 families = listOf(result))
-            findMainButton("${preset.displayName()} 선택")
+            findMainButton("${preset.pickerDisplayName()} 선택")
             // The native preview is decorative to accessibility. Inspect its actual bitmap and
             // measured slot instead of treating a missing accessibility node as a missing image.
             scenario.onActivity { activity ->
@@ -156,7 +156,7 @@ class ExercisePickerScreenTest {
                 families = listOf(result), wrappedContext = true)
             click(scrollMainToDescription("${result.family.displayName()} 변형 선택"))
             await { fixture.state.value.selectedFamilyId == result.family.familyId }
-            val buttonDescription = "${preset.displayName()} 선택"
+            val buttonDescription = "${preset.pickerDisplayName()} 선택"
             await { findNode { it.contentDescription?.toString() == "${result.family.displayName()} 변형 목록" } != null }
             scrollSheetToPreset(buttonDescription,
                 FixtureFamily(result.family.familyId, result.family.displayName(),
@@ -247,11 +247,12 @@ class ExercisePickerScreenTest {
                     } != null
                 }
                 scenario.onActivity {
-                    assertEquals(selectedPresetId, fixture.state.value.selectedPresetId)
+                    assertTrue(fixture.state.value.pendingPresets.any { it.presetId == selectedPresetId })
                 }
 
-                click(requireNotNull(findNode { it.text?.toString() == "이 변형으로 선택" }))
                 await { fixture.actions.chosenPresetId == selectedPresetId }
+                // Compare the sheet transition at the same cart height for every family.
+                scenario.onActivity { fixture.state.value = fixture.state.value.copy(pendingPresets = emptyList()) }
                 dismissSheet()
 
                 val mainCardTopAfter = mainFamilyButtonTop(family)
@@ -265,7 +266,7 @@ class ExercisePickerScreenTest {
     }
 
     @Test
-    fun restoredFamilyAndPresetReopenTheSheetWithTheSelection() {
+    fun restoredFamilyAndPendingPresetsReopenTheSheetWithTheSelection() {
         val family = multiVariantFamilies().last()
         val selectedPresetId = "${family.familyId}_${family.presetCount}"
         ActivityScenario.launch(ComponentActivity::class.java).use { scenario ->
@@ -284,11 +285,10 @@ class ExercisePickerScreenTest {
             val restoredPresetButton = scrollSheetToPreset("$selectedPresetName 선택됨", family)
             assertEquals("$selectedPresetName 선택됨", restoredPresetButton.contentDescription.toString())
             scenario.onActivity {
-                assertEquals(selectedPresetId, fixture.state.value.selectedPresetId)
+                assertTrue(fixture.state.value.pendingPresets.any { it.presetId == selectedPresetId })
             }
             assertTrue(findNode { it.text?.toString() == "선택됨" } != null)
-            click(requireNotNull(findNode { it.text?.toString() == "이 변형으로 선택" }))
-            await { fixture.actions.chosenPresetId == selectedPresetId }
+            scenario.onActivity { assertEquals(null, fixture.actions.chosenPresetId) }
         }
     }
 
@@ -327,6 +327,10 @@ class ExercisePickerScreenTest {
             families = families, availablePrimarySubParts = emptyList(),
             selectedFamilyId = selectedFamilyId, selectedPresetId = selectedPresetId
         ))
+        if (mode.isAddition && selectedPresetId != null) {
+            state.value = state.value.copy(selectedPresetId = null,
+                pendingPresets = families.flatMap { it.presets }.filter { it.presetId == selectedPresetId })
+        }
         val actions = FixtureActions(state)
         scenario.onActivity { activity ->
             activity.setContent {
@@ -561,6 +565,8 @@ class ExercisePickerScreenTest {
         }
         override fun choose(preset: RuntimeExercisePreset) {
             chosenPresetId = preset.presetId
+            if (state.value.selectionMode.isAddition) state.value = state.value.copy(
+                pendingPresets = state.value.pendingPresets + preset, selectedPresetId = null)
         }
         override fun chooseManual(exercise: com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise) = Unit
     }

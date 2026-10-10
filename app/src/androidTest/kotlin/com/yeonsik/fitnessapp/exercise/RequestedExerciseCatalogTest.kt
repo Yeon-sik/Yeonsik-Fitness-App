@@ -10,6 +10,42 @@ import org.junit.Test
 class RequestedExerciseCatalogTest {
     private val context: Context = ApplicationProvider.getApplicationContext()
 
+    @Test fun requestedNamesDisplaySearchableAliasesWithoutChangingCanonicalNames() {
+        val catalog = ExerciseFamilyCatalog.load(context).runtimeCatalog()
+        val picker = RuntimeExercisePicker(catalog)
+        val cases = listOf(
+            "machine_chest_fly" to "펙덱 플라이",
+            "machine_rear_delt_fly" to "리버스 펙덱 플라이",
+            "dumbbell_rear_delt_fly" to "벤트오버 덤벨 레터럴 레이즈",
+            "shoulders_dumbbell_lateral_raise" to "사레레",
+            "arms_machine_preacher_curl" to "머신 스콧 컬",
+            "arms_dumbbell_preacher_curl" to "덤벨 스콧 컬",
+            "arms_barbell_preacher_curl" to "이지바 스콧 컬",
+            "arms_cable_preacher_curl" to "케이블 스콧 컬",
+            "legs_barbell_romanian_deadlift" to "바벨 RDL",
+            "legs_dumbbell_romanian_deadlift" to "덤벨 RDL",
+            "legs_smith_romanian_deadlift" to "스미스머신 RDL",
+            "arms_cable_rope_pushdown" to "케이블 로프 프레스다운",
+            "arms_cable_triceps_pushdown_straight_bar" to "케이블 스트레이트바 프레스다운",
+            "arms_cable_reverse_grip_pushdown" to "케이블 리버스 그립 프레스다운",
+            "legs_machine_hip_abduction" to "아웃타이 머신",
+            "legs_machine_hip_adduction" to "인너타이 머신",
+            "legs_machine_leg_extension" to "니 익스텐션",
+            "legs_machine_lying_leg_curl" to "라잉 햄스트링 컬",
+            "legs_machine_seated_leg_curl" to "시티드 햄스트링 컬",
+            "legs_machine_standing_leg_curl" to "스탠딩 햄스트링 컬",
+            "shoulders_barbell_overhead_press" to "바벨 OHP"
+        )
+        for ((id, alias) in cases) {
+            val preset = catalog.preset(id)!!
+            val canonicalName = preset.displayName()
+            assertTrue(alias, preset.pickerDisplayName().startsWith("$canonicalName ("))
+            assertTrue(alias, preset.pickerDisplayName().contains(alias))
+            assertEquals(alias, preset.identityId(), picker.search(alias).single().presets.single().identityId())
+            assertEquals(canonicalName, preset.displayName())
+        }
+    }
+
     @Test fun everyDeclaredAliasSelectsExactlyOneCanonicalPresetWithEquipmentAndPosturePreserved() {
         val document = JSONObject(context.assets.open("exercise_family_mapping_v1.json")
             .bufferedReader().use { it.readText() })
