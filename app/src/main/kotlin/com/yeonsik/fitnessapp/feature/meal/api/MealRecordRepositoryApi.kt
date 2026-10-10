@@ -5,6 +5,7 @@ import com.yeonsik.fitnessapp.data.DiningOutConsumption
 import com.yeonsik.fitnessapp.data.DiningOutIdentity
 import com.yeonsik.fitnessapp.feature.meal.model.FoodPortionInput
 import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMealInput
+import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMenuIntake
 import com.yeonsik.fitnessapp.data.MealMenuSelection
 import com.yeonsik.fitnessapp.data.MealCompositionItem
 
@@ -66,6 +67,10 @@ interface MealRecordRepositoryApi {
             input.calories, input.proteinGrams, input.carbsGrams, input.fatGrams, input.sodiumMg, input.sugarsGrams,
             input.saturatedFatGrams, input.restaurantId, input.restaurantLocationId, input.restaurantMenuId, input.catalogProductId)
     }
+
+    /** Atomically snapshots each menu at 100% and records its individual consumption. */
+    fun saveDiningOutMenuItems(scope: AccountScope, date: String, mealTime: String, menus: List<DiningOutMenuIntake>): String =
+        throw UnsupportedOperationException("메뉴별 외식 기록을 지원하지 않습니다.")
 
     /** Updates only the local meal time and preserves the consumed snapshot. */
     fun updateMealTime(scope: AccountScope, recordId: String, mealTime: String): Boolean

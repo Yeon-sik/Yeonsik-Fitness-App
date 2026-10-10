@@ -44,7 +44,8 @@ class HomeReadRepository(
             reads.bodyMetric(scope, requestedDate),
             reads.bodyMetrics(scope, requestedDate),
             reads.meals(scope, requestedDate),
-            reads.todayWorkoutStatus(scope, requestedDate)
+            reads.todayWorkoutStatus(scope, requestedDate),
+            reads.bodyMetric(scope, todayDate.minusDays(1).toString())
         )
     }
 

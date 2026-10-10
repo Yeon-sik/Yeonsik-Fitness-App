@@ -3,6 +3,8 @@ package com.yeonsik.fitnessapp.feature.home.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -31,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -185,7 +189,14 @@ private fun ActivityWindowNavigation(
                 enabled = enabled,
                 modifier = Modifier.fillMaxWidth().testTag("home-activity-period")
             ) { Text("${window.periodLabel} ▾", style = MaterialTheme.typography.bodySmall, maxLines = 1) }
-            DropdownMenu(expanded = expanded && enabled, onDismissRequest = { expanded = false }) {
+            DropdownMenu(
+                expanded = expanded && enabled,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.widthIn(min = 200.dp).heightIn(max = 200.dp)
+                    .testTag("home-activity-period-scroll"),
+                shape = RoundedCornerShape(12.dp),
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+            ) {
                 HomeActivityWindowPolicy.windows(window.today, window.firstRecordedDate).forEach { option ->
                     DropdownMenuItem(
                         text = { Text(option.periodLabel, style = MaterialTheme.typography.bodySmall) },
@@ -355,6 +366,7 @@ private fun ActivityDayPreview(
         details?.let { homeActivityPreviewRows(it, preferredMassUnit) }.orEmpty()
     }
     val density = LocalDensity.current
+    val colors = MaterialTheme.colorScheme
     val positionProvider = remember(density) { ActivityCalloutPositionProvider(density) }
     Popup(
         popupPositionProvider = positionProvider,
@@ -374,15 +386,15 @@ private fun ActivityDayPreview(
                         lineTo(centerX + halfWidth, size.height - tailHeight)
                         close()
                     }
-                    drawPath(path, Color.White)
+                    drawPath(path, colors.surface)
                 }
                 .padding(bottom = 6.dp)
                 .testTag("home-activity-preview-$date"),
             verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
             Column(
-                modifier = Modifier.shadow(8.dp, RoundedCornerShape(8.dp))
-                    .background(Color.White, RoundedCornerShape(8.dp))
+                modifier = Modifier.shadow(8.dp, RoundedCornerShape(12.dp))
+                    .background(colors.surface, RoundedCornerShape(12.dp))
                     .padding(horizontal = 9.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
@@ -394,7 +406,7 @@ private fun ActivityDayPreview(
                         date,
                         modifier = Modifier.testTag("home-activity-preview-date")
                             .semantics { contentDescription = date.replace('-', ' ') },
-                        color = Color(0xFF202124),
+                        color = colors.onSurface,
                         style = MaterialTheme.typography.labelSmall,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1
@@ -412,29 +424,37 @@ private fun ActivityDayPreview(
                 }
                 when {
                     isLoading || details == null && !error ->
-                        Text("기록을 불러오는 중", color = Color(0xFF202124), style = MaterialTheme.typography.labelSmall,
+                        Text("기록을 불러오는 중", color = colors.onSurface, style = MaterialTheme.typography.labelSmall,
                             maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    error -> Text("기록을 불러오지 못했어요", color = Color(0xFF202124),
+                    error -> Text("기록을 불러오지 못했어요", color = colors.onSurface,
                         style = MaterialTheme.typography.labelSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     details?.records?.isEmpty() != false || rows.isEmpty() ->
                         Text("기록 없음", modifier = Modifier.testTag("home-activity-preview-empty"),
-                            color = Color(0xFF202124), style = MaterialTheme.typography.labelSmall, maxLines = 1)
-                    else -> rows.forEach { row ->
-                        Row(
-                            Modifier.testTag("home-activity-preview-${row.kind.name.lowercase(Locale.ROOT)}"),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            color = colors.onSurface, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                    else -> key(expectedOwnerId, date) {
+                        Column(
+                            Modifier.fillMaxWidth().heightIn(max = 180.dp)
+                                .background(colors.surfaceContainerLow, RoundedCornerShape(8.dp))
+                                .border(1.dp, colors.outlineVariant, RoundedCornerShape(8.dp))
+                                .clip(RoundedCornerShape(8.dp))
+                                .verticalScroll(rememberScrollState())
+                                .padding(8.dp)
+                                .testTag("home-activity-preview-scroll"),
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            Text(row.kind.label,
-                                color = Color(0xFF202124), style = MaterialTheme.typography.labelSmall)
-                            Text("·", color = Color(0xFF202124), style = MaterialTheme.typography.labelSmall)
-                            Text(
-                                row.summary,
-                                color = Color(0xFF202124),
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
+                            rows.forEach { row ->
+                                Row(
+                                    Modifier.testTag("home-activity-preview-${row.kind.name.lowercase(Locale.ROOT)}"),
+                                    verticalAlignment = Alignment.Top,
+                                    horizontalArrangement = Arrangement.spacedBy(3.dp)
+                                ) {
+                                    Text(row.kind.label, color = colors.onSurface,
+                                        style = MaterialTheme.typography.labelSmall)
+                                    Text("·", color = colors.onSurface, style = MaterialTheme.typography.labelSmall)
+                                    Text(row.summary, color = colors.onSurface,
+                                        style = MaterialTheme.typography.labelSmall)
+                                }
+                            }
                         }
                     }
                 }

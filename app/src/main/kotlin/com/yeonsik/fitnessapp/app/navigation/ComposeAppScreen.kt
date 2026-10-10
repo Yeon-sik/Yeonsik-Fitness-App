@@ -1849,6 +1849,13 @@ private fun AppDestination(
             viewModels.getMeal().updateFoodQuantity(itemId, value)
         override fun removeFood(itemId: String) = viewModels.getMeal().removeFood(itemId)
         override fun updateDiningPortion(value: String) = viewModels.getMeal().updateDiningPortion(value)
+        override fun updateFoodConsumedPercent(itemId: String, value: String) = viewModels.getMeal().updateFoodConsumedPercent(itemId, value)
+        override fun updateDiningConsumedPercent(value: String) = viewModels.getMeal().updateDiningConsumedPercent(value)
+        override fun addDiningMenu() = viewModels.getMeal().addDiningMenu()
+        override fun startAnotherDiningMenu(menuId: String) = viewModels.getMeal().startAnotherDiningMenu(menuId)
+        override fun clearCurrentDiningMenu() = viewModels.getMeal().clearCurrentDiningMenu()
+        override fun updateDiningMenu(menu: MealDiningDraftItem) = viewModels.getMeal().updateDiningMenu(menu)
+        override fun removeDiningMenu(menuId: String) = viewModels.getMeal().removeDiningMenu(menuId)
         override fun openNutritionEditor() = viewModels.getMeal().nutritionEditor.open()
         override fun updateTime(value: String) = viewModels.getMeal().updateTime(value)
         override fun saveFood() = viewModels.getMeal().saveFood(AccountScope(ownerId)) { }

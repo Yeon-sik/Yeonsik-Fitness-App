@@ -7,10 +7,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -23,6 +25,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.*
 import com.yeonsik.fitnessapp.feature.nutrition.model.FoodPortionDraft
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun NutritionEntryFrame(
@@ -31,9 +34,13 @@ internal fun NutritionEntryFrame(
     modifier: Modifier = Modifier,
     subtitle: String? = null,
     closeEnabled: Boolean = true,
+    showScrollToTop: Boolean = false,
     footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit
 ) {
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val canScrollToTop by remember { derivedStateOf { scrollState.value > 0 } }
     Dialog(
         onDismissRequest = { if (closeEnabled) onClose() },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
@@ -49,10 +56,24 @@ internal fun NutritionEntryFrame(
                         }
                         TextButton(onClick = onClose, enabled = closeEnabled, modifier = Modifier.heightIn(min = 48.dp)) { Text("닫기") }
                     }
-                    Column(
-                        Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp), content = content
-                    )
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        Column(
+                            Modifier.fillMaxSize().verticalScroll(scrollState)
+                                .testTag("nutrition-entry-scroll")
+                                .padding(20.dp)
+                                .padding(bottom = if (showScrollToTop) 64.dp else 0.dp),
+                            verticalArrangement = Arrangement.spacedBy(16.dp), content = content
+                        )
+                        if (showScrollToTop && canScrollToTop) {
+                            FloatingActionButton(
+                                onClick = { scope.launch { scrollState.animateScrollTo(0) } },
+                                modifier = Modifier.align(Alignment.BottomStart).padding(16.dp)
+                                    .size(56.dp).testTag("meal-entry-top")
+                                    .semantics { contentDescription = "식단 등록 최상단으로 이동" },
+                                shape = CircleShape
+                            ) { Text("TOP", style = MaterialTheme.typography.labelLarge) }
+                        }
+                    }
                     if (footer != null) {
                         Surface(color = MaterialTheme.colorScheme.surface) {
                             Column {
@@ -91,7 +112,9 @@ internal fun FoodPortionList(
     onAmountChange: (String, String) -> Unit,
     onRemove: (String) -> Unit,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    amountLabel: String = "섭취량",
+    itemContent: @Composable (FoodPortionDraft) -> Unit = {}
 ) {
     if (portions.isEmpty()) return
     LazyColumn(modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -100,23 +123,24 @@ internal fun FoodPortionList(
             val amount = portion.amount
             val step = food.basisAmount / 4.0
             val calories = portion.profile?.value(NutritionProfile.CALORIES_KCAL)?.let { NutritionCalculator.trim(it) } ?: "미확인"
-            NutritionFormSection(food.displayName(), Modifier.fillMaxWidth(), "${food.basisLabel()} 기준 · $calories kcal") {
+            NutritionFormSection(food.displayName(), Modifier.fillMaxWidth(), "${food.basisLabel()} 기준 · $amountLabel $calories kcal") {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
                     OutlinedButton(
                         onClick = { onAmountChange(food.id, NutritionCalculator.trim(amount!! - step)) },
                         enabled = enabled && amount != null && amount > step,
-                        modifier = Modifier.size(48.dp).semantics { contentDescription = "${food.displayName()} 섭취량 줄이기" },
+                        modifier = Modifier.size(48.dp).semantics { contentDescription = "${food.displayName()} $amountLabel 줄이기" },
                         contentPadding = PaddingValues(0.dp)
                     ) { Text("−", style = MaterialTheme.typography.titleLarge) }
-                    NutritionNumberField(portion.quantity, { onAmountChange(food.id, it) }, "섭취량", NutritionUnit.display(food.basisUnit),
+                    NutritionNumberField(portion.quantity, { onAmountChange(food.id, it) }, amountLabel, NutritionUnit.display(food.basisUnit),
                         Modifier.weight(1f), enabled = enabled, showError = portion.quantity.isNotBlank() && portion.profile == null, positive = true)
                     OutlinedButton(
                         onClick = { onAmountChange(food.id, NutritionCalculator.trim(amount!! + step)) },
                         enabled = enabled && amount != null && (amount + step).isFinite(),
-                        modifier = Modifier.size(48.dp).semantics { contentDescription = "${food.displayName()} 섭취량 늘리기" },
+                        modifier = Modifier.size(48.dp).semantics { contentDescription = "${food.displayName()} $amountLabel 늘리기" },
                         contentPadding = PaddingValues(0.dp)
                     ) { Text("+", style = MaterialTheme.typography.titleLarge) }
                 }
+                itemContent(portion)
                 TextButton(onClick = { onRemove(food.id) }, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp)
                     .semantics { contentDescription = "${food.displayName()} 구성에서 삭제" }) { Text("구성에서 삭제", color = MaterialTheme.colorScheme.error) }
             }

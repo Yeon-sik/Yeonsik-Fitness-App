@@ -54,7 +54,7 @@ class MealCatalogPickerUiTest {
         }, state, PriceTraceUiState.Idle, "6끼") } }
         compose.onNodeWithTag("meal-food-portions").performScrollTo().performScrollToIndex(39)
         assertBounded("meal-food-portions", 360f)
-        compose.onNodeWithContentDescription("식품 39 섭취량 늘리기").performClick()
+        compose.onNodeWithContentDescription("식품 39 전체 양 늘리기").performClick()
         compose.runOnIdle { assertEquals("125", state.foodPortions.last().quantity) }
         compose.onNodeWithTag("meal-entry-save").assertIsDisplayed()
     }
@@ -92,6 +92,7 @@ class MealCatalogPickerUiTest {
         compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, args ->
             if (name == "useDiningOutFood") selectedId = (args!![0] as NutritionFood).id
         }, diningState().copy(searchResults = menus, selectedFood = menus.first()), PriceTraceUiState.Idle, "7끼") } }
+        compose.onNodeWithText("저장된 메뉴에서 선택").performScrollTo().performClick()
         compose.onNodeWithTag("meal-dining-results").performScrollTo()
         compose.onNodeWithTag("food-result-food-0").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "선택됨"))
         assertBounded("meal-dining-results", 288f)

@@ -25,6 +25,8 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -109,7 +111,7 @@ class HomeActivityHistoryUiTest {
                                     HomeActivityRecordSummary(
                                         HomeActivityKind.EXERCISE,
                                         name = "Long strength session title",
-                                        category = "등 · 가슴 · 이두 · 어깨",
+                                        category = List(16) { "등 · 가슴 · 이두 · 어깨" }.joinToString(" · "),
                                         workoutType = "strength"
                                     ),
                                     HomeActivityRecordSummary(
@@ -136,9 +138,11 @@ class HomeActivityHistoryUiTest {
         assertTrue(preview.left >= host.left - 1f)
         assertTrue(preview.right <= host.right + 1f)
         compose.onNodeWithTag("home-activity-open-records").assertExists()
+        val scroll = compose.onNodeWithTag("home-activity-preview-scroll").fetchSemanticsNode()
+        assertTrue(scroll.boundsInRoot.height <= with(compose.density) { 180.dp.toPx() } + 1f)
         compose.onNodeWithTag("home-activity-preview-exercise", useUnmergedTree = true).assertExists()
         compose.onNodeWithTag("home-activity-preview-meal", useUnmergedTree = true).assertExists()
-        compose.onNodeWithTag("home-activity-preview-weight", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag("home-activity-preview-weight", useUnmergedTree = true).performScrollTo().assertIsDisplayed()
     }
 
     @Test fun currentNextAndOldestPreviousAreDisabledAndSelectorMovesBetweenPages() {
@@ -163,11 +167,13 @@ class HomeActivityHistoryUiTest {
         assertEquals(1, (state.value as HomeActivityUiState.Ready).window.pageOffset)
         compose.onNodeWithTag("home-activity-next").assertIsEnabled()
         compose.onNodeWithTag("home-activity-period").performClick()
-        compose.onNodeWithTag("home-activity-period-3").performClick()
+        val menu = compose.onNodeWithTag("home-activity-period-scroll").fetchSemanticsNode()
+        assertTrue(menu.boundsInRoot.height <= with(compose.density) { 200.dp.toPx() } + 1f)
+        compose.onNodeWithTag("home-activity-period-3").performScrollTo().performClick()
         assertEquals(3, (state.value as HomeActivityUiState.Ready).window.pageOffset)
         compose.onNodeWithTag("home-activity-previous").assertIsNotEnabled()
         compose.onNodeWithTag("home-activity-period").performClick()
-        compose.onNodeWithTag("home-activity-period-0").performClick()
+        compose.onNodeWithTag("home-activity-period-0").performScrollTo().performClick()
         compose.onNodeWithTag("home-activity-next").assertIsNotEnabled()
     }
 
@@ -249,7 +255,7 @@ class HomeActivityHistoryUiTest {
                 .getOrNull(SemanticsProperties.ContentDescription)
                 .orEmpty().any { it.endsWith("선택됨") }
         )
-        compose.onNodeWithText("9월 30일").assertExists()
+        compose.onNodeWithText(date).assertExists()
         compose.onNodeWithText("등 · 이두 · 유산소 32분").assertExists()
         compose.onNodeWithText("2회").assertExists()
         compose.onNodeWithText("62.4kg").assertExists()

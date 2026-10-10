@@ -6,7 +6,8 @@ data class HomeTodayWorkoutStatus(
     val hasCompletedStrength: Boolean = false,
     val muscleLabels: List<String> = emptyList(),
     val hasCompletedCardio: Boolean = false,
-    val cardioDurationSeconds: Long = 0
+    val cardioDurationSeconds: Long = 0,
+    val completedStrengthVolumeKg: Double = 0.0
 )
 
 data class HomeDayWorkoutMetrics(

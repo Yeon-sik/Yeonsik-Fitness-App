@@ -5,6 +5,7 @@ import com.yeonsik.fitnessapp.feature.home.model.HomeDayWorkoutMetrics
 import com.yeonsik.fitnessapp.feature.home.model.HomeMealSummary
 import com.yeonsik.fitnessapp.feature.home.model.HomeNutritionTotals
 import com.yeonsik.fitnessapp.feature.home.model.HomeTodayWorkoutStatus
+import com.yeonsik.fitnessapp.feature.home.model.HomeBodyMetric
 import com.yeonsik.fitness.shared.feature.routine.api.RoutineRepositoryApi
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -32,7 +33,10 @@ class HomeReadRepositoryTest {
                 requested += "meals:$date"
                 return emptyList()
             }
-            override fun bodyMetric(scope: AccountScope, date: String) = null
+            override fun bodyMetric(scope: AccountScope, date: String): HomeBodyMetric {
+                requested += "weight:${scope.ownerId}:$date"
+                return HomeBodyMetric("weight-$date", date, 80.0, "")
+            }
             override fun bodyMetrics(scope: AccountScope, date: String) = emptyList<com.yeonsik.fitnessapp.feature.home.model.HomeBodyMetric>()
             override fun nutritionGoal(scope: AccountScope) = null
         }
@@ -54,5 +58,16 @@ class HomeReadRepositoryTest {
             requested.filter { it.startsWith("completed:") })
         assertTrue(today.todayWorkoutStatus.hasCompletedWorkout)
         assertTrue(past.todayWorkoutStatus.hasCompletedWorkout)
+        assertEquals("2026-09-13", today.yesterdayWeight?.date)
+        assertEquals("2026-09-12", past.yesterdayWeight?.date)
+        assertEquals(listOf("weight:owner:2026-09-14", "weight:owner:2026-09-13",
+            "weight:owner:2026-09-13", "weight:owner:2026-09-12"),
+            requested.filter { it.startsWith("weight:") })
+
+        requested.clear()
+        val newYear = repository.load(AccountScope("other-owner"), "2027-01-01")
+        assertEquals("2026-12-31", newYear.yesterdayWeight?.date)
+        assertEquals(listOf("weight:other-owner:2027-01-01", "weight:other-owner:2026-12-31"),
+            requested.filter { it.startsWith("weight:") })
     }
 }

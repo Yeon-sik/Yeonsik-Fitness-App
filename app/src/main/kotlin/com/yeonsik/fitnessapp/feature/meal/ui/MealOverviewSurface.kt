@@ -33,7 +33,10 @@ import com.yeonsik.fitnessapp.core.ui.FitnessSpacing
 
 /** Local, self-contained sampling source for the Meal overview's restrained frosted surfaces. */
 @Composable
-internal fun MealOverviewGlassSurface(content: @Composable ColumnScope.() -> Unit) {
+internal fun MealOverviewGlassSurface(
+    modifier: Modifier = Modifier,
+    content: @Composable ColumnScope.() -> Unit
+) {
     val colors = MaterialTheme.colorScheme
     val context = LocalContext.current
     val highContrast = Build.VERSION.SDK_INT >= 36 &&
@@ -42,7 +45,7 @@ internal fun MealOverviewGlassSurface(content: @Composable ColumnScope.() -> Uni
     val useGlass = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !highContrast
     if (useGlass) {
         val backdrop = rememberLayerBackdrop()
-        Box(Modifier.fillMaxWidth().clip(FitnessShape.card)) {
+        Box(modifier.fillMaxWidth().clip(FitnessShape.card)) {
             Box(
                 Modifier.matchParentSize()
                     .layerBackdrop(backdrop)
@@ -69,7 +72,7 @@ internal fun MealOverviewGlassSurface(content: @Composable ColumnScope.() -> Uni
         }
     } else {
         Column(
-            Modifier.fillMaxWidth().clip(FitnessShape.card)
+            modifier.fillMaxWidth().clip(FitnessShape.card)
                 .background(colors.surfaceContainerHigh)
                 .border(
                     1.dp,

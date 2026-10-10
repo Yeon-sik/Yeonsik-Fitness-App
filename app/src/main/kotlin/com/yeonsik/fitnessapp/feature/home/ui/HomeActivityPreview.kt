@@ -31,7 +31,7 @@ internal fun homeActivityPreviewRows(
             strengthRecords.isEmpty() -> null
             bodyParts.size > 2 -> "${bodyParts.take(2).joinToString(" · ")} 외 ${bodyParts.size - 2}"
             bodyParts.isNotEmpty() -> bodyParts.joinToString(" · ")
-            else -> "근력 운동"
+            else -> "무산소"
         }
         val cardioSummary = cardioRecords.takeIf { it.isNotEmpty() }?.let { records ->
             val totalSeconds = records.sumOf { it.durationSeconds?.coerceAtLeast(0) ?: 0 }

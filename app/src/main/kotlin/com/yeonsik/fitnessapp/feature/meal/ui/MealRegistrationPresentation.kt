@@ -70,6 +70,7 @@ internal fun mealQuantityUnit(unit: String): String = when (NutritionUnit.normal
 
 internal fun hasMealRegistrationDraft(editor: MealUiState.Ready): Boolean =
     editor.foodItems.isNotEmpty() || editor.selectedFood != null || editor.query.isNotBlank() ||
+        editor.diningMenus.isNotEmpty() || editor.diningConsumedPercent != "100" ||
         listOf(
             editor.draft.store, editor.draft.branch, editor.draft.menu,
             editor.draft.calories, editor.draft.carbs, editor.draft.protein,
@@ -80,6 +81,7 @@ internal fun hasMealRegistrationDraft(editor: MealUiState.Ready): Boolean =
 internal fun foodMealRegistrationError(editor: MealUiState.Ready): String? {
     if (editor.foodItems.isEmpty()) return "한 끼에 먹은 음식을 하나 이상 담으세요."
     editor.foodItems.forEach { item ->
+        mealConsumedPercentError(item.consumedPercent)?.let { return "${item.food.displayName()} · $it" }
         mealQuantityError(item.quantity)?.let { return "${item.food.displayName()} · $it" }
     }
     return mealTimeError(editor.draft.time)
@@ -88,7 +90,7 @@ internal fun foodMealRegistrationError(editor: MealUiState.Ready): String? {
 internal fun mealDraftNutritionTotals(items: List<MealFoodDraftItem>): NutritionTotals? {
     if (items.isEmpty()) return null
     val foods = items.map { item ->
-        val quantity = mealQuantityValue(item.quantity) ?: return null
+        val quantity = mealConsumedQuantity(item.quantity, item.consumedPercent) ?: return null
         runCatching { MealCompositionItem.from(item.food, quantity) }.getOrNull() ?: return null
     }
     return NutritionCalculator.sum(foods)

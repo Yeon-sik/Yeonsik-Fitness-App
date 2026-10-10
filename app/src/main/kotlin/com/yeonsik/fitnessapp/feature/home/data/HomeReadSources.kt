@@ -49,7 +49,8 @@ class FeatureHomeReadSources(
             muscleLabels = strength.flatMap { it.projectionMuscleLabels }
                 .filter { it.isNotBlank() }.distinct(),
             hasCompletedCardio = cardio.isNotEmpty(),
-            cardioDurationSeconds = cardio.sumOf { it.durationSeconds.toLong() }
+            cardioDurationSeconds = cardio.sumOf { it.durationSeconds.toLong() },
+            completedStrengthVolumeKg = strength.sumOf { it.totalVolumeKg }
         )
     }
 
