@@ -3,76 +3,6205 @@
   "schemaVersion": 1,
   "sourceCatalog": "Fitness_Weight.json",
   "exercises": {
-    "legs_barbell_back_squat": {
-      "slug": "barbell-back-squat",
-      "lookupKeys": ["barbell-back-squat"],
+    "abs_band_crunch": {
+      "exerciseId": "abs_band_crunch",
+      "slug": "abs-band-crunch",
+      "lookupKeys": [
+        "abs_band_crunch"
+      ],
       "preferredHeightDp": 280,
       "frames": [
-        { "id": "A", "file": "images/barbell-back-squat-a.png", "durationMs": 1000 },
-        { "id": "B", "file": "images/barbell-back-squat-b.png", "durationMs": 1000 }
+        {
+          "id": "A",
+          "file": "images/review-final/abs-band-crunch-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-band-crunch-b.png",
+          "durationMs": 1000
+        }
       ]
     },
-    "back_barbell_bent_over_row": {
-      "slug": "barbell-bent-over-row",
-      "lookupKeys": [],
+    "abs_band_pallof_press": {
+      "exerciseId": "abs_band_pallof_press",
+      "slug": "abs-band-pallof-press",
+      "lookupKeys": [
+        "abs_band_pallof_press"
+      ],
       "preferredHeightDp": 280,
       "frames": [
-        { "id": "A", "file": "images/barbell-bent-over-row-a.png", "durationMs": 1000 },
-        { "id": "B", "file": "images/barbell-bent-over-row-b.png", "durationMs": 1000 }
+        {
+          "id": "A",
+          "file": "images/review-final/abs-band-pallof-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-band-pallof-press-b.png",
+          "durationMs": 1000
+        }
       ]
     },
-    "back_barbell_deadlift": {
-      "slug": "barbell-deadlift",
-      "lookupKeys": [],
+    "abs_barbell_landmine_rotation": {
+      "exerciseId": "abs_barbell_landmine_rotation",
+      "slug": "abs-barbell-landmine-rotation",
+      "lookupKeys": [
+        "abs_barbell_landmine_rotation"
+      ],
       "preferredHeightDp": 280,
       "frames": [
-        { "id": "A", "file": "images/barbell-deadlift-a.png", "durationMs": 1000 },
-        { "id": "B", "file": "images/barbell-deadlift-b.png", "durationMs": 1000 }
+        {
+          "id": "A",
+          "file": "images/review-final/abs-barbell-landmine-rotation-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-barbell-landmine-rotation-b.png",
+          "durationMs": 1000
+        }
       ]
     },
-    "chest_barbell_flat_bench_press": {
-      "slug": "barbell-flat-bench-press",
-      "lookupKeys": ["barbell-flat-bench-press"],
-      "preferredHeightDp": 220,
+    "abs_barbell_rollout": {
+      "exerciseId": "abs_barbell_rollout",
+      "slug": "abs-barbell-rollout",
+      "lookupKeys": [
+        "abs_barbell_rollout"
+      ],
+      "preferredHeightDp": 280,
       "frames": [
-        { "id": "A", "file": "images/barbell-flat-bench-press-a.png", "durationMs": 1000 },
-        { "id": "B", "file": "images/barbell-flat-bench-press-b.png", "durationMs": 1000 }
+        {
+          "id": "A",
+          "file": "images/review-final/abs-barbell-rollout-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-barbell-rollout-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_bicycle_crunch": {
+      "exerciseId": "abs_bodyweight_bicycle_crunch",
+      "slug": "abs-bodyweight-bicycle-crunch",
+      "lookupKeys": [
+        "abs_bodyweight_bicycle_crunch"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-bicycle-crunch-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-bicycle-crunch-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_captains_chair_knee_raise": {
+      "exerciseId": "abs_bodyweight_captains_chair_knee_raise",
+      "slug": "abs-bodyweight-captains-chair-knee-raise",
+      "lookupKeys": [
+        "abs_bodyweight_captains_chair_knee_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-captains-chair-knee-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-captains-chair-knee-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_crunch": {
+      "exerciseId": "abs_bodyweight_crunch",
+      "slug": "abs-bodyweight-crunch",
+      "lookupKeys": [
+        "abs_bodyweight_crunch"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-crunch-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-crunch-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_dead_bug": {
+      "exerciseId": "abs_bodyweight_dead_bug",
+      "slug": "abs-bodyweight-dead-bug",
+      "lookupKeys": [
+        "abs_bodyweight_dead_bug"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-dead-bug-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-dead-bug-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_hanging_knee_raise": {
+      "exerciseId": "abs_bodyweight_hanging_knee_raise",
+      "slug": "abs-bodyweight-hanging-knee-raise",
+      "lookupKeys": [
+        "abs_bodyweight_hanging_knee_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-hanging-knee-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-hanging-knee-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_hanging_leg_raise": {
+      "exerciseId": "abs_bodyweight_hanging_leg_raise",
+      "slug": "abs-bodyweight-hanging-leg-raise",
+      "lookupKeys": [
+        "abs_bodyweight_hanging_leg_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-hanging-leg-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-hanging-leg-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_hollow_hold": {
+      "exerciseId": "abs_bodyweight_hollow_hold",
+      "slug": "abs-bodyweight-hollow-hold",
+      "lookupKeys": [
+        "abs_bodyweight_hollow_hold"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-hollow-hold-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-hollow-hold-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_leg_raise": {
+      "exerciseId": "abs_bodyweight_leg_raise",
+      "slug": "abs-bodyweight-leg-raise",
+      "lookupKeys": [
+        "abs_bodyweight_leg_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-leg-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-leg-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_plank": {
+      "exerciseId": "abs_bodyweight_plank",
+      "slug": "abs-bodyweight-plank",
+      "lookupKeys": [
+        "abs_bodyweight_plank"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-plank-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-plank-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_plank_shoulder_tap": {
+      "exerciseId": "abs_bodyweight_plank_shoulder_tap",
+      "slug": "abs-bodyweight-plank-shoulder-tap",
+      "lookupKeys": [
+        "abs_bodyweight_plank_shoulder_tap"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-plank-shoulder-tap-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-plank-shoulder-tap-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_reverse_crunch": {
+      "exerciseId": "abs_bodyweight_reverse_crunch",
+      "slug": "abs-bodyweight-reverse-crunch",
+      "lookupKeys": [
+        "abs_bodyweight_reverse_crunch"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-reverse-crunch-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-reverse-crunch-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_russian_twist": {
+      "exerciseId": "abs_bodyweight_russian_twist",
+      "slug": "abs-bodyweight-russian-twist",
+      "lookupKeys": [
+        "abs_bodyweight_russian_twist"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-russian-twist-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-russian-twist-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_side_plank": {
+      "exerciseId": "abs_bodyweight_side_plank",
+      "slug": "abs-bodyweight-side-plank",
+      "lookupKeys": [
+        "abs_bodyweight_side_plank"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-side-plank-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-side-plank-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_sit_up": {
+      "exerciseId": "abs_bodyweight_sit_up",
+      "slug": "abs-bodyweight-sit-up",
+      "lookupKeys": [
+        "abs_bodyweight_sit_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-sit-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-sit-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_toe_touch": {
+      "exerciseId": "abs_bodyweight_toe_touch",
+      "slug": "abs-bodyweight-toe-touch",
+      "lookupKeys": [
+        "abs_bodyweight_toe_touch"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-toe-touch-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-toe-touch-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_bodyweight_v_up": {
+      "exerciseId": "abs_bodyweight_v_up",
+      "slug": "abs-bodyweight-v-up",
+      "lookupKeys": [
+        "abs_bodyweight_v_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-bodyweight-v-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-bodyweight-v-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_cable_crunch": {
+      "exerciseId": "abs_cable_crunch",
+      "slug": "abs-cable-crunch",
+      "lookupKeys": [
+        "abs_cable_crunch"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-cable-crunch-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-cable-crunch-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_cable_pallof_press": {
+      "exerciseId": "abs_cable_pallof_press",
+      "slug": "abs-cable-pallof-press",
+      "lookupKeys": [
+        "abs_cable_pallof_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-cable-pallof-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-cable-pallof-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_cable_reverse_crunch": {
+      "exerciseId": "abs_cable_reverse_crunch",
+      "slug": "abs-cable-reverse-crunch",
+      "lookupKeys": [
+        "abs_cable_reverse_crunch"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-cable-reverse-crunch-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-cable-reverse-crunch-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_cable_standing_crunch": {
+      "exerciseId": "abs_cable_standing_crunch",
+      "slug": "abs-cable-standing-crunch",
+      "lookupKeys": [
+        "abs_cable_standing_crunch"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-cable-standing-crunch-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-cable-standing-crunch-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_cable_woodchop": {
+      "exerciseId": "abs_cable_woodchop",
+      "slug": "abs-cable-woodchop",
+      "lookupKeys": [
+        "abs_cable_woodchop"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-cable-woodchop-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-cable-woodchop-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_dumbbell_russian_twist": {
+      "exerciseId": "abs_dumbbell_russian_twist",
+      "slug": "abs-dumbbell-russian-twist",
+      "lookupKeys": [
+        "abs_dumbbell_russian_twist"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-dumbbell-russian-twist-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-dumbbell-russian-twist-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_dumbbell_side_bend": {
+      "exerciseId": "abs_dumbbell_side_bend",
+      "slug": "abs-dumbbell-side-bend",
+      "lookupKeys": [
+        "abs_dumbbell_side_bend"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-dumbbell-side-bend-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-dumbbell-side-bend-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_dumbbell_weighted_sit_up": {
+      "exerciseId": "abs_dumbbell_weighted_sit_up",
+      "slug": "abs-dumbbell-weighted-sit-up",
+      "lookupKeys": [
+        "abs_dumbbell_weighted_sit_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-dumbbell-weighted-sit-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-dumbbell-weighted-sit-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_kettlebell_turkish_get_up": {
+      "exerciseId": "abs_kettlebell_turkish_get_up",
+      "slug": "abs-kettlebell-turkish-get-up",
+      "lookupKeys": [
+        "abs_kettlebell_turkish_get_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-kettlebell-turkish-get-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-kettlebell-turkish-get-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_kettlebell_windmill": {
+      "exerciseId": "abs_kettlebell_windmill",
+      "slug": "abs-kettlebell-windmill",
+      "lookupKeys": [
+        "abs_kettlebell_windmill"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-kettlebell-windmill-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-kettlebell-windmill-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_machine_ab_crunch": {
+      "exerciseId": "abs_machine_ab_crunch",
+      "slug": "abs-machine-ab-crunch",
+      "lookupKeys": [
+        "abs_machine_ab_crunch"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-machine-ab-crunch-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-machine-ab-crunch-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_machine_captains_chair": {
+      "exerciseId": "abs_machine_captains_chair",
+      "slug": "abs-machine-captains-chair",
+      "lookupKeys": [
+        "abs_machine_captains_chair"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-machine-captains-chair-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-machine-captains-chair-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_machine_torso_rotation": {
+      "exerciseId": "abs_machine_torso_rotation",
+      "slug": "abs-machine-torso-rotation",
+      "lookupKeys": [
+        "abs_machine_torso_rotation"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-machine-torso-rotation-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-machine-torso-rotation-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_other_ab_wheel_rollout": {
+      "exerciseId": "abs_other_ab_wheel_rollout",
+      "slug": "abs-other-ab-wheel-rollout",
+      "lookupKeys": [
+        "abs_other_ab_wheel_rollout"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-other-ab-wheel-rollout-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-other-ab-wheel-rollout-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_other_roman_chair_sit_up": {
+      "exerciseId": "abs_other_roman_chair_sit_up",
+      "slug": "abs-other-roman-chair-sit-up",
+      "lookupKeys": [
+        "abs_other_roman_chair_sit_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-other-roman-chair-sit-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-other-roman-chair-sit-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_plate_russian_twist": {
+      "exerciseId": "abs_plate_russian_twist",
+      "slug": "abs-plate-russian-twist",
+      "lookupKeys": [
+        "abs_plate_russian_twist"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-plate-russian-twist-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-plate-russian-twist-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_plate_side_bend": {
+      "exerciseId": "abs_plate_side_bend",
+      "slug": "abs-plate-side-bend",
+      "lookupKeys": [
+        "abs_plate_side_bend"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-plate-side-bend-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-plate-side-bend-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "abs_plate_weighted_crunch": {
+      "exerciseId": "abs_plate_weighted_crunch",
+      "slug": "abs-plate-weighted-crunch",
+      "lookupKeys": [
+        "abs_plate_weighted_crunch"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/abs-plate-weighted-crunch-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/abs-plate-weighted-crunch-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_band_curl": {
+      "exerciseId": "arms_band_curl",
+      "slug": "arms-band-curl",
+      "lookupKeys": [
+        "arms_band_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-band-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-band-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_band_hammer_curl": {
+      "exerciseId": "arms_band_hammer_curl",
+      "slug": "arms-band-hammer-curl",
+      "lookupKeys": [
+        "arms_band_hammer_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-band-hammer-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-band-hammer-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_band_overhead_triceps_extension": {
+      "exerciseId": "arms_band_overhead_triceps_extension",
+      "slug": "arms-band-overhead-triceps-extension",
+      "lookupKeys": [
+        "arms_band_overhead_triceps_extension"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-band-overhead-triceps-extension-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-band-overhead-triceps-extension-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_band_triceps_pushdown": {
+      "exerciseId": "arms_band_triceps_pushdown",
+      "slug": "arms-band-triceps-pushdown",
+      "lookupKeys": [
+        "arms_band_triceps_pushdown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-band-triceps-pushdown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-band-triceps-pushdown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_close_grip_bench_press": {
+      "exerciseId": "arms_barbell_close_grip_bench_press",
+      "slug": "arms-barbell-close-grip-bench-press",
+      "lookupKeys": [
+        "arms_barbell_close_grip_bench_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-close-grip-bench-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-close-grip-bench-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_curl": {
+      "exerciseId": "arms_barbell_curl",
+      "slug": "arms-barbell-curl",
+      "lookupKeys": [
+        "arms_barbell_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_drag_curl": {
+      "exerciseId": "arms_barbell_drag_curl",
+      "slug": "arms-barbell-drag-curl",
+      "lookupKeys": [
+        "arms_barbell_drag_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-drag-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-drag-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_ez_bar_curl": {
+      "exerciseId": "arms_barbell_ez_bar_curl",
+      "slug": "arms-barbell-ez-bar-curl",
+      "lookupKeys": [
+        "arms_barbell_ez_bar_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-ez-bar-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-ez-bar-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_ez_skull_crusher": {
+      "exerciseId": "arms_barbell_ez_skull_crusher",
+      "slug": "arms-barbell-ez-skull-crusher",
+      "lookupKeys": [
+        "arms_barbell_ez_skull_crusher"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-ez-skull-crusher-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-ez-skull-crusher-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_jm_press": {
+      "exerciseId": "arms_barbell_jm_press",
+      "slug": "arms-barbell-jm-press",
+      "lookupKeys": [
+        "arms_barbell_jm_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-jm-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-jm-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_preacher_curl": {
+      "exerciseId": "arms_barbell_preacher_curl",
+      "slug": "arms-barbell-preacher-curl",
+      "lookupKeys": [
+        "arms_barbell_preacher_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-preacher-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-preacher-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_reverse_curl": {
+      "exerciseId": "arms_barbell_reverse_curl",
+      "slug": "arms-barbell-reverse-curl",
+      "lookupKeys": [
+        "arms_barbell_reverse_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-reverse-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-reverse-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_reverse_wrist_curl": {
+      "exerciseId": "arms_barbell_reverse_wrist_curl",
+      "slug": "arms-barbell-reverse-wrist-curl",
+      "lookupKeys": [
+        "arms_barbell_reverse_wrist_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-reverse-wrist-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-reverse-wrist-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_skull_crusher": {
+      "exerciseId": "arms_barbell_skull_crusher",
+      "slug": "arms-barbell-skull-crusher",
+      "lookupKeys": [
+        "arms_barbell_skull_crusher"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-skull-crusher-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-skull-crusher-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_spider_curl": {
+      "exerciseId": "arms_barbell_spider_curl",
+      "slug": "arms-barbell-spider-curl",
+      "lookupKeys": [
+        "arms_barbell_spider_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-spider-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-spider-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_barbell_wrist_curl": {
+      "exerciseId": "arms_barbell_wrist_curl",
+      "slug": "arms-barbell-wrist-curl",
+      "lookupKeys": [
+        "arms_barbell_wrist_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-barbell-wrist-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-barbell-wrist-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_bodyweight_bench_dip": {
+      "exerciseId": "arms_bodyweight_bench_dip",
+      "slug": "arms-bodyweight-bench-dip",
+      "lookupKeys": [
+        "arms_bodyweight_bench_dip"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-bodyweight-bench-dip-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-bodyweight-bench-dip-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_bodyweight_close_grip_push_up": {
+      "exerciseId": "arms_bodyweight_close_grip_push_up",
+      "slug": "arms-bodyweight-close-grip-push-up",
+      "lookupKeys": [
+        "arms_bodyweight_close_grip_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-bodyweight-close-grip-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-bodyweight-close-grip-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_bodyweight_dead_hang": {
+      "exerciseId": "arms_bodyweight_dead_hang",
+      "slug": "arms-bodyweight-dead-hang",
+      "lookupKeys": [
+        "arms_bodyweight_dead_hang"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-bodyweight-dead-hang-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-bodyweight-dead-hang-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_bodyweight_diamond_push_up": {
+      "exerciseId": "arms_bodyweight_diamond_push_up",
+      "slug": "arms-bodyweight-diamond-push-up",
+      "lookupKeys": [
+        "arms_bodyweight_diamond_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-bodyweight-diamond-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-bodyweight-diamond-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_bodyweight_dip": {
+      "exerciseId": "arms_bodyweight_dip",
+      "slug": "arms-bodyweight-dip",
+      "lookupKeys": [
+        "arms_bodyweight_dip"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-bodyweight-dip-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-bodyweight-dip-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_bayesian_curl": {
+      "exerciseId": "arms_cable_bayesian_curl",
+      "slug": "arms-cable-bayesian-curl",
+      "lookupKeys": [
+        "arms_cable_bayesian_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-bayesian-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-bayesian-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_crossbody_triceps_extension": {
+      "exerciseId": "arms_cable_crossbody_triceps_extension",
+      "slug": "arms-cable-crossbody-triceps-extension",
+      "lookupKeys": [
+        "arms_cable_crossbody_triceps_extension"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-crossbody-triceps-extension-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-crossbody-triceps-extension-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_curl": {
+      "exerciseId": "arms_cable_curl",
+      "slug": "arms-cable-curl",
+      "lookupKeys": [
+        "arms_cable_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_overhead_curl": {
+      "exerciseId": "arms_cable_overhead_curl",
+      "slug": "arms-cable-overhead-curl",
+      "lookupKeys": [
+        "arms_cable_overhead_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-overhead-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-overhead-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_preacher_curl": {
+      "exerciseId": "arms_cable_preacher_curl",
+      "slug": "arms-cable-preacher-curl",
+      "lookupKeys": [
+        "arms_cable_preacher_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-preacher-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-preacher-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_reverse_grip_pushdown": {
+      "exerciseId": "arms_cable_reverse_grip_pushdown",
+      "slug": "arms-cable-reverse-grip-pushdown",
+      "lookupKeys": [
+        "arms_cable_reverse_grip_pushdown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-reverse-grip-pushdown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-reverse-grip-pushdown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_rope_hammer_curl": {
+      "exerciseId": "arms_cable_rope_hammer_curl",
+      "slug": "arms-cable-rope-hammer-curl",
+      "lookupKeys": [
+        "arms_cable_rope_hammer_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-rope-hammer-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-rope-hammer-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_rope_pushdown": {
+      "exerciseId": "arms_cable_rope_pushdown",
+      "slug": "arms-cable-rope-pushdown",
+      "lookupKeys": [
+        "arms_cable_rope_pushdown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-rope-pushdown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-rope-pushdown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_single_arm_curl": {
+      "exerciseId": "arms_cable_single_arm_curl",
+      "slug": "arms-cable-single-arm-curl",
+      "lookupKeys": [
+        "arms_cable_single_arm_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-single-arm-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-single-arm-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_single_arm_hammer_curl": {
+      "exerciseId": "arms_cable_single_arm_hammer_curl",
+      "slug": "arms-cable-single-arm-hammer-curl",
+      "lookupKeys": [
+        "arms_cable_single_arm_hammer_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-single-arm-hammer-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-single-arm-hammer-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_single_arm_overhead_triceps_extension": {
+      "exerciseId": "arms_cable_single_arm_overhead_triceps_extension",
+      "slug": "arms-cable-single-arm-overhead-triceps-extension",
+      "lookupKeys": [
+        "arms_cable_single_arm_overhead_triceps_extension"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-single-arm-overhead-triceps-extension-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-single-arm-overhead-triceps-extension-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_single_arm_preacher_curl": {
+      "exerciseId": "arms_cable_single_arm_preacher_curl",
+      "slug": "arms-cable-single-arm-preacher-curl",
+      "lookupKeys": [
+        "arms_cable_single_arm_preacher_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-single-arm-preacher-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-single-arm-preacher-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_single_arm_pushdown": {
+      "exerciseId": "arms_cable_single_arm_pushdown",
+      "slug": "arms-cable-single-arm-pushdown",
+      "lookupKeys": [
+        "arms_cable_single_arm_pushdown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-single-arm-pushdown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-single-arm-pushdown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_single_arm_reverse_grip_pushdown": {
+      "exerciseId": "arms_cable_single_arm_reverse_grip_pushdown",
+      "slug": "arms-cable-single-arm-reverse-grip-pushdown",
+      "lookupKeys": [
+        "arms_cable_single_arm_reverse_grip_pushdown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-single-arm-reverse-grip-pushdown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-single-arm-reverse-grip-pushdown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_triceps_kickback": {
+      "exerciseId": "arms_cable_triceps_kickback",
+      "slug": "arms-cable-triceps-kickback",
+      "lookupKeys": [
+        "arms_cable_triceps_kickback"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-triceps-kickback-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-triceps-kickback-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_cable_triceps_pushdown_straight_bar": {
+      "exerciseId": "arms_cable_triceps_pushdown_straight_bar",
+      "slug": "arms-cable-triceps-pushdown-straight-bar",
+      "lookupKeys": [
+        "arms_cable_triceps_pushdown_straight_bar"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-cable-triceps-pushdown-straight-bar-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-cable-triceps-pushdown-straight-bar-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_alternating_curl": {
+      "exerciseId": "arms_dumbbell_alternating_curl",
+      "slug": "arms-dumbbell-alternating-curl",
+      "lookupKeys": [
+        "arms_dumbbell_alternating_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-alternating-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-alternating-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_concentration_curl": {
+      "exerciseId": "arms_dumbbell_concentration_curl",
+      "slug": "arms-dumbbell-concentration-curl",
+      "lookupKeys": [
+        "arms_dumbbell_concentration_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-concentration-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-concentration-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_cross_body_hammer_curl": {
+      "exerciseId": "arms_dumbbell_cross_body_hammer_curl",
+      "slug": "arms-dumbbell-cross-body-hammer-curl",
+      "lookupKeys": [
+        "arms_dumbbell_cross_body_hammer_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-cross-body-hammer-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-cross-body-hammer-curl-b.png",
+          "durationMs": 1000
+        }
       ]
     },
     "arms_dumbbell_curl": {
-      "slug": "dumbbell-curl",
-      "lookupKeys": ["dumbbell-curl"],
+      "exerciseId": "arms_dumbbell_curl",
+      "slug": "arms-dumbbell-curl",
+      "lookupKeys": [
+        "arms_dumbbell_curl"
+      ],
       "preferredHeightDp": 280,
       "frames": [
-        { "id": "A", "file": "images/dumbbell-curl-a.png", "durationMs": 1000 },
-        { "id": "B", "file": "images/dumbbell-curl-b.png", "durationMs": 1000 }
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-curl-b.png",
+          "durationMs": 1000
+        }
       ]
     },
-    "shoulders_dumbbell_shoulder_press": {
-      "slug": "dumbbell-shoulder-press",
-      "lookupKeys": [],
+    "arms_dumbbell_farmer_carry": {
+      "exerciseId": "arms_dumbbell_farmer_carry",
+      "slug": "arms-dumbbell-farmer-carry",
+      "lookupKeys": [
+        "arms_dumbbell_farmer_carry"
+      ],
       "preferredHeightDp": 280,
       "frames": [
-        { "id": "A", "file": "images/dumbbell-shoulder-press-a.png", "durationMs": 1000 },
-        { "id": "B", "file": "images/dumbbell-shoulder-press-b.png", "durationMs": 1000 }
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-farmer-carry-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-farmer-carry-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_kickback": {
+      "exerciseId": "arms_dumbbell_kickback",
+      "slug": "arms-dumbbell-kickback",
+      "lookupKeys": [
+        "arms_dumbbell_kickback"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-kickback-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-kickback-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_overhead_triceps_extension": {
+      "exerciseId": "arms_dumbbell_overhead_triceps_extension",
+      "slug": "arms-dumbbell-overhead-triceps-extension",
+      "lookupKeys": [
+        "arms_dumbbell_overhead_triceps_extension"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-overhead-triceps-extension-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-overhead-triceps-extension-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_preacher_curl": {
+      "exerciseId": "arms_dumbbell_preacher_curl",
+      "slug": "arms-dumbbell-preacher-curl",
+      "lookupKeys": [
+        "arms_dumbbell_preacher_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-preacher-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-preacher-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_reverse_wrist_curl": {
+      "exerciseId": "arms_dumbbell_reverse_wrist_curl",
+      "slug": "arms-dumbbell-reverse-wrist-curl",
+      "lookupKeys": [
+        "arms_dumbbell_reverse_wrist_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-reverse-wrist-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-reverse-wrist-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_single_arm_overhead_extension": {
+      "exerciseId": "arms_dumbbell_single_arm_overhead_extension",
+      "slug": "arms-dumbbell-single-arm-overhead-extension",
+      "lookupKeys": [
+        "arms_dumbbell_single_arm_overhead_extension"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-single-arm-overhead-extension-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-single-arm-overhead-extension-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_spider_curl": {
+      "exerciseId": "arms_dumbbell_spider_curl",
+      "slug": "arms-dumbbell-spider-curl",
+      "lookupKeys": [
+        "arms_dumbbell_spider_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-spider-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-spider-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_wrist_curl": {
+      "exerciseId": "arms_dumbbell_wrist_curl",
+      "slug": "arms-dumbbell-wrist-curl",
+      "lookupKeys": [
+        "arms_dumbbell_wrist_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-wrist-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-wrist-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_dumbbell_zottman_curl": {
+      "exerciseId": "arms_dumbbell_zottman_curl",
+      "slug": "arms-dumbbell-zottman-curl",
+      "lookupKeys": [
+        "arms_dumbbell_zottman_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-dumbbell-zottman-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-dumbbell-zottman-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_kettlebell_farmer_carry": {
+      "exerciseId": "arms_kettlebell_farmer_carry",
+      "slug": "arms-kettlebell-farmer-carry",
+      "lookupKeys": [
+        "arms_kettlebell_farmer_carry"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-kettlebell-farmer-carry-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-kettlebell-farmer-carry-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_machine_assisted_dip": {
+      "exerciseId": "arms_machine_assisted_dip",
+      "slug": "arms-machine-assisted-dip",
+      "lookupKeys": [
+        "arms_machine_assisted_dip"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-machine-assisted-dip-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-machine-assisted-dip-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_machine_biceps_curl": {
+      "exerciseId": "arms_machine_biceps_curl",
+      "slug": "arms-machine-biceps-curl",
+      "lookupKeys": [
+        "arms_machine_biceps_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-machine-biceps-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-machine-biceps-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_machine_dip_press": {
+      "exerciseId": "arms_machine_dip_press",
+      "slug": "arms-machine-dip-press",
+      "lookupKeys": [
+        "arms_machine_dip_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-machine-dip-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-machine-dip-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_machine_preacher_curl": {
+      "exerciseId": "arms_machine_preacher_curl",
+      "slug": "arms-machine-preacher-curl",
+      "lookupKeys": [
+        "arms_machine_preacher_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-machine-preacher-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-machine-preacher-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_machine_triceps_extension": {
+      "exerciseId": "arms_machine_triceps_extension",
+      "slug": "arms-machine-triceps-extension",
+      "lookupKeys": [
+        "arms_machine_triceps_extension"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-machine-triceps-extension-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-machine-triceps-extension-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_other_gripper": {
+      "exerciseId": "arms_other_gripper",
+      "slug": "arms-other-gripper",
+      "lookupKeys": [
+        "arms_other_gripper"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-other-gripper-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-other-gripper-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "arms_plate_pinch_hold": {
+      "exerciseId": "arms_plate_pinch_hold",
+      "slug": "arms-plate-pinch-hold",
+      "lookupKeys": [
+        "arms_plate_pinch_hold"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/arms-plate-pinch-hold-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/arms-plate-pinch-hold-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_band_assisted_pull_up": {
+      "exerciseId": "back_band_assisted_pull_up",
+      "slug": "back-band-assisted-pull-up",
+      "lookupKeys": [
+        "back_band_assisted_pull_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-band-assisted-pull-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-band-assisted-pull-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_band_lat_pulldown": {
+      "exerciseId": "back_band_lat_pulldown",
+      "slug": "back-band-lat-pulldown",
+      "lookupKeys": [
+        "back_band_lat_pulldown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-band-lat-pulldown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-band-lat-pulldown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_barbell_bent_over_row": {
+      "exerciseId": "back_barbell_bent_over_row",
+      "slug": "barbell-bent-over-row",
+      "lookupKeys": [
+        "back_barbell_bent_over_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/barbell-bent-over-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/barbell-bent-over-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_barbell_deadlift": {
+      "exerciseId": "back_barbell_deadlift",
+      "slug": "barbell-deadlift",
+      "lookupKeys": [
+        "back_barbell_deadlift"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/barbell-deadlift-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/barbell-deadlift-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_barbell_pendlay_row": {
+      "exerciseId": "back_barbell_pendlay_row",
+      "slug": "back-barbell-pendlay-row",
+      "lookupKeys": [
+        "back_barbell_pendlay_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-barbell-pendlay-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-barbell-pendlay-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_barbell_rack_pull": {
+      "exerciseId": "back_barbell_rack_pull",
+      "slug": "back-barbell-rack-pull",
+      "lookupKeys": [
+        "back_barbell_rack_pull"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-barbell-rack-pull-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-barbell-rack-pull-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_barbell_shrug": {
+      "exerciseId": "back_barbell_shrug",
+      "slug": "back-barbell-shrug",
+      "lookupKeys": [
+        "back_barbell_shrug"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-barbell-shrug-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-barbell-shrug-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_barbell_snatch_grip_deadlift": {
+      "exerciseId": "back_barbell_snatch_grip_deadlift",
+      "slug": "back-barbell-snatch-grip-deadlift",
+      "lookupKeys": [
+        "back_barbell_snatch_grip_deadlift"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-barbell-snatch-grip-deadlift-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-barbell-snatch-grip-deadlift-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_barbell_t_bar_row": {
+      "exerciseId": "back_barbell_t_bar_row",
+      "slug": "back-barbell-t-bar-row",
+      "lookupKeys": [
+        "back_barbell_t_bar_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-barbell-t-bar-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-barbell-t-bar-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_barbell_yates_row": {
+      "exerciseId": "back_barbell_yates_row",
+      "slug": "back-barbell-yates-row",
+      "lookupKeys": [
+        "back_barbell_yates_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-barbell-yates-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-barbell-yates-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_bodyweight_chin_up": {
+      "exerciseId": "back_bodyweight_chin_up",
+      "slug": "back-bodyweight-chin-up",
+      "lookupKeys": [
+        "back_bodyweight_chin_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-bodyweight-chin-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-bodyweight-chin-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_bodyweight_inverted_row": {
+      "exerciseId": "back_bodyweight_inverted_row",
+      "slug": "back-bodyweight-inverted-row",
+      "lookupKeys": [
+        "back_bodyweight_inverted_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-bodyweight-inverted-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-bodyweight-inverted-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_bodyweight_neutral_grip_pull_up": {
+      "exerciseId": "back_bodyweight_neutral_grip_pull_up",
+      "slug": "back-bodyweight-neutral-grip-pull-up",
+      "lookupKeys": [
+        "back_bodyweight_neutral_grip_pull_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-bodyweight-neutral-grip-pull-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-bodyweight-neutral-grip-pull-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_bodyweight_pull_up": {
+      "exerciseId": "back_bodyweight_pull_up",
+      "slug": "pull-up",
+      "lookupKeys": [
+        "pull-up",
+        "back_bodyweight_pull_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/pull-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/pull-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_bodyweight_reverse_hyperextension": {
+      "exerciseId": "back_bodyweight_reverse_hyperextension",
+      "slug": "back-bodyweight-reverse-hyperextension",
+      "lookupKeys": [
+        "back_bodyweight_reverse_hyperextension"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-bodyweight-reverse-hyperextension-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-bodyweight-reverse-hyperextension-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_bodyweight_scapular_pull_up": {
+      "exerciseId": "back_bodyweight_scapular_pull_up",
+      "slug": "back-bodyweight-scapular-pull-up",
+      "lookupKeys": [
+        "back_bodyweight_scapular_pull_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-bodyweight-scapular-pull-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-bodyweight-scapular-pull-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_bodyweight_wide_grip_pull_up": {
+      "exerciseId": "back_bodyweight_wide_grip_pull_up",
+      "slug": "back-bodyweight-wide-grip-pull-up",
+      "lookupKeys": [
+        "back_bodyweight_wide_grip_pull_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-bodyweight-wide-grip-pull-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-bodyweight-wide-grip-pull-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_cable_high_row": {
+      "exerciseId": "back_cable_high_row",
+      "slug": "back-cable-high-row",
+      "lookupKeys": [
+        "back_cable_high_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-cable-high-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-cable-high-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_cable_kneeling_pullover": {
+      "exerciseId": "back_cable_kneeling_pullover",
+      "slug": "back-cable-kneeling-pullover",
+      "lookupKeys": [
+        "back_cable_kneeling_pullover"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-cable-kneeling-pullover-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-cable-kneeling-pullover-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_cable_seated_row": {
+      "exerciseId": "back_cable_seated_row",
+      "slug": "back-cable-seated-row",
+      "lookupKeys": [
+        "back_cable_seated_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-cable-seated-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-cable-seated-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_cable_shrug": {
+      "exerciseId": "back_cable_shrug",
+      "slug": "back-cable-shrug",
+      "lookupKeys": [
+        "back_cable_shrug"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-cable-shrug-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-cable-shrug-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_cable_single_arm_high_row": {
+      "exerciseId": "back_cable_single_arm_high_row",
+      "slug": "back-cable-single-arm-high-row",
+      "lookupKeys": [
+        "back_cable_single_arm_high_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-cable-single-arm-high-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-cable-single-arm-high-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_cable_single_arm_lat_pulldown": {
+      "exerciseId": "back_cable_single_arm_lat_pulldown",
+      "slug": "back-cable-single-arm-lat-pulldown",
+      "lookupKeys": [
+        "back_cable_single_arm_lat_pulldown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-cable-single-arm-lat-pulldown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-cable-single-arm-lat-pulldown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_cable_single_arm_row": {
+      "exerciseId": "back_cable_single_arm_row",
+      "slug": "back-cable-single-arm-row",
+      "lookupKeys": [
+        "back_cable_single_arm_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-cable-single-arm-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-cable-single-arm-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_cable_single_arm_straight_arm_pulldown": {
+      "exerciseId": "back_cable_single_arm_straight_arm_pulldown",
+      "slug": "back-cable-single-arm-straight-arm-pulldown",
+      "lookupKeys": [
+        "back_cable_single_arm_straight_arm_pulldown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-cable-single-arm-straight-arm-pulldown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-cable-single-arm-straight-arm-pulldown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_cable_straight_arm_pulldown": {
+      "exerciseId": "back_cable_straight_arm_pulldown",
+      "slug": "back-cable-straight-arm-pulldown",
+      "lookupKeys": [
+        "back_cable_straight_arm_pulldown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-cable-straight-arm-pulldown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-cable-straight-arm-pulldown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_dumbbell_chest_supported_row": {
+      "exerciseId": "back_dumbbell_chest_supported_row",
+      "slug": "back-dumbbell-chest-supported-row",
+      "lookupKeys": [
+        "back_dumbbell_chest_supported_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-dumbbell-chest-supported-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-dumbbell-chest-supported-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_dumbbell_incline_row": {
+      "exerciseId": "back_dumbbell_incline_row",
+      "slug": "back-dumbbell-incline-row",
+      "lookupKeys": [
+        "back_dumbbell_incline_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-dumbbell-incline-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-dumbbell-incline-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_dumbbell_kroc_row": {
+      "exerciseId": "back_dumbbell_kroc_row",
+      "slug": "back-dumbbell-kroc-row",
+      "lookupKeys": [
+        "back_dumbbell_kroc_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-dumbbell-kroc-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-dumbbell-kroc-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_dumbbell_one_arm_row": {
+      "exerciseId": "back_dumbbell_one_arm_row",
+      "slug": "back-dumbbell-one-arm-row",
+      "lookupKeys": [
+        "back_dumbbell_one_arm_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-dumbbell-one-arm-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-dumbbell-one-arm-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_dumbbell_shrug": {
+      "exerciseId": "back_dumbbell_shrug",
+      "slug": "back-dumbbell-shrug",
+      "lookupKeys": [
+        "back_dumbbell_shrug"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-dumbbell-shrug-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-dumbbell-shrug-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_dumbbell_single_arm_chest_supported_row": {
+      "exerciseId": "back_dumbbell_single_arm_chest_supported_row",
+      "slug": "back-dumbbell-single-arm-chest-supported-row",
+      "lookupKeys": [
+        "back_dumbbell_single_arm_chest_supported_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-dumbbell-single-arm-chest-supported-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-dumbbell-single-arm-chest-supported-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_kettlebell_one_arm_row": {
+      "exerciseId": "back_kettlebell_one_arm_row",
+      "slug": "back-kettlebell-one-arm-row",
+      "lookupKeys": [
+        "back_kettlebell_one_arm_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-kettlebell-one-arm-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-kettlebell-one-arm-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_assisted_pull_up": {
+      "exerciseId": "back_machine_assisted_pull_up",
+      "slug": "back-machine-assisted-pull-up",
+      "lookupKeys": [
+        "back_machine_assisted_pull_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-assisted-pull-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-assisted-pull-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_chest_supported_row": {
+      "exerciseId": "back_machine_chest_supported_row",
+      "slug": "back-machine-chest-supported-row",
+      "lookupKeys": [
+        "back_machine_chest_supported_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-chest-supported-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-chest-supported-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_high_row": {
+      "exerciseId": "back_machine_high_row",
+      "slug": "back-machine-high-row",
+      "lookupKeys": [
+        "back_machine_high_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-high-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-high-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_iso_lateral_row": {
+      "exerciseId": "back_machine_iso_lateral_row",
+      "slug": "back-machine-iso-lateral-row",
+      "lookupKeys": [
+        "back_machine_iso_lateral_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-iso-lateral-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-iso-lateral-row-b.png",
+          "durationMs": 1000
+        }
       ]
     },
     "back_machine_lat_pulldown": {
+      "exerciseId": "back_machine_lat_pulldown",
       "slug": "lat-pulldown",
       "lookupKeys": [],
       "preferredHeightDp": 280,
       "frames": [
-        { "id": "A", "file": "images/lat-pulldown-a.png", "durationMs": 1000 },
-        { "id": "B", "file": "images/lat-pulldown-b.png", "durationMs": 1000 }
+        {
+          "id": "A",
+          "file": "images/lat-pulldown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/lat-pulldown-b.png",
+          "durationMs": 1000
+        }
       ]
     },
-    "back_bodyweight_pull_up": {
-      "slug": "pull-up",
-      "lookupKeys": ["pull-up"],
+    "back_machine_low_row": {
+      "exerciseId": "back_machine_low_row",
+      "slug": "back-machine-low-row",
+      "lookupKeys": [
+        "back_machine_low_row"
+      ],
       "preferredHeightDp": 280,
       "frames": [
-        { "id": "A", "file": "images/pull-up-a.png", "durationMs": 1000 },
-        { "id": "B", "file": "images/pull-up-b.png", "durationMs": 1000 }
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-low-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-low-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_neutral_grip_lat_pulldown": {
+      "exerciseId": "back_machine_neutral_grip_lat_pulldown",
+      "slug": "back-machine-neutral-grip-lat-pulldown",
+      "lookupKeys": [
+        "back_machine_neutral_grip_lat_pulldown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-neutral-grip-lat-pulldown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-neutral-grip-lat-pulldown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_pullover": {
+      "exerciseId": "back_machine_pullover",
+      "slug": "back-machine-pullover",
+      "lookupKeys": [
+        "back_machine_pullover"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-pullover-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-pullover-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_reverse_grip_lat_pulldown": {
+      "exerciseId": "back_machine_reverse_grip_lat_pulldown",
+      "slug": "back-machine-reverse-grip-lat-pulldown",
+      "lookupKeys": [
+        "back_machine_reverse_grip_lat_pulldown"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-reverse-grip-lat-pulldown-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-reverse-grip-lat-pulldown-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_reverse_hyperextension": {
+      "exerciseId": "back_machine_reverse_hyperextension",
+      "slug": "back-machine-reverse-hyperextension",
+      "lookupKeys": [
+        "back_machine_reverse_hyperextension"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-reverse-hyperextension-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-reverse-hyperextension-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_seated_row": {
+      "exerciseId": "back_machine_seated_row",
+      "slug": "back-machine-seated-row",
+      "lookupKeys": [
+        "back_machine_seated_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-seated-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-seated-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_shrug": {
+      "exerciseId": "back_machine_shrug",
+      "slug": "back-machine-shrug",
+      "lookupKeys": [
+        "back_machine_shrug"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-shrug-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-shrug-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "back_machine_t_bar_row": {
+      "exerciseId": "back_machine_t_bar_row",
+      "slug": "back-machine-t-bar-row",
+      "lookupKeys": [
+        "back_machine_t_bar_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/back-machine-t-bar-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/back-machine-t-bar-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_band_chest_fly": {
+      "exerciseId": "chest_band_chest_fly",
+      "slug": "chest-band-chest-fly",
+      "lookupKeys": [
+        "chest_band_chest_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-band-chest-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-band-chest-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_band_chest_press": {
+      "exerciseId": "chest_band_chest_press",
+      "slug": "chest-band-chest-press",
+      "lookupKeys": [
+        "chest_band_chest_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-band-chest-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-band-chest-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_band_push_up": {
+      "exerciseId": "chest_band_push_up",
+      "slug": "chest-band-push-up",
+      "lookupKeys": [
+        "chest_band_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-band-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-band-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_barbell_flat_bench_press": {
+      "exerciseId": "chest_barbell_flat_bench_press",
+      "slug": "barbell-flat-bench-press",
+      "lookupKeys": [
+        "barbell-flat-bench-press",
+        "chest_barbell_flat_bench_press"
+      ],
+      "preferredHeightDp": 220,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/barbell-flat-bench-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/barbell-flat-bench-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_barbell_floor_press": {
+      "exerciseId": "chest_barbell_floor_press",
+      "slug": "chest-barbell-floor-press",
+      "lookupKeys": [
+        "chest_barbell_floor_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-barbell-floor-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-barbell-floor-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_barbell_guillotine_press": {
+      "exerciseId": "chest_barbell_guillotine_press",
+      "slug": "chest-barbell-guillotine-press",
+      "lookupKeys": [
+        "chest_barbell_guillotine_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-barbell-guillotine-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-barbell-guillotine-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_barbell_incline_bench_press": {
+      "exerciseId": "chest_barbell_incline_bench_press",
+      "slug": "chest-barbell-incline-bench-press",
+      "lookupKeys": [
+        "chest_barbell_incline_bench_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-barbell-incline-bench-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-barbell-incline-bench-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_barbell_pause_bench_press": {
+      "exerciseId": "chest_barbell_pause_bench_press",
+      "slug": "chest-barbell-pause-bench-press",
+      "lookupKeys": [
+        "chest_barbell_pause_bench_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-barbell-pause-bench-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-barbell-pause-bench-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_bodyweight_chest_dip": {
+      "exerciseId": "chest_bodyweight_chest_dip",
+      "slug": "chest-bodyweight-chest-dip",
+      "lookupKeys": [
+        "chest_bodyweight_chest_dip"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-bodyweight-chest-dip-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-bodyweight-chest-dip-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_bodyweight_decline_push_up": {
+      "exerciseId": "chest_bodyweight_decline_push_up",
+      "slug": "chest-bodyweight-decline-push-up",
+      "lookupKeys": [
+        "chest_bodyweight_decline_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-bodyweight-decline-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-bodyweight-decline-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_bodyweight_incline_push_up": {
+      "exerciseId": "chest_bodyweight_incline_push_up",
+      "slug": "chest-bodyweight-incline-push-up",
+      "lookupKeys": [
+        "chest_bodyweight_incline_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-bodyweight-incline-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-bodyweight-incline-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_bodyweight_push_up": {
+      "exerciseId": "chest_bodyweight_push_up",
+      "slug": "chest-bodyweight-push-up",
+      "lookupKeys": [
+        "chest_bodyweight_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-bodyweight-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-bodyweight-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_bodyweight_weighted_push_up": {
+      "exerciseId": "chest_bodyweight_weighted_push_up",
+      "slug": "chest-bodyweight-weighted-push-up",
+      "lookupKeys": [
+        "chest_bodyweight_weighted_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-bodyweight-weighted-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-bodyweight-weighted-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_bodyweight_wide_push_up": {
+      "exerciseId": "chest_bodyweight_wide_push_up",
+      "slug": "chest-bodyweight-wide-push-up",
+      "lookupKeys": [
+        "chest_bodyweight_wide_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-bodyweight-wide-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-bodyweight-wide-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_cable_crossover": {
+      "exerciseId": "chest_cable_crossover",
+      "slug": "chest-cable-crossover",
+      "lookupKeys": [
+        "chest_cable_crossover"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-cable-crossover-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-cable-crossover-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_cable_high_to_low_fly": {
+      "exerciseId": "chest_cable_high_to_low_fly",
+      "slug": "chest-cable-high-to-low-fly",
+      "lookupKeys": [
+        "chest_cable_high_to_low_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-cable-high-to-low-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-cable-high-to-low-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_cable_single_arm_chest_press": {
+      "exerciseId": "chest_cable_single_arm_chest_press",
+      "slug": "chest-cable-single-arm-chest-press",
+      "lookupKeys": [
+        "chest_cable_single_arm_chest_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-cable-single-arm-chest-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-cable-single-arm-chest-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_cable_single_arm_fly": {
+      "exerciseId": "chest_cable_single_arm_fly",
+      "slug": "chest-cable-single-arm-fly",
+      "lookupKeys": [
+        "chest_cable_single_arm_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-cable-single-arm-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-cable-single-arm-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_cable_single_arm_high_to_low_fly": {
+      "exerciseId": "chest_cable_single_arm_high_to_low_fly",
+      "slug": "chest-cable-single-arm-high-to-low-fly",
+      "lookupKeys": [
+        "chest_cable_single_arm_high_to_low_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-cable-single-arm-high-to-low-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-cable-single-arm-high-to-low-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_cable_standing_chest_press": {
+      "exerciseId": "chest_cable_standing_chest_press",
+      "slug": "chest-cable-standing-chest-press",
+      "lookupKeys": [
+        "chest_cable_standing_chest_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-cable-standing-chest-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-cable-standing-chest-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_decline_bench_press": {
+      "exerciseId": "chest_dumbbell_decline_bench_press",
+      "slug": "chest-dumbbell-decline-bench-press",
+      "lookupKeys": [
+        "chest_dumbbell_decline_bench_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-decline-bench-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-decline-bench-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_decline_fly": {
+      "exerciseId": "chest_dumbbell_decline_fly",
+      "slug": "chest-dumbbell-decline-fly",
+      "lookupKeys": [
+        "chest_dumbbell_decline_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-decline-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-decline-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_flat_bench_press": {
+      "exerciseId": "chest_dumbbell_flat_bench_press",
+      "slug": "chest-dumbbell-flat-bench-press",
+      "lookupKeys": [
+        "chest_dumbbell_flat_bench_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-flat-bench-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-flat-bench-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_flat_fly": {
+      "exerciseId": "chest_dumbbell_flat_fly",
+      "slug": "chest-dumbbell-flat-fly",
+      "lookupKeys": [
+        "chest_dumbbell_flat_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-flat-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-flat-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_incline_bench_press": {
+      "exerciseId": "chest_dumbbell_incline_bench_press",
+      "slug": "chest-dumbbell-incline-bench-press",
+      "lookupKeys": [
+        "chest_dumbbell_incline_bench_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-incline-bench-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-incline-bench-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_incline_fly": {
+      "exerciseId": "chest_dumbbell_incline_fly",
+      "slug": "chest-dumbbell-incline-fly",
+      "lookupKeys": [
+        "chest_dumbbell_incline_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-incline-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-incline-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_neutral_grip_press": {
+      "exerciseId": "chest_dumbbell_neutral_grip_press",
+      "slug": "chest-dumbbell-neutral-grip-press",
+      "lookupKeys": [
+        "chest_dumbbell_neutral_grip_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-neutral-grip-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-neutral-grip-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_pullover": {
+      "exerciseId": "chest_dumbbell_pullover",
+      "slug": "chest-dumbbell-pullover",
+      "lookupKeys": [
+        "chest_dumbbell_pullover"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-pullover-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-pullover-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_single_arm_bench_press": {
+      "exerciseId": "chest_dumbbell_single_arm_bench_press",
+      "slug": "chest-dumbbell-single-arm-bench-press",
+      "lookupKeys": [
+        "chest_dumbbell_single_arm_bench_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-single-arm-bench-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-single-arm-bench-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_single_arm_incline_press": {
+      "exerciseId": "chest_dumbbell_single_arm_incline_press",
+      "slug": "chest-dumbbell-single-arm-incline-press",
+      "lookupKeys": [
+        "chest_dumbbell_single_arm_incline_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-single-arm-incline-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-single-arm-incline-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_dumbbell_squeeze_press": {
+      "exerciseId": "chest_dumbbell_squeeze_press",
+      "slug": "chest-dumbbell-squeeze-press",
+      "lookupKeys": [
+        "chest_dumbbell_squeeze_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-dumbbell-squeeze-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-dumbbell-squeeze-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_machine_chest_fly": {
+      "exerciseId": "chest_machine_chest_fly",
+      "slug": "chest-machine-chest-fly",
+      "lookupKeys": [
+        "chest_machine_chest_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-machine-chest-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-machine-chest-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_machine_chest_press": {
+      "exerciseId": "chest_machine_chest_press",
+      "slug": "chest-machine-chest-press",
+      "lookupKeys": [
+        "chest_machine_chest_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-machine-chest-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-machine-chest-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_machine_decline_chest_press": {
+      "exerciseId": "chest_machine_decline_chest_press",
+      "slug": "chest-machine-decline-chest-press",
+      "lookupKeys": [
+        "chest_machine_decline_chest_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-machine-decline-chest-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-machine-decline-chest-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_machine_incline_chest_press": {
+      "exerciseId": "chest_machine_incline_chest_press",
+      "slug": "chest-machine-incline-chest-press",
+      "lookupKeys": [
+        "chest_machine_incline_chest_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-machine-incline-chest-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-machine-incline-chest-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_machine_iso_lateral_chest_press": {
+      "exerciseId": "chest_machine_iso_lateral_chest_press",
+      "slug": "chest-machine-iso-lateral-chest-press",
+      "lookupKeys": [
+        "chest_machine_iso_lateral_chest_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-machine-iso-lateral-chest-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-machine-iso-lateral-chest-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_machine_pec_deck_fly": {
+      "exerciseId": "chest_machine_pec_deck_fly",
+      "slug": "chest-machine-pec-deck-fly",
+      "lookupKeys": [
+        "chest_machine_pec_deck_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-machine-pec-deck-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-machine-pec-deck-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_machine_plate_loaded_chest_press": {
+      "exerciseId": "chest_machine_plate_loaded_chest_press",
+      "slug": "chest-machine-plate-loaded-chest-press",
+      "lookupKeys": [
+        "chest_machine_plate_loaded_chest_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-machine-plate-loaded-chest-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-machine-plate-loaded-chest-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_machine_plate_loaded_incline_press": {
+      "exerciseId": "chest_machine_plate_loaded_incline_press",
+      "slug": "chest-machine-plate-loaded-incline-press",
+      "lookupKeys": [
+        "chest_machine_plate_loaded_incline_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-machine-plate-loaded-incline-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-machine-plate-loaded-incline-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_plate_squeeze_press": {
+      "exerciseId": "chest_plate_squeeze_press",
+      "slug": "chest-plate-squeeze-press",
+      "lookupKeys": [
+        "chest_plate_squeeze_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-plate-squeeze-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-plate-squeeze-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_smith_decline_bench_press": {
+      "exerciseId": "chest_smith_decline_bench_press",
+      "slug": "chest-smith-decline-bench-press",
+      "lookupKeys": [
+        "chest_smith_decline_bench_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-smith-decline-bench-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-smith-decline-bench-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "chest_smith_flat_bench_press": {
+      "exerciseId": "chest_smith_flat_bench_press",
+      "slug": "chest-smith-flat-bench-press",
+      "lookupKeys": [
+        "chest_smith_flat_bench_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/chest-smith-flat-bench-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/chest-smith-flat-bench-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_band_glute_bridge": {
+      "exerciseId": "legs_band_glute_bridge",
+      "slug": "legs-band-glute-bridge",
+      "lookupKeys": [
+        "legs_band_glute_bridge"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-band-glute-bridge-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-band-glute-bridge-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_band_hip_abduction": {
+      "exerciseId": "legs_band_hip_abduction",
+      "slug": "legs-band-hip-abduction",
+      "lookupKeys": [
+        "legs_band_hip_abduction"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-band-hip-abduction-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-band-hip-abduction-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_band_hip_thrust": {
+      "exerciseId": "legs_band_hip_thrust",
+      "slug": "legs-band-hip-thrust",
+      "lookupKeys": [
+        "legs_band_hip_thrust"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-band-hip-thrust-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-band-hip-thrust-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_band_kickback": {
+      "exerciseId": "legs_band_kickback",
+      "slug": "legs-band-kickback",
+      "lookupKeys": [
+        "legs_band_kickback"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-band-kickback-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-band-kickback-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_band_lateral_walk": {
+      "exerciseId": "legs_band_lateral_walk",
+      "slug": "legs-band-lateral-walk",
+      "lookupKeys": [
+        "legs_band_lateral_walk"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-band-lateral-walk-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-band-lateral-walk-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_band_leg_curl": {
+      "exerciseId": "legs_band_leg_curl",
+      "slug": "legs-band-leg-curl",
+      "lookupKeys": [
+        "legs_band_leg_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-band-leg-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-band-leg-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_back_squat": {
+      "exerciseId": "legs_barbell_back_squat",
+      "slug": "barbell-back-squat",
+      "lookupKeys": [
+        "barbell-back-squat",
+        "legs_barbell_back_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/barbell-back-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/barbell-back-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_bulgarian_split_squat": {
+      "exerciseId": "legs_barbell_bulgarian_split_squat",
+      "slug": "legs-barbell-bulgarian-split-squat",
+      "lookupKeys": [
+        "legs_barbell_bulgarian_split_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-bulgarian-split-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-bulgarian-split-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_front_squat": {
+      "exerciseId": "legs_barbell_front_squat",
+      "slug": "legs-barbell-front-squat",
+      "lookupKeys": [
+        "legs_barbell_front_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-front-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-front-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_glute_bridge": {
+      "exerciseId": "legs_barbell_glute_bridge",
+      "slug": "legs-barbell-glute-bridge",
+      "lookupKeys": [
+        "legs_barbell_glute_bridge"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-glute-bridge-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-glute-bridge-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_good_morning": {
+      "exerciseId": "legs_barbell_good_morning",
+      "slug": "legs-barbell-good-morning",
+      "lookupKeys": [
+        "legs_barbell_good_morning"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-good-morning-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-good-morning-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_high_bar_squat": {
+      "exerciseId": "legs_barbell_high_bar_squat",
+      "slug": "legs-barbell-high-bar-squat",
+      "lookupKeys": [
+        "legs_barbell_high_bar_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-high-bar-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-high-bar-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_low_bar_squat": {
+      "exerciseId": "legs_barbell_low_bar_squat",
+      "slug": "legs-barbell-low-bar-squat",
+      "lookupKeys": [
+        "legs_barbell_low_bar_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-low-bar-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-low-bar-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_romanian_deadlift": {
+      "exerciseId": "legs_barbell_romanian_deadlift",
+      "slug": "legs-barbell-romanian-deadlift",
+      "lookupKeys": [
+        "legs_barbell_romanian_deadlift"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-romanian-deadlift-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-romanian-deadlift-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_standing_calf_raise": {
+      "exerciseId": "legs_barbell_standing_calf_raise",
+      "slug": "legs-barbell-standing-calf-raise",
+      "lookupKeys": [
+        "legs_barbell_standing_calf_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-standing-calf-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-standing-calf-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_stiff_leg_deadlift": {
+      "exerciseId": "legs_barbell_stiff_leg_deadlift",
+      "slug": "legs-barbell-stiff-leg-deadlift",
+      "lookupKeys": [
+        "legs_barbell_stiff_leg_deadlift"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-stiff-leg-deadlift-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-stiff-leg-deadlift-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_sumo_deadlift": {
+      "exerciseId": "legs_barbell_sumo_deadlift",
+      "slug": "legs-barbell-sumo-deadlift",
+      "lookupKeys": [
+        "legs_barbell_sumo_deadlift"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-sumo-deadlift-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-sumo-deadlift-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_walking_lunge": {
+      "exerciseId": "legs_barbell_walking_lunge",
+      "slug": "legs-barbell-walking-lunge",
+      "lookupKeys": [
+        "legs_barbell_walking_lunge"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-walking-lunge-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-walking-lunge-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_barbell_zercher_squat": {
+      "exerciseId": "legs_barbell_zercher_squat",
+      "slug": "legs-barbell-zercher-squat",
+      "lookupKeys": [
+        "legs_barbell_zercher_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-barbell-zercher-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-barbell-zercher-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_bulgarian_split_squat": {
+      "exerciseId": "legs_bodyweight_bulgarian_split_squat",
+      "slug": "legs-bodyweight-bulgarian-split-squat",
+      "lookupKeys": [
+        "legs_bodyweight_bulgarian_split_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-bulgarian-split-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-bulgarian-split-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_glute_bridge": {
+      "exerciseId": "legs_bodyweight_glute_bridge",
+      "slug": "legs-bodyweight-glute-bridge",
+      "lookupKeys": [
+        "legs_bodyweight_glute_bridge"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-glute-bridge-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-glute-bridge-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_jump_squat": {
+      "exerciseId": "legs_bodyweight_jump_squat",
+      "slug": "legs-bodyweight-jump-squat",
+      "lookupKeys": [
+        "legs_bodyweight_jump_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-jump-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-jump-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_lunge": {
+      "exerciseId": "legs_bodyweight_lunge",
+      "slug": "legs-bodyweight-lunge",
+      "lookupKeys": [
+        "legs_bodyweight_lunge"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-lunge-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-lunge-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_pistol_squat": {
+      "exerciseId": "legs_bodyweight_pistol_squat",
+      "slug": "legs-bodyweight-pistol-squat",
+      "lookupKeys": [
+        "legs_bodyweight_pistol_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-pistol-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-pistol-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_reverse_lunge": {
+      "exerciseId": "legs_bodyweight_reverse_lunge",
+      "slug": "legs-bodyweight-reverse-lunge",
+      "lookupKeys": [
+        "legs_bodyweight_reverse_lunge"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-reverse-lunge-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-reverse-lunge-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_single_leg_calf_raise": {
+      "exerciseId": "legs_bodyweight_single_leg_calf_raise",
+      "slug": "legs-bodyweight-single-leg-calf-raise",
+      "lookupKeys": [
+        "legs_bodyweight_single_leg_calf_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-single-leg-calf-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-single-leg-calf-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_single_leg_glute_bridge": {
+      "exerciseId": "legs_bodyweight_single_leg_glute_bridge",
+      "slug": "legs-bodyweight-single-leg-glute-bridge",
+      "lookupKeys": [
+        "legs_bodyweight_single_leg_glute_bridge"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-single-leg-glute-bridge-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-single-leg-glute-bridge-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_sissy_squat": {
+      "exerciseId": "legs_bodyweight_sissy_squat",
+      "slug": "legs-bodyweight-sissy-squat",
+      "lookupKeys": [
+        "legs_bodyweight_sissy_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-sissy-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-sissy-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_squat": {
+      "exerciseId": "legs_bodyweight_squat",
+      "slug": "legs-bodyweight-squat",
+      "lookupKeys": [
+        "legs_bodyweight_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_standing_calf_raise": {
+      "exerciseId": "legs_bodyweight_standing_calf_raise",
+      "slug": "legs-bodyweight-standing-calf-raise",
+      "lookupKeys": [
+        "legs_bodyweight_standing_calf_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-standing-calf-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-standing-calf-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_step_up": {
+      "exerciseId": "legs_bodyweight_step_up",
+      "slug": "legs-bodyweight-step-up",
+      "lookupKeys": [
+        "legs_bodyweight_step_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-step-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-step-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_bodyweight_wall_sit": {
+      "exerciseId": "legs_bodyweight_wall_sit",
+      "slug": "legs-bodyweight-wall-sit",
+      "lookupKeys": [
+        "legs_bodyweight_wall_sit"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-bodyweight-wall-sit-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-bodyweight-wall-sit-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_cable_glute_kickback": {
+      "exerciseId": "legs_cable_glute_kickback",
+      "slug": "legs-cable-glute-kickback",
+      "lookupKeys": [
+        "legs_cable_glute_kickback"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-cable-glute-kickback-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-cable-glute-kickback-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_cable_hip_abduction": {
+      "exerciseId": "legs_cable_hip_abduction",
+      "slug": "legs-cable-hip-abduction",
+      "lookupKeys": [
+        "legs_cable_hip_abduction"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-cable-hip-abduction-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-cable-hip-abduction-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_cable_hip_adduction": {
+      "exerciseId": "legs_cable_hip_adduction",
+      "slug": "legs-cable-hip-adduction",
+      "lookupKeys": [
+        "legs_cable_hip_adduction"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-cable-hip-adduction-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-cable-hip-adduction-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_cable_leg_curl": {
+      "exerciseId": "legs_cable_leg_curl",
+      "slug": "legs-cable-leg-curl",
+      "lookupKeys": [
+        "legs_cable_leg_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-cable-leg-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-cable-leg-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_cable_pull_through": {
+      "exerciseId": "legs_cable_pull_through",
+      "slug": "legs-cable-pull-through",
+      "lookupKeys": [
+        "legs_cable_pull_through"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-cable-pull-through-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-cable-pull-through-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_bulgarian_split_squat": {
+      "exerciseId": "legs_dumbbell_bulgarian_split_squat",
+      "slug": "legs-dumbbell-bulgarian-split-squat",
+      "lookupKeys": [
+        "legs_dumbbell_bulgarian_split_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-bulgarian-split-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-bulgarian-split-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_goblet_squat": {
+      "exerciseId": "legs_dumbbell_goblet_squat",
+      "slug": "legs-dumbbell-goblet-squat",
+      "lookupKeys": [
+        "legs_dumbbell_goblet_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-goblet-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-goblet-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_hip_thrust": {
+      "exerciseId": "legs_dumbbell_hip_thrust",
+      "slug": "legs-dumbbell-hip-thrust",
+      "lookupKeys": [
+        "legs_dumbbell_hip_thrust"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-hip-thrust-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-hip-thrust-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_lunge": {
+      "exerciseId": "legs_dumbbell_lunge",
+      "slug": "legs-dumbbell-lunge",
+      "lookupKeys": [
+        "legs_dumbbell_lunge"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-lunge-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-lunge-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_reverse_lunge": {
+      "exerciseId": "legs_dumbbell_reverse_lunge",
+      "slug": "legs-dumbbell-reverse-lunge",
+      "lookupKeys": [
+        "legs_dumbbell_reverse_lunge"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-reverse-lunge-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-reverse-lunge-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_romanian_deadlift": {
+      "exerciseId": "legs_dumbbell_romanian_deadlift",
+      "slug": "legs-dumbbell-romanian-deadlift",
+      "lookupKeys": [
+        "legs_dumbbell_romanian_deadlift"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-romanian-deadlift-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-romanian-deadlift-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_single_leg_calf_raise": {
+      "exerciseId": "legs_dumbbell_single_leg_calf_raise",
+      "slug": "legs-dumbbell-single-leg-calf-raise",
+      "lookupKeys": [
+        "legs_dumbbell_single_leg_calf_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-single-leg-calf-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-single-leg-calf-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_single_leg_romanian_deadlift": {
+      "exerciseId": "legs_dumbbell_single_leg_romanian_deadlift",
+      "slug": "legs-dumbbell-single-leg-romanian-deadlift",
+      "lookupKeys": [
+        "legs_dumbbell_single_leg_romanian_deadlift"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-single-leg-romanian-deadlift-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-single-leg-romanian-deadlift-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_squat": {
+      "exerciseId": "legs_dumbbell_squat",
+      "slug": "legs-dumbbell-squat",
+      "lookupKeys": [
+        "legs_dumbbell_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_standing_calf_raise": {
+      "exerciseId": "legs_dumbbell_standing_calf_raise",
+      "slug": "legs-dumbbell-standing-calf-raise",
+      "lookupKeys": [
+        "legs_dumbbell_standing_calf_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-standing-calf-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-standing-calf-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_step_up": {
+      "exerciseId": "legs_dumbbell_step_up",
+      "slug": "legs-dumbbell-step-up",
+      "lookupKeys": [
+        "legs_dumbbell_step_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-step-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-step-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_stiff_leg_deadlift": {
+      "exerciseId": "legs_dumbbell_stiff_leg_deadlift",
+      "slug": "legs-dumbbell-stiff-leg-deadlift",
+      "lookupKeys": [
+        "legs_dumbbell_stiff_leg_deadlift"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-stiff-leg-deadlift-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-stiff-leg-deadlift-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_sumo_squat": {
+      "exerciseId": "legs_dumbbell_sumo_squat",
+      "slug": "legs-dumbbell-sumo-squat",
+      "lookupKeys": [
+        "legs_dumbbell_sumo_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-sumo-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-sumo-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_dumbbell_walking_lunge": {
+      "exerciseId": "legs_dumbbell_walking_lunge",
+      "slug": "legs-dumbbell-walking-lunge",
+      "lookupKeys": [
+        "legs_dumbbell_walking_lunge"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-dumbbell-walking-lunge-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-dumbbell-walking-lunge-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_kettlebell_goblet_squat": {
+      "exerciseId": "legs_kettlebell_goblet_squat",
+      "slug": "legs-kettlebell-goblet-squat",
+      "lookupKeys": [
+        "legs_kettlebell_goblet_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-kettlebell-goblet-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-kettlebell-goblet-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_kettlebell_sumo_deadlift": {
+      "exerciseId": "legs_kettlebell_sumo_deadlift",
+      "slug": "legs-kettlebell-sumo-deadlift",
+      "lookupKeys": [
+        "legs_kettlebell_sumo_deadlift"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-kettlebell-sumo-deadlift-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-kettlebell-sumo-deadlift-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_belt_squat": {
+      "exerciseId": "legs_machine_belt_squat",
+      "slug": "legs-machine-belt-squat",
+      "lookupKeys": [
+        "legs_machine_belt_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-belt-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-belt-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_glute_ham_raise": {
+      "exerciseId": "legs_machine_glute_ham_raise",
+      "slug": "legs-machine-glute-ham-raise",
+      "lookupKeys": [
+        "legs_machine_glute_ham_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-glute-ham-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-glute-ham-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_hack_squat": {
+      "exerciseId": "legs_machine_hack_squat",
+      "slug": "legs-machine-hack-squat",
+      "lookupKeys": [
+        "legs_machine_hack_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-hack-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-hack-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_hip_abduction": {
+      "exerciseId": "legs_machine_hip_abduction",
+      "slug": "legs-machine-hip-abduction",
+      "lookupKeys": [
+        "legs_machine_hip_abduction"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-hip-abduction-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-hip-abduction-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_hip_adduction": {
+      "exerciseId": "legs_machine_hip_adduction",
+      "slug": "legs-machine-hip-adduction",
+      "lookupKeys": [
+        "legs_machine_hip_adduction"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-hip-adduction-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-hip-adduction-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_leg_extension": {
+      "exerciseId": "legs_machine_leg_extension",
+      "slug": "legs-machine-leg-extension",
+      "lookupKeys": [
+        "legs_machine_leg_extension"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-leg-extension-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-leg-extension-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_leg_press": {
+      "exerciseId": "legs_machine_leg_press",
+      "slug": "legs-machine-leg-press",
+      "lookupKeys": [
+        "legs_machine_leg_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-leg-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-leg-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_leg_press_calf_raise": {
+      "exerciseId": "legs_machine_leg_press_calf_raise",
+      "slug": "legs-machine-leg-press-calf-raise",
+      "lookupKeys": [
+        "legs_machine_leg_press_calf_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-leg-press-calf-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-leg-press-calf-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_lying_leg_curl": {
+      "exerciseId": "legs_machine_lying_leg_curl",
+      "slug": "legs-machine-lying-leg-curl",
+      "lookupKeys": [
+        "legs_machine_lying_leg_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-lying-leg-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-lying-leg-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_pendulum_squat": {
+      "exerciseId": "legs_machine_pendulum_squat",
+      "slug": "legs-machine-pendulum-squat",
+      "lookupKeys": [
+        "legs_machine_pendulum_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-pendulum-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-pendulum-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_seated_calf_raise": {
+      "exerciseId": "legs_machine_seated_calf_raise",
+      "slug": "legs-machine-seated-calf-raise",
+      "lookupKeys": [
+        "legs_machine_seated_calf_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-seated-calf-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-seated-calf-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_seated_leg_curl": {
+      "exerciseId": "legs_machine_seated_leg_curl",
+      "slug": "legs-machine-seated-leg-curl",
+      "lookupKeys": [
+        "legs_machine_seated_leg_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-seated-leg-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-seated-leg-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_single_leg_extension": {
+      "exerciseId": "legs_machine_single_leg_extension",
+      "slug": "legs-machine-single-leg-extension",
+      "lookupKeys": [
+        "legs_machine_single_leg_extension"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-single-leg-extension-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-single-leg-extension-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_single_leg_lying_curl": {
+      "exerciseId": "legs_machine_single_leg_lying_curl",
+      "slug": "legs-machine-single-leg-lying-curl",
+      "lookupKeys": [
+        "legs_machine_single_leg_lying_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-single-leg-lying-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-single-leg-lying-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_single_leg_press": {
+      "exerciseId": "legs_machine_single_leg_press",
+      "slug": "legs-machine-single-leg-press",
+      "lookupKeys": [
+        "legs_machine_single_leg_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-single-leg-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-single-leg-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_single_leg_seated_curl": {
+      "exerciseId": "legs_machine_single_leg_seated_curl",
+      "slug": "legs-machine-single-leg-seated-curl",
+      "lookupKeys": [
+        "legs_machine_single_leg_seated_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-single-leg-seated-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-single-leg-seated-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_standing_calf_raise": {
+      "exerciseId": "legs_machine_standing_calf_raise",
+      "slug": "legs-machine-standing-calf-raise",
+      "lookupKeys": [
+        "legs_machine_standing_calf_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-standing-calf-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-standing-calf-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_standing_leg_curl": {
+      "exerciseId": "legs_machine_standing_leg_curl",
+      "slug": "legs-machine-standing-leg-curl",
+      "lookupKeys": [
+        "legs_machine_standing_leg_curl"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-standing-leg-curl-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-standing-leg-curl-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_machine_v_squat": {
+      "exerciseId": "legs_machine_v_squat",
+      "slug": "legs-machine-v-squat",
+      "lookupKeys": [
+        "legs_machine_v_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-machine-v-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-machine-v-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_plate_goblet_squat": {
+      "exerciseId": "legs_plate_goblet_squat",
+      "slug": "legs-plate-goblet-squat",
+      "lookupKeys": [
+        "legs_plate_goblet_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-plate-goblet-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-plate-goblet-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_smith_calf_raise": {
+      "exerciseId": "legs_smith_calf_raise",
+      "slug": "legs-smith-calf-raise",
+      "lookupKeys": [
+        "legs_smith_calf_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-smith-calf-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-smith-calf-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_smith_front_squat": {
+      "exerciseId": "legs_smith_front_squat",
+      "slug": "legs-smith-front-squat",
+      "lookupKeys": [
+        "legs_smith_front_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-smith-front-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-smith-front-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_smith_hip_thrust": {
+      "exerciseId": "legs_smith_hip_thrust",
+      "slug": "legs-smith-hip-thrust",
+      "lookupKeys": [
+        "legs_smith_hip_thrust"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-smith-hip-thrust-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-smith-hip-thrust-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_smith_romanian_deadlift": {
+      "exerciseId": "legs_smith_romanian_deadlift",
+      "slug": "legs-smith-romanian-deadlift",
+      "lookupKeys": [
+        "legs_smith_romanian_deadlift"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-smith-romanian-deadlift-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-smith-romanian-deadlift-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_smith_split_squat": {
+      "exerciseId": "legs_smith_split_squat",
+      "slug": "legs-smith-split-squat",
+      "lookupKeys": [
+        "legs_smith_split_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-smith-split-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-smith-split-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "legs_smith_squat": {
+      "exerciseId": "legs_smith_squat",
+      "slug": "legs-smith-squat",
+      "lookupKeys": [
+        "legs_smith_squat"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/legs-smith-squat-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/legs-smith-squat-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_band_face_pull": {
+      "exerciseId": "shoulders_band_face_pull",
+      "slug": "shoulders-band-face-pull",
+      "lookupKeys": [
+        "shoulders_band_face_pull"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-band-face-pull-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-band-face-pull-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_band_lateral_raise": {
+      "exerciseId": "shoulders_band_lateral_raise",
+      "slug": "shoulders-band-lateral-raise",
+      "lookupKeys": [
+        "shoulders_band_lateral_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-band-lateral-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-band-lateral-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_band_pull_apart": {
+      "exerciseId": "shoulders_band_pull_apart",
+      "slug": "shoulders-band-pull-apart",
+      "lookupKeys": [
+        "shoulders_band_pull_apart"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-band-pull-apart-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-band-pull-apart-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_barbell_behind_neck_press": {
+      "exerciseId": "shoulders_barbell_behind_neck_press",
+      "slug": "shoulders-barbell-behind-neck-press",
+      "lookupKeys": [
+        "shoulders_barbell_behind_neck_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-barbell-behind-neck-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-barbell-behind-neck-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_barbell_bradford_press": {
+      "exerciseId": "shoulders_barbell_bradford_press",
+      "slug": "shoulders-barbell-bradford-press",
+      "lookupKeys": [
+        "shoulders_barbell_bradford_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-barbell-bradford-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-barbell-bradford-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_barbell_front_raise": {
+      "exerciseId": "shoulders_barbell_front_raise",
+      "slug": "shoulders-barbell-front-raise",
+      "lookupKeys": [
+        "shoulders_barbell_front_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-barbell-front-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-barbell-front-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_barbell_overhead_press": {
+      "exerciseId": "shoulders_barbell_overhead_press",
+      "slug": "shoulders-barbell-overhead-press",
+      "lookupKeys": [
+        "shoulders_barbell_overhead_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-barbell-overhead-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-barbell-overhead-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_barbell_push_press": {
+      "exerciseId": "shoulders_barbell_push_press",
+      "slug": "shoulders-barbell-push-press",
+      "lookupKeys": [
+        "shoulders_barbell_push_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-barbell-push-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-barbell-push-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_barbell_seated_overhead_press": {
+      "exerciseId": "shoulders_barbell_seated_overhead_press",
+      "slug": "shoulders-barbell-seated-overhead-press",
+      "lookupKeys": [
+        "shoulders_barbell_seated_overhead_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-barbell-seated-overhead-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-barbell-seated-overhead-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_barbell_single_arm_landmine_press": {
+      "exerciseId": "shoulders_barbell_single_arm_landmine_press",
+      "slug": "shoulders-barbell-single-arm-landmine-press",
+      "lookupKeys": [
+        "shoulders_barbell_single_arm_landmine_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-barbell-single-arm-landmine-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-barbell-single-arm-landmine-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_barbell_upright_row": {
+      "exerciseId": "shoulders_barbell_upright_row",
+      "slug": "shoulders-barbell-upright-row",
+      "lookupKeys": [
+        "shoulders_barbell_upright_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-barbell-upright-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-barbell-upright-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_bodyweight_handstand_push_up": {
+      "exerciseId": "shoulders_bodyweight_handstand_push_up",
+      "slug": "shoulders-bodyweight-handstand-push-up",
+      "lookupKeys": [
+        "shoulders_bodyweight_handstand_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-bodyweight-handstand-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-bodyweight-handstand-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_bodyweight_pike_push_up": {
+      "exerciseId": "shoulders_bodyweight_pike_push_up",
+      "slug": "shoulders-bodyweight-pike-push-up",
+      "lookupKeys": [
+        "shoulders_bodyweight_pike_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-bodyweight-pike-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-bodyweight-pike-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_bodyweight_prone_y_raise": {
+      "exerciseId": "shoulders_bodyweight_prone_y_raise",
+      "slug": "shoulders-bodyweight-prone-y-raise",
+      "lookupKeys": [
+        "shoulders_bodyweight_prone_y_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-bodyweight-prone-y-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-bodyweight-prone-y-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_bodyweight_wall_handstand_push_up": {
+      "exerciseId": "shoulders_bodyweight_wall_handstand_push_up",
+      "slug": "shoulders-bodyweight-wall-handstand-push-up",
+      "lookupKeys": [
+        "shoulders_bodyweight_wall_handstand_push_up"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-bodyweight-wall-handstand-push-up-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-bodyweight-wall-handstand-push-up-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_cable_external_rotation": {
+      "exerciseId": "shoulders_cable_external_rotation",
+      "slug": "shoulders-cable-external-rotation",
+      "lookupKeys": [
+        "shoulders_cable_external_rotation"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-cable-external-rotation-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-cable-external-rotation-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_cable_face_pull": {
+      "exerciseId": "shoulders_cable_face_pull",
+      "slug": "shoulders-cable-face-pull",
+      "lookupKeys": [
+        "shoulders_cable_face_pull"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-cable-face-pull-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-cable-face-pull-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_cable_front_raise": {
+      "exerciseId": "shoulders_cable_front_raise",
+      "slug": "shoulders-cable-front-raise",
+      "lookupKeys": [
+        "shoulders_cable_front_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-cable-front-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-cable-front-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_cable_lateral_raise": {
+      "exerciseId": "shoulders_cable_lateral_raise",
+      "slug": "shoulders-cable-lateral-raise",
+      "lookupKeys": [
+        "shoulders_cable_lateral_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-cable-lateral-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-cable-lateral-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_cable_rear_delt_fly": {
+      "exerciseId": "shoulders_cable_rear_delt_fly",
+      "slug": "shoulders-cable-rear-delt-fly",
+      "lookupKeys": [
+        "shoulders_cable_rear_delt_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-cable-rear-delt-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-cable-rear-delt-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_cable_single_arm_front_raise": {
+      "exerciseId": "shoulders_cable_single_arm_front_raise",
+      "slug": "shoulders-cable-single-arm-front-raise",
+      "lookupKeys": [
+        "shoulders_cable_single_arm_front_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-cable-single-arm-front-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-cable-single-arm-front-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_cable_single_arm_rear_delt_fly": {
+      "exerciseId": "shoulders_cable_single_arm_rear_delt_fly",
+      "slug": "shoulders-cable-single-arm-rear-delt-fly",
+      "lookupKeys": [
+        "shoulders_cable_single_arm_rear_delt_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-cable-single-arm-rear-delt-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-cable-single-arm-rear-delt-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_cable_single_arm_y_raise": {
+      "exerciseId": "shoulders_cable_single_arm_y_raise",
+      "slug": "shoulders-cable-single-arm-y-raise",
+      "lookupKeys": [
+        "shoulders_cable_single_arm_y_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-cable-single-arm-y-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-cable-single-arm-y-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_cable_upright_row": {
+      "exerciseId": "shoulders_cable_upright_row",
+      "slug": "shoulders-cable-upright-row",
+      "lookupKeys": [
+        "shoulders_cable_upright_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-cable-upright-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-cable-upright-row-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_cable_y_raise": {
+      "exerciseId": "shoulders_cable_y_raise",
+      "slug": "shoulders-cable-y-raise",
+      "lookupKeys": [
+        "shoulders_cable_y_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-cable-y-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-cable-y-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_dumbbell_arnold_press": {
+      "exerciseId": "shoulders_dumbbell_arnold_press",
+      "slug": "shoulders-dumbbell-arnold-press",
+      "lookupKeys": [
+        "shoulders_dumbbell_arnold_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-dumbbell-arnold-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-dumbbell-arnold-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_dumbbell_bent_over_lateral_raise": {
+      "exerciseId": "shoulders_dumbbell_bent_over_lateral_raise",
+      "slug": "shoulders-dumbbell-bent-over-lateral-raise",
+      "lookupKeys": [
+        "shoulders_dumbbell_bent_over_lateral_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-dumbbell-bent-over-lateral-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-dumbbell-bent-over-lateral-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_dumbbell_cuban_press": {
+      "exerciseId": "shoulders_dumbbell_cuban_press",
+      "slug": "shoulders-dumbbell-cuban-press",
+      "lookupKeys": [
+        "shoulders_dumbbell_cuban_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-dumbbell-cuban-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-dumbbell-cuban-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_dumbbell_front_raise": {
+      "exerciseId": "shoulders_dumbbell_front_raise",
+      "slug": "shoulders-dumbbell-front-raise",
+      "lookupKeys": [
+        "shoulders_dumbbell_front_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-dumbbell-front-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-dumbbell-front-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_dumbbell_high_pull": {
+      "exerciseId": "shoulders_dumbbell_high_pull",
+      "slug": "shoulders-dumbbell-high-pull",
+      "lookupKeys": [
+        "shoulders_dumbbell_high_pull"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-dumbbell-high-pull-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-dumbbell-high-pull-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_dumbbell_rear_delt_fly": {
+      "exerciseId": "shoulders_dumbbell_rear_delt_fly",
+      "slug": "shoulders-dumbbell-rear-delt-fly",
+      "lookupKeys": [
+        "shoulders_dumbbell_rear_delt_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-dumbbell-rear-delt-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-dumbbell-rear-delt-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_dumbbell_seated_shoulder_press": {
+      "exerciseId": "shoulders_dumbbell_seated_shoulder_press",
+      "slug": "shoulders-dumbbell-seated-shoulder-press",
+      "lookupKeys": [
+        "shoulders_dumbbell_seated_shoulder_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-dumbbell-seated-shoulder-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-dumbbell-seated-shoulder-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_dumbbell_shoulder_press": {
+      "exerciseId": "shoulders_dumbbell_shoulder_press",
+      "slug": "shoulders-dumbbell-shoulder-press",
+      "lookupKeys": [
+        "shoulders_dumbbell_shoulder_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-dumbbell-shoulder-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-dumbbell-shoulder-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_dumbbell_single_arm_lateral_raise": {
+      "exerciseId": "shoulders_dumbbell_single_arm_lateral_raise",
+      "slug": "shoulders-dumbbell-single-arm-lateral-raise",
+      "lookupKeys": [
+        "shoulders_dumbbell_single_arm_lateral_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-dumbbell-single-arm-lateral-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-dumbbell-single-arm-lateral-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_dumbbell_single_arm_shoulder_press": {
+      "exerciseId": "shoulders_dumbbell_single_arm_shoulder_press",
+      "slug": "shoulders-dumbbell-single-arm-shoulder-press",
+      "lookupKeys": [
+        "shoulders_dumbbell_single_arm_shoulder_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-dumbbell-single-arm-shoulder-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-dumbbell-single-arm-shoulder-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_kettlebell_bottoms_up_press": {
+      "exerciseId": "shoulders_kettlebell_bottoms_up_press",
+      "slug": "shoulders-kettlebell-bottoms-up-press",
+      "lookupKeys": [
+        "shoulders_kettlebell_bottoms_up_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-kettlebell-bottoms-up-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-kettlebell-bottoms-up-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_kettlebell_press": {
+      "exerciseId": "shoulders_kettlebell_press",
+      "slug": "shoulders-kettlebell-press",
+      "lookupKeys": [
+        "shoulders_kettlebell_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-kettlebell-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-kettlebell-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_machine_lateral_raise": {
+      "exerciseId": "shoulders_machine_lateral_raise",
+      "slug": "shoulders-machine-lateral-raise",
+      "lookupKeys": [
+        "shoulders_machine_lateral_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-machine-lateral-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-machine-lateral-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_machine_plate_loaded_shoulder_press": {
+      "exerciseId": "shoulders_machine_plate_loaded_shoulder_press",
+      "slug": "shoulders-machine-plate-loaded-shoulder-press",
+      "lookupKeys": [
+        "shoulders_machine_plate_loaded_shoulder_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-machine-plate-loaded-shoulder-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-machine-plate-loaded-shoulder-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_machine_rear_delt_fly": {
+      "exerciseId": "shoulders_machine_rear_delt_fly",
+      "slug": "shoulders-machine-rear-delt-fly",
+      "lookupKeys": [
+        "shoulders_machine_rear_delt_fly"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-machine-rear-delt-fly-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-machine-rear-delt-fly-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_machine_reverse_pec_deck": {
+      "exerciseId": "shoulders_machine_reverse_pec_deck",
+      "slug": "shoulders-machine-reverse-pec-deck",
+      "lookupKeys": [
+        "shoulders_machine_reverse_pec_deck"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-machine-reverse-pec-deck-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-machine-reverse-pec-deck-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_machine_shoulder_press": {
+      "exerciseId": "shoulders_machine_shoulder_press",
+      "slug": "shoulders-machine-shoulder-press",
+      "lookupKeys": [
+        "shoulders_machine_shoulder_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-machine-shoulder-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-machine-shoulder-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_plate_front_raise": {
+      "exerciseId": "shoulders_plate_front_raise",
+      "slug": "shoulders-plate-front-raise",
+      "lookupKeys": [
+        "shoulders_plate_front_raise"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-plate-front-raise-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-plate-front-raise-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_plate_overhead_press": {
+      "exerciseId": "shoulders_plate_overhead_press",
+      "slug": "shoulders-plate-overhead-press",
+      "lookupKeys": [
+        "shoulders_plate_overhead_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-plate-overhead-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-plate-overhead-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_smith_behind_neck_press": {
+      "exerciseId": "shoulders_smith_behind_neck_press",
+      "slug": "shoulders-smith-behind-neck-press",
+      "lookupKeys": [
+        "shoulders_smith_behind_neck_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-smith-behind-neck-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-smith-behind-neck-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_smith_shoulder_press": {
+      "exerciseId": "shoulders_smith_shoulder_press",
+      "slug": "shoulders-smith-shoulder-press",
+      "lookupKeys": [
+        "shoulders_smith_shoulder_press"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-smith-shoulder-press-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-smith-shoulder-press-b.png",
+          "durationMs": 1000
+        }
+      ]
+    },
+    "shoulders_smith_upright_row": {
+      "exerciseId": "shoulders_smith_upright_row",
+      "slug": "shoulders-smith-upright-row",
+      "lookupKeys": [
+        "shoulders_smith_upright_row"
+      ],
+      "preferredHeightDp": 280,
+      "frames": [
+        {
+          "id": "A",
+          "file": "images/review-final/shoulders-smith-upright-row-a.png",
+          "durationMs": 1000
+        },
+        {
+          "id": "B",
+          "file": "images/review-final/shoulders-smith-upright-row-b.png",
+          "durationMs": 1000
+        }
       ]
     }
   }

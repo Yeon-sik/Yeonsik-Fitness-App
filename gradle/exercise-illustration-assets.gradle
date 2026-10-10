@@ -230,6 +230,15 @@ def downscaleExerciseIllustration = { File inputFile, File outputFile, int maxDi
 
     int sourceWidth = source.width
     int sourceHeight = source.height
+    // Bundled CI fallback is already encoded by this task. Preserve its palette and alpha.
+    if (source.colorModel instanceof IndexColorModel
+            && source.colorModel.hasAlpha()
+            && Math.max(sourceWidth, sourceHeight) <= maxDimension) {
+        outputFile.parentFile.mkdirs()
+        java.nio.file.Files.copy(inputFile.toPath(), outputFile.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING)
+        return
+    }
     double scale = Math.min(1.0d, maxDimension / (double) Math.max(sourceWidth, sourceHeight))
     int targetWidth = Math.max(1, (int) Math.round(sourceWidth * scale))
     int targetHeight = Math.max(1, (int) Math.round(sourceHeight * scale))
@@ -525,6 +534,13 @@ android {
             java.srcDir(exerciseIllustrationGeneratedJavaDir)
         }
     }
+}
+
+// Explicit maintenance task; ordinary builds never rewrite tracked fallback assets.
+tasks.register("bundleExerciseIllustrationFallback", Exec) {
+    dependsOn("generateExerciseIllustrationAssets")
+    workingDir rootProject.projectDir
+    commandLine(System.getenv("NODE_BINARY") ?: "node", "scripts/bundle-exercise-images.mjs")
 }
 
 tasks.matching {
