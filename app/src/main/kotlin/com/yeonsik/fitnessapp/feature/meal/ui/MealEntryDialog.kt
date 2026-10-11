@@ -2,12 +2,15 @@ package com.yeonsik.fitnessapp.feature.meal.ui
 
 import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -17,40 +20,77 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.feature.nutrition.ui.*
+import com.yeonsik.fitnessapp.feature.nutrition.model.FoodPortionDraft
+import com.yeonsik.fitnessapp.data.NutritionProfile
+import kotlinx.coroutines.launch
 import java.time.LocalTime
 import java.util.Locale
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Ready, priceTraceState: PriceTraceUiState, mealLabel: String) {
     val foods = mealFoodItems(editor)
-    val totals = if (editor.diningOut) diningNutritionTotals(editor) else mealFoodNutritionTotals(foods)
+    val totals = mealEntryNutritionTotals(editor)
     val inputEnabled = !editor.saving && !editor.draftLoading
-    val validInput = if (editor.diningOut) diningMealRegistrationError(editor) == null
-        else foods.isNotEmpty() && foods.all { mealConsumedQuantity(it.quantity, it.consumedPercent) != null }
+    val validInput = mealEntryRegistrationError(editor) == null
     val diningEditor = rememberDiningOutEditorState(editor, priceTraceState)
+    val manualEntryRequester = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
     NutritionEntryFrame(
         "$mealLabel 기록", actions::closeDraft, subtitle = editor.date, closeEnabled = !editor.saving,
         showScrollToTop = true,
-        footer = {
+        introduction = {
+            NutritionFormSection("섭취 시각", Modifier.fillMaxWidth()) {
+                MealTimeControl(editor.draft.time, actions::updateTime, enabled = inputEnabled)
+            }
             NutritionTotalPreview(totals, Modifier.testTag("meal-entry-totals"),
-                label = if (editor.diningOut) "메뉴 ${diningMealMenus(editor).size}개 · 섭취 합계" else "식품 ${foods.size}개")
+                label = "담은 항목 ${foods.size + diningMealMenus(editor).size}개 · 섭취 합계")
+        },
+        collapsedSummary = {
+            Text(editor.draft.time, style = MaterialTheme.typography.labelLarge)
+            FlowRow(Modifier.testTag("meal-entry-summary"), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                listOf("K" to NutritionProfile.CALORIES_KCAL, "C" to NutritionProfile.CARBS_GRAMS,
+                    "P" to NutritionProfile.PROTEIN_GRAMS, "F" to NutritionProfile.FAT_GRAMS).forEach { (label, nutrient) ->
+                    Text("$label: ${nutritionTotalText(totals.total(nutrient))}${if (label == "K") " kcal" else " g"}",
+                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+                }
+            }
+        },
+        footer = {
             editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-            AppButton(if (editor.diningOut) actions::saveDiningOut else actions::saveFood, Modifier.fillMaxWidth().testTag("meal-entry-save"),
-                enabled = inputEnabled && validInput) {
+            AppButton(actions::saveFood, Modifier.fillMaxWidth().testTag("meal-entry-save"), enabled = inputEnabled && validInput) {
                 Text(if (editor.saving) "저장 중…" else "$mealLabel 기록하기")
             }
         }
     ) {
-        NutritionFormSection("등록 순서대로 기록해요", Modifier.fillMaxWidth(), "끼니 번호는 하루마다 1끼부터 시작합니다.") {
-            MealTimeControl(editor.draft.time, actions::updateTime, enabled = inputEnabled)
-        }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            AppOutlinedButton(actions::chooseFood, Modifier.weight(1f), enabled = inputEnabled, selected = !editor.diningOut) { Text("식품으로 구성") }
-            AppOutlinedButton(actions::chooseDiningOut, Modifier.weight(1f), enabled = inputEnabled, selected = editor.diningOut) { Text("외식") }
+        FlowRow(Modifier.fillMaxWidth().testTag("meal-entry-categories"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MealCatalogCategory.entries.forEach { category ->
+                FilterChip(selected = editor.category == category, enabled = inputEnabled,
+                    onClick = { actions.chooseCategory(category) }, label = { Text(category.label) },
+                    modifier = Modifier.testTag("meal-category-${category.name}"))
+            }
         }
         if (editor.draftLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
         editor.notice?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, color = MaterialTheme.colorScheme.onPrimaryContainer) }
-        if (editor.diningOut) DiningOutEditor(actions, editor, priceTraceState, diningEditor) else FoodMealEditor(actions, editor)
+        if (editor.diningOut) DiningOutEditor(actions, editor, priceTraceState, diningEditor, manualEntryRequester) else FoodMealEditor(actions, editor)
+        if (foods.isNotEmpty() || editor.diningMenus.isNotEmpty()) Text("이번 식단에 담은 내용", style = MaterialTheme.typography.titleMedium)
+        FoodPortionList(foods.map { FoodPortionDraft(it.food, it.quantity, it.amountMode) }, actions::updateFoodQuantity,
+            onRemove = { focusManager.clearFocus(); actions.removeFood(it) }, enabled = inputEnabled,
+            modifier = Modifier.fillMaxWidth().testTag("meal-food-portions"), amountLabel = "전체 양",
+            onModeChange = actions::updateFoodAmountMode, scrollable = false, itemContent = { portion ->
+                val item = foods.first { it.food.id == portion.food.id }
+                MealConsumedPercentControl(item.consumedPercent, { actions.updateFoodConsumedPercent(item.id, it) }, inputEnabled,
+                    "meal-food-percent-${portion.food.id}")
+                Text("실제 섭취 · ${nutritionTotalText(mealFoodNutritionTotals(listOf(item)).total(NutritionProfile.CALORIES_KCAL))} kcal",
+                    style = MaterialTheme.typography.bodyMedium)
+            })
+        DiningMenuDraftList(editor.diningMenus, actions::updateDiningMenu, actions::removeDiningMenu, inputEnabled,
+            onAddAtStore = { menuId ->
+                actions.chooseCategory(MealCatalogCategory.DINING_OUT)
+                actions.startAnotherDiningMenu(menuId)
+                scope.launch { withFrameNanos { }; manualEntryRequester.bringIntoView() }
+            })
     }
 }
 @Composable

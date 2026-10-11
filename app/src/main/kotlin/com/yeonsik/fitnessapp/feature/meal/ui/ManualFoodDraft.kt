@@ -2,6 +2,8 @@ package com.yeonsik.fitnessapp.feature.meal.ui
 
 import com.yeonsik.fitnessapp.data.NutritionProfile
 import com.yeonsik.fitnessapp.data.NutritionUnit
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
 
 /** The label's nutrition basis is independent of the amount eaten in a Meal record. */
 data class ManualFoodDraft(
@@ -15,9 +17,12 @@ data class ManualFoodDraft(
     val fat: String = "",
     val sodium: String = "",
     val sugars: String = "",
-    val saturatedFat: String = ""
+    val saturatedFat: String = "",
+    val registrationKind: NutritionRegistrationKind = NutritionRegistrationKind.INGREDIENT,
+    val packageAmount: String = "",
+    val packageUnit: String = NutritionUnit.GRAM
 ) {
-    internal fun validated(): ManualFoodInput {
+    internal fun validated(): NutritionFoodInput {
         require(name.isNotBlank()) { "식품명을 입력하세요." }
         val amount = number(basisAmount, "기준량")
         require(amount > 0) { "기준량을 0보다 크게 입력하세요." }
@@ -30,8 +35,15 @@ data class ManualFoodDraft(
             .value(NutritionProfile.SUGARS_GRAMS, optional(sugars, "당류"))
             .value(NutritionProfile.SATURATED_FAT_GRAMS, optional(saturatedFat, "포화지방"))
             .build()
-        return ManualFoodInput(name.trim(), brand.trim().ifEmpty { null }, amount,
-            NutritionUnit.requireSupported(basisUnit), profile)
+        val kind = registrationKind
+        val packAmount = if (kind == NutritionRegistrationKind.PRODUCT) number(packageAmount, "제품 1개 용량")
+            .also { require(it > 0) { "제품 1개 용량을 0보다 크게 입력하세요." } } else null
+        val packUnit = if (packAmount != null) NutritionUnit.requireSupported(packageUnit) else null
+        require(packUnit == null || NutritionUnit.areCompatible(packUnit, NutritionUnit.requireSupported(basisUnit))) {
+            "제품 용량 단위가 기준량과 호환되지 않습니다. g와 ml는 서로 변환할 수 없습니다."
+        }
+        return NutritionFoodInput(name.trim(), brand.trim().ifEmpty { null }, amount,
+            NutritionUnit.requireSupported(basisUnit), profile, "manual", kind, packAmount, packUnit)
     }
 
     private fun optional(value: String, label: String) =
@@ -45,11 +57,3 @@ data class ManualFoodDraft(
         return parsed
     }
 }
-
-internal data class ManualFoodInput(
-    val name: String,
-    val brand: String?,
-    val basisAmount: Double,
-    val basisUnit: String,
-    val profile: NutritionProfile
-)

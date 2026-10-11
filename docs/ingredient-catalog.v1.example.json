@@ -1,0 +1,34 @@
+{
+  "format": "fitness.ingredient-catalog.v1",
+  "catalog_id": "home-foods",
+  "revision": "2026-10-01",
+  "foods": [
+    {
+      "id": "chicken-breast-raw",
+      "name": "닭가슴살 (생것)",
+      "basis_amount": 100,
+      "basis_unit": "g",
+      "prep_state": "raw",
+      "nutrients": {
+        "calories_kcal": 120,
+        "carbs_grams": 0,
+        "protein_grams": 23.1,
+        "fat_grams": 2.6,
+        "sodium_mg": 45
+      }
+    },
+    {
+      "id": "plain-greek-yogurt",
+      "name": "그릭요거트",
+      "basis_amount": 100,
+      "basis_unit": "g",
+      "prep_state": "as_served",
+      "nutrients": {
+        "calories_kcal": 95,
+        "carbs_grams": 3.6,
+        "protein_grams": 9.5,
+        "fat_grams": 4.2
+      }
+    }
+  ]
+}

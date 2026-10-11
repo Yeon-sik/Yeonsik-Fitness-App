@@ -1879,6 +1879,170 @@ public final class NutritionCatalogRepository implements
         return recipeFood(null, normalizedName, items);
     }
 
+    @Override
+    public NutritionFood saveManualFoodInput(com.yeonsik.fitness.shared.core.account.AccountScope scope,
+            com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput input) {
+        String owner = scope.getOwnerId();
+        if (!owner.equals(userId)) throw new IllegalStateException("식품 등록 계정이 변경되었습니다. 다시 입력하세요.");
+        if (input == null || !Double.isFinite(input.getBasisAmount()) || input.getBasisAmount() <= 0)
+            throw new IllegalArgumentException("기준량을 0보다 크게 입력하세요.");
+        String basisUnit = NutritionUnit.requireSupported(input.getBasisUnit());
+        if (!"manual".equals(input.getSourceType()) && !"manual_estimate".equals(input.getSourceType()))
+            throw new IllegalArgumentException("영양정보 출처를 선택하세요.");
+        NutritionProfile profile = input.getProfile() == null ? NutritionProfile.empty() : input.getProfile();
+        for (String key : new String[]{NutritionProfile.CALORIES_KCAL, NutritionProfile.PROTEIN_GRAMS,
+                NutritionProfile.CARBS_GRAMS, NutritionProfile.FAT_GRAMS}) {
+            if (!profile.isKnown(key)) throw new IllegalArgumentException(NutritionProfile.labelOf(key) + "을 입력하세요.");
+        }
+        for (Double value : profile.asMap().values()) if (!Double.isFinite(value) || value < 0)
+            throw new IllegalArgumentException("영양정보를 0 이상 숫자로 입력하세요.");
+        boolean product = input.getRegistrationKind() == com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.PRODUCT;
+        String sourceType = product && "manual_estimate".equals(input.getSourceType())
+                ? "manual_product_estimate" : input.getSourceType();
+        String sourceReference = null;
+        if (product && "manual_product_estimate".equals(sourceType)) {
+            try { sourceReference = new org.json.JSONObject().put("nutrition_source", "manual_estimate").toString(); }
+            catch (org.json.JSONException error) { throw new IllegalStateException("제품 출처를 저장하지 못했습니다.", error); }
+        }
+        Double packageAmount = input.getPackageAmount();
+        String packageUnit = input.getPackageUnit();
+        if (product) {
+            if (packageAmount == null || !Double.isFinite(packageAmount) || packageAmount <= 0)
+                throw new IllegalArgumentException("제품 1개 용량을 0보다 크게 입력하세요.");
+            packageUnit = NutritionUnit.requireSupported(packageUnit);
+            if (!NutritionUnit.areCompatible(packageUnit, basisUnit))
+                throw new IllegalArgumentException("제품 용량 단위가 기준량과 호환되지 않습니다.");
+        }
+        NutritionFood.Builder builder = NutritionFood.builder().id(UUID.randomUUID().toString()).ownerId(owner)
+                .name(requireName(input.getName())).brand(emptyToNull(input.getBrand()))
+                .kind(product ? NutritionFood.KIND_EXTERNAL_MENU : NutritionFood.KIND_INGREDIENT)
+                .category(product ? NutritionFood.CATEGORY_PROCESSED : NutritionFood.CATEGORY_OTHER)
+                .basis(input.getBasisAmount(), basisUnit).prepState(NutritionFood.PREP_AS_SERVED).profile(profile)
+                .source(sourceType, sourceReference)
+                .dataVersion(profile.hasAllRequired() ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN : NutritionFood.DATA_VERSION_MACROS_ONLY);
+        if (product) builder.packageAmount(packageAmount).packageUnit(packageUnit).packageCount(1);
+        NutritionFood food = builder.build();
+        String timestamp = now();
+        roomDatabase.runInTransaction(() -> {
+            if (!owner.equals(userId)) throw new IllegalStateException("식품 등록 계정이 변경되었습니다.");
+            nutritionDao.insertFood(foodEntity(food, timestamp));
+            replaceMicronutrientsRoom(food);
+        });
+        return food;
+    }
+
+    private String importedContentHash(NutritionFood food) {
+        try { return new org.json.JSONObject(food.sourceReference).optString("content_sha256"); }
+        catch (org.json.JSONException error) { return ""; }
+    }
+
+    private String importedCatalogRevision(NutritionFood food) {
+        try { return new org.json.JSONObject(food.sourceReference).optString("revision"); }
+        catch (org.json.JSONException error) { return ""; }
+    }
+
+
+    @Override
+    public com.yeonsik.fitnessapp.feature.nutrition.model.IngredientImportPreview previewIngredientImport(
+            String ownerId, com.yeonsik.fitnessapp.feature.nutrition.model.IngredientCatalogBatch batch) {
+        if (batch == null || !ownerId.equals(userId)) throw new IllegalStateException("재료 파일 계정을 확인할 수 없습니다.");
+        int added = 0, updated = 0, unchanged = 0;
+        for (com.yeonsik.fitnessapp.feature.nutrition.model.IngredientCatalogEntry entry : batch.getEntries()) {
+            NutritionFood candidate = batch.food(ownerId, entry);
+            NutritionFood existing = findFoodById(candidate.id);
+            if (existing == null) { added++; continue; }
+            org.json.JSONObject source;
+            try { source = new org.json.JSONObject(existing.sourceReference); }
+            catch (Exception error) { throw new IllegalArgumentException("재료 파일 ID가 다른 출처의 식품과 충돌합니다: " + entry.getExternalId()); }
+            if (!ownerId.equals(existing.ownerId) || !"user_file".equals(existing.sourceType)
+                    || !com.yeonsik.fitnessapp.feature.nutrition.model.IngredientCatalogFile.FORMAT.equals(source.optString("format"))
+                    || !batch.getCatalogId().equals(source.optString("catalog_id"))
+                    || !entry.getExternalId().equals(source.optString("entry_id")))
+                throw new IllegalArgumentException("재료 파일 ID가 다른 출처의 식품과 충돌합니다: " + entry.getExternalId());
+            if (entry.contentHash().equals(source.optString("content_sha256"))
+                    && batch.getRevision().equals(source.optString("revision"))) unchanged++; else updated++;
+        }
+        if (!ownerId.equals(userId)) throw new IllegalStateException("재료 파일 계정이 변경되었습니다.");
+        return new com.yeonsik.fitnessapp.feature.nutrition.model.IngredientImportPreview(ownerId, batch, added, updated, unchanged);
+    }
+
+    @Override
+    public com.yeonsik.fitnessapp.feature.nutrition.model.IngredientImportPreview applyIngredientImport(
+            com.yeonsik.fitnessapp.feature.nutrition.model.IngredientImportPreview preview) {
+        if (preview == null || !preview.getOwnerId().equals(userId)) throw new IllegalStateException("재료 파일 계정이 변경되었습니다.");
+        final com.yeonsik.fitnessapp.feature.nutrition.model.IngredientImportPreview[] applied =
+                new com.yeonsik.fitnessapp.feature.nutrition.model.IngredientImportPreview[1];
+        roomDatabase.runInTransaction(() -> {
+            if (!preview.getOwnerId().equals(userId)) throw new IllegalStateException("재료 파일 계정이 변경되었습니다.");
+            com.yeonsik.fitnessapp.feature.nutrition.model.IngredientImportPreview current =
+                    previewIngredientImport(preview.getOwnerId(), preview.getBatch());
+            String timestamp = now();
+            for (com.yeonsik.fitnessapp.feature.nutrition.model.IngredientCatalogEntry entry : preview.getBatch().getEntries()) {
+                NutritionFood food = preview.getBatch().food(preview.getOwnerId(), entry);
+                NutritionFood existing = findFoodById(food.id);
+                if (existing != null && entry.contentHash().equals(importedContentHash(existing))
+                        && preview.getBatch().getRevision().equals(importedCatalogRevision(existing))) continue;
+                NutritionFoodsRoomEntity previous = nutritionDao.visibleFood(food.id, preview.getOwnerId());
+                String createdAt = previous == null ? timestamp : previous.getCreatedAt();
+                nutritionDao.upsertFood(foodEntity(food, createdAt, timestamp));
+                replaceMicronutrientsRoom(food);
+            }
+            applied[0] = current;
+        });
+        return applied[0];
+    }
+
+
+    @Override
+    public NutritionFood saveRecipe(String ownerId, String name, List<MealCompositionItem> items,
+                                    double servings, Double cookedWeightGrams) {
+        if (!userId.equals(ownerId)) throw new IllegalStateException("내 요리 저장 계정이 변경되었습니다.");
+        requireName(name);
+        if (!Double.isFinite(servings) || servings <= 0 || servings > 1000)
+            throw new IllegalArgumentException("완성 인분 수를 0보다 크게 입력하세요.");
+        if (cookedWeightGrams != null && (!Double.isFinite(cookedWeightGrams) || cookedWeightGrams <= 0))
+            throw new IllegalArgumentException("완성 후 무게는 0보다 크게 입력하세요.");
+        if (items == null || items.isEmpty()) throw new IllegalArgumentException("재료를 하나 이상 추가하세요.");
+        List<MealCompositionItem> perServing = new ArrayList<>();
+        for (MealCompositionItem item : items) {
+            if (item == null || item.food == null || NutritionFood.KIND_RECIPE.equals(item.food.kind)
+                    || item.food.isDiningOutMenu() || item.food.isDiningOutComponent()
+                    || !Double.isFinite(item.quantity) || item.quantity <= 0)
+                throw new IllegalArgumentException("내 요리에는 유효한 제품 또는 재료만 추가할 수 있습니다.");
+            perServing.add(MealCompositionItem.from(item.food, item.quantity / servings));
+        }
+        NutritionProfile profile = NutritionCalculator.recipeProfile(perServing);
+        StringBuilder metadata = new StringBuilder("{\"recipe_servings\":").append(servings);
+        if (cookedWeightGrams != null) metadata.append(",\"recipe_weight_grams\":").append(cookedWeightGrams);
+        metadata.append(",\"components\":[");
+        for (int i = 0; i < items.size(); i++) {
+            MealCompositionItem item = items.get(i);
+            if (i > 0) metadata.append(',');
+            metadata.append("{\"food_id\":\"").append(item.food.id.replace("\"","\\\""))
+                    .append("\",\"quantity\":").append(item.quantity).append('}');
+        }
+        metadata.append("]}");
+        NutritionFood recipe = NutritionFood.builder().id(UUID.randomUUID().toString()).ownerId(ownerId)
+                .name(requireName(name)).kind(NutritionFood.KIND_RECIPE).category(NutritionFood.CATEGORY_RECIPE)
+                .basis(1d, NutritionUnit.SERVING).prepState(NutritionFood.PREP_AS_SERVED).profile(profile)
+                .source("manual_recipe", metadata.toString())
+                .dataVersion(profile.hasAllRequired() ? NutritionFood.DATA_VERSION_REQUIRED_SEVEN : NutritionFood.DATA_VERSION_MACROS_ONLY)
+                .build();
+        String timestamp = now();
+        roomDatabase.runInTransaction(() -> {
+            if (!ownerId.equals(userId)) throw new IllegalStateException("내 요리 저장 계정이 변경되었습니다.");
+            nutritionDao.insertFood(foodEntity(recipe, timestamp));
+            replaceMicronutrientsRoom(recipe);
+            for (int i = 0; i < items.size(); i++) {
+                MealCompositionItem item = items.get(i);
+                nutritionDao.insertComponent(new NutritionFoodComponentsRoomEntity(UUID.randomUUID().toString(),
+                        ownerId, recipe.id, item.food.id, item.quantity / servings, item.food.basisUnit, i, timestamp, timestamp, null));
+            }
+        });
+        return recipe;
+    }
+
+
     public NutritionFood saveRecipe(String name, List<MealCompositionItem> items) {
         String normalizedName = requireName(name);
         if (items == null || items.isEmpty()) {

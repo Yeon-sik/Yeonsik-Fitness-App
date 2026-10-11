@@ -16,6 +16,7 @@ import com.yeonsik.fitnessapp.core.ui.AppOutlinedButton
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
 import com.yeonsik.fitnessapp.core.ui.AppTextField
 import com.yeonsik.fitnessapp.data.NutritionUnit
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
 
 @Composable
 internal fun ManualFoodEditor(
@@ -33,9 +34,15 @@ internal fun ManualFoodEditor(
     val textOptions = KeyboardOptions(imeAction = ImeAction.Next)
     val numberOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-        Text("새 식품 영양정보", style = MaterialTheme.typography.titleMedium)
-        Text("영양표에 적힌 기준량과 영양정보를 입력하세요. 등록 후 실제 섭취량을 따로 입력합니다.",
+        Text("새 ${draft.registrationKind.label} 등록", style = MaterialTheme.typography.titleMedium)
+        Text("재료는 조리 전·후 상태를 포함해 등록하고, 제품은 포장지의 1개 용량을 지정합니다.",
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
+            NutritionRegistrationKind.entries.forEach { kind ->
+                AppOutlinedButton({ onChange(draft.copy(registrationKind = kind)) }, Modifier.weight(1f),
+                    enabled = !saving, selected = draft.registrationKind == kind) { Text(kind.label) }
+            }
+        }
         AppTextField(draft.name, { onChange(draft.copy(name = it)) }, Modifier.fillMaxWidth(),
             label = { Text("식품명") }, enabled = !saving, keyboardOptions = textOptions, keyboardActions = next)
         AppTextField(draft.brand, { onChange(draft.copy(brand = it)) }, Modifier.fillMaxWidth(),
@@ -51,11 +58,18 @@ internal fun ManualFoodEditor(
                     NutritionUnit.options().forEach { unit ->
                         DropdownMenuItem(text = { Text(mealQuantityUnitLabel(unit)) }, onClick = {
                             unitMenuOpen = false
-                            onChange(draft.copy(basisUnit = unit))
+                            onChange(draft.copy(basisUnit = unit, packageUnit = unit))
                         })
                     }
                 }
             }
+        }
+        if (draft.registrationKind == NutritionRegistrationKind.PRODUCT) {
+            AppTextField(draft.packageAmount, { onChange(draft.copy(packageAmount = it, packageUnit = draft.basisUnit)) },
+                Modifier.fillMaxWidth(), label = { Text("제품 1개 용량 · ${mealQuantityUnitLabel(draft.basisUnit)}") },
+                enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
+            Text("영양 기준량과 같은 단위로 입력하세요. 한 개 먹기 또는 직접 g·ml 입력이 가능해집니다.",
+                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text("${draft.basisAmount.ifBlank { "?" }} ${mealQuantityUnitLabel(draft.basisUnit)} 기준 영양정보",
             style = MaterialTheme.typography.bodyMedium)

@@ -1835,6 +1835,7 @@ private fun AppDestination(
         override fun closeDraft() = viewModels.getMeal().closeDraft()
         override fun chooseFood() = viewModels.getMeal().chooseFood()
         override fun chooseDiningOut() = viewModels.getMeal().chooseDiningOut()
+        override fun chooseCategory(category: com.yeonsik.fitnessapp.feature.meal.ui.MealCatalogCategory) = viewModels.getMeal().chooseCategory(category)
         override fun searchFood(query: String) = viewModels.getMeal().search(query)
         override fun selectFood(food: com.yeonsik.fitnessapp.data.NutritionFood) {
             viewModels.getMeal().selectFood(food)
@@ -1848,6 +1849,7 @@ private fun AppDestination(
         override fun updateFoodQuantity(itemId: String, value: String) =
             viewModels.getMeal().updateFoodQuantity(itemId, value)
         override fun removeFood(itemId: String) = viewModels.getMeal().removeFood(itemId)
+        override fun updateFoodAmountMode(itemId: String, mode: com.yeonsik.fitnessapp.feature.nutrition.model.PortionInputMode) = viewModels.getMeal().updateFoodAmountMode(itemId, mode)
         override fun updateDiningPortion(value: String) = viewModels.getMeal().updateDiningPortion(value)
         override fun updateFoodConsumedPercent(itemId: String, value: String) = viewModels.getMeal().updateFoodConsumedPercent(itemId, value)
         override fun updateDiningConsumedPercent(value: String) = viewModels.getMeal().updateDiningConsumedPercent(value)
