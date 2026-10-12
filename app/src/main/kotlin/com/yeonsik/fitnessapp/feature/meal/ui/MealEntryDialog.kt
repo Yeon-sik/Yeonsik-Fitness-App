@@ -3,10 +3,14 @@ package com.yeonsik.fitnessapp.feature.meal.ui
 import android.app.TimePickerDialog
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -29,68 +33,83 @@ import java.util.Locale
 @Composable
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 internal fun MealEntryDialog(actions: MealScreenActions, editor: MealUiState.Ready, priceTraceState: PriceTraceUiState, mealLabel: String) {
-    val foods = mealFoodItems(editor)
     val totals = mealEntryNutritionTotals(editor)
     val inputEnabled = !editor.saving && !editor.draftLoading
-    val validInput = mealEntryRegistrationError(editor) == null
+    val registrationError = mealEntryRegistrationError(editor)
     val diningEditor = rememberDiningOutEditorState(editor, priceTraceState)
     val manualEntryRequester = remember { BringIntoViewRequester() }
     val scope = rememberCoroutineScope()
     val focusManager = LocalFocusManager.current
+    var showCart by rememberSaveable(editor.ownerId, editor.date) { mutableStateOf(false) }
+    var expandedKey by rememberSaveable(editor.ownerId, editor.date) { mutableStateOf<String?>(null) }
+    val searchScroll = rememberScrollState()
+    val cartScroll = rememberScrollState()
+    val contentStateHolder = rememberSaveableStateHolder()
+    val reviewFood: (com.yeonsik.fitnessapp.data.NutritionFood) -> Unit = { food ->
+        focusManager.clearFocus()
+        expandedKey = mealFoodItems(editor).firstOrNull { it.food.id == food.id }?.let { "food-${it.food.id}" }
+            ?: diningMealMenus(editor).firstOrNull { it.nutritionFoodId == food.id }?.let { "dining-${it.id}" }
+        showCart = true
+    }
     NutritionEntryFrame(
         "$mealLabel 기록", actions::closeDraft, subtitle = editor.date, closeEnabled = !editor.saving,
-        showScrollToTop = true,
+        scrollState = if (showCart) cartScroll else searchScroll,
         introduction = {
-            NutritionFormSection("섭취 시각", Modifier.fillMaxWidth()) {
-                MealTimeControl(editor.draft.time, actions::updateTime, enabled = inputEnabled)
-            }
-            NutritionTotalPreview(totals, Modifier.testTag("meal-entry-totals"),
-                label = "담은 항목 ${foods.size + diningMealMenus(editor).size}개 · 섭취 합계")
-        },
-        collapsedSummary = {
-            Text(editor.draft.time, style = MaterialTheme.typography.labelLarge)
-            FlowRow(Modifier.testTag("meal-entry-summary"), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                listOf("K" to NutritionProfile.CALORIES_KCAL, "C" to NutritionProfile.CARBS_GRAMS,
-                    "P" to NutritionProfile.PROTEIN_GRAMS, "F" to NutritionProfile.FAT_GRAMS).forEach { (label, nutrient) ->
-                    Text("$label: ${nutritionTotalText(totals.total(nutrient))}${if (label == "K") " kcal" else " g"}",
-                        style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                }
-            }
+            MealTimeControl(editor.draft.time, actions::updateTime, enabled = inputEnabled)
         },
         footer = {
-            editor.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-            AppButton(actions::saveFood, Modifier.fillMaxWidth().testTag("meal-entry-save"), enabled = inputEnabled && validInput) {
+            editor.removedItem?.let { removed ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text("${removed.label}을 식단에서 뺐어요.", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    TextButton(actions::undoRemoveItem, enabled = inputEnabled, modifier = Modifier.testTag("meal-cart-undo")) { Text("실행 취소") }
+                }
+            }
+            MealCartNutritionSummary(totals, { focusManager.clearFocus(); showCart = true }, inputEnabled,
+                Modifier.fillMaxWidth().testTag("meal-entry-totals"))
+            (editor.error ?: registrationError?.takeIf { totals.itemCount() > 0 && !editor.draftLoading })?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.testTag("meal-entry-error"))
+            }
+            AppButton(actions::saveFood, Modifier.fillMaxWidth().testTag("meal-entry-save"), enabled = inputEnabled && registrationError == null) {
                 Text(if (editor.saving) "저장 중…" else "$mealLabel 기록하기")
             }
         }
     ) {
-        FlowRow(Modifier.fillMaxWidth().testTag("meal-entry-categories"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MealCatalogCategory.entries.forEach { category ->
-                FilterChip(selected = editor.category == category, enabled = inputEnabled,
-                    onClick = { actions.chooseCategory(category) }, label = { Text(category.label) },
-                    modifier = Modifier.testTag("meal-category-${category.name}"))
-            }
+        TabRow(selectedTabIndex = if (showCart) 1 else 0, indicator = { positions ->
+            TabRowDefaults.SecondaryIndicator(Modifier.tabIndicatorOffset(positions[if (showCart) 1 else 0]),
+                color = MaterialTheme.colorScheme.onSurface)
+        }) {
+            Tab(selected = !showCart, onClick = { focusManager.clearFocus(); showCart = false }, enabled = inputEnabled,
+                selectedContentColor = MaterialTheme.colorScheme.onSurface, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = { Text("음식 찾기") }, modifier = Modifier.testTag("meal-entry-find"))
+            Tab(selected = showCart, onClick = { focusManager.clearFocus(); showCart = true }, enabled = inputEnabled,
+                selectedContentColor = MaterialTheme.colorScheme.onSurface, unselectedContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = { Text("이번 식단 (${totals.itemCount()})") }, modifier = Modifier.testTag("meal-entry-cart"))
         }
         if (editor.draftLoading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        editor.notice?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, color = MaterialTheme.colorScheme.onPrimaryContainer) }
-        if (editor.diningOut) DiningOutEditor(actions, editor, priceTraceState, diningEditor, manualEntryRequester) else FoodMealEditor(actions, editor)
-        if (foods.isNotEmpty() || editor.diningMenus.isNotEmpty()) Text("이번 식단에 담은 내용", style = MaterialTheme.typography.titleMedium)
-        FoodPortionList(foods.map { FoodPortionDraft(it.food, it.quantity, it.amountMode) }, actions::updateFoodQuantity,
-            onRemove = { focusManager.clearFocus(); actions.removeFood(it) }, enabled = inputEnabled,
-            modifier = Modifier.fillMaxWidth().testTag("meal-food-portions"), amountLabel = "전체 양",
-            onModeChange = actions::updateFoodAmountMode, scrollable = false, itemContent = { portion ->
-                val item = foods.first { it.food.id == portion.food.id }
-                MealConsumedPercentControl(item.consumedPercent, { actions.updateFoodConsumedPercent(item.id, it) }, inputEnabled,
-                    "meal-food-percent-${portion.food.id}")
-                Text("실제 섭취 · ${nutritionTotalText(mealFoodNutritionTotals(listOf(item)).total(NutritionProfile.CALORIES_KCAL))} kcal",
-                    style = MaterialTheme.typography.bodyMedium)
-            })
-        DiningMenuDraftList(editor.diningMenus, actions::updateDiningMenu, actions::removeDiningMenu, inputEnabled,
-            onAddAtStore = { menuId ->
-                actions.chooseCategory(MealCatalogCategory.DINING_OUT)
-                actions.startAnotherDiningMenu(menuId)
-                scope.launch { withFrameNanos { }; manualEntryRequester.bringIntoView() }
-            })
+        editor.notice?.let { Text(it, Modifier.semantics { liveRegion = LiveRegionMode.Polite }, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+        contentStateHolder.SaveableStateProvider("${editor.ownerId}:${editor.date}:${if (showCart) "cart" else "find"}") {
+            if (showCart) {
+                MealCartContent(actions, editor, expandedKey, { focusManager.clearFocus(); expandedKey = it },
+                    onFindMore = { focusManager.clearFocus(); showCart = false },
+                    onAddAtStore = { menuId ->
+                        actions.chooseCategory(MealCatalogCategory.DINING_OUT)
+                        actions.startAnotherDiningMenu(menuId)
+                        showCart = false
+                        scope.launch { withFrameNanos { }; manualEntryRequester.bringIntoView() }
+                    }, modifier = Modifier.fillMaxWidth().testTag("meal-cart-list"))
+            } else {
+                FlowRow(Modifier.fillMaxWidth().testTag("meal-entry-categories"), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MealCatalogCategory.entries.forEach { category ->
+                        FilterChip(selected = editor.category == category, enabled = inputEnabled,
+                            onClick = { focusManager.clearFocus(); actions.chooseCategory(category) }, label = { Text(category.label) },
+                            modifier = Modifier.testTag("meal-category-${category.name}"))
+                    }
+                }
+                if (editor.diningOut) DiningOutEditor(actions, editor, priceTraceState, diningEditor, manualEntryRequester, reviewFood)
+                else FoodMealEditor(actions, editor, reviewFood)
+            }
+        }
     }
 }
 @Composable

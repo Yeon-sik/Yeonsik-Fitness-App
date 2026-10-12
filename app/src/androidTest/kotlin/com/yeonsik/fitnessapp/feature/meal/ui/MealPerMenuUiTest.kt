@@ -29,7 +29,8 @@ class MealPerMenuUiTest {
         } }
         compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions, state, PriceTraceUiState.Idle, "식단") } }
         assertTotal("500 kcal")
-        compose.onNodeWithTag("meal-dining-menus").performScrollTo()
+        compose.onNodeWithTag("meal-cart-review").performClick()
+        compose.onNodeWithContentDescription("볶음밥 수정").performScrollTo().performClick()
         compose.onNodeWithTag("meal-dining-percent-a-25").performScrollTo().performClick()
         assertTotal("350 kcal")
         compose.runOnIdle { assertEquals("100", state.diningMenus[1].consumedPercent) }
@@ -38,13 +39,15 @@ class MealPerMenuUiTest {
         assertTotal("400 kcal")
         compose.runOnIdle { assertEquals("200", state.diningMenus[1].draft.calories) }
         compose.onNodeWithTag("meal-dining-edit-a").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("만두 수정").performScrollTo().performClick()
+        compose.onNodeWithTag("meal-dining-percent-b-toggle").performScrollTo().performClick()
         compose.onNodeWithTag("meal-dining-percent-b-50").performScrollTo().performClick()
         assertTotal("300 kcal")
         compose.onNodeWithTag("meal-entry-save").assertIsEnabled()
         savePreview("meal-per-menu-dining.png")
         compose.onNodeWithTag("meal-dining-percent-b").performScrollTo().performTextReplacement("101")
         compose.onNodeWithTag("meal-entry-save").assertIsNotEnabled()
-        compose.onNodeWithTag("meal-dining-remove-b").performScrollTo().performClick()
+        compose.onNodeWithTag("meal-cart-remove-dining-b").performScrollTo().performClick()
         assertTotal("200 kcal")
         compose.onNodeWithTag("meal-entry-save").assertIsEnabled()
     }
@@ -60,11 +63,13 @@ class MealPerMenuUiTest {
         } }
         compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions, state, PriceTraceUiState.Idle, "식단") } }
         assertTotal("500 kcal")
-        compose.onNodeWithTag("meal-food-portions").performScrollTo()
+        compose.onNodeWithTag("meal-cart-review").performClick()
+        compose.onNodeWithContentDescription("볶음밥 수정").performScrollTo().performClick()
         compose.onNodeWithTag("meal-food-percent-rice-25").performScrollTo().performClick()
         assertTotal("350 kcal")
         compose.runOnIdle { assertEquals("100", state.foodItems[1].consumedPercent); assertEquals("100", state.foodItems[0].quantity) }
-        compose.onNodeWithTag("meal-food-portions").performScrollToNode(hasTestTag("meal-food-percent-dumpling-50"))
+        compose.onNodeWithContentDescription("만두 수정").performScrollTo().performClick()
+        compose.onNodeWithTag("meal-food-percent-dumpling-toggle").performScrollTo().performClick()
         compose.onNodeWithTag("meal-food-percent-dumpling-50").performScrollTo().performClick()
         assertTotal("250 kcal")
         compose.onNodeWithTag("meal-entry-save").assertIsEnabled()
@@ -82,7 +87,9 @@ class MealPerMenuUiTest {
                 state = state.copy(draft = DiningOutDraft(store = "식당", time = "12:30"))
             }
         }, state, PriceTraceUiState.Idle, "식단") } }
-        compose.onAllNodesWithText("식당 메뉴 추가").assertCountEquals(1)
+        compose.onNodeWithTag("meal-cart-review").performClick()
+        compose.onNodeWithContentDescription("볶음밥 수정").performScrollTo().performClick()
+        compose.onAllNodesWithText("이 식당의 다른 메뉴 담기").assertCountEquals(1)
         compose.onNodeWithTag("meal-dining-add-at-a").performScrollTo().performClick()
         compose.waitUntil(5000) { compose.onNodeWithTag("meal-dining-menu-name").isDisplayed() }
         compose.runOnIdle { assertEquals("a", sourceId); assertEquals(2, state.diningMenus.size) }

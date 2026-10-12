@@ -74,20 +74,23 @@ class MealManualFoodUiTest {
 
     @Test fun missingFoodCanBeRegisteredAndRecordedWithoutLeavingEditor() {
         render()
-        field("식품 검색").performScrollTo().performClick().performTextInput("내 새 식품")
+        compose.onNodeWithTag("meal-catalog-query").performScrollTo().performClick().performTextInput("내 새 식품")
         compose.waitUntil(5000) { (model.uiState.value as? MealUiState.Ready)?.searching == false }
-        compose.onNodeWithText("영양정보 직접 입력").performScrollTo().performClick()
+        compose.onNodeWithText("음식 직접 등록").performScrollTo().performClick()
         field("식품명").assertTextContains("내 새 식품")
         field("칼로리 kcal").performScrollTo().performTextReplacement("200")
         field("탄수화물 g").performScrollTo().performTextReplacement("20")
         field("단백질 g").performScrollTo().performTextReplacement("10")
         field("지방 g").performScrollTo().performTextReplacement("8")
-        compose.onNodeWithText("새 식품 영양정보").performScrollTo()
+        compose.onNodeWithText("새 재료 등록").performScrollTo()
         capture("manual-food-light")
         compose.onNodeWithText("내 식품으로 등록").performScrollTo().performClick()
         compose.waitUntil(5000) { (model.uiState.value as? MealUiState.Ready)?.selectedFood != null }
-        field("섭취량 g").performScrollTo().assertTextContains("100").performTextReplacement("150")
-        compose.onNodeWithText("끼니 기록하기").performScrollTo().performClick()
+        compose.onNodeWithTag("meal-cart-review").performClick()
+        compose.onNodeWithContentDescription("내 새 식품 수정").performScrollTo().performClick()
+        compose.onNodeWithTag("meal-food-quantity-${(model.uiState.value as MealUiState.Ready).selectedFood!!.id}")
+            .performScrollTo().assertTextContains("100").performTextReplacement("150")
+        compose.onNodeWithTag("meal-entry-save").assertIsDisplayed().performClick()
         compose.waitUntil(5000) { (model.uiState.value as? MealUiState.Ready)?.notice != null }
         assertEquals(1L, room.mealRoomDao().mealCountForDate(scope.ownerId, date))
         room.openHelper.readableDatabase.query("SELECT calories FROM meal_records WHERE user_id=?",
@@ -99,26 +102,25 @@ class MealManualFoodUiTest {
         render(dark = true, fontScale = 1.5f)
         field("식품명").performScrollTo().performTextReplacement("검증용 긴 이름의 식품")
         compose.onNodeWithText("내 식품으로 등록").performScrollTo().performClick()
-        compose.onNodeWithText("칼로리에 0 이상 숫자를 입력하세요.").assertExists()
+        compose.onAllNodesWithText("칼로리에 0 이상 숫자를 입력하세요.")[0].assertExists()
         field("식품명").assertTextContains("검증용 긴 이름의 식품")
-        compose.onNodeWithText("새 식품 영양정보").performScrollTo()
+        compose.onNodeWithText("새 재료 등록").performScrollTo()
         capture("manual-food-dark-large")
     }
 
     @Test fun diningDirectEntryAndReusableMenuSaveAreVisible() {
         compose.runOnUiThread { model.chooseDiningOut() }
         render()
-        compose.onNodeWithText("영양정보 직접 입력").performScrollTo().performClick()
-        compose.onNodeWithText("외식 영양정보 직접 입력").performScrollTo().assertIsDisplayed()
-        field("상호명").performTextReplacement("검증 식당")
-        field("메뉴명").performScrollTo().performTextReplacement("검증 메뉴")
+        compose.onNodeWithText("추가할 메뉴").performScrollTo().assertIsDisplayed()
+        field("상호명 (필수)").performScrollTo().performTextReplacement("검증 식당")
+        field("먹은 메뉴 (필수)").performScrollTo().performTextReplacement("검증 메뉴")
         field("칼로리 kcal").performScrollTo().performTextReplacement("500")
         field("탄수화물 g").performScrollTo().performTextReplacement("60")
         field("단백질 g").performScrollTo().performTextReplacement("20")
         field("지방 g").performScrollTo().performTextReplacement("15")
-        compose.onNodeWithText("내 메뉴로 저장 · 다음에 재사용").performScrollTo().performClick()
+        compose.onNodeWithText("다음에도 쓸 메뉴로 저장").performScrollTo().performClick()
         compose.waitUntil(5000) { (model.uiState.value as? MealUiState.Ready)?.catalogNotice != null }
-        compose.onNodeWithText("외식 기록하기").performScrollTo().assertIsEnabled()
+        compose.onNodeWithTag("meal-entry-save").assertIsDisplayed().assertIsEnabled()
         assertEquals(0L, room.mealRoomDao().mealCountForDate(scope.ownerId, date))
         capture("dining-manual-light")
     }
@@ -138,6 +140,7 @@ class MealManualFoodUiTest {
                 "updateManualFood" -> model.updateManualFood(args!![0] as ManualFoodDraft)
                 "saveManualFood" -> model.saveManualFood(scope)
                 "updateQuantity" -> model.updateQuantity(args!![0] as String)
+                "updateFoodQuantity" -> model.updateFoodQuantity(args!![0] as String, args[1] as String)
                 "updateTime" -> model.updateTime(args!![0] as String)
                 "saveFood" -> model.saveFood(scope) { }
                 "updateStore" -> model.updateStore(args!![0] as String)

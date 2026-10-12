@@ -49,10 +49,10 @@ class MealEntryDialogUiTest {
         results.performScrollToNode(hasText("테스트 식품 13"))
         compose.onNodeWithText("테스트 식품 13").performClick()
         compose.runOnIdle { assertEquals(listOf("food-12", "food-13"), state.foodPortions.map { it.food.id }) }
-        compose.onNodeWithText("식품 2개").assertExists()
+        compose.onNodeWithText("담은 음식 2개 보기").assertExists()
     }
 
-    @Test fun topButtonReturnsTheLongRegistrationFormToItsStart() {
+    @Test fun theCartShortcutReturnsToTheSameLongSearchForm() {
         val menus = (1..24).map { index -> NutritionFood.builder().id("menu-$index")
             .ownerId("nutrition-owner").name("저장된 메뉴 $index")
             .kind(NutritionFood.KIND_EXTERNAL_MENU).basis(1.0, NutritionUnit.SERVING)
@@ -64,12 +64,10 @@ class MealEntryDialogUiTest {
         compose.onNodeWithText("저장된 메뉴 1").assertExists()
         val outer = compose.onNodeWithTag("nutrition-entry-scroll")
         outer.performTouchInput { swipeUp() }
-        compose.onNodeWithTag("meal-entry-top").assertIsDisplayed().performClick()
-        compose.waitUntil(5000) {
-            outer.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value() == 0f
-        }
-        compose.onNodeWithText("등록 순서대로 기록해요").assertIsDisplayed()
-        compose.onNodeWithTag("meal-entry-top").assertDoesNotExist()
+        compose.onNodeWithTag("meal-cart-review").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("meal-cart-list").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("meal-entry-find").performScrollTo().performClick()
+        compose.onNodeWithTag("meal-dining-results").performScrollTo().assertIsDisplayed()
         compose.onNodeWithTag("meal-entry-save").assertIsDisplayed()
     }
 
@@ -92,18 +90,18 @@ class MealEntryDialogUiTest {
         compose.onNodeWithText("점심").assertDoesNotExist()
         compose.onNodeWithText("저녁").assertDoesNotExist()
         savePreview("meal-entry-light.png", "6끼 기록")
-        compose.onNodeWithTag("meal-food-portions").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithTag("meal-cart-review").performClick()
+        compose.onNodeWithContentDescription("밥 수정").performScrollTo().performClick()
         compose.onNodeWithContentDescription("밥 전체 양 늘리기").performScrollTo().assertIsDisplayed().performClick()
         savePreview("meal-entry-quantity-click.png", "6끼 기록")
         compose.runOnIdle { assertEquals("175", state.foodPortions.single().quantity) }
         compose.onNodeWithText("175").assertExists()
-        compose.onNodeWithText("262.5 kcal").assertExists()
-        compose.onNodeWithText("전체 양").performClick().performTextReplacement("200")
-        compose.onNodeWithText("300 kcal").assertExists()
+        assertTotal("262.5 kcal")
+        compose.onNodeWithTag("meal-food-quantity-rice").performScrollTo().performClick().performTextReplacement("200")
+        assertTotal("300 kcal")
         compose.onNodeWithText("6끼 기록하기").assertIsDisplayed().performClick()
         compose.runOnIdle { assertTrue(saved) }
-        compose.onNodeWithTag("meal-food-portions").performScrollTo()
-        compose.onNodeWithContentDescription("밥 구성에서 삭제").performScrollTo().assertIsDisplayed().performClick()
+        compose.onNodeWithTag("meal-cart-remove-food-rice").performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle { assertTrue(state.foodPortions.isEmpty()) }
         compose.onNodeWithText("6끼 기록하기").assertIsNotEnabled()
     }
@@ -126,9 +124,10 @@ class MealEntryDialogUiTest {
             DiningOutDraft(store = "식당", menu = "비빔밥", calories = "600", protein = "40", carbs = "80", fat = "20")))
         val actions = actions { name, args -> if (name == "updateDiningConsumedPercent") state = state.copy(diningConsumedPercent = args!![0] as String) }
         compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions, state, PriceTraceUiState.Idle, "7끼") } }
+        compose.onNodeWithTag("meal-dining-current-percent-toggle").performScrollTo().performClick()
         compose.onNodeWithTag("meal-dining-current-percent-50").performScrollTo().performClick()
         compose.onNodeWithText("300 kcal").assertIsDisplayed()
-        compose.onNodeWithText("20 g").assertIsDisplayed()
+        compose.onNodeWithText("단백질 20 g").assertIsDisplayed()
         compose.onNodeWithText("7끼 기록하기").assertIsDisplayed()
         compose.runOnIdle { assertEquals("600", state.draft.calories); assertEquals("40", state.draft.protein) }
         savePreview("meal-entry-dining-percent.png", "7끼 기록")
@@ -140,7 +139,9 @@ class MealEntryDialogUiTest {
             state = state.copy(foodItems = mealFoodItems(state).map { if (it.id == args!![0]) it.copy(consumedPercent = args[1] as String) else it })
         } }
         compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions, state, PriceTraceUiState.Idle, "식단") } }
-        compose.onNodeWithTag("meal-food-portions").performScrollTo()
+        compose.onNodeWithTag("meal-cart-review").performClick()
+        compose.onNodeWithContentDescription("밥 수정").performScrollTo().performClick()
+        compose.onNodeWithTag("meal-food-percent-rice-toggle").performScrollTo().performClick()
         compose.onNodeWithTag("meal-food-percent-rice-50").performScrollTo().performClick()
         compose.runOnIdle { assertEquals("50", state.foodItems.single().consumedPercent) }
         assertTotal("112.5 kcal")

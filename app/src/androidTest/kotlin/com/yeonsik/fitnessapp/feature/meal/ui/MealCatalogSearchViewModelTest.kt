@@ -35,15 +35,15 @@ class MealCatalogSearchViewModelTest {
             assertTrue(state(vm).searchResults.isEmpty()); catalog.failReads = false; vm.search(state(vm).query)
         }
         queue.drain()
-        main { assertNull(state(vm).searchError); assertNotNull(state(vm).error); assertEquals("rice", state(vm).searchResults.single().id) }
+        main { assertNull(state(vm).searchError); assertNotNull(state(vm).error); assertEquals(setOf("rice", "dining"), state(vm).searchResults.map { it.id }.toSet()) }
     }
 
-    @Test fun addingFoodsPreservesTheQueryAndResultsAndSupportsRepeatedAdds() = withModel { vm, catalog, queue ->
+    @Test fun addingFoodsPreservesTheQueryAndRepeatedSelectionKeepsTheExistingAmount() = withModel { vm, catalog, queue ->
         main { vm.startDraft(); vm.search("밥") }; queue.drain()
         main {
             vm.selectFood(catalog.rice); vm.selectFood(catalog.rice)
-            assertEquals("밥", state(vm).query); assertEquals("rice", state(vm).searchResults.single().id)
-            assertEquals("200", state(vm).foodPortions.single().quantity); assertFalse(state(vm).searchLoading)
+            assertEquals("밥", state(vm).query); assertEquals(setOf("rice", "dining"), state(vm).searchResults.map { it.id }.toSet())
+            assertEquals("100", state(vm).foodPortions.single().quantity); assertFalse(state(vm).searchLoading)
         }
     }
 
@@ -66,7 +66,7 @@ class MealCatalogSearchViewModelTest {
         main { vm.startDraft(); vm.search("밥"); vm.closeDraft() }; queue.drain()
         main { assertFalse(state(vm).editing); assertFalse(state(vm).searchLoading); assertTrue(state(vm).searchResults.isEmpty()); vm.startDraft() }
         queue.drain()
-        main { assertTrue(state(vm).editing); assertEquals("rice", state(vm).searchResults.single().id) }
+        main { assertTrue(state(vm).editing); assertEquals("밥", state(vm).query); assertEquals(setOf("rice", "dining"), state(vm).searchResults.map { it.id }.toSet()) }
     }
 
     @Test fun changingTheFitnessOwnerDiscardsPendingCatalogResults() = withModel { vm, _, queue ->

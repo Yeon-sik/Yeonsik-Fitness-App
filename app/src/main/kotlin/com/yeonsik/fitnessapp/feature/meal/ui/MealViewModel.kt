@@ -55,6 +55,14 @@ data class MealDiningDraftItem(
     val nutritionFoodId: String? = null
 )
 
+data class RemovedMealDraftItem(
+    val index: Int,
+    val food: MealFoodDraftItem? = null,
+    val menu: MealDiningDraftItem? = null
+) {
+    val label: String get() = food?.food?.displayName() ?: menu?.draft?.menu.orEmpty()
+}
+
 data class DiningOutDraft(
     val store: String = "",
     val branch: String = "",
@@ -116,7 +124,8 @@ sealed interface MealUiState {
         val draftLoading: Boolean = false,
         val diningConsumedPercent: String = "100",
         val diningMenus: List<MealDiningDraftItem> = emptyList(),
-        val category: MealCatalogCategory = MealCatalogCategory.PRODUCT
+        val category: MealCatalogCategory = MealCatalogCategory.ALL,
+        val removedItem: RemovedMealDraftItem? = null
     ) : MealUiState
 }
 
@@ -329,7 +338,7 @@ class MealViewModel @JvmOverloads constructor(
             savedStateHandle[KEY_TIME] = LocalTime.now().format(DateTimeFormatter.ofPattern("HH:mm"))
         }
         update { it.copy(editing = true, draft = savedDraft(), notice = null, error = null) }
-        if (state.selectedFood == null && !state.diningOut) search(state.query)
+        search(state.query)
     }
 
     fun closeDraft() {
@@ -351,12 +360,11 @@ fun chooseFood() = chooseCategory(MealCatalogCategory.INGREDIENT)
         }
         cancelSearch()
         savedStateHandle[KEY_MANUAL_FOOD_OPEN] = false
-        savedStateHandle[KEY_QUERY] = ""
         update { it.copy(editing = true, category = category, diningOut = category == MealCatalogCategory.DINING_OUT,
-            query = "", searchResults = emptyList(), error = null, notice = null,
+            searchResults = emptyList(), error = null, notice = null,
             searchLoading = false, searchCompleted = false, searchError = null,
             searching = false, manualFoodEntry = false, catalogNotice = null) }
-        search("")
+        search(state.query)
     }
 
 fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
@@ -391,7 +399,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         selectedFood = null
         mutableState.value = ready().copy(editing = true, diningOut = true,
             draft = DiningOutDraft(), foodItems = emptyList(), foodPortions = emptyList(), selectedFood = null,
-            quantity = "", diningPortion = "1", diningConsumedPercent = "100", diningMenus = emptyList(), error = null, notice = null)
+            quantity = "", diningPortion = "1", diningConsumedPercent = "100", diningMenus = emptyList(), removedItem = null, error = null, notice = null)
     }
 
     fun updateStore(value: String) = draft(KEY_STORE, value)
@@ -436,7 +444,8 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     /** Begin another menu at an already chosen store without losing the pending menu. */
     fun startAnotherDiningMenu(menuId: String) {
         if (ready().saving) return
-        val source = ready().diningMenus.firstOrNull { it.id == menuId }?.draft ?: return
+        val source = if (menuId == "current-menu" && hasCurrentDiningMenu(ready())) ready().draft
+            else ready().diningMenus.firstOrNull { it.id == menuId }?.draft ?: return
         if (!keepPendingDiningMenu()) return
         clearCurrentDiningMenu()
         savedStateHandle[KEY_STORE] = source.store
@@ -476,6 +485,26 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
 
     fun updateDiningMenu(menu: MealDiningDraftItem) {
         if (ready().saving) return
+        if (menu.id == "current-menu") {
+            val previous = currentDiningMenu(ready())
+            val renamed = previous.draft.store != menu.draft.store || previous.draft.branch != menu.draft.branch ||
+                previous.draft.menu != menu.draft.menu
+            val draft = if (renamed) menu.draft.copy(restaurantId = "", restaurantLocationId = "",
+                restaurantMenuId = "", catalogProductId = "", sourceNamespace = "", sourceLocationCode = "") else menu.draft
+            listOf(KEY_STORE to draft.store, KEY_BRANCH to draft.branch, KEY_MENU to draft.menu,
+                KEY_CALORIES to draft.calories, KEY_CARBS to draft.carbs, KEY_PROTEIN to draft.protein,
+                KEY_FAT to draft.fat, KEY_SODIUM to draft.sodium, KEY_SUGARS to draft.sugars,
+                KEY_SATURATED_FAT to draft.saturatedFat, KEY_RESTAURANT_ID to draft.restaurantId,
+                KEY_RESTAURANT_LOCATION_ID to draft.restaurantLocationId, KEY_RESTAURANT_MENU_ID to draft.restaurantMenuId,
+                KEY_CATALOG_PRODUCT_ID to draft.catalogProductId, KEY_SOURCE_NAMESPACE to draft.sourceNamespace,
+                KEY_SOURCE_LOCATION_CODE to draft.sourceLocationCode).forEach { (key, value) -> savedStateHandle[key] = value }
+            savedStateHandle[KEY_DINING_PORTION] = menu.quantity
+            savedStateHandle[KEY_DINING_PERCENT] = menu.consumedPercent
+            if (renamed) { selectedFood = null; savedStateHandle.remove<String>(KEY_FOOD_ID) }
+            update { it.copy(draft = draft, diningPortion = menu.quantity, diningConsumedPercent = menu.consumedPercent,
+                selectedFood = if (renamed) null else it.selectedFood, error = null) }
+            return
+        }
         update { state -> state.copy(diningMenus = state.diningMenus.map { existing ->
             if (existing.id != menu.id) existing else {
                 val renamed = existing.draft.store != menu.draft.store || existing.draft.branch != menu.draft.branch ||
@@ -488,8 +517,37 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     }
 
     fun removeDiningMenu(menuId: String) {
-        if (ready().saving) return
-        update { it.copy(diningMenus = it.diningMenus.filterNot { menu -> menu.id == menuId }, error = null) }
+        val state = ready()
+        if (state.saving) return
+        val menus = diningMealMenus(state)
+        val index = menus.indexOfFirst { it.id == menuId }
+        if (index < 0) return
+        val removed = RemovedMealDraftItem(index, menu = menus[index])
+        if (menuId == "current-menu") clearCurrentDiningMenu()
+        update { it.copy(diningMenus = it.diningMenus.filterNot { menu -> menu.id == menuId }, removedItem = removed, error = null) }
+    }
+
+    fun undoRemoveItem() {
+        val state = ready()
+        if (state.saving || state.draftLoading) return
+        val removed = state.removedItem ?: return
+        val food = removed.food
+        val menu = removed.menu
+        update { current ->
+            when {
+                food != null && mealFoodItems(current).none { it.food.id == food.food.id } -> {
+                    val items = mealFoodItems(current).toMutableList().apply { add(removed.index.coerceIn(0, size), food) }
+                    current.copy(foodItems = items, removedItem = null, error = null)
+                }
+                menu != null && current.diningMenus.none { it.id == menu.id } -> {
+                    val menus = current.diningMenus.toMutableList().apply {
+                        add(removed.index.coerceIn(0, size), if (menu.id == "current-menu") menu.copy(id = UUID.randomUUID().toString()) else menu)
+                    }
+                    current.copy(diningMenus = menus, removedItem = null, error = null)
+                }
+                else -> current.copy(removedItem = null)
+            }
+        }
     }
 
     fun openRecordEditor(meal: HomeMealSummary) {
@@ -1051,8 +1109,8 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
             executor.execute {
                 if (request != requestVersion) return@execute
                 val result = runCatching {
-                    if (state.diningOut) {
-                        val term = value.trim()
+                    val term = value.trim()
+                    val dining = if (state.category == MealCatalogCategory.ALL || state.category == MealCatalogCategory.DINING_OUT) {
                         nutritionCatalog.savedDiningOutMenus().filter { food ->
                             val branch = food.sourceReference?.let { source ->
                                 runCatching { JSONObject(source).optString("branch_name", "") }.getOrDefault("")
@@ -1060,15 +1118,16 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
                             listOf(food.displayName(), food.name, food.brand.orEmpty(), branch)
                                 .any { it.contains(term, ignoreCase = true) }
                         }
-                    } else {
+                    } else emptyList()
+                    if (state.category == MealCatalogCategory.DINING_OUT) dining else {
                         val standard = nutritionCatalog.searchFoods(value).filterNot { food ->
                             food.isDiningOutMenu() || food.isDiningOutComponent()
                         }
                         val packaged = nutritionCatalog.searchPackagedFoods(value, 50)
-                        val recipes = if (state.category == MealCatalogCategory.RECIPE) nutritionCatalog.savedRecipes().filter { food ->
+                        val recipes = if (state.category == MealCatalogCategory.ALL || state.category == MealCatalogCategory.RECIPE) nutritionCatalog.savedRecipes().filter { food ->
                             value.isBlank() || listOf(food.name, food.brand.orEmpty()).any { it.contains(value.trim(), ignoreCase = true) }
                         } else emptyList()
-                        (standard + packaged + recipes).distinctBy { it.id }.filter(state.category::includes)
+                        (standard + packaged + recipes + dining).distinctBy { it.id }.filter(state.category::includes)
                     }
                 }
                 mainExecutor.execute {
@@ -1171,7 +1230,18 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     }
     fun selectFood(food: NutritionFood) {
         val state = ready()
-        if (state.saving) return
+        if (state.saving || state.draftLoading) return
+        if (mealFoodItems(state).any { it.food.id == food.id } || diningMealMenus(state).any { it.nutritionFoodId == food.id }) {
+            update { it.copy(notice = "${food.displayName()}은 이미 담겨 있어요. 이번 식단에서 양을 수정하세요.") }
+            return
+        }
+        if (food.isDiningOutMenu()) {
+            useDiningOutFood(food)
+            if (ready().selectedFood?.id != food.id) return
+            addDiningMenu()
+            update { it.copy(diningOut = it.category == MealCatalogCategory.DINING_OUT) }
+            return
+        }
         if (!food.basisAmount.isFinite() || food.basisAmount <= 0.0) {
             update { it.copy(error = "이 음식의 기준량을 확인할 수 없어요. 다른 음식을 선택하세요.") }
             return
@@ -1260,6 +1330,9 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     fun removeFood(itemId: String) {
         val state = ready()
         if (state.saving) return
+        val items = mealFoodItems(state)
+        val removedIndex = items.indexOfFirst { it.id == itemId || it.food.id == itemId }
+        if (removedIndex < 0) return
         val remaining = state.foodItems.filterNot { it.id == itemId || it.food.id == itemId }
         val lastItem = remaining.lastOrNull()
         selectedFood = lastItem?.food
@@ -1273,7 +1346,8 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         update { it.copy(foodItems = remaining,
             foodPortions = it.foodPortions.filterNot { portion -> portion.food.id == itemId || state.foodItems.any { food -> food.id == itemId && food.food.id == portion.food.id } },
             selectedFood = lastItem?.food,
-            quantity = lastItem?.quantity.orEmpty(), error = null, notice = null) }
+            quantity = lastItem?.quantity.orEmpty(), removedItem = RemovedMealDraftItem(removedIndex, food = items[removedIndex]),
+            error = null, notice = null) }
     }
 
     fun updateFoodAmountMode(itemId: String, mode: PortionInputMode) {
@@ -1415,7 +1489,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
                         resetSavedDraft()
                         selectedFood = null
                         update { it.copy(selectedFood = null, foodItems = emptyList(), editing = false,
-                            diningOut = false, category = MealCatalogCategory.PRODUCT, query = "", searchResults = emptyList(), quantity = "",
+                            diningOut = false, category = MealCatalogCategory.ALL, query = "", searchResults = emptyList(), quantity = "", removedItem = null,
                             draft = DiningOutDraft(), saving = false, manualFoodEntry = false,
                             diningPortion = "1", diningConsumedPercent = "100", diningMenus = emptyList(),
                             manualFoodDraft = ManualFoodDraft(), catalogNotice = null,
@@ -1553,7 +1627,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         editing = savedStateHandle.get<Boolean>(KEY_EDITING) ?: savedStateHandle.get<Boolean>(KEY_MANUAL_FOOD_OPEN) ?: false,
         diningOut = savedStateHandle[KEY_DINING_OUT] ?: false,
         category = savedStateHandle.get<String>(KEY_CATEGORY)?.let { runCatching { MealCatalogCategory.valueOf(it) }.getOrNull() }
-            ?: if (savedStateHandle.get<Boolean>(KEY_DINING_OUT) == true) MealCatalogCategory.DINING_OUT else MealCatalogCategory.PRODUCT,
+            ?: if (savedStateHandle.get<Boolean>(KEY_DINING_OUT) == true) MealCatalogCategory.DINING_OUT else MealCatalogCategory.ALL,
             query = savedStateHandle[KEY_QUERY] ?: "",
             searchResults = emptyList(),
             draft = savedDraft(),
