@@ -72,6 +72,14 @@ interface MealRecordRepositoryApi {
     fun saveDiningOutMenuItems(scope: AccountScope, date: String, mealTime: String, menus: List<DiningOutMenuIntake>): String =
         throw UnsupportedOperationException("메뉴별 외식 기록을 지원하지 않습니다.")
 
+    /** One intake may contain any catalog categories; implementations must commit it atomically. */
+    fun saveMealItems(scope: AccountScope, date: String, mealTime: String,
+        foods: List<MealCompositionItem>, menus: List<DiningOutMenuIntake>): String = when {
+        menus.isEmpty() -> saveFoodMealItems(scope, date, mealTime, foods)
+        foods.isEmpty() -> saveDiningOutMenuItems(scope, date, mealTime, menus)
+        else -> throw UnsupportedOperationException("함께 담은 식단 저장을 지원하지 않습니다.")
+    }
+
     /** Updates only the local meal time and preserves the consumed snapshot. */
     fun updateMealTime(scope: AccountScope, recordId: String, mealTime: String): Boolean
 

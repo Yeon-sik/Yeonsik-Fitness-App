@@ -20,14 +20,15 @@ import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.feature.nutrition.ui.*
 
 @Composable
-internal fun MealCatalogSearch(actions: MealScreenActions, editor: MealUiState.Ready, modifier: Modifier = Modifier) {
+internal fun MealCatalogSearch(actions: MealScreenActions, editor: MealUiState.Ready, modifier: Modifier = Modifier,
+    onReviewFood: (com.yeonsik.fitnessapp.data.NutritionFood) -> Unit = {}) {
     val focus = LocalFocusManager.current
     val enabled = !editor.saving && !editor.draftLoading
     val dining = editor.diningOut
-    val noun = if (dining) "외식 메뉴" else "식품"
+    val noun = if (dining) "외식 메뉴" else if (editor.category == MealCatalogCategory.ALL) "음식" else "식품"
     Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        AppTextField(editor.query, actions::searchFood, Modifier.fillMaxWidth(),
-            label = { Text(if (dining) "저장된 외식 메뉴 검색" else "식품 이름 검색") }, enabled = enabled,
+        AppTextField(editor.query, actions::searchFood, Modifier.fillMaxWidth().testTag("meal-catalog-query"),
+            label = { Text(if (dining) "저장된 외식 메뉴 검색" else if (editor.category == MealCatalogCategory.ALL) "음식 이름 검색" else "${editor.category.label} 이름 검색") }, enabled = enabled,
             keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
             keyboardActions = KeyboardActions(onSearch = { actions.searchFood(editor.query); focus.clearFocus() }))
         when {
@@ -46,12 +47,12 @@ internal fun MealCatalogSearch(actions: MealScreenActions, editor: MealUiState.R
             else -> {
                 Text("${if (editor.query.isBlank()) noun else "$noun 검색 결과"} ${editor.searchResults.size}개 · 목록 안에서 스크롤",
                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                FoodSearchResults(editor.searchResults, {
+                MealCatalogResultList(editor.searchResults, {
                     focus.clearFocus()
                     if (dining) actions.useDiningOutFood(it) else actions.selectFood(it)
                 }, Modifier.fillMaxWidth().testTag(if (dining) "meal-dining-results" else "meal-food-results"), enabled = enabled,
-                    includedFoodIds = if (dining) setOfNotNull(editor.selectedFood?.id) else editor.foodPortions.map { it.food.id }.toSet(),
-                    actionLabel = if (dining) "불러오기" else "추가", includedLabel = if (dining) "선택됨" else "구성에 있음")
+                    includedFoodIds = mealFoodItems(editor).map { it.food.id }.toSet() + diningMealMenus(editor).mapNotNull { it.nutritionFoodId },
+                    actionLabel = if (dining) "불러오기" else "담기", onReviewFood = onReviewFood)
             }
         }
         if (editor.query.isNotBlank()) TextButton({ actions.searchFood(""); focus.clearFocus() }, enabled = enabled) { Text("검색 지우기") }

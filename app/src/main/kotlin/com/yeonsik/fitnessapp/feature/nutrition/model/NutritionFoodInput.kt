@@ -8,5 +8,8 @@ data class NutritionFoodInput(
     val basisAmount: Double,
     val basisUnit: String,
     val profile: NutritionProfile,
-    val sourceType: String
+    val sourceType: String,
+    val registrationKind: NutritionRegistrationKind = NutritionRegistrationKind.INGREDIENT,
+    val packageAmount: Double? = null,
+    val packageUnit: String? = null
 )

@@ -83,6 +83,7 @@ internal fun foodMealRegistrationError(editor: MealUiState.Ready): String? {
     editor.foodItems.forEach { item ->
         mealConsumedPercentError(item.consumedPercent)?.let { return "${item.food.displayName()} · $it" }
         mealQuantityError(item.quantity)?.let { return "${item.food.displayName()} · $it" }
+        if (mealFoodConsumedQuantity(item) == null) return "${item.food.displayName()} · 섭취량을 확인하세요."
     }
     return mealTimeError(editor.draft.time)
 }

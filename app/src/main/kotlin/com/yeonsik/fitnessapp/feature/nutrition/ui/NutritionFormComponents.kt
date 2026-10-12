@@ -13,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
@@ -24,7 +25,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.*
-import com.yeonsik.fitnessapp.feature.nutrition.model.FoodPortionDraft
+import com.yeonsik.fitnessapp.feature.nutrition.model.*
 import kotlinx.coroutines.launch
 
 @Composable
@@ -35,16 +36,25 @@ internal fun NutritionEntryFrame(
     subtitle: String? = null,
     closeEnabled: Boolean = true,
     showScrollToTop: Boolean = false,
+    introduction: (@Composable ColumnScope.() -> Unit)? = null,
+    collapsedSummary: (@Composable () -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
+    scrollState: androidx.compose.foundation.ScrollState = rememberScrollState(),
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val scrollState = rememberScrollState()
+    val entryDensity = LocalDensity.current
     val scope = rememberCoroutineScope()
     val canScrollToTop by remember { derivedStateOf { scrollState.value > 0 } }
+    var introductionHeight by remember { mutableIntStateOf(0) }
+    val introductionPadding = with(LocalDensity.current) { 20.dp.roundToPx() }
+    val showSummary by remember(introductionPadding) {
+        derivedStateOf { introductionHeight > 0 && scrollState.value >= introductionHeight + introductionPadding }
+    }
     Dialog(
         onDismissRequest = { if (closeEnabled) onClose() },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
+        CompositionLocalProvider(LocalDensity provides entryDensity) {
         Surface(modifier.fillMaxSize().semantics { paneTitle = title }, color = MaterialTheme.colorScheme.background) {
             Box(Modifier.fillMaxSize().systemBarsPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
                 Column(Modifier.widthIn(max = 640.dp).fillMaxHeight().fillMaxWidth()) {
@@ -56,14 +66,23 @@ internal fun NutritionEntryFrame(
                         }
                         TextButton(onClick = onClose, enabled = closeEnabled, modifier = Modifier.heightIn(min = 48.dp)) { Text("닫기") }
                     }
+                    if (showSummary && collapsedSummary != null) {
+                        Surface(color = MaterialTheme.colorScheme.surface, tonalElevation = 2.dp) {
+                            Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 8.dp)) { collapsedSummary() }
+                        }
+                    }
                     Box(Modifier.weight(1f).fillMaxWidth()) {
                         Column(
                             Modifier.fillMaxSize().verticalScroll(scrollState)
                                 .testTag("nutrition-entry-scroll")
                                 .padding(20.dp)
                                 .padding(bottom = if (showScrollToTop) 64.dp else 0.dp),
-                            verticalArrangement = Arrangement.spacedBy(16.dp), content = content
-                        )
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            if (introduction != null) Column(Modifier.fillMaxWidth().onSizeChanged { introductionHeight = it.height },
+                                verticalArrangement = Arrangement.spacedBy(16.dp), content = introduction)
+                            content()
+                        }
                         if (showScrollToTop && canScrollToTop) {
                             FloatingActionButton(
                                 onClick = { scope.launch { scrollState.animateScrollTo(0) } },
@@ -85,6 +104,7 @@ internal fun NutritionEntryFrame(
                     }
                 }
             }
+        }
         }
     }
 }
@@ -114,16 +134,32 @@ internal fun FoodPortionList(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     amountLabel: String = "섭취량",
+    onModeChange: ((String, PortionInputMode) -> Unit)? = null,
+    scrollable: Boolean = true,
     itemContent: @Composable (FoodPortionDraft) -> Unit = {}
 ) {
     if (portions.isEmpty()) return
-    LazyColumn(modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        items(portions, key = { it.food.id }) { portion ->
+    val renderItem: @Composable (FoodPortionDraft) -> Unit = { portion ->
             val food = portion.food
-            val amount = portion.amount
-            val step = food.basisAmount / 4.0
+            val amount = portion.enteredAmount
+            val step = when (portion.mode) {
+                PortionInputMode.COUNT -> 1.0
+                PortionInputMode.GRAMS -> (recipeGramsPerServing(food) ?: 100.0) / 4.0
+                PortionInputMode.BASIS -> food.basisAmount / 4.0
+            }
             val calories = portion.profile?.value(NutritionProfile.CALORIES_KCAL)?.let { NutritionCalculator.trim(it) } ?: "미확인"
             NutritionFormSection(food.displayName(), Modifier.fillMaxWidth(), "${food.basisLabel()} 기준 · $amountLabel $calories kcal") {
+                if (onModeChange != null && portion.availableModes().size > 1) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        portion.availableModes().forEach { mode ->
+                            FilterChip(selected = portion.mode == mode, enabled = enabled,
+                                onClick = { onModeChange(food.id, mode) }, label = { Text(portion.modeLabel(mode)) })
+                        }
+                    }
+                    if (portion.mode == PortionInputMode.COUNT) Text(
+                        "1${portion.unitLabel()} = ${NutritionCalculator.trim(food.packageAmount!!)} ${NutritionUnit.display(food.packageUnit)}",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.Top) {
                     OutlinedButton(
                         onClick = { onAmountChange(food.id, NutritionCalculator.trim(amount!! - step)) },
@@ -131,7 +167,7 @@ internal fun FoodPortionList(
                         modifier = Modifier.size(48.dp).semantics { contentDescription = "${food.displayName()} $amountLabel 줄이기" },
                         contentPadding = PaddingValues(0.dp)
                     ) { Text("−", style = MaterialTheme.typography.titleLarge) }
-                    NutritionNumberField(portion.quantity, { onAmountChange(food.id, it) }, amountLabel, NutritionUnit.display(food.basisUnit),
+                    NutritionNumberField(portion.quantity, { onAmountChange(food.id, it) }, amountLabel, portion.unitLabel(),
                         Modifier.weight(1f), enabled = enabled, showError = portion.quantity.isNotBlank() && portion.profile == null, positive = true)
                     OutlinedButton(
                         onClick = { onAmountChange(food.id, NutritionCalculator.trim(amount!! + step)) },
@@ -144,7 +180,11 @@ internal fun FoodPortionList(
                 TextButton(onClick = { onRemove(food.id) }, enabled = enabled, modifier = Modifier.heightIn(min = 48.dp)
                     .semantics { contentDescription = "${food.displayName()} 구성에서 삭제" }) { Text("구성에서 삭제", color = MaterialTheme.colorScheme.error) }
             }
-        }
+    }
+    if (scrollable) LazyColumn(modifier.heightIn(max = 360.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        items(portions, key = { it.food.id }) { renderItem(it) }
+    } else Column(modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        portions.forEach { portion -> key(portion.food.id) { renderItem(portion) } }
     }
 }
 

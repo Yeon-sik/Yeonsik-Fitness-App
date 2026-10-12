@@ -25,12 +25,18 @@ internal fun mealConsumedQuantity(quantity: String, percent: String): Double? {
 }
 
 internal fun mealFoodItems(editor: MealUiState.Ready): List<MealFoodDraftItem> =
-    editor.foodItems.ifEmpty { editor.foodPortions.map { MealFoodDraftItem(it.food.id, it.food, it.quantity) } }
+    editor.foodItems.ifEmpty { editor.foodPortions.map { MealFoodDraftItem(it.food.id, it.food, it.quantity, amountMode = it.mode) } }
+
+internal fun mealFoodConsumedQuantity(item: MealFoodDraftItem): Double? {
+    val amount = FoodPortionDraft(item.food, item.quantity, item.amountMode).amount ?: return null
+    val fraction = mealConsumedFraction(item.consumedPercent) ?: return null
+    return (amount * fraction).takeIf { it.isFinite() && it > 0.0 }
+}
 
 internal fun mealFoodNutritionTotals(items: List<MealFoodDraftItem>): NutritionTotals =
     NutritionTotals.builder().apply {
         items.forEach { portion ->
-            val amount = mealConsumedQuantity(portion.quantity, portion.consumedPercent)
+            val amount = mealFoodConsumedQuantity(portion)
             val profile = amount?.let { runCatching { NutritionCalculator.forQuantity(portion.food, it) }.getOrNull() }
             add(profile ?: NutritionProfile.empty())
         }
@@ -76,6 +82,27 @@ internal fun diningMenuNutritionProfile(menu: MealDiningDraftItem): NutritionPro
 
 internal fun diningNutritionTotals(editor: MealUiState.Ready): NutritionTotals =
     NutritionTotals.builder().apply { diningMealMenus(editor).forEach { add(diningMenuNutritionProfile(it)) } }.build()
+
+internal fun mealEntryNutritionTotals(editor: MealUiState.Ready): NutritionTotals =
+    NutritionTotals.builder().apply {
+        mealFoodItems(editor).forEach { item ->
+            add(mealFoodConsumedQuantity(item)?.let { runCatching { NutritionCalculator.forQuantity(item.food, it) }.getOrNull() }
+                ?: NutritionProfile.empty())
+        }
+        diningMealMenus(editor).forEach { add(diningMenuNutritionProfile(it)) }
+    }.build()
+
+internal fun mealEntryRegistrationError(editor: MealUiState.Ready): String? {
+    val foods = mealFoodItems(editor)
+    val menus = diningMealMenus(editor)
+    if (foods.isEmpty() && menus.isEmpty()) return "먹은 내용을 하나 이상 담으세요."
+    foods.forEach { item ->
+        mealConsumedPercentError(item.consumedPercent)?.let { return "${item.food.displayName()} · $it" }
+        if (mealFoodConsumedQuantity(item) == null) return "${item.food.displayName()} · 섭취량을 확인하세요."
+    }
+    menus.forEach { menu -> diningMenuRegistrationError(menu)?.let { return "${menu.draft.menu.ifBlank { "입력 중인 메뉴" }} · $it" } }
+    return mealTimeError(editor.draft.time)
+}
 
 internal fun encodeDiningMenu(menu: MealDiningDraftItem): String = JSONObject().apply {
     put("id", menu.id); put("quantity", menu.quantity); put("percent", menu.consumedPercent)

@@ -82,7 +82,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         return saveFoodMealItems(scope, date, mealTime, Collections.singletonList(item));
     }
 
-    @Override
+@Override
     public String saveFoodMealItems(
             AccountScope scope, String date, String mealTime, List<MealCompositionItem> items
     ) {
@@ -91,24 +91,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
             throw new IllegalArgumentException("끼니에 먹은 음식을 하나 이상 담으세요.");
         }
         List<MealCompositionItem> consumedItems = new ArrayList<>(items);
-        List<MealItemSnapshot> snapshots = new ArrayList<>();
-        for (int index = 0; index < consumedItems.size(); index++) {
-            MealCompositionItem item = consumedItems.get(index);
-            if (item == null || item.food == null || !Double.isFinite(item.quantity)
-                    || item.quantity <= 0d || !Double.isFinite(item.food.basisAmount)
-                    || item.food.basisAmount <= 0d) {
-                throw new IllegalArgumentException("음식별 먹은 양을 확인하세요.");
-            }
-            if (item.food.isDiningOutMenu() || item.food.isDiningOutComponent()) {
-                throw new IllegalArgumentException("외식 메뉴는 외식 입력에서 기록하세요.");
-            }
-            for (Double value : item.profile.asMap().values()) {
-                if (value != null && (!Double.isFinite(value) || value < 0d)) {
-                    throw new IllegalArgumentException("음식별 먹은 양이 너무 큽니다. 입력한 값을 확인하세요.");
-                }
-            }
-            snapshots.add(MealItemSnapshot.of(item, index));
-        }
+        List<MealItemSnapshot> snapshots = prepareFoodSnapshots(consumedItems);
         NutritionTotals totals = NutritionCalculator.sum(consumedItems);
         if (!Double.isFinite(totals.calories()) || totals.calories() > Integer.MAX_VALUE
                 || !Double.isFinite(totals.proteinGrams()) || !Double.isFinite(totals.carbsGrams())
@@ -293,17 +276,135 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         );
     }
 
-    @Override
+@Override
     public String saveDiningOutMenuItems(AccountScope scope, String date, String mealTime,
                                         List<DiningOutMenuIntake> inputs) {
         String ownerId = requireActiveOwner(scope);
-        if (inputs == null || inputs.isEmpty()) {
-            throw new IllegalArgumentException("외식 메뉴를 하나 이상 추가하세요.");
+        if (inputs == null || inputs.isEmpty()) throw new IllegalArgumentException("외식 메뉴를 하나 이상 추가하세요.");
+        PreparedDining prepared = prepareDiningMenus(ownerId, inputs);
+        NutritionTotals total = prepared.totals;
+        DiningOutMealInput first = inputs.get(0).getInput();
+        return insertComplexDiningOutRecord(ownerId, date, mealTime, first.getStoreName(), first.getBranchName(),
+                null, null, prepared.menus, (int) Math.round(total.calories()), total.proteinGrams(), total.carbsGrams(),
+                total.fatGrams(), null, null, first.getQuantity(), prepared.consumptions.get(0), prepared.consumptions);
+    }
+
+    @Override
+    public String saveMealItems(AccountScope scope, String date, String mealTime,
+                                List<MealCompositionItem> foods, List<DiningOutMenuIntake> inputs) {
+        if (foods == null || inputs == null) throw new IllegalArgumentException("식단 내용을 확인하세요.");
+        if (inputs.isEmpty()) return saveFoodMealItems(scope, date, mealTime, foods);
+        if (foods.isEmpty()) return saveDiningOutMenuItems(scope, date, mealTime, inputs);
+        String ownerId = requireActiveOwner(scope);
+        List<MealCompositionItem> consumedItems = new ArrayList<>(foods);
+        List<MealItemSnapshot> snapshots = prepareFoodSnapshots(consumedItems);
+        PreparedDining prepared = prepareDiningMenus(ownerId, new ArrayList<>(inputs));
+        NutritionTotals.Builder combined = NutritionTotals.builder();
+        for (MealCompositionItem item : consumedItems) combined.add(item.profile);
+        for (int index = 0; index < prepared.menus.size(); index++)
+            combined.add(prepared.menus.get(index).menu.profile.scaled(prepared.consumptions.get(index).consumedFraction));
+        NutritionTotals totals = combined.build();
+        if (!Double.isFinite(totals.calories()) || totals.calories() > Integer.MAX_VALUE
+                || !Double.isFinite(totals.proteinGrams()) || !Double.isFinite(totals.carbsGrams())
+                || !Double.isFinite(totals.fatGrams())) throw new IllegalArgumentException("식단 합계가 너무 큽니다.");
+        LocalDate today = LocalDate.now();
+        LocalDate recordDate = MealEntryPolicy.requireRecordDate(date, today);
+        String eatenAt = MealEntryPolicy.eatenAt(recordDate, mealTime, ZoneId.systemDefault());
+        boolean backfilled = MealEntryPolicy.isBackfilled(recordDate, today);
+        String now = now();
+        String recordId = UUID.randomUUID().toString();
+        int mealIndex = safeInt(mealDao.mealCountForDate(ownerId, recordDate.toString()));
+        String mealLabel = MealEntryPolicy.labelForIndex(mealIndex);
+
+        String metadata;
+        try {
+            JSONObject entry = new JSONObject(foodMetadata(mealLabel, eatenAt, snapshots.size() + prepared.menus.size()));
+            entry.put("entry_kind", "mixed");
+            entry.put("consumption_scope", "per_menu");
+            metadata = entry.toString();
+        } catch (Exception error) {
+            throw new IllegalStateException("식단 정보를 만들지 못했습니다.", error);
         }
+        MealRecordsRoomEntity record = new MealRecordsRoomEntity(
+                recordId,
+                ownerId,
+                recordDate.toString(),
+                MealEntryPolicy.previewTitle(consumedItems.get(0).food.displayName(), snapshots.size() + prepared.menus.size(), mealLabel + " 식사"),
+                MealRecordKind.FOOD,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                Math.round(totals.calories()),
+                totals.proteinGrams(),
+                totals.carbsGrams(),
+                totals.fatGrams(),
+                now,
+                backfilled ? 1L : 0L,
+                backfilled ? now : null,
+                backfilled ? "manual past meal entry" : null,
+                now,
+                null,
+                DEVICE_ID,
+                "fitness",
+                "fitness",
+                metadata,
+                1L
+        );
+
+        roomDatabase.runInTransaction(() -> {
+            requireActiveOwner(scope);
+            mealDao.insertRecord(record);
+            for (MealItemSnapshot snapshot : snapshots) insertItemSnapshot(recordId, snapshot, now, ownerId);
+            for (int index = 0; index < prepared.menus.size(); index++) {
+                MealMenuSelection menu = prepared.menus.get(index);
+                String itemId = insertComplexMenuSnapshot(recordId, menu, snapshots.size() + index, now, ownerId,
+                        null, null, menu.menu.quantity, menu.diningOutOptions);
+                DiningOutConsumption consumption = prepared.consumptions.get(index);
+                mealDao.insertConsumption(new MealRecordItemConsumptionsRoomEntity(
+                        UUID.randomUUID().toString(), ownerId, recordId, itemId, DiningOutConsumption.CONTRACT_VERSION,
+                        DiningOutConsumption.CONSUMER_SCOPE_SELF, (long) consumption.dinerCount, consumption.consumedFraction,
+                        consumption.shareMethod, consumption.confidence, now, now, null, DEVICE_ID));
+            }
+        });
+        return recordId;
+    }
+
+    private List<MealItemSnapshot> prepareFoodSnapshots(List<MealCompositionItem> consumedItems) {
+        List<MealItemSnapshot> snapshots = new ArrayList<>();
+        for (int index = 0; index < consumedItems.size(); index++) {
+            MealCompositionItem item = consumedItems.get(index);
+            if (item == null || item.food == null || !Double.isFinite(item.quantity)
+                    || item.quantity <= 0d || !Double.isFinite(item.food.basisAmount)
+                    || item.food.basisAmount <= 0d) {
+                throw new IllegalArgumentException("음식별 먹은 양을 확인하세요.");
+            }
+            if (item.food.isDiningOutMenu() || item.food.isDiningOutComponent()) {
+                throw new IllegalArgumentException("외식 메뉴는 외식 입력에서 기록하세요.");
+            }
+            for (Double value : item.profile.asMap().values()) {
+                if (value != null && (!Double.isFinite(value) || value < 0d)) {
+                    throw new IllegalArgumentException("음식별 먹은 양이 너무 큽니다. 입력한 값을 확인하세요.");
+                }
+            }
+            snapshots.add(MealItemSnapshot.of(item, index));
+        }
+        return snapshots;
+    }
+
+    private PreparedDining prepareDiningMenus(String ownerId, List<DiningOutMenuIntake> inputs) {
         List<MealMenuSelection> menus = new ArrayList<>();
         List<DiningOutConsumption> consumptions = new ArrayList<>();
         NutritionTotals.Builder totals = NutritionTotals.builder();
         for (DiningOutMenuIntake intake : inputs) {
+            if (intake == null) throw new IllegalArgumentException("외식 메뉴에 빈 항목이 있습니다.");
             DiningOutMealInput input = intake.getInput();
             MealEntryPolicy.requireDiningOutStoreName(input.getStoreName());
             MealEntryPolicy.requireDiningOutMenuName(input.getMenuName());
@@ -346,11 +447,21 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                 || !Double.isFinite(total.fatGrams())) {
             throw new IllegalArgumentException("메뉴 영양정보 합계가 너무 큽니다.");
         }
-        DiningOutMealInput first = inputs.get(0).getInput();
-        return insertComplexDiningOutRecord(ownerId, date, mealTime, first.getStoreName(), first.getBranchName(),
-                null, null, menus, (int) Math.round(total.calories()), total.proteinGrams(), total.carbsGrams(),
-                total.fatGrams(), null, null, first.getQuantity(), consumptions.get(0), consumptions);
+        return new PreparedDining(menus, consumptions, total);
     }
+
+    private static final class PreparedDining {
+        final List<MealMenuSelection> menus;
+        final List<DiningOutConsumption> consumptions;
+        final NutritionTotals totals;
+
+        PreparedDining(List<MealMenuSelection> menus, List<DiningOutConsumption> consumptions, NutritionTotals totals) {
+            this.menus = menus;
+            this.consumptions = consumptions;
+            this.totals = totals;
+        }
+    }
+
 
     @Override
     public String saveComplexDiningOutMeal(

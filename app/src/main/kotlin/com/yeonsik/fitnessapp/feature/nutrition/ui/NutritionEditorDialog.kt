@@ -1,5 +1,8 @@
 package com.yeonsik.fitnessapp.feature.nutrition.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.*
@@ -10,6 +13,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import com.yeonsik.fitnessapp.feature.nutrition.model.IngredientCatalogFile
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import com.yeonsik.fitnessapp.core.ui.*
 import com.yeonsik.fitnessapp.data.*
 import com.yeonsik.fitnessapp.feature.nutrition.model.foodPortionTotals
@@ -18,23 +28,29 @@ import com.yeonsik.fitnessapp.feature.nutrition.model.foodPortionTotals
 internal fun NutritionEditorDialog(
     state: NutritionEditorState,
     actions: NutritionEditorActions,
-    onUseComposition: (String) -> Unit
+    onUseComposition: (String) -> Unit,
+    onUseRecipe: (NutritionFood) -> Unit = {}
 ) {
     if (!state.open) return
     val title = when (state.mode) {
         NutritionEditorMode.LIBRARY -> "내 식단 · 식품"
         NutritionEditorMode.COMPOSITION -> "식단 구성"
-        NutritionEditorMode.FOOD -> "식품 등록"
+        NutritionEditorMode.RECIPE -> "내 요리"
+        NutritionEditorMode.FOOD -> "제품 · 재료 등록"
     }
     key(state.mode) {
         NutritionEntryFrame(title, actions::close, closeEnabled = !state.saving,
             subtitle = "자주 먹는 음식을 다음 기록에 불러오세요",
             footer = if (state.mode == NutritionEditorMode.LIBRARY) null else ({
-                if (state.mode == NutritionEditorMode.COMPOSITION) {
+                if (state.mode == NutritionEditorMode.COMPOSITION || state.mode == NutritionEditorMode.RECIPE) {
                     NutritionTotalPreview(foodPortionTotals(state.portions), label = "식품 ${state.portions.size}개")
                 }
                 AppButton(actions::save, Modifier.fillMaxWidth(), enabled = !state.saving && !state.loading) {
-                    Text(if (state.saving) "저장 중…" else if (state.mode == NutritionEditorMode.FOOD) "식품 등록하기" else "식단 구성 저장하기")
+                    Text(if (state.saving) "저장 중…" else when (state.mode) {
+                        NutritionEditorMode.FOOD -> "등록하기"
+                        NutritionEditorMode.RECIPE -> "내 요리 저장하기"
+                        else -> "식단 구성 저장하기"
+                    })
                 }
             })
         ) {
@@ -43,8 +59,8 @@ internal fun NutritionEditorDialog(
             state.error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             if (state.loading) LinearProgressIndicator(Modifier.fillMaxWidth())
             when (state.mode) {
-                NutritionEditorMode.LIBRARY -> NutritionLibraryContent(state, actions, onUseComposition)
-                NutritionEditorMode.COMPOSITION -> CompositionEditorContent(state, actions)
+                NutritionEditorMode.LIBRARY -> NutritionLibraryContent(state, actions, onUseComposition, onUseRecipe)
+                NutritionEditorMode.COMPOSITION, NutritionEditorMode.RECIPE -> CompositionEditorContent(state, actions, state.mode == NutritionEditorMode.RECIPE)
                 NutritionEditorMode.FOOD -> FoodRegistrationContent(state, actions)
             }
         }
@@ -52,9 +68,48 @@ internal fun NutritionEditorDialog(
 }
 
 @Composable
-private fun NutritionLibraryContent(state: NutritionEditorState, actions: NutritionEditorActions, onUseComposition: (String) -> Unit) {
+private fun NutritionLibraryContent(state: NutritionEditorState, actions: NutritionEditorActions,
+    onUseComposition: (String) -> Unit, onUseRecipe: (NutritionFood) -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var fileError by remember { mutableStateOf<String?>(null) }
+    val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) scope.launch {
+            fileError = null
+            val contents = runCatching { withContext(Dispatchers.IO) {
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    val output = ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    var total = 0
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        require(total <= IngredientCatalogFile.MAX_BYTES) { "재료 파일은 1MB 이하로 선택하세요." }
+                        output.write(buffer, 0, count)
+                    }
+                    output.toString(Charsets.UTF_8.name())
+                } ?: throw IllegalArgumentException("선택한 파일을 읽을 수 없습니다.")
+            } }
+            contents.onSuccess(actions::previewIngredientFile).onFailure { fileError = it.message ?: "재료 파일을 읽지 못했습니다." }
+        }
+    }
     AppButton(actions::newComposition, Modifier.fillMaxWidth(), enabled = !state.loading) { Text("새 식단 구성") }
+    AppButton(actions::newRecipe, Modifier.fillMaxWidth(), enabled = !state.loading) { Text("내 요리 등록 · 레시피 저장") }
     AppOutlinedButton(actions::newFood, Modifier.fillMaxWidth(), enabled = !state.loading) { Text("식품 등록") }
+    AppOutlinedButton({ filePicker.launch(arrayOf("application/json", "text/json", "text/plain")) },
+        Modifier.fillMaxWidth(), enabled = !state.loading && !state.saving) { Text("재료 영양정보 JSON 가져오기") }
+    fileError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+    NutritionFormSection("재료 파일 형식", Modifier.fillMaxWidth(), "fitness.ingredient-catalog.v1 · JSON · 최대 1MB · 재료 2,000개") {
+        Text("기본 영양정보에는 calories_kcal, carbs_grams, protein_grams, fat_grams가 필요합니다. 기준량 단위는 g 또는 ml입니다.",
+            style = MaterialTheme.typography.bodySmall)
+        state.importPreview?.let { preview ->
+            Text("추가 ${preview.newCount}개 · 수정 ${preview.updatedCount}개 · 동일 ${preview.unchangedCount}개")
+            AppButton(actions::applyIngredientFile, Modifier.fillMaxWidth(), enabled = !state.loading && !state.saving && preview.changedCount > 0) {
+                Text(if (preview.changedCount == 0) "모든 재료가 최신입니다" else "변경 항목 적용")
+            }
+        }
+    }
     if (state.name.isNotBlank() || state.portions.isNotEmpty()) {
         AppOutlinedButton(actions::resumeComposition, Modifier.fillMaxWidth(), enabled = !state.loading) { Text("작성 중인 구성 이어서") }
     }
@@ -70,13 +125,29 @@ private fun NutritionLibraryContent(state: NutritionEditorState, actions: Nutrit
             TextButton({ actions.editComposition(template.id) }, enabled = !state.loading) { Text("구성 수정") }
         }
     }
+    state.recipes.forEach { recipe ->
+        val calories = recipe.profile.value(NutritionProfile.CALORIES_KCAL)
+            ?.let(NutritionCalculator::trim) ?: "미확인"
+        NutritionFormSection(recipe.displayName(), Modifier.fillMaxWidth(),
+            "1인분 · ${recipe.basisLabel()} · $calories kcal") {
+            NutritionTotalPreview(NutritionTotals.builder().add(recipe.profile).build(), label = "1인분")
+            AppButton({ onUseRecipe(recipe) }, Modifier.fillMaxWidth(), enabled = !state.loading) { Text("이번 식단에 추가") }
+        }
+    }
 }
 
 @Composable
-private fun CompositionEditorContent(state: NutritionEditorState, actions: NutritionEditorActions) {
-    NutritionFormSection("구성 이름", Modifier.fillMaxWidth(), "예: 운동 후 한 끼, 도시락 기본 구성") {
-        OutlinedTextField(state.name, actions::updateName, Modifier.fillMaxWidth(), label = { Text("식단 구성 이름") },
+private fun CompositionEditorContent(state: NutritionEditorState, actions: NutritionEditorActions, recipe: Boolean) {
+    NutritionFormSection(if (recipe) "요리 이름" else "구성 이름", Modifier.fillMaxWidth(),
+        if (recipe) "재료 전체량을 나눌 완성 인분 수를 입력하세요." else "예: 운동 후 한 끼, 도시락 기본 구성") {
+        OutlinedTextField(state.name, actions::updateName, Modifier.fillMaxWidth(), label = { Text(if (recipe) "요리 이름" else "식단 구성 이름") },
             singleLine = true, enabled = !state.saving, isError = state.submitted && state.name.isBlank(), shape = FitnessShape.input)
+        if (recipe) {
+            NutritionNumberField(state.recipeServings, actions::updateRecipeServings, "완성 인분 수", "인분", Modifier.fillMaxWidth(),
+                enabled = !state.saving, showError = state.submitted, positive = true)
+            NutritionNumberField(state.cookedWeightGrams, actions::updateCookedWeight, "조리 후 전체 무게 (선택)", "g",
+                Modifier.fillMaxWidth(), enabled = !state.saving, required = false, positive = true)
+        }
     }
     FoodPortionList(state.portions, actions::updateAmount, actions::removeFood, Modifier.fillMaxWidth(), enabled = !state.saving && !state.loading)
     NutritionFormSection("식품 추가", Modifier.fillMaxWidth()) {
@@ -102,6 +173,12 @@ private fun FoodRegistrationContent(state: NutritionEditorState, actions: Nutrit
     var additional by rememberSaveable { mutableStateOf(false) }
     var showUnits by remember { mutableStateOf(false) }
     NutritionFormSection("어떤 식품인가요?", Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NutritionRegistrationKind.entries.forEach { kind ->
+                AppOutlinedButton({ actions.updateRegistrationKind(kind) }, Modifier.weight(1f),
+                    enabled = !state.saving, selected = state.registrationKind == kind) { Text(kind.label) }
+            }
+        }
         OutlinedTextField(state.field(FoodEntryField.NAME), { actions.updateField(FoodEntryField.NAME, it) }, Modifier.fillMaxWidth(),
             label = { Text("식품 이름") }, singleLine = true, enabled = !state.saving,
             isError = state.submitted && state.field(FoodEntryField.NAME).isBlank(), shape = FitnessShape.input)
@@ -117,6 +194,11 @@ private fun FoodRegistrationContent(state: NutritionEditorState, actions: Nutrit
                     onClick = { actions.updateUnit(unit); showUnits = false }) }
             }
         }
+    }
+    if (state.registrationKind == NutritionRegistrationKind.PRODUCT) NutritionFormSection("제품 1개 용량", Modifier.fillMaxWidth(),
+        "예: 1개 90g이면 90을 입력합니다. 영양 기준량 단위와 같은 g 또는 ml로 저장합니다.") {
+        NutritionNumberField(state.packageAmount, actions::updatePackageAmount, "제품 1개 용량", NutritionUnit.display(state.basisUnit),
+            Modifier.fillMaxWidth(), enabled = !state.saving, showError = state.submitted, positive = true)
     }
     NutritionFormSection("기본 영양정보", Modifier.fillMaxWidth(), "위 기준량에 들어 있는 값입니다.") {
         NutritionFieldGrid(listOf(FoodEntryField.CALORIES, FoodEntryField.PROTEIN, FoodEntryField.CARBS, FoodEntryField.FAT),

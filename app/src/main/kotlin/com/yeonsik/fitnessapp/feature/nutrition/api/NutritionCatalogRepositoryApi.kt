@@ -8,6 +8,8 @@ import com.yeonsik.fitnessapp.data.NutritionProfile
 import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRecipeComponent
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput
+import com.yeonsik.fitnessapp.feature.nutrition.model.IngredientCatalogBatch
+import com.yeonsik.fitnessapp.feature.nutrition.model.IngredientImportPreview
 
 /** Local-first nutrition catalog reads and explicit owner-scoped writes. */
 interface NutritionCatalogRepositoryApi {
@@ -78,6 +80,19 @@ interface NutritionCatalogRepositoryApi {
         basisUnit: String,
         profile: NutritionProfile
     ): NutritionFood? = null
+
+    fun saveManualFoodInput(scope: AccountScope, input: NutritionFoodInput): NutritionFood? =
+        saveManualFood(scope, input.name, input.brand, input.basisAmount, input.basisUnit, input.profile)
+
+    fun saveRecipe(ownerId: String, name: String, items: List<com.yeonsik.fitnessapp.data.MealCompositionItem>,
+        servings: Double, cookedWeightGrams: Double?): NutritionFood =
+        throw UnsupportedOperationException("내 요리 저장을 지원하지 않습니다.")
+
+    fun previewIngredientImport(ownerId: String, batch: IngredientCatalogBatch): IngredientImportPreview =
+        throw UnsupportedOperationException("재료 파일 가져오기를 지원하지 않습니다.")
+
+    fun applyIngredientImport(preview: IngredientImportPreview): IngredientImportPreview =
+        throw UnsupportedOperationException("재료 파일 가져오기를 지원하지 않습니다.")
 
     /** Explicitly saves a reusable Nutrition dining-out master; it never creates a Meal record. */
     fun saveDiningOutMenuWithNutrition(

@@ -5,6 +5,7 @@ import android.os.Looper
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.SavedStateHandle
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import com.yeonsik.fitnessapp.data.*
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionTemplateRepositoryApi
@@ -13,7 +14,7 @@ import org.json.JSONObject
 import java.util.UUID
 import java.util.concurrent.ExecutorService
 
-enum class NutritionEditorMode { LIBRARY, COMPOSITION, FOOD }
+enum class NutritionEditorMode { LIBRARY, COMPOSITION, RECIPE, FOOD }
 
 enum class FoodEntryField(val label: String, val unit: String = "") {
     NAME("식품 이름"), BRAND("브랜드 (선택)"), BASIS("기준량"),
@@ -26,6 +27,7 @@ data class NutritionEditorState(
     val open: Boolean = false,
     val mode: NutritionEditorMode = NutritionEditorMode.LIBRARY,
     val templates: List<CompositionTemplate> = emptyList(),
+    val recipes: List<NutritionFood> = emptyList(),
     val portions: List<FoodPortionDraft> = emptyList(),
     val query: String = "",
     val results: List<NutritionFood> = emptyList(),
@@ -37,6 +39,11 @@ data class NutritionEditorState(
     val fields: Map<FoodEntryField, String> = mapOf(FoodEntryField.BASIS to "100"),
     val basisUnit: String = NutritionUnit.GRAM,
     val sourceType: String = "manual",
+    val registrationKind: NutritionRegistrationKind = NutritionRegistrationKind.PRODUCT,
+    val packageAmount: String = "",
+    val recipeServings: String = "1",
+    val cookedWeightGrams: String = "",
+    val importPreview: IngredientImportPreview? = null,
     val loading: Boolean = false,
     val saving: Boolean = false,
     val submitted: Boolean = false,
@@ -50,6 +57,7 @@ interface NutritionEditorActions {
     fun close()
     fun showLibrary()
     fun newComposition()
+    fun newRecipe() {}
     fun resumeComposition()
     fun editComposition(id: String)
     fun newFood()
@@ -63,6 +71,12 @@ interface NutritionEditorActions {
     fun updateField(field: FoodEntryField, value: String)
     fun updateUnit(value: String)
     fun updateSource(value: String)
+    fun updateRegistrationKind(value: NutritionRegistrationKind) {}
+    fun updatePackageAmount(value: String) {}
+    fun updateRecipeServings(value: String) {}
+    fun updateCookedWeight(value: String) {}
+    fun previewIngredientFile(contents: String) {}
+    fun applyIngredientFile() {}
     fun save()
 }
 
@@ -99,7 +113,12 @@ class NutritionEditorController(
             revision = savedState[KEY_REVISION] ?: 1,
             fields = fields,
             basisUnit = savedState[KEY_UNIT] ?: NutritionUnit.GRAM,
-            sourceType = savedState[KEY_SOURCE] ?: "manual"
+            sourceType = savedState[KEY_SOURCE] ?: "manual",
+            registrationKind = savedState.get<String>(KEY_REGISTRATION_KIND)?.let { runCatching { NutritionRegistrationKind.valueOf(it) }.getOrNull() }
+                ?: NutritionRegistrationKind.PRODUCT,
+            packageAmount = savedState[KEY_PACKAGE_AMOUNT] ?: "",
+            recipeServings = savedState[KEY_RECIPE_SERVINGS] ?: "1",
+            cookedWeightGrams = savedState[KEY_COOKED_WEIGHT] ?: ""
         )
     }
 
@@ -114,10 +133,10 @@ class NutritionEditorController(
                 val food = catalog.findFoodById(id) ?: throw IllegalStateException("구성에 저장한 식품을 찾지 못했습니다. 다시 추가하세요.")
                 FoodPortionDraft(food, amounts.getOrElse(index) { NutritionCalculator.trim(food.basisAmount) })
             }
-            restored to listTemplates()
+            Triple(restored, listTemplates(), catalog.savedRecipes())
         }) { current, result ->
-            val (restored, savedTemplates) = result
-            current.copy(portions = restored, templates = savedTemplates)
+            val (restored, savedTemplates, recipes) = result
+            current.copy(portions = restored, templates = savedTemplates, recipes = recipes)
         }
     }
 
@@ -131,16 +150,28 @@ class NutritionEditorController(
     override fun showLibrary() {
         if (state.saving) return
         update { it.copy(mode = NutritionEditorMode.LIBRARY, error = null) }
-        task(::listTemplates) { current, found -> current.copy(templates = found) }
+        task({ listTemplates() to catalog.savedRecipes() }) { current, (found, recipes) ->
+            current.copy(templates = found, recipes = recipes)
+        }
     }
 
     override fun newComposition() {
         if (state.saving) return
         ++version
         restoringPortions = false
-        update { it.copy(mode = NutritionEditorMode.COMPOSITION, compositionId = null, revision = 1,
+        update { it.copy(mode = NutritionEditorMode.COMPOSITION, compositionId = null, revision = 1, recipeServings = "1", cookedWeightGrams = "",
             name = "", memo = "", favorite = false, portions = emptyList(), query = "", results = emptyList(),
             loading = false, submitted = false, notice = null, error = null) }
+        search("")
+    }
+
+    override fun newRecipe() {
+        if (state.saving) return
+        ++version
+        restoringPortions = false
+        update { it.copy(mode = NutritionEditorMode.RECIPE, compositionId = null, revision = 1,
+            name = "", memo = "", favorite = false, portions = emptyList(), query = "", results = emptyList(),
+            recipeServings = "1", cookedWeightGrams = "", loading = false, submitted = false, notice = null, error = null) }
         search("")
     }
 
@@ -169,14 +200,17 @@ class NutritionEditorController(
     override fun newFood() {
         if (state.saving) return
         ++version
-        update { it.copy(mode = NutritionEditorMode.FOOD, loading = false, submitted = false, error = null, notice = null) }
+        update { it.copy(mode = NutritionEditorMode.FOOD, registrationKind = NutritionRegistrationKind.PRODUCT,
+            loading = false, submitted = false, error = null, notice = null) }
     }
 
     override fun search(query: String) {
         update { it.copy(query = query, error = null) }
         task({
             (catalog.searchFoods(query) + catalog.searchPackagedFoods(query, 40))
-                .filterNot { it.isDiningOutMenu() || it.isDiningOutComponent() }.distinctBy { it.id }.take(30)
+                .filterNot { it.isDiningOutMenu() || it.isDiningOutComponent() ||
+                    state.mode == NutritionEditorMode.RECIPE && it.kind == NutritionFood.KIND_RECIPE }
+                .distinctBy { it.id }.take(30)
         }) { current, results -> current.copy(results = results) }
     }
 
@@ -193,6 +227,26 @@ class NutritionEditorController(
     override fun updateField(field: FoodEntryField, value: String) = update { it.copy(fields = it.fields + (field to value), error = null) }
     override fun updateUnit(value: String) = update { it.copy(basisUnit = value, error = null) }
     override fun updateSource(value: String) = update { it.copy(sourceType = value) }
+    override fun updateRegistrationKind(value: NutritionRegistrationKind) = update { it.copy(registrationKind = value) }
+    override fun updatePackageAmount(value: String) = update { it.copy(packageAmount = value, error = null) }
+    override fun updateRecipeServings(value: String) = update { it.copy(recipeServings = value, error = null) }
+    override fun updateCookedWeight(value: String) = update { it.copy(cookedWeightGrams = value, error = null) }
+
+    override fun previewIngredientFile(contents: String) {
+        val owner = state.ownerId
+        update { it.copy(importPreview = null, error = null) }
+        task({
+            val batch = IngredientCatalogFile.parse(contents)
+            catalog.previewIngredientImport(owner, batch)
+        }) { current, preview -> current.copy(importPreview = preview, notice = null) }
+    }
+
+    override fun applyIngredientFile() {
+        val preview = state.importPreview ?: return
+        task({ catalog.applyIngredientImport(preview) }, saving = true) { current, applied ->
+            current.copy(importPreview = null, notice = "재료 파일 적용 완료 · 새 재료 ${applied.newCount}개, 수정 ${applied.updatedCount}개, 동일 ${applied.unchangedCount}개")
+        }
+    }
 
     override fun save() {
         val draft = state
@@ -201,6 +255,7 @@ class NutritionEditorController(
         try {
             when (draft.mode) {
                 NutritionEditorMode.COMPOSITION -> saveComposition(draft)
+                NutritionEditorMode.RECIPE -> saveRecipe(draft)
                 NutritionEditorMode.FOOD -> saveFood(draft)
                 NutritionEditorMode.LIBRARY -> Unit
             }
@@ -241,15 +296,33 @@ class NutritionEditorController(
             .value(NutritionProfile.PROTEIN_GRAMS, requiredNumber(draft.field(FoodEntryField.PROTEIN), "단백질"))
             .value(NutritionProfile.CARBS_GRAMS, requiredNumber(draft.field(FoodEntryField.CARBS), "탄수화물"))
             .value(NutritionProfile.FAT_GRAMS, requiredNumber(draft.field(FoodEntryField.FAT), "지방"))
-            .value(NutritionProfile.SODIUM_MG, requiredNumber(draft.field(FoodEntryField.SODIUM), "나트륨"))
-            .value(NutritionProfile.SUGARS_GRAMS, requiredNumber(draft.field(FoodEntryField.SUGARS), "당류"))
-            .value(NutritionProfile.SATURATED_FAT_GRAMS, requiredNumber(draft.field(FoodEntryField.SATURATED_FAT), "포화지방"))
+            .value(NutritionProfile.SODIUM_MG, optionalNumber(draft.field(FoodEntryField.SODIUM), "나트륨"))
+            .value(NutritionProfile.SUGARS_GRAMS, optionalNumber(draft.field(FoodEntryField.SUGARS), "당류"))
+            .value(NutritionProfile.SATURATED_FAT_GRAMS, optionalNumber(draft.field(FoodEntryField.SATURATED_FAT), "포화지방"))
             .build()
         val input = NutritionFoodInput(draft.field(FoodEntryField.NAME).trim(), draft.field(FoodEntryField.BRAND).trim().ifBlank { null },
-            basis, draft.basisUnit, profile, draft.sourceType)
-        task({ catalog.registerFood(draft.ownerId, input) }, saving = true) { current, food ->
-            current.copy(mode = NutritionEditorMode.LIBRARY, fields = mapOf(FoodEntryField.BASIS to "100"),
-                notice = "${food.displayName()} 식품을 등록했습니다.")
+            basis, draft.basisUnit, profile, draft.sourceType, draft.registrationKind,
+            draft.packageAmount.trim().takeIf(String::isNotEmpty)?.let { requiredNumber(it, "제품 1개 용량") }, draft.basisUnit)
+        if (draft.registrationKind == NutritionRegistrationKind.PRODUCT) require(input.packageAmount?.let { it > 0 } == true) { "제품 1개 용량을 입력하세요." }
+        task({ catalog.saveManualFoodInput(AccountScope(draft.ownerId), input)
+            ?: throw IllegalStateException("식품을 등록하지 못했습니다.") }, saving = true) { current, food ->
+            current.copy(mode = NutritionEditorMode.LIBRARY, fields = mapOf(FoodEntryField.BASIS to "100"), packageAmount = "",
+                notice = "${food.displayName()} ${draft.registrationKind.label}을 등록했습니다.")
+        }
+    }
+
+    private fun saveRecipe(draft: NutritionEditorState) {
+        require(draft.name.isNotBlank()) { "내 요리 이름을 입력하세요." }
+        require(draft.portions.isNotEmpty()) { "재료를 하나 이상 추가하세요." }
+        require(draft.portions.all { it.amount != null }) { "각 재료의 양을 확인하세요." }
+        val servings = requiredNumber(draft.recipeServings, "완성 인분 수").also { require(it > 0) { "완성 인분 수를 0보다 크게 입력하세요." } }
+        val cookedWeight = if (draft.cookedWeightGrams.isBlank()) null else
+            requiredNumber(draft.cookedWeightGrams, "완성 후 무게").also { require(it > 0) { "완성 후 무게는 0보다 커야 합니다." } }
+        val items = draft.portions.map { MealCompositionItem.from(it.food, it.amount!!) }
+        task({ catalog.saveRecipe(draft.ownerId, draft.name.trim(), items, servings, cookedWeight) to catalog.savedRecipes() }, saving = true) { current, result ->
+            val (recipe, recipes) = result
+            current.copy(mode = NutritionEditorMode.LIBRARY, recipes = recipes, portions = emptyList(), name = "",
+                recipeServings = "1", cookedWeightGrams = "", notice = "${recipe.name} · ${recipe.basisLabel()} 기준으로 저장했습니다.")
         }
     }
 
@@ -257,6 +330,9 @@ class NutritionEditorController(
         .orEmpty().sortedWith(compareByDescending<CompositionTemplate> { template ->
             template.sourceReference?.let { runCatching { JSONObject(it).optBoolean("favorite") }.getOrDefault(false) } ?: false
         }.thenBy { it.name })
+
+    private fun optionalNumber(value: String, label: String): Double? =
+        if (value.isBlank()) null else requiredNumber(value, label)
 
     private fun <T> task(work: () -> T, saving: Boolean = false, apply: (NutritionEditorState, T) -> NutritionEditorState) {
         if (state.saving) return
@@ -293,6 +369,10 @@ class NutritionEditorController(
         savedState[KEY_REVISION] = next.revision
         savedState[KEY_UNIT] = next.basisUnit
         savedState[KEY_SOURCE] = next.sourceType
+        savedState[KEY_REGISTRATION_KIND] = next.registrationKind.name
+        savedState[KEY_PACKAGE_AMOUNT] = next.packageAmount
+        savedState[KEY_RECIPE_SERVINGS] = next.recipeServings
+        savedState[KEY_COOKED_WEIGHT] = next.cookedWeightGrams
         if (!restoringPortions) {
             savedState[KEY_FOOD_IDS] = ArrayList(next.portions.map { it.food.id })
             savedState[KEY_AMOUNTS] = ArrayList(next.portions.map { it.quantity })
@@ -314,6 +394,10 @@ class NutritionEditorController(
         const val KEY_REVISION = "$PREFIX.revision"
         const val KEY_UNIT = "$PREFIX.unit"
         const val KEY_SOURCE = "$PREFIX.source"
+        const val KEY_REGISTRATION_KIND = "$PREFIX.registration_kind"
+        const val KEY_PACKAGE_AMOUNT = "$PREFIX.package_amount"
+        const val KEY_RECIPE_SERVINGS = "$PREFIX.recipe_servings"
+        const val KEY_COOKED_WEIGHT = "$PREFIX.cooked_weight"
         const val KEY_FOOD_IDS = "$PREFIX.food_ids"
         const val KEY_AMOUNTS = "$PREFIX.amounts"
         fun requiredNumber(value: String, label: String): Double {

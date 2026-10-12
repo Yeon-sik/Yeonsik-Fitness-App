@@ -67,12 +67,16 @@ interface MealScreenActions {
     fun closeDraft()
     fun chooseFood()
     fun chooseDiningOut()
+    fun chooseCategory(category: MealCatalogCategory) {
+        if (category == MealCatalogCategory.DINING_OUT) chooseDiningOut() else chooseFood()
+    }
     fun searchFood(query: String)
     fun selectFood(food: NutritionFood)
     fun useDiningOutFood(food: NutritionFood)
     fun saveReusableDiningOutMenu()
     fun updateQuantity(value: String)
     fun updateFoodQuantity(itemId: String, value: String)
+    fun updateFoodAmountMode(itemId: String, mode: com.yeonsik.fitnessapp.feature.nutrition.model.PortionInputMode) {}
     fun removeFood(itemId: String)
     fun updateDiningPortion(value: String) {}
     fun updateFoodConsumedPercent(itemId: String, value: String) {}
@@ -82,6 +86,7 @@ interface MealScreenActions {
     fun clearCurrentDiningMenu() {}
     fun updateDiningMenu(menu: MealDiningDraftItem) {}
     fun removeDiningMenu(menuId: String) {}
+    fun undoRemoveItem() {}
     fun openNutritionEditor() {}
     fun updateTime(value: String)
     fun saveFood()
@@ -313,7 +318,11 @@ internal fun MealScreen(
         }
     }
     if (nutritionEditorActions != null) {
-        NutritionEditorDialog(nutritionEditorState, nutritionEditorActions, onUseComposition)
+        NutritionEditorDialog(nutritionEditorState, nutritionEditorActions, onUseComposition, onUseRecipe = { recipe ->
+            nutritionEditorActions.close()
+            actions.chooseCategory(MealCatalogCategory.RECIPE)
+            actions.selectFood(recipe)
+        })
     }
 
     Spacer(Modifier.height(AppSpacing.section))
@@ -481,61 +490,25 @@ private fun MealMacroMetric(label: String, value: String, modifier: Modifier = M
 
 @Composable
 @OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
-internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready) {
-    val focusManager = LocalFocusManager.current
+internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Ready, onReviewFood: (NutritionFood) -> Unit = {}) {
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
-        Text("한 끼에 먹은 음식", style = MaterialTheme.typography.titleMedium)
-        MealInputNotice("밥, 반찬, 음료를 함께 담으세요. 음식마다 전체 양과 먹은 비율을 따로 입력하세요.")
-        AppOutlinedButton(
-            onClick = actions::openNutritionEditor,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !editor.saving && !editor.draftLoading
-        ) { Text("저장한 식단 구성 불러오기") }
-        AppOutlinedButton(
-            onClick = { if (editor.manualFoodEntry) actions.closeManualFood() else actions.openManualFood() },
-            modifier = Modifier.fillMaxWidth(),
-            selected = editor.manualFoodEntry,
-            enabled = !editor.saving
-        ) { Text(if (editor.manualFoodEntry) "영양정보 직접 입력 닫기" else "음식 직접 등록") }
+        if (editor.category == MealCatalogCategory.RECIPE) {
+            AppOutlinedButton(actions::openNutritionEditor, Modifier.fillMaxWidth(), enabled = !editor.saving) {
+                Text("내 요리 만들기 · 저장한 구성")
+            }
+        } else {
+            AppOutlinedButton(
+                onClick = { if (editor.manualFoodEntry) actions.closeManualFood() else actions.openManualFood() },
+                modifier = Modifier.fillMaxWidth(), selected = editor.manualFoodEntry, enabled = !editor.saving
+            ) { Text(if (editor.manualFoodEntry) "직접 입력 닫기" else if (editor.category == MealCatalogCategory.ALL) "음식 직접 등록" else "${editor.category.label} 직접 등록") }
+            if (editor.category == MealCatalogCategory.INGREDIENT) AppOutlinedButton(
+                actions::openNutritionEditor, Modifier.fillMaxWidth(), enabled = !editor.saving
+            ) { Text("재료 파일 · 저장한 구성 관리") }
+        }
         if (editor.manualFoodEntry) {
             ManualFoodEditor(editor.manualFoodDraft, actions::updateManualFood,
                 actions::saveManualFood, actions::closeManualFood, editor.saving, editor.error)
-        } else {
-        // Keep search before the growing selection so adding foods preserves its position.
-        MealCatalogSearch(actions, editor, Modifier.fillMaxWidth())
-        if (editor.foodPortions.isNotEmpty()) {
-            Text("담은 식품 ${editor.foodPortions.size}개", style = MaterialTheme.typography.titleMedium)
-        }
-        FoodPortionList(editor.foodPortions, actions::updateFoodQuantity,
-            onRemove = { focusManager.clearFocus(); actions.removeFood(it) },
-            modifier = Modifier.fillMaxWidth().testTag("meal-food-portions"), enabled = !editor.saving, amountLabel = "전체 양",
-            itemContent = { portion ->
-                val item = mealFoodItems(editor).first { it.food.id == portion.food.id }
-                MealConsumedPercentControl(item.consumedPercent, { actions.updateFoodConsumedPercent(item.id, it) },
-                    enabled = !editor.saving, tag = "meal-food-percent-${portion.food.id}")
-                val calories = mealFoodNutritionTotals(listOf(item)).total(NutritionProfile.CALORIES_KCAL)
-                Text("실제 섭취 · ${nutritionTotalText(calories)} kcal", style = MaterialTheme.typography.bodyMedium)
-            })
-        mealDraftNutritionTotals(editor.foodItems)?.let { totals ->
-            AppCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(AppSpacing.card), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                    Text("섭취 합계 · 음식 ${editor.foodItems.size}개", style = MaterialTheme.typography.titleSmall)
-                    Text(NutritionCalculator.describeTotal(totals.total(NutritionProfile.CALORIES_KCAL)) + " kcal",
-                        style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
-                    listOf(
-                        "탄수화물" to NutritionProfile.CARBS_GRAMS,
-                        "단백질" to NutritionProfile.PROTEIN_GRAMS,
-                        "지방" to NutritionProfile.FAT_GRAMS
-                    ).forEach { (label, nutrient) ->
-                        Text("$label ${NutritionCalculator.describeTotal(totals.total(nutrient))} g",
-                            style = MaterialTheme.typography.bodyMedium)
-                    }
-                }
-            }
-        }
-        val saveHint = foodMealRegistrationError(editor)
-        saveHint?.let { MealInputNotice(it) }
-        }
+        } else MealCatalogSearch(actions, editor, Modifier.fillMaxWidth(), onReviewFood)
     }
 }
 
@@ -609,33 +582,28 @@ internal fun DiningOutEditor(
     actions: MealScreenActions,
     editor: MealUiState.Ready,
     priceTraceState: PriceTraceUiState,
-    controls: DiningOutEditorState
+    controls: DiningOutEditorState,
+    manualEntryRequester: BringIntoViewRequester,
+    onReviewFood: (NutritionFood) -> Unit = {}
 ) {
     val draft = editor.draft
     var showExtraNutrition by rememberSaveable(editor.ownerId, editor.date) {
         mutableStateOf(listOf(draft.sodium, draft.sugars, draft.saturatedFat).any { it.isNotBlank() })
     }
     val selectedMenuRequester = remember { BringIntoViewRequester() }
-    val manualEntryRequester = remember { BringIntoViewRequester() }
-    val compositionScope = rememberCoroutineScope()
     val nutritionError = diningOutRegistrationError(draft)
     val portionError = if (editor.diningPortion.trim().toDoubleOrNull()
         ?.let { it.isFinite() && it > 0.0 } == true) null else "먹은 양을 0보다 큰 숫자로 입력하세요."
     val saveHint = nutritionError ?: mealTimeError(draft.time) ?: portionError
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(AppSpacing.gap)) {
         MealInputNotice("한 가게에서 먹은 메뉴를 여러 개 담을 수 있어요. 메뉴마다 영양정보와 먹은 비율을 입력하세요.")
-        SavedDiningOutMenuPicker(actions, editor, selectedMenuRequester)
+        SavedDiningOutMenuPicker(actions, editor, selectedMenuRequester, onReviewFood)
         AppOutlinedButton(
             onClick = { controls.showPriceTrace = !controls.showPriceTrace },
             modifier = Modifier.fillMaxWidth(),
             enabled = !editor.saving
         ) { Text(if (controls.showPriceTrace) "식당 목록 닫기" else "식당 · 메뉴 검색") }
         if (controls.showPriceTrace) PriceTraceDiningOutPicker(actions, editor, priceTraceState, controls)
-        DiningMenuDraftList(editor.diningMenus, actions::updateDiningMenu, actions::removeDiningMenu, enabled = !editor.saving,
-            onAddAtStore = { menuId ->
-                actions.startAnotherDiningMenu(menuId)
-                compositionScope.launch { withFrameNanos { }; manualEntryRequester.bringIntoView() }
-            })
         Text("추가할 메뉴", style = MaterialTheme.typography.titleSmall)
         AppTextField(draft.store, actions::updateStore, Modifier.fillMaxWidth(), { Text("상호명 (필수)") },
             enabled = !editor.saving,
@@ -650,7 +618,7 @@ internal fun DiningOutEditor(
         Text("전체 양과 1인분 영양정보", style = MaterialTheme.typography.titleSmall)
         MealInputNotice("영양정보는 1인분을 모두 먹었을 때(100%) 기준으로 입력하세요. 전체 양과 먹은 비율에 맞춰 섭취 합계가 자동 계산돼요.")
         MealNutritionField(editor.diningPortion, actions::updateDiningPortion, "전체 양", "인분", Modifier.fillMaxWidth(), !editor.saving)
-        MealConsumedPercentControl(editor.diningConsumedPercent, actions::updateDiningConsumedPercent,
+        MealOptionalPercent(editor.diningConsumedPercent, actions::updateDiningConsumedPercent,
             enabled = !editor.saving, tag = "meal-dining-current-percent")
         if (portionError != null) MealInputNotice(portionError)
         MealNutritionField(draft.calories, actions::updateCalories, "칼로리", "kcal", Modifier.fillMaxWidth(), !editor.saving)
@@ -689,16 +657,17 @@ internal fun DiningOutEditor(
 private fun SavedDiningOutMenuPicker(
     actions: MealScreenActions,
     editor: MealUiState.Ready,
-    requester: BringIntoViewRequester
+    requester: BringIntoViewRequester,
+    onReviewFood: (NutritionFood) -> Unit = {}
 ) {
     var choosingMenu by rememberSaveable(editor.ownerId, editor.date) { mutableStateOf(false) }
     AppOutlinedButton(
-        onClick = { choosingMenu = !choosingMenu; if (choosingMenu) actions.searchFood("") },
+        onClick = { choosingMenu = !choosingMenu; if (choosingMenu) actions.searchFood(editor.query) },
         modifier = Modifier.fillMaxWidth(),
         enabled = !editor.saving
     ) { Text(if (choosingMenu) "저장된 메뉴 목록 닫기" else "저장된 메뉴에서 선택") }
     if (choosingMenu) {
-        MealCatalogSearch(actions, editor, Modifier.fillMaxWidth())
+        MealCatalogSearch(actions, editor, Modifier.fillMaxWidth(), onReviewFood)
     }
     editor.selectedFood?.let { food ->
         AppCard(Modifier.fillMaxWidth().bringIntoViewRequester(requester)) {
