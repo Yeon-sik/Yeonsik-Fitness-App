@@ -39,9 +39,10 @@ internal fun NutritionEntryFrame(
     introduction: (@Composable ColumnScope.() -> Unit)? = null,
     collapsedSummary: (@Composable () -> Unit)? = null,
     footer: (@Composable () -> Unit)? = null,
+    scrollState: androidx.compose.foundation.ScrollState = rememberScrollState(),
     content: @Composable ColumnScope.() -> Unit
 ) {
-    val scrollState = rememberScrollState()
+    val entryDensity = LocalDensity.current
     val scope = rememberCoroutineScope()
     val canScrollToTop by remember { derivedStateOf { scrollState.value > 0 } }
     var introductionHeight by remember { mutableIntStateOf(0) }
@@ -53,6 +54,7 @@ internal fun NutritionEntryFrame(
         onDismissRequest = { if (closeEnabled) onClose() },
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
+        CompositionLocalProvider(LocalDensity provides entryDensity) {
         Surface(modifier.fillMaxSize().semantics { paneTitle = title }, color = MaterialTheme.colorScheme.background) {
             Box(Modifier.fillMaxSize().systemBarsPadding().imePadding(), contentAlignment = Alignment.TopCenter) {
                 Column(Modifier.widthIn(max = 640.dp).fillMaxHeight().fillMaxWidth()) {
@@ -102,6 +104,7 @@ internal fun NutritionEntryFrame(
                     }
                 }
             }
+        }
         }
     }
 }

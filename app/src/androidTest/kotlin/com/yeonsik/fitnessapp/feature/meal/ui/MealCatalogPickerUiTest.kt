@@ -35,26 +35,26 @@ class MealCatalogPickerUiTest {
         }, state, PriceTraceUiState.Idle, "6끼") } }
         val list = compose.onNodeWithTag("meal-food-results").performScrollTo()
         assertBounded("meal-food-results", 288f)
-        compose.onNodeWithText("식품 100개 · 목록 안에서 스크롤").assertExists()
+        compose.onNodeWithText("음식 100개 · 목록 안에서 스크롤").assertExists()
         list.performScrollToIndex(99)
         compose.onNodeWithTag("food-result-food-99").assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals("food-99", addedId) }
         compose.onNodeWithTag("meal-entry-save").assertIsDisplayed().assertIsEnabled()
-        compose.onNodeWithText("식품 2개").assertIsDisplayed()
+        compose.onNodeWithText("담은 음식 2개 보기").assertIsDisplayed()
         list.performScrollTo().performScrollToIndex(0)
         savePreview("meal-food-scroll-list.png", "6끼 기록")
     }
 
-    @Test fun aLongSelectedCompositionCanBeEditedInsideItsOwnScrollBox() {
+    @Test fun aLongSelectedCompositionCanEditOneRowWithSaveVisible() {
         var state by mutableStateOf(foodState().copy(foodPortions = foods(40).map { FoodPortionDraft(it, "100") }))
         compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, args ->
             if (name == "updateFoodQuantity") state = state.copy(foodPortions = state.foodPortions.map {
                 if (it.food.id == args!![0]) it.copy(quantity = args[1] as String) else it
             })
         }, state, PriceTraceUiState.Idle, "6끼") } }
-        compose.onNodeWithTag("meal-food-portions").performScrollTo().performScrollToIndex(39)
-        assertBounded("meal-food-portions", 360f)
-        compose.onNodeWithContentDescription("식품 39 전체 양 늘리기").performClick()
+        compose.onNodeWithTag("meal-cart-review").performClick()
+        compose.onNodeWithContentDescription("식품 39 수정").performScrollTo().performClick()
+        compose.onNodeWithContentDescription("식품 39 전체 양 늘리기").performScrollTo().assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals("125", state.foodPortions.last().quantity) }
         compose.onNodeWithTag("meal-entry-save").assertIsDisplayed()
     }
@@ -65,8 +65,8 @@ class MealCatalogPickerUiTest {
         compose.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, args ->
             if (name == "searchFood") retriedQuery = args!![0] as String
         }, state, PriceTraceUiState.Idle, "6끼") } }
-        compose.onNodeWithText("식품 목록을 불러오는 중").performScrollTo().assertIsDisplayed()
-        compose.onNodeWithText("‘밥’에 맞는 식품이 없어요.").assertDoesNotExist()
+        compose.onNodeWithText("음식 목록을 불러오는 중").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("‘밥’에 맞는 음식이 없어요.").assertDoesNotExist()
         compose.runOnIdle { state = state.copy(searchLoading = false, searchError = "목록을 불러오지 못했어요.") }
         compose.onNodeWithText("목록 다시 불러오기").performScrollTo().performClick()
         compose.runOnIdle { assertEquals("밥", retriedQuery) }
@@ -80,7 +80,7 @@ class MealCatalogPickerUiTest {
             if (name == "searchFood") cleared = args!![0] == ""
             if (name == "openNutritionEditor") opened = true
         }, foodState().copy(query = "없는 이름", searchResults = emptyList()), PriceTraceUiState.Idle, "6끼") } }
-        compose.onNodeWithText("‘없는 이름’에 맞는 식품이 없어요.").performScrollTo().assertIsDisplayed()
+        compose.onNodeWithText("‘없는 이름’에 맞는 음식이 없어요.").performScrollTo().assertIsDisplayed()
         compose.onNodeWithText("식품 등록 · 관리").performScrollTo().performClick()
         compose.onNodeWithText("검색 지우기").performScrollTo().performClick()
         compose.runOnIdle { assertTrue(cleared); assertTrue(opened) }
@@ -94,7 +94,7 @@ class MealCatalogPickerUiTest {
         }, diningState().copy(searchResults = menus, selectedFood = menus.first()), PriceTraceUiState.Idle, "7끼") } }
         compose.onNodeWithText("저장된 메뉴에서 선택").performScrollTo().performClick()
         compose.onNodeWithTag("meal-dining-results").performScrollTo()
-        compose.onNodeWithTag("food-result-food-0").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "선택됨"))
+        compose.onNodeWithTag("food-result-food-0").assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "담김"))
         assertBounded("meal-dining-results", 288f)
         compose.onNodeWithTag("meal-dining-results").performScrollToIndex(99)
         compose.onNodeWithTag("food-result-food-99").performClick()
@@ -194,7 +194,7 @@ class MealCatalogPickerUiTest {
         foodPortions = listOf(FoodPortionDraft(foods(1).first(), "100")))
 
     private fun diningState() = MealUiState.Ready("fitness-owner", "2026-10-04", true, true, "", emptyList(),
-        DiningOutDraft(store = "식당", menu = "비빔밥", calories = "600", protein = "40", carbs = "80", fat = "20"))
+        DiningOutDraft(store = "식당", menu = "비빔밥", calories = "600", protein = "40", carbs = "80", fat = "20"), category = MealCatalogCategory.DINING_OUT)
 
     private fun prices(): PriceTraceUiState.Ready = PriceTraceUiState.Ready("fitness-owner", query = "식당", selectedRestaurantId = "restaurant-1",
         detail = fixture<NutritionIntegrationService.RestaurantDetail>("restaurant-1", "식당", listOf(

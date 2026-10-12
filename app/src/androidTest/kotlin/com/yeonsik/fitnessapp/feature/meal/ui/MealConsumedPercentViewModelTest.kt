@@ -202,6 +202,11 @@ class MealConsumedPercentViewModelTest {
         fun createModel(): MealViewModel {
             val meals = proxy<MealRecordRepositoryApi> { name, args -> when (name) {
                 "setUserId" -> null
+                "saveMealItems" -> {
+                    @Suppress("UNCHECKED_CAST") val foods = args!![3] as List<MealCompositionItem>
+                    @Suppress("UNCHECKED_CAST") val menus = args[4] as List<DiningOutMenuIntake>
+                    savedFoods = foods; savedDining = menus; "mixed-record"
+                }
                 "saveFoodMealItems" -> { @Suppress("UNCHECKED_CAST") val items = args!![3] as List<MealCompositionItem>; savedFoods = items; "food-record" }
                 "saveDiningOutMenuItems" -> { @Suppress("UNCHECKED_CAST") val menus = args!![3] as List<DiningOutMenuIntake>; savedDining = menus; "dining-record" }
                 else -> error("Unexpected meal operation: $name")

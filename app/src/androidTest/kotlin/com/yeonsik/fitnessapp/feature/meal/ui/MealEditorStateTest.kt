@@ -15,6 +15,8 @@ import com.yeonsik.fitnessapp.feature.meal.data.MealRecordRepository
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogSyncStore
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput
+import com.yeonsik.fitnessapp.data.NutritionUnit
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.api.NutritionAnalysisApi
 import com.yeonsik.fitnessapp.feature.nutrition.analysis.model.NutritionAnalysisReport
 import com.yeonsik.fitnessapp.integration.nutrition.NutritionIntegrationService
@@ -65,10 +67,14 @@ class MealEditorStateTest {
             model.enter(scope, date)
             model.startDraft()
         }
+        // Resolve the initial empty-query search before controlling later requests.
+        if (searchDelayMillis == 0L && analysis == null) { background.runAll(); flushMain() }
     }
 
     @Test fun delayedResultCannotOverwriteNewQueryOrOtherDraftInputs() {
         createModel()
+        val food = registerBaseFood()
+        onMain { model.selectFood(food) }
         onMain { model.search("김") }
         background.runNext()
         // An old completion is queued for main, then the user types again before delivery.
@@ -106,7 +112,7 @@ class MealEditorStateTest {
         background.runNext()
         onMain { model.chooseDiningOut() }
         flushMain()
-        onMain { assertTrue(state().diningOut); assertEquals("", state().query) }
+        onMain { assertTrue(state().diningOut); assertEquals("식품", state().query) }
         background.runNext()
         onMain { model.enter(scope, LocalDate.now().minusDays(1).toString()) }
         flushMain()
@@ -132,6 +138,8 @@ class MealEditorStateTest {
                 throw IllegalStateException("분석 테스트 오류")
             }
         })
+        val food = registerBaseFood()
+        onMain { model.selectFood(food) }
         background.runNext()
         onMain { model.search("닭가슴살"); model.updateTime("13:10"); model.updateQuantity("120") }
         flushMain()
@@ -267,8 +275,8 @@ class MealEditorStateTest {
             model.useDiningOutFood(food)
             assertEquals("product-id", state().draft.catalogProductId)
             model.updateMenu("직접 입력한 새 메뉴")
-            assertEquals("", state().draft.restaurantId)
-            assertEquals("", state().draft.restaurantLocationId)
+            assertEquals("restaurant-id", state().draft.restaurantId)
+            assertEquals("location-id", state().draft.restaurantLocationId)
             assertEquals("", state().draft.restaurantMenuId)
             assertEquals("", state().draft.catalogProductId)
             assertNull(state().selectedFood)
@@ -297,6 +305,15 @@ class MealEditorStateTest {
         assertTrue(catalog.searchFoods("계정 전환 식품").isEmpty())
     }
 
+    private fun registerBaseFood(): NutritionFood {
+        val profile = NutritionProfile.builder().from(NutritionProfile.ofMacros(100.0, 10.0, 10.0, 1.0))
+            .value(NutritionProfile.SODIUM_MG, 0.0)
+            .value(NutritionProfile.SATURATED_FAT_GRAMS, 0.0)
+            .value(NutritionProfile.SUGARS_GRAMS, 0.0).build()
+        return catalog.registerFood(nutritionOwner,
+            NutritionFoodInput("기준 식품", null, 100.0, NutritionUnit.GRAM, profile, "manual"))
+    }
+
     private fun state() = model.uiState.value as MealUiState.Ready
     private fun onMain(action: () -> Unit) = instrumentation.runOnMainSync(action)
     private fun flushMain() = onMain { while (main.isNotEmpty()) main.removeFirst().run() }
@@ -307,6 +324,7 @@ class MealEditorStateTest {
         private var stopped = false
         override fun execute(command: Runnable) { tasks.addLast(command); scheduled.countDown() }
         fun runNext() { check(tasks.isNotEmpty()) { "No background task was scheduled" }; tasks.removeFirst().run() }
+        fun runAll() { while (tasks.isNotEmpty()) tasks.removeFirst().run() }
         override fun shutdown() { stopped = true }
         override fun shutdownNow(): MutableList<Runnable> { stopped = true; return tasks.toMutableList().also { tasks.clear() } }
         override fun isShutdown() = stopped
