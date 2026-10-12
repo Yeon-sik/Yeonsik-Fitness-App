@@ -21,7 +21,7 @@ const remote = [
   '20260920091328', '20260920091342', '20260920091351', '20260922152608',
   '20260924130855', '20260924131958', '20260924132515', '20260924132818'
 ];
-const pending = ['20260927120000', '20261002120000', '20261002130000'];
+const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708'];
 const excluded = [
   'realtime', 'storage-api', 'imgproxy', 'studio', 'mailpit',
   'postgres-meta', 'edge-runtime', 'logflare', 'vector', 'supavisor'
@@ -286,7 +286,10 @@ async function replay(label, final, kaguriId) {
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
     await sql(container, readFileSync(path.join(replayDir, 'assert_generic_v3_fix.sql'), 'utf8'));
     await canonicalIntegration(project, status, 'canonical-v3-contract-matrix');
-    console.log('PASS final fresh replay (28 recovered migrations plus all three pending migrations)');
+    for (const version of ['20261012042217', '20261012045708']) stage(version, project.migrationsDir);
+    console.log('Applying verified receipt product nutrition links and read projection locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    console.log('PASS final fresh replay (' + remote.length + ' recovered migrations plus ' + pending.length + ' forward migrations)');
   } finally {
     if (startAttempted) {
       try {
@@ -302,7 +305,7 @@ async function replay(label, final, kaguriId) {
 
 async function main() {
   const kaguriId = inventory();
-  console.log('Verified exactly 28 recovered migration files and 3 pending migration files.');
+  console.log('Verified exactly ' + remote.length + ' recovered migration files and ' + pending.length + ' forward migration files.');
   const fixture = readFileSync(path.join(replayDir, 'pre_20260814065823_kaguri.sql'), 'utf8');
   const selectorToken = '{{KAGURI_PRODUCT_UUID_FROM_HISTORICAL_SQL}}';
   if (fixture.split(selectorToken).length !== 2) {
