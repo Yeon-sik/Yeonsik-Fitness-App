@@ -156,7 +156,7 @@ class MealEditorStateTest {
         onMain {
             model.openManualFood()
             model.updateManualFood(ManualFoodDraft(name = "새 식품", basisAmount = "100", calories = "200",
-                carbs = "20", protein = "10", fat = "8", sugars = "0"))
+                carbs = "20", protein = "10", fat = "8", sugars = "0", transFat = "0.4"))
             model.updateTime("12:30")
             model.saveManualFood(scope)
         }
@@ -186,9 +186,11 @@ class MealEditorStateTest {
         assertNull(snapshot.sodiumMg)
         assertNull(snapshot.saturatedFatGrams)
         assertEquals(0.0, snapshot.sugarsGrams!!, 0.0)
+        assertEquals(0.6, snapshot.transFatGrams!!, 0.001)
         // Catalog changes must never alter the consumed snapshot.
-        room.openHelper.writableDatabase.execSQL("UPDATE nutrition_foods SET calories_kcal=999 WHERE id=?", arrayOf(food.id))
+        room.openHelper.writableDatabase.execSQL("UPDATE nutrition_foods SET calories_kcal=999,trans_fat_grams=7 WHERE id=?", arrayOf(food.id))
         assertEquals(300.0, dao.visibleMealItems(recordId, scope.ownerId).single().calories, 0.0)
+        assertEquals(0.6, dao.visibleMealItems(recordId, scope.ownerId).single().transFatGrams!!, 0.001)
         catalog.setUserId("other-nutrition-owner")
         assertNull(catalog.findFoodById(food.id))
         assertTrue(catalog.searchFoods("새 식품").isEmpty())
@@ -210,12 +212,40 @@ class MealEditorStateTest {
         assertEquals(0L, room.mealRoomDao().mealCountForDate(scope.ownerId, date))
     }
 
+    @Test fun catalogWriteRejectsInconsistentProfilesEvenWithoutTheEditor() {
+        val profile = NutritionProfile.builder().value(NutritionProfile.CALORIES_KCAL, 600.0)
+            .value(NutritionProfile.PROTEIN_GRAMS, 20.0).value(NutritionProfile.CARBS_GRAMS, 43.0)
+            .value(NutritionProfile.FAT_GRAMS, 28.0).value(NutritionProfile.SUGARS_GRAMS, 8.0).build()
+        listOf(NutritionProfile.SUGARS_GRAMS to 50.0, NutritionProfile.ADDED_SUGARS_GRAMS to 9.0,
+            NutritionProfile.SATURATED_FAT_GRAMS to 30.0, NutritionProfile.TRANS_FAT_GRAMS to 30.0).forEach { (key, value) ->
+            val invalid = NutritionProfile.builder().from(profile).value(key, value).build()
+            assertThrows(IllegalArgumentException::class.java) {
+                catalog.saveManualFoodInput(AccountScope(nutritionOwner),
+                    NutritionFoodInput("잘못된 라벨", null, 100.0, NutritionUnit.GRAM, invalid, "manual"))
+            }
+        }
+        assertTrue(catalog.searchFoods("잘못된 라벨").isEmpty())
+        assertEquals(0L, room.mealRoomDao().mealCountForDate(scope.ownerId, date))
+    }
+
+    @Test fun diningDraftSerializationPreservesTransFatAndReadsOlderDraftsAsUnknown() {
+        val menu = MealDiningDraftItem("menu", DiningOutDraft(store = "식당", menu = "메뉴", transFat = "0.4"))
+        assertEquals(menu, decodeDiningMenu(encodeDiningMenu(menu)))
+        val old = org.json.JSONObject(encodeDiningMenu(menu))
+        old.getJSONArray("draft").remove(17)
+        assertEquals("", decodeDiningMenu(old.toString())!!.draft.transFat)
+        val unknown = menu.copy(draft = menu.draft.copy(transFat = ""))
+        val zero = menu.copy(draft = menu.draft.copy(transFat = "0"))
+        assertEquals("", decodeDiningMenu(encodeDiningMenu(unknown))!!.draft.transFat)
+        assertEquals("0", decodeDiningMenu(encodeDiningMenu(zero))!!.draft.transFat)
+    }
+
     @Test fun manualDraftRestoresOnlyForItsOwnerAndDate() {
         val handle = SavedStateHandle()
         createModel(handle = handle)
         onMain {
             model.openManualFood()
-            model.updateManualFood(ManualFoodDraft(name = "작성 중인 식품", basisAmount = "250", basisUnit = "ml", calories = "123"))
+            model.updateManualFood(ManualFoodDraft(name = "작성 중인 식품", basisAmount = "250", basisUnit = "ml", calories = "123", transFat = "0.4"))
             val restored = SavedStateHandle(handle.keys().associateWith { handle.get<Any>(it) })
             model = MealViewModel(restored, meals, catalog, integration, executor = background,
                 mainExecutor = Executor { main.addLast(it) }, searchDelayMillis = 0)
@@ -225,6 +255,7 @@ class MealEditorStateTest {
             assertEquals("작성 중인 식품", state().manualFoodDraft.name)
             assertEquals("250", state().manualFoodDraft.basisAmount)
             assertEquals("ml", state().manualFoodDraft.basisUnit)
+            assertEquals("0.4", state().manualFoodDraft.transFat)
             model.enter(AccountScope("different-fitness-owner"), date)
             assertFalse(state().manualFoodEntry)
             assertEquals("", state().manualFoodDraft.name)
@@ -237,6 +268,7 @@ class MealEditorStateTest {
             model.chooseDiningOut()
             model.updateStore("새 식당"); model.updateMenu("새 메뉴")
             model.updateCalories("500"); model.updateCarbs("60"); model.updateProtein("20"); model.updateFat("15")
+            model.updateTransFat("0.4")
         }
         background.runNext(); flushMain()
         onMain { model.saveReusableDiningOutMenu(scope) }
@@ -246,6 +278,8 @@ class MealEditorStateTest {
             assertNotNull(state().catalogNotice)
             assertEquals("새 식당", state().draft.store)
             assertNull(state().selectedFood!!.profile.value(NutritionProfile.SODIUM_MG))
+            assertEquals(0.4, state().selectedFood!!.profile.transFatGrams()!!, 0.0)
+            assertEquals("0.4", state().draft.transFat)
             model.search("새 메뉴")
         }
         background.runNext(); flushMain()

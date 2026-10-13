@@ -104,6 +104,7 @@ interface MealScreenActions {
     fun updateSodium(value: String)
     fun updateSugars(value: String)
     fun updateSaturatedFat(value: String)
+    fun updateTransFat(value: String)
     fun updatePriceTraceQuery(value: String)
     fun searchPriceTraceRestaurants()
     fun loadPriceTraceRestaurant(restaurantId: String)
@@ -588,7 +589,7 @@ internal fun DiningOutEditor(
 ) {
     val draft = editor.draft
     var showExtraNutrition by rememberSaveable(editor.ownerId, editor.date) {
-        mutableStateOf(listOf(draft.sodium, draft.sugars, draft.saturatedFat).any { it.isNotBlank() })
+        mutableStateOf(listOf(draft.sodium, draft.sugars, draft.saturatedFat, draft.transFat).any { it.isNotBlank() })
     }
     val selectedMenuRequester = remember { BringIntoViewRequester() }
     val nutritionError = diningOutRegistrationError(draft)
@@ -622,19 +623,21 @@ internal fun DiningOutEditor(
             enabled = !editor.saving, tag = "meal-dining-current-percent")
         if (portionError != null) MealInputNotice(portionError)
         MealNutritionField(draft.calories, actions::updateCalories, "칼로리", "kcal", Modifier.fillMaxWidth(), !editor.saving)
-        MealNutritionField(draft.carbs, actions::updateCarbs, "탄수화물", "g", Modifier.fillMaxWidth(), !editor.saving)
+        MealInputNotice(com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy.LABEL_GUIDANCE)
+        MealNutritionField(draft.carbs, actions::updateCarbs, "탄수화물 (총)", "g", Modifier.fillMaxWidth(), !editor.saving)
         MealNutritionField(draft.protein, actions::updateProtein, "단백질", "g", Modifier.fillMaxWidth(), !editor.saving)
-        MealNutritionField(draft.fat, actions::updateFat, "지방", "g", Modifier.fillMaxWidth(), !editor.saving)
+        MealNutritionField(draft.fat, actions::updateFat, "지방 (총)", "g", Modifier.fillMaxWidth(), !editor.saving)
         AppOutlinedButton(
             onClick = { showExtraNutrition = !showExtraNutrition },
             modifier = Modifier.fillMaxWidth(),
             enabled = !editor.saving
-        ) { Text(if (showExtraNutrition) "선택 영양정보 접기" else "나트륨·당류·포화지방 입력 (선택)") }
+        ) { Text(if (showExtraNutrition) "선택 영양정보 접기" else "나트륨·당류·포화지방·트랜스지방 입력 (선택)") }
         if (showExtraNutrition) {
             MealInputNotice("모르는 값은 비워 두면 미확인으로 저장돼요.")
             MealNutritionField(draft.sodium, actions::updateSodium, "나트륨", "mg", Modifier.fillMaxWidth(), !editor.saving, required = false)
             MealNutritionField(draft.sugars, actions::updateSugars, "당류", "g", Modifier.fillMaxWidth(), !editor.saving, required = false)
             MealNutritionField(draft.saturatedFat, actions::updateSaturatedFat, "포화지방", "g", Modifier.fillMaxWidth(), !editor.saving, required = false)
+            MealNutritionField(draft.transFat, actions::updateTransFat, "트랜스지방", "g", Modifier.fillMaxWidth(), !editor.saving, required = false)
         }
         editor.notice?.let { Text(it, color = MaterialTheme.colorScheme.primary) }
         saveHint?.let { MealInputNotice(it) }

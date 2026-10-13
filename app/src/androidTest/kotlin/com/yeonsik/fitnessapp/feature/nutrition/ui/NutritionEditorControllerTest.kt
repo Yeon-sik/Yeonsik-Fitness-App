@@ -4,6 +4,8 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.test.platform.app.InstrumentationRegistry
 import com.yeonsik.fitnessapp.data.*
 import com.yeonsik.fitnessapp.feature.nutrition.api.*
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput
+import com.yeonsik.fitness.shared.core.account.AccountScope
 import org.junit.Assert.*
 import org.junit.Test
 import java.util.concurrent.AbstractExecutorService
@@ -79,15 +81,54 @@ class NutritionEditorControllerTest {
         }
     }
 
+    @Test fun foodEditorValidatesTotalsAndRestoresOptionalTransFatBeforeRegistration() {
+        val catalog = Catalog()
+        val executor = QueueExecutor()
+        val handle = SavedStateHandle()
+        lateinit var editor: NutritionEditorController
+        main { editor = NutritionEditorController(handle, catalog, Templates(), executor); editor.open() }
+        executor.drain()
+        main {
+            editor.newFood(); editor.updateField(FoodEntryField.NAME, "라벨 식품")
+            editor.updatePackageAmount("100")
+            mapOf(FoodEntryField.CALORIES to "600", FoodEntryField.PROTEIN to "20",
+                FoodEntryField.CARBS to "43", FoodEntryField.FAT to "28", FoodEntryField.SUGARS to "50",
+                FoodEntryField.SATURATED_FAT to "9", FoodEntryField.TRANS_FAT to "0.4").forEach { (field, value) ->
+                editor.updateField(field, value)
+            }
+            editor.save()
+            assertEquals("당류는 탄수화물 총량을 초과할 수 없습니다.", editor.uiState.value!!.error)
+            assertFalse(editor.uiState.value!!.saving)
+            assertNull(catalog.savedInput)
+            editor.updateField(FoodEntryField.SUGARS, "8")
+            editor = NutritionEditorController(SavedStateHandle(handle.keys().associateWith { handle.get<Any?>(it) }),
+                catalog, Templates(), executor)
+            editor.open()
+        }
+        executor.drain()
+        main { assertEquals("0.4", editor.uiState.value!!.field(FoodEntryField.TRANS_FAT)); editor.save() }
+        executor.drain()
+        val profile = catalog.savedInput!!.profile
+        assertEquals(43.0, profile.carbsGrams(), 0.0)
+        assertEquals(28.0, profile.fatGrams(), 0.0)
+        assertEquals(0.4, profile.transFatGrams()!!, 0.0)
+        assertNull(profile.sodiumMg())
+    }
+
     private fun main(work: () -> Unit) = InstrumentationRegistry.getInstrumentation().runOnMainSync(work)
 
     private class Catalog : NutritionCatalogRepositoryApi {
         var owner = "nutrition-owner"
+        var savedInput: NutritionFoodInput? = null
         val food = NutritionFood.builder().id("apple").ownerId(owner).name("사과").basis(100.0, "g")
             .profile(NutritionProfile.ofMacros(52.0, 0.3, 14.0, 0.2)).build()
         override fun currentOwnerId() = owner
         override fun searchFoods(query: String) = listOf(food)
         override fun findFoodById(foodId: String) = food.takeIf { it.id == foodId }
+        override fun saveManualFoodInput(scope: AccountScope, input: NutritionFoodInput): NutritionFood {
+            savedInput = input
+            return food
+        }
     }
 
     private class Templates : NutritionTemplateRepositoryApi {

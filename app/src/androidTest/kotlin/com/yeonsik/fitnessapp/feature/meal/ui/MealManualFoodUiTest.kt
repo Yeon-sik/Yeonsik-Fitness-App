@@ -79,9 +79,11 @@ class MealManualFoodUiTest {
         compose.onNodeWithText("음식 직접 등록").performScrollTo().performClick()
         field("식품명").assertTextContains("내 새 식품")
         field("칼로리 kcal").performScrollTo().performTextReplacement("200")
-        field("탄수화물 g").performScrollTo().performTextReplacement("20")
+        field("탄수화물 (총) g").performScrollTo().performTextReplacement("20")
         field("단백질 g").performScrollTo().performTextReplacement("10")
-        field("지방 g").performScrollTo().performTextReplacement("8")
+        field("지방 (총) g").performScrollTo().performTextReplacement("8")
+        compose.onNodeWithText("나트륨·당류·포화지방·트랜스지방 입력 (선택)").performScrollTo().performClick()
+        field("트랜스지방 g (선택)").performScrollTo().performTextReplacement("0.4")
         compose.onNodeWithText("새 재료 등록").performScrollTo()
         capture("manual-food-light")
         compose.onNodeWithText("내 식품으로 등록").performScrollTo().performClick()
@@ -95,6 +97,8 @@ class MealManualFoodUiTest {
         assertEquals(1L, room.mealRoomDao().mealCountForDate(scope.ownerId, date))
         room.openHelper.readableDatabase.query("SELECT calories FROM meal_records WHERE user_id=?",
             arrayOf(scope.ownerId)).use { cursor -> assertTrue(cursor.moveToFirst()); assertEquals(300.0, cursor.getDouble(0), 0.0) }
+        room.openHelper.readableDatabase.query("SELECT trans_fat_grams FROM meal_record_items WHERE user_id=?",
+            arrayOf(scope.ownerId)).use { cursor -> assertTrue(cursor.moveToFirst()); assertEquals(0.6, cursor.getDouble(0), 0.001) }
     }
 
     @Test fun darkLargeTextKeepsDirectEntryAndValidationUsable() {
@@ -115,9 +119,9 @@ class MealManualFoodUiTest {
         field("상호명 (필수)").performScrollTo().performTextReplacement("검증 식당")
         field("먹은 메뉴 (필수)").performScrollTo().performTextReplacement("검증 메뉴")
         field("칼로리 kcal").performScrollTo().performTextReplacement("500")
-        field("탄수화물 g").performScrollTo().performTextReplacement("60")
+        field("탄수화물 (총) g").performScrollTo().performTextReplacement("60")
         field("단백질 g").performScrollTo().performTextReplacement("20")
-        field("지방 g").performScrollTo().performTextReplacement("15")
+        field("지방 (총) g").performScrollTo().performTextReplacement("15")
         compose.onNodeWithText("다음에도 쓸 메뉴로 저장").performScrollTo().performClick()
         compose.waitUntil(5000) { (model.uiState.value as? MealUiState.Ready)?.catalogNotice != null }
         compose.onNodeWithTag("meal-entry-save").assertIsDisplayed().assertIsEnabled()

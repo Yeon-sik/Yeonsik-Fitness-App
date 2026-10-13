@@ -283,17 +283,19 @@ private fun MealDiningAmountEditor(menu: MealDiningDraftItem, onChange: (MealDin
     }
     if (nutritionOpen || diningMenuRegistrationError(menu) != null) {
         val d = menu.draft
+        MealInputNotice(com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy.LABEL_GUIDANCE)
         AppTextField(d.store, { onChange(menu.copy(draft = d.copy(store = it))) }, Modifier.fillMaxWidth(), { Text("상호명") }, enabled = enabled)
         AppTextField(d.branch, { onChange(menu.copy(draft = d.copy(branch = it))) }, Modifier.fillMaxWidth(), { Text("지점명 (선택)") }, enabled = enabled)
         AppTextField(d.menu, { onChange(menu.copy(draft = d.copy(menu = it))) }, Modifier.fillMaxWidth(), { Text("메뉴명") }, enabled = enabled)
         MealNutritionField(d.calories, { onChange(menu.copy(draft = d.copy(calories = it))) }, "칼로리", "kcal",
             Modifier.fillMaxWidth().testTag("meal-dining-calories-${menu.id}"), enabled)
         MealNutritionField(d.protein, { onChange(menu.copy(draft = d.copy(protein = it))) }, "단백질", "g", Modifier.fillMaxWidth(), enabled)
-        MealNutritionField(d.carbs, { onChange(menu.copy(draft = d.copy(carbs = it))) }, "탄수화물", "g", Modifier.fillMaxWidth(), enabled)
-        MealNutritionField(d.fat, { onChange(menu.copy(draft = d.copy(fat = it))) }, "지방", "g", Modifier.fillMaxWidth(), enabled)
+        MealNutritionField(d.carbs, { onChange(menu.copy(draft = d.copy(carbs = it))) }, "탄수화물 (총)", "g", Modifier.fillMaxWidth(), enabled)
+        MealNutritionField(d.fat, { onChange(menu.copy(draft = d.copy(fat = it))) }, "지방 (총)", "g", Modifier.fillMaxWidth(), enabled)
         MealNutritionField(d.sodium, { onChange(menu.copy(draft = d.copy(sodium = it))) }, "나트륨", "mg", Modifier.fillMaxWidth(), enabled, required = false)
         MealNutritionField(d.sugars, { onChange(menu.copy(draft = d.copy(sugars = it))) }, "당류", "g", Modifier.fillMaxWidth(), enabled, required = false)
         MealNutritionField(d.saturatedFat, { onChange(menu.copy(draft = d.copy(saturatedFat = it))) }, "포화지방", "g", Modifier.fillMaxWidth(), enabled, required = false)
+        MealNutritionField(d.transFat, { onChange(menu.copy(draft = d.copy(transFat = it))) }, "트랜스지방", "g", Modifier.fillMaxWidth(), enabled, required = false)
     }
     diningMenuRegistrationError(menu)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 }

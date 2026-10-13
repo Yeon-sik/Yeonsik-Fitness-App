@@ -4,6 +4,7 @@ import com.yeonsik.fitnessapp.data.NutritionProfile
 import com.yeonsik.fitnessapp.data.NutritionUnit
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionFoodInput
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
 
 /** The label's nutrition basis is independent of the amount eaten in a Meal record. */
 data class ManualFoodDraft(
@@ -20,7 +21,8 @@ data class ManualFoodDraft(
     val saturatedFat: String = "",
     val registrationKind: NutritionRegistrationKind = NutritionRegistrationKind.INGREDIENT,
     val packageAmount: String = "",
-    val packageUnit: String = NutritionUnit.GRAM
+    val packageUnit: String = NutritionUnit.GRAM,
+    val transFat: String = ""
 ) {
     internal fun validated(): NutritionFoodInput {
         require(name.isNotBlank()) { "식품명을 입력하세요." }
@@ -34,7 +36,9 @@ data class ManualFoodDraft(
             .value(NutritionProfile.SODIUM_MG, optional(sodium, "나트륨"))
             .value(NutritionProfile.SUGARS_GRAMS, optional(sugars, "당류"))
             .value(NutritionProfile.SATURATED_FAT_GRAMS, optional(saturatedFat, "포화지방"))
+            .value(NutritionProfile.TRANS_FAT_GRAMS, optional(transFat, "트랜스지방"))
             .build()
+        NutritionConsistencyPolicy.validate(profile)
         val kind = registrationKind
         val packAmount = if (kind == NutritionRegistrationKind.PRODUCT) number(packageAmount, "제품 1개 용량")
             .also { require(it > 0) { "제품 1개 용량을 0보다 크게 입력하세요." } } else null

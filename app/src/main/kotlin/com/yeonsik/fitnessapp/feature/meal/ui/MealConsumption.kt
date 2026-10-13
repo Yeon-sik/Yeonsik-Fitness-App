@@ -46,7 +46,7 @@ internal fun currentDiningMenu(editor: MealUiState.Ready) = MealDiningDraftItem(
     editor.diningPortion, editor.diningConsumedPercent, editor.selectedFood?.id)
 
 internal fun hasCurrentDiningMenu(editor: MealUiState.Ready): Boolean = editor.draft.let {
-    listOf(it.menu, it.calories, it.carbs, it.protein, it.fat, it.sodium, it.sugars, it.saturatedFat).any(String::isNotBlank)
+    listOf(it.menu, it.calories, it.carbs, it.protein, it.fat, it.sodium, it.sugars, it.saturatedFat, it.transFat).any(String::isNotBlank)
 }
 
 internal fun diningMealMenus(editor: MealUiState.Ready): List<MealDiningDraftItem> =
@@ -72,7 +72,8 @@ internal fun diningMenuNutritionProfile(menu: MealDiningDraftItem): NutritionPro
             listOf(NutritionProfile.CALORIES_KCAL to draft.calories, NutritionProfile.PROTEIN_GRAMS to draft.protein,
                 NutritionProfile.CARBS_GRAMS to draft.carbs, NutritionProfile.FAT_GRAMS to draft.fat,
                 NutritionProfile.SODIUM_MG to draft.sodium, NutritionProfile.SUGARS_GRAMS to draft.sugars,
-                NutritionProfile.SATURATED_FAT_GRAMS to draft.saturatedFat).forEach { (key, raw) ->
+                NutritionProfile.SATURATED_FAT_GRAMS to draft.saturatedFat,
+                NutritionProfile.TRANS_FAT_GRAMS to draft.transFat).forEach { (key, raw) ->
                 raw.trim().toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
                     ?.let { (it * amount).takeIf(Double::isFinite) }?.let { value(key, it) }
             }
@@ -110,15 +111,16 @@ internal fun encodeDiningMenu(menu: MealDiningDraftItem): String = JSONObject().
     val d = menu.draft
     put("draft", JSONArray(listOf(d.store, d.branch, d.menu, d.calories, d.carbs, d.protein, d.fat,
         d.sodium, d.sugars, d.saturatedFat, d.time, d.restaurantId, d.restaurantLocationId, d.restaurantMenuId,
-        d.catalogProductId, d.sourceNamespace, d.sourceLocationCode)))
+        d.catalogProductId, d.sourceNamespace, d.sourceLocationCode, d.transFat)))
 }.toString()
 
 internal fun decodeDiningMenu(raw: String): MealDiningDraftItem? = runCatching {
     val json = JSONObject(raw)
     val d = json.getJSONArray("draft")
-    require(d.length() == 17)
+    require(d.length() == 17 || d.length() == 18)
     MealDiningDraftItem(json.getString("id"), DiningOutDraft(d.getString(0), d.getString(1), d.getString(2),
         d.getString(3), d.getString(4), d.getString(5), d.getString(6), d.getString(7), d.getString(8), d.getString(9),
-        d.getString(10), d.getString(11), d.getString(12), d.getString(13), d.getString(14), d.getString(15), d.getString(16)),
+        d.getString(10), d.getString(11), d.getString(12), d.getString(13), d.getString(14), d.getString(15), d.getString(16),
+        transFat = d.optString(17, "")),
         json.getString("quantity"), json.getString("percent"), json.optString("food_id").takeUnless { it == "null" || it.isBlank() })
 }.getOrNull()
