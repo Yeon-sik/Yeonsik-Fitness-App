@@ -1252,6 +1252,132 @@ async function runCanonicalV3ContractMatrix(ownerA, ownerB) {
   console.log('PASS all three canonical v3 contract paths');
 }
 
+function nutritionRelationPayload(route, label, requiredChanges = {}, optional = {}) {
+  const key = uniqueId(`relation-${route.name}-${label}`);
+  const payload = route.build(key, key);
+  payload.p_required_nutrients = {
+    ...payload.p_required_nutrients,
+    carbs_grams: 43, sugars_grams: 8, fat_grams: 28, saturated_fat_grams: 9,
+    ...requiredChanges
+  };
+  payload.p_optional_nutrients = { ...optional };
+  // Reach the relation CHECK, rather than the earlier evidence/value matching guard.
+  for (const [nutrient, evidence] of Object.entries(payload.p_nutrient_provenance || {})) {
+    evidence.value = payload.p_required_nutrients[nutrient];
+  }
+  if (payload.p_estimation_evidence?.range) {
+    for (const [nutrient, value] of Object.entries(payload.p_required_nutrients)) {
+      payload.p_estimation_evidence.range[nutrient] = { min: value * 0.8, point: value, max: value * 1.25 };
+    }
+  }
+  if (payload.p_product_name != null) payload.p_product_name = key;
+  if (payload.p_input_contract === 'external-reference.v1') payload.p_brand = payload.p_brand_name;
+  return payload;
+}
+
+async function relationImport(owner, route, payload) {
+  const body = await expectOk(`relation import ${route.name}`, `/rest/v1/rpc/${route.rpc}`, {
+    method: 'POST', headers: rpcHeaders(owner), body: JSON.stringify(payload)
+  });
+  assert(Array.isArray(body) && body.length === 1, 'relation import must return exactly one row');
+  const result = body[0];
+  if (route.canonical) recordImport(result);
+  else recordLegacy(result);
+  return result;
+}
+
+async function runNutritionRelationGuards(ownerA, ownerB) {
+  const routes = [
+    { name: 'verified-v1', rpc: 'import_verified_nutrition_v1', build: legacyLabelPayload, canonical: false },
+    { name: 'canonical-v2', rpc: 'import_canonical_nutrition_v2', build: labelPayload, canonical: true },
+    { name: 'canonical-v3-label', rpc: 'import_canonical_nutrition_v3', build: packagedHierarchyLabelPayload, canonical: true },
+    { name: 'canonical-v3-estimate', rpc: 'import_canonical_nutrition_v3', build: estimateV3Payload, canonical: true },
+    // The external-reference executor has no authenticated EXECUTE grant; use its public dispatcher.
+    { name: 'canonical-v3-external', rpc: 'import_canonical_nutrition_v3', build: externalReferencePayload, canonical: true }
+  ];
+  const valid = [
+    { name: 'literal-totals', required: {}, optional: { trans_fat_grams: 0.4 } },
+    { name: 'equal-sugars', required: { sugars_grams: 43 }, optional: {} },
+    { name: 'unknown-children', required: {}, optional: {} },
+    { name: 'zero-children', required: {}, optional: { added_sugars_grams: 0, trans_fat_grams: 0 } },
+    { name: 'equal-added-sugars', required: {}, optional: { added_sugars_grams: 8 } },
+    { name: 'equal-fat-components', required: { saturated_fat_grams: 28 }, optional: { trans_fat_grams: 28 } }
+  ];
+  const invalid = [
+    { name: 'sugars', required: { sugars_grams: 50 }, optional: {}, constraint: 'nutrition_verified_imports_sugars_le_carbs_check' },
+    { name: 'added-sugars', required: {}, optional: { added_sugars_grams: 9 }, constraint: 'nutrition_verified_imports_added_sugars_le_sugars_check' },
+    { name: 'saturated-fat', required: { saturated_fat_grams: 30 }, optional: {}, constraint: 'nutrition_verified_imports_saturated_fat_le_fat_check' },
+    { name: 'trans-fat', required: {}, optional: { trans_fat_grams: 30 }, constraint: 'nutrition_verified_imports_trans_fat_le_fat_check' }
+  ];
+  for (const route of routes) {
+    for (const test of valid) {
+      const payload = nutritionRelationPayload(route, test.name, test.required, test.optional);
+      const result = await relationImport(ownerA, route, payload);
+      assertEqual(result.idempotent_replay, false, `${route.name} first import flag`);
+      const id = result.projection_import_id ?? result.import_id;
+      const rows = await getRows(ownerA, 'nutrition_verified_imports', { id },
+        'owner_id,required_nutrients,optional_nutrients');
+      assertEqual(rows.length, 1, `${route.name} stored import count`);
+      assertEqual(rows[0].owner_id, ownerA.userId, `${route.name} import owner`);
+      const foods = await getRows(ownerA, 'nutrition_foods', { id: result.nutrition_food_id });
+      assertEqual(foods.length, 1, `${route.name} stored food count`);
+      for (const [key, value] of Object.entries(payload.p_required_nutrients)) {
+        assertEqual(rows[0].required_nutrients[key], value, `${route.name} literal import ${key}`);
+        assertEqual(foods[0][key], value, `${route.name} literal projection ${key}`);
+      }
+      for (const key of ['added_sugars_grams', 'trans_fat_grams']) {
+        const known = Object.hasOwn(payload.p_optional_nutrients, key);
+        assertEqual(Object.hasOwn(rows[0].optional_nutrients, key), known, `${route.name} optional presence ${key}`);
+        if (known) assertEqual(rows[0].optional_nutrients[key], payload.p_optional_nutrients[key], `${route.name} optional ${key}`);
+        assertEqual(foods[0][key], known ? payload.p_optional_nutrients[key] : null, `${route.name} projection unknown/zero ${key}`);
+      }
+      assertEqual((await getRows(ownerB, 'nutrition_verified_imports', { id })).length, 0, `${route.name} other owner import isolation`);
+      if (route.canonical) {
+        await verifyCanonicalResult(ownerA, result, payload.p_input_contract,
+          payload.p_input_contract === 'nutrition-label.v1' ? 'product_label_ocr' :
+            payload.p_input_contract === 'food-estimate.v1' ? 'food_image_estimate' : 'external_reference');
+      }
+      const replay = await relationImport(ownerA, route, payload);
+      assertEqual(replay.idempotent_replay, true, `${route.name} same payload replay flag`);
+      assertEqual(replay.nutrition_food_id, result.nutrition_food_id, `${route.name} same payload food`);
+      assertEqual(replay.projection_import_id ?? replay.import_id, id, `${route.name} same payload audit id`);
+      if (route.canonical) assertEqual(replay.canonical_import_id, result.canonical_import_id, `${route.name} same canonical id`);
+      console.log(`PASS ${route.name} ${test.name}: literal values, unknown/zero, owner isolation, and replay`);
+    }
+    for (const test of invalid) {
+      const payload = nutritionRelationPayload(route, `invalid-${test.name}`, test.required, test.optional);
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const rejected = await expectRejected(`${route.name} ${test.name} relation rejection ${attempt + 1}`,
+          `/rest/v1/rpc/${route.rpc}`, { method: 'POST', headers: rpcHeaders(ownerA), body: JSON.stringify(payload) });
+        assertEqual(rejected.body?.code, '23514', `${route.name} relation SQLSTATE`);
+        assert(String(rejected.body?.message).includes(test.constraint), `${route.name} must reach named relation CHECK ${test.constraint}`);
+        assertEqual((await getRows(ownerA, 'nutrition_verified_imports', { source_document_ref: payload.p_source_document_ref })).length,
+          0, `${route.name} failed import must leave no projection audit`);
+        if (route.canonical) assertEqual((await getRows(ownerA, 'nutrition_canonical_imports', { idempotency_key: payload.p_idempotency_key })).length,
+          0, `${route.name} failed import must leave no canonical audit`);
+        assertEqual((await getRows(ownerA, 'nutrition_foods', { name: payload.p_food_name })).length,
+          0, `${route.name} failed import must leave no food projection`);
+      }
+      // Reusing the rejected key with corrected values must be a fresh commit, never a replay.
+      const corrected = structuredClone(payload);
+      for (const key of Object.keys(test.required)) {
+        corrected.p_required_nutrients[key] = key === 'sugars_grams' ? 8 : 9;
+        if (corrected.p_nutrient_provenance?.[key]) {
+          corrected.p_nutrient_provenance[key].value = corrected.p_required_nutrients[key];
+        }
+        if (corrected.p_estimation_evidence?.range) {
+          const value = corrected.p_required_nutrients[key];
+          corrected.p_estimation_evidence.range[key] = { min: value * 0.8, point: value, max: value * 1.25 };
+        }
+      }
+      for (const key of Object.keys(test.optional)) corrected.p_optional_nutrients[key] = key === 'added_sugars_grams' ? 8 : 0.4;
+      const fresh = await relationImport(ownerA, route, corrected);
+      assertEqual(fresh.idempotent_replay, false, `${route.name} rejected key must not have committed`);
+      console.log(`PASS ${route.name} ${test.name}: atomic rollback and corrected fresh import`);
+    }
+  }
+}
+
 async function run() {
   if (process.env.NUTRITION_INTEGRATION_ALLOW_REMOTE !== 'true') {
     throw new ConfigurationError(
@@ -1265,6 +1391,10 @@ async function run() {
   }
 
   const { ownerA, ownerB } = await resolveOwners();
+  if (process.env.NUTRITION_INTEGRATION_MODE === 'nutrition-relation-guards') {
+    await runNutritionRelationGuards(ownerA, ownerB);
+    return;
+  }
   if (process.env.NUTRITION_INTEGRATION_MODE === 'generic-v3-ambiguity-repro') {
     await reproduceGenericV3NutritionFoodIdAmbiguity(ownerA);
     return;
@@ -1277,6 +1407,8 @@ async function run() {
     await runExternalReferenceOnly(ownerA, ownerB);
     return;
   }
+
+  await runNutritionRelationGuards(ownerA, ownerB);
 
   const hierarchy = packagedHierarchyLabelPayload(
     uniqueId('hierarchy-full'),

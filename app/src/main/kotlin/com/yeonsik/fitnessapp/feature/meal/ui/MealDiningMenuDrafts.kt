@@ -14,6 +14,7 @@ import com.yeonsik.fitnessapp.data.NutritionProfile
 import com.yeonsik.fitnessapp.feature.nutrition.ui.NutritionFormSection
 import com.yeonsik.fitnessapp.feature.nutrition.ui.nutritionTotalText
 import com.yeonsik.fitnessapp.data.NutritionTotals
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
 
 /** Plain per-menu input content; durable values and writes belong to MealViewModel. */
 @Composable
@@ -54,17 +55,19 @@ private fun DiningMenuDraftCard(menu: MealDiningDraftItem, onChange: (MealDining
             Text(if (editingNutrition) "영양정보 수정 닫기" else "100% 기준 영양정보 수정")
         }
         if (editingNutrition) {
+            MealInputNotice(NutritionConsistencyPolicy.LABEL_GUIDANCE)
             AppTextField(draft.store, { onChange(menu.copy(draft = draft.copy(store = it))) }, Modifier.fillMaxWidth(), { Text("상호명") }, enabled = enabled)
             AppTextField(draft.branch, { onChange(menu.copy(draft = draft.copy(branch = it))) }, Modifier.fillMaxWidth(), { Text("지점명 (선택)") }, enabled = enabled)
             AppTextField(draft.menu, { onChange(menu.copy(draft = draft.copy(menu = it))) }, Modifier.fillMaxWidth(), { Text("메뉴명") }, enabled = enabled)
             MealNutritionField(draft.calories, { onChange(menu.copy(draft = draft.copy(calories = it))) }, "칼로리", "kcal",
                 Modifier.fillMaxWidth().testTag("meal-dining-calories-${menu.id}"), enabled)
             MealNutritionField(draft.protein, { onChange(menu.copy(draft = draft.copy(protein = it))) }, "단백질", "g", Modifier.fillMaxWidth(), enabled)
-            MealNutritionField(draft.carbs, { onChange(menu.copy(draft = draft.copy(carbs = it))) }, "탄수화물", "g", Modifier.fillMaxWidth(), enabled)
-            MealNutritionField(draft.fat, { onChange(menu.copy(draft = draft.copy(fat = it))) }, "지방", "g", Modifier.fillMaxWidth(), enabled)
+            MealNutritionField(draft.carbs, { onChange(menu.copy(draft = draft.copy(carbs = it))) }, "탄수화물 (총)", "g", Modifier.fillMaxWidth(), enabled)
+            MealNutritionField(draft.fat, { onChange(menu.copy(draft = draft.copy(fat = it))) }, "지방 (총)", "g", Modifier.fillMaxWidth(), enabled)
             MealNutritionField(draft.sodium, { onChange(menu.copy(draft = draft.copy(sodium = it))) }, "나트륨", "mg", Modifier.fillMaxWidth(), enabled, required = false)
             MealNutritionField(draft.sugars, { onChange(menu.copy(draft = draft.copy(sugars = it))) }, "당류", "g", Modifier.fillMaxWidth(), enabled, required = false)
             MealNutritionField(draft.saturatedFat, { onChange(menu.copy(draft = draft.copy(saturatedFat = it))) }, "포화지방", "g", Modifier.fillMaxWidth(), enabled, required = false)
+            MealNutritionField(draft.transFat, { onChange(menu.copy(draft = draft.copy(transFat = it))) }, "트랜스지방", "g", Modifier.fillMaxWidth(), enabled, required = false)
         }
         diningMenuRegistrationError(menu)?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         AppOutlinedButton({ onRemove(menu.id) }, Modifier.fillMaxWidth().testTag("meal-dining-remove-${menu.id}"), enabled = enabled) { Text("이 메뉴 삭제") }

@@ -31,6 +31,7 @@ import com.yeonsik.fitnessapp.feature.meal.model.FoodPortionInput;
 import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMealInput;
 import com.yeonsik.fitnessapp.feature.meal.model.DiningOutMenuIntake;
 import com.yeonsik.fitnessapp.feature.nutrition.api.NutritionCatalogRepositoryApi;
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy;
 
 import org.json.JSONObject;
 
@@ -217,7 +218,19 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
     ) {
         return saveManualDiningOutPortion(scope, date, mealTime, storeName, branchName, menuName,
                 calories, proteinGrams, carbsGrams, fatGrams, sodiumMg, sugarsGrams, saturatedFatGrams,
-                restaurantId, restaurantLocationId, restaurantMenuId, catalogProductId, 1d);
+                restaurantId, restaurantLocationId, restaurantMenuId, catalogProductId, 1d, null);
+    }
+
+    @Override
+    public String saveManualDiningOut(
+            AccountScope scope, String date, String mealTime, String storeName, String branchName, String menuName,
+            int calories, double proteinGrams, double carbsGrams, double fatGrams, Double sodiumMg, Double sugarsGrams,
+            Double saturatedFatGrams, String restaurantId, String restaurantLocationId, String restaurantMenuId,
+            String catalogProductId, Double transFatGrams
+    ) {
+        return saveManualDiningOutPortion(scope, date, mealTime, storeName, branchName, menuName,
+                calories, proteinGrams, carbsGrams, fatGrams, sodiumMg, sugarsGrams, saturatedFatGrams,
+                restaurantId, restaurantLocationId, restaurantMenuId, catalogProductId, 1d, transFatGrams);
     }
 
     @Override
@@ -226,14 +239,14 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         return saveManualDiningOutPortion(scope, date, mealTime, input.getStoreName(), input.getBranchName(), input.getMenuName(),
                 input.getCalories(), input.getProteinGrams(), input.getCarbsGrams(), input.getFatGrams(), input.getSodiumMg(),
                 input.getSugarsGrams(), input.getSaturatedFatGrams(), input.getRestaurantId(), input.getRestaurantLocationId(),
-                input.getRestaurantMenuId(), input.getCatalogProductId(), input.getQuantity());
+                input.getRestaurantMenuId(), input.getCatalogProductId(), input.getQuantity(), input.getTransFatGrams());
     }
 
     private String saveManualDiningOutPortion(
             AccountScope scope, String date, String mealTime, String storeName, String branchName, String menuName,
             int calories, double proteinGrams, double carbsGrams, double fatGrams, Double sodiumMg, Double sugarsGrams,
             Double saturatedFatGrams, String restaurantId, String restaurantLocationId, String restaurantMenuId,
-            String catalogProductId, double quantity
+            String catalogProductId, double quantity, Double transFatGrams
     ) {
         String ownerId = requireActiveOwner(scope);
         if (!Double.isFinite(quantity) || quantity <= 0d || calories * quantity > Integer.MAX_VALUE) {
@@ -243,7 +256,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
         String menu = MealEntryPolicy.requireDiningOutMenuName(menuName);
         MealEntryPolicy.requireDiningOutMenuNutrition(
                 calories, proteinGrams, carbsGrams, fatGrams,
-                sodiumMg, sugarsGrams, saturatedFatGrams
+                sodiumMg, sugarsGrams, saturatedFatGrams, transFatGrams
         );
         NutritionProfile profile = NutritionProfile.builder()
                 .value(NutritionProfile.CALORIES_KCAL, (double) calories)
@@ -253,6 +266,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                 .value(NutritionProfile.SODIUM_MG, sodiumMg)
                 .value(NutritionProfile.SUGARS_GRAMS, sugarsGrams)
                 .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFatGrams)
+                .value(NutritionProfile.TRANS_FAT_GRAMS, transFatGrams)
                 .build();
         NutritionFood food = NutritionFood.builder()
                 .id(null)
@@ -394,6 +408,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                     throw new IllegalArgumentException("음식별 먹은 양이 너무 큽니다. 입력한 값을 확인하세요.");
                 }
             }
+            NutritionConsistencyPolicy.validate(item.profile);
             snapshots.add(MealItemSnapshot.of(item, index));
         }
         return snapshots;
@@ -410,7 +425,7 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
             MealEntryPolicy.requireDiningOutMenuName(input.getMenuName());
             MealEntryPolicy.requireDiningOutMenuNutrition(intake.getCaloriesKcal(), input.getProteinGrams(),
                     input.getCarbsGrams(), input.getFatGrams(), input.getSodiumMg(),
-                    input.getSugarsGrams(), input.getSaturatedFatGrams());
+                    input.getSugarsGrams(), input.getSaturatedFatGrams(), input.getTransFatGrams());
             double quantity = requireNominalServings(input.getQuantity());
             DiningOutConsumption consumption = DiningOutConsumption.manual(1, intake.getConsumedFraction());
             NutritionProfile profile = NutritionProfile.builder()
@@ -420,7 +435,8 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
                     .value(NutritionProfile.FAT_GRAMS, input.getFatGrams())
                     .value(NutritionProfile.SODIUM_MG, input.getSodiumMg())
                     .value(NutritionProfile.SUGARS_GRAMS, input.getSugarsGrams())
-                    .value(NutritionProfile.SATURATED_FAT_GRAMS, input.getSaturatedFatGrams()).build();
+                    .value(NutritionProfile.SATURATED_FAT_GRAMS, input.getSaturatedFatGrams())
+                    .value(NutritionProfile.TRANS_FAT_GRAMS, input.getTransFatGrams()).build();
             JSONObject source = new JSONObject();
             try {
                 source.put("restaurant_name", input.getStoreName());
@@ -500,8 +516,10 @@ public final class MealRecordRepository implements MealRecordRepositoryApi {
             if (menu == null || menu.menu == null) {
                 throw new IllegalArgumentException("외식 메뉴에 빈 항목이 있습니다.");
             }
+            NutritionConsistencyPolicy.validate(menu.menu.profile);
             totalBuilder.add(menu.menu.profile.scaled(consumption.consumedFraction));
             for (DiningOutOption option : menu.diningOutOptions) {
+                NutritionConsistencyPolicy.validate(option.profile);
                 totalBuilder.add(option.consumedProfile());
             }
         }

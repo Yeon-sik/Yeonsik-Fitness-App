@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy;
+
 import java.net.URI;
 import java.util.Arrays;
 import java.util.Collections;
@@ -32,6 +34,7 @@ public final class CanonicalNutritionImport {
 
     public final String inputContract;
     public final Map<String, Double> requiredNutrients;
+    public final Map<String, Double> optionalNutrients;
     public final Map<String, NutrientEvidence> nutrientProvenance;
     public final boolean userVerified;
     public final boolean hasEstimationEvidence;
@@ -43,6 +46,7 @@ public final class CanonicalNutritionImport {
     private CanonicalNutritionImport(Builder builder) {
         this.inputContract = normalize(builder.inputContract);
         this.requiredNutrients = immutableCopy(builder.requiredNutrients);
+        this.optionalNutrients = immutableCopy(builder.optionalNutrients);
         this.nutrientProvenance = immutableCopy(builder.nutrientProvenance);
         this.userVerified = builder.userVerified;
         this.hasEstimationEvidence = builder.hasEstimationEvidence;
@@ -77,6 +81,10 @@ public final class CanonicalNutritionImport {
             }
             evidence.validate();
         }
+
+        Map<String, Double> knownNutrients = new LinkedHashMap<>(optionalNutrients);
+        knownNutrients.putAll(requiredNutrients);
+        NutritionConsistencyPolicy.validateKnownNutrients(knownNutrients);
 
         if (CONTRACT_NUTRITION_LABEL_V1.equals(inputContract)) {
             if (hasEstimationEvidence || !allEvidence(SOURCE_PRODUCT_LABEL_OCR, "observed")) {
@@ -211,6 +219,7 @@ public final class CanonicalNutritionImport {
     public static final class Builder {
         private String inputContract;
         private Map<String, Double> requiredNutrients = new LinkedHashMap<>();
+        private Map<String, Double> optionalNutrients = new LinkedHashMap<>();
         private Map<String, NutrientEvidence> nutrientProvenance = new LinkedHashMap<>();
         private boolean userVerified;
         private boolean hasEstimationEvidence;
@@ -234,6 +243,12 @@ public final class CanonicalNutritionImport {
 
         public Builder nutrientProvenance(Map<String, NutrientEvidence> value) {
             nutrientProvenance = value == null ? new LinkedHashMap<>() : new LinkedHashMap<>(value);
+            return this;
+        }
+
+        /** Existing optional nutrients stay separate from the exact seven required keys. */
+        public Builder optionalNutrients(Map<String, Double> value) {
+            optionalNutrients = value == null ? new LinkedHashMap<>() : new LinkedHashMap<>(value);
             return this;
         }
 

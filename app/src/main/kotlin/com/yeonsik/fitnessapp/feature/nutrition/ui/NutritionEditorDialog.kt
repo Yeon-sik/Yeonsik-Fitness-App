@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.yeonsik.fitnessapp.feature.nutrition.model.IngredientCatalogFile
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -201,14 +202,18 @@ private fun FoodRegistrationContent(state: NutritionEditorState, actions: Nutrit
             Modifier.fillMaxWidth(), enabled = !state.saving, showError = state.submitted, positive = true)
     }
     NutritionFormSection("기본 영양정보", Modifier.fillMaxWidth(), "위 기준량에 들어 있는 값입니다.") {
+        Text(NutritionConsistencyPolicy.LABEL_GUIDANCE, style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         NutritionFieldGrid(listOf(FoodEntryField.CALORIES, FoodEntryField.PROTEIN, FoodEntryField.CARBS, FoodEntryField.FAT),
             state::field, actions::updateField, enabled = !state.saving, submitted = state.submitted)
-        TextButton({ additional = !additional }, enabled = !state.saving) { Text(if (additional) "추가 영양정보 접기" else "추가 영양정보 3개 입력") }
+        TextButton({ additional = !additional }, enabled = !state.saving) { Text(if (additional) "추가 영양정보 접기" else "나트륨·당류·포화지방·트랜스지방 입력 (선택)") }
         if (additional || state.submitted) {
-            Text("식품 등록에는 나트륨·당류·포화지방도 필요합니다. 실제 0인 값만 0으로 입력하세요.",
+            Text("모르는 값은 비워 두세요. 실제 0인 값만 0으로 입력하세요.",
                 style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             NutritionFieldGrid(listOf(FoodEntryField.SODIUM, FoodEntryField.SUGARS, FoodEntryField.SATURATED_FAT),
-                state::field, actions::updateField, enabled = !state.saving, submitted = state.submitted)
+                state::field, actions::updateField, enabled = !state.saving, required = false, submitted = state.submitted)
+            NutritionFieldGrid(listOf(FoodEntryField.TRANS_FAT), state::field, actions::updateField,
+                enabled = !state.saving, required = false, submitted = state.submitted)
         }
     }
     NutritionFormSection("영양정보 출처", Modifier.fillMaxWidth()) {

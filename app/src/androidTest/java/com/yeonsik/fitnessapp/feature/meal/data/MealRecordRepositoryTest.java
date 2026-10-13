@@ -401,16 +401,17 @@ public final class MealRecordRepositoryTest {
             MealRecordRepository repository = new MealRecordRepository(room, catalog, OWNER);
             String id = repository.saveDiningOutPortion(new AccountScope(OWNER), LocalDate.now().toString(), "13:00",
                     new DiningOutMealInput("식당", "", "메뉴", 0.5d, 600, 40d, 80d, 20d,
-                            null, null, null, null, null, null, null));
+                            null, null, null, null, null, null, null, null));
             FitnessDatabaseConnection database = FitnessDatabaseConnection.fromRoom(room);
             try (Cursor item = database.rawQuery(
-                    "SELECT quantity,calories,protein_grams,sodium_mg FROM meal_record_items WHERE meal_record_id=?",
+                    "SELECT quantity,calories,protein_grams,sodium_mg,trans_fat_grams FROM meal_record_items WHERE meal_record_id=?",
                     new String[]{id})) {
                 assertTrue(item.moveToFirst());
                 assertEquals(0.5d, item.getDouble(0), 0.001d);
                 assertEquals(300d, item.getDouble(1), 0.001d);
                 assertEquals(20d, item.getDouble(2), 0.001d);
                 assertTrue(item.isNull(3));
+                assertTrue(item.isNull(4));
             }
         } finally {
             room.close(); context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
@@ -427,9 +428,9 @@ public final class MealRecordRepositoryTest {
             AccountScope scope = new AccountScope(OWNER);
             String date = LocalDate.now().toString();
             DiningOutMealInput rice = new DiningOutMealInput("식당", "본점", "볶음밥", 1d, 600, 40d, 80d, 20d,
-                    null, null, null, null, null, null, null);
+                    null, null, null, null, null, null, null, 0.4d);
             DiningOutMealInput dumplings = new DiningOutMealInput("식당", "본점", "만두", 2d, 200, 10d, 30d, 5d,
-                    400d, null, null, null, null, null, null);
+                    400d, null, null, null, null, null, null, null);
             String id = repository.saveDiningOutMenuItems(scope, date, "13:00", Arrays.asList(
                     new DiningOutMenuIntake(rice, 0.5d, null, 600.8d), new DiningOutMenuIntake(dumplings, 0.25d, null, 200.8d)));
             MealReadRepository read = new MealReadRepository(room);
@@ -450,6 +451,11 @@ public final class MealRecordRepositoryTest {
             }
             assertEquals(0.5d, read.mealSnapshot(scope, id).getItems().get(0).getConsumption().getConsumedFraction(), 0.001d);
             assertEquals(0.25d, read.mealSnapshot(scope, id).getItems().get(1).getConsumption().getConsumedFraction(), 0.001d);
+            try (Cursor rows = database.rawQuery("SELECT trans_fat_grams FROM meal_record_items " +
+                    "WHERE meal_record_id=? ORDER BY order_index", new String[]{id})) {
+                assertTrue(rows.moveToFirst()); assertEquals(0.4d, rows.getDouble(0), 0.001d);
+                assertTrue(rows.moveToNext()); assertTrue(rows.isNull(0));
+            }
             assertThrows(IllegalArgumentException.class, () -> repository.saveDiningOutMenuItems(scope, date, "14:00",
                     Arrays.asList(new DiningOutMenuIntake(rice, 0.5d, null), new DiningOutMenuIntake(dumplings, 1.01d, null))));
             assertEquals(1, read.mealCount(scope, date));

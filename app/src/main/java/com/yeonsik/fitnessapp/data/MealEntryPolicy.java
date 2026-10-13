@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy;
+
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
@@ -240,6 +242,14 @@ public final class MealEntryPolicy {
             Double sugarsGrams,
             Double saturatedFatGrams
     ) {
+        requireDiningOutMenuNutrition(calories, proteinGrams, carbsGrams, fatGrams,
+                sodiumMg, sugarsGrams, saturatedFatGrams, null);
+    }
+
+    public static void requireDiningOutMenuNutrition(
+            Number calories, Double proteinGrams, Double carbsGrams, Double fatGrams,
+            Double sodiumMg, Double sugarsGrams, Double saturatedFatGrams, Double transFatGrams
+    ) {
         if (calories == null) {
             throw new IllegalArgumentException("칼로리는 필수 입력입니다.");
         }
@@ -265,6 +275,16 @@ public final class MealEntryPolicy {
         if (saturatedFatGrams != null) {
             requireNonNegativeDiningOutMacro(saturatedFatGrams, "포화지방");
         }
+        if (transFatGrams != null) {
+            requireNonNegativeDiningOutMacro(transFatGrams, "트랜스지방");
+        }
+        NutritionConsistencyPolicy.validate(NutritionProfile.builder()
+                .value(NutritionProfile.CARBS_GRAMS, carbsGrams)
+                .value(NutritionProfile.SUGARS_GRAMS, sugarsGrams)
+                .value(NutritionProfile.FAT_GRAMS, fatGrams)
+                .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFatGrams)
+                .value(NutritionProfile.TRANS_FAT_GRAMS, transFatGrams)
+                .build());
     }
 
     /** Ensures estimates are either omitted or complete and non-negative. */
@@ -322,15 +342,8 @@ public final class MealEntryPolicy {
                     "외식 추정 영양값은 칼로리·탄수화물·단백질·지방·나트륨·당류·포화지방을 모두 입력하세요."
             );
         }
-        if (calories < 0) {
-            throw new IllegalArgumentException("칼로리는 0 이상인 숫자로 입력하세요.");
-        }
-        requireNonNegativeDiningOutMacro(proteinGrams, "단백질");
-        requireNonNegativeDiningOutMacro(carbsGrams, "탄수화물");
-        requireNonNegativeDiningOutMacro(fatGrams, "지방");
-        requireNonNegativeDiningOutMacro(sodiumMg, "나트륨");
-        requireNonNegativeDiningOutMacro(sugarsGrams, "당류");
-        requireNonNegativeDiningOutMacro(saturatedFatGrams, "포화지방");
+        requireDiningOutMenuNutrition(calories, proteinGrams, carbsGrams, fatGrams,
+                sodiumMg, sugarsGrams, saturatedFatGrams);
     }
 
     public static boolean hasDiningOutEstimatedNutrition(

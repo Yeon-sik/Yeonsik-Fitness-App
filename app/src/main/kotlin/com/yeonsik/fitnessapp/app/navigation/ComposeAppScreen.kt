@@ -1876,6 +1876,7 @@ private fun AppDestination(
         override fun updateSodium(value: String) = viewModels.getMeal().updateSodium(value)
         override fun updateSugars(value: String) = viewModels.getMeal().updateSugars(value)
         override fun updateSaturatedFat(value: String) = viewModels.getMeal().updateSaturatedFat(value)
+        override fun updateTransFat(value: String) = viewModels.getMeal().updateTransFat(value)
         override fun updatePriceTraceQuery(value: String) =
             viewModels.getMeal().updatePriceTraceQuery(value)
         override fun searchPriceTraceRestaurants() =

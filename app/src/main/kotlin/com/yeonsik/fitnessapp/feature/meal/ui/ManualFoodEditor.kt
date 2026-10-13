@@ -17,6 +17,7 @@ import com.yeonsik.fitnessapp.core.ui.AppSpacing
 import com.yeonsik.fitnessapp.core.ui.AppTextField
 import com.yeonsik.fitnessapp.data.NutritionUnit
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
 
 @Composable
 internal fun ManualFoodEditor(
@@ -73,16 +74,18 @@ internal fun ManualFoodEditor(
         }
         Text("${draft.basisAmount.ifBlank { "?" }} ${mealQuantityUnitLabel(draft.basisUnit)} 기준 영양정보",
             style = MaterialTheme.typography.bodyMedium)
+        Text(NutritionConsistencyPolicy.LABEL_GUIDANCE, style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
         AppTextField(draft.calories, { onChange(draft.copy(calories = it)) }, Modifier.fillMaxWidth(),
             label = { Text("칼로리 kcal") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
         AppTextField(draft.carbs, { onChange(draft.copy(carbs = it)) }, Modifier.fillMaxWidth(),
-            label = { Text("탄수화물 g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
+            label = { Text("탄수화물 (총) g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
         AppTextField(draft.protein, { onChange(draft.copy(protein = it)) }, Modifier.fillMaxWidth(),
             label = { Text("단백질 g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
         AppTextField(draft.fat, { onChange(draft.copy(fat = it)) }, Modifier.fillMaxWidth(),
-            label = { Text("지방 g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
+            label = { Text("지방 (총) g") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
         AppOutlinedButton(onClick = { showOptional = !showOptional }, modifier = Modifier.fillMaxWidth(), enabled = !saving) {
-            Text(if (showOptional) "추가 영양정보 접기" else "나트륨·당류·포화지방 입력 (선택)")
+            Text(if (showOptional) "추가 영양정보 접기" else "나트륨·당류·포화지방·트랜스지방 입력 (선택)")
         }
         if (showOptional) {
             Text("모르는 값은 비워 두세요. 0인 경우에는 0을 입력하세요.",
@@ -93,6 +96,8 @@ internal fun ManualFoodEditor(
                 label = { Text("당류 g (선택)") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
             AppTextField(draft.saturatedFat, { onChange(draft.copy(saturatedFat = it)) }, Modifier.fillMaxWidth(),
                 label = { Text("포화지방 g (선택)") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
+            AppTextField(draft.transFat, { onChange(draft.copy(transFat = it)) }, Modifier.fillMaxWidth(),
+                label = { Text("트랜스지방 g (선택)") }, enabled = !saving, keyboardOptions = numberOptions, keyboardActions = next)
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpacing.small)) {

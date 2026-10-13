@@ -16,6 +16,7 @@ class ManualFoodDraftTest {
         assertEquals(120.5, input.profile.value(NutritionProfile.CALORIES_KCAL)!!, 0.0)
         assertNull(input.profile.value(NutritionProfile.SODIUM_MG))
         assertNull(input.profile.value(NutritionProfile.SATURATED_FAT_GRAMS))
+        assertNull(input.profile.transFatGrams())
         assertEquals(0.0, input.profile.value(NutritionProfile.SUGARS_GRAMS)!!, 0.0)
     }
 
@@ -33,5 +34,28 @@ class ManualFoodDraftTest {
             draft().copy(protein = "NaN"), draft().copy(sodium = "abc")).forEach { invalid ->
             assertThrows(IllegalArgumentException::class.java) { invalid.validated() }
         }
+    }
+
+    @Test fun manualInputStoresTotalsAndOptionalTransFatWithoutAddingComponents() {
+        val profile = draft().copy(carbs = "43", sugars = "8", fat = "28",
+            saturatedFat = "9", transFat = "0.4").validated().profile
+        assertEquals(43.0, profile.carbsGrams(), 0.0)
+        assertEquals(28.0, profile.fatGrams(), 0.0)
+        assertEquals(0.4, profile.transFatGrams()!!, 0.0)
+        assertEquals(0.0, draft().copy(transFat = "0").validated().profile.transFatGrams()!!, 0.0)
+    }
+
+    @Test fun manualAndDiningInputsRejectComponentsAboveKnownTotals() {
+        listOf(draft().copy(sugars = "50"), draft().copy(saturatedFat = "30"),
+            draft().copy(transFat = "30"), draft().copy(transFat = "NaN")).forEach { invalid ->
+            assertThrows(IllegalArgumentException::class.java) { invalid.validated() }
+        }
+        val dining = DiningOutDraft(store = "식당", menu = "메뉴", calories = "600", protein = "20",
+            carbs = "43", sugars = "8", fat = "28", saturatedFat = "9", transFat = "0.4")
+        assertNull(diningOutRegistrationError(dining))
+        assertNotNull(diningOutRegistrationError(dining.copy(sugars = "50")))
+        assertNotNull(diningOutRegistrationError(dining.copy(saturatedFat = "30")))
+        assertNotNull(diningOutRegistrationError(dining.copy(transFat = "30")))
+        assertNull(diningOutRegistrationError(dining.copy(sugars = "", saturatedFat = "", transFat = "")))
     }
 }
