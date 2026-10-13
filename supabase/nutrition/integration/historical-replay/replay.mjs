@@ -21,7 +21,8 @@ const remote = [
   '20260920091328', '20260920091342', '20260920091351', '20260922152608',
   '20260924130855', '20260924131958', '20260924132515', '20260924132818'
 ];
-const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708'];
+const relationGuardsVersion = '20261013065001';
+const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion];
 const excluded = [
   'realtime', 'storage-api', 'imgproxy', 'studio', 'mailpit',
   'postgres-meta', 'edge-runtime', 'logflare', 'vector', 'supavisor'
@@ -289,6 +290,12 @@ async function replay(label, final, kaguriId) {
     for (const version of ['20261012042217', '20261012045708']) stage(version, project.migrationsDir);
     console.log('Applying verified receipt product nutrition links and read projection locally');
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, readFileSync(path.join(replayDir, 'snapshot_before_nutrition_relation_guards.sql'), 'utf8'));
+    stage(relationGuardsVersion, project.migrationsDir);
+    console.log('Applying Nutrition parent/child import guards locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, readFileSync(path.join(replayDir, 'assert_nutrition_relation_guards.sql'), 'utf8'));
+    await canonicalIntegration(project, status, 'nutrition-relation-guards');
     console.log('PASS final fresh replay (' + remote.length + ' recovered migrations plus ' + pending.length + ' forward migrations)');
   } finally {
     if (startAttempted) {
