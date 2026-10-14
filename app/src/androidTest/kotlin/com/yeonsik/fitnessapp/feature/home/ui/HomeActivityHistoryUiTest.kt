@@ -27,6 +27,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,49 @@ class HomeActivityHistoryUiTest {
     @get:Rule val compose = createComposeRule()
     private val cellMatcher = SemanticsMatcher("activity date cell") {
         it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("home-activity-cell-") == true
+    }
+
+    @Test fun todayIsInitiallyActiveWithoutSelectingOrRequestingPreviewAndDismissRestoresIt() {
+        val requests = mutableListOf<String>()
+        compose.setContent { FitnessComposeTheme(false) {
+            HomeActivityHistorySection(ready(), {}, {}, {}, {}, onSelectDate = { requests += it })
+        } }
+        val active = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "활성")
+        val today = compose.onNodeWithTag("home-activity-cell-$TODAY")
+        today.assert(active)
+        compose.onNodeWithContentDescription("2026년 10월 1일, 기록 없음, 0종 기록, 오늘").assertExists()
+        compose.onNodeWithTag("home-activity-preview-$TODAY", useUnmergedTree = true).assertDoesNotExist()
+        compose.runOnIdle { assertTrue(requests.isEmpty()) }
+        val yesterday = "2026-09-30"
+        compose.onNodeWithTag("home-activity-cell-$yesterday").performClick().assert(active)
+        compose.onNodeWithTag("home-activity-preview-$yesterday", useUnmergedTree = true).assertExists()
+        today.assert(SemanticsMatcher("today is no longer active") {
+            it.config.getOrNull(SemanticsProperties.StateDescription) != "활성"
+        })
+        compose.runOnIdle { assertEquals(listOf(yesterday), requests) }
+        compose.onNodeWithTag("home-activity-cell-$yesterday").performClick()
+        today.assert(active)
+        compose.onNodeWithTag("home-activity-preview-$yesterday", useUnmergedTree = true).assertDoesNotExist()
+        compose.runOnIdle { assertEquals(listOf(yesterday), requests) }
+        compose.onNodeWithTag("home-activity-cell-2026-10-02").assertIsNotEnabled()
+    }
+
+    @Test fun historicalPageHasNoDefaultActiveCellAndReturningRestoresTodayWithoutARequest() {
+        val state = mutableStateOf<HomeActivityUiState>(ready())
+        var requests = 0
+        compose.setContent { FitnessComposeTheme(false) {
+            HomeActivityHistorySection(state.value, { state.value = ready(1) }, { state.value = ready() }, {}, {},
+                onSelectDate = { requests++ })
+        } }
+        val active = SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "활성")
+        compose.onNodeWithTag("home-activity-previous").performClick()
+        compose.onAllNodes(cellMatcher and active, useUnmergedTree = true).assertCountEquals(0)
+        compose.onAllNodes(cellMatcher, useUnmergedTree = true).assertCountEquals(91)
+        compose.onNodeWithTag("home-activity-cell-$TODAY").assertDoesNotExist()
+        compose.onNodeWithTag("home-activity-next").performClick()
+        compose.onNodeWithTag("home-activity-cell-$TODAY").assert(active)
+        compose.onNodeWithTag("home-activity-preview-$TODAY", useUnmergedTree = true).assertDoesNotExist()
+        compose.runOnIdle { assertEquals(0, requests) }
     }
 
     @Test fun activityHistoryIsBelowQuickActionsWithoutChangingTheirContent() {
@@ -311,6 +355,8 @@ class HomeActivityHistoryUiTest {
                 .getOrNull(SemanticsProperties.ContentDescription)
                 .orEmpty().none { it.endsWith("선택됨") }
         )
+        compose.onNodeWithTag("home-activity-cell-$TODAY")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "활성"))
     }
 
     @Test fun sectionFailureProvidesRetry() {
@@ -356,7 +402,7 @@ class HomeActivityHistoryUiTest {
             state.value = HomeActivityUiState.Loading(previousPage.identity, previousPage.window, initial)
         }
         compose.onNodeWithText("활동 내역을 불러오는 중입니다.").assertExists()
-        compose.onNodeWithContentDescription("2026년 10월 1일, 체중, 1종 기록").assertDoesNotExist()
+        compose.onNodeWithContentDescription("2026년 10월 1일, 체중, 1종 기록, 오늘").assertDoesNotExist()
         assertUnmoved()
         compose.runOnIdle {
             state.value = HomeActivityUiState.Error(previousPage.identity, "read failed", previousPage.window, initial)
