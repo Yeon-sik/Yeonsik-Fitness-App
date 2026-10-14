@@ -1937,6 +1937,11 @@ private fun AppDestination(
             viewModels.getMeal().deleteMeal(AccountScope(ownerId), recordId)
         override fun saveMealTime(recordId: String, mealTime: String) =
             viewModels.getMeal().saveMealTime(AccountScope(ownerId), recordId, mealTime)
+        override fun saveMealDateTime(recordId: String, date: String, mealTime: String) =
+            viewModels.getMeal().saveMealDateTime(AccountScope(ownerId), recordId, date, mealTime)
+        override fun viewMealDetail(recordId: String) =
+            viewModels.getMeal().openMealDetail(AccountScope(ownerId), recordId)
+        override fun closeMealDetail() = viewModels.getMeal().closeMealDetail()
         override fun cancelMealEdit() = viewModels.getMeal().closeRecordEditor()
     }
     val settingsActions = object : SettingsScreenActions {

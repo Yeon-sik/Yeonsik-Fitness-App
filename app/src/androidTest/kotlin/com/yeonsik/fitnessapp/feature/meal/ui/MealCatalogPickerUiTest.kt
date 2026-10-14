@@ -23,6 +23,46 @@ import java.lang.reflect.Proxy
 class MealCatalogPickerUiTest {
     @get:Rule val compose = createComposeRule()
 
+    @Test fun ordinaryFoodSearchTogglesAddCancelAndAddWithoutResettingQueryOrResults() {
+        val food = foods(1).single()
+        var state by mutableStateOf(foodState().copy(query = "식품", searchResults = listOf(food), foodPortions = emptyList()))
+        compose.setContent { FitnessComposeTheme(false) { MealCatalogSearch(actions { name, args ->
+            when (name) {
+                "selectFood" -> state = state.copy(foodPortions = state.foodPortions + FoodPortionDraft(args!![0] as NutritionFood, "100"))
+                "removeFood" -> state = state.copy(foodPortions = state.foodPortions.filterNot { it.food.id == args!![0] })
+            }
+        }, state) } }
+        compose.onNodeWithText("담기").assertExists()
+        compose.onNodeWithTag("food-result-${food.id}").performClick()
+        compose.onNodeWithText("담기 취소").assertExists()
+        compose.runOnIdle { assertEquals(1, mealFoodItems(state).size) }
+        compose.onNodeWithTag("food-result-${food.id}").performClick()
+        compose.onNodeWithText("담기").assertExists()
+        compose.runOnIdle {
+            assertTrue(mealFoodItems(state).isEmpty())
+            assertEquals("식품", state.query)
+            assertEquals(listOf(food), state.searchResults)
+        }
+        compose.onNodeWithTag("food-result-${food.id}").performClick()
+        compose.onNodeWithText("담기 취소").assertExists()
+        compose.runOnIdle { assertEquals(1, mealFoodItems(state).size) }
+    }
+
+    @Test fun includedDiningMenuStillReviewsInsteadOfCancelling() {
+        val menu = foods(1, dining = true).single()
+        var reviewed: String? = null
+        var removed = false
+        compose.setContent { FitnessComposeTheme(false) {
+            MealCatalogSearch(actions { name, _ -> if (name == "removeFood") removed = true },
+                diningState().copy(searchResults = listOf(menu), selectedFood = menu),
+                onReviewFood = { reviewed = it.id })
+        } }
+        compose.onNodeWithText("담김 · 수정").assertExists()
+        compose.onNodeWithText("담기 취소").assertDoesNotExist()
+        compose.onNodeWithTag("food-result-${menu.id}").performClick()
+        compose.runOnIdle { assertEquals(menu.id, reviewed); assertFalse(removed) }
+    }
+
     @Test fun allFoodResultsStayInABoundedListAndTheHundredthCanBeAdded() {
         var state by mutableStateOf(foodState())
         var addedId: String? = null
