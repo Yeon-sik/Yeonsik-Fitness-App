@@ -5,6 +5,8 @@ import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase
 import com.yeonsik.fitnessapp.core.database.MealRoomDao
 import com.yeonsik.fitnessapp.data.MealEntryPolicy
 import com.yeonsik.fitnessapp.data.MealRecordKind
+import com.yeonsik.fitnessapp.data.NutritionProfile
+import com.yeonsik.fitnessapp.feature.nutrition.analysis.application.NutritionAnalysisCalculator
 import com.yeonsik.fitness.shared.feature.meal.api.MealReadApi
 import com.yeonsik.fitness.shared.feature.meal.model.MealReadNutritionTotal
 import com.yeonsik.fitness.shared.feature.meal.model.MealReadNutritionTotals
@@ -18,18 +20,20 @@ import com.yeonsik.fitness.shared.feature.meal.model.MealSnapshotRead
 import org.json.JSONObject
 
 /** Meal-owned read adapter for the Home projection. */
-class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
+class MealReadRepository(private val roomDatabase: FitnessRoomDatabase) : MealReadApi {
     private val mealDao: MealRoomDao = roomDatabase.mealRoomDao()
 
     override fun mealCount(scope: AccountScope, date: String): Int =
         mealDao.mealCountForDate(scope.ownerId, date).toInt()
 
-    override fun mealTotals(scope: AccountScope, date: String): MealReadNutritionTotals {
+    override fun mealTotals(scope: AccountScope, date: String): MealReadNutritionTotals = roomDatabase.runInTransaction<MealReadNutritionTotals> {
         val sums = linkedMapOf(
             "calories_kcal" to DoubleArray(3),
             "protein_grams" to DoubleArray(3),
             "carbs_grams" to DoubleArray(3),
-            "fat_grams" to DoubleArray(3)
+            "fat_grams" to DoubleArray(3),
+            "sugars_grams" to DoubleArray(3),
+            "saturated_fat_grams" to DoubleArray(3)
         )
         val rows = mealDao.visibleMealReadRows(scope.ownerId, date)
         rows.forEach { row ->
@@ -38,7 +42,19 @@ class MealReadRepository(roomDatabase: FitnessRoomDatabase) : MealReadApi {
             accumulate(sums.getValue("carbs_grams"), row.carbsGrams, true)
             accumulate(sums.getValue("fat_grams"), row.fatGrams, true)
         }
-        return MealReadNutritionTotals(
+        if (rows.isNotEmpty()) {
+            // The existing snapshot projection includes menu/component consumption fractions
+            // and preserves partial known amounts. Catalog values never participate in this read.
+            val day = java.time.LocalDate.parse(date)
+            val report = NutritionAnalysisCalculator.calculate(
+                day, day, rows.mapNotNull { mealSnapshot(scope, it.id) }, null
+            )
+            listOf(NutritionProfile.SUGARS_GRAMS, NutritionProfile.SATURATED_FAT_GRAMS).forEach { key ->
+                val metric = report.metrics.getValue(key)
+                sums[key] = doubleArrayOf(metric.knownSum, metric.knownCount.toDouble(), metric.missingCount.toDouble())
+            }
+        }
+        MealReadNutritionTotals(
             rows.size,
             sums.mapValues { (_, value) ->
                 MealReadNutritionTotal(value[0], value[1].toInt(), value[2].toInt())
