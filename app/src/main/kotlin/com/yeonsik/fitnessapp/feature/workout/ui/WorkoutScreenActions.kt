@@ -4,6 +4,7 @@ import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseHistory
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType
 import com.yeonsik.fitnessapp.state.FitnessScreen
 
 /**
@@ -59,6 +60,15 @@ internal interface WorkoutDetailActions {
         input: WorkoutSetInput,
         onResult: (Boolean) -> Unit
     )
+    fun updateSetType(recordId: String, setId: String,
+        type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetType, onResult: (Boolean) -> Unit) { onResult(false) }
+    fun addDropSet(recordId: String, exerciseId: String, parentSetId: String, onResult: (Boolean) -> Unit) { onResult(false) }
+    fun linkSuperset(recordId: String, exerciseId: String, partnerExerciseId: String?, onResult: (Boolean) -> Unit) { onResult(false) }
+    fun linkExerciseGroup(recordId: String, exerciseId: String, partnerExerciseId: String?,
+        type: WorkoutExerciseGroupType, onResult: (Boolean) -> Unit) {
+        if (type == WorkoutExerciseGroupType.SUPERSET) linkSuperset(recordId, exerciseId, partnerExerciseId, onResult)
+        else onResult(false)
+    }
     fun deleteSet(recordId: String, setId: String, onResult: (Boolean) -> Unit)
     fun startRestTimer(restSeconds: Int?)
     fun updateExerciseRestSeconds(recordId: String, exerciseId: String, seconds: Int,

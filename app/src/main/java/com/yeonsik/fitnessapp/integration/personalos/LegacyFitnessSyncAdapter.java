@@ -378,6 +378,10 @@ public final class LegacyFitnessSyncAdapter {
                 }
                 putJsonValue(object, column, row.value(column));
             }
+            if ("workout_records".equals(table) && object.opt("metadata") instanceof JSONObject) {
+                // Local set grouping is not part of the legacy shared contract.
+                ((JSONObject) object.get("metadata")).remove("workout_structure_v1");
+            }
             rows.put(object);
         }
         return rows;

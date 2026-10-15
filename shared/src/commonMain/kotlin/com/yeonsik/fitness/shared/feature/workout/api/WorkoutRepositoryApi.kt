@@ -7,6 +7,7 @@ import com.yeonsik.fitness.shared.feature.workout.model.ManualWorkoutExercise
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplacement
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType
 
 /**
  * Public workout boundary for new Kotlin application code.  It deliberately
@@ -80,6 +81,14 @@ interface WorkoutRepositoryApi {
     fun discard(scope: AccountScope, recordId: String)
 
     fun updateTypedSet(scope: AccountScope, recordId: String, setId: String, input: WorkoutSetInput): Boolean
+    fun updateSetType(scope: AccountScope, recordId: String, setId: String,
+                      type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetType): Boolean = false
+    fun addDropSet(scope: AccountScope, recordId: String, exerciseId: String, parentSetId: String): Boolean = false
+    fun linkSuperset(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?): Boolean = false
+    /** A null partner removes this exercise from its group without modifying any recorded sets. */
+    fun linkExerciseGroup(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?,
+                          type: WorkoutExerciseGroupType): Boolean =
+        if (type == WorkoutExerciseGroupType.SUPERSET) linkSuperset(scope, recordId, exerciseId, partnerExerciseId) else false
     fun updateExerciseRestSeconds(scope: AccountScope, recordId: String,
                                   exerciseId: String, seconds: Int): Boolean = false
     fun addTypedSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int,

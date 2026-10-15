@@ -152,6 +152,20 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
         repository.addTypedSet(scope, recordId, exerciseId, setIndex, input)
     }
 
+    fun updateSetType(scope: AccountScope, recordId: String, setId: String,
+        type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetType, callback: Consumer<Boolean>) =
+        executeWrite(callback) { repository.updateSetType(scope, recordId, setId, type) }
+
+    fun addDropSet(scope: AccountScope, recordId: String, exerciseId: String, parentSetId: String,
+        callback: Consumer<Boolean>) = executeWrite(callback) { repository.addDropSet(scope, recordId, exerciseId, parentSetId) }
+
+    fun linkSuperset(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?,
+        callback: Consumer<Boolean>) = executeWrite(callback) { repository.linkSuperset(scope, recordId, exerciseId, partnerExerciseId) }
+
+    fun linkExerciseGroup(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?,
+        type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType, callback: Consumer<Boolean>) =
+        executeWrite(callback) { repository.linkExerciseGroup(scope, recordId, exerciseId, partnerExerciseId, type) }
+
     fun deleteSet(scope: AccountScope, recordId: String, setId: String,
                   callback: Consumer<Boolean>) = executeWrite(callback) {
         repository.deleteSet(scope, recordId, setId)

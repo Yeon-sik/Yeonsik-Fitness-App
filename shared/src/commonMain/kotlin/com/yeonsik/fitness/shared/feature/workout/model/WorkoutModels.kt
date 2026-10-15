@@ -8,7 +8,7 @@ import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import kotlin.jvm.JvmField
 
 /** Android- and storage-independent values consumed by the workout feature. */
-data class WorkoutExercise(
+data class WorkoutExercise @kotlin.jvm.JvmOverloads constructor(
     @JvmField val id: String,
     @JvmField val exerciseId: String,
     @JvmField val orderIndex: Int,
@@ -16,7 +16,10 @@ data class WorkoutExercise(
     @JvmField val uiPart: String = "",
     @JvmField val equipment: String = "",
     @JvmField val recordType: String,
-    @JvmField val familyIdentity: ExerciseFamilyIdentity? = null
+    @JvmField val familyIdentity: ExerciseFamilyIdentity? = null,
+    /** Shared link id for supersets and compound sets; retained for stored-data compatibility. */
+    @JvmField val supersetGroupId: String? = null,
+    @JvmField val groupType: WorkoutExerciseGroupType = WorkoutExerciseGroupType.SUPERSET
 )
 
 /** Workout-owned facts consumed by downstream presentation features. */
@@ -55,7 +58,7 @@ data class WorkoutExercisePerformancePoint(
     val volumeKg: Double?
 )
 
-data class WorkoutSet(
+data class WorkoutSet @kotlin.jvm.JvmOverloads constructor(
     @JvmField val id: String,
     @JvmField val setIndex: Int,
     @JvmField val weightKg: Double,
@@ -69,7 +72,10 @@ data class WorkoutSet(
     @JvmField val addedWeightKg: Double,
     @JvmField val loadState: LoadState?,
     @JvmField val inputLoadValue: Double?,
-    @JvmField val inputLoadUnit: MassUnit?
+    @JvmField val inputLoadUnit: MassUnit?,
+    @JvmField val setType: WorkoutSetType = WorkoutSetType.NORMAL,
+    @JvmField val dropParentSetId: String? = null,
+    @JvmField val comparisonVolumeKg: Double? = null
 )
 
 data class WorkoutExerciseDetail(
@@ -88,7 +94,9 @@ data class WorkoutExerciseDetail(
     val personalBests: WorkoutExercisePersonalBests? = null,
     val currentRecordDate: String = "",
     /** One timer setting for this occurrence; historical per-set rest snapshots remain intact. */
-    val exerciseRestSeconds: Int? = null
+    val exerciseRestSeconds: Int? = null,
+    /** All persisted sets of this session, used to advance linked exercise rounds without guessing. */
+    val sessionSets: Map<String, List<WorkoutSet>> = emptyMap()
 )
 
 data class WorkoutSessionSnapshot(
@@ -106,13 +114,16 @@ data class WorkoutSessionSnapshot(
     /** Read-only comparison facts from the previous completed session of the same routine. */
     val previousRoutine: WorkoutRoutineComparison? = null,
     /** Exact persisted completion time; absent for unfinished or legacy sessions. */
-    val completedAt: String? = null
+    val completedAt: String? = null,
+    val routineTotals: WorkoutRoutineTotals? = null
 )
 
 data class WorkoutRoutineComparison(
     val date: String,
     val totalVolumeKg: Double,
-    val completedSetCount: Int
+    val completedSetCount: Int,
+    val totals: WorkoutRoutineTotals? = null,
+    val recordId: String? = null
 )
 
 data class WorkoutSessionExercise(
@@ -132,7 +143,9 @@ data class WorkoutSessionExercise(
     /** Volume from completed sets, calculated with the session's existing volume formula. */
     val totalVolumeKg: Double = 0.0,
     /** Latest earlier completed volume for this exercise identity, when one exists. */
-    val previousTotalVolumeKg: Double? = null
+    val previousTotalVolumeKg: Double? = null,
+    val supersetGroupId: String? = null,
+    val groupType: WorkoutExerciseGroupType = WorkoutExerciseGroupType.SUPERSET
 )
 
 data class WorkoutVolumePoint(
