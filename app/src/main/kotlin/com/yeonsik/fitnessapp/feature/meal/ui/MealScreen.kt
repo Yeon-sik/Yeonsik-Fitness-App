@@ -72,6 +72,7 @@ interface MealScreenActions {
     }
     fun searchFood(query: String)
     fun selectFood(food: NutritionFood)
+    fun selectFood(food: NutritionFood, quantity: String, mode: com.yeonsik.fitnessapp.feature.nutrition.model.PortionInputMode)
     fun useDiningOutFood(food: NutritionFood)
     fun saveReusableDiningOutMenu()
     fun updateQuantity(value: String)

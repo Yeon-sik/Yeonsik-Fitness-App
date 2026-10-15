@@ -38,11 +38,55 @@ class MealCatalogPickerUiTest {
         compose.onNodeWithText("음식 100개 · 목록 안에서 스크롤").assertExists()
         list.performScrollToIndex(99)
         compose.onNodeWithTag("food-result-food-99").assertIsDisplayed().performClick()
+        compose.onNodeWithTag("meal-add-confirm").performClick()
         compose.runOnIdle { assertEquals("food-99", addedId) }
         compose.onNodeWithTag("meal-entry-save").assertIsDisplayed().assertIsEnabled()
         compose.onNodeWithText("담은 음식 2개 보기").assertIsDisplayed()
         list.performScrollTo().performScrollToIndex(0)
         savePreview("meal-food-scroll-list.png", "6끼 기록")
+    }
+
+    @Test fun quantityIsConfirmedBeforeAddingAndSurvivesRecreation() {
+        val product = NutritionFood.builder().id("product").ownerId("nutrition-owner").name("음료")
+            .kind(NutritionFood.KIND_EXTERNAL_MENU).basis(100.0, NutritionUnit.MILLILITER)
+            .packageAmount(250.0).packageUnit(NutritionUnit.MILLILITER)
+            .profile(NutritionProfile.ofMacros(40.0, 0.0, 10.0, 0.0)).build()
+        var selected: FoodPortionDraft? = null
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { FitnessComposeTheme(false) {
+            MealCatalogSearch(actions { name, args ->
+                if (name == "selectFood") selected = FoodPortionDraft(args!![0] as NutritionFood,
+                    args[1] as String, args[2] as com.yeonsik.fitnessapp.feature.nutrition.model.PortionInputMode)
+            }, foodState().copy(searchResults = listOf(product), foodPortions = emptyList()))
+        } }
+        compose.onNodeWithTag("food-result-product").performClick()
+        compose.runOnIdle { assertNull(selected) }
+        compose.onNodeWithTag("meal-add-quantity").performTextReplacement("2.5")
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithTag("meal-add-quantity").assertTextContains("2.5")
+        compose.onNodeWithTag("meal-add-mode-BASIS").performClick()
+        compose.onNodeWithTag("meal-add-quantity").assertTextContains("625")
+        compose.onNodeWithTag("meal-add-quantity").performTextReplacement("0")
+        compose.onNodeWithTag("meal-add-confirm").assertIsNotEnabled()
+        compose.onNodeWithTag("meal-add-quantity").performTextReplacement("300")
+        compose.onNodeWithTag("meal-add-confirm").performClick()
+        compose.runOnIdle {
+            assertEquals("300", selected!!.quantity)
+            assertEquals(300.0, selected!!.amount!!, 0.0)
+        }
+        compose.onNodeWithTag("meal-add-quantity").assertDoesNotExist()
+    }
+
+    @Test fun cancellingQuantityDoesNotAddFood() {
+        var added = false
+        compose.setContent { FitnessComposeTheme(false) {
+            MealCatalogSearch(actions { name, _ -> if (name == "selectFood") added = true },
+                foodState().copy(foodPortions = emptyList()))
+        } }
+        compose.onNodeWithTag("food-result-food-0").performClick()
+        compose.onNodeWithTag("meal-add-cancel").performClick()
+        compose.runOnIdle { assertFalse(added) }
+        compose.onNodeWithTag("meal-add-quantity").assertDoesNotExist()
     }
 
     @Test fun aLongSelectedCompositionCanEditOneRowWithSaveVisible() {

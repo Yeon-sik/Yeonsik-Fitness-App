@@ -1233,15 +1233,26 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         }
     }
     fun selectFood(food: NutritionFood) {
+        val portion = initialFoodPortion(food, preferCount = true)
+        selectFood(food, portion.quantity, portion.mode)
+    }
+
+    fun selectFood(food: NutritionFood, quantity: String, mode: PortionInputMode) {
         val state = ready()
         if (state.saving || state.draftLoading) return
         if (mealFoodItems(state).any { it.food.id == food.id } || diningMealMenus(state).any { it.nutritionFoodId == food.id }) {
             update { it.copy(notice = "${food.displayName()}은 이미 담겨 있어요. 이번 식단에서 양을 수정하세요.") }
             return
         }
+        val portion = FoodPortionDraft(food, quantity, mode)
+        if (mode !in portion.availableModes() || portion.amount == null) {
+            update { it.copy(error = "먹은 양은 0보다 큰 숫자로 입력하세요.") }
+            return
+        }
         if (food.isDiningOutMenu()) {
             useDiningOutFood(food)
             if (ready().selectedFood?.id != food.id) return
+            updateDiningPortion(quantity)
             addDiningMenu()
             update { it.copy(diningOut = it.category == MealCatalogCategory.DINING_OUT) }
             return
@@ -1253,13 +1264,12 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         cancelSearch()
         savedStateHandle[KEY_MANUAL_FOOD_OPEN] = false
         selectedFood = food
-        val quantity = initialFoodPortion(food, preferCount = true).quantity
         savedStateHandle[KEY_FOOD_ID] = food.id
         savedStateHandle[KEY_QUANTITY] = quantity
         update { current -> current.copy(selectedFood = food, quantity = quantity,
             error = null, searchLoading = false, searchCompleted = true, searchError = null,
             searching = false, manualFoodEntry = false,
-            foodPortions = addFoodPortion(current.foodPortions, food, preferCount = true)) }
+            foodPortions = current.foodPortions + portion) }
     }
 
     fun updateQuantity(value: String) {

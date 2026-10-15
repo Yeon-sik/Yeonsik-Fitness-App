@@ -1840,6 +1840,10 @@ private fun AppDestination(
         override fun selectFood(food: com.yeonsik.fitnessapp.data.NutritionFood) {
             viewModels.getMeal().selectFood(food)
         }
+        override fun selectFood(food: com.yeonsik.fitnessapp.data.NutritionFood, quantity: String,
+            mode: com.yeonsik.fitnessapp.feature.nutrition.model.PortionInputMode) {
+            viewModels.getMeal().selectFood(food, quantity, mode)
+        }
         override fun useDiningOutFood(food: com.yeonsik.fitnessapp.data.NutritionFood) {
             viewModels.getMeal().useDiningOutFood(food)
         }
