@@ -19,7 +19,9 @@ import java.util.Map;
 public final class NutritionProfile {
     public static final String CALORIES_KCAL = "calories_kcal";
     public static final String PROTEIN_GRAMS = "protein_grams";
+    /** Total carbohydrate, including sugars; never add child nutrients to this value. */
     public static final String CARBS_GRAMS = "carbs_grams";
+    /** Total fat, including saturated and trans fat. */
     public static final String FAT_GRAMS = "fat_grams";
     public static final String SODIUM_MG = "sodium_mg";
     public static final String SATURATED_FAT_GRAMS = "saturated_fat_grams";

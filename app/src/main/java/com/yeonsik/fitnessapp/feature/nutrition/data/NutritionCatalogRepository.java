@@ -1,5 +1,7 @@
 package com.yeonsik.fitnessapp.feature.nutrition.data;
 
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy;
+
 import android.content.Context;
 
 import com.yeonsik.fitnessapp.core.database.FitnessRoomDatabase;
@@ -1457,6 +1459,16 @@ public final class NutritionCatalogRepository implements
             String branchName,
             DiningOutIdentity identity
     ) {
+        return saveDiningOutMenuWithNutrition(storeName, menuName, calories, proteinGrams,
+                carbsGrams, fatGrams, sodiumMg, sugarsGrams, saturatedFatGrams, branchName, identity, null);
+    }
+
+    @Override
+    public NutritionFood saveDiningOutMenuWithNutrition(
+            String storeName, String menuName, Integer calories, Double proteinGrams, Double carbsGrams,
+            Double fatGrams, Double sodiumMg, Double sugarsGrams, Double saturatedFatGrams,
+            String branchName, DiningOutIdentity identity, Double transFatGrams
+    ) {
         MealEntryPolicy.requireDiningOutMenuNutrition(
                 calories,
                 proteinGrams,
@@ -1464,7 +1476,8 @@ public final class NutritionCatalogRepository implements
                 fatGrams,
                 sodiumMg,
                 sugarsGrams,
-                saturatedFatGrams
+                saturatedFatGrams,
+                transFatGrams
         );
 
         NutritionProfile profile = NutritionProfile.builder()
@@ -1475,6 +1488,7 @@ public final class NutritionCatalogRepository implements
                 .value(NutritionProfile.SODIUM_MG, sodiumMg)
                 .value(NutritionProfile.SUGARS_GRAMS, sugarsGrams)
                 .value(NutritionProfile.SATURATED_FAT_GRAMS, saturatedFatGrams)
+                .value(NutritionProfile.TRANS_FAT_GRAMS, transFatGrams)
                 .build();
         return saveDiningOutMenuWithNutrition(
                 storeName,
@@ -1509,8 +1523,10 @@ public final class NutritionCatalogRepository implements
                 fatGrams,
                 sourceProfile.value(NutritionProfile.SODIUM_MG),
                 sourceProfile.value(NutritionProfile.SUGARS_GRAMS),
-                sourceProfile.value(NutritionProfile.SATURATED_FAT_GRAMS)
+                sourceProfile.value(NutritionProfile.SATURATED_FAT_GRAMS),
+                sourceProfile.value(NutritionProfile.TRANS_FAT_GRAMS)
         );
+        NutritionConsistencyPolicy.validate(sourceProfile);
         NutritionProfile normalizedProfile = NutritionProfile.builder()
                 .from(sourceProfile)
                 .build();
@@ -1757,7 +1773,7 @@ public final class NutritionCatalogRepository implements
             String sourceType,
             String sourceReference
     ) {
-
+        NutritionConsistencyPolicy.validate(profile);
         String existingId = null;
         String existingCreatedAt = null;
         if (isDiningOutMenuSourceType(sourceType)) {
@@ -1896,6 +1912,7 @@ public final class NutritionCatalogRepository implements
         }
         for (Double value : profile.asMap().values()) if (!Double.isFinite(value) || value < 0)
             throw new IllegalArgumentException("영양정보를 0 이상 숫자로 입력하세요.");
+        NutritionConsistencyPolicy.validate(profile);
         boolean product = input.getRegistrationKind() == com.yeonsik.fitnessapp.feature.nutrition.model.NutritionRegistrationKind.PRODUCT;
         String sourceType = product && "manual_estimate".equals(input.getSourceType())
                 ? "manual_product_estimate" : input.getSourceType();
@@ -2740,6 +2757,7 @@ public final class NutritionCatalogRepository implements
                     "필수 영양소를 모두 입력하세요: " + String.join(", ", labels)
             );
         }
+        NutritionConsistencyPolicy.validate(safeProfile);
         return safeProfile;
     }
 

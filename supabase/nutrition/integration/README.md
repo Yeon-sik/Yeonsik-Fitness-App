@@ -63,13 +63,25 @@ temporary users and remove them after the run.
 The historical-replay/replay.mjs runner starts two uniquely named local Supabase projects with Docker and no linked project reference:
 
 - a historical replay that runs all 28 recovered migrations from an empty database;
-- a second fresh replay that runs those same 28 migrations, applies all three pending migrations, verifies the final schema and grants, runs the rollback fixture, and runs the authenticated `external-reference-only` integration mode.
+- a second fresh replay that runs those same 28 migrations, applies all seven forward migrations in order, verifies the schema and grants, runs rollback fixtures, and exercises the authenticated canonical contract and nutrient relation matrices.
 
 The runner first applies the real SQL through 20260814065526_product_nutrition_link_pricetrace_metadata.sql. It then loads historical-replay/pre_20260814065823_kaguri.sql, a disposable-only synthetic prerequisite, and applies unchanged historical SQL from 20260814065823 onward. The runner derives the one selector UUID from that original migration; the fixture contains no production owner or Nutrition row data and is not part of normal seed configuration.
 
 The final replay snapshots public table columns, constraints, and function definitions before 20261002120000_external_reference_nutrition_import_v1.sql. Assertions require that migration to add only its external-reference helper, preserve Sep20 constraints and the legacy RPC body, and update only the canonical v3 dispatcher. The current migration has no dynamic function patch. The runner fails closed if one is introduced before exact-anchor validation is added.
 
-The disposable replay's integration mode verifies the new external-reference route through the v3 dispatcher: authenticated owner isolation, private visibility, exactly seven nutrient provenance rows with the same public source URL, same-payload idempotent replay, changed-payload conflict, malformed provenance rejection, and anonymous rejection. It deliberately does not call the Sep20 generic v3 legacy branch. On a vanilla local Postgres replay that existing branch currently errors in the already-applied `20260920091249_nutrition_verified_import.sql` at its unqualified `nutrition_food_id` lookup; that remote-applied SQL remains unchanged and the generic legacy path is not proven by this replay.
+The replay first reproduces the historical generic v3 ambiguity, then applies the existing `20261002130000` forward fix and runs `canonical-v3-contract-matrix` for label, estimate, and external-reference inputs. Historical function bodies remain unchanged in source.
+
+After the receipt projection migrations, the replay snapshots current RPC definitions/grants and inserts a disposable synthetic historical import that violates the future nutrient relations. It then applies `20261013065001_nutrition_parent_child_import_guards.sql` and runs `assert_nutrition_relation_guards.sql`. The assertions require exactly four new CHECK constraints on `nutrition_verified_imports`, all still NOT VALID, unchanged RPC signatures/bodies/grants, and an unchanged owner-readable historical row. New updates of inconsistent rows must fail; no historical validation or backfill is performed.
+
+Only after the guard assertions pass, the replay snapshots the current public schema, RPC definitions/metadata/grants, RLS, and table rows immediately before `20261013072000_qualify_canonical_v2_estimation_evidence_id.sql`. That forward fix qualifies only the canonical v2 idempotent-replay `estimation_evidence_id` lookup using the exact function signature and a unique source anchor, failing closed if the anchor is absent or duplicated. `assert_canonical_v2_evidence_fix.sql` requires the resulting function definition to equal that single substitution, with its signature, return contract, SECURITY DEFINER/search_path metadata, execute grants, all other RPCs, table shape, constraints, RLS, and existing public rows preserved. The earlier guard assertion still proves the guard migration itself did not change RPC bodies or grants.
+
+The final `nutrition-relation-guards` mode of `canonical-import.integration.mjs` uses the existing authenticated harness for legacy verified v1, canonical v2, and canonical v3 label/estimate/external-reference. The private external-reference executor is exercised through its v3 dispatcher; its revoked direct EXECUTE grant stays unchanged. The matrix checks literal totals (43 carbohydrate / 8 sugar, 28 fat / 9 saturated / 0.4 trans), equality, optional absence versus zero, owner isolation, and same-payload replay. Each invalid relationship must return SQLSTATE 23514 from its named CHECK, leave no owner-visible import or food projection, fail again on retry, and permit a corrected same-key request as a fresh import. Required nutrient provenance values and estimate ranges are kept aligned with each test input.
+
+Source-only inventory verification does not start Docker or apply migrations:
+
+    node supabase/nutrition/integration/historical-replay/replay.mjs --preflight-only
+
+The full disposable replay below is required to verify actual PostgreSQL enforcement and RPC rollback. A passing preflight alone does not prove those runtime behaviors.
 
 Run with Node.js, the Supabase CLI, Docker, and the integration package dependencies installed:
 

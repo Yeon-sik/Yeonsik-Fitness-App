@@ -109,6 +109,17 @@ interface NutritionCatalogRepositoryApi {
         identity: DiningOutIdentity?
     ): NutritionFood? = null
 
+    /** Extended menu input; implementations must preserve a supplied trans-fat value. */
+    fun saveDiningOutMenuWithNutrition(
+        storeName: String, menuName: String, calories: Int?, proteinGrams: Double?,
+        carbsGrams: Double?, fatGrams: Double?, sodiumMg: Double?, sugarsGrams: Double?,
+        saturatedFatGrams: Double?, branchName: String?, identity: DiningOutIdentity?, transFatGrams: Double?
+    ): NutritionFood? {
+        require(transFatGrams == null) { "트랜스지방을 포함한 메뉴 저장을 지원하지 않습니다." }
+        return saveDiningOutMenuWithNutrition(storeName, menuName, calories, proteinGrams,
+            carbsGrams, fatGrams, sodiumMg, sugarsGrams, saturatedFatGrams, branchName, identity)
+    }
+
     /** Changes the repository's captured local owner for subsequent local reads/writes. */
     fun setUserId(userId: String) {}
 

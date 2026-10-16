@@ -5,6 +5,8 @@ import com.yeonsik.fitnessapp.data.NutritionUnit
 import com.yeonsik.fitnessapp.data.MealCompositionItem
 import com.yeonsik.fitnessapp.data.NutritionCalculator
 import com.yeonsik.fitnessapp.data.NutritionTotals
+import com.yeonsik.fitnessapp.data.NutritionProfile
+import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
 import java.math.BigDecimal
 
 internal fun mealQuantityValue(value: String): Double? =
@@ -51,11 +53,19 @@ internal fun diningOutRegistrationError(draft: DiningOutDraft): String? {
     listOf(
         "나트륨" to draft.sodium,
         "당류" to draft.sugars,
-        "포화지방" to draft.saturatedFat
+        "포화지방" to draft.saturatedFat,
+        "트랜스지방" to draft.transFat
     ).forEach { (label, value) ->
         mealNutritionInputError(value, label, required = false)?.let { return it }
     }
-    return null
+    val profile = NutritionProfile.builder()
+        .value(NutritionProfile.CARBS_GRAMS, draft.carbs.trim().toDoubleOrNull())
+        .value(NutritionProfile.SUGARS_GRAMS, draft.sugars.trim().toDoubleOrNull())
+        .value(NutritionProfile.FAT_GRAMS, draft.fat.trim().toDoubleOrNull())
+        .value(NutritionProfile.SATURATED_FAT_GRAMS, draft.saturatedFat.trim().toDoubleOrNull())
+        .value(NutritionProfile.TRANS_FAT_GRAMS, draft.transFat.trim().toDoubleOrNull())
+        .build()
+    return runCatching { NutritionConsistencyPolicy.validate(profile) }.exceptionOrNull()?.message
 }
 
 internal fun mealQuantityText(value: Double): String =
@@ -75,7 +85,7 @@ internal fun hasMealRegistrationDraft(editor: MealUiState.Ready): Boolean =
             editor.draft.store, editor.draft.branch, editor.draft.menu,
             editor.draft.calories, editor.draft.carbs, editor.draft.protein,
             editor.draft.fat, editor.draft.sodium, editor.draft.sugars,
-            editor.draft.saturatedFat
+            editor.draft.saturatedFat, editor.draft.transFat
         ).any { it.isNotBlank() }
 
 internal fun foodMealRegistrationError(editor: MealUiState.Ready): String? {

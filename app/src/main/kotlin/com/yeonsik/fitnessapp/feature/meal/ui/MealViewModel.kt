@@ -80,7 +80,8 @@ data class DiningOutDraft(
     val restaurantMenuId: String = "",
     val catalogProductId: String = "",
     val sourceNamespace: String = "",
-    val sourceLocationCode: String = ""
+    val sourceLocationCode: String = "",
+    val transFat: String = ""
 )
 
 data class MealRecordEditor(
@@ -380,6 +381,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         savedStateHandle.remove<String>(KEY_SODIUM)
         savedStateHandle.remove<String>(KEY_SUGARS)
         savedStateHandle.remove<String>(KEY_SATURATED_FAT)
+        savedStateHandle.remove<String>(KEY_TRANS_FAT)
         savedStateHandle.remove<String>(KEY_TIME)
         savedStateHandle.remove<String>(KEY_FOOD_ID)
         savedStateHandle.remove<String>(KEY_QUANTITY)
@@ -412,6 +414,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     fun updateSodium(value: String) = draft(KEY_SODIUM, value)
     fun updateSugars(value: String) = draft(KEY_SUGARS, value)
     fun updateSaturatedFat(value: String) = draft(KEY_SATURATED_FAT, value)
+    fun updateTransFat(value: String) = draft(KEY_TRANS_FAT, value)
     fun updateTime(value: String) = draft(KEY_TIME, value)
     fun updateDiningPortion(value: String) {
         if (ready().saving) return
@@ -473,7 +476,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         if (ready().saving) return
         val state = ready()
         listOf(KEY_MENU, KEY_CALORIES, KEY_CARBS, KEY_PROTEIN, KEY_FAT, KEY_SODIUM, KEY_SUGARS,
-            KEY_SATURATED_FAT, KEY_FOOD_ID, KEY_RESTAURANT_MENU_ID, KEY_CATALOG_PRODUCT_ID)
+            KEY_SATURATED_FAT, KEY_TRANS_FAT, KEY_FOOD_ID, KEY_RESTAURANT_MENU_ID, KEY_CATALOG_PRODUCT_ID)
             .forEach { savedStateHandle.remove<String>(it) }
         savedStateHandle[KEY_TIME] = state.draft.time
         savedStateHandle[KEY_DINING_PORTION] = "1"
@@ -495,6 +498,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
                 KEY_CALORIES to draft.calories, KEY_CARBS to draft.carbs, KEY_PROTEIN to draft.protein,
                 KEY_FAT to draft.fat, KEY_SODIUM to draft.sodium, KEY_SUGARS to draft.sugars,
                 KEY_SATURATED_FAT to draft.saturatedFat, KEY_RESTAURANT_ID to draft.restaurantId,
+                KEY_TRANS_FAT to draft.transFat,
                 KEY_RESTAURANT_LOCATION_ID to draft.restaurantLocationId, KEY_RESTAURANT_MENU_ID to draft.restaurantMenuId,
                 KEY_CATALOG_PRODUCT_ID to draft.catalogProductId, KEY_SOURCE_NAMESPACE to draft.sourceNamespace,
                 KEY_SOURCE_LOCATION_CODE to draft.sourceLocationCode).forEach { (key, value) -> savedStateHandle[key] = value }
@@ -1069,7 +1073,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
         }
         if (targetChanged && !keepPendingDiningMenu()) return
         if (targetChanged) {
-            listOf(KEY_CALORIES, KEY_CARBS, KEY_PROTEIN, KEY_FAT, KEY_SODIUM, KEY_SUGARS, KEY_SATURATED_FAT)
+            listOf(KEY_CALORIES, KEY_CARBS, KEY_PROTEIN, KEY_FAT, KEY_SODIUM, KEY_SUGARS, KEY_SATURATED_FAT, KEY_TRANS_FAT)
                 .forEach { savedStateHandle.remove<String>(it) }
             savedStateHandle[KEY_DINING_PORTION] = "1"
             savedStateHandle[KEY_DINING_PERCENT] = "100"
@@ -1175,7 +1179,7 @@ fun chooseDiningOut() = chooseCategory(MealCatalogCategory.DINING_OUT)
     fun updateManualFood(draft: ManualFoodDraft) {
         savedStateHandle[KEY_MANUAL_FOOD] = arrayListOf(draft.name, draft.brand, draft.basisAmount,
             draft.basisUnit, draft.calories, draft.carbs, draft.protein, draft.fat, draft.sodium,
-            draft.sugars, draft.saturatedFat, draft.registrationKind.name, draft.packageAmount, draft.packageUnit)
+            draft.sugars, draft.saturatedFat, draft.registrationKind.name, draft.packageAmount, draft.packageUnit, draft.transFat)
         update { it.copy(manualFoodDraft = draft, error = null, catalogNotice = null) }
     }
 
@@ -1386,6 +1390,7 @@ fun saveFood(scope: AccountScope, onSaved: (Boolean) -> Unit) = save(scope, onSa
         savedStateHandle[KEY_SODIUM] = food.profile.value(NutritionFoodProfileKeys.SODIUM)?.let(::number).orEmpty()
         savedStateHandle[KEY_SUGARS] = food.profile.value(NutritionFoodProfileKeys.SUGARS)?.let(::number).orEmpty()
         savedStateHandle[KEY_SATURATED_FAT] = food.profile.value(NutritionFoodProfileKeys.SATURATED_FAT)?.let(::number).orEmpty()
+        savedStateHandle[KEY_TRANS_FAT] = food.profile.transFatGrams()?.let(::number).orEmpty()
         savedStateHandle[KEY_RESTAURANT_ID] = sourceValue(source, "restaurant_id")
         savedStateHandle[KEY_RESTAURANT_LOCATION_ID] = sourceValue(source, "restaurant_location_id")
         savedStateHandle[KEY_RESTAURANT_MENU_ID] = sourceValue(source, "restaurant_menu_id")
@@ -1431,7 +1436,8 @@ fun saveFood(scope: AccountScope, onSaved: (Boolean) -> Unit) = save(scope, onSa
                     parsed.sugars,
                     parsed.saturatedFat,
                     draft.branch.takeIf { it.isNotBlank() },
-                    identityFromDraft(draft)
+                    identityFromDraft(draft),
+                    parsed.transFat
                 ) ?: throw IllegalStateException("내 메뉴로 저장하지 못했습니다.")
             }
             mainExecutor.execute {
@@ -1476,7 +1482,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
                 requireNotNull(mealQuantityValue(menu.quantity)), parsed.calories, parsed.protein, parsed.carbs, parsed.fat,
                 parsed.sodium, parsed.sugars, parsed.saturatedFat, source.restaurantId.takeIf(String::isNotBlank),
                 source.restaurantLocationId.takeIf(String::isNotBlank), source.restaurantMenuId.takeIf(String::isNotBlank),
-                source.catalogProductId.takeIf(String::isNotBlank)), requireNotNull(mealConsumedFraction(menu.consumedPercent)),
+                source.catalogProductId.takeIf(String::isNotBlank), parsed.transFat), requireNotNull(mealConsumedFraction(menu.consumedPercent)),
                 menu.nutritionFoodId, requireNotNull(source.calories.toDoubleOrNull()))
         }
         cancelSearch()
@@ -1660,7 +1666,8 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         savedStateHandle[KEY_RESTAURANT_MENU_ID] ?: "",
         savedStateHandle[KEY_CATALOG_PRODUCT_ID] ?: "",
         savedStateHandle[KEY_SOURCE_NAMESPACE] ?: "",
-        savedStateHandle[KEY_SOURCE_LOCATION_CODE] ?: ""
+        savedStateHandle[KEY_SOURCE_LOCATION_CODE] ?: "",
+        transFat = savedStateHandle[KEY_TRANS_FAT] ?: ""
     )
 
     private fun resetSavedDraft() {
@@ -1671,7 +1678,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         savedStateHandle.remove<ArrayList<String>>(KEY_MANUAL_FOOD)
         savedStateHandle.remove<Boolean>(KEY_MANUAL_FOOD_OPEN)
         listOf(KEY_STORE, KEY_BRANCH, KEY_MENU, KEY_CALORIES, KEY_CARBS, KEY_PROTEIN,
-            KEY_FAT, KEY_SODIUM, KEY_SUGARS, KEY_SATURATED_FAT, KEY_TIME, KEY_QUERY,
+            KEY_FAT, KEY_SODIUM, KEY_SUGARS, KEY_SATURATED_FAT, KEY_TRANS_FAT, KEY_TIME, KEY_QUERY,
             KEY_FOOD_ID, KEY_QUANTITY, KEY_RESTAURANT_ID, KEY_RESTAURANT_LOCATION_ID,
             KEY_RESTAURANT_MENU_ID, KEY_CATALOG_PRODUCT_ID, KEY_SOURCE_NAMESPACE,
             KEY_SOURCE_LOCATION_CODE, KEY_PRICE_TRACE_QUERY)
@@ -1688,7 +1695,8 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
             values[6], values[7], values[8], values[9], values[10],
             values.getOrNull(11)?.let { runCatching { NutritionRegistrationKind.valueOf(it) }.getOrNull() }
                 ?: NutritionRegistrationKind.INGREDIENT,
-            values.getOrNull(12).orEmpty(), values.getOrNull(13) ?: NutritionUnit.GRAM)
+            values.getOrNull(12).orEmpty(), values.getOrNull(13) ?: NutritionUnit.GRAM,
+            transFat = values.getOrNull(14).orEmpty())
     }
 
     override fun onCleared() {
@@ -1706,7 +1714,8 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
             requiredNumber(draft.fat, "지방"),
             optionalNumber(draft.sodium, "나트륨"),
             optionalNumber(draft.sugars, "당류"),
-            optionalNumber(draft.saturatedFat, "포화지방")
+            optionalNumber(draft.saturatedFat, "포화지방"),
+            optionalNumber(draft.transFat, "트랜스지방")
         )
     }
     private fun requiredNumber(value: String, label: String): Double {
@@ -1720,7 +1729,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         if (value.trim().isEmpty()) null else requiredNumber(value, label)
     private data class ParsedDining(
         val calories: Int, val protein: Double, val carbs: Double, val fat: Double,
-        val sodium: Double?, val sugars: Double?, val saturatedFat: Double?
+        val sodium: Double?, val sugars: Double?, val saturatedFat: Double?, val transFat: Double?
     )
 
     private object NutritionFoodProfileKeys {
@@ -1749,6 +1758,7 @@ fun save(scope: AccountScope, onSaved: (Boolean) -> Unit) {
         const val KEY_SODIUM = "meal.sodium"
         const val KEY_SUGARS = "meal.sugars"
         const val KEY_SATURATED_FAT = "meal.saturated_fat"
+        const val KEY_TRANS_FAT = "meal.trans_fat"
         const val KEY_TIME = "meal.time"
         const val KEY_FOOD_ID = "meal.food_id"
         const val KEY_QUANTITY = "meal.quantity"

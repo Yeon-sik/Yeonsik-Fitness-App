@@ -61,11 +61,24 @@ interface MealRecordRepositoryApi {
         catalogProductId: String?
     ): String
 
+    fun saveManualDiningOut(
+        scope: AccountScope, date: String, mealTime: String, storeName: String, branchName: String,
+        menuName: String, calories: Int, proteinGrams: Double, carbsGrams: Double, fatGrams: Double,
+        sodiumMg: Double?, sugarsGrams: Double?, saturatedFatGrams: Double?, restaurantId: String?,
+        restaurantLocationId: String?, restaurantMenuId: String?, catalogProductId: String?, transFatGrams: Double?
+    ): String {
+        require(transFatGrams == null) { "트랜스지방을 포함한 외식 기록을 지원하지 않습니다." }
+        return saveManualDiningOut(scope, date, mealTime, storeName, branchName, menuName, calories,
+            proteinGrams, carbsGrams, fatGrams, sodiumMg, sugarsGrams, saturatedFatGrams,
+            restaurantId, restaurantLocationId, restaurantMenuId, catalogProductId)
+    }
+
     fun saveDiningOutPortion(scope: AccountScope, date: String, mealTime: String, input: DiningOutMealInput): String {
         require(input.quantity == 1.0) { "외식 섭취량 저장을 지원하지 않습니다." }
         return saveManualDiningOut(scope, date, mealTime, input.storeName, input.branchName, input.menuName,
             input.calories, input.proteinGrams, input.carbsGrams, input.fatGrams, input.sodiumMg, input.sugarsGrams,
-            input.saturatedFatGrams, input.restaurantId, input.restaurantLocationId, input.restaurantMenuId, input.catalogProductId)
+            input.saturatedFatGrams, input.restaurantId, input.restaurantLocationId, input.restaurantMenuId, input.catalogProductId,
+            input.transFatGrams)
     }
 
     /** Atomically snapshots each menu at 100% and records its individual consumption. */

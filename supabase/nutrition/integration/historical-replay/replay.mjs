@@ -21,7 +21,9 @@ const remote = [
   '20260920091328', '20260920091342', '20260920091351', '20260922152608',
   '20260924130855', '20260924131958', '20260924132515', '20260924132818'
 ];
-const pending = ['20260927120000', '20261002120000', '20261002130000'];
+const relationGuardsVersion = '20261013065001';
+const canonicalV2EvidenceFixVersion = '20261013072000';
+const pending = ['20260927120000', '20261002120000', '20261002130000', '20261012042217', '20261012045708', relationGuardsVersion, canonicalV2EvidenceFixVersion];
 const excluded = [
   'realtime', 'storage-api', 'imgproxy', 'studio', 'mailpit',
   'postgres-meta', 'edge-runtime', 'logflare', 'vector', 'supavisor'
@@ -108,6 +110,18 @@ function inventory() {
       || !genericFixSql.includes('v_v3_anchor_count <> 1')
       || !genericFixSql.includes('execute v_v3_repaired')) {
     throw new Error('Both generic v3 patches must use pg_get_functiondef with exact unique anchors and fail closed.');
+  }
+  const canonicalV2FixSql = readFileSync(migration(canonicalV2EvidenceFixVersion), 'utf8');
+  if (!canonicalV2FixSql.includes('pg_catalog.to_regprocedure')
+      || !canonicalV2FixSql.includes('public.import_canonical_nutrition_v2(text,text,text,text,text,text,numeric,text,jsonb,jsonb,jsonb,jsonb,boolean,jsonb,jsonb)')
+      || !canonicalV2FixSql.includes('pg_catalog.pg_get_functiondef')
+      || !canonicalV2FixSql.includes('v_anchor_count <> 1')
+      || !canonicalV2FixSql.includes('pg_catalog.replace(v_original, v_anchor, v_qualified)')
+      || !canonicalV2FixSql.includes('execute v_repaired')
+      || !canonicalV2FixSql.includes('v_after is distinct from v_repaired')
+      || !canonicalV2FixSql.includes('pg_catalog.strpos(v_after, v_anchor) <> 0')
+      || !canonicalV2FixSql.includes('pg_catalog.strpos(v_after, v_qualified) = 0')) {
+    throw new Error('Canonical v2 evidence repair must use the exact signature, unique anchor, and fail-closed before/after checks.');
   }
   const oldSql = readFileSync(migration('20260814065823'), 'utf8');
   const ids = Array.from(oldSql.matchAll(/catalog_product_id\s*=\s*'([0-9a-f-]{36})'::uuid/gi), match => match[1]);
@@ -286,7 +300,21 @@ async function replay(label, final, kaguriId) {
     await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
     await sql(container, readFileSync(path.join(replayDir, 'assert_generic_v3_fix.sql'), 'utf8'));
     await canonicalIntegration(project, status, 'canonical-v3-contract-matrix');
-    console.log('PASS final fresh replay (28 recovered migrations plus all three pending migrations)');
+    for (const version of ['20261012042217', '20261012045708']) stage(version, project.migrationsDir);
+    console.log('Applying verified receipt product nutrition links and read projection locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, readFileSync(path.join(replayDir, 'snapshot_before_nutrition_relation_guards.sql'), 'utf8'));
+    stage(relationGuardsVersion, project.migrationsDir);
+    console.log('Applying Nutrition parent/child import guards locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, readFileSync(path.join(replayDir, 'assert_nutrition_relation_guards.sql'), 'utf8'));
+    await sql(container, readFileSync(path.join(replayDir, 'snapshot_before_canonical_v2_evidence_fix.sql'), 'utf8'));
+    stage(canonicalV2EvidenceFixVersion, project.migrationsDir);
+    console.log('Applying canonical v2 idempotent replay evidence ambiguity forward fix locally');
+    await run(cli, ['migration', 'up', '--local'], { cwd: project.dir, timeout: 10 * 60 * 1000 });
+    await sql(container, readFileSync(path.join(replayDir, 'assert_canonical_v2_evidence_fix.sql'), 'utf8'));
+    await canonicalIntegration(project, status, 'nutrition-relation-guards');
+    console.log('PASS final fresh replay (' + remote.length + ' recovered migrations plus ' + pending.length + ' forward migrations)');
   } finally {
     if (startAttempted) {
       try {
@@ -302,7 +330,7 @@ async function replay(label, final, kaguriId) {
 
 async function main() {
   const kaguriId = inventory();
-  console.log('Verified exactly 28 recovered migration files and 3 pending migration files.');
+  console.log('Verified exactly ' + remote.length + ' recovered migration files and ' + pending.length + ' forward migration files.');
   const fixture = readFileSync(path.join(replayDir, 'pre_20260814065823_kaguri.sql'), 'utf8');
   const selectorToken = '{{KAGURI_PRODUCT_UUID_FROM_HISTORICAL_SQL}}';
   if (fixture.split(selectorToken).length !== 2) {

@@ -18,8 +18,9 @@ enum class NutritionEditorMode { LIBRARY, COMPOSITION, RECIPE, FOOD }
 
 enum class FoodEntryField(val label: String, val unit: String = "") {
     NAME("식품 이름"), BRAND("브랜드 (선택)"), BASIS("기준량"),
-    CALORIES("칼로리", "kcal"), PROTEIN("단백질", "g"), CARBS("탄수화물", "g"),
-    FAT("지방", "g"), SODIUM("나트륨", "mg"), SUGARS("당류", "g"), SATURATED_FAT("포화지방", "g")
+    CALORIES("칼로리", "kcal"), PROTEIN("단백질", "g"), CARBS("탄수화물 (총)", "g"),
+    FAT("지방 (총)", "g"), SODIUM("나트륨", "mg"), SUGARS("당류", "g"), SATURATED_FAT("포화지방", "g"),
+    TRANS_FAT("트랜스지방 (선택)", "g")
 }
 
 data class NutritionEditorState(
@@ -299,7 +300,9 @@ class NutritionEditorController(
             .value(NutritionProfile.SODIUM_MG, optionalNumber(draft.field(FoodEntryField.SODIUM), "나트륨"))
             .value(NutritionProfile.SUGARS_GRAMS, optionalNumber(draft.field(FoodEntryField.SUGARS), "당류"))
             .value(NutritionProfile.SATURATED_FAT_GRAMS, optionalNumber(draft.field(FoodEntryField.SATURATED_FAT), "포화지방"))
+            .value(NutritionProfile.TRANS_FAT_GRAMS, optionalNumber(draft.field(FoodEntryField.TRANS_FAT), "트랜스지방"))
             .build()
+        NutritionConsistencyPolicy.validate(profile)
         val input = NutritionFoodInput(draft.field(FoodEntryField.NAME).trim(), draft.field(FoodEntryField.BRAND).trim().ifBlank { null },
             basis, draft.basisUnit, profile, draft.sourceType, draft.registrationKind,
             draft.packageAmount.trim().takeIf(String::isNotEmpty)?.let { requiredNumber(it, "제품 1개 용량") }, draft.basisUnit)
