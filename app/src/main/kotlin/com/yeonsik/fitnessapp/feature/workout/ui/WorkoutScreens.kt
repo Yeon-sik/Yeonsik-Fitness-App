@@ -501,11 +501,14 @@ private fun WorkoutSetRecordCard(
     val hasLoadState = allowedLoadStates.isNotEmpty() || detail.sets.any { it.loadState != null }
     val columns = remember(recordType, hasLoadState) { workoutSetInputColumns(recordType, hasLoadState) }
     val orderedSets = remember(detail.sets) { detail.sets.sortedBy { it.setIndex } }
+    val setGroups = remember(orderedSets) { workoutSetGroups(orderedSets) }
     var restDraft by rememberSaveable(ownerId, detail.recordId, detail.activeExercise.id, restSeconds) {
         mutableStateOf(restSeconds.toString())
     }
     var applyingRest by remember { mutableStateOf(false) }
     var addingSet by remember { mutableStateOf(false) }
+    var addingDropRoot by remember { mutableStateOf<String?>(null) }
+    var showExerciseGroupPicker by rememberSaveable(detail.recordId, detail.activeExercise.id) { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val applyRest: () -> Unit = {
         val seconds = restDraft.toIntOrNull()?.takeIf { it >= 0 }
@@ -522,6 +525,10 @@ private fun WorkoutSetRecordCard(
     FitnessCard(Modifier.fillMaxWidth().testTag("workout-set-record-box")) {
         Column(Modifier.padding(FitnessSpacing.small),
             verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
+            TextButton(onClick = { showExerciseGroupPicker = true }, modifier = Modifier.testTag("workout-exercise-group")) {
+                Text(workoutExerciseGroupLabel(detail.exercises, detail.activeExercise).takeIf { it.isNotBlank() }
+                    ?.let { "$it · ${detail.activeExercise.groupType.label} · 연결 관리" } ?: "S / C · 운동 연결")
+            }
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
                 Text("세트 기록", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
@@ -549,11 +556,27 @@ private fun WorkoutSetRecordCard(
                         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
                     ) {
                         WorkoutSetTableHeader(columns)
-                        orderedSets.forEach { set ->
-                            key(set.id) {
-                                drafts.SaveableStateProvider("$ownerId:${detail.recordId}:${set.id}") {
-                                    WorkoutSetEditor(actions, detail.recordId, detail.activeExercise.recordType,
-                                        allowedLoadStates, set, unit, restSeconds, columns)
+                        setGroups.forEach { group ->
+                            key(group.root.id) {
+                                WorkoutDropSetGroup(group, workoutSetMarker(orderedSets, group.root), onAdd = {
+                                    if (addingDropRoot == null && !addingSet) {
+                                        addingDropRoot = group.root.id
+                                        focus.clearFocus()
+                                        actions.addDropSet(detail.recordId, detail.activeExercise.id, group.root.id) { ok ->
+                                            addingDropRoot = null
+                                            if (ok) actions.refresh() else actions.toast("하위 세트를 추가하지 못했습니다.")
+                                        }
+                                    }
+                                }, enabled = addingDropRoot == null && !addingSet) {
+                                    group.sets.forEach { set ->
+                                        key(set.id) {
+                                            drafts.SaveableStateProvider("$ownerId:${detail.recordId}:${set.id}") {
+                                                WorkoutSetEditor(actions, detail.recordId, detail.activeExercise.recordType,
+                                                    allowedLoadStates, set, unit, restSeconds, columns, detail, group,
+                                                    onExerciseGroup = { showExerciseGroupPicker = true })
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -570,7 +593,7 @@ private fun WorkoutSetRecordCard(
                         if (ok) actions.refresh() else actions.toast("세트를 추가하지 못했습니다.")
                     }
                 },
-                enabled = !addingSet,
+                enabled = !addingSet && addingDropRoot == null,
                 modifier = Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
                     .testTag("workout-add-set")
                     .semantics { contentDescription = "세트 추가" },
@@ -581,6 +604,7 @@ private fun WorkoutSetRecordCard(
             }
         }
     }
+    if (showExerciseGroupPicker) WorkoutExerciseGroupDialog(detail, actions) { showExerciseGroupPicker = false }
 }
 
 private const val EXERCISE_RECORDS_TAB = "records"
@@ -762,6 +786,12 @@ private fun WorkoutExerciseSetTable(
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
             }
             val rows = workoutSetTableRows(recordType, batch, unit)
+            if (batch.any { it.setType != WorkoutSetType.NORMAL }) {
+                WorkoutExerciseSetTableRow("유형", batch.map {
+                    val marker = it.setType.marker.ifBlank { it.setIndex.toString() }
+                    WorkoutSetTableCell(marker, "${it.setIndex}세트, ${it.setType.label}")
+                })
+            }
             WorkoutExerciseSetTableRow(rows.upperLabel, rows.upperValues,
                 if (FitnessRecordContract.normalizeRecordType(recordType) == FitnessRecordContract.TIME)
                     MaterialTheme.colorScheme.onSurface else workoutWeightTextColor(MaterialTheme.colorScheme.surface))
@@ -948,7 +978,7 @@ private fun WorkoutPreviousHistory(
                 Text("총 볼륨 ${MassFormatter.withUnit(history.totalVolumeKg, unit)}")
                 history.sets.forEach { set ->
                     Text(
-                        "${set.setIndex}세트 · " + WorkoutSetPresentation.completedSetSummary(
+                        "${workoutSetMarker(history.sets, set)}세트 · " + WorkoutSetPresentation.completedSetSummary(
                             detail.activeExercise.recordType,
                             set.weightKg,
                             set.actualReps,
@@ -1137,9 +1167,15 @@ private fun WorkoutSetEditor(
     set: WorkoutSet,
     unit: MassUnit,
     exerciseRestSeconds: Int,
-    columns: WorkoutSetInputColumns
+    columns: WorkoutSetInputColumns,
+    detail: WorkoutExerciseDetail,
+    group: WorkoutSetGroup,
+    onExerciseGroup: () -> Unit
 ) {
     val recordType = FitnessRecordContract.normalizeRecordType(rawRecordType)
+    val childNumber = group.sets.indexOfFirst { it.id == set.id } + 1
+    val setDescription = if (group.isDropGroup) "${workoutSetMarker(detail.sets, group.root)} ${childNumber}번째 하위 세트"
+        else "${set.setIndex}세트"
     val inputUnit = editableMassUnit(set.inputLoadUnit, unit)
     val initialLoad = initialMassInputValue(
         recordType,
@@ -1231,7 +1267,11 @@ private fun WorkoutSetEditor(
                 val newlyCompleted = nextCompleted && !completed
                 completed = nextCompleted
                 savedRevision = revisionToSave
-                if (newlyCompleted) actions.startRestTimer(exerciseRestSeconds)
+                if (newlyCompleted) {
+                    val advance = workoutSetAdvance(detail, set.id)
+                    actions.startRestTimer(if (advance.startRest) exerciseRestSeconds else 0)
+                    advance.exerciseId?.let(actions::openExercise)
+                }
                 actions.refresh()
             } else actions.toast("세트를 저장하지 못했습니다.")
         }
@@ -1248,20 +1288,42 @@ private fun WorkoutSetEditor(
                 TextButton(
                     onClick = { showSetMenu = true },
                     modifier = Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
-                        .semantics { contentDescription = "${set.setIndex}세트 설정" },
+                        .semantics { contentDescription = "$setDescription 설정" },
                     contentPadding = PaddingValues(0.dp)
                 ) {
-                    Text(set.setIndex.toString(), style = MaterialTheme.typography.bodyMedium)
+                    Text(if (group.isDropGroup) childNumber.toString() else workoutSetMarker(detail.sets, set),
+                        style = MaterialTheme.typography.bodyMedium)
                     WorkoutSetMenuIndicator()
                 }
                 DropdownMenu(expanded = showSetMenu, onDismissRequest = { showSetMenu = false }) {
+                    if (set.id == group.root.id) WorkoutSetType.entries.forEach { type ->
+                        DropdownMenuItem(text = {
+                            Column {
+                                Text(if (type == WorkoutSetType.NORMAL) type.label else "${type.marker} · ${type.label}")
+                                if (type == WorkoutSetType.NORMAL && group.isDropGroup)
+                                    Text("하위 세트도 각각 일반 세트로 유지", style = MaterialTheme.typography.bodySmall)
+                                if (type == WorkoutSetType.NORMAL && detail.activeExercise.supersetGroupId != null)
+                                    Text("운동 연결은 연결 설정에서 해제", style = MaterialTheme.typography.bodySmall)
+                            }
+                        },
+                            enabled = !saving, onClick = {
+                                showSetMenu = false
+                                focus.clearFocus()
+                                actions.updateSetType(recordId, set.id, type) { ok ->
+                                    if (ok) actions.refresh() else actions.toast("세트 유형을 바꾸지 못했습니다.")
+                                }
+                            }, leadingIcon = { RadioButton(selected = (if (group.isDropGroup) WorkoutSetType.DROP else set.setType) == type, onClick = null) })
+                    }
+                    if (set.id == group.root.id) DropdownMenuItem(text = { Text("슈퍼·컴파운드 연결 설정") }, enabled = !saving,
+                        onClick = { showSetMenu = false; onExerciseGroup() })
+                    HorizontalDivider()
                     DropdownMenuItem(
                         text = { Text("입력 저장") },
                         enabled = !saving,
                         onClick = { showSetMenu = false; saveCurrentSet(completed) }
                     )
                     DropdownMenuItem(
-                        text = { Text("세트 삭제", color = MaterialTheme.colorScheme.error) },
+                        text = { Text(if (group.isDropGroup) "하위 세트 삭제" else "세트 삭제", color = MaterialTheme.colorScheme.error) },
                         enabled = !saving,
                         onClick = {
                             showSetMenu = false
@@ -1312,7 +1374,7 @@ private fun WorkoutSetEditor(
                 enabled = !saving,
                 modifier = Modifier.size(FitnessSpacing.touch)
                     .semantics {
-                        contentDescription = "${set.setIndex}세트 완료"
+                        contentDescription = "$setDescription 완료"
                         stateDescription = when {
                             saving -> "저장 중"
                             draftRevision != savedRevision -> "입력 변경됨, 체크하면 저장"
@@ -1552,6 +1614,7 @@ internal fun WorkoutSummaryScreen(
     }
 
     val orderedExercises = stableWorkoutSessionExercises(session.exercises)
+    val groupLabels = workoutSessionGroupLabels(orderedExercises)
     val activity = LocalActivity.current
     var routineName by rememberSaveable(session.recordId) {
         mutableStateOf("${session.title} 루틴")
@@ -1645,7 +1708,7 @@ internal fun WorkoutSummaryScreen(
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
                                     Text(
-                                        exercise.name,
+                                        listOf(groupLabels[exercise.id].orEmpty(), exercise.name).filter { it.isNotBlank() }.joinToString(" · "),
                                         modifier = Modifier.weight(1f),
                                         style = MaterialTheme.typography.titleSmall,
                                         maxLines = 1,
@@ -1674,17 +1737,6 @@ internal fun WorkoutSummaryScreen(
                                     ).joinToString(" · "),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                                Text(
-                                    workoutExerciseVolumeChangeLabel(
-                                        exercise.previousTotalVolumeKg,
-                                        exercise.totalVolumeKg,
-                                        unit
-                                    ),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
                                 )
                                 Row(
                                     horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.micro),
@@ -1719,41 +1771,7 @@ internal fun WorkoutSummaryScreen(
         }
     }
 
-    val previousRoutine = session.previousRoutine
-    FitnessSection("같은 루틴 비교") {
-        when {
-            session.routineId.isNullOrBlank() -> FitnessStatusMessage(
-                status = FitnessSemanticStatus.UNKNOWN,
-                title = "루틴 식별 정보 없음",
-                message = "이 기록에는 이름이 아닌 stable routine ID가 없어 동일 루틴 비교를 표시하지 않습니다."
-            )
-            previousRoutine == null -> FitnessStatusMessage(
-                status = FitnessSemanticStatus.INFO,
-                title = "비교할 이전 기록 없음",
-                message = "같은 routine_id로 저장된 이전 완료 기록이 없습니다."
-            )
-            else -> {
-                val previous = previousRoutine
-                FitnessFactRow(
-                    first = {
-                        FitnessFactCard(
-                            "이전 볼륨",
-                            MassFormatter.withUnit(previous.totalVolumeKg, unit),
-                            previous.date
-                        )
-                    },
-                    second = {
-                        FitnessFactCard(
-                            "볼륨 변화",
-                            workoutSummaryChangeLabel(previous.totalVolumeKg, session.totalVolumeKg),
-                            "현재 대비"
-                        )
-                    }
-                )
-                Text("이전 완료 세트 ${previous.completedSetCount}세트", style = MaterialTheme.typography.bodySmall)
-            }
-        }
-    }
+    WorkoutRoutineComparisonCard(session, unit)
 
     FitnessSection("볼륨 추세") {
         val trendPoints = session.recentVolumes.map {
@@ -1806,6 +1824,7 @@ private fun AppWorkoutSessionContent(
     onExercise: (String) -> Unit
 ) {
     val orderedExercises = stableWorkoutSessionExercises(session.exercises)
+    val groupLabels = workoutSessionGroupLabels(orderedExercises)
     val sessionProgress = workoutSessionProgress(orderedExercises)
     var nowMillis by remember(session.recordId, session.status, session.startedAt) {
         mutableStateOf(System.currentTimeMillis())
@@ -1853,6 +1872,7 @@ private fun AppWorkoutSessionContent(
         }
     )
     FitnessProgressBar(sessionProgress, title = "세션 세트 진행")
+    WorkoutRoutineComparisonCard(session, unit)
     FitnessFactCard(
         "총 볼륨",
         MassFormatter.withUnit(session.totalVolumeKg, unit),
@@ -1890,7 +1910,8 @@ private fun AppWorkoutSessionContent(
                             Modifier.weight(1f),
                             verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
                         ) {
-                            Text(exercise.name, style = MaterialTheme.typography.titleSmall)
+                            Text(listOf(groupLabels[exercise.id].orEmpty(), exercise.name).filter { it.isNotBlank() }.joinToString(" · "),
+                                style = MaterialTheme.typography.titleSmall)
                             Text(
                                 exercise.recordTypeLabel,
                                 style = MaterialTheme.typography.labelSmall,

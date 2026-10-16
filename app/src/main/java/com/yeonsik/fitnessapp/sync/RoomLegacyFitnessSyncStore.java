@@ -237,7 +237,9 @@ public final class RoomLegacyFitnessSyncStore implements LegacyFitnessSyncStore 
                 string(row, "device_id", current == null ? ANDROID_DEVICE_ID : current.getDeviceId()),
                 string(row, "source_app", current == null ? "fitness" : current.getSourceApp()),
                 string(row, "scope", current == null ? "fitness" : current.getScope()),
-                string(row, "metadata", current == null ? "{}" : current.getMetadata()),
+                preserveLocalWorkoutStructure(
+                        string(row, "metadata", current == null ? "{}" : current.getMetadata()),
+                        current == null ? "{}" : current.getMetadata()),
                 longValue(row, "contract_version", current == null ? 1L : current.getContractVersion())
         );
     }
@@ -269,6 +271,23 @@ public final class RoomLegacyFitnessSyncStore implements LegacyFitnessSyncStore 
                 string(row, "device_id", current == null ? ANDROID_DEVICE_ID : current.getDeviceId()),
                 longValue(row, "contract_version", current == null ? 1L : current.getContractVersion())
         );
+    }
+
+    private static String preserveLocalWorkoutStructure(String incoming, String current) {
+        JSONObject localStructure = null;
+        try {
+            localStructure = new JSONObject(current).optJSONObject("workout_structure_v1");
+        } catch (JSONException ignored) { }
+        try {
+            JSONObject metadata = new JSONObject(incoming);
+            metadata.remove("workout_structure_v1");
+            if (localStructure != null) {
+                metadata.put("workout_structure_v1", localStructure);
+            }
+            return metadata.toString();
+        } catch (JSONException ignored) {
+            return localStructure == null ? incoming : current;
+        }
     }
 
     private WorkoutSetsRoomEntity mergeWorkoutSet(

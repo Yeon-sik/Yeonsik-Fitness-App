@@ -28,6 +28,8 @@ import com.yeonsik.fitness.shared.feature.workout.model.WorkoutRoutineComparison
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutWeekProgress
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercisePerformancePoint
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadSessionSummary
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetType
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Duration
@@ -68,7 +70,9 @@ class WorkoutRoomStorage(
         val equipment: String,
         val recordType: String,
         val familyIdentity: ExerciseFamilyIdentity?,
-        val primarySubPart: String? = null
+        val primarySubPart: String? = null,
+        val supersetGroupId: String? = null,
+        val groupType: WorkoutExerciseGroupType = WorkoutExerciseGroupType.SUPERSET
     )
 
     data class SetRow(
@@ -86,7 +90,9 @@ class WorkoutRoomStorage(
         val storedVolumeKg: Double,
         val loadState: LoadState?,
         val inputLoadValue: Double?,
-        val inputLoadUnit: MassUnit?
+        val inputLoadUnit: MassUnit?,
+        val setType: WorkoutSetType = WorkoutSetType.NORMAL,
+        val dropParentSetId: String? = null
     )
 
     data class Metrics(val totalVolumeKg: Double, val setCount: Int, val totalDistanceMeters: Double)
@@ -486,8 +492,13 @@ class WorkoutRoomStorage(
 
     fun exercises(scope: AccountScope, recordId: String): List<ExerciseRow> {
         val result = mutableListOf<ExerciseRow>()
+        val structure = WorkoutStructureMetadata(sessionInfoMetadata(scope, recordId))
+        val visibleRows = workoutDao.visibleExercises(recordId, scope.ownerId)
+        val visibleIds = visibleRows.map { it.id }.toSet()
+        val groupSizes = visibleIds.mapNotNull { structure.supersets.optString(it).takeIf(String::isNotBlank) }
+            .groupingBy { it }.eachCount()
         val links = workoutDao.manualExerciseLinks(recordId, scope.ownerId).associateBy { it.id }
-        for (row in workoutDao.visibleExercises(recordId, scope.ownerId)) {
+        for (row in visibleRows) {
                 val exerciseId = row.exerciseId
                 val linkedIdentity = links[row.id]?.let { link ->
                     familyCatalog.identityForStorageExerciseId(link.canonicalPresetId)?.takeIf {
@@ -502,6 +513,8 @@ class WorkoutRoomStorage(
                     row.canonicalVariantKey,
                     row.visualVariantKey
                 )
+                val groupId = structure.supersets.optString(row.id)
+                    .takeIf { it.isNotBlank() && (groupSizes[it] ?: 0) >= 2 }
                 result += ExerciseRow(
                     row.id,
                     exerciseId,
@@ -511,7 +524,9 @@ class WorkoutRoomStorage(
                     row.equipmentSnapshot.orEmpty(),
                     FitnessRecordContract.normalizeRecordType(row.recordType),
                     identity,
-                    row.primarySubPartSnapshot
+                    row.primarySubPartSnapshot,
+                    groupId,
+                    structure.groupType(groupId)
                 )
         }
         return result
@@ -519,8 +534,19 @@ class WorkoutRoomStorage(
 
     fun sets(scope: AccountScope, exerciseId: String): List<SetRow> {
         val exercise = exerciseById(scope, exerciseId)
+        val occurrence = workoutDao.visibleExercise(exerciseId, scope.ownerId) ?: return emptyList()
+        val annotations = WorkoutStructureMetadata(sessionInfoMetadata(scope, occurrence.recordId)).sets
+        val rows = workoutDao.visibleSets(exerciseId, scope.ownerId)
         val result = mutableListOf<SetRow>()
-        for (row in workoutDao.visibleSets(exerciseId, scope.ownerId)) {
+        for (row in rows) {
+                val annotation = annotations.optJSONObject(row.id)
+                val type = WorkoutSetType.fromId(annotation?.optString("type"))
+                val storedParentId = annotation?.optString("parent_set_id")?.takeIf { it.isNotBlank() }
+                val parentId = storedParentId?.takeIf { parent ->
+                    rows.any { it.id == parent && it.setIndex < row.setIndex &&
+                        WorkoutSetType.fromId(annotations.optJSONObject(it.id)?.optString("type")) != WorkoutSetType.WARMUP &&
+                        annotations.optJSONObject(it.id)?.optString("parent_set_id").isNullOrBlank() }
+                }
                 val rawInput = row.inputLoadValue
                 val rawUnit = row.inputLoadUnit?.let(MassUnit::parse)
                 val validInput = rawInput?.takeIf { it.isFinite() && it >= 0.0 }?.let { value ->
@@ -533,7 +559,9 @@ class WorkoutRoomStorage(
                     row.assistedWeightKg ?: 0.0, row.addedWeightKg ?: 0.0, row.volumeKg ?: 0.0,
                     loadStateForRead(exercise?.recordType, exercise?.familyIdentity,
                         row.loadState, row.addedWeightKg ?: 0.0),
-                    validInput?.first, validInput?.second
+                    validInput?.first, validInput?.second,
+                    if (type == WorkoutSetType.DROP && storedParentId != null && parentId == null) WorkoutSetType.NORMAL else type,
+                    parentId.takeIf { type == WorkoutSetType.DROP }
                 )
         }
         return result
@@ -629,16 +657,19 @@ class WorkoutRoomStorage(
         routineId: String?
     ): WorkoutRoutineComparison? {
         val stableRoutineId = routineId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-        val previous = workoutDao.strengthRecords(scope.ownerId).firstOrNull { record ->
+        val current = workoutDao.visibleRecord(currentRecordId, scope.ownerId) ?: return null
+        val previous = workoutDao.strengthRecords(scope.ownerId).filter { record ->
             record.id != currentRecordId &&
+                (record.date < current.date || (record.date == current.date && record.createdAt < current.createdAt)) &&
                 WorkoutReadSemantics.isCompleted(record.sourceApp, record.metadata) &&
                 metadataValue(record.metadata, "routine_id") == stableRoutineId
-        } ?: return null
+        }.maxWithOrNull(compareBy<WorkoutRecordsRoomEntity> { it.date }.thenBy { it.createdAt }) ?: return null
         val metrics = metrics(scope, previous.id)
         return WorkoutRoutineComparison(
             date = previous.date,
             totalVolumeKg = metrics.totalVolumeKg,
-            completedSetCount = metrics.setCount
+            completedSetCount = metrics.setCount,
+            recordId = previous.id
         )
     }
 
@@ -1018,6 +1049,82 @@ class WorkoutRoomStorage(
         }
     }
 
+    fun updateSetType(scope: AccountScope, recordId: String, setId: String, type: WorkoutSetType): Boolean = transactionRunner.call {
+        val record = editableStructureRecord(scope, recordId) ?: return@call false
+        val row = workoutDao.visibleSet(setId, scope.ownerId) ?: return@call false
+        if (workoutDao.ownsExercise(row.workoutExerciseId, recordId, scope.ownerId) == null) return@call false
+        val structure = WorkoutStructureMetadata(record.metadata)
+        val annotation = JSONObject().put("type", type.id)
+        structure.sets.put(setId, annotation)
+        // Leaving D dissolves the visual group, retaining every input as a normal set.
+        if (type != WorkoutSetType.DROP) structure.sets.keys().asSequence().toList().forEach { id ->
+            if (structure.sets.optJSONObject(id)?.optString("parent_set_id") == setId) structure.sets.remove(id)
+        }
+        workoutDao.updateRecord(record.copy(metadata = structure.encoded(), updatedAt = now())) > 0
+    }
+
+    fun addDropSet(scope: AccountScope, recordId: String, exerciseId: String, parentSetId: String): Boolean = transactionRunner.call {
+        val record = editableStructureRecord(scope, recordId) ?: return@call false
+        if (workoutDao.ownsExercise(exerciseId, recordId, scope.ownerId) == null) return@call false
+        val rows = workoutDao.visibleSets(exerciseId, scope.ownerId)
+        val parent = rows.firstOrNull { it.id == parentSetId } ?: return@call false
+        val source = sets(scope, exerciseId).firstOrNull { it.id == parentSetId } ?: return@call false
+        if (source.setType == WorkoutSetType.WARMUP) return@call false
+        val root = source.dropParentSetId ?: source.id
+        val chainIds = sets(scope, exerciseId).filter { it.id == root || it.dropParentSetId == root }.map { it.id }.toSet()
+        val insertAfter = rows.filter { it.id in chainIds }.maxOf { it.setIndex }
+        val timestamp = now()
+        rows.filter { it.setIndex > insertAfter }.forEach {
+            check(workoutDao.updateSet(it.copy(setIndex = it.setIndex + 1, updatedAt = timestamp)) == 1)
+        }
+        val id = UUID.randomUUID().toString()
+        workoutDao.insertSet(parent.copy(id = id, setIndex = insertAfter + 1, isCompleted = 0,
+            createdAt = timestamp, updatedAt = timestamp, deletedAt = null))
+        val structure = WorkoutStructureMetadata(record.metadata)
+        structure.sets.put(root, JSONObject().put("type", WorkoutSetType.DROP.id))
+        structure.sets.put(id, JSONObject().put("type", WorkoutSetType.DROP.id).put("parent_set_id", root))
+        check(workoutDao.updateRecord(record.copy(metadata = structure.encoded(), updatedAt = timestamp)) == 1)
+        true
+    }
+
+    fun linkSuperset(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?): Boolean =
+        linkExerciseGroup(scope, recordId, exerciseId, partnerExerciseId, WorkoutExerciseGroupType.SUPERSET)
+
+    fun linkExerciseGroup(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?,
+                          type: WorkoutExerciseGroupType): Boolean = transactionRunner.call {
+        val record = editableStructureRecord(scope, recordId) ?: return@call false
+        val exercises = workoutDao.visibleExercises(recordId, scope.ownerId)
+        if (exercises.none { it.id == exerciseId }) return@call false
+        val structure = WorkoutStructureMetadata(record.metadata)
+        val oldGroup = structure.supersets.optString(exerciseId)
+        if (partnerExerciseId == null) {
+            structure.supersets.remove(exerciseId)
+            val remaining = exercises.filter { it.id != exerciseId && structure.supersets.optString(it.id) == oldGroup }
+            if (oldGroup.isNotBlank() && remaining.size < 2) {
+                remaining.forEach { structure.supersets.remove(it.id) }
+                structure.groupTypes.remove(oldGroup)
+            }
+        } else {
+            if (partnerExerciseId == exerciseId || exercises.none { it.id == partnerExerciseId }) return@call false
+            val partnerGroup = structure.supersets.optString(partnerExerciseId)
+            val group = partnerGroup.ifBlank { oldGroup.ifBlank { UUID.randomUUID().toString() } }
+            exercises.filter { it.id == exerciseId || it.id == partnerExerciseId ||
+                (oldGroup.isNotBlank() && structure.supersets.optString(it.id) == oldGroup) ||
+                (partnerGroup.isNotBlank() && structure.supersets.optString(it.id) == partnerGroup) }
+                .forEach { structure.supersets.put(it.id, group) }
+            structure.groupTypes.put(group, type.id)
+            if (oldGroup.isNotBlank() && oldGroup != group) structure.groupTypes.remove(oldGroup)
+            // Untouched linked movements need one editable set before automatic round navigation.
+            listOf(exerciseId, partnerExerciseId).forEach { ensureInitialSet(scope, recordId, it) }
+        }
+        workoutDao.updateRecord(record.copy(metadata = structure.encoded(), updatedAt = now())) > 0
+    }
+
+    private fun editableStructureRecord(scope: AccountScope, recordId: String): WorkoutRecordsRoomEntity? =
+        workoutDao.visibleRecord(recordId, scope.ownerId)?.takeIf {
+            metadataValue(it.metadata, "status") == "in_progress"
+        }
+
     fun addSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int, input: WorkoutSetInput): Boolean {
         requireOwnedExercise(scope, recordId, exerciseId)
         val exercise = exerciseById(scope, exerciseId) ?: return false
@@ -1044,11 +1151,28 @@ class WorkoutRoomStorage(
         return updated > 0
     }
 
-    fun deleteSet(scope: AccountScope, recordId: String, setId: String): Boolean {
+    fun deleteSet(scope: AccountScope, recordId: String, setId: String): Boolean = transactionRunner.call {
+        val record = workoutDao.visibleRecord(recordId, scope.ownerId) ?: return@call false
+        val row = workoutDao.visibleSet(setId, scope.ownerId) ?: return@call false
+        if (workoutDao.ownsExercise(row.workoutExerciseId, recordId, scope.ownerId) == null) return@call false
+        val structure = WorkoutStructureMetadata(record.metadata)
+        val children = workoutDao.visibleSets(row.workoutExerciseId, scope.ownerId).filter {
+            structure.sets.optJSONObject(it.id)?.optString("parent_set_id") == setId
+        }.sortedBy { it.setIndex }
+        children.firstOrNull()?.let { first ->
+            structure.sets.put(first.id, JSONObject().put("type", WorkoutSetType.DROP.id))
+            children.drop(1).forEach { child ->
+                structure.sets.put(child.id, JSONObject().put("type", WorkoutSetType.DROP.id).put("parent_set_id", first.id))
+            }
+        }
+        structure.sets.remove(setId)
         val timestamp = now()
         val updated = workoutDao.tombstoneSet(setId, scope.ownerId, recordId, timestamp, timestamp)
-        if (updated > 0) refreshRecordTotal(scope, recordId)
-        return updated > 0
+        if (updated > 0) {
+            check(workoutDao.updateRecord(record.copy(metadata = structure.encoded(), updatedAt = timestamp)) == 1)
+            refreshRecordTotal(scope, recordId)
+        }
+        updated > 0
     }
 
     fun deleteExercise(scope: AccountScope, recordId: String, exerciseId: String): Boolean {

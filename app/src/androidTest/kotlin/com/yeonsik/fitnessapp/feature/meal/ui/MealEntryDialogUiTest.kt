@@ -42,12 +42,14 @@ class MealEntryDialogUiTest {
         val outerBefore = outer.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value()
         val resultsBefore = results.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value()
         compose.onNodeWithText("테스트 식품 12").performClick()
+        compose.onNodeWithTag("meal-add-confirm").performClick()
         compose.runOnIdle { assertEquals(1, state.foodPortions.size) }
         assertEquals(outerBefore, outer.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value(), 1f)
         assertEquals(resultsBefore, results.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange].value(), 1f)
         results.assertIsDisplayed()
         results.performScrollToNode(hasText("테스트 식품 13"))
         compose.onNodeWithText("테스트 식품 13").performClick()
+        compose.onNodeWithTag("meal-add-confirm").performClick()
         compose.runOnIdle { assertEquals(listOf("food-12", "food-13"), state.foodPortions.map { it.food.id }) }
         compose.onNodeWithText("담은 음식 2개 보기").assertExists()
     }

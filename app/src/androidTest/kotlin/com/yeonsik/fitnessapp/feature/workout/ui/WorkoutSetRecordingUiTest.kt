@@ -213,6 +213,69 @@ class WorkoutSetRecordingUiTest {
         assertEquals(imageId, compose.onNodeWithContentDescription("${occurrence.name} 운동 이미지").fetchSemanticsNode().id)
     }
 
+    @Test fun switchingToDCreatesAnInlineGroupWithItsOwnAddButtonAndKeepsColumnAlignment() {
+        show(detail(listOf(set("set-1", 1, null), set("set-2", 2, null))))
+        val rootWeight = hasContentDescription("중량(kg)") and hasSetTextAction() and hasAnyAncestor(hasTestTag("workout-set-set-1"))
+        val otherWeight = hasContentDescription("중량(kg)") and hasSetTextAction() and hasAnyAncestor(hasTestTag("workout-set-set-2"))
+        compose.onNode(rootWeight).performScrollTo().performTextReplacement("22.5")
+        compose.onNodeWithContentDescription("1세트 설정").performClick()
+        compose.onNodeWithText("D · 드롭세트").performClick()
+        val groupTag = "workout-drop-group-set-1"
+        compose.onNodeWithTag(groupTag).assertExists()
+        compose.onNode(rootWeight).assertTextEquals("22.5")
+        val left = compose.onNode(rootWeight).fetchSemanticsNode().boundsInRoot.left
+        val otherLeft = compose.onNode(otherWeight).fetchSemanticsNode().boundsInRoot.left
+        assertEquals(left, otherLeft, 1f)
+        repeat(2) { compose.onNodeWithTag("workout-drop-add-set-1").performScrollTo().performClick() }
+        compose.onNode(hasTestTag("workout-set-drop-1") and hasAnyAncestor(hasTestTag(groupTag))).assertExists()
+        compose.onNode(hasTestTag("workout-set-drop-2") and hasAnyAncestor(hasTestTag(groupTag))).assertExists()
+        compose.onNode(hasTestTag("workout-set-set-2") and hasAnyAncestor(hasTestTag(groupTag))).assertDoesNotExist()
+        compose.onAllNodesWithTag("workout-set-record-box").assertCountEquals(1)
+        compose.onNodeWithContentDescription("1D 1번째 하위 세트 설정").performScrollTo().performClick()
+        compose.onNodeWithText("일반 세트").performClick()
+        compose.onNodeWithTag(groupTag).assertDoesNotExist()
+        compose.onNode(rootWeight).assertTextEquals("22.5")
+        compose.onNodeWithTag("workout-set-drop-1").assertExists()
+        compose.onNodeWithTag("workout-set-drop-2").assertExists()
+    }
+
+    @Test fun compoundConnectionTypeSwitchAndUnlinkAreExplicitAndKeepTheInputDraft() {
+        val initial = detail()
+        val partner = occurrence.copy(id = "partner", orderIndex = 1, name = "두 번째 운동")
+        val fixture = show(initial.copy(exercises = listOf(occurrence, partner)))
+        val weight = hasContentDescription("중량(kg)") and hasSetTextAction()
+        compose.onNode(weight).performScrollTo().performTextReplacement("22.5")
+        compose.onNodeWithTag("workout-exercise-group").performScrollTo().performClick()
+        compose.onNodeWithTag("exercise-group-type-compound").performClick().assertIsSelected()
+        compose.onNodeWithTag("exercise-group-partner-partner").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals("partner" to WorkoutExerciseGroupType.COMPOUND, fixture.groupLinks.last())
+            val a = occurrence.copy(supersetGroupId = "group", groupType = WorkoutExerciseGroupType.COMPOUND)
+            val b = partner.copy(supersetGroupId = "group", groupType = WorkoutExerciseGroupType.COMPOUND)
+            fixture.state.value = fixture.state.value.copy(detail = initial.copy(activeExercise = a, exercises = listOf(a, b)))
+        }
+        compose.onNodeWithText("C1-A · 컴파운드세트 · 연결 관리").assertExists()
+        compose.onNode(weight).assertTextEquals("22.5")
+        compose.onNodeWithTag("workout-exercise-group").performScrollTo().performClick()
+        compose.onNodeWithTag("exercise-group-type-superset").performClick()
+        compose.onNodeWithTag("exercise-group-change-type").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals("partner" to WorkoutExerciseGroupType.SUPERSET, fixture.groupLinks.last())
+            val updated = fixture.state.value.detail
+            val exercises = updated.exercises.map { it.copy(groupType = WorkoutExerciseGroupType.SUPERSET) }
+            fixture.state.value = fixture.state.value.copy(detail = updated.copy(activeExercise = exercises.first(), exercises = exercises))
+        }
+        compose.onNodeWithText("S1-A · 슈퍼세트 · 연결 관리").assertExists()
+        compose.onNodeWithTag("workout-exercise-group").performScrollTo().performClick()
+        compose.onNodeWithText("일반 운동으로 전환 (연결 해제)").assertExists()
+        compose.onNodeWithTag("exercise-group-unlink").performScrollTo().performClick()
+        compose.runOnIdle {
+            assertEquals(null to WorkoutExerciseGroupType.SUPERSET, fixture.groupLinks.last())
+            assertTrue(fixture.saved.isEmpty())
+        }
+        compose.onNode(weight).assertTextEquals("22.5")
+    }
+
     @Test fun compactRowsRemainSingleLineInDarkThemeAndLargeFont() {
         show(detail(listOf(set("set-1", 1, null), set("set-2", 2, null), set("set-3", 3, null))),
             dark = true, fontScale = 1.3f)
@@ -279,6 +342,8 @@ class WorkoutSetRecordingUiTest {
         val state = mutableStateOf(ready)
         val timers = mutableListOf<Int?>()
         val saved = mutableListOf<WorkoutSetInput>()
+        val groupLinks = mutableListOf<Pair<String?, WorkoutExerciseGroupType>>()
+        private var dropSequence = 0
         override fun back() {}
         override fun refresh() {}
         override fun openExercise(exerciseId: String) {}
@@ -303,6 +368,33 @@ class WorkoutSetRecordingUiTest {
         }
         override fun deleteSet(recordId: String, setId: String, onResult: (Boolean) -> Unit) {
             state.value = state.value.copy(detail = state.value.detail.copy(sets = state.value.detail.sets.filter { it.id != setId }))
+            onResult(true)
+        }
+        override fun updateSetType(recordId: String, setId: String, type: WorkoutSetType, onResult: (Boolean) -> Unit) {
+            state.value = state.value.copy(detail = state.value.detail.copy(sets = state.value.detail.sets.map {
+                when {
+                    it.id == setId -> it.copy(setType = type, dropParentSetId = null)
+                    type != WorkoutSetType.DROP && it.dropParentSetId == setId -> it.copy(setType = WorkoutSetType.NORMAL, dropParentSetId = null)
+                    else -> it
+                }
+            }))
+            onResult(true)
+        }
+        override fun addDropSet(recordId: String, exerciseId: String, parentSetId: String, onResult: (Boolean) -> Unit) {
+            val sets = state.value.detail.sets
+            val parent = sets.first { it.id == parentSetId }
+            val root = parent.dropParentSetId ?: parent.id
+            val after = sets.filter { it.id == root || it.dropParentSetId == root }.maxOf { it.setIndex }
+            val child = parent.copy(id = "drop-${++dropSequence}", setIndex = after + 1, isCompleted = false,
+                setType = WorkoutSetType.DROP, dropParentSetId = root)
+            state.value = state.value.copy(detail = state.value.detail.copy(sets = sets.map {
+                if (it.setIndex > after) it.copy(setIndex = it.setIndex + 1) else it
+            } + child))
+            onResult(true)
+        }
+        override fun linkExerciseGroup(recordId: String, exerciseId: String, partnerExerciseId: String?,
+            type: WorkoutExerciseGroupType, onResult: (Boolean) -> Unit) {
+            groupLinks += partnerExerciseId to type
             onResult(true)
         }
         override fun startRestTimer(restSeconds: Int?) { timers += restSeconds }

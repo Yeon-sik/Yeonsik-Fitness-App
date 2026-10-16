@@ -1840,6 +1840,10 @@ private fun AppDestination(
         override fun selectFood(food: com.yeonsik.fitnessapp.data.NutritionFood) {
             viewModels.getMeal().selectFood(food)
         }
+        override fun selectFood(food: com.yeonsik.fitnessapp.data.NutritionFood, quantity: String,
+            mode: com.yeonsik.fitnessapp.feature.nutrition.model.PortionInputMode) {
+            viewModels.getMeal().selectFood(food, quantity, mode)
+        }
         override fun useDiningOutFood(food: com.yeonsik.fitnessapp.data.NutritionFood) {
             viewModels.getMeal().useDiningOutFood(food)
         }
@@ -2283,6 +2287,24 @@ private fun AppDestination(
                             )
                         }
 
+                        override fun updateSetType(recordId: String, setId: String,
+                            type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetType, onResult: (Boolean) -> Unit) {
+                            viewModels.getWorkoutExerciseDetail().updateSetType(AccountScope(ownerId), recordId, setId, type,
+                                java.util.function.Consumer { onResult(it) })
+                        }
+                        override fun addDropSet(recordId: String, exerciseId: String, parentSetId: String, onResult: (Boolean) -> Unit) {
+                            viewModels.getWorkoutExerciseDetail().addDropSet(AccountScope(ownerId), recordId, exerciseId, parentSetId,
+                                java.util.function.Consumer { onResult(it) })
+                        }
+                        override fun linkSuperset(recordId: String, exerciseId: String, partnerExerciseId: String?, onResult: (Boolean) -> Unit) {
+                            viewModels.getWorkoutExerciseDetail().linkSuperset(AccountScope(ownerId), recordId, exerciseId, partnerExerciseId,
+                                java.util.function.Consumer { onResult(it) })
+                        }
+                        override fun linkExerciseGroup(recordId: String, exerciseId: String, partnerExerciseId: String?,
+                            type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType, onResult: (Boolean) -> Unit) {
+                            viewModels.getWorkoutExerciseDetail().linkExerciseGroup(AccountScope(ownerId), recordId, exerciseId, partnerExerciseId, type,
+                                java.util.function.Consumer { onResult(it) })
+                        }
                         override fun startRestTimer(restSeconds: Int?) =
                             viewModels.getWorkoutSession().startRestTimer(ownerId, restSeconds)
                         override fun updateExerciseRestSeconds(recordId: String, exerciseId: String,
