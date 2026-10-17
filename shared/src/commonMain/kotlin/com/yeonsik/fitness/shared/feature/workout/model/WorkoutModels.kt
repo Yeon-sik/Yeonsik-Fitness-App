@@ -96,7 +96,9 @@ data class WorkoutExerciseDetail(
     /** One timer setting for this occurrence; historical per-set rest snapshots remain intact. */
     val exerciseRestSeconds: Int? = null,
     /** All persisted sets of this session, used to advance linked exercise rounds without guessing. */
-    val sessionSets: Map<String, List<WorkoutSet>> = emptyMap()
+    val sessionSets: Map<String, List<WorkoutSet>> = emptyMap(),
+    val inputBasis: WorkoutInputBasis = WorkoutInputBasis(),
+    val notes: WorkoutNotes = WorkoutNotes()
 )
 
 data class WorkoutSessionSnapshot(
@@ -115,7 +117,9 @@ data class WorkoutSessionSnapshot(
     val previousRoutine: WorkoutRoutineComparison? = null,
     /** Exact persisted completion time; absent for unfinished or legacy sessions. */
     val completedAt: String? = null,
-    val routineTotals: WorkoutRoutineTotals? = null
+    val routineTotals: WorkoutRoutineTotals? = null,
+    /** Private local session note; not part of the legacy shared payload. */
+    val conditionNote: String = ""
 )
 
 data class WorkoutRoutineComparison(

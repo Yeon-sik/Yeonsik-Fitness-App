@@ -192,6 +192,14 @@ interface DeviceRoomDao {
 
 @Dao
 interface AccountOwnershipRoomDao {
+    // Keep a signed-in account's setting if anonymous and account keys collide.
+    @Query("INSERT OR IGNORE INTO workout_setup_notes(user_id,exercise_key,note,updated_at) " +
+        "SELECT :nextUserId,exercise_key,note,updated_at FROM workout_setup_notes WHERE user_id=:sourceUserId")
+    fun claimWorkoutSetupNotes(sourceUserId: String, nextUserId: String)
+
+    @Query("DELETE FROM workout_setup_notes WHERE user_id=:sourceUserId")
+    fun deleteAnonymousWorkoutSetupNotes(sourceUserId: String)
+
     @Query("UPDATE workout_manual_exercise_links SET user_id=:nextUserId WHERE user_id=:sourceUserId")
     fun claimManualExerciseLinks(sourceUserId: String, nextUserId: String): Int
 
@@ -842,6 +850,12 @@ interface SupplementRoomDao {
 
 @Dao
 interface WorkoutRoomDao {
+    @Query("SELECT * FROM workout_setup_notes WHERE user_id=:userId AND exercise_key=:exerciseKey LIMIT 1")
+    fun setupNote(userId: String, exerciseKey: String): WorkoutSetupNoteRoomEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun saveSetupNote(note: WorkoutSetupNoteRoomEntity)
+
     @Query("SELECT ml.* FROM workout_manual_exercise_links ml INNER JOIN workout_exercises we " +
         "ON we.id=ml.id AND we.user_id=ml.user_id WHERE we.record_id=:recordId " +
         "AND ml.user_id=:userId AND we.exercise_id='manual' AND we.deleted_at IS NULL")
@@ -2230,6 +2244,7 @@ interface NutritionRoomDao {
         WorkoutRecordsRoomEntity::class,
         WorkoutExercisesRoomEntity::class,
         WorkoutManualExerciseLinkRoomEntity::class,
+        WorkoutSetupNoteRoomEntity::class,
         WorkoutSetsRoomEntity::class,
         SyncStateRoomEntity::class,
         MealRecordsRoomEntity::class,

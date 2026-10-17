@@ -72,6 +72,8 @@ public final class AccountOwnershipService {
         ownershipDao.claimWorkoutRecords(sourceOwnerId, nextOwnerId);
         ownershipDao.claimWorkoutExercises(sourceOwnerId, nextOwnerId);
         ownershipDao.claimManualExerciseLinks(sourceOwnerId, nextOwnerId);
+        ownershipDao.claimWorkoutSetupNotes(sourceOwnerId, nextOwnerId);
+        ownershipDao.deleteAnonymousWorkoutSetupNotes(sourceOwnerId);
         ownershipDao.claimWorkoutSets(sourceOwnerId, nextOwnerId);
         ownershipDao.claimMealRecords(sourceOwnerId, nextOwnerId);
         ownershipDao.claimDiningOutMenuComponentLinks(sourceOwnerId, nextOwnerId);

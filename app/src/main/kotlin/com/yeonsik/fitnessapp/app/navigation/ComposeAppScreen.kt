@@ -5,6 +5,7 @@ import android.os.SystemClock
 import android.view.accessibility.AccessibilityManager
 
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -54,6 +55,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -963,94 +965,101 @@ private fun AppRoot(
                 FitnessScreen.RECORDS -> navigationState.selectedRecordsDate
                 else -> navigationState.today
             }
-            Box(Modifier.fillMaxSize()) {
-                destinationStateHolder.SaveableStateProvider(
-                    destinationScrollStateKey(pageScreen) +
-                        if (pageScreen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
-                ) {
-                    val contentScrollState = rememberScrollState()
-                    val tabScrollReset = navigationState.topLevelTabScrollReset
-                        ?.takeIf { it.destination == pageScreen }
-                    LaunchedEffect(tabScrollReset?.generation, isActualActive) {
-                        val reset = tabScrollReset ?: return@LaunchedEffect
-                        if (!isActualActive) return@LaunchedEffect
-                        contentScrollState.scrollTo(0)
-                        navigation.consumeTopLevelTabScrollReset(reset)
-                    }
-                    Column(
-                        Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (pageScreen == FitnessScreen.RECORDS && useBackdropGlass) {
-                                    Modifier.layerBackdrop(recordsBackdrop)
-                                } else Modifier
-                            )
-                            .then(
-                                if (isExercisePickerDestination(pageScreen) || pageScreen == FitnessScreen.CARDIO) {
-                                    Modifier
-                                } else {
-                                    Modifier.verticalScroll(contentScrollState)
-                                }
-                            )
-                            .padding(
-                                start = FitnessSpacing.page,
-                                end = FitnessSpacing.page,
-                                top = FitnessSpacing.gap +
-                                    if (pageScreen == FitnessScreen.RECORDS) recordsBarHeight
-                                    else 0.dp,
-                                bottom = FitnessSpacing.gap +
-                                    if (bottomNavigationVisible) bottomNavigationSpace else 0.dp
-                            )
+            Column(Modifier.fillMaxSize()) {
+                // The toolbar belongs to this page. Toggling it outside the flow
+                // resizes both retained pages on every session/detail round trip.
+                if (pageScreen == FitnessScreen.WORKOUT_SESSION) {
+                    SessionTopBar(navigation, viewModels, ownerId, workoutState)
+                }
+                Box(Modifier.weight(1f).fillMaxWidth()) {
+                    destinationStateHolder.SaveableStateProvider(
+                        destinationScrollStateKey(pageScreen) +
+                            if (pageScreen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
                     ) {
-                        if (pageDestination == FitnessScreen.HOME) {
-                            HomeDestination(
-                                homeState, ownerId, pageDate, homeActions,
-                                activityState = homeActivityState,
-                                onActivityPrevious = viewModels.getHome()::previousActivityPage,
-                                onActivityNext = viewModels.getHome()::nextActivityPage,
-                                onActivitySelectPage = viewModels.getHome()::selectActivityPage,
-                                onActivityRetry = viewModels.getHome()::retryActivityHistory,
-                                activityDayDetails = homeActivityDayDetails,
-                                onActivityDateSelected = viewModels.getHome()::selectActivityDay,
-                                onActivityOpenRecords = { date ->
-                                    val scope = AccountScope(ownerId)
-                                    viewModels.getRecords().rememberSelectedDate(scope, date)
-                                    navigation.selectRecordsDate(date)
-                                    navigation.navigate(FitnessScreen.RECORDS)
-                                },
-                                entranceState = homeEntranceState,
-                                preferredMassUnit = unit,
-                                entranceToken = entranceToken,
-                                isActualActive = isActualActive
-                            )
-                        } else {
-                            AppDestination(
-                                host,
-                                viewModels,
-                                navigation,
-                                pageDestination,
-                                ownerId,
-                                pageDate,
-                                unit,
-                                entranceState,
-                                entranceToken,
-                                isActualActive
-                            )
+                        val contentScrollState = rememberScrollState()
+                        val tabScrollReset = navigationState.topLevelTabScrollReset
+                            ?.takeIf { it.destination == pageScreen }
+                        LaunchedEffect(tabScrollReset?.generation, isActualActive) {
+                            val reset = tabScrollReset ?: return@LaunchedEffect
+                            if (!isActualActive) return@LaunchedEffect
+                            contentScrollState.scrollTo(0)
+                            navigation.consumeTopLevelTabScrollReset(reset)
+                        }
+                        Column(
+                            Modifier
+                                .fillMaxSize()
+                                .then(
+                                    if (pageScreen == FitnessScreen.RECORDS && useBackdropGlass) {
+                                        Modifier.layerBackdrop(recordsBackdrop)
+                                    } else Modifier
+                                )
+                                .then(
+                                    if (isExercisePickerDestination(pageScreen) || pageScreen == FitnessScreen.CARDIO) {
+                                        Modifier
+                                    } else {
+                                        Modifier.verticalScroll(contentScrollState)
+                                    }
+                                )
+                                .padding(
+                                    start = FitnessSpacing.page,
+                                    end = FitnessSpacing.page,
+                                    top = FitnessSpacing.gap +
+                                        if (pageScreen == FitnessScreen.RECORDS) recordsBarHeight
+                                        else 0.dp,
+                                    bottom = FitnessSpacing.gap +
+                                        if (bottomNavigationVisible) bottomNavigationSpace else 0.dp
+                                )
+                        ) {
+                            if (pageDestination == FitnessScreen.HOME) {
+                                HomeDestination(
+                                    homeState, ownerId, pageDate, homeActions,
+                                    activityState = homeActivityState,
+                                    onActivityPrevious = viewModels.getHome()::previousActivityPage,
+                                    onActivityNext = viewModels.getHome()::nextActivityPage,
+                                    onActivitySelectPage = viewModels.getHome()::selectActivityPage,
+                                    onActivityRetry = viewModels.getHome()::retryActivityHistory,
+                                    activityDayDetails = homeActivityDayDetails,
+                                    onActivityDateSelected = viewModels.getHome()::selectActivityDay,
+                                    onActivityOpenRecords = { date ->
+                                        val scope = AccountScope(ownerId)
+                                        viewModels.getRecords().rememberSelectedDate(scope, date)
+                                        navigation.selectRecordsDate(date)
+                                        navigation.navigate(FitnessScreen.RECORDS)
+                                    },
+                                    entranceState = homeEntranceState,
+                                    preferredMassUnit = unit,
+                                    entranceToken = entranceToken,
+                                    isActualActive = isActualActive
+                                )
+                            } else {
+                                AppDestination(
+                                    host,
+                                    viewModels,
+                                    navigation,
+                                    pageDestination,
+                                    ownerId,
+                                    pageDate,
+                                    unit,
+                                    entranceState,
+                                    entranceToken,
+                                    isActualActive
+                                )
+                            }
                         }
                     }
-                }
-                if (pageScreen == FitnessScreen.RECORDS) {
-                    RecordsHubTabs(
-                        selected = recordsHubTab,
-                        onSelected = navigation::selectRecordsHubTab,
-                        backdrop = recordsBackdrop,
-                        useBackdropGlass = useBackdropGlass,
-                        highContrastEnabled = highContrastEnabled,
-                        dark = dark,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .onSizeChanged { recordsBarHeightPx = it.height }
-                    )
+                    if (pageScreen == FitnessScreen.RECORDS) {
+                        RecordsHubTabs(
+                            selected = recordsHubTab,
+                            onSelected = navigation::selectRecordsHubTab,
+                            backdrop = recordsBackdrop,
+                            useBackdropGlass = useBackdropGlass,
+                            highContrastEnabled = highContrastEnabled,
+                            dark = dark,
+                            modifier = Modifier
+                                .align(Alignment.TopCenter)
+                                .onSizeChanged { recordsBarHeightPx = it.height }
+                        )
+                    }
                 }
             }
         }
@@ -1066,9 +1075,7 @@ private fun AppRoot(
                     .fillMaxSize()
                     .then(if (useBackdropGlass) Modifier.layerBackdrop(backdrop) else Modifier)
             ) {
-                if (screen == FitnessScreen.WORKOUT_SESSION) {
-                    SessionTopBar(navigation, viewModels, ownerId, workoutState)
-                } else if (screen == FitnessScreen.CARDIO_SESSION) {
+                if (screen == FitnessScreen.CARDIO_SESSION) {
                     CardioSessionTopBar(navigation, viewModels, ownerId, cardioState)
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -1082,6 +1089,9 @@ private fun AppRoot(
                             },
                             content = destinationPage
                         )
+                    } else if (isWorkoutFlowScreen(screen)) {
+                        WorkoutFlowHost(ownerId, screen, currentWorkoutRecordId(screen, viewModels, homeState),
+                            workoutState, Modifier.fillMaxSize(), destinationPage)
                     } else {
                         destinationPage(screen, true)
                     }
@@ -1313,25 +1323,34 @@ private fun RestTimerBar(
         }
     }
     if (!visible || active == null) return
+    var expanded by rememberSaveable(active.ownerId, active.endsAtMillis) { mutableStateOf(false) }
     val remainingMillis = (active.endsAtMillis - now).coerceAtLeast(0L)
     val remainingSeconds = ((remainingMillis + 999L) / 1000L).toInt()
     val ratio = (remainingMillis / (active.totalSeconds * 1000f)).coerceIn(0f, 1f)
+    val timeLabel = String.format(Locale.ROOT, "%d:%02d", remainingSeconds / 60, remainingSeconds % 60)
     Column(
         Modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surfaceVariant)
+            .animateContentSize(tween(180))
             .padding(horizontal = FitnessSpacing.card, vertical = FitnessSpacing.small),
         verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small)
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("휴식", style = MaterialTheme.typography.labelLarge, modifier = Modifier.weight(1f))
-            Text(
-                String.format(Locale.ROOT, "%d:%02d", remainingSeconds / 60, remainingSeconds % 60),
-                style = MaterialTheme.typography.headlineSmall
-            )
+            TextButton(onClick = { expanded = !expanded }, modifier = Modifier.weight(1f).heightIn(min = FitnessSpacing.touch)
+                .semantics { stateDescription = if (expanded) "휴식 타이머 펼쳐짐" else "휴식 타이머 접힘" }) {
+                Text(if (expanded) "휴식 · 접기" else "휴식 · 펼치기")
+            }
+            if (!expanded) Text(timeLabel, style = MaterialTheme.typography.headlineSmall)
             TextButton(onClick = { viewModels.getWorkoutSession().stopRestTimer() }) {
                 Text("건너뛰기")
             }
+        }
+        if (expanded) {
+            Text(timeLabel, Modifier.align(Alignment.CenterHorizontally),
+                style = MaterialTheme.typography.displayMedium)
+            Text("호흡을 정리하고 다음 세트를 준비하세요.",
+                Modifier.align(Alignment.CenterHorizontally), style = MaterialTheme.typography.bodySmall)
         }
         LinearProgressIndicator(progress = ratio, modifier = Modifier.fillMaxWidth())
     }
@@ -1740,7 +1759,8 @@ private fun AppDestination(
         }
     }
 
-    LaunchedEffect(RecordEntryEffectKey(screen, ownerId, activeRecordId)) {
+    LaunchedEffect(RecordEntryEffectKey(screen, ownerId, activeRecordId), isActualActive) {
+        if (!isActualActive) return@LaunchedEffect
         when (screen) {
             FitnessScreen.WORKOUT_SESSION,
             FitnessScreen.WORKOUT_SUMMARY ->
@@ -1768,8 +1788,8 @@ private fun AppDestination(
             else -> Unit
         }
     }
-    LaunchedEffect(screen, ownerId, activeRecordId, workoutReadOnly) {
-        if (screen == FitnessScreen.WORKOUT_EXERCISE_DETAIL) {
+    LaunchedEffect(screen, ownerId, activeRecordId, workoutReadOnly, isActualActive) {
+        if (screen == FitnessScreen.WORKOUT_EXERCISE_DETAIL && isActualActive) {
             activeRecordId?.let { recordId ->
                 viewModels.getWorkoutExerciseDetail().enter(
                     AccountScope(ownerId),
@@ -2194,7 +2214,11 @@ private fun AppDestination(
                 workoutState,
                 ownerId,
                 unit,
-                { exerciseId ->
+                onSaveCondition = { recordId, note, onResult ->
+                    viewModels.getWorkoutSession().updateConditionNote(AccountScope(ownerId), recordId, note,
+                        java.util.function.Consumer { onResult(it) })
+                },
+                onExercise = { exerciseId ->
                     viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
                     navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
                 }
@@ -2221,6 +2245,10 @@ private fun AppDestination(
                         }
                         override fun openExercise(exerciseId: String) {
                             viewModels.getWorkoutExerciseDetail().rememberActiveExercise(exerciseId)
+                            activeRecordId?.let { recordId ->
+                                viewModels.getWorkoutExerciseDetail().enter(
+                                    AccountScope(ownerId), recordId, exerciseId, readOnly = workoutReadOnly)
+                            }
                             navigation.replace(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
                         }
                         override fun linkManualExercise(exerciseId: String) {
@@ -2305,6 +2333,14 @@ private fun AppDestination(
                             viewModels.getWorkoutExerciseDetail().linkExerciseGroup(AccountScope(ownerId), recordId, exerciseId, partnerExerciseId, type,
                                 java.util.function.Consumer { onResult(it) })
                         }
+                        override fun updateSetupNote(recordId: String, exerciseId: String, note: String, onResult: (Boolean) -> Unit) {
+                            viewModels.getWorkoutExerciseDetail().updateSetupNote(AccountScope(ownerId), recordId, exerciseId, note,
+                                java.util.function.Consumer { onResult(it) })
+                        }
+                        override fun updateConditionNote(recordId: String, note: String, onResult: (Boolean) -> Unit) {
+                            viewModels.getWorkoutExerciseDetail().updateConditionNote(AccountScope(ownerId), recordId, note,
+                                java.util.function.Consumer { onResult(it) })
+                        }
                         override fun startRestTimer(restSeconds: Int?) =
                             viewModels.getWorkoutSession().startRestTimer(ownerId, restSeconds)
                         override fun updateExerciseRestSeconds(recordId: String, exerciseId: String,
@@ -2316,7 +2352,13 @@ private fun AppDestination(
                         }
                         override fun toast(message: String) = host.toast(message)
                     }
-                }
+                },
+                previewExercise = (workoutState as? WorkoutSessionUiState.Ready)
+                    ?.takeIf { it.ownerId == ownerId && it.session.recordId == activeRecordId }
+                    ?.session?.exercises?.firstOrNull {
+                        it.id == viewModels.getWorkoutExerciseDetail().activeExerciseId()
+                    },
+                previewRecordId = activeRecordId
             )
             FitnessScreen.WORKOUT_SUMMARY -> WorkoutSummaryScreen(
                 workoutState,

@@ -1,16 +1,16 @@
 package com.yeonsik.fitnessapp.feature.workout.ui
 
-import android.app.Activity
-import android.content.res.Resources
-import android.graphics.BitmapFactory
-import androidx.activity.compose.LocalActivity
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.lazy.LazyRow
@@ -27,29 +27,22 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.translate
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.repeatOnLifecycle
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -58,6 +51,12 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.editableText
+import androidx.compose.ui.semantics.setText
+import androidx.compose.ui.semantics.imeAction
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.text.style.TextAlign
@@ -71,7 +70,6 @@ import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.data.MassFormatter
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitnessapp.feature.routine.ui.routineDominantMuscleLabel
-import com.yeonsik.fitnessapp.exercise.ExerciseIllustrationLookup
 import com.yeonsik.fitness.shared.feature.workout.model.*
 import com.yeonsik.fitness.shared.feature.exercise.model.BodyPart
 import com.yeonsik.fitness.shared.feature.exercise.model.EquipmentType
@@ -323,10 +321,17 @@ internal fun WorkoutSessionScreen(
     state: WorkoutSessionUiState,
     ownerId: String,
     unit: MassUnit,
+    onSaveCondition: (String, String, (Boolean) -> Unit) -> Unit = { _, _, result -> result(false) },
     onExercise: (String) -> Unit
 ) {
     val ready = state as? WorkoutSessionUiState.Ready
     if (ready == null || ready.ownerId != ownerId) {
+        LocalWorkoutSessionPreview.current?.let { snapshot ->
+            // Keep the exercise anchors on screen while completion/refresh is pending.
+            AppWorkoutSessionContent(snapshot, ownerId, unit, onSaveCondition, onExercise, interactive = false)
+            Text("저장된 기록을 확인하는 중입니다.", style = MaterialTheme.typography.bodySmall)
+            return
+        }
         FitnessStatusMessage(
             status = when (state) {
                 is WorkoutSessionUiState.Error -> FitnessSemanticStatus.ERROR
@@ -343,7 +348,7 @@ internal fun WorkoutSessionScreen(
         )
         return
     }
-    AppWorkoutSessionContent(ready.session, unit, onExercise)
+    AppWorkoutSessionContent(ready.session, ownerId, unit, onSaveCondition, onExercise)
 }
 
 @Composable
@@ -351,15 +356,26 @@ internal fun WorkoutDetailScreen(
     state: WorkoutExerciseDetailUiState,
     ownerId: String,
     unit: MassUnit,
-    actions: WorkoutDetailActions
+    actions: WorkoutDetailActions,
+    previewExercise: WorkoutSessionExercise? = null,
+    previewRecordId: String? = null
 ) {
     val drafts = rememberSaveableStateHolder()
-    val ready = state as? WorkoutExerciseDetailUiState.Ready
+    val ready = (state as? WorkoutExerciseDetailUiState.Ready)?.takeIf {
+        it.ownerId == ownerId && (previewExercise == null ||
+            (it.detail.activeExercise.id == previewExercise.id && it.detail.recordId == previewRecordId))
+    }
+    val title = ready?.detail?.activeExercise?.name ?: previewExercise?.name ?: "운동 종목"
     val titleStyle = MaterialTheme.typography.headlineLarge
-    FitnessHeader(ready?.detail?.activeExercise?.name ?: "운동 종목", back = actions::back,
+    FitnessHeader(title, back = actions::back,
         titleStyle = titleStyle.copy(fontSize = titleStyle.fontSize * 0.7f,
             lineHeight = titleStyle.lineHeight * 0.7f))
     if (ready == null || ready.ownerId != ownerId) {
+        if (previewExercise != null && previewRecordId != null) {
+            WorkoutExerciseImage(previewExercise.exerciseId, previewExercise.familyIdentity,
+                "${previewExercise.name} 운동 이미지",
+                Modifier.fillMaxWidth())
+        }
         FitnessStatusMessage(
             status = when (state) {
                 is WorkoutExerciseDetailUiState.Error -> FitnessSemanticStatus.ERROR
@@ -391,7 +407,8 @@ internal fun WorkoutDetailScreen(
         exerciseId = detail.activeExercise.exerciseId,
         identity = detail.activeExercise.familyIdentity,
         contentDescription = "${detail.activeExercise.name} 운동 이미지",
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
+        animate = !ready.readOnly
     )
     Text(
         workoutExerciseMetadata(detail.activeExercise),
@@ -404,6 +421,24 @@ internal fun WorkoutDetailScreen(
     if (!ready.readOnly) {
         WorkoutSetRecordCard(detail, ownerId, unit, actions, drafts)
     }
+    if (ready.readOnly) {
+        WorkoutNoteField(
+            identity = "$ownerId:${detail.recordId}:${detail.activeExercise.id}:setup",
+            title = "당시 기구 설정", value = detail.notes.setup, hint = "", placeholder = "", readOnly = true,
+            onSave = { _, result -> result(false) }, modifier = Modifier.fillMaxWidth(), tag = "workout-setup-note"
+        )
+    }
+    WorkoutNoteField(
+        identity = "$ownerId:${detail.recordId}:condition",
+        title = "오늘 컨디션", value = detail.notes.condition,
+        hint = "이 운동 세션에만 남는 메모입니다.", placeholder = "예: 수면 6시간, 어깨가 뻐근함",
+        readOnly = ready.readOnly,
+        onSave = { note, result -> actions.updateConditionNote(detail.recordId, note) { ok ->
+            result(ok)
+            if (ok) actions.refresh()
+        } },
+        modifier = Modifier.fillMaxWidth(), tag = "workout-condition-note"
+    )
     WorkoutExerciseNavigation(orderedExercises, activeIndex, actions::openExercise)
     FitnessStatusBadge(
         status = if (ready.readOnly) FitnessSemanticStatus.SUCCESS else FitnessSemanticStatus.INFO,
@@ -502,6 +537,26 @@ private fun WorkoutSetRecordCard(
     val columns = remember(recordType, hasLoadState) { workoutSetInputColumns(recordType, hasLoadState) }
     val orderedSets = remember(detail.sets) { detail.sets.sortedBy { it.setIndex } }
     val setGroups = remember(orderedSets) { workoutSetGroups(orderedSets) }
+    var preparedSets by remember(ownerId, detail.recordId, detail.activeExercise.id) {
+        mutableStateOf(emptySet<String>())
+    }
+    var initialRowsPrepared by remember(ownerId, detail.recordId, detail.activeExercise.id) { mutableStateOf(false) }
+    LaunchedEffect(ownerId, detail.recordId, detail.activeExercise.id) {
+        // Initial text layout is expensive on an unprimed Android process. Keep
+        // the header/image responsive and prepare one row per display frame.
+        // Later insertions are immediate; existing editor/focus identity is retained.
+        orderedSets.forEach { set ->
+            withFrameNanos { }
+            preparedSets = preparedSets + set.id
+        }
+        initialRowsPrepared = true
+    }
+    var selectedSetId by rememberSaveable(ownerId, detail.recordId, detail.activeExercise.id) {
+        mutableStateOf<String?>(null)
+    }
+    val currentSetId = selectedSetId?.takeIf { id -> orderedSets.any { it.id == id } }
+        ?: orderedSets.firstOrNull { !it.isCompleted }?.id ?: orderedSets.lastOrNull()?.id
+    val latestCurrentSetId by rememberUpdatedState(currentSetId)
     var restDraft by rememberSaveable(ownerId, detail.recordId, detail.activeExercise.id, restSeconds) {
         mutableStateOf(restSeconds.toString())
     }
@@ -509,6 +564,7 @@ private fun WorkoutSetRecordCard(
     var addingSet by remember { mutableStateOf(false) }
     var addingDropRoot by remember { mutableStateOf<String?>(null) }
     var showExerciseGroupPicker by rememberSaveable(detail.recordId, detail.activeExercise.id) { mutableStateOf(false) }
+    var showInputHelp by rememberSaveable(ownerId, detail.recordId, detail.activeExercise.id) { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     val applyRest: () -> Unit = {
         val seconds = restDraft.toIntOrNull()?.takeIf { it >= 0 }
@@ -529,9 +585,26 @@ private fun WorkoutSetRecordCard(
                 Text(workoutExerciseGroupLabel(detail.exercises, detail.activeExercise).takeIf { it.isNotBlank() }
                     ?.let { "$it · ${detail.activeExercise.groupType.label} · 연결 관리" } ?: "S / C · 운동 연결")
             }
+            WorkoutNoteField(
+                identity = "$ownerId:${detail.recordId}:${detail.activeExercise.id}:${detail.activeExercise.exerciseId}:" +
+                    "${detail.activeExercise.familyIdentity?.canonicalVariantKey}:setup",
+                title = "기구 설정 · 고정 메모", value = detail.notes.setup,
+                hint = "",
+                placeholder = "예: 시트 4 / 등받이 2 / 벤치 30도", readOnly = false,
+                onSave = { note, result -> actions.updateSetupNote(detail.recordId, detail.activeExercise.id, note) { ok ->
+                    result(ok)
+                    if (ok) actions.refresh()
+                } },
+                modifier = Modifier.fillMaxWidth(), tag = "workout-setup-note"
+            )
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small)) {
-                Text("세트 기록", Modifier.weight(1f), style = MaterialTheme.typography.titleMedium)
+                Text("세트 기록", style = MaterialTheme.typography.titleMedium)
+                IconButton(onClick = { showInputHelp = true },
+                    modifier = Modifier.testTag("workout-input-help").semantics { contentDescription = "세트 기록 도움말" }) {
+                    Text("?", style = MaterialTheme.typography.titleMedium)
+                }
+                Spacer(Modifier.weight(1f))
                 Text("휴식", style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Box(Modifier.width(64.dp)) {
@@ -570,10 +643,30 @@ private fun WorkoutSetRecordCard(
                                 }, enabled = addingDropRoot == null && !addingSet) {
                                     group.sets.forEach { set ->
                                         key(set.id) {
+                                            if (!initialRowsPrepared && set.id !in preparedSets) {
+                                                Spacer(Modifier.fillMaxWidth().height(
+                                                    if (set.id == currentSetId) 96.dp else FitnessSpacing.touch))
+                                            } else {
                                             drafts.SaveableStateProvider("$ownerId:${detail.recordId}:${set.id}") {
                                                 WorkoutSetEditor(actions, detail.recordId, detail.activeExercise.recordType,
                                                     allowedLoadStates, set, unit, restSeconds, columns, detail, group,
-                                                    onExerciseGroup = { showExerciseGroupPicker = true })
+                                                    onExerciseGroup = { showExerciseGroupPicker = true },
+                                                    mayAdvance = { latestCurrentSetId == set.id },
+                                                    previousSet = previousWorkoutSet(detail.lastHistory, set),
+                                                    previousDate = detail.lastHistory?.date.orEmpty(),
+                                                    precedingSet = precedingCompletedWorkoutSet(orderedSets, set.setIndex),
+                                                    isCurrent = currentSetId == set.id,
+                                                    onSelect = { selectedSetId = set.id },
+                                                    onCompleted = {
+                                                        if (latestCurrentSetId == set.id) {
+                                                            selectedSetId = orderedSets.firstOrNull {
+                                                                it.id != set.id && !it.isCompleted && it.setIndex > set.setIndex
+                                                            }?.id ?: orderedSets.firstOrNull {
+                                                                it.id != set.id && !it.isCompleted
+                                                            }?.id ?: set.id
+                                                        }
+                                                    })
+                                            }
                                             }
                                         }
                                     }
@@ -605,6 +698,14 @@ private fun WorkoutSetRecordCard(
         }
     }
     if (showExerciseGroupPicker) WorkoutExerciseGroupDialog(detail, actions) { showExerciseGroupPicker = false }
+    if (showInputHelp) AlertDialog(
+        onDismissRequest = { showInputHelp = false },
+        title = { Text("세트 기록 안내") },
+        text = { Text(workoutInputGuidance(recordType, detail.inputBasis,
+            detail.sets.map { it.inputLoadUnit ?: unit }.ifEmpty { listOf(unit) }.distinct().singleOrNull()),
+            Modifier.testTag("workout-input-guidance")) },
+        confirmButton = { TextButton(onClick = { showInputHelp = false }) { Text("확인") } }
+    )
 }
 
 private const val EXERCISE_RECORDS_TAB = "records"
@@ -1036,118 +1137,6 @@ private fun WorkoutExerciseNavigation(
     }
 }
 
-@Composable
-private fun WorkoutExerciseImage(
-    exerciseId: String,
-    identity: ExerciseFamilyIdentity?,
-    contentDescription: String,
-    modifier: Modifier = Modifier
-) {
-    val context = LocalContext.current
-    val resolution = remember(context, exerciseId, identity) {
-        if (identity != null) ExerciseIllustrationLookup.resolveExact(context, identity)
-        else ExerciseIllustrationLookup.resolveExactForStorageExerciseId(context, exerciseId)
-    }
-    if (resolution.isPlaceholder) {
-        FitnessStatusBadge(
-            status = FitnessSemanticStatus.UNKNOWN,
-            label = "운동 이미지 없음",
-            modifier = modifier
-        )
-        return
-    }
-    key(resolution.illustrationKey, resolution.drawables.toList()) {
-        var frame by remember { mutableIntStateOf(0) }
-        val lifecycleOwner = LocalLifecycleOwner.current
-        LaunchedEffect(lifecycleOwner, resolution) {
-            lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                if (resolution.drawables.size > 1) {
-                    while (isActive) {
-                        delay((resolution.durationsMs.getOrNull(frame) ?: 1000).coerceAtLeast(1).toLong())
-                        frame = (frame + 1) % resolution.drawables.size
-                    }
-                }
-            }
-        }
-        val canvasBounds = remember(context.resources, resolution.illustrationKey, resolution.drawables.toList()) {
-            workoutExerciseCanvasBounds(context.resources, resolution.drawables.toList())
-        }
-        // Trim only empty canvas shared by every frame, using one transform for
-        // A/B. Per-pose cropping would move the camera and body between frames.
-        val referencePainter = painterResource(resolution.drawables[0])
-        val aspectRatio = (referencePainter.intrinsicSize.width * canvasBounds.width /
-            (referencePainter.intrinsicSize.height * canvasBounds.height))
-            .takeIf { it.isFinite() && it > 0f } ?: 1f
-        val framePainter = painterResource(resolution.drawables[frame])
-        val scenePainter = remember(framePainter, canvasBounds) {
-            WorkoutExerciseCanvasPainter(framePainter, canvasBounds)
-        }
-        BoxWithConstraints(modifier) {
-            val imageHeight = (maxWidth / aspectRatio).coerceAtMost(220.dp)
-            Image(scenePainter, contentDescription,
-                Modifier.fillMaxWidth().height(imageHeight).testTag("workout-exercise-frame-$frame"),
-                contentScale = ContentScale.Fit)
-        }
-    }
-}
-
-/** A tiny sampled alpha scan runs once per scene, not on animation frames or set writes. */
-private fun workoutExerciseCanvasBounds(resources: Resources, drawables: List<Int>): Rect {
-    val fullCanvas = Rect(0f, 0f, 1f, 1f)
-    var union: Rect? = null
-    for (drawable in drawables) {
-        val options = BitmapFactory.Options().apply { inSampleSize = 8; inScaled = false }
-        val bitmap = BitmapFactory.decodeResource(resources, drawable, options) ?: return fullCanvas
-        val width = bitmap.width
-        val height = bitmap.height
-        val pixels = IntArray(width * height)
-        bitmap.getPixels(pixels, 0, width, 0, 0, width, height)
-        bitmap.recycle()
-        var left = width
-        var top = height
-        var right = -1
-        var bottom = -1
-        pixels.forEachIndexed { index, pixel ->
-            if (pixel ushr 24 != 0) {
-                val x = index % width
-                val y = index / width
-                left = minOf(left, x)
-                top = minOf(top, y)
-                right = maxOf(right, x)
-                bottom = maxOf(bottom, y)
-            }
-        }
-        if (right < left || bottom < top) return fullCanvas
-        // One sampled pixel of breathing room keeps antialiased edges intact.
-        val bounds = Rect(
-            (left - 1).coerceAtLeast(0).toFloat() / width,
-            (top - 1).coerceAtLeast(0).toFloat() / height,
-            (right + 2).coerceAtMost(width).toFloat() / width,
-            (bottom + 2).coerceAtMost(height).toFloat() / height
-        )
-        val previous = union
-        union = if (previous == null) bounds else Rect(
-            minOf(previous.left, bounds.left), minOf(previous.top, bounds.top),
-            maxOf(previous.right, bounds.right), maxOf(previous.bottom, bounds.bottom)
-        )
-    }
-    return union ?: fullCanvas
-}
-
-private class WorkoutExerciseCanvasPainter(private val source: Painter, private val bounds: Rect) : Painter() {
-    override val intrinsicSize = Size(source.intrinsicSize.width * bounds.width,
-        source.intrinsicSize.height * bounds.height)
-
-    override fun DrawScope.onDraw() {
-        val canvasSize = Size(size.width / bounds.width, size.height / bounds.height)
-        clipRect {
-            translate(-canvasSize.width * bounds.left, -canvasSize.height * bounds.top) {
-                with(source) { draw(canvasSize) }
-            }
-        }
-    }
-}
-
 private fun workoutExerciseMetadata(exercise: WorkoutExercise): String = listOfNotNull(
     exercise.uiPart.takeIf { it.isNotBlank() }?.let {
         BodyPart.fromId(it)?.labelKo() ?: it
@@ -1170,13 +1159,23 @@ private fun WorkoutSetEditor(
     columns: WorkoutSetInputColumns,
     detail: WorkoutExerciseDetail,
     group: WorkoutSetGroup,
-    onExerciseGroup: () -> Unit
+    onExerciseGroup: () -> Unit,
+    mayAdvance: () -> Boolean,
+    previousSet: WorkoutSet?,
+    previousDate: String,
+    precedingSet: WorkoutSet?,
+    isCurrent: Boolean,
+    onSelect: () -> Unit,
+    onCompleted: () -> Unit
 ) {
     val recordType = FitnessRecordContract.normalizeRecordType(rawRecordType)
     val childNumber = group.sets.indexOfFirst { it.id == set.id } + 1
     val setDescription = if (group.isDropGroup) "${workoutSetMarker(detail.sets, group.root)} ${childNumber}번째 하위 세트"
         else "${set.setIndex}세트"
     val inputUnit = editableMassUnit(set.inputLoadUnit, unit)
+    val initialSuggestion = remember(set.id, inputUnit) {
+        initialWorkoutSetSuggestion(set, previousSet, recordType, inputUnit, allowedLoadStates)
+    }
     val initialLoad = initialMassInputValue(
         recordType,
         set.weightKg,
@@ -1186,19 +1185,22 @@ private fun WorkoutSetEditor(
         set.inputLoadUnit,
         inputUnit
     )
-    var weight by rememberSaveable(set.id, inputUnit) { mutableStateOf(initialLoad) }
-    var reps by rememberSaveable(set.id) { mutableStateOf(set.actualReps.takeIf { it > 0 }?.toString().orEmpty()) }
-    var duration by rememberSaveable(set.id) { mutableStateOf(set.durationSeconds.takeIf { it > 0 }?.toString().orEmpty()) }
-    var assisted by rememberSaveable(set.id, inputUnit) { mutableStateOf(initialLoad) }
-    var added by rememberSaveable(set.id, inputUnit) { mutableStateOf(initialLoad) }
-    var rir by rememberSaveable(set.id) { mutableStateOf(set.rir?.toString().orEmpty()) }
-    var loadState by rememberSaveable(set.id) { mutableStateOf(set.loadState) }
+    var weight by rememberSaveable(set.id, inputUnit) { mutableStateOf(initialSuggestion?.load ?: initialLoad) }
+    var reps by rememberSaveable(set.id) { mutableStateOf(initialSuggestion?.reps ?: set.actualReps.takeIf { it > 0 }?.toString().orEmpty()) }
+    var duration by rememberSaveable(set.id) { mutableStateOf(initialSuggestion?.duration ?: set.durationSeconds.takeIf { it > 0 }?.toString().orEmpty()) }
+    var assisted by rememberSaveable(set.id, inputUnit) { mutableStateOf(initialSuggestion?.load ?: initialLoad) }
+    var added by rememberSaveable(set.id, inputUnit) { mutableStateOf(initialSuggestion?.load ?: initialLoad) }
+    var rir by rememberSaveable(set.id) { mutableStateOf(initialSuggestion?.rir ?: set.rir?.toString().orEmpty()) }
+    var loadState by rememberSaveable(set.id) { mutableStateOf(initialSuggestion?.loadState ?: set.loadState) }
     var completed by rememberSaveable(set.id) { mutableStateOf(set.isCompleted) }
     var showSetMenu by remember(set.id) { mutableStateOf(false) }
     var showLoadMenu by remember(set.id) { mutableStateOf(false) }
     var saving by remember(set.id) { mutableStateOf(false) }
     var draftRevision by rememberSaveable(set.id) { mutableIntStateOf(0) }
     var savedRevision by rememberSaveable(set.id) { mutableIntStateOf(0) }
+    var saveFailed by remember(set.id) { mutableStateOf(false) }
+    var deleting by remember(set.id) { mutableStateOf(false) }
+    val canDelete = canRemoveWorkoutSet(detail.sets, set) && !saving && !deleting
     val focus = LocalFocusManager.current
     val decimalOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
     val numberOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
@@ -1218,6 +1220,7 @@ private fun WorkoutSetEditor(
     val saveCurrentSet: (Boolean) -> Unit = save@ { nextCompleted ->
         if (saving) return@save
         saving = true
+        saveFailed = false
         val revisionToSave = draftRevision
         val enteredWeight = weight.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
         val enteredAssisted = assisted.toDoubleOrNull()?.takeIf { it.isFinite() && it >= 0.0 }
@@ -1267,151 +1270,248 @@ private fun WorkoutSetEditor(
                 val newlyCompleted = nextCompleted && !completed
                 completed = nextCompleted
                 savedRevision = revisionToSave
+                val advanceSelected = mayAdvance() && draftRevision == revisionToSave
+                if (nextCompleted && advanceSelected) onCompleted()
                 if (newlyCompleted) {
                     val advance = workoutSetAdvance(detail, set.id)
                     actions.startRestTimer(if (advance.startRest) exerciseRestSeconds else 0)
-                    advance.exerciseId?.let(actions::openExercise)
+                    if (advanceSelected) advance.exerciseId?.let(actions::openExercise)
                 }
                 actions.refresh()
-            } else actions.toast("세트를 저장하지 못했습니다.")
+            } else {
+                saveFailed = true
+                actions.toast("세트를 저장하지 못했습니다. 입력은 유지됩니다.")
+            }
         }
     }
     val doneAction = KeyboardActions(onDone = { saveCurrentSet(completed); focus.clearFocus() })
     val mainOptions = if (columns.secondLabel == null && !columns.hasRir)
         numberOptions.copy(imeAction = ImeAction.Done) else numberOptions
 
-    WorkoutSetTableRow(
-        columns = columns,
-        modifier = Modifier.testTag("workout-set-${set.id}"),
-        setContent = {
-            Box(Modifier.fillMaxWidth()) {
-                TextButton(
-                    onClick = { showSetMenu = true },
-                    modifier = Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
-                        .semantics { contentDescription = "$setDescription 설정" },
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text(if (group.isDropGroup) childNumber.toString() else workoutSetMarker(detail.sets, set),
-                        style = MaterialTheme.typography.bodyMedium)
-                    WorkoutSetMenuIndicator()
-                }
-                DropdownMenu(expanded = showSetMenu, onDismissRequest = { showSetMenu = false }) {
-                    if (set.id == group.root.id) WorkoutSetType.entries.forEach { type ->
-                        DropdownMenuItem(text = {
-                            Column {
-                                Text(if (type == WorkoutSetType.NORMAL) type.label else "${type.marker} · ${type.label}")
-                                if (type == WorkoutSetType.NORMAL && group.isDropGroup)
-                                    Text("하위 세트도 각각 일반 세트로 유지", style = MaterialTheme.typography.bodySmall)
-                                if (type == WorkoutSetType.NORMAL && detail.activeExercise.supersetGroupId != null)
-                                    Text("운동 연결은 연결 설정에서 해제", style = MaterialTheme.typography.bodySmall)
-                            }
-                        },
-                            enabled = !saving, onClick = {
-                                showSetMenu = false
-                                focus.clearFocus()
-                                actions.updateSetType(recordId, set.id, type) { ok ->
-                                    if (ok) actions.refresh() else actions.toast("세트 유형을 바꾸지 못했습니다.")
+    val previousDraft = previousSet?.let {
+        workoutSetDraftValues(it, recordType, inputUnit, allowedLoadStates, loadState)
+    }
+    val precedingDraft = precedingSet?.let {
+        workoutSetDraftValues(it, recordType, inputUnit, allowedLoadStates, loadState)
+    }
+    val fillDraft: (WorkoutSetDraftValues) -> Unit = { values ->
+        weight = values.load
+        assisted = values.load
+        added = values.load
+        reps = values.reps
+        duration = values.duration
+        rir = values.rir
+        loadState = values.loadState
+        draftRevision++
+        saveFailed = false
+        onSelect()
+    }
+    val removeSet: () -> Unit = {
+        if (canDelete) {
+            deleting = true
+            showSetMenu = false
+            focus.clearFocus()
+            actions.deleteSet(recordId, set.id) { ok ->
+                deleting = false
+                if (ok) actions.refresh() else actions.toast("세트를 삭제하지 못했습니다.")
+            }
+        }
+    }
+    val rowColor by animateColorAsState(
+        if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else Color.Transparent,
+        label = "current-set"
+    )
+    Column(Modifier.fillMaxWidth().animateContentSize(tween(160)).background(rowColor, FitnessShape.input)
+        .border(1.dp, if (isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+            else Color.Transparent, FitnessShape.input)
+        .onFocusChanged { if (it.hasFocus) onSelect() }.focusGroup()) {
+        WorkoutSetTableRow(
+            columns = columns,
+            modifier = Modifier.testTag("workout-set-${set.id}"),
+            setContent = {
+                Box(Modifier.fillMaxWidth()) {
+                    TextButton(
+                        onClick = { onSelect(); showSetMenu = true },
+                        modifier = Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
+                            .semantics { contentDescription = "$setDescription 설정" },
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(if (group.isDropGroup) childNumber.toString() else workoutSetMarker(detail.sets, set), style = MaterialTheme.typography.bodyMedium)
+                        WorkoutSetMenuIndicator()
+                    }
+                    DropdownMenu(expanded = showSetMenu, onDismissRequest = { showSetMenu = false }) {
+                        if (set.id == group.root.id) WorkoutSetType.entries.forEach { type ->
+                            DropdownMenuItem(text = {
+                                Column {
+                                    Text(if (type == WorkoutSetType.NORMAL) type.label else "${type.marker} · ${type.label}")
+                                    if (type == WorkoutSetType.NORMAL && group.isDropGroup)
+                                        Text("하위 세트도 각각 일반 세트로 유지", style = MaterialTheme.typography.bodySmall)
+                                    if (type == WorkoutSetType.NORMAL && detail.activeExercise.supersetGroupId != null)
+                                        Text("운동 연결은 연결 설정에서 해제", style = MaterialTheme.typography.bodySmall)
                                 }
-                            }, leadingIcon = { RadioButton(selected = (if (group.isDropGroup) WorkoutSetType.DROP else set.setType) == type, onClick = null) })
+                            },
+                                enabled = !saving, onClick = {
+                                    showSetMenu = false
+                                    focus.clearFocus()
+                                    actions.updateSetType(recordId, set.id, type) { ok ->
+                                        if (ok) actions.refresh() else actions.toast("세트 유형을 바꾸지 못했습니다.")
+                                    }
+                                }, leadingIcon = { RadioButton(selected = (if (group.isDropGroup) WorkoutSetType.DROP else set.setType) == type, onClick = null) })
+                        }
+                        if (set.id == group.root.id) DropdownMenuItem(text = { Text("슈퍼·컴파운드 연결 설정") }, enabled = !saving,
+                            onClick = { showSetMenu = false; onExerciseGroup() })
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = { Text("입력 저장") },
+                            enabled = !saving,
+                            onClick = { showSetMenu = false; saveCurrentSet(completed) }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(if (group.isDropGroup) "하위 세트 삭제" else "세트 삭제", color = MaterialTheme.colorScheme.error) },
+                            enabled = canDelete,
+                            onClick = removeSet
+                        )
                     }
-                    if (set.id == group.root.id) DropdownMenuItem(text = { Text("슈퍼·컴파운드 연결 설정") }, enabled = !saving,
-                        onClick = { showSetMenu = false; onExerciseGroup() })
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = { Text("입력 저장") },
-                        enabled = !saving,
-                        onClick = { showSetMenu = false; saveCurrentSet(completed) }
-                    )
-                    DropdownMenuItem(
-                        text = { Text(if (group.isDropGroup) "하위 세트 삭제" else "세트 삭제", color = MaterialTheme.colorScheme.error) },
-                        enabled = !saving,
-                        onClick = {
-                            showSetMenu = false
-                            actions.deleteSet(recordId, set.id) {
-                                if (it) actions.refresh() else actions.toast("세트를 삭제하지 못했습니다.")
+                }
+            },
+            mainContent = {
+                when (recordType) {
+                    FitnessRecordContract.REPS_ONLY ->
+                        WorkoutSetValueField(reps, { reps = it; draftRevision++ }, mainFieldLabel, mainOptions,
+                            if (mainOptions.imeAction == ImeAction.Done) doneAction else nextAction)
+                    FitnessRecordContract.TIME ->
+                        WorkoutSetValueField(duration, { duration = it; draftRevision++ }, mainFieldLabel, mainOptions,
+                            if (mainOptions.imeAction == ImeAction.Done) doneAction else nextAction)
+                    FitnessRecordContract.ASSISTED_WEIGHT_REPS ->
+                        WorkoutSetValueField(assisted, { assisted = it; draftRevision++ }, mainFieldLabel, decimalOptions, nextAction,
+                            suffix = inputUnit.symbol())
+                    FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS -> if (showMassInput) {
+                        WorkoutSetValueField(added, { added = it; draftRevision++ }, mainFieldLabel, decimalOptions, nextAction,
+                            suffix = inputUnit.symbol())
+                    } else WorkoutSetStaticValue("체중")
+                    else -> if (showMassInput) {
+                        WorkoutSetValueField(weight, { weight = it; draftRevision++ }, mainFieldLabel, decimalOptions, nextAction,
+                            suffix = inputUnit.symbol())
+                    } else WorkoutSetStaticValue("체중")
+                }
+            },
+            secondContent = {
+                val options = if (columns.hasRir) numberOptions else numberOptions.copy(imeAction = ImeAction.Done)
+                val keyboardActions = if (columns.hasRir) nextAction else doneAction
+                if (recordType == FitnessRecordContract.WEIGHT_TIME) {
+                    WorkoutSetValueField(duration, { duration = it; draftRevision++ }, secondFieldLabel, options, keyboardActions)
+                } else {
+                    WorkoutSetValueField(reps, { reps = it; draftRevision++ }, secondFieldLabel, options, keyboardActions)
+                }
+            },
+            rirContent = { WorkoutSetValueField(rir, { rir = it; draftRevision++ }, "RIR",
+                numberOptions.copy(imeAction = ImeAction.Done), doneAction) },
+            completedContent = {
+                Checkbox(
+                    checked = completed && draftRevision == savedRevision,
+                    onCheckedChange = saveCurrentSet,
+                    enabled = !saving,
+                    modifier = Modifier.size(FitnessSpacing.touch)
+                        .semantics {
+                            contentDescription = "$setDescription 완료"
+                            stateDescription = when {
+                                saving -> "저장 중"
+                                draftRevision != savedRevision -> "입력 변경됨, 체크하면 저장"
+                                completed -> "저장 및 완료됨"
+                                else -> "체크하면 저장"
                             }
                         }
-                    )
+                )
+            },
+            removeContent = {
+                IconButton(onClick = removeSet, enabled = canDelete,
+                    modifier = Modifier.size(FitnessSpacing.touch).testTag("workout-set-remove-${set.id}")
+                        .semantics { contentDescription = "$setDescription 삭제" }) {
+                    val color = if (canDelete) MaterialTheme.colorScheme.onSurfaceVariant
+                        else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    Canvas(Modifier.size(16.dp)) {
+                        drawLine(color, Offset(2.dp.toPx(), 2.dp.toPx()),
+                            Offset(size.width - 2.dp.toPx(), size.height - 2.dp.toPx()), strokeWidth = 1.5.dp.toPx())
+                        drawLine(color, Offset(size.width - 2.dp.toPx(), 2.dp.toPx()),
+                            Offset(2.dp.toPx(), size.height - 2.dp.toPx()), strokeWidth = 1.5.dp.toPx())
+                    }
                 }
-            }
-        },
-        mainContent = {
-            when (recordType) {
-                FitnessRecordContract.REPS_ONLY ->
-                    WorkoutSetValueField(reps, { reps = it; draftRevision++ }, mainFieldLabel, mainOptions,
-                        if (mainOptions.imeAction == ImeAction.Done) doneAction else nextAction)
-                FitnessRecordContract.TIME ->
-                    WorkoutSetValueField(duration, { duration = it; draftRevision++ }, mainFieldLabel, mainOptions,
-                        if (mainOptions.imeAction == ImeAction.Done) doneAction else nextAction)
-                FitnessRecordContract.ASSISTED_WEIGHT_REPS ->
-                    WorkoutSetValueField(assisted, { assisted = it; draftRevision++ }, mainFieldLabel, decimalOptions, nextAction,
-                        suffix = inputUnit.symbol())
-                FitnessRecordContract.BODYWEIGHT_ADDED_WEIGHT_REPS -> if (showMassInput) {
-                    WorkoutSetValueField(added, { added = it; draftRevision++ }, mainFieldLabel, decimalOptions, nextAction,
-                        suffix = inputUnit.symbol())
-                } else WorkoutSetStaticValue("체중")
-                else -> if (showMassInput) {
-                    WorkoutSetValueField(weight, { weight = it; draftRevision++ }, mainFieldLabel, decimalOptions, nextAction,
-                        suffix = inputUnit.symbol())
-                } else WorkoutSetStaticValue("체중")
-            }
-        },
-        secondContent = {
-            val options = if (columns.hasRir) numberOptions else numberOptions.copy(imeAction = ImeAction.Done)
-            val keyboardActions = if (columns.hasRir) nextAction else doneAction
-            if (recordType == FitnessRecordContract.WEIGHT_TIME) {
-                WorkoutSetValueField(duration, { duration = it; draftRevision++ }, secondFieldLabel, options, keyboardActions)
-            } else {
-                WorkoutSetValueField(reps, { reps = it; draftRevision++ }, secondFieldLabel, options, keyboardActions)
-            }
-        },
-        rirContent = { WorkoutSetValueField(rir, { rir = it; draftRevision++ }, "RIR",
-            numberOptions.copy(imeAction = ImeAction.Done), doneAction) },
-        completedContent = {
-            Checkbox(
-                checked = completed && draftRevision == savedRevision,
-                onCheckedChange = saveCurrentSet,
-                enabled = !saving,
-                modifier = Modifier.size(FitnessSpacing.touch)
-                    .semantics {
-                        contentDescription = "$setDescription 완료"
-                        stateDescription = when {
-                            saving -> "저장 중"
-                            draftRevision != savedRevision -> "입력 변경됨, 체크하면 저장"
-                            completed -> "저장 및 완료됨"
-                            else -> "체크하면 저장"
+            },
+            loadContent = {
+                Box(Modifier.fillMaxWidth()) {
+                    TextButton(
+                        onClick = { onSelect(); showLoadMenu = true },
+                        enabled = allowedLoadStates.isNotEmpty(),
+                        modifier = Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
+                            .testTag("workout-set-load-state-${set.id}")
+                            .semantics { contentDescription = "$setDescription 부하 방식" },
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(loadState?.let(::loadStateLabelKo) ?: "미지정",
+                            style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
+                    }
+                    DropdownMenu(expanded = showLoadMenu, onDismissRequest = { showLoadMenu = false }) {
+                        allowedLoadStates.forEach { state ->
+                            DropdownMenuItem(
+                                text = { Text(loadStateLabelKo(state)) },
+                                onClick = {
+                                    if (loadState != state) { loadState = state; draftRevision++ }
+                                    showLoadMenu = false
+                                },
+                                leadingIcon = { RadioButton(selected = loadState == state, onClick = null) }
+                            )
                         }
                     }
-            )
-        },
-        loadContent = {
-            Box(Modifier.fillMaxWidth()) {
-                TextButton(
-                    onClick = { showLoadMenu = true },
-                    enabled = allowedLoadStates.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth().heightIn(min = FitnessSpacing.touch)
-                        .testTag("workout-set-load-state-${set.id}")
-                        .semantics { contentDescription = "${set.setIndex}세트 부하 방식" },
-                    contentPadding = PaddingValues(0.dp)
-                ) {
-                    Text(loadState?.let(::loadStateLabelKo) ?: "미지정",
-                        style = MaterialTheme.typography.labelSmall, maxLines = 1, softWrap = false)
                 }
-                DropdownMenu(expanded = showLoadMenu, onDismissRequest = { showLoadMenu = false }) {
-                    allowedLoadStates.forEach { state ->
-                        DropdownMenuItem(
-                            text = { Text(loadStateLabelKo(state)) },
-                            onClick = {
-                                if (loadState != state) { loadState = state; draftRevision++ }
-                                showLoadMenu = false
-                            },
-                            leadingIcon = { RadioButton(selected = loadState == state, onClick = null) }
-                        )
+            }
+        )
+        if (isCurrent || saving || saveFailed || draftRevision != savedRevision) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = FitnessSpacing.small, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.small),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (isCurrent) "현재 $setDescription" else setDescription,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary)
+                    Text(
+                        when {
+                            saving -> "저장 중…"
+                            saveFailed -> "저장 실패 · 입력 유지됨"
+                            draftRevision != savedRevision -> "변경됨 · 완료 체크로 저장"
+                            completed -> "저장 완료"
+                            else -> "완료 체크로 저장"
+                        },
+                        Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (saveFailed) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (isCurrent) {
+                    Text(if (previousSet != null)
+                        "지난 ${previousDate.ifBlank { "기록" }} - ${set.setIndex}세트 - " +
+                            workoutSetReferenceLabel(previousSet, recordType, inputUnit, compact = true)
+                        else "같은 번호·유형의 지난 완료 값이 없습니다.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1, softWrap = false,
+                        modifier = Modifier.horizontalScroll(rememberScrollState())
+                            .testTag("workout-set-reference-${set.id}"))
+                    if (previousSet != null && previousDraft == null) {
+                        Text("부하 방식이 달라 직접 입력해야 합니다.", style = MaterialTheme.typography.labelSmall)
+                    }
+                    if (precedingDraft != null && precedingSet != null) {
+                        TextButton(onClick = { fillDraft(precedingDraft) }, enabled = !saving,
+                            modifier = Modifier.heightIn(min = FitnessSpacing.touch).testTag("workout-set-fill-preceding-${set.id}"),
+                            contentPadding = PaddingValues(horizontal = 4.dp)) {
+                            Text("직전 ${precedingSet.setIndex}세트 값으로 채우기 · " +
+                                workoutSetReferenceLabel(precedingSet, recordType, inputUnit),
+                                style = MaterialTheme.typography.labelMedium)
+                        }
                     }
                 }
             }
         }
-    )
+    }
 }
 
 private data class WorkoutSetInputColumns(
@@ -1420,7 +1520,7 @@ private data class WorkoutSetInputColumns(
     val hasRir: Boolean,
     val hasLoadState: Boolean
 ) {
-    val minimumWidth get() = 156.dp +
+    val minimumWidth get() = 206.dp +
         (if (secondLabel != null) 50.dp else 0.dp) + (if (hasRir) 50.dp else 0.dp) +
         (if (hasLoadState) 66.dp else 0.dp)
 }
@@ -1452,7 +1552,8 @@ private fun WorkoutSetTableHeader(columns: WorkoutSetInputColumns) {
             secondContent = { WorkoutSetHeaderLabel(columns.secondLabel.orEmpty()) },
             rirContent = { WorkoutSetHeaderLabel("RIR") },
             completedContent = { WorkoutSetHeaderLabel("완료") },
-            loadContent = { WorkoutSetHeaderLabel("부하") }
+            loadContent = { WorkoutSetHeaderLabel("부하") },
+            removeContent = { WorkoutSetHeaderLabel("제거") }
         )
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
     }
@@ -1468,7 +1569,8 @@ private fun WorkoutSetTableRow(
     secondContent: @Composable () -> Unit,
     rirContent: @Composable () -> Unit,
     completedContent: @Composable () -> Unit,
-    loadContent: @Composable () -> Unit
+    loadContent: @Composable () -> Unit,
+    removeContent: @Composable () -> Unit
 ) {
     val fontScale = LocalDensity.current.fontScale.coerceAtLeast(1f)
     Row(
@@ -1488,6 +1590,7 @@ private fun WorkoutSetTableRow(
         if (columns.hasLoadState) {
             Box(Modifier.width(64.dp * fontScale), contentAlignment = Alignment.Center) { loadContent() }
         }
+        Box(Modifier.width(48.dp * fontScale), contentAlignment = Alignment.Center) { removeContent() }
     }
 }
 
@@ -1529,42 +1632,71 @@ private fun WorkoutSetValueField(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val focused by interactionSource.collectIsFocusedAsState()
+    var editorCreated by remember { mutableStateOf(false) }
+    var requestEditorFocus by remember { mutableStateOf(false) }
+    val focusRequester = remember { FocusRequester() }
+    val activateEditor = { editorCreated = true; requestEditorFocus = true }
+    val fieldModifier = modifier.fillMaxWidth()
+        .heightIn(min = FitnessSpacing.touch)
+        .border(if (focused) 2.dp else 1.dp,
+            if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+            FitnessShape.input)
+        .padding(horizontal = 4.dp, vertical = AppSpacing.small)
+        .semantics { contentDescription = label }
+    val valueStyle = MaterialTheme.typography.bodyMedium.copy(
+        color = MaterialTheme.colorScheme.onSurface, textAlign = TextAlign.Center)
+    val decoration: @Composable (@Composable () -> Unit) -> Unit = { innerTextField ->
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
+                if (value.isEmpty()) Text("—", Modifier.clearAndSetSemantics {},
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.bodySmall)
+                innerTextField()
+            }
+            if (suffix != null) Text(suffix, Modifier.clearAndSetSemantics {},
+                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+    // Do not create text-input sessions for every untouched cell on first entry.
+    // A tap, keyboard focus or accessibility edit activates exactly that cell;
+    // it remains mounted afterward so selection/IME state is never discarded on blur.
+    if (!editorCreated) {
+        Box(fieldModifier
+            .onFocusChanged { if (it.isFocused && enabled) activateEditor() }
+            .focusable(enabled)
+            .focusProperties { canFocus = false }
+            .clickable(enabled = enabled, onClick = activateEditor)
+            .semantics {
+                editableText = AnnotatedString(value)
+                imeAction = keyboardOptions.imeAction
+                setText { text ->
+                    if (enabled) { onValueChange(text.text); true } else false
+                }
+            }) {
+            decoration { Text(value, style = valueStyle, maxLines = 1, softWrap = false,
+                modifier = Modifier.clearAndSetSemantics {}) }
+        }
+        return
+    }
+    LaunchedEffect(requestEditorFocus) {
+        if (requestEditorFocus) {
+            focusRequester.requestFocus()
+            requestEditorFocus = false
+        }
+    }
     BasicTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier.fillMaxWidth()
-            .heightIn(min = FitnessSpacing.touch)
-            .border(if (focused) 2.dp else 1.dp,
-                if (focused) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
-                FitnessShape.input)
-            .padding(horizontal = 4.dp, vertical = AppSpacing.small)
-            .semantics { contentDescription = label },
+        modifier = fieldModifier.focusRequester(focusRequester),
         singleLine = true,
         enabled = enabled,
-        textStyle = MaterialTheme.typography.bodyMedium.copy(
-            color = MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center
-        ),
+        textStyle = valueStyle,
         keyboardOptions = keyboardOptions,
         keyboardActions = keyboardActions,
         interactionSource = interactionSource,
         cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-        decorationBox = { innerTextField ->
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    if (value.isEmpty()) Text("—", Modifier.clearAndSetSemantics {},
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        style = MaterialTheme.typography.bodySmall)
-                    innerTextField()
-                }
-                if (suffix != null) {
-                    Text(suffix, Modifier.clearAndSetSemantics {},
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-        }
+        decorationBox = decoration
     )
 }
 
@@ -1599,7 +1731,26 @@ internal fun WorkoutSummaryScreen(
     val ready = state as? WorkoutSessionUiState.Ready
     AppHeader("운동 요약", back = onBack)
     if (ready == null || ready.ownerId != ownerId) {
-        Text("요약을 불러오는 중입니다.")
+        Text(when (state) {
+            is WorkoutSessionUiState.Error -> state.message
+            is WorkoutSessionUiState.Missing -> "완료 기록을 찾지 못했습니다."
+            else -> "저장된 완료 요약을 불러오는 중입니다."
+        })
+        LocalWorkoutSessionPreview.current?.let { snapshot ->
+            stableWorkoutSessionExercises(snapshot.exercises).forEach { exercise ->
+                FitnessCard(Modifier.fillMaxWidth()) {
+                    Row(Modifier.fillMaxWidth().padding(FitnessSpacing.card),
+                        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        WorkoutExerciseImage(exercise.exerciseId, exercise.familyIdentity,
+                            "${exercise.name} 운동 이미지",
+                            Modifier.size(72.dp))
+                        Text(exercise.name, Modifier.weight(1f),
+                            style = MaterialTheme.typography.titleSmall)
+                    }
+                }
+            }
+        }
         return
     }
 
@@ -1615,7 +1766,6 @@ internal fun WorkoutSummaryScreen(
 
     val orderedExercises = stableWorkoutSessionExercises(session.exercises)
     val groupLabels = workoutSessionGroupLabels(orderedExercises)
-    val activity = LocalActivity.current
     var routineName by rememberSaveable(session.recordId) {
         mutableStateOf("${session.title} 루틴")
     }
@@ -1636,6 +1786,11 @@ internal fun WorkoutSummaryScreen(
         second = { FitnessFactCard("운동 시간", formatWorkoutElapsedSeconds(session.durationSeconds), "완료 시각 기준") }
     )
 
+    WorkoutNoteField(
+        identity = "$ownerId:${session.recordId}:condition", title = "당일 컨디션", value = session.conditionNote,
+        hint = "", placeholder = "", readOnly = true, onSave = { _, result -> result(false) },
+        modifier = Modifier.fillMaxWidth(), tag = "workout-condition-note"
+    )
     FitnessSection("근육/부위 분포") {
         val distribution = workoutSummaryMuscleDistribution(orderedExercises)
         if (distribution.isEmpty()) {
@@ -1676,28 +1831,9 @@ internal fun WorkoutSummaryScreen(
                             horizontalArrangement = Arrangement.spacedBy(AppSpacing.gap * 0.6f),
                             verticalAlignment = Alignment.Top
                         ) {
-                            if (activity != null) {
-                                val identity = exercise.familyIdentity
-                                if (identity != null) {
-                                    FitnessExerciseIllustration(
-                                        activity = activity,
-                                        identity = identity,
-                                        exactVariant = true,
-                                        modifier = Modifier.size(72.dp),
-                                        contentDescription = exercise.name,
-                                        fallback = { Text("이미지 없음") }
-                                    )
-                                } else {
-                                    FitnessExerciseIllustration(
-                                        activity = activity,
-                                        exerciseId = exercise.exerciseId,
-                                        modifier = Modifier.size(72.dp),
-                                        contentDescription = exercise.name,
-                                        exactVariant = true,
-                                        fallback = { Text("이미지 없음") }
-                                    )
-                                }
-                            }
+                            WorkoutExerciseImage(exercise.exerciseId, exercise.familyIdentity,
+                                "${exercise.name} 운동 이미지",
+                                Modifier.size(72.dp))
                             Column(
                                 Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(AppSpacing.small * 0.6f)
@@ -1818,35 +1954,49 @@ internal fun WorkoutSummaryScreen(
 }
 
 @Composable
-private fun AppWorkoutSessionContent(
-    session: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot,
-    unit: MassUnit,
-    onExercise: (String) -> Unit
-) {
-    val orderedExercises = stableWorkoutSessionExercises(session.exercises)
-    val groupLabels = workoutSessionGroupLabels(orderedExercises)
-    val sessionProgress = workoutSessionProgress(orderedExercises)
-    var nowMillis by remember(session.recordId, session.status, session.startedAt) {
+private fun WorkoutElapsedTimeCard(recordId: String, startedAt: String, status: String, durationSeconds: Int) {
+    var nowMillis by remember(recordId, status, startedAt) {
         mutableStateOf(System.currentTimeMillis())
     }
-    LaunchedEffect(session.recordId, session.status, session.startedAt) {
-        if (session.status != "in_progress") return@LaunchedEffect
+    val pageActive = LocalWorkoutPageActive.current
+    LaunchedEffect(recordId, status, startedAt, pageActive) {
+        if (!pageActive || status != "in_progress") return@LaunchedEffect
         while (isActive) {
             nowMillis = System.currentTimeMillis()
             delay(1000L)
         }
     }
-    val isInProgress = session.status == "in_progress"
+    val isInProgress = status == "in_progress"
     val displayedDurationSeconds = if (isInProgress) {
         workoutElapsedSeconds(
-            session.startedAt,
-            session.durationSeconds,
-            session.status,
+            startedAt,
+            durationSeconds,
+            status,
             nowMillis
         )
     } else {
-        session.durationSeconds
+        durationSeconds
     }
+    FitnessFactCard(
+        if (isInProgress) "경과 시간" else "운동 시간",
+        formatWorkoutElapsedSeconds(displayedDurationSeconds),
+        if (isInProgress) "현재 운동" else "기록된 운동 시간"
+    )
+}
+
+@Composable
+private fun AppWorkoutSessionContent(
+    session: WorkoutSessionSnapshot,
+    ownerId: String,
+    unit: MassUnit,
+    onSaveCondition: (String, String, (Boolean) -> Unit) -> Unit,
+    onExercise: (String) -> Unit,
+    interactive: Boolean = true
+) {
+    val orderedExercises = stableWorkoutSessionExercises(session.exercises)
+    val groupLabels = workoutSessionGroupLabels(orderedExercises)
+    val sessionProgress = workoutSessionProgress(orderedExercises)
+    val isInProgress = session.status == "in_progress"
     FitnessHeader("운동 진행", session.title)
     FitnessStatusBadge(
         status = when (session.status) {
@@ -1864,15 +2014,18 @@ private fun AppWorkoutSessionContent(
     FitnessFactRow(
         first = { FitnessFactCard("완료 세트", session.completedSetCount.toString(), "현재 운동") },
         second = {
-            FitnessFactCard(
-                if (isInProgress) "경과 시간" else "운동 시간",
-                formatWorkoutElapsedSeconds(displayedDurationSeconds),
-                if (isInProgress) "현재 운동" else "기록된 운동 시간"
-            )
+            WorkoutElapsedTimeCard(session.recordId, session.startedAt, session.status, session.durationSeconds)
         }
     )
     FitnessProgressBar(sessionProgress, title = "세션 세트 진행")
     WorkoutRoutineComparisonCard(session, unit)
+    WorkoutNoteField(
+        identity = "$ownerId:${session.recordId}:condition", title = "오늘 컨디션", value = session.conditionNote,
+        hint = "이 운동 세션에만 남는 메모입니다.", placeholder = "예: 수면 6시간, 어깨가 뻐근함",
+        readOnly = !isInProgress || !interactive,
+        onSave = { note, result -> onSaveCondition(session.recordId, note, result) },
+        modifier = Modifier.fillMaxWidth(), tag = "workout-condition-note"
+    )
     FitnessFactCard(
         "총 볼륨",
         MassFormatter.withUnit(session.totalVolumeKg, unit),
@@ -1889,7 +2042,7 @@ private fun AppWorkoutSessionContent(
         orderedExercises.forEach { exercise ->
             FitnessCard(
                 Modifier.fillMaxWidth(),
-                onClick = { onExercise(exercise.id) }
+                onClick = if (interactive) ({ onExercise(exercise.id) }) else null
             ) {
                 Column(
                     Modifier.padding(FitnessSpacing.card * 0.6f),
@@ -1911,7 +2064,7 @@ private fun AppWorkoutSessionContent(
                             verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
                         ) {
                             Text(listOf(groupLabels[exercise.id].orEmpty(), exercise.name).filter { it.isNotBlank() }.joinToString(" · "),
-                                style = MaterialTheme.typography.titleSmall)
+                                modifier = Modifier, style = MaterialTheme.typography.titleSmall)
                             Text(
                                 exercise.recordTypeLabel,
                                 style = MaterialTheme.typography.labelSmall,

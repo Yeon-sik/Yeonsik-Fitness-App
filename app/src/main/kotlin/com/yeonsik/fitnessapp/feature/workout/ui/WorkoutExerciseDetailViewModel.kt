@@ -217,6 +217,40 @@ class WorkoutExerciseDetailViewModel @JvmOverloads constructor(
                                   seconds: Int, callback: Consumer<Boolean>) =
         executeWrite(callback) { repository.updateExerciseRestSeconds(scope, recordId, exerciseId, seconds) }
 
+    fun updateSetupNote(scope: AccountScope, recordId: String, exerciseId: String,
+                        note: String, callback: Consumer<Boolean>) {
+        writeNote(scope, recordId, exerciseId, callback) {
+            repository.updateSetupNote(scope, recordId, exerciseId, note)
+        }
+    }
+
+    fun updateConditionNote(scope: AccountScope, recordId: String, note: String, callback: Consumer<Boolean>) {
+        writeNote(scope, recordId, null, callback) { repository.updateConditionNote(scope, recordId, note) }
+    }
+
+    private fun writeNote(scope: AccountScope, recordId: String, exerciseId: String?,
+                          callback: Consumer<Boolean>, write: () -> Boolean) {
+        val request = activeRequest
+        val ready = mutableState.value as? WorkoutExerciseDetailUiState.Ready
+        if (request == null || request.ownerId != scope.ownerId || request.recordId != recordId ||
+            request.readOnly || ready == null || ready.ownerId != scope.ownerId ||
+            (exerciseId != null && ready.detail.activeExercise.id != exerciseId)) {
+            callback.accept(false)
+            return
+        }
+        executor.execute {
+            val result = runCatching(write).getOrDefault(false)
+            mainHandler.post {
+                val current = activeRequest
+                // A set refresh changes the request token but does not leave this note's screen.
+                val sameScreen = current != null && current.ownerId == request.ownerId &&
+                    current.recordId == request.recordId && current.activeExerciseId == request.activeExerciseId &&
+                    !current.readOnly
+                callback.accept(result && sameScreen)
+            }
+        }
+    }
+
     private fun executeWrite(callback: Consumer<Boolean>, work: () -> Boolean) {
         executor.execute {
             try {

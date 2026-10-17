@@ -69,6 +69,8 @@ internal interface WorkoutDetailActions {
         if (type == WorkoutExerciseGroupType.SUPERSET) linkSuperset(recordId, exerciseId, partnerExerciseId, onResult)
         else onResult(false)
     }
+    fun updateSetupNote(recordId: String, exerciseId: String, note: String, onResult: (Boolean) -> Unit) { onResult(false) }
+    fun updateConditionNote(recordId: String, note: String, onResult: (Boolean) -> Unit) { onResult(false) }
     fun deleteSet(recordId: String, setId: String, onResult: (Boolean) -> Unit)
     fun startRestTimer(restSeconds: Int?)
     fun updateExerciseRestSeconds(recordId: String, exerciseId: String, seconds: Int,

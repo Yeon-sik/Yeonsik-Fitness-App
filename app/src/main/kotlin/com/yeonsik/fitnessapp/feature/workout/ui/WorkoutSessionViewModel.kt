@@ -14,6 +14,7 @@ import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import kotlinx.coroutines.suspendCancellableCoroutine
+import java.util.function.Consumer
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
@@ -159,7 +160,12 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
             return
         }
         activeReadRequest = SessionReadRequest(request, scope.ownerId, recordId)
-        mutableState.value = WorkoutSessionUiState.Loading
+        // Refresh the same session in place. A Loading detour disposes the real
+        // content and composes a second preview tree during the back transition.
+        val current = mutableState.value as? WorkoutSessionUiState.Ready
+        if (current?.ownerId != scope.ownerId || current.session.recordId != recordId) {
+            mutableState.value = WorkoutSessionUiState.Loading
+        }
         executor.execute {
             try {
                 val session = repository.loadSession(scope, recordId)
@@ -199,6 +205,28 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
                         error.message ?: "운동 기록을 불러오지 못했습니다."
                     )
                 )
+            }
+        }
+    }
+
+    fun updateConditionNote(scope: AccountScope, recordId: String, note: String, callback: Consumer<Boolean>) {
+        val request = activeReadRequest
+        val ready = mutableState.value as? WorkoutSessionUiState.Ready
+        if (request == null || request.ownerId != scope.ownerId || request.recordId != recordId ||
+            ready == null || ready.ownerId != scope.ownerId || ready.session.status != "in_progress") {
+            callback.accept(false)
+            return
+        }
+        executor.execute {
+            val session = runCatching {
+                if (repository.updateConditionNote(scope, recordId, note)) repository.loadSession(scope, recordId) else null
+            }.getOrNull()
+            mainHandler.post {
+                val stillReady = mutableState.value as? WorkoutSessionUiState.Ready
+                val current = activeReadRequest == request && stillReady != null && stillReady.session.recordId == recordId &&
+                    stillReady.ownerId == scope.ownerId
+                if (session != null && current) mutableState.value = WorkoutSessionUiState.Ready(scope.ownerId, session)
+                callback.accept(session != null && current)
             }
         }
     }

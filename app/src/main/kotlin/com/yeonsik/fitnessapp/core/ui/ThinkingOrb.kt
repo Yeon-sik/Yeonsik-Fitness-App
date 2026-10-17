@@ -1,6 +1,7 @@
 package com.yeonsik.fitnessapp.core.ui
 
 import android.animation.ValueAnimator
+import android.graphics.Paint
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -37,6 +38,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.platform.LocalDensity
@@ -77,6 +81,8 @@ internal fun ThinkingOrb(modifier: Modifier = Modifier, size: Dp = 52.dp) {
     val colors = remember(scheme.primary, scheme.secondary, scheme.tertiary, scheme.onSurfaceVariant) {
         arrayOf(scheme.primary, scheme.secondary, scheme.tertiary, scheme.onSurfaceVariant)
     }
+    // Keep the particle design, but avoid 88 Compose Color/DrawScope conversions per frame.
+    val paints = remember(colors) { colors.map { color -> Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color.toArgb() } } }
     val animate = ValueAnimator.areAnimatorsEnabled()
     val rotationState = if (animate) {
         val transition = rememberInfiniteTransition(label = "thinkingOrb")
@@ -94,21 +100,22 @@ internal fun ThinkingOrb(modifier: Modifier = Modifier, size: Dp = 52.dp) {
         val radius = this.size.minDimension * 0.38f *
             (1f + 0.035f * sin(rotation))
         val dotRadius = this.size.minDimension * 0.018f
-        for (particle in orbParticles) {
+        drawIntoCanvas { canvas ->
+          for (particle in orbParticles) {
             val circleRadius = particle.circleRadius
             val angle = particle.angle + rotation
             val depth = sin(angle) * circleRadius
             val pulse = 0.86f + 0.14f * sin(rotation * 2f + particle.phase)
             val opacity = (0.3f + (depth + 1f) * 0.28f) * pulse
-            drawCircle(
-                color = colors[particle.colorIndex],
-                radius = dotRadius * particle.scale * (0.8f + (depth + 1f) * 0.22f) * pulse,
-                center = Offset(
-                    center.x + cos(angle) * circleRadius * radius,
-                    center.y + particle.latitude * radius
-                ),
-                alpha = opacity.coerceIn(0f, 1f)
+            val paint = paints[particle.colorIndex]
+            paint.alpha = (opacity.coerceIn(0f, 1f) * 255).toInt()
+            canvas.nativeCanvas.drawCircle(
+                center.x + cos(angle) * circleRadius * radius,
+                center.y + particle.latitude * radius,
+                dotRadius * particle.scale * (0.8f + (depth + 1f) * 0.22f) * pulse,
+                paint
             )
+          }
         }
     }
 }

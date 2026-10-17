@@ -48,9 +48,11 @@ class WorkoutSetStructureStorageTest {
 
     @Test fun typesAndDropParentSurviveReloadAndRootDeletionPromotesTheNextStep() {
         val (record, exercise) = record()
-        val root = storage.sets(scope, exercise).single().id
+        assertTrue(repository.updateTypedSet(scope, record, storage.sets(scope, exercise).single().id, input.copy(completed = false)))
+        assertTrue(repository.addTypedSet(scope, record, exercise, 2, input))
+        val root = storage.sets(scope, exercise).last().id
         assertTrue(repository.updateSetType(scope, record, root, WorkoutSetType.DROP))
-        val converted = repository.loadExerciseDetail(scope, record, exercise)!!.sets.single()
+        val converted = repository.loadExerciseDetail(scope, record, exercise)!!.sets.last()
         assertEquals(WorkoutSetType.DROP, converted.setType)
         assertNull(converted.dropParentSetId)
         assertEquals(20.0, converted.weightKg, 0.0)
@@ -65,9 +67,21 @@ class WorkoutSetStructureStorageTest {
         assertEquals(1, reloaded.loadSession(scope, record)!!.routineTotals!!.workingSetCount)
         assertEquals(300.0, reloaded.loadSession(scope, record)!!.routineTotals!!.volumeKg, 0.0)
         assertTrue(repository.deleteSet(scope, record, root))
-        val remaining = reloaded.loadExerciseDetail(scope, record, exercise)!!.sets
+        val remaining = reloaded.loadExerciseDetail(scope, record, exercise)!!.sets.drop(1)
         assertEquals(WorkoutSetType.DROP, remaining.first().setType)
         assertEquals(remaining.first().id, remaining.last().dropParentSetId)
+    }
+
+    @Test fun firstSetCannotBeDeletedAndRemovingLaterSetPreservesTheEntryRow() {
+        val (record, exercise) = record()
+        val first = storage.sets(scope, exercise).single().id
+        assertFalse(repository.deleteSet(scope, record, first))
+        assertTrue(repository.addTypedSet(scope, record, exercise, 2, input))
+        val second = storage.sets(scope, exercise).last().id
+        assertFalse(repository.deleteSet(scope, record, first))
+        assertTrue(repository.deleteSet(scope, record, second))
+        assertEquals(first, storage.sets(scope, exercise).single().id)
+        assertFalse(repository.deleteSet(scope, record, first))
     }
 
     @Test fun convertingASetCreatesItsOwnGroupAndUngroupingPreservesAllInputs() {
@@ -198,15 +212,21 @@ class WorkoutSetStructureStorageTest {
         val (record, exercise) = record()
         val set = storage.sets(scope, exercise).single().id
         repository.updateSetType(scope, record, set, WorkoutSetType.WARMUP)
+        repository.updateSetupNote(scope, record, exercise, "시트 4")
+        repository.updateConditionNote(scope, record, "개인 컨디션")
         val incoming = LegacySyncRow(mapOf<String, Any>("id" to record, "metadata" to "{\"status\":\"in_progress\",\"memo\":\"remote note\"}"))
         RoomLegacyFitnessSyncStore(room).applyRows("workout_records", listOf(incoming), scope.ownerId)
         assertEquals(WorkoutSetType.WARMUP, repository.loadExerciseDetail(scope, record, exercise)!!.sets.single().setType)
+        assertEquals("시트 4", repository.loadExerciseDetail(scope, record, exercise)!!.notes.setup)
+        assertEquals("개인 컨디션", repository.loadSession(scope, record)!!.conditionNote)
         assertEquals("remote note", JSONObject(room.workoutRoomDao().visibleRecord(record, scope.ownerId)!!.metadata).getString("memo"))
     }
 
     @Test fun legacyPayloadOmitsLocalStructureAndLeavesSqliteUntouched() {
         val (record, exercise) = record()
         repository.updateSetType(scope, record, storage.sets(scope, exercise).single().id, WorkoutSetType.WARMUP)
+        repository.updateSetupNote(scope, record, exercise, "개인 기구 설정")
+        repository.updateConditionNote(scope, record, "개인 컨디션")
         val before = room.workoutRoomDao().visibleRecord(record, scope.ownerId)!!.metadata
         val encoder = LegacyFitnessSyncAdapter::class.java.getDeclaredMethod("tableRowsToJson", String::class.java, String::class.java)
         encoder.isAccessible = true

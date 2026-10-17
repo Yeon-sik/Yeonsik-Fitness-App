@@ -9,6 +9,10 @@ import com.yeonsik.fitnessapp.core.database.WorkoutManualExerciseLinkRoomEntity
 import com.yeonsik.fitnessapp.core.database.WorkoutRecordsRoomEntity
 import com.yeonsik.fitnessapp.core.database.WorkoutRoomDao
 import com.yeonsik.fitnessapp.core.database.WorkoutSetsRoomEntity
+import com.yeonsik.fitnessapp.core.database.WorkoutSetupNoteRoomEntity
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutInputBasis
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutNotes
+import com.yeonsik.fitness.shared.feature.workout.model.WORKOUT_NOTE_MAX_LENGTH
 import com.yeonsik.fitnessapp.data.FitnessRecordContract
 import com.yeonsik.fitness.shared.feature.workout.model.MassUnit
 import com.yeonsik.fitnessapp.exercise.ExerciseFamilyCatalog
@@ -48,7 +52,8 @@ class WorkoutRoomStorage(
     context: Context,
     private val transactionRunner: RoomTransactionRunner = RoomTransactionRunner(roomDatabase)
 ) {
-    private val familyCatalog = ExerciseFamilyCatalog.load(context)
+    private val appContext = context.applicationContext
+    private val familyCatalog by lazy { ExerciseFamilyCatalog.load(appContext) }
 
     data class SessionInfo(
         val title: String,
@@ -1020,6 +1025,65 @@ class WorkoutRoomStorage(
         exercise.familyIdentity?.let(::implementMultiplier) ?: 1
     )
 
+    fun inputBasis(exercise: ExerciseRow): WorkoutInputBasis {
+        // Linking an old manual record must not retrospectively change its accounting basis.
+        if (exercise.exerciseId == "manual") return WorkoutInputBasis()
+        val identity = exercise.familyIdentity ?: return WorkoutInputBasis()
+        val preset = familyCatalog.runtimeCatalog().presetForStorageExerciseId(identity.legacyExerciseId)
+            ?: return WorkoutInputBasis()
+        return WorkoutInputBasis(preset.laterality(), preset.implementMultiplier)
+    }
+
+    private fun setupKey(exercise: ExerciseRow): String? {
+        if (exercise.exerciseId == "manual") return null
+        val identity = exercise.familyIdentity
+        return if (identity?.hasVariantIdentity() == true) {
+            JSONArray().put("variant").put(identity.familyId).put(identity.canonicalVariantKey)
+                .put(exercise.recordType).toString()
+        } else {
+            JSONArray().put("legacy").put(exercise.exerciseId).put(exercise.recordType).toString()
+        }
+    }
+
+    fun conditionNote(scope: AccountScope, recordId: String): String =
+        WorkoutStructureMetadata(sessionInfoMetadata(scope, recordId)).conditionNote
+
+    fun notes(scope: AccountScope, recordId: String, exercise: ExerciseRow): WorkoutNotes {
+        val record = workoutDao.visibleRecord(recordId, scope.ownerId) ?: return WorkoutNotes()
+        val structure = WorkoutStructureMetadata(record.metadata)
+        val key = setupKey(exercise)
+        val setup = if (metadataValue(record.metadata, "status") == "in_progress" && key != null) {
+            workoutDao.setupNote(scope.ownerId, key)?.note.orEmpty()
+        } else structure.setupNotes.optString(exercise.id)
+        return WorkoutNotes(setup, structure.conditionNote, key != null)
+    }
+
+    fun updateSetupNote(scope: AccountScope, recordId: String, exerciseId: String, note: String): Boolean {
+        if (note.length > WORKOUT_NOTE_MAX_LENGTH) return false
+        return transactionRunner.call {
+            val record = editableStructureRecord(scope, recordId) ?: return@call false
+            val exercise = exercises(scope, recordId).firstOrNull { it.id == exerciseId } ?: return@call false
+            val value = note.trim()
+            setupKey(exercise)?.let { key ->
+                workoutDao.saveSetupNote(WorkoutSetupNoteRoomEntity(scope.ownerId, key, value, now()))
+            }
+            val structure = WorkoutStructureMetadata(record.metadata)
+            structure.setupNotes.put(exerciseId, value)
+            check(workoutDao.updateRecord(record.copy(metadata = structure.encoded(), updatedAt = now())) > 0)
+            true
+        }
+    }
+
+    fun updateConditionNote(scope: AccountScope, recordId: String, note: String): Boolean {
+        if (note.length > WORKOUT_NOTE_MAX_LENGTH) return false
+        return transactionRunner.call {
+            val record = editableStructureRecord(scope, recordId) ?: return@call false
+            val structure = WorkoutStructureMetadata(record.metadata)
+            structure.conditionNote = note.trim()
+            workoutDao.updateRecord(record.copy(metadata = structure.encoded(), updatedAt = now())) > 0
+        }
+    }
+
     fun ensureInitialSet(scope: AccountScope, recordId: String, exerciseId: String): Boolean {
         if (sets(scope, exerciseId).isNotEmpty()) return false
         addSet(scope, recordId, exerciseId, 1, WorkoutSetInput(
@@ -1155,8 +1219,11 @@ class WorkoutRoomStorage(
         val record = workoutDao.visibleRecord(recordId, scope.ownerId) ?: return@call false
         val row = workoutDao.visibleSet(setId, scope.ownerId) ?: return@call false
         if (workoutDao.ownsExercise(row.workoutExerciseId, recordId, scope.ownerId) == null) return@call false
+        val visibleSets = workoutDao.visibleSets(row.workoutExerciseId, scope.ownerId)
+        // Keep the first set as the stable entry point, including sparse imported records.
+        if (row.setIndex <= 1 || visibleSets.size <= 1 || visibleSets.minByOrNull { it.setIndex }?.id == setId) return@call false
         val structure = WorkoutStructureMetadata(record.metadata)
-        val children = workoutDao.visibleSets(row.workoutExerciseId, scope.ownerId).filter {
+        val children = visibleSets.filter {
             structure.sets.optJSONObject(it.id)?.optString("parent_set_id") == setId
         }.sortedBy { it.setIndex }
         children.firstOrNull()?.let { first ->
@@ -1264,13 +1331,20 @@ class WorkoutRoomStorage(
         return linked
     }
 
-    fun complete(scope: AccountScope, recordId: String): Boolean {
-        val info = sessionInfo(scope, recordId) ?: return false
+    fun complete(scope: AccountScope, recordId: String): Boolean = transactionRunner.call {
+        val info = sessionInfo(scope, recordId) ?: return@call false
         val metrics = metrics(scope, recordId)
-        if (metrics.setCount == 0) return false
+        if (metrics.setCount == 0) return@call false
+        if (info.status == "completed") return@call true
+        if (info.status != "in_progress") return@call false
         val endedAt = now()
-        val record = workoutDao.visibleRecord(recordId, scope.ownerId) ?: return false
-        val metadata = record.metadata
+        val record = workoutDao.visibleRecord(recordId, scope.ownerId) ?: return@call false
+        val structure = WorkoutStructureMetadata(record.metadata)
+        exercises(scope, recordId).forEach { exercise ->
+            val key = setupKey(exercise)
+            if (key != null) structure.setupNotes.put(exercise.id, workoutDao.setupNote(scope.ownerId, key)?.note.orEmpty())
+        }
+        val metadata = structure.encoded()
         val category = categoryFor(scope, recordId)
         val merged = try {
             JSONObject(metadata ?: "{}")
@@ -1287,7 +1361,7 @@ class WorkoutRoomStorage(
         val sourceApp = record.sourceApp
         val nextScope = if (sourceApp == "fitness") "both" else record.scope
         val nextCategory = if (sourceApp == "fitness") category else record.category
-        return workoutDao.completeRecord(
+        workoutDao.completeRecord(
             recordId, scope.ownerId, merged, duration, metrics.totalVolumeKg,
             endedAt, nextCategory, nextScope
         ) > 0

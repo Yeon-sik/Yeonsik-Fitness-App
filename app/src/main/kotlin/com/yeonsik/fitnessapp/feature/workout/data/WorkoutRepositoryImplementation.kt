@@ -113,7 +113,8 @@ class WorkoutRepositoryImplementation(
                 workoutRoutineTotals(sessionExercises(scope, it, false))
             }),
             completedAt = info.completedAt.takeIf { it.isNotBlank() },
-            routineTotals = workoutRoutineTotals(mappedExercises)
+            routineTotals = workoutRoutineTotals(mappedExercises),
+            conditionNote = storage.conditionNote(scope, recordId)
         )
     }
 
@@ -236,6 +237,8 @@ class WorkoutRepositoryImplementation(
             ),
             currentRecordDate = session.date,
             exerciseRestSeconds = storage.exerciseRestSeconds(scope, recordId, active.id),
+            inputBasis = storage.inputBasis(active),
+            notes = storage.notes(scope, recordId, active),
             sessionSets = exercises.associate { exercise ->
                 exercise.id to storage.sets(scope, exercise.id).map { it.toFeatureModel() }
             }
@@ -272,6 +275,12 @@ class WorkoutRepositoryImplementation(
     override fun linkExerciseGroup(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?,
                                     type: com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType): Boolean =
         storage.linkExerciseGroup(scope, recordId, exerciseId, partnerExerciseId, type)
+
+    override fun updateSetupNote(scope: AccountScope, recordId: String, exerciseId: String, note: String): Boolean =
+        storage.updateSetupNote(scope, recordId, exerciseId, note)
+
+    override fun updateConditionNote(scope: AccountScope, recordId: String, note: String): Boolean =
+        storage.updateConditionNote(scope, recordId, note)
 
     override fun updateExerciseRestSeconds(scope: AccountScope, recordId: String,
                                             exerciseId: String, seconds: Int): Boolean =

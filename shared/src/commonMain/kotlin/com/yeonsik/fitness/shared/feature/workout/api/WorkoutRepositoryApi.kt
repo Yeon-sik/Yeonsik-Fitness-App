@@ -89,6 +89,10 @@ interface WorkoutRepositoryApi {
     fun linkExerciseGroup(scope: AccountScope, recordId: String, exerciseId: String, partnerExerciseId: String?,
                           type: WorkoutExerciseGroupType): Boolean =
         if (type == WorkoutExerciseGroupType.SUPERSET) linkSuperset(scope, recordId, exerciseId, partnerExerciseId) else false
+    /** Updates the reusable setting and this occurrence's snapshot atomically. */
+    fun updateSetupNote(scope: AccountScope, recordId: String, exerciseId: String, note: String): Boolean = false
+    /** One condition note belongs to the session, independently of exercise selection. */
+    fun updateConditionNote(scope: AccountScope, recordId: String, note: String): Boolean = false
     fun updateExerciseRestSeconds(scope: AccountScope, recordId: String,
                                   exerciseId: String, seconds: Int): Boolean = false
     fun addTypedSet(scope: AccountScope, recordId: String, exerciseId: String, setIndex: Int,

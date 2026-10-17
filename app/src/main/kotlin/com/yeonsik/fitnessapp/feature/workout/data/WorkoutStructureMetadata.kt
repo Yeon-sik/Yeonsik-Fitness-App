@@ -11,10 +11,16 @@ internal class WorkoutStructureMetadata(raw: String) {
     val supersets: JSONObject = structure.optJSONObject("supersets") ?: JSONObject()
     val groupTypes: JSONObject = structure.optJSONObject("group_types") ?: JSONObject()
 
+    val setupNotes: JSONObject = structure.optJSONObject("setup_notes") ?: JSONObject()
+    var conditionNote: String
+        get() = structure.optString("condition_note")
+        set(value) { structure.put("condition_note", value) }
+
     fun groupType(groupId: String?): WorkoutExerciseGroupType =
         WorkoutExerciseGroupType.fromId(groupId?.let { groupTypes.optString(it) })
 
     fun encoded(): String {
+        structure.put("setup_notes", setupNotes)
         structure.put("sets", sets)
         structure.put("supersets", supersets)
         structure.put("group_types", groupTypes)
