@@ -46,7 +46,8 @@ internal fun WorkoutExerciseImage(
     identity: ExerciseFamilyIdentity?,
     contentDescription: String,
     modifier: Modifier = Modifier,
-    animate: Boolean = false
+    animate: Boolean = false,
+    sharedAnchor: Any? = null
 ) {
     val resources = LocalContext.current.resources
     val context = LocalContext.current
@@ -93,7 +94,8 @@ internal fun WorkoutExerciseImage(
                 val painter = remember(bitmap, loaded.bounds) {
                     WorkoutExerciseCanvasPainter(BitmapPainter(bitmap), loaded.bounds)
                 }
-                Image(painter, contentDescription, canvas.testTag("workout-exercise-frame-$visibleFrame"),
+                Image(painter, contentDescription, Modifier.workoutSharedElement(sharedAnchor).then(canvas)
+                    .testTag("workout-exercise-frame-$visibleFrame"),
                     contentScale = ContentScale.Fit)
             }
         }

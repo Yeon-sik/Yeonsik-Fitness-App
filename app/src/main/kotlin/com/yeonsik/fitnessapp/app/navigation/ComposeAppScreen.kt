@@ -228,6 +228,7 @@ private fun AppRoot(
         screen
     }
     val ownerId = host.currentOwnerId()
+    var createdRoutineRecordId by remember(ownerId) { mutableStateOf<String?>(null) }
     val today = navigationState.today
     val startupStartedAt = remember(ownerId, today) { SystemClock.elapsedRealtime() }
     val unit = settingsState?.preferredMassUnit
@@ -500,6 +501,7 @@ private fun AppRoot(
             WorkoutSessionActionOutcome.NONE ->
                 host.toast(event.message ?: "운동 작업을 완료하지 못했습니다.")
             WorkoutSessionActionOutcome.OPEN_EXISTING -> {
+                createdRoutineRecordId = null
                 val recordId = event.recordId
                 if (recordId == null) {
                     host.toast("운동 기록을 찾지 못했습니다.")
@@ -521,9 +523,11 @@ private fun AppRoot(
                     host.toast("운동 기록을 찾지 못했습니다.")
                     return@LaunchedEffect
                 }
+                viewModels.getWorkoutSession().prepareCreatedRoutineSession(AccountScope(ownerId), event)
                 viewModels.getWorkoutSession().rememberActiveRecord(recordId)
+                createdRoutineRecordId = recordId.takeIf { event.action == WorkoutSessionAction.START_ROUTINE }
                 when (event.action) {
-                    WorkoutSessionAction.START_ROUTINE -> host.toast("루틴 운동을 시작했습니다.")
+                    WorkoutSessionAction.START_ROUTINE -> Unit
                     WorkoutSessionAction.START_MANUAL_PAST ->
                         host.toast("세트와 횟수를 입력한 뒤 운동 완료를 누르세요.")
                     else -> Unit
@@ -972,8 +976,14 @@ private fun AppRoot(
                     SessionTopBar(navigation, viewModels, ownerId, workoutState)
                 }
                 Box(Modifier.weight(1f).fillMaxWidth()) {
+                    val workoutPageScope = if (isWorkoutFlowScreen(pageScreen)) {
+                        val identity = if (pageScreen == FitnessScreen.ROUTINE_DETAIL)
+                            navigationState.selectedRoutineId ?: homeSnapshot?.activeRoutineId
+                        else currentWorkoutRecordId(pageScreen, viewModels, homeState)
+                        ":$ownerId:$identity"
+                    } else ""
                     destinationStateHolder.SaveableStateProvider(
-                        destinationScrollStateKey(pageScreen) +
+                        destinationScrollStateKey(pageScreen) + workoutPageScope +
                             if (pageScreen == FitnessScreen.RECORDS) ":${recordsHubTab.name}" else ""
                     ) {
                         val contentScrollState = rememberScrollState()
@@ -994,7 +1004,8 @@ private fun AppRoot(
                                     } else Modifier
                                 )
                                 .then(
-                                    if (isExercisePickerDestination(pageScreen) || pageScreen == FitnessScreen.CARDIO) {
+                                    if (isExercisePickerDestination(pageScreen) || pageScreen == FitnessScreen.CARDIO ||
+                                        pageScreen == FitnessScreen.ROUTINE_DETAIL) {
                                         Modifier
                                     } else {
                                         Modifier.verticalScroll(contentScrollState)
@@ -1090,8 +1101,11 @@ private fun AppRoot(
                             content = destinationPage
                         )
                     } else if (isWorkoutFlowScreen(screen)) {
+                        val routineId = navigationState.selectedRoutineId ?: homeSnapshot?.activeRoutineId
                         WorkoutFlowHost(ownerId, screen, currentWorkoutRecordId(screen, viewModels, homeState),
-                            workoutState, Modifier.fillMaxSize(), destinationPage)
+                            workoutState, Modifier.fillMaxSize(), routineId = routineId,
+                            routineExercises = homeSnapshot?.routineExercises?.get(routineId).orEmpty(),
+                            createdRoutineRecordId = createdRoutineRecordId, content = destinationPage)
                     } else {
                         destinationPage(screen, true)
                     }
@@ -1198,6 +1212,8 @@ private fun currentWorkoutRecordId(
     viewModels: AppViewModels,
     homeState: HomeUiState
 ): String? = when (screen) {
+    FitnessScreen.ROUTINE_DETAIL -> viewModels.getWorkoutSession().activeRecordId()
+        ?: (homeState as? HomeUiState.Ready)?.snapshot?.inProgressSessionId
     FitnessScreen.WORKOUT_SESSION,
     FitnessScreen.WORKOUT_EXERCISE_DETAIL,
     FitnessScreen.WORKOUT_EXERCISE_ADD,
@@ -1670,6 +1686,7 @@ private fun navigationRoot(screen: FitnessScreen): FitnessScreen = when (screen)
 }
 
 private fun isBottomNavigationVisible(screen: FitnessScreen): Boolean = when (screen) {
+    FitnessScreen.ROUTINE_DETAIL,
     FitnessScreen.ROUTINE_ADD,
     FitnessScreen.WORKOUT_SESSION,
     FitnessScreen.WORKOUT_EXERCISE_DETAIL,
@@ -1703,6 +1720,7 @@ private fun AppDestination(
         .observeAsState(WorkoutSessionUiState.Idle)
     val workoutDetailState by viewModels.getWorkoutExerciseDetail().uiState
         .observeAsState(WorkoutExerciseDetailUiState.Idle)
+    val routineStarting by viewModels.getWorkoutSession().routineStarting.observeAsState(false)
     val cardioState by viewModels.getCardioSession().uiState
         .observeAsState(CardioSessionUiState.Idle)
     val cardioRouteState by viewModels.getCardioSession().routeState
@@ -2424,7 +2442,10 @@ private fun AppDestination(
                 navigation.selectedRoutineId(),
                 routineActions,
                 historyState = viewModels.getRoutineEntry().exerciseHistoryState.observeAsState().value,
-                unit = unit
+                unit = unit,
+                starting = routineStarting,
+                inProgressSessionId = (workoutState as? WorkoutSessionUiState.Ready)
+                    ?.takeIf { it.ownerId == ownerId && it.session.status == "in_progress" }?.session?.recordId
             )
             FitnessScreen.ROUTINE_ADD,
             FitnessScreen.WORKOUT_EXERCISE_ADD -> ExercisePickerScreen(

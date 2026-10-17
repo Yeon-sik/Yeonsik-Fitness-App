@@ -362,20 +362,30 @@ internal fun WorkoutDetailScreen(
 ) {
     val drafts = rememberSaveableStateHolder()
     val ready = (state as? WorkoutExerciseDetailUiState.Ready)?.takeIf {
-        it.ownerId == ownerId && (previewExercise == null ||
-            (it.detail.activeExercise.id == previewExercise.id && it.detail.recordId == previewRecordId))
+        it.ownerId == ownerId && (previewRecordId == null || it.detail.recordId == previewRecordId) &&
+            (previewExercise == null || it.detail.activeExercise.id == previewExercise.id)
     }
     val title = ready?.detail?.activeExercise?.name ?: previewExercise?.name ?: "운동 종목"
+    val imageRecordId = ready?.detail?.recordId ?: previewRecordId
+    val imageOccurrenceId = ready?.detail?.activeExercise?.id ?: previewExercise?.id
+    val imageExerciseId = ready?.detail?.activeExercise?.exerciseId ?: previewExercise?.exerciseId
+    val imageIdentity = ready?.detail?.activeExercise?.familyIdentity ?: previewExercise?.familyIdentity
+    val imageAnchor = if (imageRecordId != null && imageOccurrenceId != null)
+        workoutSessionImageAnchor(imageRecordId, imageOccurrenceId) else null
     val titleStyle = MaterialTheme.typography.headlineLarge
     FitnessHeader(title, back = actions::back,
         titleStyle = titleStyle.copy(fontSize = titleStyle.fontSize * 0.7f,
-            lineHeight = titleStyle.lineHeight * 0.7f))
+            lineHeight = titleStyle.lineHeight * 0.7f),
+        titleModifier = Modifier.workoutSharedElement(imageAnchor, "title"))
+    var selectedRecordTab by rememberSaveable(imageOccurrenceId) { mutableStateOf(EXERCISE_RECORDS_TAB) }
+    if (ready?.readOnly == true) {
+        WorkoutExerciseRecordTabs(selected = selectedRecordTab, onSelected = { selectedRecordTab = it })
+    }
+    if (imageExerciseId != null) {
+        WorkoutExerciseImage(imageExerciseId, imageIdentity, "$title 운동 이미지", Modifier.fillMaxWidth(),
+            animate = ready != null && !ready.readOnly, sharedAnchor = imageAnchor)
+    }
     if (ready == null || ready.ownerId != ownerId) {
-        if (previewExercise != null && previewRecordId != null) {
-            WorkoutExerciseImage(previewExercise.exerciseId, previewExercise.familyIdentity,
-                "${previewExercise.name} 운동 이미지",
-                Modifier.fillMaxWidth())
-        }
         FitnessStatusMessage(
             status = when (state) {
                 is WorkoutExerciseDetailUiState.Error -> FitnessSemanticStatus.ERROR
@@ -394,22 +404,6 @@ internal fun WorkoutDetailScreen(
     val detail = ready.detail
     val orderedExercises = stableWorkoutExercises(detail.exercises)
     val activeIndex = orderedExercises.indexOfFirst { it.id == detail.activeExercise.id }
-    var selectedRecordTab by rememberSaveable(detail.activeExercise.id) {
-        mutableStateOf(EXERCISE_RECORDS_TAB)
-    }
-    if (ready.readOnly) {
-        WorkoutExerciseRecordTabs(
-            selected = selectedRecordTab,
-            onSelected = { selectedRecordTab = it }
-        )
-    }
-    WorkoutExerciseImage(
-        exerciseId = detail.activeExercise.exerciseId,
-        identity = detail.activeExercise.familyIdentity,
-        contentDescription = "${detail.activeExercise.name} 운동 이미지",
-        modifier = Modifier.fillMaxWidth(),
-        animate = !ready.readOnly
-    )
     Text(
         workoutExerciseMetadata(detail.activeExercise),
         style = MaterialTheme.typography.labelSmall,
@@ -1783,7 +1777,7 @@ internal fun WorkoutSummaryScreen(
 
     FitnessFactRow(
         first = { FitnessFactCard("운동 종목", orderedExercises.size.toString(), "저장된 snapshot") },
-        second = { FitnessFactCard("운동 시간", formatWorkoutElapsedSeconds(session.durationSeconds), "완료 시각 기준") }
+        second = { FitnessFactCard("운동 시간", formatWorkoutElapsedSeconds(session.durationSeconds), "기록된 운동 시간") }
     )
 
     WorkoutNoteField(
@@ -1997,7 +1991,8 @@ private fun AppWorkoutSessionContent(
     val groupLabels = workoutSessionGroupLabels(orderedExercises)
     val sessionProgress = workoutSessionProgress(orderedExercises)
     val isInProgress = session.status == "in_progress"
-    FitnessHeader("운동 진행", session.title)
+    FitnessHeader(session.title, "${orderedExercises.size}개 종목",
+        titleModifier = Modifier.workoutSharedElement(workoutSessionTitleAnchor(session.recordId), "title"))
     FitnessStatusBadge(
         status = when (session.status) {
             "completed" -> FitnessSemanticStatus.SUCCESS
@@ -2011,26 +2006,7 @@ private fun AppWorkoutSessionContent(
         },
         modifier = Modifier.fillMaxWidth()
     )
-    FitnessFactRow(
-        first = { FitnessFactCard("완료 세트", session.completedSetCount.toString(), "현재 운동") },
-        second = {
-            WorkoutElapsedTimeCard(session.recordId, session.startedAt, session.status, session.durationSeconds)
-        }
-    )
     FitnessProgressBar(sessionProgress, title = "세션 세트 진행")
-    WorkoutRoutineComparisonCard(session, unit)
-    WorkoutNoteField(
-        identity = "$ownerId:${session.recordId}:condition", title = "오늘 컨디션", value = session.conditionNote,
-        hint = "이 운동 세션에만 남는 메모입니다.", placeholder = "예: 수면 6시간, 어깨가 뻐근함",
-        readOnly = !isInProgress || !interactive,
-        onSave = { note, result -> onSaveCondition(session.recordId, note, result) },
-        modifier = Modifier.fillMaxWidth(), tag = "workout-condition-note"
-    )
-    FitnessFactCard(
-        "총 볼륨",
-        MassFormatter.withUnit(session.totalVolumeKg, unit),
-        "저장 기준 kg · 표시 ${unit.symbol()}"
-    )
     FitnessSection("운동 종목") {
         if (orderedExercises.isEmpty()) {
             FitnessStatusMessage(
@@ -2040,49 +2016,59 @@ private fun AppWorkoutSessionContent(
             )
         }
         orderedExercises.forEach { exercise ->
-            FitnessCard(
-                Modifier.fillMaxWidth(),
-                onClick = if (interactive) ({ onExercise(exercise.id) }) else null
-            ) {
-                Column(
-                    Modifier.padding(FitnessSpacing.card * 0.6f),
-                    verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small * 0.6f)
+            key(exercise.id) {
+                val anchor = workoutSessionListAnchor(session.recordId, exercise.id)
+                FitnessCard(
+                    Modifier.fillMaxWidth().testTag("workout-session-exercise-${exercise.id}"),
+                    onClick = if (interactive) ({ onExercise(exercise.id) }) else null
                 ) {
-                    Row(
-                        Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap * 0.6f),
-                        verticalAlignment = Alignment.CenterVertically
+                    Column(
+                        Modifier.padding(FitnessSpacing.card * 0.6f),
+                        verticalArrangement = Arrangement.spacedBy(FitnessSpacing.small * 0.6f)
                     ) {
-                        WorkoutExerciseImage(
-                            exerciseId = exercise.exerciseId,
-                            identity = exercise.familyIdentity,
-                            contentDescription = "${exercise.name} 운동 이미지",
-                            modifier = Modifier.size(64.dp)
-                        )
-                        Column(
-                            Modifier.weight(1f),
-                            verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(FitnessSpacing.gap * 0.6f),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(listOf(groupLabels[exercise.id].orEmpty(), exercise.name).filter { it.isNotBlank() }.joinToString(" · "),
-                                modifier = Modifier, style = MaterialTheme.typography.titleSmall)
-                            Text(
-                                exercise.recordTypeLabel,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            WorkoutExerciseImage(
+                                exerciseId = exercise.exerciseId,
+                                identity = exercise.familyIdentity,
+                                contentDescription = "${exercise.name} 운동 이미지",
+                                modifier = Modifier.size(64.dp), sharedAnchor = anchor
                             )
-                            WorkoutExerciseProgressCompact(exercise)
+                            Column(
+                                Modifier.weight(1f),
+                                verticalArrangement = Arrangement.spacedBy(FitnessSpacing.micro)
+                            ) {
+                                Text(listOf(groupLabels[exercise.id].orEmpty(), exercise.name).filter { it.isNotBlank() }.joinToString(" · "),
+                                    modifier = Modifier.workoutSharedElement(anchor, "title"), style = MaterialTheme.typography.titleSmall)
+                                Text(exercise.recordTypeLabel, style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                WorkoutExerciseProgressCompact(exercise)
+                            }
                         }
+                        WorkoutExerciseSetTable(sets = exercise.completedSets, recordType = exercise.recordType,
+                            unit = unit, modifier = Modifier.fillMaxWidth())
                     }
-                    WorkoutExerciseSetTable(
-                        sets = exercise.completedSets,
-                        recordType = exercise.recordType,
-                        unit = unit,
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
             }
         }
     }
+    FitnessFactRow(
+        first = { FitnessFactCard("완료 세트", session.completedSetCount.toString(), "현재 운동") },
+        second = { WorkoutElapsedTimeCard(session.recordId, session.startedAt, session.status, session.durationSeconds) }
+    )
+    WorkoutRoutineComparisonCard(session, unit)
+    WorkoutNoteField(
+        identity = "$ownerId:${session.recordId}:condition", title = "오늘 컨디션", value = session.conditionNote,
+        hint = "이 운동 세션에만 남는 메모입니다.", placeholder = "예: 수면 6시간, 어깨가 뻐근함",
+        readOnly = !isInProgress || !interactive,
+        onSave = { note, result -> onSaveCondition(session.recordId, note, result) },
+        modifier = Modifier.fillMaxWidth(), tag = "workout-condition-note"
+    )
+    FitnessFactCard("총 볼륨", MassFormatter.withUnit(session.totalVolumeKg, unit),
+        "저장 기준 kg · 표시 ${unit.symbol()}")
     if (session.recentVolumes.isNotEmpty()) {
         FitnessSection("이전 운동 볼륨") {
             FitnessTrendChart(
