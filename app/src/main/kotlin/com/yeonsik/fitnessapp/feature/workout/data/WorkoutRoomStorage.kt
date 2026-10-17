@@ -37,7 +37,11 @@ import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.Duration
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 /**
@@ -1541,7 +1545,35 @@ class WorkoutRoomStorage(
 
     private fun resolvedDurationSeconds(date: String?, duration: Int?, metadata: String): Int {
         if (duration != null && duration > 0) return duration
-        return elapsedSeconds(metadataValue(metadata, "started_at"))
+        val fields = runCatching { JSONObject(metadata) }.getOrNull() ?: return 0
+        val storedSeconds = fields.optLong("duration_seconds", 0L).takeIf { it > 0L }
+            ?: fields.optLong("active_duration_seconds", 0L).takeIf { it > 0L }
+        if (storedSeconds != null) return storedSeconds.coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+
+        val startedAt = fields.optString("started_at", "").trim()
+        val endedAt = fields.optString("ended_at", "").trim().takeUnless { it == "null" }.orEmpty()
+        if (endedAt.isNotBlank()) return recordedIntervalSeconds(date, startedAt, endedAt)
+
+        // A missing duration in a historical record must never turn into its age.
+        // Only an explicitly active session can use the current clock.
+        return if (fields.optString("status", "") == "in_progress") elapsedSeconds(startedAt) else 0
+    }
+
+    private fun recordedIntervalSeconds(date: String?, startedAt: String, endedAt: String): Int {
+        val seconds = runCatching {
+            Duration.between(OffsetDateTime.parse(startedAt), OffsetDateTime.parse(endedAt)).seconds
+        }.getOrNull() ?: runCatching {
+            Duration.between(LocalDateTime.parse(startedAt), LocalDateTime.parse(endedAt)).seconds
+        }.getOrNull() ?: runCatching {
+            // Older records can contain time-only values such as 9:30 or 09:30:00.
+            val recordDate = LocalDate.parse(date.orEmpty())
+            val clockFormat = DateTimeFormatter.ofPattern("H:mm[:ss]")
+            Duration.between(
+                recordDate.atTime(LocalTime.parse(startedAt, clockFormat)),
+                recordDate.atTime(LocalTime.parse(endedAt, clockFormat))
+            ).seconds
+        }.getOrNull()
+        return seconds?.takeIf { it >= 0L }?.coerceAtMost(Int.MAX_VALUE.toLong())?.toInt() ?: 0
     }
 
     private fun elapsedSeconds(startedAt: String): Int = try {
