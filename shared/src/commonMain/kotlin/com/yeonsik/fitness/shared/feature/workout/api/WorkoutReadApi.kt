@@ -6,6 +6,7 @@ import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExercisePerforman
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadDayMetrics
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutReadSessionSummary
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutWeekProgress
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutProgressSession
 
 /** Read-only workout port used by cross-feature read models. */
 interface WorkoutReadApi {
@@ -46,4 +47,11 @@ interface WorkoutReadApi {
     ): List<WorkoutExercisePerformancePoint> = emptyList()
 
     fun completedResistanceSessions(scope: AccountScope, startDate: String, endDate: String): Int
+
+    /** Local completed-set evidence; reading this projection never initializes or edits a session. */
+    fun progressSessions(
+        scope: AccountScope,
+        startDate: String,
+        endDate: String
+    ): List<WorkoutProgressSession> = emptyList()
 }

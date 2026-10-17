@@ -183,8 +183,11 @@ class AppContainer(context: Context) : SettingsSessionCoordinator {
         workoutReadRepository,
         mealReadRepository,
         bodyMetricsReadRepository,
-        developmentReadRepository
+        developmentReadRepository,
+        nutritionAnalysisService
     )
+    val developmentTrackingRepository =
+        com.yeonsik.fitnessapp.feature.development.data.DevelopmentTrackingRepository(appContext)
     val supplementRepositoryApi: SupplementRepositoryApi = supplementRepository
     val mealRecordRepositoryApi: MealRecordRepositoryApi = mealRecordRepository
     val nutritionCatalogRepositoryApi: NutritionCatalogRepositoryApi = nutritionCatalogRepository

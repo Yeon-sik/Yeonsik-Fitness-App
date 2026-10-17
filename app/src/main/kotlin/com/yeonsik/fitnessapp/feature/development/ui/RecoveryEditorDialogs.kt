@@ -9,6 +9,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -22,6 +23,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.yeonsik.fitnessapp.core.ui.AppSpacing
+import com.yeonsik.fitnessapp.core.ui.FitnessMealIcon
+import com.yeonsik.fitnessapp.core.ui.FitnessRecoveryIcon
 import com.yeonsik.fitnessapp.data.AthleteDailyCheckIn
 import com.yeonsik.fitnessapp.data.AthleteNutritionGoal
 
@@ -63,7 +66,8 @@ internal fun RecoveryNutritionGoalEditorDialog(
 
     AlertDialog(
         onDismissRequest = actions::dismissRecovery,
-        title = { Text("영양 목표 설정") },
+        icon = { Icon(FitnessMealIcon, null) },
+        title = { Text("영양·단백질 기준") },
         text = {
             Column(
                 modifier = Modifier
@@ -73,7 +77,7 @@ internal fun RecoveryNutritionGoalEditorDialog(
                 verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
             ) {
                 Text(
-                    "앱이 목표값을 추정하지 않습니다. 직접 입력한 값만 저장합니다.",
+                    "직접 정한 하루 기준을 저장해요. 홈의 단백질 표시에도 사용해요.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 androidx.compose.foundation.layout.Box {
@@ -164,7 +168,8 @@ internal fun RecoveryCheckInEditorDialog(
 
     AlertDialog(
         onDismissRequest = actions::dismissRecovery,
-        title = { Text("회복 체크인 · ${ready.date}") },
+        icon = { Icon(FitnessRecoveryIcon, null) },
+        title = { Text("컨디션 기록 · ${ready.date}") },
         text = {
             Column(
                 modifier = Modifier
@@ -174,7 +179,7 @@ internal fun RecoveryCheckInEditorDialog(
                 verticalArrangement = Arrangement.spacedBy(AppSpacing.small)
             ) {
                 Text(
-                    "입력하지 않은 점수는 미기록으로 유지됩니다.",
+                    "점수는 선택 사항이에요. 비워두면 기록하지 않아요.",
                     style = MaterialTheme.typography.bodySmall
                 )
                 GoalNumberField("수분 섭취 ml", water) { water = it }
@@ -182,7 +187,9 @@ internal fun RecoveryCheckInEditorDialog(
                 GoalNumberField("에너지 점수 1~5(선택)", energy) { energy = it }
                 GoalNumberField("허기 점수 1~5(선택)", hunger) { hunger = it }
                 GoalNumberField("소화 점수 1~5(선택)", digestion) { digestion = it }
-                GoalNumberField("훈련 준비도 1~5(선택)", readiness) { readiness = it }
+                GoalNumberField("운동 준비도 1~5(선택)", readiness) { readiness = it }
+                Text("운동 준비도는 1에 가까울수록 준비가 덜 된 상태, 5에 가까울수록 충분히 준비된 상태예요.",
+                    style = MaterialTheme.typography.bodySmall)
                 OutlinedTextField(
                     value = note,
                     onValueChange = { note = it },

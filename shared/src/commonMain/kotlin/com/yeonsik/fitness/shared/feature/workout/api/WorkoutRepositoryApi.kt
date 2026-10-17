@@ -8,6 +8,7 @@ import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseReplaceme
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutExerciseGroupType
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetCountProposal
 
 /**
  * Public workout boundary for new Kotlin application code.  It deliberately
@@ -28,6 +29,11 @@ interface WorkoutRepositoryApi {
 
     fun createSessionFromRoutine(scope: AccountScope, date: String, title: String,
                                  routineId: String?, exercises: List<RoutineExerciseInstance>): String = error("Routine session creation is not supported by this repository.")
+
+    /** Materializes accepted set-count guidance as uncompleted inputs in a new owned session. */
+    fun createSessionWithSetCountProposal(scope: AccountScope, date: String, title: String,
+        routineId: String, exercises: List<RoutineExerciseInstance>, proposal: WorkoutSetCountProposal): String =
+        error("Set-count guidance is not supported by this repository.")
 
     fun createManualPastSessionFromRoutine(scope: AccountScope, date: String, title: String,
                                             routineId: String?, exercises: List<RoutineExerciseInstance>,

@@ -12,6 +12,7 @@ import com.yeonsik.fitness.shared.feature.workout.application.CompleteWorkout
 import com.yeonsik.fitnessapp.feature.workout.application.WorkoutSessionApplicationService
 import com.yeonsik.fitness.shared.feature.workout.api.WorkoutRepositoryApi
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSessionSnapshot
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetCountProposal
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.function.Consumer
@@ -109,12 +110,15 @@ class WorkoutSessionActionEvent @JvmOverloads constructor(
     val recordId: String?,
     val cardioSession: Boolean,
     val message: String?,
-    val createdSession: WorkoutSessionSnapshot? = null
+    val createdSession: WorkoutSessionSnapshot? = null,
+    val completedEvidence: WorkoutCompletedExerciseEvidence? = null
 ) {
     private val consumed = AtomicBoolean(false)
 
     fun consume(): Boolean = consumed.compareAndSet(false, true)
 }
+
+data class WorkoutCompletedExerciseEvidence(val session: WorkoutSessionSnapshot, val exerciseId: String)
 
 /** Stores only the recoverable session id; completion state remains transient. */
 class WorkoutSessionViewModel @JvmOverloads constructor(
@@ -353,6 +357,28 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         }
     }
 
+    /** Loads completed evidence before navigation so a prior active session cannot enable editing. */
+    fun openCompletedExercise(scope: AccountScope, recordId: String, exerciseId: String) {
+        executeAction(scope, WorkoutSessionAction.OPEN_RECORD) {
+            val session = repository.loadSession(scope, recordId)
+                ?: error("운동 기록을 찾지 못했습니다.")
+            check(session.status == "completed") { "완료된 운동 기록만 비교할 수 있습니다." }
+            check(session.exercises.any { it.id == exerciseId }) { "비교할 운동 종목을 찾지 못했습니다." }
+            ActionResult(WorkoutSessionActionOutcome.OPEN_EXISTING, recordId, false, null,
+                completedEvidence = WorkoutCompletedExerciseEvidence(session, exerciseId))
+        }
+    }
+
+    fun prepareCompletedEvidenceSession(scope: AccountScope, event: WorkoutSessionActionEvent) {
+        val evidence = event.completedEvidence ?: return
+        if (event.ownerId != scope.ownerId || event.requestId != actionVersion ||
+            event.outcome != WorkoutSessionActionOutcome.OPEN_EXISTING ||
+            evidence.session.status != "completed" || evidence.session.recordId != event.recordId) return
+        savedStateHandle[KEY_RECORD_ID] = evidence.session.recordId
+        activeReadRequest = SessionReadRequest(++requestVersion, scope.ownerId, evidence.session.recordId)
+        mutableState.value = WorkoutSessionUiState.Ready(scope.ownerId, evidence.session)
+    }
+
     fun continueIfAvailable(scope: AccountScope) {
         executeAction(scope, WorkoutSessionAction.CONTINUE) {
             val service = requireSessionApplicationService()
@@ -409,6 +435,24 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         title: String,
         routineId: String?,
         exercises: List<RoutineExerciseInstance>
+    ) = startRoutineInternal(scope, date, title, routineId, exercises, null)
+
+    fun startRoutineWithSetProposal(
+        scope: AccountScope,
+        date: String,
+        title: String,
+        routineId: String,
+        exercises: List<RoutineExerciseInstance>,
+        proposal: WorkoutSetCountProposal
+    ) = startRoutineInternal(scope, date, title, routineId, exercises, proposal)
+
+    private fun startRoutineInternal(
+        scope: AccountScope,
+        date: String,
+        title: String,
+        routineId: String?,
+        exercises: List<RoutineExerciseInstance>,
+        proposal: WorkoutSetCountProposal?
     ) {
         if (!routineStartInFlight.compareAndSet(false, true)) return
         mutableRoutineStarting.value = true
@@ -421,12 +465,14 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
                     WorkoutSessionActionOutcome.OPEN_EXISTING,
                     activeRecordId,
                     cardio,
-                    "진행 중인 운동을 먼저 이어갑니다."
+                    if (proposal == null) "진행 중인 운동을 먼저 이어갑니다."
+                    else "진행 중인 운동을 먼저 이어갑니다. 세트 제안은 새 운동을 시작할 때 반영할 수 있어요."
                 )
             }
-            val recordId = service.createSessionFromRoutine(
+            val recordId = if (proposal == null) service.createSessionFromRoutine(
                 scope, date, title, routineId, exercises
-            )
+            ) else repository.createSessionWithSetCountProposal(
+                scope, date, title, requireNotNull(routineId), exercises, proposal)
             // This read follows the committed local create. A read failure must not
             // make the UI report that creation failed and invite another creation.
             val session = runCatching { repository.loadSession(scope, recordId) }.getOrNull()
@@ -635,7 +681,8 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
                         result.recordId,
                         result.cardioSession,
                         result.message,
-                        result.session
+                        result.session,
+                        result.completedEvidence
                     )
             }
         }
@@ -650,7 +697,8 @@ class WorkoutSessionViewModel @JvmOverloads constructor(
         val recordId: String?,
         val cardioSession: Boolean,
         val message: String?,
-        val session: WorkoutSessionSnapshot? = null
+        val session: WorkoutSessionSnapshot? = null,
+        val completedEvidence: WorkoutCompletedExerciseEvidence? = null
     )
 
     private fun publishIfCurrent(request: Long, state: WorkoutSessionUiState) {

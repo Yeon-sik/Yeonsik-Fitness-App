@@ -483,6 +483,7 @@ private fun AppRoot(
             )) {
                 viewModels.getExercisePicker().clearReplacementExercise()
                 viewModels.getStatistics().markStale()
+                viewModels.getDevelopment().markStale()
             }
         }
         navigation.back()
@@ -509,7 +510,11 @@ private fun AppRoot(
                 }
                 viewModels.getWorkoutSession().rememberActiveRecord(recordId)
                 event.message?.let(host::toast)
-                if (event.action == WorkoutSessionAction.OPEN_RECORD && event.cardioSession) {
+                if (event.completedEvidence != null) {
+                    viewModels.getWorkoutSession().prepareCompletedEvidenceSession(AccountScope(ownerId), event)
+                    viewModels.getWorkoutExerciseDetail().rememberActiveExercise(event.completedEvidence.exerciseId)
+                    navigation.navigate(FitnessScreen.WORKOUT_EXERCISE_DETAIL)
+                } else if (event.action == WorkoutSessionAction.OPEN_RECORD && event.cardioSession) {
                     viewModels.getCardioSession().open(AccountScope(ownerId), recordId)
                 } else if (event.cardioSession) {
                     viewModels.getCardioSession().open(AccountScope(ownerId), recordId)
@@ -537,6 +542,7 @@ private fun AppRoot(
             }
             WorkoutSessionActionOutcome.DELETED -> {
                 event.recordId?.let { clearActiveWorkout(viewModels, it) }
+                viewModels.getDevelopment().markStale()
                 host.toast("운동 기록을 삭제했습니다.")
                 if (screen != FitnessScreen.RECORDS) {
                     navigation.replace(
@@ -2204,6 +2210,41 @@ private fun AppDestination(
                         .openNutritionGoalEditor(AccountScope(ownerId))
                     override fun showRecoveryCheckIn() = viewModels.getDevelopment()
                         .openCheckInEditor(AccountScope(ownerId))
+                    override fun refresh() = viewModels.getDevelopment().enter(AccountScope(ownerId), today)
+                    override fun followExercises(keys: List<String>) = viewModels.getDevelopment()
+                        .followExercises(AccountScope(ownerId), keys)
+                    override fun openMeals() {
+                        navigation.selectMealDate(today)
+                        navigation.navigate(FitnessScreen.MEALS)
+                    }
+                    override fun requestPaperAdvice() = viewModels.getDevelopment()
+                        .requestPaperAdvice(AccountScope(ownerId), today)
+                    override fun startSuggestedWorkout(proposal: com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetCountProposal) {
+                        val snapshot = (homeState as? HomeUiState.Ready)?.snapshot?.takeIf { it.ownerId == ownerId }
+                        val routine = snapshot?.routines?.find { it.id == proposal.routineId }
+                        val exercises = snapshot?.routineExercises?.get(proposal.routineId)
+                        if (routine == null || exercises.isNullOrEmpty()) {
+                            host.toast("현재 루틴 목록에서 운동할 루틴을 선택해 주세요.")
+                            navigation.navigate(FitnessScreen.STRENGTH)
+                            return
+                        }
+                        navigation.selectRoutine(routine.id)
+                        viewModels.getWorkoutSession().startRoutineWithSetProposal(
+                            AccountScope(ownerId), today, routine.name, routine.id, exercises, proposal
+                        )
+                    }
+                    override fun openExerciseRecord(recordId: String, exerciseOccurrenceId: String) =
+                        viewModels.getWorkoutSession().openCompletedExercise(AccountScope(ownerId), recordId, exerciseOccurrenceId)
+                    override fun openRoutine(routineId: String?) {
+                        val snapshot = (homeState as? HomeUiState.Ready)?.snapshot?.takeIf { it.ownerId == ownerId }
+                        if (routineId != null && snapshot?.routines?.any { it.id == routineId } == true) {
+                            navigation.selectRoutine(routineId)
+                            navigation.navigate(FitnessScreen.ROUTINE_DETAIL)
+                        } else {
+                            if (routineId != null) host.toast("현재 루틴 목록에서 운동할 루틴을 선택해 주세요.")
+                            navigation.navigate(FitnessScreen.STRENGTH)
+                        }
+                    }
                     override fun openInsightAction(insight: com.yeonsik.fitnessapp.development.DevelopmentInsight) {
                         when {
                             insight.category == "planning" ->
@@ -2223,7 +2264,8 @@ private fun AppDestination(
                             else -> host.toast("연결된 다음 행동이 아직 없습니다.")
                         }
                     }
-                }
+                },
+                startingWorkout = routineStarting
             )
             FitnessScreen.SETTINGS -> settingsState?.let {
                 SettingsScreen(it, settingsActions)

@@ -20,6 +20,7 @@ import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSet
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetInput
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutVolumePoint
 import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetType
+import com.yeonsik.fitness.shared.feature.workout.model.WorkoutSetCountProposal
 import com.yeonsik.fitness.shared.feature.workout.model.workoutRoutineTotals
 import com.yeonsik.fitness.shared.feature.routine.model.RoutineExerciseInstance
 
@@ -52,6 +53,10 @@ class WorkoutRepositoryImplementation(
         routineId: String?,
         exercises: List<RoutineExerciseInstance>
     ): String = storage.createSessionFromRoutine(scope, date, title, routineId, exercises)
+
+    override fun createSessionWithSetCountProposal(scope: AccountScope, date: String, title: String,
+        routineId: String, exercises: List<RoutineExerciseInstance>, proposal: WorkoutSetCountProposal): String =
+        storage.createSessionWithSetCountProposal(scope, date, title, routineId, exercises, proposal)
 
     override fun createManualPastSessionFromRoutine(
         scope: AccountScope,
