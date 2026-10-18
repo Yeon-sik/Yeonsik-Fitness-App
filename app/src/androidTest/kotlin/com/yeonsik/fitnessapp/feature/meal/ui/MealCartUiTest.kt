@@ -38,14 +38,17 @@ class MealCartUiTest {
         savePreview("meal-cart-ten-light.png")
     }
 
-    @Test fun clickingAnIncludedResultOpensItsExistingQuantityAndRestoresTheEditor() {
+    @Test fun quantityEditingAndRestorationRemainAvailableThroughTheCart() {
         val initial = state(1).copy(query = "밥", searchResults = listOf(food(0)))
         var added = 0
         val restoration = StateRestorationTester(compose)
         restoration.setContent { FitnessComposeTheme(false) { MealEntryDialog(actions { name, _ -> if (name == "selectFood") added++ },
             initial, PriceTraceUiState.Idle, "6끼") } }
         compose.onNodeWithTag("food-result-food-0").performScrollTo().assert(
-            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "담김")).performClick()
+            SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "담김"))
+        compose.onNodeWithText("담기 취소").assertExists()
+        compose.onNodeWithTag("meal-cart-review").performClick()
+        compose.onNodeWithContentDescription("음식 0 수정").performScrollTo().performClick()
         compose.onNodeWithTag("meal-food-quantity-food-0").performScrollTo().assertTextContains("100")
         compose.runOnIdle { assertEquals(0, added) }
         restoration.emulateSavedInstanceStateRestore()

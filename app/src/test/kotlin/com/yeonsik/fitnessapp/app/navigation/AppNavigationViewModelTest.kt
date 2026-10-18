@@ -31,6 +31,42 @@ class AppNavigationViewModelTest {
     }
 
     @Test
+    fun mealMutationOnMealsRefreshesTheSelectedMealDateInsteadOfToday() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        navigation.updateToday("2026-10-14")
+        navigation.openMealForDate("2026-10-10")
+        val state = requireNotNull(navigation.uiState.value)
+
+        assertEquals("2026-10-10", mealMutationHomeRefreshDate(
+            state.screen, state.today, state.selectedMealDate
+        ))
+        assertEquals(FitnessScreen.MEALS, navigation.currentScreen())
+        assertEquals("2026-10-10", navigation.selectedMealDate())
+    }
+
+    @Test
+    fun mealMutationOnHomeKeepsRefreshingTodayRegardlessOfSelectedMealDate() {
+        val navigation = AppNavigationViewModel(SavedStateHandle())
+        navigation.updateToday("2026-10-14")
+        navigation.selectMealDate("2026-10-10")
+        val state = requireNotNull(navigation.uiState.value)
+
+        assertEquals("2026-10-14", mealMutationHomeRefreshDate(
+            state.screen, state.today, state.selectedMealDate
+        ))
+    }
+
+    @Test
+    fun mealMutationOnOtherDestinationsDoesNotRequestAnImmediateHomeRefresh() {
+        FitnessScreen.values().filter { it != FitnessScreen.HOME && it != FitnessScreen.MEALS }
+            .forEach { screen ->
+                assertNull("No immediate Home refresh for $screen", mealMutationHomeRefreshDate(
+                    screen, "2026-10-14", "2026-10-10"
+                ))
+            }
+    }
+
+    @Test
     fun recordDateMealEntryPreservesPastFutureAndRestorationWithoutChangingRecordsDate() {
         listOf("2020-01-02", "2030-12-31").forEach { date ->
             val saved = SavedStateHandle()

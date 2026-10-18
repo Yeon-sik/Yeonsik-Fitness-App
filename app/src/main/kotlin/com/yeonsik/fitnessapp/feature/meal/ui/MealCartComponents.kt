@@ -67,17 +67,24 @@ internal fun MealCatalogResultList(
     enabled: Boolean = true,
     includedFoodIds: Set<String> = emptySet(),
     actionLabel: String = "담기",
-    onReviewFood: (NutritionFood) -> Unit = {}
+    onReviewFood: (NutritionFood) -> Unit = {},
+    onRemoveFood: ((NutritionFood) -> Unit)? = null
 ) {
     LazyColumn(modifier.heightIn(max = 288.dp)) {
         items(foods, key = { it.id }) { food ->
             val included = food.id in includedFoodIds
+            val cancelIncluded = included && onRemoveFood != null
+            val rowAction = if (cancelIncluded) "담기 취소" else if (included) "담김 · 수정" else actionLabel
             val portion = initialFoodPortion(food, preferCount = true)
             Row(Modifier.fillMaxWidth().testTag("food-result-${food.id}")
                 .semantics { if (included) stateDescription = "담김" }
                 .clickable(enabled = enabled, role = Role.Button,
-                    onClickLabel = if (included) "${food.displayName()} 수정" else "${food.displayName()} $actionLabel") {
-                    if (included) onReviewFood(food) else onAdd(food)
+                    onClickLabel = "${food.displayName()} ${if (included && !cancelIncluded) "수정" else rowAction}") {
+                    when {
+                        cancelIncluded -> onRemoveFood?.invoke(food)
+                        included -> onReviewFood(food)
+                        else -> onAdd(food)
+                    }
                 }.heightIn(min = 72.dp).padding(vertical = 12.dp, horizontal = 4.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -88,7 +95,7 @@ internal fun MealCatalogResultList(
                     Text(portion.profile?.value(NutritionProfile.CALORIES_KCAL)?.let { "${NutritionCalculator.trim(it)} kcal" } ?: "칼로리 미확인",
                         style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text(if (included) "담김 · 수정" else actionLabel, style = MaterialTheme.typography.labelLarge,
+                Text(rowAction, style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, modifier = Modifier.widthIn(max = 64.dp))
             }
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -127,8 +134,20 @@ internal fun MealCartNutritionSummary(totals: NutritionTotals, onReview: () -> U
                     total.knownCount() == 0 -> "미확인"
                     else -> "${NutritionCalculator.trim(total.knownSum())} g${if (total.missingCount() > 0) " 이상" else ""}"
                 }
-                Text("$label $value",
-                    style = MaterialTheme.typography.bodyMedium)
+                Column(Modifier.testTag("meal-cart-macro-$label"), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("$label $value", style = MaterialTheme.typography.bodyMedium)
+                    val child = when (key) {
+                        NutritionProfile.CARBS_GRAMS -> "당류" to NutritionProfile.SUGARS_GRAMS
+                        NutritionProfile.FAT_GRAMS -> "포화지방" to NutritionProfile.SATURATED_FAT_GRAMS
+                        else -> null
+                    }
+                    child?.let { (childLabel, childKey) ->
+                        val childTotal = totals.total(childKey)
+                        val childValue = if (childTotal.knownCount() == 0) "미확인"
+                            else "${NutritionCalculator.trim(childTotal.knownSum())} g${if (childTotal.missingCount() > 0) " 이상" else ""}"
+                        MealSecondaryMetric(childLabel, childValue)
+                    }
+                }
             }
         }
         if (incomplete) Text("확인된 합계 · 일부 영양정보 미확인", style = MaterialTheme.typography.bodySmall,

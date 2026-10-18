@@ -18,6 +18,7 @@ import com.yeonsik.fitnessapp.data.DiningOutConsumption;
 import com.yeonsik.fitnessapp.data.DiningOutFulfillmentMode;
 import com.yeonsik.fitnessapp.data.DiningOutOption;
 import com.yeonsik.fitnessapp.data.MealCompositionItem;
+import com.yeonsik.fitnessapp.data.MealEntryPolicy;
 import com.yeonsik.fitnessapp.data.MealMenuSelection;
 import com.yeonsik.fitnessapp.feature.nutrition.data.NutritionCatalogRepository;
 import com.yeonsik.fitnessapp.data.NutritionFood;
@@ -30,9 +31,11 @@ import com.yeonsik.fitnessapp.test.FitnessRoomTestDatabase;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.json.JSONObject;
 
 import java.io.File;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -42,6 +45,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
 
 @RunWith(AndroidJUnit4.class)
 public final class MealRecordRepositoryTest {
@@ -242,6 +247,18 @@ public final class MealRecordRepositoryTest {
             assertEquals("세트 메뉴", reloaded.getItems().get(0).getFoodName());
             assertEquals("사이드", reloaded.getItems().get(0).getComponents().get(0).getFoodName());
             assertEquals(0.5d, reloaded.getItems().get(0).getConsumption().getConsumedFraction(), 0.001d);
+            List<List<String>> children = snapshotRows(database, recordId);
+            List<List<String>> provenance = queryRows(database,
+                    "SELECT created_at,is_backfilled,backfilled_at,backfill_reason FROM meal_records WHERE id=?", recordId);
+            assertTrue(repository.updateMealDateTime(new AccountScope(OWNER), recordId,
+                    LocalDate.now().minusDays(3).toString(), "19:20"));
+            assertEquals(children, snapshotRows(database, recordId));
+            assertEquals(provenance, queryRows(database,
+                    "SELECT created_at,is_backfilled,backfilled_at,backfill_reason FROM meal_records WHERE id=?", recordId));
+            assertTotal(new MealReadRepository(room).mealTotals(new AccountScope(OWNER), LocalDate.now().minusDays(3).toString()),
+                    "sugars_grams", 1.5d, 1, 1);
+            assertTotal(new MealReadRepository(room).mealTotals(new AccountScope(OWNER), LocalDate.now().minusDays(3).toString()),
+                    "saturated_fat_grams", 0.5d, 1, 1);
             try (Cursor snapshot = database.rawQuery(
                     "SELECT food_name_snapshot, calories FROM meal_record_items "
                             + "WHERE meal_record_id = ?",
@@ -428,15 +445,17 @@ public final class MealRecordRepositoryTest {
             AccountScope scope = new AccountScope(OWNER);
             String date = LocalDate.now().toString();
             DiningOutMealInput rice = new DiningOutMealInput("식당", "본점", "볶음밥", 1d, 600, 40d, 80d, 20d,
-                    null, null, null, null, null, null, null, 0.4d);
+                    null, 8d, 4d, null, null, null, null, 0.4d);
             DiningOutMealInput dumplings = new DiningOutMealInput("식당", "본점", "만두", 2d, 200, 10d, 30d, 5d,
-                    400d, null, null, null, null, null, null, null);
+                    400d, 3d, 1d, null, null, null, null, null);
             String id = repository.saveDiningOutMenuItems(scope, date, "13:00", Arrays.asList(
                     new DiningOutMenuIntake(rice, 0.5d, null, 600.8d), new DiningOutMenuIntake(dumplings, 0.25d, null, 200.8d)));
             MealReadRepository read = new MealReadRepository(room);
             assertEquals(1, read.mealCount(scope, date));
             assertEquals(401, read.meals(scope, date).get(0).getCalories());
             assertEquals(25d, read.mealSnapshot(scope, id).getNutrition().getProteinGrams(), 0.001d);
+            assertTotal(read.mealTotals(scope, date), "sugars_grams", 5.5d, 1, 0);
+            assertTotal(read.mealTotals(scope, date), "saturated_fat_grams", 2.5d, 1, 0);
             FitnessDatabaseConnection database = FitnessDatabaseConnection.fromRoom(room);
             try (Cursor rows = database.rawQuery("SELECT i.food_name_snapshot,i.quantity,i.calories,c.consumed_fraction " +
                     "FROM meal_record_items i JOIN meal_record_item_consumptions c ON c.meal_record_item_id=i.id " +
@@ -462,6 +481,172 @@ public final class MealRecordRepositoryTest {
         } finally {
             room.close(); context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
         }
+    }
+
+    @Test
+    public void dateTimeEditMovesTheSameRecordAndPreservesMetadataAndAllSnapshots() throws Exception {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
+        try {
+            NutritionCatalogRepository catalog = catalog(room, context, OWNER);
+            NutritionFood food = catalog.saveFood("날짜 이동 식품", NutritionFood.KIND_INGREDIENT,
+                    100d, NutritionUnit.GRAM, NutritionFood.PREP_AS_SERVED, requiredProfile(), "test", null, "v1");
+            MealRecordRepository repository = new MealRecordRepository(room, catalog, OWNER);
+            MealReadRepository read = new MealReadRepository(room);
+            AccountScope scope = new AccountScope(OWNER);
+            LocalDate today = LocalDate.now();
+            String id = repository.saveFoodMeal(scope, today.toString(), "12:30", food.id, 150d);
+            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromRoom(room);
+            JSONObject metadata = new JSONObject(read.mealSnapshot(scope, id).getMetadata());
+            metadata.put("unrelated", new JSONObject().put("keep", "unchanged"));
+            database.execSQL("UPDATE meal_records SET metadata=?, updated_at='2000-01-01T00:00:00Z' WHERE id=?",
+                    new Object[]{metadata.toString(), id});
+            List<List<String>> snapshots = snapshotRows(database, id);
+            List<List<String>> provenance = queryRows(database,
+                    "SELECT id,created_at,is_backfilled,backfilled_at,backfill_reason FROM meal_records WHERE id=?", id);
+
+            LocalDate previous = today;
+            for (LocalDate target : Arrays.asList(today, today.minusDays(1), today.minusDays(3), today)) {
+                assertTrue(repository.updateMealDateTime(scope, id, target.toString(), "18:40"));
+                assertEquals(id, read.meals(scope, target.toString()).get(0).getId());
+                if (!previous.equals(target)) assertEquals(0, read.mealCount(scope, previous.toString()));
+                assertEquals(1, read.mealCount(scope, target.toString()));
+                assertEquals(snapshots, snapshotRows(database, id));
+                assertEquals(provenance, queryRows(database,
+                        "SELECT id,created_at,is_backfilled,backfilled_at,backfill_reason FROM meal_records WHERE id=?", id));
+                JSONObject updated = new JSONObject(read.mealSnapshot(scope, id).getMetadata());
+                assertEquals("unchanged", updated.getJSONObject("unrelated").getString("keep"));
+                assertEquals(MealEntryPolicy.eatenAt(target, "18:40", ZoneId.systemDefault()), updated.getString("eaten_at"));
+                assertFalse("2000-01-01T00:00:00Z".equals(room.mealRoomDao().visibleMealRecord(id, OWNER).getUpdatedAt()));
+                previous = target;
+            }
+            assertTrue(repository.updateMealTime(scope, id, "09:15"));
+            assertEquals(today.toString(), read.mealSnapshot(scope, id).getDate());
+            assertEquals("09:15", read.meals(scope, today.toString()).get(0).getMealTime());
+            assertEquals(snapshots, snapshotRows(database, id));
+            assertEquals(provenance, queryRows(database,
+                    "SELECT id,created_at,is_backfilled,backfilled_at,backfill_reason FROM meal_records WHERE id=?", id));
+        } finally {
+            room.close(); context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void dateTimeEditRejectsInvalidInputOtherOwnersDeletedAndRemoteRecords() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
+        try {
+            NutritionCatalogRepository catalog = catalog(room, context, OWNER);
+            NutritionFood food = catalog.saveFood("검증 식품", NutritionFood.KIND_INGREDIENT,
+                    100d, NutritionUnit.GRAM, NutritionFood.PREP_AS_SERVED, requiredProfile(), "test", null, "v1");
+            MealRecordRepository repository = new MealRecordRepository(room, catalog, OWNER);
+            MealReadRepository read = new MealReadRepository(room);
+            AccountScope scope = new AccountScope(OWNER);
+            String today = LocalDate.now().toString();
+            String id = repository.saveFoodMeal(scope, today, "12:30", food.id, 100d);
+            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromRoom(room);
+            List<List<String>> before = queryRows(database, "SELECT * FROM meal_records WHERE id=?", id);
+            assertThrows(IllegalArgumentException.class, () -> repository.updateMealDateTime(scope, id,
+                    LocalDate.now().plusDays(1).toString(), "12:00"));
+            assertThrows(IllegalArgumentException.class, () -> repository.updateMealDateTime(scope, id, "2026-02-30", "12:00"));
+            assertThrows(IllegalArgumentException.class, () -> repository.updateMealDateTime(scope, id, "not-a-date", "12:00"));
+            assertThrows(IllegalArgumentException.class, () -> repository.updateMealDateTime(scope, id, today, "25:00"));
+            assertThrows(IllegalStateException.class, () -> repository.updateMealDateTime(new AccountScope("other-owner"), id, today, "12:00"));
+            repository.setUserId("other-owner");
+            assertFalse(repository.updateMealDateTime(new AccountScope("other-owner"), id, today, "12:00"));
+            assertNull(read.mealSnapshot(new AccountScope("other-owner"), id));
+            repository.setUserId(OWNER);
+            assertEquals(before, queryRows(database, "SELECT * FROM meal_records WHERE id=?", id));
+            database.execSQL("UPDATE meal_records SET device_id='remote-import' WHERE id=?", new Object[]{id});
+            assertFalse(repository.updateMealDateTime(scope, id, today, "12:00"));
+            database.execSQL("UPDATE meal_records SET device_id='android-local' WHERE id=?", new Object[]{id});
+            assertTrue(repository.deleteMeal(scope, id));
+            List<List<String>> tombstone = queryRows(database, "SELECT * FROM meal_records WHERE id=?", id);
+            assertFalse(repository.updateMealDateTime(scope, id, today, "12:00"));
+            assertFalse(repository.updateMealTime(scope, id, "12:00"));
+            assertNull(read.mealSnapshot(scope, id));
+            assertEquals(tombstone, queryRows(database, "SELECT * FROM meal_records WHERE id=?", id));
+        } finally {
+            room.close(); context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    @Test
+    public void snapshotTotalsKeepKnownZeroMissingAndPartialChildrenWithoutAddingToParentMacros() {
+        IsolatedDatabaseContext context = isolatedContext();
+        FitnessRoomDatabase room = FitnessRoomTestDatabase.open(context);
+        try {
+            NutritionCatalogRepository catalog = catalog(room, context, OWNER);
+            NutritionFood known = catalog.saveFood("확인 식품", NutritionFood.KIND_INGREDIENT,
+                    100d, NutritionUnit.GRAM, NutritionFood.PREP_AS_SERVED, requiredProfile(), "test", null, "v1");
+            NutritionFood missing = catalog.saveFood("미확인 식품", NutritionFood.KIND_INGREDIENT,
+                    100d, NutritionUnit.GRAM, NutritionFood.PREP_AS_SERVED,
+                    NutritionProfile.ofMacros(200d, 20d, 25d, 4d), "test", null, "v1");
+            NutritionFood zero = catalog.saveFood("0 확인 식품", NutritionFood.KIND_INGREDIENT,
+                    100d, NutritionUnit.GRAM, NutritionFood.PREP_AS_SERVED,
+                    NutritionProfile.builder().from(NutritionProfile.ofMacros(200d, 20d, 25d, 4d))
+                            .value(NutritionProfile.SUGARS_GRAMS, 0d).value(NutritionProfile.SATURATED_FAT_GRAMS, 0d).build(),
+                    "test", null, "v1");
+            MealRecordRepository repository = new MealRecordRepository(room, catalog, OWNER);
+            MealReadRepository read = new MealReadRepository(room);
+            AccountScope scope = new AccountScope(OWNER);
+            String date = LocalDate.now().toString();
+            repository.saveFoodMealItems(scope, date, "12:00", Arrays.asList(
+                    MealCompositionItem.from(known, 100d), MealCompositionItem.from(missing, 100d)));
+            com.yeonsik.fitness.shared.feature.meal.model.MealReadNutritionTotals totals = read.mealTotals(scope, date);
+            assertEquals(400d, totals.getTotals().get("calories_kcal").getSum(), 0.001d);
+            assertEquals(40d, totals.getTotals().get("protein_grams").getSum(), 0.001d);
+            assertEquals(50d, totals.getTotals().get("carbs_grams").getSum(), 0.001d);
+            assertEquals(8d, totals.getTotals().get("fat_grams").getSum(), 0.001d);
+            assertTotal(totals, "sugars_grams", 3d, 1, 1);
+            assertTotal(totals, "saturated_fat_grams", 1d, 1, 1);
+            String zeroDate = LocalDate.now().minusDays(1).toString();
+            repository.saveFoodMeal(scope, zeroDate, "12:00", zero.id, 100d);
+            assertTotal(read.mealTotals(scope, zeroDate), "sugars_grams", 0d, 1, 0);
+            assertTotal(read.mealTotals(scope, zeroDate), "saturated_fat_grams", 0d, 1, 0);
+            String legacyDate = LocalDate.now().minusDays(2).toString();
+            String legacyId = repository.saveFoodMeal(scope, legacyDate, "12:00", known.id, 100d);
+            FitnessDatabaseConnection database = FitnessDatabaseConnection.fromRoom(room);
+            database.execSQL("DELETE FROM meal_record_items WHERE meal_record_id=?", new Object[]{legacyId});
+            assertTrue(read.mealSnapshot(scope, legacyId).getItems().isEmpty());
+            assertTotal(read.mealTotals(scope, legacyDate), "sugars_grams", 0d, 0, 1);
+            assertTotal(read.mealTotals(scope, legacyDate), "saturated_fat_grams", 0d, 0, 1);
+            database.execSQL("UPDATE nutrition_foods SET sugars_grams=999,saturated_fat_grams=999 WHERE id=?", new Object[]{known.id});
+            assertTotal(read.mealTotals(scope, date), "sugars_grams", 3d, 1, 1);
+            assertTotal(read.mealTotals(scope, date), "saturated_fat_grams", 1d, 1, 1);
+        } finally {
+            room.close(); context.deleteDatabase(FitnessDatabaseHelper.DATABASE_NAME);
+        }
+    }
+
+    private static void assertTotal(com.yeonsik.fitness.shared.feature.meal.model.MealReadNutritionTotals totals,
+            String key, double sum, int known, int missing) {
+        com.yeonsik.fitness.shared.feature.meal.model.MealReadNutritionTotal total = totals.getTotals().get(key);
+        assertNotNull(total); assertEquals(sum, total.getSum(), 0.001d);
+        assertEquals(known, total.getKnown()); assertEquals(missing, total.getMissing());
+    }
+
+    private static List<List<String>> snapshotRows(FitnessDatabaseConnection database, String recordId) {
+        List<List<String>> rows = new ArrayList<>();
+        for (String table : Arrays.asList("meal_record_items", "meal_record_item_nutrients",
+                "meal_record_item_components", "meal_record_item_consumptions", "meal_record_item_component_nutrients")) {
+            rows.addAll(queryRows(database, "SELECT * FROM " + table + " WHERE meal_record_id=? ORDER BY id", recordId));
+        }
+        return rows;
+    }
+
+    private static List<List<String>> queryRows(FitnessDatabaseConnection database, String sql, String recordId) {
+        List<List<String>> rows = new ArrayList<>();
+        try (Cursor cursor = database.rawQuery(sql, new String[]{recordId})) {
+            while (cursor.moveToNext()) {
+                List<String> row = new ArrayList<>();
+                for (int column = 0; column < cursor.getColumnCount(); column++) {
+                    row.add(cursor.isNull(column) ? null : cursor.getString(column));
+                }
+                rows.add(row);
+            }
+        }
+        return rows;
     }
 
     private static NutritionCatalogRepository catalog(

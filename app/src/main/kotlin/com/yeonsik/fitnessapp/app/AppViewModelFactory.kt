@@ -116,6 +116,7 @@ class AppViewModelFactory(
                     container.nutritionAnalysisApi,
                     diningProposals = container.diningProposalService,
                     nutritionTemplates = container.nutritionTemplateRepositoryApi,
+                    mealReadApi = container.mealReadApi,
                 )
             else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
         }

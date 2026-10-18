@@ -52,7 +52,8 @@ internal fun MealCatalogSearch(actions: MealScreenActions, editor: MealUiState.R
                     if (dining) actions.useDiningOutFood(it) else actions.selectFood(it)
                 }, Modifier.fillMaxWidth().testTag(if (dining) "meal-dining-results" else "meal-food-results"), enabled = enabled,
                     includedFoodIds = mealFoodItems(editor).map { it.food.id }.toSet() + diningMealMenus(editor).mapNotNull { it.nutritionFoodId },
-                    actionLabel = if (dining) "불러오기" else "담기", onReviewFood = onReviewFood)
+                    actionLabel = if (dining) "불러오기" else "담기", onReviewFood = onReviewFood,
+                    onRemoveFood = if (dining) null else { food -> actions.removeFood(food.id) })
             }
         }
         if (editor.query.isNotBlank()) TextButton({ actions.searchFood(""); focus.clearFocus() }, enabled = enabled) { Text("검색 지우기") }
