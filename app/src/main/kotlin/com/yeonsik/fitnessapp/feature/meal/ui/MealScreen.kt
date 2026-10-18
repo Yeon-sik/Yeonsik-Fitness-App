@@ -10,7 +10,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.foundation.relocation.bringIntoViewRequester
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,7 +20,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -514,70 +512,6 @@ internal fun FoodMealEditor(actions: MealScreenActions, editor: MealUiState.Read
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
-private fun MealFoodDraftCard(
-    item: MealFoodDraftItem,
-    onQuantityChange: (String) -> Unit,
-    onRemove: () -> Unit,
-    enabled: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val food = item.food
-    val focusManager = LocalFocusManager.current
-    val quantity = mealQuantityValue(item.quantity)
-    val quantityError = mealQuantityError(item.quantity)
-    AppCard(modifier) {
-        Column(Modifier.padding(AppSpacing.card), verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (food.isPackagedFood()) food.packagedProductLabel() else food.displayName(),
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                TextButton(onClick = onRemove, enabled = enabled,
-                    modifier = Modifier.semantics { contentDescription = "${food.displayName()} 음식 빼기" }) {
-                    Text("빼기")
-                }
-            }
-            Text("영양정보 기준 · ${food.basisLabel()}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            AppTextField(
-                value = item.quantity,
-                onValueChange = onQuantityChange,
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text("먹은 양 (${mealQuantityUnit(food.basisUnit)})") },
-                enabled = enabled,
-                isError = quantityError != null,
-                supportingText = {
-                    Text(quantityError ?: "기준량이 입력되어 있어요. 실제 먹은 양으로 바꿔 주세요.")
-                },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
-            )
-            if (food.basisAmount.isFinite() && food.basisAmount > 0.0) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpacing.small),
-                    verticalArrangement = Arrangement.spacedBy(AppSpacing.small)) {
-                    listOf(0.5, 1.0, 2.0).forEach { multiple ->
-                        val amount = food.basisAmount * multiple
-                        if (amount.isFinite() && amount > 0.0) {
-                            AppOutlinedButton(
-                                onClick = { focusManager.clearFocus(); onQuantityChange(mealQuantityText(amount)) },
-                                selected = quantity == amount,
-                                enabled = enabled
-                            ) { Text("${mealQuantityText(amount)} ${mealQuantityUnit(food.basisUnit)}") }
-                        }
-                    }
-                }
-            }
-            quantity?.let { amount ->
-                runCatching { NutritionCalculator.forQuantity(food, amount) }.getOrNull()?.let { profile ->
-                    MealNutritionPreview(profile, Modifier.fillMaxWidth())
-                }
-            }
-        }
-    }
-}
-
-@Composable
 @OptIn(ExperimentalFoundationApi::class)
 internal fun DiningOutEditor(
     actions: MealScreenActions,
@@ -684,18 +618,6 @@ private fun SavedDiningOutMenuPicker(
             }
         }
     }
-}
-
-@Composable
-private fun MealSearchStatus(editor: MealUiState.Ready) {
-    val message = when {
-        editor.searching -> "검색 중…"
-        editor.query.isNotBlank() && editor.searchResults.isEmpty() ->
-            "검색 결과가 없습니다. 영양정보를 직접 입력할 수 있습니다."
-        else -> null
-    }
-    message?.let { Text(it, style = MaterialTheme.typography.bodyMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant) }
 }
 
 

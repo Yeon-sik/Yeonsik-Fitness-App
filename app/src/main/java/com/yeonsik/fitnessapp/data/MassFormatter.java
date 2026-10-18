@@ -29,11 +29,6 @@ public final class MassFormatter {
         return format(kilograms, effective) + effective.symbol();
     }
 
-    public static String withUnitValue(double value, MassUnit unit) {
-        MassUnit effective = MassUnit.orDefault(unit);
-        return formatValue(value, effective) + effective.symbol();
-    }
-
     private static String formatValue(double value, boolean grouped, int maximumFractionDigits) {
         if (!Double.isFinite(value)) {
             return "—";

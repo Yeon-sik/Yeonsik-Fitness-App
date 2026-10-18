@@ -153,16 +153,8 @@ public final class RuntimeExercisePreset {
         return ExerciseVolumeCalculator.sideMultiplier(laterality());
     }
 
-    public boolean hasLegacyId(String legacyId) {
-        return legacyId != null && legacyIds.contains(legacyId.trim());
-    }
-
     public LoadState searchAliasLoadState(String alias) {
         return alias == null ? null : searchAliasLoadStates.get(alias.trim());
-    }
-
-    public String equipmentVariantIdOrEmpty() {
-        return equipmentVariantId == null ? "" : equipmentVariantId;
     }
 
     private static <T> List<T> immutableList(List<T> values) {

@@ -1065,33 +1065,6 @@ interface WorkoutRoomDao {
     ): List<ExerciseHistoryCandidate>
 
     @Query(
-        "SELECT we.id AS record_id, wr.date AS date, wr.exercise_name AS exercise_name " +
-            "FROM workout_exercises we LEFT JOIN workout_manual_exercise_links ml " +
-            "ON ml.id=we.id AND ml.user_id=we.user_id AND we.exercise_id='manual' " +
-            "INNER JOIN workout_records wr ON wr.id=we.record_id " +
-            "AND wr.deleted_at IS NULL WHERE wr.user_id=:userId AND we.user_id=:userId " +
-            "AND we.deleted_at IS NULL AND we.record_id != :currentRecordId " +
-            "AND wr.scope IN ('fitness','both') " +
-            "AND (wr.source_app='os' OR wr.metadata LIKE '%\"status\":\"completed\"%') " +
-            "AND EXISTS (SELECT 1 FROM workout_sets ws WHERE ws.workout_exercise_id=we.id " +
-            "AND ws.user_id=:userId AND ws.deleted_at IS NULL AND ws.is_completed=1) " +
-            "AND ((:familyId IS NOT NULL AND " +
-            "((we.family_id=:familyId " +
-            "AND (:canonicalVariantKey IS NULL OR we.canonical_variant_key=:canonicalVariantKey)) " +
-            "OR (ml.family_id=:familyId AND (:canonicalVariantKey IS NULL OR ml.canonical_variant_key=:canonicalVariantKey)) " +
-            "OR (we.family_id IS NULL AND we.preset_id IS NULL " +
-            "AND we.canonical_variant_key IS NULL AND we.visual_variant_key IS NULL " +
-            "AND we.exercise_id IN (:legacyExerciseIds)))) " +
-            "OR (:familyId IS NULL AND :canonicalVariantKey IS NULL AND ((we.exercise_id != 'manual' AND we.exercise_id=:exerciseId) " +
-            "OR (we.exercise_id='manual' AND ml.id IS NULL AND we.exercise_name_snapshot=:exerciseName)))) " +
-            "ORDER BY wr.date DESC, wr.updated_at DESC LIMIT 1"
-    )
-    fun lastExerciseCandidate(
-        userId: String, currentRecordId: String, exerciseId: String, exerciseName: String,
-        familyId: String?, canonicalVariantKey: String?, legacyExerciseIds: List<String>
-    ): ExerciseHistoryCandidate?
-
-    @Query(
         "SELECT we.record_id AS record_id, wr.date AS date, ws.workout_exercise_id AS workout_exercise_id, " +
             "ws.volume_kg AS stored_volume_kg, ws.weight_kg AS weight_kg, " +
             "ws.actual_reps AS actual_reps, ws.added_weight_kg AS added_weight_kg, " +
@@ -1130,9 +1103,6 @@ interface WorkoutRoomDao {
     )
     fun nextExerciseOrder(recordId: String, userId: String): Int
 
-    @Query("SELECT 1 FROM workout_records WHERE id=:recordId AND user_id=:userId AND deleted_at IS NULL LIMIT 1")
-    fun ownsRecord(recordId: String, userId: String): Int?
-
     @Query(
         "SELECT 1 FROM workout_exercises WHERE id=:exerciseId AND record_id=:recordId AND user_id=:userId " +
             "AND deleted_at IS NULL LIMIT 1"
@@ -1150,9 +1120,6 @@ interface WorkoutRoomDao {
 
     @Update
     fun updateRecord(record: WorkoutRecordsRoomEntity): Int
-
-    @Update
-    fun updateExercise(exercise: WorkoutExercisesRoomEntity): Int
 
     @Update
     fun updateSet(set: WorkoutSetsRoomEntity): Int
@@ -1735,11 +1702,6 @@ interface MealRoomDao {
     @Insert(onConflict = OnConflictStrategy.ABORT)
     fun insertConsumption(consumption: MealRecordItemConsumptionsRoomEntity)
 
-    @Query(
-        "SELECT id FROM meal_record_items WHERE meal_record_id=:recordId AND user_id=:userId " +
-            "AND deleted_at IS NULL ORDER BY order_index ASC, id ASC LIMIT 1 OFFSET :orderIndex"
-    )
-    fun itemIdAtOrder(recordId: String, userId: String, orderIndex: Int): String?
 }
 
 @Dao
@@ -1913,21 +1875,6 @@ interface NutritionRoomDao {
     ): List<NutritionFoodsRoomEntity>
 
     @Query(
-        "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND deleted_at IS NULL " +
-            "AND kind=:kind ORDER BY updated_at DESC, id ASC"
-    )
-    fun ownedFoodsByKind(userId: String, kind: String): List<NutritionFoodsRoomEntity>
-
-    @Query(
-        "SELECT * FROM nutrition_foods WHERE owner_id=:userId AND deleted_at IS NULL " +
-            "AND kind=:kind AND source_type IN (:sourceTypes) " +
-            "ORDER BY updated_at DESC, id ASC"
-    )
-    fun ownedFoodsByKindAndSources(
-        userId: String, kind: String, sourceTypes: List<String>
-    ): List<NutritionFoodsRoomEntity>
-
-    @Query(
         "SELECT * FROM nutrition_foods WHERE owner_id IS NULL AND visibility='public' " +
             "AND kind=:kind AND id LIKE :idPattern " +
             "AND ((source_type=:sourceType AND source_reference LIKE :sourceReferencePattern) " +
@@ -2049,9 +1996,6 @@ interface NutritionRoomDao {
     fun ownedFoodsByKindAndSourceTypes(
         userId: String, kind: String, sourceTypes: List<String>
     ): List<NutritionFoodsRoomEntity>
-
-    @Query("SELECT * FROM pricetrace_product_cache WHERE catalog_product_id=:catalogProductId LIMIT 1")
-    fun cachedProduct(catalogProductId: String): PricetraceProductCacheRoomEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun upsertProductCache(cache: PricetraceProductCacheRoomEntity)

@@ -232,18 +232,6 @@ public final class RoutineRepository implements RoutineRepositoryApi {
         return id;
     }
 
-    public List<RoutineExerciseInstance> defaultRoutineExercises() {
-        return activeRoutineExercises();
-    }
-
-    public String defaultRoutineName() {
-        return activeRoutineName();
-    }
-
-    public void renameDefaultRoutine(String name) {
-        renameRoutine(ensureDefaultRoutine(), name);
-    }
-
     public boolean renameRoutine(String routineId, String name) {
         if (!ownsRoutine(routineId)) return false;
         return roomDatabase.routineRoomDao().renameRoutine(
@@ -290,10 +278,6 @@ public final class RoutineRepository implements RoutineRepositoryApi {
         });
         if (routineId.equals(activeRoutineId)) activeRoutineId = null;
         return updated[0] > 0;
-    }
-
-    public RoutineExerciseInstance addToDefaultRoutine(RoutineExercise exercise) {
-        return addToRoutine(activeRoutineId(), exercise);
     }
 
     private RoutineExerciseInstance addToRoutine(String routineId, RoutineExercise exercise) {

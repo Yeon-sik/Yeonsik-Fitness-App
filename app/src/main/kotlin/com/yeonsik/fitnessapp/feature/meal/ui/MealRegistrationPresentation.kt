@@ -2,9 +2,6 @@ package com.yeonsik.fitnessapp.feature.meal.ui
 
 import com.yeonsik.fitnessapp.data.MealEntryPolicy
 import com.yeonsik.fitnessapp.data.NutritionUnit
-import com.yeonsik.fitnessapp.data.MealCompositionItem
-import com.yeonsik.fitnessapp.data.NutritionCalculator
-import com.yeonsik.fitnessapp.data.NutritionTotals
 import com.yeonsik.fitnessapp.data.NutritionProfile
 import com.yeonsik.fitnessapp.feature.nutrition.model.NutritionConsistencyPolicy
 import java.math.BigDecimal
@@ -87,22 +84,3 @@ internal fun hasMealRegistrationDraft(editor: MealUiState.Ready): Boolean =
             editor.draft.fat, editor.draft.sodium, editor.draft.sugars,
             editor.draft.saturatedFat, editor.draft.transFat
         ).any { it.isNotBlank() }
-
-internal fun foodMealRegistrationError(editor: MealUiState.Ready): String? {
-    if (editor.foodItems.isEmpty()) return "한 끼에 먹은 음식을 하나 이상 담으세요."
-    editor.foodItems.forEach { item ->
-        mealConsumedPercentError(item.consumedPercent)?.let { return "${item.food.displayName()} · $it" }
-        mealQuantityError(item.quantity)?.let { return "${item.food.displayName()} · $it" }
-        if (mealFoodConsumedQuantity(item) == null) return "${item.food.displayName()} · 섭취량을 확인하세요."
-    }
-    return mealTimeError(editor.draft.time)
-}
-
-internal fun mealDraftNutritionTotals(items: List<MealFoodDraftItem>): NutritionTotals? {
-    if (items.isEmpty()) return null
-    val foods = items.map { item ->
-        val quantity = mealConsumedQuantity(item.quantity, item.consumedPercent) ?: return null
-        runCatching { MealCompositionItem.from(item.food, quantity) }.getOrNull() ?: return null
-    }
-    return NutritionCalculator.sum(foods)
-}

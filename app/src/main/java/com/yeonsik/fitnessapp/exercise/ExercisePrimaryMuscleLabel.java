@@ -9,13 +9,6 @@ public final class ExercisePrimaryMuscleLabel {
     private ExercisePrimaryMuscleLabel() {
     }
 
-    public static String forPreset(RuntimeExercisePreset preset) {
-        if (preset == null) {
-            return "";
-        }
-        return forPrimarySubPart(preset.primarySubPart, preset.defaultUiPart);
-    }
-
     /** Uses canonical primarySubPart ids and never infers from a localized exercise name. */
     public static String forPrimarySubPart(String primarySubPart, String defaultUiPart) {
         String key = primarySubPart == null

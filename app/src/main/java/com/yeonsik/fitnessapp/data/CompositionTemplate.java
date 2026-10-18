@@ -61,10 +61,6 @@ public final class CompositionTemplate {
         this.groups = Collections.unmodifiableList(copied);
     }
 
-    public boolean hasSelectableGroups() {
-        return !groups.isEmpty();
-    }
-
     private static String requireText(String value, String label) {
         String normalized = value == null ? "" : value.trim();
         if (normalized.isEmpty()) {

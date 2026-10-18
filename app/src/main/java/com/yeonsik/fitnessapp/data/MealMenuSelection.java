@@ -113,16 +113,4 @@ public final class MealMenuSelection {
                 : new MealMenuSelection(resizedMenu, resizedComponents, diningOutOptions);
     }
 
-    public static List<MealCompositionItem> menuItems(List<MealMenuSelection> menus) {
-        List<MealCompositionItem> items = new ArrayList<>();
-        if (menus == null) {
-            return items;
-        }
-        for (MealMenuSelection menu : menus) {
-            if (menu != null) {
-                items.add(menu.menu);
-            }
-        }
-        return items;
-    }
 }

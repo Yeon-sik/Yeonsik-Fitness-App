@@ -24,10 +24,6 @@ public final class ThemeModePreferences {
         return preferences.getString(KEY_THEME_MODE, DEFAULT_THEME_MODE);
     }
 
-    public String getThemeMode() {
-        return themeMode();
-    }
-
     public void setThemeMode(String mode) {
         preferences.edit()
                 .putString(KEY_THEME_MODE, mode == null ? DEFAULT_THEME_MODE : mode)
