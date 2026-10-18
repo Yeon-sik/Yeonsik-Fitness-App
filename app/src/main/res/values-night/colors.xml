@@ -1,15 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="ui_background">#090B0E</color>
-    <color name="ui_surface">#1C1E22</color>
-    <color name="ui_surface_subtle">#272A30</color>
-    <color name="ui_text_primary">#F5F5F7</color>
-    <color name="ui_text_secondary">#ADB0B8</color>
-    <color name="ui_border_subtle">#393D45</color>
     <color name="ui_pastel_blue">@color/ui_brand_blue</color>
-    <color name="ui_blue_container">#12394D</color>
-    <color name="ui_blue_ink">#D9F0FF</color>
-    <color name="ui_status_positive">#69D39E</color>
-    <color name="ui_status_negative">#FF8A80</color>
-    <color name="ui_status_warning">#FFCA68</color>
 </resources>

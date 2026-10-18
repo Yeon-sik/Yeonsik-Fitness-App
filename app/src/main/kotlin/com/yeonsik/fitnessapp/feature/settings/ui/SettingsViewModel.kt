@@ -561,12 +561,6 @@ class SettingsViewModel @JvmOverloads constructor(
         SettingsConnection.PRICE_TRACE -> "PriceTrace DB 설정을 저장했습니다."
     }
 
-    private fun connectionRequiredMessage(connection: SettingsConnection) = when (connection) {
-        SettingsConnection.SHARED -> "Personal OS 공통 DB 설정이 없습니다. 연결 설정을 먼저 확인하세요."
-        SettingsConnection.NUTRITION -> "영양 전용 DB 설정이 없습니다. 연결 설정을 먼저 확인하세요."
-        SettingsConnection.PRICE_TRACE -> "PriceTrace DB 설정이 없습니다. 연결 설정을 먼저 확인하세요."
-    }
-
     private fun authenticatingMessage(connection: SettingsConnection) = when (connection) {
         SettingsConnection.SHARED -> "Supabase 계정에 로그인하는 중입니다."
         SettingsConnection.NUTRITION -> "영양 DB 계정에 로그인하는 중입니다."
@@ -595,12 +589,6 @@ class SettingsViewModel @JvmOverloads constructor(
         SettingsConnection.SHARED -> "가입 확인 메일을 확인한 뒤 로그인하세요."
         SettingsConnection.NUTRITION -> "영양 DB 가입 확인 메일을 확인한 뒤 로그인하세요."
         SettingsConnection.PRICE_TRACE -> "PriceTrace 가입 확인 메일을 확인한 뒤 로그인하세요."
-    }
-
-    private fun authenticationFailureMessage(connection: SettingsConnection) = when (connection) {
-        SettingsConnection.SHARED -> "로그인 또는 계정 생성에 실패했습니다."
-        SettingsConnection.NUTRITION -> "영양 DB 인증에 실패했습니다."
-        SettingsConnection.PRICE_TRACE -> "PriceTrace 인증에 실패했습니다."
     }
 
     private fun signoutMessage(connection: SettingsConnection) = when (connection) {

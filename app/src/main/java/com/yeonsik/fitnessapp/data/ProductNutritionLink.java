@@ -59,14 +59,6 @@ public final class ProductNutritionLink {
         this.product = product;
     }
 
-    public boolean isApproved() {
-        return STATUS_APPROVED.equals(status);
-    }
-
-    public boolean isSuggestion() {
-        return STATUS_SUGGESTED.equals(status);
-    }
-
     public String displayLabel() {
         if (product == null) {
             return "표준상품 정보 새로고침 필요";

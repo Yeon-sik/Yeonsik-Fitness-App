@@ -206,10 +206,6 @@ public final class ExerciseFamilyCatalog {
         return runtimeCatalog;
     }
 
-    public RuntimeExerciseCatalog getRuntimeCatalog() {
-        return runtimeCatalog();
-    }
-
     public RuntimeExercisePreset presetForLegacyId(String legacyExerciseId) {
         return runtimeCatalog.presetForLegacyId(legacyExerciseId);
     }

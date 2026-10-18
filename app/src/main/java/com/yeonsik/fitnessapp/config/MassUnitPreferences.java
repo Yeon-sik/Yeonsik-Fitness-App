@@ -29,10 +29,6 @@ public final class MassUnitPreferences {
         )));
     }
 
-    public MassUnit getPreferredMassUnit() {
-        return preferredMassUnit();
-    }
-
     public void setPreferredMassUnit(MassUnit unit) {
         preferences.edit()
                 .putString(KEY_PREFERRED_MASS_UNIT, MassUnit.orDefault(unit).id())

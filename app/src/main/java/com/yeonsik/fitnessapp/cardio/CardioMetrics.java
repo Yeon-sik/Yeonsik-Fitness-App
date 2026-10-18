@@ -1,6 +1,5 @@
 package com.yeonsik.fitnessapp.cardio;
 
-import com.yeonsik.fitnessapp.feature.cardio.data.CardioRepository;
 
 import java.util.Locale;
 
@@ -59,22 +58,4 @@ public final class CardioMetrics {
         return String.format(Locale.KOREA, "%.1f", averageHeartRateBpm);
     }
 
-    public static String gpsStatusLabel(String gpsStatus) {
-        if (CardioRepository.GPS_READY.equals(gpsStatus)) {
-            return "GPS 연결됨";
-        }
-        if (CardioRepository.GPS_WEAK.equals(gpsStatus)) {
-            return "GPS 신호 약함";
-        }
-        if (CardioRepository.GPS_PERMISSION_MISSING.equals(gpsStatus)) {
-            return "정확한 위치 권한 필요";
-        }
-        if (CardioRepository.GPS_UNAVAILABLE.equals(gpsStatus)) {
-            return "위치 신호 없음";
-        }
-        if (CardioRepository.GPS_STOPPED.equals(gpsStatus)) {
-            return "GPS 일시정지";
-        }
-        return "GPS 찾는 중";
-    }
 }
