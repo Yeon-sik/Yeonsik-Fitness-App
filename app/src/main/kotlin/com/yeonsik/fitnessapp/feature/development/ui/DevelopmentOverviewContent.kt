@@ -566,7 +566,7 @@ private fun comparisonHeadline(comparison: DevelopmentExerciseComparison, unit: 
                 DevelopmentComparisonMetric.DURATION -> "기록된 수행 시간이 ${kotlin.math.abs(delta).toInt()}초 $direction"
                 DevelopmentComparisonMetric.LOAD -> {
                     val label = if (comparison.current.session.loadState == LoadState.ASSISTED) "보조 중량" else "기록 중량"
-                    "$label이 ${MassFormatter.withUnit(kotlin.math.abs(delta), unit)} $direction"
+                    "${label}이 ${MassFormatter.withUnit(kotlin.math.abs(delta), unit)} $direction"
                 }
                 null -> "최근 기록을 확인하세요"
             }
